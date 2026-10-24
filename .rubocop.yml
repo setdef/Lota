@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+inherit_from:
+  - ./vendor/goodcop/base.yml
+
+AllCops:
+  TargetRubyVersion: "4.0"
+  Exclude:
+    # Build staging directory
+    - "tmp/**/*"
+    # The pinned LÖVE source is C++ and Lua, and not ours to lint
+    - "vendor/love/**/*"
+# RDoc mis-parses endless methods: the methods after one lose their comments
+# and visibility (doc/contributors/documentation_style.md, section 5). Every
+# file RDoc reads uses def ... end.
+Style/EndlessMethod:
+  Enabled: true
+  EnforcedStyle: disallow
+  Include:
+    - "lib/**/*.rb"
+    - "ext/**/*.rb"
+    - "examples/**/*.rb"

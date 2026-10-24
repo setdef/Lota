@@ -1,0 +1,4 @@
+== Make 2D Games in Ruby, on LÖVE's Engine
+
+Lota runs LÖVE's own C++ engine and hands control to Ruby instead of
+Lua, so a game written with it behaves as the same game written in LÖVE.
