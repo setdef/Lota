@@ -14,3 +14,8 @@ SPDX-License-Identifier = "CC-BY-SA-4.0"
 path = '.gitmodules'
 SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
 SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = 'ext/lota/engine/sources_*.cmake'
+SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

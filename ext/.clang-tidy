@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Checks for Lota's own C++. rake cpp:tidy treats every warning as an
+# error (--warnings-as-errors=*). Two checks are off because they are
+# style with no defect behind them: trailing return types everywhere, and
+# a minimum identifier length that rejects the conventional i, x, and y.
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length

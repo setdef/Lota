@@ -1,0 +1,106 @@
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+require_relative "tree_helper"
+require "rake"
+
+# Loads the repository's Rakefile and runs the engine and C++ tasks that
+# finish in seconds against the real tree. The engine build itself is too
+# slow for the unit suite; the default task runs it.
+class RakeTasksTest < Minitest::Test
+  include TreeHelper
+
+  # The Rakefile defines constants, so it loads once per process. Its
+  # tasks land in whichever application is current as it loads, and Rake
+  # changes into the Rakefile's directory.
+  def self.application
+    @application ||= Rake::Application.new.tap do |application|
+      Rake.application = application
+      application.init("rake", ["--rakefile", File.join(ROOT, "Rakefile")])
+      application.load_rakefile
+    end
+  end
+
+  def setup
+    @previous = Rake.application
+    Rake.application = self.class.application
+  end
+
+  def teardown
+    Rake.application = @previous
+  end
+
+  # Runs a task again, even if it ran before, and returns its stdout.
+  def invoke(name)
+    task = Rake::Task[name].tap(&:reenable)
+    out, = capture_io { task.invoke }
+    out
+  end
+
+  def prerequisites(name)
+    Rake::Task[name].prerequisites
+  end
+
+  def test_default_task_builds_the_engine_and_runs_every_cpp_gate
+    assert_includes prerequisites("default"), "engine"
+    assert_includes prerequisites("default"), "cpp"
+    assert_equal %w[cpp:format cpp:no_nolint cpp:tidy], prerequisites("cpp")
+  end
+
+  def test_engine_checks_its_source_list_before_building
+    assert_equal %w[engine:sources:check engine:configure], prerequisites("engine")
+    assert_equal %w[engine:configure], prerequisites("cpp:tidy")
+  end
+
+  def test_engine_source_list_matches_vendor_love
+    assert_includes invoke("engine:sources:check"), "✅ ext/lota/engine/sources_macos.cmake matches vendor/love"
+  end
+
+  def test_regenerating_the_engine_source_list_changes_nothing
+    list = File.join(ROOT, "ext/lota/engine/sources_macos.cmake")
+    committed = File.read(list)
+
+    assert_includes invoke("engine:sources"), "✅ Wrote ext/lota/engine/sources_macos.cmake"
+    assert_equal committed, File.read(list)
+  ensure
+    File.write(list, committed) if committed
+  end
+
+  def test_engine_source_check_aborts_with_the_difference
+    list = File.join(ROOT, "ext/lota/engine/sources_macos.cmake")
+    committed = File.read(list)
+    File.write(list, committed.sub("\t${LOVE_DIR}/src/common/Data.cpp\n", ""))
+
+    task = Rake::Task["engine:sources:check"].tap(&:reenable)
+    _, err = capture_io { assert_raises(SystemExit) { task.invoke } }
+    assert_includes err, "❌ ext/lota/engine/sources_macos.cmake does not match vendor/love:\n" \
+      "  + \t${LOVE_DIR}/src/common/Data.cpp\n"
+    assert_includes err, "run `bundle exec rake engine:sources` to regenerate it"
+  ensure
+    File.write(list, committed) if committed
+  end
+
+  def test_cpp_gates_pass_on_the_repository
+    assert_match(/✅ cpp:format: \d+ files, no problems/, invoke("cpp:format"))
+    assert_includes invoke("cpp:no_nolint"), "✅ No unapproved NOLINT in C++ files found"
+    assert_match(/✅ cpp:tidy: \d+ files, no problems/, invoke("cpp:tidy"))
+  end
+
+  def test_format_fix_leaves_the_repository_formatted
+    assert_match(/✅ cpp:format:fix: \d+ files, no problems/, invoke("cpp:format:fix"))
+  end
+
+  def test_a_failed_cpp_gate_aborts_with_its_problems
+    result = CppGates::Result.new(checked: 1, problems: ["ext/bad.cpp:1: error"])
+
+    _, err = capture_io do
+      error = assert_raises(SystemExit) { cpp_gate!("cpp:probe", result) }
+      refute_predicate error, :success?
+    end
+    assert_includes err, "❌ cpp:probe failed:\next/bad.cpp:1: error"
+  end
+end
