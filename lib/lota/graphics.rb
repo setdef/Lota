@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "graphics/texture"
 require_relative "graphics/canvas"
 
 module Lota
@@ -39,7 +40,8 @@ module Lota
     # +nil+, matching love.graphics.setCanvas
     # (src/modules/graphics/wrap_Graphics.cpp, w_setCanvas).
     #
-    # [canvas] Lota::Graphics::Canvas to draw into, or +nil+ for the window.
+    # [canvas] Lota::Graphics::Texture to draw into, made by
+    #   Lota::Graphics::Canvas.new, or +nil+ for the window.
     #
     # Everything drawn or cleared afterward lands on the canvas until you
     # set another target. The engine holds on to the active canvas, so it
@@ -100,7 +102,7 @@ module Lota
     # new Lota::Image::ImageData, matching love.graphics.readbackTexture
     # (src/modules/graphics/wrap_Graphics.cpp, w_readbackTexture).
     #
-    # [texture] Lota::Graphics::Canvas to read.
+    # [texture] Lota::Graphics::Texture to read, such as a canvas.
     #
     # The copy waits for the graphics card to finish drawing, so it is
     # slow; read back for tests, screenshots, and tools, not every frame.

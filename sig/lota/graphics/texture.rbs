@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Texture
+      attr_reader native: Native::Texture
+
+      def self.from_native: (Native::Texture native) -> Texture
+
+      def canvas?: () -> bool
+    end
+  end
+end

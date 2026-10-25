@@ -128,19 +128,19 @@ class MemoryTest < Minitest::Test
     assert_equal [1] * count, LotaNativeTest.observed_reference_counts
   end
 
-  def test_a_thousand_dropped_canvases_release_their_textures
+  def test_a_thousand_dropped_textures_are_released
     EngineHelper.open_window
     assert_released_once_collected(1000) do
       on_a_finished_fiber { 1000.times { LotaNativeTest.observe_texture(Lota::Graphics::Canvas.new(4, 4).native) } }
     end
   end
 
-  def test_the_active_canvas_is_also_held_by_the_engine
+  def test_the_texture_drawn_into_is_also_held_by_the_engine
     EngineHelper.open_window
     on_a_finished_fiber do
-      canvas = Lota::Graphics::Canvas.new(4, 4)
-      LotaNativeTest.observe_texture(canvas.native)
-      Lota::Graphics.canvas = canvas
+      texture = Lota::Graphics::Canvas.new(4, 4)
+      LotaNativeTest.observe_texture(texture.native)
+      Lota::Graphics.canvas = texture
     end
     collect_garbage
     assert_equal [2], LotaNativeTest.observed_reference_counts
@@ -149,12 +149,12 @@ class MemoryTest < Minitest::Test
     assert_equal [1], LotaNativeTest.observed_reference_counts
   end
 
-  def test_dropped_image_data_read_back_from_a_canvas_is_released
+  def test_dropped_image_data_read_back_from_a_texture_is_released
     EngineHelper.open_window
-    canvas = Lota::Graphics::Canvas.new(4, 4)
+    texture = Lota::Graphics::Canvas.new(4, 4)
     assert_released_once_collected(100) do
       on_a_finished_fiber do
-        100.times { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(canvas).native) }
+        100.times { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(texture).native) }
       end
     end
   end

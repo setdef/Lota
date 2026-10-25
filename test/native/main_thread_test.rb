@@ -37,22 +37,23 @@ class MainThreadTest < Minitest::Test
   end
 
   def test_graphics_works_on_the_main_thread
-    canvas = Lota::Graphics::Canvas.new(2, 2)
-    Lota::Graphics.canvas = canvas
+    texture = Lota::Graphics::Canvas.new(2, 2)
+    Lota::Graphics.canvas = texture
     Lota::Graphics.clear(0, 1, 0)
     Lota::Graphics.canvas = nil
 
-    assert_equal [0.0, 1.0, 0.0, 1.0], Lota::Graphics.readback_texture(canvas).pixel(1, 1)
+    assert_equal [0.0, 1.0, 0.0, 1.0], Lota::Graphics.readback_texture(texture).pixel(1, 1)
   end
 
   def test_graphics_raises_off_the_main_thread
-    canvas = Lota::Graphics::Canvas.new(2, 2)
+    texture = Lota::Graphics::Canvas.new(2, 2)
     calls = {
       "Canvas.new" => -> { Lota::Graphics::Canvas.new(2, 2) },
-      "canvas=" => -> { Lota::Graphics.canvas = canvas },
+      "canvas=" => -> { Lota::Graphics.canvas = texture },
       "canvas = nil" => -> { Lota::Graphics.canvas = nil },
       "clear" => -> { Lota::Graphics.clear },
-      "readback_texture" => -> { Lota::Graphics.readback_texture(canvas) },
+      "readback_texture" => -> { Lota::Graphics.readback_texture(texture) },
+      "canvas?" => -> { texture.canvas? },
       "open" => -> { Lota::Native::Graphics.open },
     }
 

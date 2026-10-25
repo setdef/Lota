@@ -80,7 +80,7 @@ class RbsParity
   private def check_declared(target, kind, name, visibility)
     owner = (kind == :singleton) ? target.singleton_class : target
     label = key(target.name, kind, name)
-    return check_new(target, label) if kind == :singleton && name == :new
+    return check_new(target, label) if kind == :singleton && name == :new && target.is_a?(Class)
 
     actual = visibility_of(owner, name)
     return [label, "declared in sig/ but not defined in lib/"] unless actual
@@ -102,10 +102,8 @@ class RbsParity
   end
 
   # self.new is Class#new for ordinary classes; what implements it is
-  # initialize.
+  # initialize. A module's self.new is an ordinary module method.
   private def check_new(target, label)
-    return [label, "declared in sig/ but not defined in lib/"] unless target.is_a?(Class)
-
     new_owner = target.singleton_class.instance_method(:new).owner
     return if owns?(target.singleton_class, new_owner)
     return if owns?(target, target.instance_method(:initialize).owner)

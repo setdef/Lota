@@ -41,6 +41,8 @@ module Lota
 
     class Texture
       def self.cpp_class: () -> String
+
+      def canvas?: () -> bool
     end
 
     class WindowSettings

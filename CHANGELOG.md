@@ -15,6 +15,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Native`, the compiled extension that binds LÖVE's engine, with `Lota::Native::RandomGenerator`.
 - Dependency on `rice` 4.12.0, whose headers the extension compiles against.
 - `Lota::Graphics::Canvas.new`, `Lota::Graphics.canvas=`, `Lota::Graphics.clear`, and `Lota::Graphics.readback_texture`, translating `love.graphics.newCanvas`, `setCanvas`, `clear`, and `readbackTexture`.
+- `Lota::Graphics::Texture`, with `canvas?`; `Canvas.new` returns a `Texture`, as LÖVE 12's `newCanvas` does, and `Canvas === texture` asks `texture.canvas?`.
+- LÖVE's error messages name Lota's modules and methods (`Lota::Image`, `Lota::Window.set_mode`) where LÖVE's name Lua's (`love.image`, `love.window.setMode`).
 - `Lota::Image::ImageData`, decoded from a `Lota::Filesystem::FileData`, with `width`, `height`, and `pixel`.
 - `Lota::Filesystem::FileData.new(contents, name)`, translating `love.filesystem.newFileData`.
 - `Lota::Graphics` raises `ThreadError` anywhere but the main thread, as LÖVE keeps `love.graphics` there.

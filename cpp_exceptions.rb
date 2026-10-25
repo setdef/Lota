@@ -23,10 +23,10 @@
 # ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
 # header, ruby.h, does not export them, so misc-include-cleaner cannot be
 # satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 146,
+allow "ext/lota/native_test/native_test.cpp", line: 147,
   reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
     "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 156,
+allow "ext/lota/native_test/native_test.cpp", line: 157,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
     "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."

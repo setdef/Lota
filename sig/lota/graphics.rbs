@@ -3,10 +3,10 @@
 
 module Lota
   module Graphics
-    def self.canvas=: (Canvas? canvas) -> void
+    def self.canvas=: (Texture? canvas) -> void
 
     def self.clear: (*(Float | Integer) color) -> nil
 
-    def self.readback_texture: (Canvas texture) -> Image::ImageData
+    def self.readback_texture: (Texture texture) -> Image::ImageData
   end
 end

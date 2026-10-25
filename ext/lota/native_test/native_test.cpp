@@ -4,6 +4,7 @@
 // LotaNativeTest: test-only bindings (native_test/CMakeLists.txt).
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "filesystem/FileData.h"
 #include "graphics/Texture.h"
@@ -181,6 +182,17 @@ std::vector<int> observed_reference_counts() {
 
 int held_reference_count() { return held() ? held()->getReferenceCount() : 0; }
 
+// Decodes +file_data+, a Lota::Native::FileData, as w_newImageData would,
+// but with this bundle's copy of the engine, whose love.image module is
+// never opened: ImageData's own constructor then raises LÖVE's error
+// (vendor/love/src/modules/image/ImageData.cpp:115-116), which this
+// bundle's handler translates as Lota::Native's does.
+void decode_without_the_image_module(VALUE file_data) {
+  const love::StrongRef<love::image::ImageData> decoded(
+      new love::image::ImageData(foreign<love::filesystem::FileData>(file_data, "FileData")),
+      love::Acquire::NORETAIN);
+}
+
 // Starting a process from rake test:native's Ruby. Ruby starts every
 // process with fork (process.c, retry_fork_async_signal_safe). On macOS,
 // ASan's fork handler locks every block of its stack store before the
@@ -318,6 +330,7 @@ constexpr bool sanitized() {
 } // namespace
 
 extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
+  lota::native::install_error_translation();
   Rice::Module test = Rice::define_module("LotaNativeTest");
 
   Rice::define_class_under<Confined>(test, "Confined")
@@ -368,6 +381,14 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
                                 }
                                 return array;
                               })
+      .define_module_function(
+          "decode_without_the_image_module",
+          [](VALUE file_data) { decode_without_the_image_module(file_data); },
+          Rice::Arg("file_data").setValue())
+      .define_module_function(
+          "translate_love_names",
+          [](const std::string &message) { return lota::native::translate_love_names(message); },
+          Rice::Arg("message"))
       .define_module_function("forget_observed", [] { observed().clear(); })
       .define_module_function("drop", [] { held().set(nullptr); })
       .define_module_function("held_reference_count", &held_reference_count)

@@ -3,10 +3,10 @@
 
 module Lota
   module Graphics
-    class Canvas
-      attr_reader native: Native::Texture
+    module Canvas
+      def self.new: (?Integer? width, ?Integer? height) -> Texture
 
-      def initialize: (?Integer? width, ?Integer? height) -> void
+      def self.===: (top object) -> bool
     end
   end
 end

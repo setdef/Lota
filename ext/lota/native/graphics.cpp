@@ -110,12 +110,21 @@ love::image::ImageData *readback_texture(Texture *texture) {
   return instance.readbackTexture(texture, 0, mipmap, rect, nullptr, 0, 0);
 }
 
+// w_Texture_isCanvas (wrap_Texture.cpp:282-287): whether the texture was
+// made as a render target, as w_newCanvas makes every texture it returns.
+// A Texture belongs to love.graphics, so it answers only on the main
+// thread, as the module does.
+bool is_canvas(const Texture &texture) {
+  require_main_thread(MODULE);
+  return texture.isRenderTarget();
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_graphics(const Rice::Module &native) {
-  Rice::define_class_under<Texture>(native, "Texture");
+  Rice::define_class_under<Texture>(native, "Texture").define_method("canvas?", &is_canvas);
 
   Rice::define_module_under(native, "Graphics")
       .define_singleton_function("open", &open)

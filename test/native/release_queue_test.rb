@@ -100,9 +100,10 @@ class ReleaseQueueTest < Minitest::Test
     assert_equal 0, Counted.destructions
   end
 
-  # The Canvas itself: LotaNativeTest observes its Texture, so the
-  # Texture's reference count shows when Lota::Native lets go of it.
-  def test_a_canvas_freed_off_the_main_thread_is_released_on_the_main_thread
+  # A real Texture, made by Canvas.new: LotaNativeTest observes the
+  # engine's Texture, so its reference count shows when Lota::Native lets
+  # go of it.
+  def test_a_texture_freed_off_the_main_thread_is_released_on_the_main_thread
     collect_garbage_off_the_main_thread do
       on_a_finished_fiber { LotaNativeTest.observe_texture(Lota::Graphics::Canvas.new(16, 16).native) }
       assert_equal [2], LotaNativeTest.observed_reference_counts
@@ -118,9 +119,9 @@ class ReleaseQueueTest < Minitest::Test
 
   # love.image may run on any thread, so its objects need no queue.
   def test_an_image_data_freed_off_the_main_thread_is_released_at_once
-    canvas = Lota::Graphics::Canvas.new(16, 16)
+    texture = Lota::Graphics::Canvas.new(16, 16)
     collect_garbage_off_the_main_thread do
-      on_a_finished_fiber { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(canvas).native) }
+      on_a_finished_fiber { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(texture).native) }
     end
 
     assert_equal 0, Lota::Native.queued_releases

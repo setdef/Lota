@@ -4,6 +4,7 @@
 // Lota::Native: LÖVE's engine, bound to Ruby with Rice (ADR 001, section 4).
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 #include "native/event.hpp"
 #include "native/filesystem.hpp"
 #include "native/graphics.hpp"
@@ -28,6 +29,9 @@ std::size_t queued_releases() { return lota::native::ReleaseQueue::instance().si
 // Ruby calls this when it loads the bundle (require "lota/native"). It is
 // the only symbol the bundle exports (cmake/LotaExtension.cmake).
 extern "C" __attribute__((visibility("default"))) void Init_native() {
+  // Before any binding, so that every error the engine raises reaches Ruby
+  // with LÖVE's Lua names translated (native/errors.hpp).
+  lota::native::install_error_translation();
   Rice::Module native = Rice::define_module_under(Rice::define_module("Lota"), "Native");
   lota::native::define_random_generator(native);
   lota::native::define_filesystem(native);
