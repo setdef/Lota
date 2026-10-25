@@ -20,9 +20,11 @@ require "tmpdir"
 # fresh process that cannot see the repository.
 #
 # Fast mode (the default gate) unpacks each gem and loads it with the
-# native extension the repository already compiled. Full mode installs the
-# gems into an empty GEM_HOME, so RubyGems compiles every extension from the
-# packaged sources.
+# native extension the repository already compiled, and with the frameworks
+# that extension loads through its relative rpaths, copied to the same
+# place relative to it (PackageCheck.rpath_dependencies). Full mode
+# installs the gems into an empty GEM_HOME, so RubyGems compiles every
+# extension from the packaged sources.
 class PackageCheck
   # One gem to check.
   #
@@ -126,6 +128,33 @@ class PackageCheck
     working_tree - contents
   end
 
+  # What the compiled +bundle+ loads through its relative rpaths
+  # (<tt>@loader_path/...</tt>), each as a path relative to the bundle's
+  # directory: the framework directory for a framework, the file itself for
+  # anything else. A copy of the bundle loads only with each of these at the
+  # same place relative to it. Libraries no rpath resolves, such as the
+  # sanitizer runtime that DYLD_INSERT_LIBRARIES loads, are left out.
+  def self.rpath_dependencies(bundle)
+    directory = File.dirname(bundle)
+    rpaths = otool("-l", bundle).scan(%r{^\s+path @loader_path/(\S+) \(offset \d+\)$}).flatten
+    libraries = otool("-L", bundle).lines.drop(1).map { |line| line.split.first }
+    libraries.filter_map do |library|
+      name = library.delete_prefix("@rpath/")
+      next if name == library
+
+      found = rpaths.find { |rpath| File.exist?(File.join(directory, rpath, name)) } or next
+      File.join(found, name[%r{\A[^/]+\.framework}] || name)
+    end
+  end
+
+  # Runs otool, which macOS's command-line tools provide.
+  def self.otool(*arguments)
+    output, status = Open3.capture2e("otool", *arguments)
+    raise Failure, "otool #{arguments.join(' ')} failed:\n#{output}" unless status.success?
+
+    output
+  end
+
   private def build(gem, work)
     output = File.join(work, "#{gem.name}.gem")
     run!(UNBUNDLED, Gem.ruby, "-S", "gem", "build", gem.gemspec, "--output", output, chdir: File.join(@root, gem.dir))
@@ -176,6 +205,17 @@ class PackageCheck
 
     FileUtils.mkdir_p(File.dirname(File.join(dir, gem.extension_file)))
     FileUtils.cp(source, File.join(dir, gem.extension_file))
+    copy_rpath_dependencies(source, File.join(dir, gem.extension_file))
+  end
+
+  # The gem does not ship the frameworks yet (Plan 001, the walking
+  # skeleton's package), so the compiled extension brings its own.
+  private def copy_rpath_dependencies(source, copy)
+    self.class.rpath_dependencies(source).each do |relative|
+      target = File.expand_path(relative, File.dirname(copy))
+      FileUtils.mkdir_p(File.dirname(target))
+      FileUtils.cp_r(File.expand_path(relative, File.dirname(source)), target)
+    end
   end
 
   # Runs each gem's smoke script in a process that sees only the packages.

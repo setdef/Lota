@@ -12,10 +12,12 @@ Rake::Task["test"].clear if Rake::Task.task_defined?("test")
 
 # What each suite runs. test/sanitizers holds the tests that deliberately
 # corrupt memory, which only the sanitized build may run; every other test
-# runs in test:ruby. test/native runs in both.
+# runs in test:ruby. test/native and test/lovetest, the translated Lövetest
+# tests, run in both, so the window and the renderer run under the
+# sanitizers too.
 TEST_SUITES = {
-  ruby: %w[test/*_test.rb test/native/**/*_test.rb test/tasks/**/*_test.rb],
-  native: %w[test/native/**/*_test.rb test/sanitizers/**/*_test.rb],
+  ruby: %w[test/*_test.rb test/native/**/*_test.rb test/lovetest/**/*_test.rb test/tasks/**/*_test.rb],
+  native: %w[test/native/**/*_test.rb test/lovetest/**/*_test.rb test/sanitizers/**/*_test.rb],
 }.freeze
 
 # test:ruby includes a test that runs test:native (test/tasks/rake_tasks_test.rb),

@@ -6,8 +6,13 @@
 # `gem install` put it, except in the sanitized tree, whose bundles
 # rake test:native loads from where CMake writes them.
 add_library(lota_native MODULE
+	event.cpp
+	filesystem.cpp
+	graphics.cpp
+	image.cpp
 	native.cpp
 	random_generator.cpp
+	window.cpp
 )
 if(LOTA_SANITIZE)
 	set(load_directory ${CMAKE_BINARY_DIR}/lib/lota)

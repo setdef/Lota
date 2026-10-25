@@ -45,16 +45,33 @@ class BundleTest < Minitest::Test
     end
   end
 
-  # Neither bundle binds anything that needs a window, so neither loads
-  # LÖVE's frameworks, and no load command names the machine that built it.
-  def test_bundles_load_no_framework_by_absolute_path
+  # System libraries load by absolute path, and LÖVE's frameworks through
+  # @rpath, which the bundle's relative rpaths resolve, so no load command
+  # names the machine that built it. The sanitizer runtime is the one
+  # @rpath library they do not resolve; DYLD_INSERT_LIBRARIES loads it
+  # (tasks/sanitized_build.rb).
+  def test_bundles_load_frameworks_only_through_their_relative_rpaths
     BUNDLES.each_key do |feature|
-      libraries = tool("otool", "-L", loaded(feature)).lines.drop(1).map { |line| line.split.first }
+      bundle = loaded(feature)
+      rpaths = tool("otool", "-l", bundle).scan(/^\s+path @loader_path(\S+) \(offset \d+\)$/).flatten
+      libraries = tool("otool", "-L", bundle).lines.drop(1).map { |line| line.split.first }
 
       libraries.each do |library|
-        assert library.start_with?("/usr/lib/", "/System/", "@rpath/libclang_rt."), "#{feature} loads #{library}"
+        next if library.start_with?("/usr/lib/", "/System/", "@rpath/libclang_rt.")
+
+        assert library.start_with?("@rpath/"), "#{feature} loads #{library}"
+        name = library.delete_prefix("@rpath/")
+        assert rpaths.any? { |rpath| File.exist?(File.join(File.dirname(bundle), rpath, name)) },
+          "#{feature}: no rpath resolves #{library}"
       end
     end
+  end
+
+  # The window needs SDL at load time, and Lota::Native binds the window.
+  def test_lota_native_loads_sdl
+    libraries = tool("otool", "-L", loaded("lota/native")).lines.drop(1).map { |line| line.split.first }
+
+    assert_includes libraries, "@rpath/SDL3.framework/Versions/A/SDL3"
   end
 
   # Every binding reaches Rice through native/binding.hpp, so no binding

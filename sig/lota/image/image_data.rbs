@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Image
+    class ImageData
+      attr_reader native: Native::ImageData
+
+      def self.from_native: (Native::ImageData native) -> ImageData
+
+      def initialize: (Filesystem::FileData data) -> void
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def pixel: (Integer x, Integer y) -> Array[Float]
+    end
+  end
+end

@@ -28,3 +28,13 @@ module Lota
 end
 
 require "lota/native"
+
+# Ruby runs exit procs on the main thread, after the game and before it
+# frees what is left. Releases the collector queued on other threads happen
+# here, so none is lost (ADR 001, section 5); Ruby itself then frees the
+# remaining wrappers on the main thread.
+at_exit { Lota::Native.drain_release_queue }
+
+require_relative "lota/filesystem"
+require_relative "lota/image"
+require_relative "lota/graphics"

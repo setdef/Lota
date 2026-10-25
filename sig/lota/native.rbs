@@ -3,6 +3,10 @@
 
 module Lota
   module Native
+    def self.drain_release_queue: () -> Integer
+
+    def self.queued_releases: () -> Integer
+
     class RandomGenerator
       def self.cpp_class: () -> String
 
@@ -15,6 +19,78 @@ module Lota
       def state: () -> String
 
       def state=: (String state) -> String
+    end
+
+    class Data
+      def self.cpp_class: () -> String
+    end
+
+    class FileData < Data
+      def self.cpp_class: () -> String
+    end
+
+    class ImageData
+      def self.cpp_class: () -> String
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def pixel: (Integer x, Integer y) -> Array[Float]
+    end
+
+    class Texture
+      def self.cpp_class: () -> String
+    end
+
+    class WindowSettings
+      def self.cpp_class: () -> String
+
+      def initialize: () -> void
+
+      attr_accessor stencil: bool
+
+      attr_accessor depth: bool
+
+      attr_accessor resizable: bool
+
+      attr_accessor usedpiscale: bool
+    end
+
+    module Filesystem
+      def self.new_file_data: (String contents, String filename) -> FileData
+    end
+
+    module Image
+      def self.open: () -> nil
+
+      def self.new_image_data: (Data data) -> ImageData
+    end
+
+    module Event
+      def self.open: () -> nil
+
+      def self.pump: () -> nil
+    end
+
+    module Window
+      def self.open: () -> nil
+
+      def self.set_mode: (Integer width, Integer height, WindowSettings settings) -> bool
+    end
+
+    module Graphics
+      def self.open: () -> nil
+
+      def self.new_canvas: (Integer? width, Integer? height) -> Texture
+
+      def self.set_canvas: (Texture texture) -> nil
+
+      def self.reset_canvas: () -> nil
+
+      def self.clear: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
+
+      def self.readback_texture: (Texture texture) -> ImageData
     end
   end
 end

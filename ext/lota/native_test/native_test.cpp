@@ -5,12 +5,17 @@
 
 #include "native/binding.hpp"
 
+#include "filesystem/FileData.h"
+#include "graphics/Texture.h"
+#include "image/ImageData.h"
 #include "math/RandomGenerator.h"
 
 #include <atomic>
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <type_traits>
 #include <vector>
 
 #include <spawn.h>
@@ -39,10 +44,18 @@ std::atomic<long> &destructions() {
   return count;
 }
 
+// How many Confined objects of this generation were destroyed off the main
+// thread.
+std::atomic<long> &off_main_thread_destructions() {
+  static std::atomic<long> count{0};
+  return count;
+}
+
 // Starts a generation: counting begins again from zero.
 long begin_generation() {
   constructions() = 0;
   destructions() = 0;
+  off_main_thread_destructions() = 0;
   return ++generation();
 }
 
@@ -64,10 +77,51 @@ public:
   // Read in this bundle's own code, so ASan checks the read.
   [[nodiscard]] int marker() const { return marker_; }
 
+  // The generation it was made in. (Not named generation(), which would
+  // hide the counter that generation_ is initialized from.)
+  [[nodiscard]] long made_in() const { return generation_; }
+
 private:
   long generation_ = generation();
   int marker_ = 1;
 };
+
+// An engine object of a main-thread module, as far as the memory rule is
+// concerned (ReleasedOnMainThread, below): it counts its constructions and
+// destructions in the same generation as Counted, and how many of its
+// destructions ran off the main thread.
+class Confined : public love::Object {
+public:
+  Confined() { ++constructions(); }
+
+  // The generation it was made in. (Not named generation(), which would
+  // hide the counter that generation_ is initialized from.)
+  [[nodiscard]] long made_in() const { return generation_; }
+
+  Confined(const Confined &) = delete;
+  Confined(Confined &&) = delete;
+  Confined &operator=(const Confined &) = delete;
+  Confined &operator=(Confined &&) = delete;
+  ~Confined() override {
+    if (generation_ == generation()) {
+      ++destructions();
+      if (!lota::native::on_main_thread()) {
+        ++off_main_thread_destructions();
+      }
+    }
+  }
+
+private:
+  long generation_ = generation();
+};
+
+} // namespace
+
+// Confined is released only on the main thread, as a Texture is. This
+// bundle has one translation unit, so every wrapper of Confined sees this.
+template <> struct lota::native::ReleasedOnMainThread<Confined> : std::true_type {};
+
+namespace {
 
 // The one engine object C++ holds on its own, as LÖVE's modules hold
 // objects with love::StrongRef.
@@ -84,23 +138,45 @@ Counted *held_counted() {
   return counted;
 }
 
-// Lota::Native's RandomGenerator, from the other bundle. That bundle has
-// its own Rice registries, so this one cannot unwrap through them, but both
-// are compiled from the same Rice header, so its wrapper's virtual get()
-// returns the pointer here as it would there.
+// An object of class +name+ from Lota::Native, the other bundle. That
+// bundle has its own Rice registries, so this one cannot unwrap through
+// them, but both are compiled from the same Rice header, so its wrapper's
+// virtual get() returns the pointer here as it would there.
+template <typename T>
 // NOLINTNEXTLINE(misc-include-cleaner)
-RandomGenerator *foreign_random_generator(VALUE value) {
-  const Rice::Object generator(value);
+T *foreign(VALUE value, const char *name) {
+  const Rice::Object object(value);
   const Rice::Module native = Rice::define_module_under(Rice::define_module("Lota"), "Native");
-  if (!generator.is_a(native.const_get("RandomGenerator"))) {
-    throw std::invalid_argument("expected a Lota::Native::RandomGenerator");
+  if (!object.is_a(native.const_get(name))) {
+    throw std::invalid_argument(std::string("expected a Lota::Native::") + name);
   }
-  Rice::detail::WrapperBase *wrapper = Rice::detail::getWrapper(generator.value());
+  Rice::detail::WrapperBase *wrapper = Rice::detail::getWrapper(object.value());
   // Rice's get() takes the type it checks against as non-const, though it
   // only reads it; Ruby hands the object's own type out as const.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast,misc-include-cleaner)
-  auto *type = const_cast<rb_data_type_t *>(RTYPEDDATA_TYPE(generator.value()));
-  return static_cast<RandomGenerator *>(wrapper->get(type));
+  auto *type = const_cast<rb_data_type_t *>(RTYPEDDATA_TYPE(object.value()));
+  return static_cast<T *>(wrapper->get(type));
+}
+
+// Engine objects C++ holds on its own, many at once.
+std::vector<love::StrongRef<love::Object>> &observed() {
+  static std::vector<love::StrongRef<love::Object>> references;
+  return references;
+}
+
+// Holds +object+, a Lota::Native object of class +name+.
+template <typename T> void observe(VALUE value, const char *name) {
+  observed().emplace_back(foreign<T>(value, name), love::Acquire::RETAIN);
+}
+
+// Each observed object's reference count, in the order they were observed.
+std::vector<int> observed_reference_counts() {
+  std::vector<int> counts;
+  counts.reserve(observed().size());
+  for (const auto &reference : observed()) {
+    counts.push_back(reference->getReferenceCount());
+  }
+  return counts;
 }
 
 int held_reference_count() { return held() ? held()->getReferenceCount() : 0; }
@@ -244,9 +320,20 @@ constexpr bool sanitized() {
 extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
   Rice::Module test = Rice::define_module("LotaNativeTest");
 
+  Rice::define_class_under<Confined>(test, "Confined")
+      .define_constructor(Rice::Constructor<Confined>())
+      .define_method("generation", &Confined::made_in)
+      .define_singleton_function("off_main_thread_destructions",
+                                 [] { return off_main_thread_destructions().load(); })
+      .define_singleton_function("drain_release_queue",
+                                 [] { return lota::native::ReleaseQueue::instance().drain(); })
+      .define_singleton_function("queued_releases",
+                                 [] { return lota::native::ReleaseQueue::instance().size(); });
+
   Rice::define_class_under<Counted>(test, "Counted")
       .define_constructor(Rice::Constructor<Counted>())
       .define_method("reference_count", &Counted::getReferenceCount)
+      .define_method("generation", &Counted::made_in)
       .define_singleton_function("constructions", [] { return constructions().load(); })
       .define_singleton_function("destructions", [] { return destructions().load(); })
       .define_singleton_function("begin_generation", &begin_generation);
@@ -255,9 +342,33 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
           "hold", [](Counted *counted) { held().set(counted); }, Rice::Arg("counted"))
       .define_module_function(
           "hold_random_generator",
-          [](VALUE generator) { held().set(foreign_random_generator(generator)); },
+          [](VALUE generator) {
+            held().set(foreign<RandomGenerator>(generator, "RandomGenerator"));
+          },
           // Rice passes the Ruby object itself (docs/bindings/methods.md).
           Rice::Arg("generator").setValue())
+      .define_module_function(
+          "observe_texture",
+          [](VALUE texture) { observe<love::graphics::Texture>(texture, "Texture"); },
+          Rice::Arg("texture").setValue())
+      .define_module_function(
+          "observe_image_data",
+          [](VALUE image_data) { observe<love::image::ImageData>(image_data, "ImageData"); },
+          Rice::Arg("image_data").setValue())
+      .define_module_function(
+          "observe_file_data",
+          [](VALUE file_data) { observe<love::filesystem::FileData>(file_data, "FileData"); },
+          Rice::Arg("file_data").setValue())
+      .define_module_function("observed_reference_counts",
+                              [] {
+                                const std::vector<int> counts = observed_reference_counts();
+                                Rice::Array array;
+                                for (const int count : counts) {
+                                  array.push(count, false);
+                                }
+                                return array;
+                              })
+      .define_module_function("forget_observed", [] { observed().clear(); })
       .define_module_function("drop", [] { held().set(nullptr); })
       .define_module_function("held_reference_count", &held_reference_count)
       // A pointer C++ keeps: Ruby retains it.

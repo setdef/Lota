@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Canvas
+      attr_reader native: Native::Texture
+
+      def initialize: (?Integer? width, ?Integer? height) -> void
+    end
+  end
+end

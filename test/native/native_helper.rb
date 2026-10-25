@@ -59,8 +59,41 @@ module NativeHelper
     nil
   end
 
+  # Runs the block in a Fiber of its own, on this thread, and waits for it
+  # to finish. Graphics objects can be made only on the main thread, so
+  # on_a_finished_thread cannot make them; a finished Fiber's stack is gone
+  # too, and the collector no longer scans it.
+  def on_a_finished_fiber(&block)
+    Fiber.new do
+      block.call
+      nil
+    end.resume
+    nil
+  end
+
+  # How many wrappers of +klass+ from +generation+ are still alive. Ruby's
+  # collector reads every thread's machine stack conservatively: a word
+  # left there by earlier work that happens to hold the address of a slot
+  # a new wrapper has since taken keeps that wrapper alive, as it must. A
+  # test that drops many wrappers can find a few of them still alive, so
+  # it counts the survivors rather than expecting none.
+  def live_wrappers(klass, generation)
+    ObjectSpace.each_object(klass).count { |wrapper| wrapper.generation == generation }
+  end
+
   # A full collection that sweeps before it returns.
   def collect_garbage
     GC.start(full_mark: true, immediate_sweep: true)
+  end
+
+  # A full collection on a thread that is not the main thread, so every
+  # wrapper it frees is freed off the main thread. The collector stays off
+  # until then, so nothing frees those wrappers on this thread first.
+  def collect_garbage_off_the_main_thread
+    GC.disable
+    yield if block_given?
+    Thread.new { collect_garbage }.join
+  ensure
+    GC.enable
   end
 end

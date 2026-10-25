@@ -20,10 +20,21 @@
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
 
+#include "common/Module.h"
 #include "common/Object.h" // IWYU pragma: export
 
+// The engine classes of the modules LÖVE confines to its main thread, so
+// that every binding sees the same list (ReleasedOnMainThread, below).
+#include "graphics/Texture.h"
+
 #include <concepts>
+#include <cstddef>
+#include <memory>
+#include <mutex>
 #include <type_traits>
+#include <vector>
+
+#include <pthread.h>
 
 namespace lota::native {
 
@@ -31,6 +42,105 @@ namespace lota::native {
 // love::Object (vendor/love/src/common/Object.h).
 template <typename T>
 concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
+
+// Whether this is the process's main thread, the one the operating system
+// started the process on. macOS runs windows and graphics only there. SDL's
+// own SDL_IsMainThread cannot say: it answers for whichever thread first
+// initialized SDL, and true on any thread before that (Plan 001, spike 2).
+inline bool on_main_thread() { return pthread_main_np() == 1; }
+
+// Raises ThreadError unless this is the main thread. +module+ names the
+// Lota module the caller belongs to, for the message.
+inline void require_main_thread(const char *module) {
+  if (!on_main_thread()) {
+    throw Rice::Exception(rb_eThreadError, "%s runs only on the main thread", module);
+  }
+}
+
+// Whether engine objects of class T are released only on the main thread.
+// LÖVE's thread module keeps love.graphics and love.window off every other
+// thread (vendor/love/src/modules/thread/LuaThread.cpp:72-73), and Lua
+// collects only on the main thread, so in LÖVE their objects are always
+// released there. Every class bound from those two modules is listed here,
+// in this one header, so that every translation unit agrees.
+template <typename T> struct ReleasedOnMainThread : std::false_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Texture> : std::true_type {};
+
+// Releases that Ruby's garbage collector asked for off the main thread, for
+// the main thread to carry out (ADR 001, section 5). Ruby frees a wrapper
+// on whichever thread triggered the collection; the queue takes over the
+// wrapper's reference, so the object outlives the wrapper until the main
+// thread drains the queue.
+//
+// Each bundle has its own queue, as it has its own copy of LÖVE's engine
+// (cmake/LotaExtension.cmake): the function-local static below is hidden
+// in each.
+class ReleaseQueue {
+public:
+  static ReleaseQueue &instance() {
+    static ReleaseQueue queue;
+    return queue;
+  }
+
+  ReleaseQueue(const ReleaseQueue &) = delete;
+  ReleaseQueue(ReleaseQueue &&) = delete;
+  ReleaseQueue &operator=(const ReleaseQueue &) = delete;
+  ReleaseQueue &operator=(ReleaseQueue &&) = delete;
+  ~ReleaseQueue() = default;
+
+  // Holds a reference to +object+ until the next drain. It runs in a
+  // wrapper's destructor, which must not throw; if the queue cannot grow,
+  // the object keeps the reference for good, since a leak is safer than a
+  // release on the wrong thread.
+  void push(love::Object *object) noexcept {
+    try {
+      const std::scoped_lock lock(mutex_);
+      queued_.emplace_back(object, love::Acquire::RETAIN);
+    } catch (...) {
+      object->retain();
+    }
+  }
+
+  // Releases every queued reference, on the main thread, and returns how
+  // many there were. The references are taken out of the queue before any
+  // is released, so a destructor that frees another wrapper cannot touch
+  // the queue while it is locked.
+  std::size_t drain() {
+    require_main_thread("Lota::Native.drain_release_queue");
+    std::vector<love::StrongRef<love::Object>> drained;
+    {
+      const std::scoped_lock lock(mutex_);
+      drained.swap(queued_);
+    }
+    return drained.size();
+  }
+
+  // How many releases wait for the next drain.
+  std::size_t size() {
+    const std::scoped_lock lock(mutex_);
+    return queued_.size();
+  }
+
+private:
+  ReleaseQueue() = default;
+
+  std::mutex mutex_;
+  std::vector<love::StrongRef<love::Object>> queued_;
+};
+
+// Opens the LÖVE module Opened (of kind Base) for the rest of the process,
+// unless it is already open, and returns it. Its constructor registers it
+// as the module's instance (love::Module, common/Module.cpp), where the
+// rest of the engine finds it; the registry keeps the pointer, not a
+// reference, so the reference the module starts with is the one that
+// keeps it open. LÖVE, too, keeps its modules until the game quits.
+template <std::derived_from<love::Module> Base, std::derived_from<Base> Opened>
+Base *open_module(love::Module::ModuleType type) {
+  if (auto *opened = love::Module::getInstance<Base>(type)) {
+    return opened;
+  }
+  return std::make_unique<Opened>().release();
+}
 
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
 // engine object, from the moment Ruby wraps it until Ruby's garbage
@@ -56,9 +166,16 @@ public:
   ObjectWrapper &operator=(ObjectWrapper &&) = delete;
 
   // As Rice's own wrappers do (rice/detail/Wrapper.ipp:117-135), forget
-  // the instance before letting it go; reference_ then releases it.
+  // the instance before letting it go; reference_ then releases it. Off the
+  // main thread, an object of a main-thread module first joins the release
+  // queue, which retains it, so reference_'s release cannot be the last.
   ~ObjectWrapper() override {
     Rice::detail::Registries::instance.instances.remove(reference_.get());
+    if constexpr (ReleasedOnMainThread<T>::value) {
+      if (!on_main_thread()) {
+        ReleaseQueue::instance().push(reference_.get());
+      }
+    }
   }
 
   // Rice's own check (rice/detail/Wrapper.ipp:137-150).

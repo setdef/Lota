@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Filesystem
+    class FileData
+      attr_reader native: Native::FileData
+
+      def initialize: (String contents, String name) -> void
+    end
+  end
+end
