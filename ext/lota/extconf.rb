@@ -26,12 +26,23 @@ require "shellwords"
 RICE_VERSION = "4.12.0"
 
 # The repository, or the installed gem: the directory that holds ext/.
+#
+# Only a clone can build: the build needs LÖVE's sources and
+# love-apple-dependencies' frameworks from vendor/, and the source gem
+# ships neither. RubyGems installs the source gem only where no
+# precompiled gem fits (tasks/native_gem.rb), so stopping here, before
+# CMake and Rice, names the gem that does.
 ROOT = File.expand_path("../..", __dir__)
 unless File.exist?(File.join(ROOT, "vendor/love/src/common/Object.h"))
   abort <<~MESSAGE
     Lota builds LÖVE's engine from vendor/love, which is missing from #{ROOT}.
-    In a clone, run `git submodule update --init`. An installed gem does not
-    ship LÖVE's sources yet (Plan 001, the walking skeleton's package).
+
+    Lota's source gem does not ship LÖVE's sources, so it cannot build here.
+    Install Lota's precompiled gem instead, for Apple Silicon macOS
+    (platform arm64-darwin) and Ruby 4.0, which RubyGems chooses on such a
+    machine. Lota has no build for other platforms or Rubies yet.
+
+    In a clone of Lota's repository, run `git submodule update --init`.
   MESSAGE
 end
 

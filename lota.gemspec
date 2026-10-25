@@ -22,11 +22,12 @@ Gem::Specification.new do |spec|
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  # Ship what an installed game loads, and the sources of the extension it
-  # compiles. Listing paths keeps development files (plans, tasks, tests,
-  # tool configuration, vendor/love, and the test-only extension in
-  # ext/lota/native_test) out without a deny list that every new file has to
-  # remember. tasks/package.rake lists the same paths.
+  # Ship what an installed game loads, and the sources of the extension,
+  # which the precompiled gem also carries compiled (tasks/native_gem.rb).
+  # Listing paths keeps development files (plans, tasks, tests, tool
+  # configuration, vendor/love, and the test-only extension in
+  # ext/lota/native_test) out without a deny list that every new file has
+  # to remember. tasks/package.rake lists the same paths.
   packaged = %w[
     exe
     lib
@@ -49,10 +50,10 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
   spec.extensions = ["ext/lota/extconf.rb"]
 
-  # Rice is header-only. Its documented way for a gem to get the headers is
-  # a runtime dependency (docs/packaging/packaging.md, "Header Files"):
-  # RubyGems has no build-time kind, and gem install compiles the extension,
-  # so the headers must be installed with the gem. Pinned exactly, because
-  # ext/lota/native/binding.hpp specializes Rice::detail::Wrapper.
-  spec.add_dependency "rice", "4.12.0"
+  # Rice is header-only, and only building the extension reads it. The
+  # precompiled gem compiles nothing at install, and the source gem cannot
+  # build once installed (ext/lota/extconf.rb), so Rice is a development
+  # dependency, which Bundler installs for rake compile in a clone. Pinned exactly, because ext/lota/native/binding.hpp
+  # specializes Rice::detail::Wrapper.
+  spec.add_development_dependency "rice", "4.12.0"
 end

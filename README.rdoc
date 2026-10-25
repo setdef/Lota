@@ -4,3 +4,15 @@ Lota is an independent project, not made, endorsed, or supported by the
 LÖVE Development Team. It builds a modified version of LÖVE's C++ engine
 and hands control to Ruby instead of Lua, so a game written with it
 behaves as the same game written in LÖVE.
+
+== Install
+
+Lota runs on Apple Silicon Macs with Ruby 4.0. Its gem comes compiled,
+with the parts of LÖVE's engine it loads, so installing it builds
+nothing:
+
+  gem install lota
+  lota run path/to/game
+
+On another platform or Ruby, RubyGems picks Lota's source gem, which
+stops and says so: Lota has no build for those yet.

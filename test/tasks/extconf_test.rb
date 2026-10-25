@@ -75,14 +75,26 @@ class ExtconfTest < Minitest::Test
     end
   end
 
-  def test_without_vendor_love_it_says_what_is_missing
+  # The source gem ships without LÖVE's sources, so gem install stops here
+  # and names the gem that runs instead.
+  def test_without_vendor_love_it_names_the_precompiled_gem
     in_tree do |root|
       script = write(root, "ext/lota/extconf.rb", File.read(EXTCONF))
       output, status = extconf(root, script:)
 
       refute status.success?
       assert_includes output, "Lota builds LÖVE's engine from vendor/love, which is missing from #{root}."
+      assert_includes output, "(platform arm64-darwin) and Ruby 4.0"
+      assert_includes output, "git submodule update --init"
       refute_path_exists File.join(root, "Makefile")
     end
+  end
+
+  # Only a build in a clone reads Rice, so Bundler installs it there and
+  # no installed gem depends on it.
+  def test_rice_is_a_development_dependency
+    rice = Gem::Specification.load(File.join(ROOT, "lota.gemspec")).dependencies.find { |dep| dep.name == "rice" }
+
+    assert_equal :development, rice.type
   end
 end

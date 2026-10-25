@@ -56,6 +56,12 @@ class RakeTasksTest < Minitest::Test
     assert_equal %w[engine:configure], prerequisites("cpp:tidy")
   end
 
+  # The precompiled gem installs in seconds, so the gate installs it and
+  # runs a game from it, as CI does on a fresh runner.
+  def test_default_task_checks_both_packages_last
+    assert_equal %w[package:check package:install], prerequisites("default").last(2)
+  end
+
   def test_default_task_compiles_before_it_tests
     default = prerequisites("default")
 
@@ -79,7 +85,9 @@ class RakeTasksTest < Minitest::Test
   end
 
   def test_what_loads_the_extension_compiles_it_first
-    %w[test:ruby rbs:parity package:check].each { |name| assert_includes prerequisites(name), "compile", name }
+    %w[test:ruby rbs:parity package:check package:install package:native].each do |name|
+      assert_includes prerequisites(name), "compile", name
+    end
     assert_equal %w[compile compile:sanitized], prerequisites("test:native")
     assert_equal ["#{SANITIZED_EXT}/Makefile"], prerequisites("compile:sanitized")
   end

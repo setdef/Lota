@@ -13,7 +13,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - `Lota::Native`, the compiled extension that binds LÖVE's engine, with `Lota::Native::RandomGenerator`.
-- Dependency on `rice` 4.12.0, whose headers the extension compiles against.
 - `Lota::Graphics::Canvas.new`, `Lota::Graphics.canvas=`, `Lota::Graphics.clear`, and `Lota::Graphics.readback_texture`, translating `love.graphics.newCanvas`, `setCanvas`, `clear`, and `readbackTexture`.
 - `Lota::Graphics::Texture`, with `canvas?`; `Canvas.new` returns a `Texture`, as LÖVE 12's `newCanvas` does, and `Canvas === texture` asks `texture.canvas?`.
 - LÖVE's error messages name Lota's modules and methods (`Lota::Image`, `Lota::Window.set_mode`) where LÖVE's name Lua's (`love.image`, `love.window.setMode`).
@@ -22,6 +21,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics` raises `ThreadError` anywhere but the main thread, as LÖVE keeps `love.graphics` there.
 - Graphics objects that Ruby's garbage collector frees on another thread are released on the main thread.
 - Dependency on SDL3, from `love-apple-dependencies`, which `Lota::Native` now loads at run time.
+- A precompiled gem for Apple Silicon macOS (platform `arm64-darwin`) and Ruby 4.0, carrying the compiled extension, SDL3, and their license notices, so `gem install lota` compiles nothing.
+- The source gem stops at `gem install` with a message naming the precompiled gem, since it ships no LÖVE sources to build from.
 - The `lota` executable: `lota run [path] [arguments]` runs the game in a folder, as `love path/to/game` does.
 - A game is a folder of `conf.rb` and `main.rb`; `Lota::Boot` starts it in `boot.lua`'s order, calling `def Lota.conf(t)` with a `Lota::Settings` under LÖVE's names and defaults.
 - `Lota.run`, the game loop translated from `love.run`, calls the callbacks a game defines on `Lota` (`load`, `update`, `draw`, `quit`, `keypressed`, and the rest of LÖVE's), passing each only the arguments it declares; a game can define its own `Lota.run`.
