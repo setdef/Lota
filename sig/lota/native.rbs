@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Native
+    class RandomGenerator
+      def self.cpp_class: () -> String
+
+      def initialize: () -> void
+
+      def random: () -> Float
+
+      def random_normal: (Float | Integer stddev) -> Float
+
+      def state: () -> String
+
+      def state=: (String state) -> String
+    end
+  end
+end

@@ -9,8 +9,13 @@ require "rbconfig"
 require_relative "cmake_build"
 require_relative "engine_sources"
 
-# LÖVE's engine, built from ext/lota into tmp/engine/build.
-ENGINE = CMakeBuild.new(source: "ext/lota", build: "tmp/engine/build", args: %w[-G Ninja])
+# The tree that builds LÖVE's engine, Lota::Native, and the test-only
+# extension from ext/lota. ext/lota/extconf.rb configures it (rake compile,
+# tasks/native.rake), since only Ruby knows which Ruby and which Rice to
+# build against, so engine:configure is defined beside rake compile; cpp:tidy
+# reads the compile_commands.json it writes.
+ENGINE_BUILD = "tmp/engine/build"
+ENGINE = CMakeBuild.new(source: "ext/lota", build: ENGINE_BUILD)
 
 # The engine's source list is evaluated for the host platform
 # (ext/lota/engine/sources_macos.cmake on macOS).
@@ -42,14 +47,9 @@ namespace :engine do
       puts "✅ #{ENGINE_SOURCES_FILE} matches vendor/love"
     end
   end
-
-  desc "Configure the engine build (writes compile_commands.json)"
-  task :configure do
-    ENGINE.configure
-  end
 end
 
-desc "Build LÖVE's engine as a static library"
+desc "Build LÖVE's engine as a static library, with the extensions that link it"
 task engine: %w[engine:sources:check engine:configure] do
   ENGINE.build
 end

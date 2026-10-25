@@ -16,6 +16,8 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/sources_macos.cmake)
 set(LOVE_DEPS ${LOTA_ROOT}/vendor/love-apple-dependencies CACHE PATH "love-apple-dependencies checkout")
 set(LOVE_FRAMEWORKS ${LOVE_DEPS}/macOS/Frameworks)
 set(SDL3_FRAMEWORKS ${LOVE_DEPS}/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64)
+# For the extensions' rpaths (cmake/LotaExtension.cmake).
+set(LOVE_FRAMEWORK_DIRS ${LOVE_FRAMEWORKS} ${SDL3_FRAMEWORKS} PARENT_SCOPE)
 
 add_library(love_engine STATIC ${LOVE_ENGINE_SOURCES})
 
@@ -61,9 +63,10 @@ target_compile_options(love_engine PRIVATE
 	$<$<COMPILE_LANGUAGE:OBJC,OBJCXX>:-fobjc-arc>
 )
 
-target_link_options(love_engine INTERFACE
-	-F${LOVE_FRAMEWORKS} -F${SDL3_FRAMEWORKS}
-	"LINKER:-rpath,${LOVE_FRAMEWORKS}" "LINKER:-rpath,${SDL3_FRAMEWORKS}")
+# Where to find the frameworks at link time. Where to find them at load time
+# is each extension's rpath (cmake/LotaExtension.cmake), relative to where
+# the extension is loaded from.
+target_link_options(love_engine INTERFACE -F${LOVE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
 
 target_link_libraries(love_engine INTERFACE
 	"-framework SDL3"

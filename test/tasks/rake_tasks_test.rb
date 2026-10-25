@@ -56,6 +56,79 @@ class RakeTasksTest < Minitest::Test
     assert_equal %w[engine:configure], prerequisites("cpp:tidy")
   end
 
+  def test_default_task_compiles_before_it_tests
+    default = prerequisites("default")
+
+    assert_operator default.index("compile"), :<, default.index("test")
+    assert_equal %w[test:ruby], prerequisites("test")
+  end
+
+  # The engine tree is configured only through extconf.rb, which
+  # rake-compiler reruns when extconf.rb changes.
+  def test_configuring_the_engine_runs_extconf
+    assert_equal [NATIVE_MAKEFILE], prerequisites("engine:configure")
+    assert_includes prerequisites(NATIVE_MAKEFILE), "ext/lota/extconf.rb"
+    assert_equal "tmp/#{RUBY_PLATFORM}/lota/native/#{RUBY_VERSION}/Makefile", NATIVE_MAKEFILE
+  end
+
+  def test_compile_always_lets_cmake_decide_what_to_rebuild
+    bundle = Rake::Task["tmp/#{RUBY_PLATFORM}/lota/native/#{RUBY_VERSION}/lota/native.#{RbConfig::CONFIG['DLEXT']}"]
+
+    assert_includes bundle.prerequisites, "compile:cmake"
+    assert_predicate bundle, :needed?
+  end
+
+  def test_what_loads_the_extension_compiles_it_first
+    %w[test:ruby rbs:parity package:check].each { |name| assert_includes prerequisites(name), "compile", name }
+    assert_equal %w[compile compile:sanitized], prerequisites("test:native")
+    assert_equal ["#{SANITIZED_EXT}/Makefile"], prerequisites("compile:sanitized")
+  end
+
+  # Every test runs somewhere, and the deliberate memory bugs only where
+  # the sanitizers catch them.
+  def test_every_test_file_belongs_to_a_suite
+    Dir.chdir(ROOT) do
+      ruby = Dir[*TEST_SUITES.fetch(:ruby)]
+      native = Dir[*TEST_SUITES.fetch(:native)]
+
+      assert_empty Dir["test/**/*_test.rb"] - ruby - native
+      assert_empty ruby.grep(%r{\Atest/sanitizers/})
+      refute_empty native.grep(%r{\Atest/sanitizers/})
+      assert_includes ruby, "test/native/memory_test.rb"
+      assert_includes native, "test/native/memory_test.rb"
+    end
+  end
+
+  # The native suite starts every process with posix_spawn, through
+  # NativeHelper#capture2e: under rake test:native, a forked child can die
+  # before it runs the command (LotaNativeTest.spawn).
+  def test_no_native_suite_file_forks
+    forks = /\bOpen3\b|\bIO\.popen\b|\bProcess\.spawn\b|(?<![.\w])(?:spawn|system|fork)\b|`|%x/
+    Dir.chdir(ROOT) do
+      files = Dir[*TEST_SUITES.fetch(:native), "test/native/native_helper.rb"]
+      forking = files.select { |path| File.readlines(path).grep_v(/\A\s*#/).join.match?(forks) }
+
+      refute_empty files
+      assert_empty forking
+    end
+  end
+
+  # rake test runs the sanitized suite through this test, so every line of
+  # test:native runs in the gate.
+  def test_the_native_suite_passes_under_the_sanitizers
+    task = Rake::Task["test:native"].tap(&:reenable)
+    failure = nil
+    out, err = capture_subprocess_io do
+      task.invoke
+    rescue RuntimeError => e
+      failure = e
+    end
+
+    assert_nil failure, "#{failure&.message}\n#{out}"
+    assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, 0 skips$/, out)
+    assert_includes err, "DYLD_INSERT_LIBRARIES="
+  end
+
   def test_engine_source_list_matches_vendor_love
     assert_includes invoke("engine:sources:check"), "✅ ext/lota/engine/sources_macos.cmake matches vendor/love"
   end

@@ -18,5 +18,10 @@ require_relative "lota/version"
 # Lua. The modules keep LÖVE's names, so a LÖVE tutorial still reads true:
 # love.graphics becomes Lota::Graphics, love.audio becomes Lota::Audio,
 # and newSpriteBatch becomes SpriteBatch.new.
+#
+# Lota::Native is the engine itself: LÖVE's C++ classes, bound to Ruby by
+# a compiled extension (ext/lota).
 module Lota
 end
+
+require "lota/native"

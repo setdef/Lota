@@ -26,8 +26,9 @@ end
 
 namespace :rbs do
   desc "Check every signature has an implementation and every public method a signature"
-  task :parity do
-    ruby File.expand_path("rbs_parity.rb", __dir__), *%w[--sig sig --lib lib --allow rbs_exceptions.rb]
+  task parity: :compile do
+    ruby File.expand_path("rbs_parity.rb", __dir__),
+      *%w[--sig sig --lib lib --native Lota::Native --allow rbs_exceptions.rb]
   end
 end
 

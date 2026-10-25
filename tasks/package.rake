@@ -13,18 +13,30 @@ PACKAGES = [
   PackageCheck::Target.new(
     name: "lota",
     dir: ".",
-    packaged: %w[lib sig README.rdoc CHANGELOG.md LICENSE LICENSES],
+    packaged: %w[
+      lib
+      sig
+      README.rdoc
+      CHANGELOG.md
+      LICENSE
+      LICENSES
+      ext/lota/extconf.rb
+      ext/lota/CMakeLists.txt
+      ext/lota/cmake
+      ext/lota/engine
+      ext/lota/native
+    ],
     generated: [],
-    extension: nil,
+    extension: "lib/lota/native",
     smoke: <<~RUBY),
       require "lota"
-      puts "lota \#{Lota::VERSION} loads"
+      puts "lota \#{Lota::VERSION} loads, with \#{Lota::Native::RandomGenerator.cpp_class}"
     RUBY
 ].freeze
 
 namespace :package do
   desc "Build each gem and load it from its package, with the compiled extensions (fast)"
-  task :check do
+  task check: :compile do
     PackageCheck.new(root: Dir.pwd, gems: PACKAGES).fast
   rescue PackageCheck::Failure => e
     abort "❌ #{e.message}"

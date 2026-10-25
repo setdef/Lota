@@ -17,4 +17,4 @@ end
 # Import all tasks from the tasks/ directory
 Dir.glob("tasks/*.rake").each { |r| import r }
 
-task default: %w[lint:fix test engine cpp lint steep package:check]
+task default: %w[lint:fix engine compile test cpp lint steep package:check]
