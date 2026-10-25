@@ -22,6 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Graphics objects that Ruby's garbage collector frees on another thread are released on the main thread.
 - Dependency on SDL3, from `love-apple-dependencies`, which `Lota::Native` now loads at run time.
 - A precompiled gem for Apple Silicon macOS (platform `arm64-darwin`) and Ruby 4.0, carrying the compiled extension, SDL3, and their license notices, so `gem install lota` compiles nothing.
+- The gem's homepage, source code, and changelog links, pointing at https://github.com/setdef/lota.
 - The source gem stops at `gem install` with a message naming the precompiled gem, since it ships no LÖVE sources to build from.
 - The `lota` executable: `lota run [path] [arguments]` runs the game in a folder, as `love path/to/game` does.
 - A game is a folder of `conf.rb` and `main.rb`; `Lota::Boot` starts it in `boot.lua`'s order, calling `def Lota.conf(t)` with a `Lota::Settings` under LÖVE's names and defaults.

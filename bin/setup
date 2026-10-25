@@ -9,9 +9,9 @@ set -vx
 if command -v mise >/dev/null 2>&1; then
   # vendor/love and vendor/love-apple-dependencies, which the engine builds from
   git submodule update --init
-  # Ruby, CMake, Ninja, clang-format, and clang-tidy, pinned in mise.toml
+  # Ruby, CMake, Ninja, clang-format, clang-tidy, and the REUSE tool, pinned
+  # in mise.toml
   mise install
-  mise x -- pip install reuse
   mise x -- bundle install
   pre-commit install
   bundle exec rake rdoc

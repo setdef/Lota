@@ -125,7 +125,19 @@ namespace :lint do
   task docs: %w[safe_rdoc_coverage rubycritic reuse:lint]
   task code: %w[rubocop rubycritic]
   task licenses: %w[reuse:lint]
-  task all: %w[docs code licenses rbs]
+  task all: %w[docs code licenses rbs workflows]
+
+  # actionlint runs shellcheck over each step's script only when it finds
+  # it, and passes without a word when it does not, so a missing shellcheck
+  # fails here instead.
+  desc "Check the GitHub Actions workflows with actionlint, and their scripts with shellcheck"
+  task :workflows do
+    shellcheck = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "shellcheck") }
+      .find { |path| File.executable?(path) }
+    abort "❌ lint:workflows needs shellcheck on PATH; mise install puts it there" unless shellcheck
+
+    sh "actionlint", "-shellcheck=#{shellcheck}"
+  end
 
   namespace :fix do
     desc "Auto-fix RuboCop offenses (most aggressive)"

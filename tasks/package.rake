@@ -30,6 +30,8 @@ end
 # with a status of its own, so an exit status of 0 cannot pass by
 # accident.
 PACKAGE_GAME = PackageCheck::Game.new(
+  name: "a window",
+  folder: nil,
   files: { "main.rb" => <<~RUBY },
     def Lota.load
       puts "window \#{Lota::Graphics.dimensions.join('x')}"
@@ -40,9 +42,25 @@ PACKAGE_GAME = PackageCheck::Game.new(
       Lota::Event.quit(3)
     end
   RUBY
+  gems: [],
   arguments: [],
-  output: "window 800x600\n",
+  output: /\Awindow 800x600\n\z/,
   status: 3
+)
+
+# The walking skeleton's acceptance test (Plan 001): Lövetest's
+# love.graphics tests, translated in test/lovetest, run by lota run as the
+# gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
+# expected images in vendor/love/testing/output/expected. It quits with 0
+# only when every test passed; the output rules out a run of no tests.
+LOVETEST_GAME = PackageCheck::Game.new(
+  name: "test/lovetest/game",
+  folder: "test/lovetest/game",
+  files: {},
+  gems: ["minitest"],
+  arguments: [],
+  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, 0 skips$/m,
+  status: 0
 )
 
 # The gems this repository publishes. Each packaged list matches its
@@ -74,9 +92,26 @@ def packages
         require "lota"
         puts "lota \#{Lota::VERSION} loads, with \#{Lota::Native::RandomGenerator.cpp_class}"
       RUBY
-      game: PACKAGE_GAME
+      games: [PACKAGE_GAME, LOVETEST_GAME]
     ),
   ]
+end
+
+# Builds the precompiled gem into tmp/native_gem, copies it into pkg/, and
+# returns the copy's path.
+def build_native_package
+  package = native_gem.build(File.expand_path("tmp/native_gem"))
+  FileUtils.mkdir_p("pkg")
+  FileUtils.cp(package, "pkg")
+  File.join("pkg", File.basename(package))
+end
+
+# Installs the precompiled gems in +files+ and runs lota from them, as CI's
+# delivery job does.
+def deliver_packages(files)
+  PackageCheck.new(root: Dir.pwd, gems: packages).deliver(files)
+rescue PackageCheck::Failure => e
+  abort "❌ #{e.message}"
 end
 
 namespace :package do
@@ -87,18 +122,20 @@ namespace :package do
     abort "❌ #{e.message}"
   end
 
-  desc "Install each precompiled gem into an empty GEM_HOME, then run lota and a game from it (slow)"
+  desc "Build each precompiled gem, then deliver it as CI does: install it and run a game from it (slow)"
   task install: :compile do
-    PackageCheck.new(root: Dir.pwd, gems: packages).full
-  rescue PackageCheck::Failure => e
-    abort "❌ #{e.message}"
+    deliver_packages([build_native_package])
+  end
+
+  # Builds nothing, so it runs on a runner that has only the repository's
+  # tasks and the gems built on another, as CI's delivery job does.
+  desc "Install the precompiled gems given, already built, into an empty GEM_HOME, then run lota and a game from them"
+  task :deliver do |_task, args|
+    deliver_packages(args.extras)
   end
 
   desc "Build the precompiled gem for #{NativeGem::PLATFORM} into pkg/"
   task native: :compile do
-    package = native_gem.build(File.expand_path("tmp/native_gem"))
-    FileUtils.mkdir_p("pkg")
-    FileUtils.cp(package, "pkg")
-    puts "✅ Built pkg/#{File.basename(package)}"
+    puts "✅ Built #{build_native_package}"
   end
 end

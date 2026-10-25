@@ -106,6 +106,24 @@ class NativeGemTest < Minitest::Test
     end
   end
 
+  # Gem::Package.build builds a gemspec it warns about, so the build has
+  # to stop on the warning itself. The gemspec is Lota's without its
+  # homepage.
+  def test_a_warning_stops_the_build
+    in_tree do |work|
+      gemspec = write(work, "warned.gemspec", <<~RUBY)
+        Gem::Specification.load(#{File.join(ROOT, 'lota.gemspec').inspect}).dup.tap { |spec| spec.homepage = nil }
+      RUBY
+      relative = Pathname.new(gemspec).relative_path_from(ROOT).to_s
+      native = NativeGem.new(root: ROOT, gemspec: relative, bundle: BUNDLE, notices: NOTICES.merge(
+        "NOTICES/rice.txt" => write(work, "COPYING.rice", "Rice's license\n")
+      ), framework_notices: FRAMEWORK_NOTICES)
+      error = assert_raises(PackageCheck::Failure) { native.build(work) }
+
+      assert_includes error.message, "arm64-darwin.gem built with warnings:\nWARNING:  no homepage specified"
+    end
+  end
+
   def test_a_framework_without_a_notice_stops_the_build
     in_tree do |work|
       error = assert_raises(PackageCheck::Failure) { self.class.native_gem(work, framework_notices: {}).build(work) }

@@ -153,13 +153,17 @@ class NativeGem
   end
 
   # Builds the package as gem build does, keeping what RubyGems prints for
-  # a failure, as PackageCheck keeps gem build's output.
+  # a failure, as PackageCheck keeps gem build's output, and failing on a
+  # warning, as PackageCheck fails on gem build's.
   private def package(spec, stage, work)
     output = File.join(work, spec.file_name)
     messages = StringIO.new
     Gem::DefaultUserInteraction.use_ui(Gem::StreamUI.new(StringIO.new, messages, messages, false)) do
       Dir.chdir(stage) { Gem::Package.build(spec, false, false, output) }
     end
+    warnings = PackageCheck.warnings(messages.string)
+    raise PackageCheck::Failure, "#{spec.file_name} built with warnings:\n#{warnings.join("\n")}" if warnings.any?
+
     output
   rescue Gem::InvalidSpecificationException, Gem::Package::Error => e
     raise PackageCheck::Failure, "#{spec.file_name} did not build: #{e.message}\n#{messages.string}"

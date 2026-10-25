@@ -84,6 +84,40 @@ class RakeTasksTest < Minitest::Test
     assert_predicate bundle, :needed?
   end
 
+  # CI's delivery job runs on a runner with the gem the gate job built and
+  # no engine build, so delivering builds nothing.
+  def test_delivering_a_built_gem_builds_nothing
+    assert_empty prerequisites("package:deliver")
+  end
+
+  # Plan 001's "Done when": the installed gem runs Lövetest's translated
+  # love.test.graphics.clear, and every test it runs passes.
+  def test_delivery_runs_lovetest_from_the_installed_gem
+    lovetest = packages.first.games.find { |game| game.folder == "test/lovetest/game" }
+
+    assert_equal ["minitest"], lovetest.gems
+    assert_equal 0, lovetest.status
+    assert_match lovetest.output, "love.conf\n...\n1 runs, 256 assertions, 0 failures, 0 errors, 0 skips\n"
+    refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
+    refute_match lovetest.output, "love.conf\n1 runs, 3 assertions, 1 failures, 0 errors, 0 skips\n"
+  end
+
+  def test_the_lint_gate_checks_the_workflows
+    assert_includes prerequisites("lint:all"), "workflows"
+  end
+
+  # actionlint passes without shellcheck, so the task refuses to run
+  # without it.
+  def test_checking_the_workflows_needs_shellcheck
+    path = ENV.fetch("PATH")
+    ENV["PATH"] = File.join(ROOT, "no-such-directory")
+    _, err = capture_io { assert_raises(SystemExit) { Rake::Task["lint:workflows"].tap(&:reenable).invoke } }
+
+    assert_includes err, "lint:workflows needs shellcheck on PATH"
+  ensure
+    ENV["PATH"] = path
+  end
+
   def test_what_loads_the_extension_compiles_it_first
     %w[test:ruby rbs:parity package:check package:install package:native].each do |name|
       assert_includes prerequisites(name), "compile", name

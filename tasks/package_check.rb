@@ -26,10 +26,16 @@ require "tmpdir"
 # precompiled gem (NativeGem) carries the compiled bundle and the
 # frameworks it loads.
 #
-# Fast mode (the default gate) unpacks the precompiled gem and loads it
-# from there. Full mode installs it into an empty GEM_HOME that sees no
-# other installed gem, then runs the lota executable RubyGems wrote: lota
-# --version, and lota run on a game that opens a window.
+# Fast mode unpacks the precompiled gem and loads it from there. Delivery
+# takes a precompiled gem already built, by rake package:native here or by
+# CI's gate job on another runner, installs it into an empty GEM_HOME that
+# sees no other installed gem, then runs the lota executable RubyGems
+# wrote: lota --version, and lota run on each of the target's games, with
+# Lota loaded only from the installed gem.
+#
+# gem build and Gem::Package.build still build a gemspec they warn about,
+# such as one with no homepage, so every check fails on a warning either
+# prints.
 class PackageCheck
   # One gem to check.
   #
@@ -45,8 +51,8 @@ class PackageCheck
   # [refusal] Text the source gem's gem install stops with.
   # [smoke] Ruby source that exercises the gem. ARGV[0] is the gem's
   #   directory.
-  # [game] The Game that full mode runs with lota run.
-  class Target < Data.define(:name, :dir, :packaged, :native_packaged, :extension, :native, :refusal, :smoke, :game)
+  # [games] The Games that delivery runs with lota run.
+  class Target < Data.define(:name, :dir, :packaged, :native_packaged, :extension, :native, :refusal, :smoke, :games)
     # The gemspec file name.
     def gemspec
       "#{name}.gemspec"
@@ -58,9 +64,20 @@ class PackageCheck
     end
   end
 
-  # A game folder for lota run: its files (name to source), the arguments
-  # it runs with, and the output and exit status it ends with.
-  class Game < Data.define(:files, :arguments, :output, :status); end
+  # A game for lota run.
+  #
+  # [name] What the check calls it.
+  # [folder] The game's folder, relative to the repository, or nil for one
+  #   the check writes from +files+.
+  # [files] Each file's name to its source, when +folder+ is nil.
+  # [gems] The gems the game requires besides Lota, which the check
+  #   installs beside it from the .gem files this machine installed them
+  #   from, with what they depend on.
+  # [arguments] What lota run passes the game.
+  # [output] What the game prints, matched against everything but dyld's
+  #   lines.
+  # [status] The exit status it ends with.
+  class Game < Data.define(:name, :folder, :files, :gems, :arguments, :output, :status); end
 
   # The directory a framework's signature covers, the version its @rpath
   # install name names (NativeGem::VERSION).
@@ -68,6 +85,12 @@ class PackageCheck
 
   # Raised when a check fails; the message says what to fix.
   class Failure < StandardError; end
+
+  # How RubyGems starts each warning it prints (Gem::StreamUI#alert_warning).
+  WARNING = /^WARNING: /
+
+  # How lota run's guard (#guard) reports where Lota loaded from.
+  LOADED_FROM = /^lota-package-check: lota loaded from (.+)$/
 
   # Unsets what Bundler and the repository put in a child's environment.
   UNBUNDLED = %w[BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLER_SETUP BUNDLER_VERSION RUBYOPT RUBYLIB]
@@ -114,14 +137,20 @@ class PackageCheck
     end
   end
 
-  # Installs each precompiled gem into an empty GEM_HOME, then runs its
-  # executable and its smoke script from there.
-  def full
+  # Installs each precompiled gem, from the .gem +files+ already built,
+  # into an empty GEM_HOME, then runs its executable and its smoke script
+  # from there. Each package is checked for missing and development files
+  # first, as a build here is.
+  def deliver(files)
+    packages = precompiled(files)
     Dir.mktmpdir("lota-package") do |work|
       work = File.realpath(work)
       home = File.join(work, "gems")
       env = isolated_env(home)
-      @gems.each { |gem| install(gem, build_native(gem, work), env, work) }
+      @gems.each do |gem|
+        verify_files(gem, unpack(packages.fetch(gem), work), gem.packaged + gem.native_packaged)
+        install(gem, packages.fetch(gem), env, work)
+      end
       installed = @gems.to_h { |gem| [gem, Dir.glob(File.join(home, "gems", "#{gem.name}-*")).first] }
       installed.each do |gem, dir|
         verify_native(gem, dir, where: "installed")
@@ -129,6 +158,12 @@ class PackageCheck
       end
       smoke(env:, load_paths: [], gem_dirs: installed)
     end
+  end
+
+  # The warnings in what RubyGems printed while building a gem, one line
+  # each.
+  def self.warnings(output)
+    output.lines.grep(WARNING).map(&:chomp)
   end
 
   # Packaged paths that fall outside +allowed+.
@@ -179,6 +214,39 @@ class PackageCheck
     output.scan(/^dyld\[\d+\]: <[\h-]+> (.+)$/).flatten
   end
 
+  # A script lota run loads first (ruby -r), which, as the game exits,
+  # prints where lota.rb loaded from, and fails the run if anything loaded
+  # from +root+'s lib/, where rake compile also puts the bundle. A game in
+  # the repository loads its own files from there, so the rest of the
+  # repository may load.
+  def self.guard(root)
+    libs = [root, File.realpath(root)].uniq.map { |dir| File.join(dir, "lib", "") }
+    <<~RUBY
+      at_exit do
+        lota = $LOADED_FEATURES.find { |feature| feature.end_with?("/lota.rb") }
+        puts "lota-package-check: lota loaded from \#{lota || "nowhere"}"
+        leaked = $LOADED_FEATURES.select { |feature| feature.start_with?(*#{libs.inspect}) }
+        abort "lota run loaded files from the repository's lib/: \#{leaked.join(", ")}" if leaked.any?
+      end
+    RUBY
+  end
+
+  # What lota run's +output+ shows loaded from outside the GEM_HOME
+  # +home+: Lota itself, as the guard reports it, and the bundle and each
+  # framework that is not macOS's own (from /System), as dyld reports
+  # them. A run that loaded no framework at all is reported too.
+  def self.outside(output, home)
+    installed = File.join(File.realpath(home), "")
+    lota = output[LOADED_FROM, 1] || "nowhere the guard reported"
+    loaded = dyld_loaded(output)
+    frameworks = loaded.grep(%r{\.framework/}).reject { |path| path.start_with?("/System/") }
+    native = loaded.grep(%r{/lota/native\.bundle\z})
+    problems = (["Lota from #{lota}"] if !lota.start_with?(installed)).to_a
+    problems << "no framework at all" if frameworks.empty?
+    problems << "no lota/native bundle at all" if native.empty?
+    problems + (frameworks + native).reject { |path| path.start_with?(installed) }
+  end
+
   # Runs otool, which macOS's command-line tools provide.
   def self.otool(*arguments)
     output, status = Open3.capture2e("otool", *arguments)
@@ -199,8 +267,35 @@ class PackageCheck
 
   private def build(gem, work)
     output = File.join(work, "#{gem.name}.gem")
-    run!(UNBUNDLED, Gem.ruby, "-S", "gem", "build", gem.gemspec, "--output", output, chdir: File.join(@root, gem.dir))
+    printed = run!(UNBUNDLED, Gem.ruby, "-S", "gem", "build", gem.gemspec, "--output", output,
+      chdir: File.join(@root, gem.dir))
+    warnings = self.class.warnings(printed)
+    raise Failure, "gem build #{gem.gemspec} warned:\n#{warnings.join("\n")}" if warnings.any?
+
     output
+  end
+
+  # Each gem's package in +files+, which must hold a precompiled gem for
+  # every gem and nothing else.
+  private def precompiled(files)
+    specs = files.to_h { |file| [File.expand_path(file), spec_of(file)] }
+    unknown = specs.reject { |_, spec| @gems.any? { |gem| gem.name == spec.name } }.keys
+    raise Failure, "not gems this repository publishes:\n#{list(unknown)}" if unknown.any?
+
+    @gems.to_h do |gem|
+      file, spec = specs.find { |_, given| given.name == gem.name }
+      raise Failure, "no precompiled gem given for #{gem.name}" unless file
+      raise Failure, "#{File.basename(file)} is #{gem.name}'s source gem; give its precompiled gem" if
+        spec.platform == Gem::Platform::RUBY
+
+      [gem, file]
+    end
+  end
+
+  private def spec_of(file)
+    Gem::Package.new(file).spec
+  rescue Gem::Package::Error => e
+    raise Failure, "#{file} is not a gem: #{e.message}"
   end
 
   private def build_native(gem, work)
@@ -282,36 +377,91 @@ class PackageCheck
   end
 
   # Runs the installed executable as a player's shell would: lota
-  # --version, then lota run on the target's game, with dyld reporting
-  # what it loads.
+  # --version, then lota run on each of the target's games, with dyld
+  # reporting what it loads.
   private def run_executable(gem, home, env, work)
     lota = File.join(home, "bin", gem.name)
     version = run!(env, Gem.ruby, lota, "--version", chdir: work)
     @out.puts "✅ #{gem.name} --version: #{version.strip}"
 
-    folder = File.join(work, "game")
-    FileUtils.mkdir_p(folder)
-    gem.game.files.each { |name, source| File.write(File.join(folder, name), source) }
-    output, status = Open3.capture2e(env.merge("DYLD_PRINT_LIBRARIES" => "1"), Gem.ruby, lota, "run", folder,
-      *gem.game.arguments, chdir: work)
-    verify_game(gem, home, output, status)
+    guard = guard(work)
+    gem.games.each do |game|
+      install_dependencies(game, env, work)
+      output, status = Open3.capture2e(env.merge("DYLD_PRINT_LIBRARIES" => "1"), Gem.ruby, "-r", guard, lota, "run",
+        game_folder(game, work), *game.arguments, chdir: work)
+      verify_game(game, home, output, status)
+    end
   end
 
-  private def verify_game(gem, home, output, status)
-    loaded = self.class.dyld_loaded(output)
-    printed = output.lines.grep_v(/^dyld\[\d+\]: /).join
-    unless status.exitstatus == gem.game.status && printed == gem.game.output
-      raise Failure, "lota run exited #{status.inspect}, expected #{gem.game.status}, and printed:\n#{printed}"
+  private def game_folder(game, work)
+    return File.join(@root, game.folder) if game.folder
+
+    folder = File.join(work, "games", game.name)
+    FileUtils.mkdir_p(folder)
+    game.files.each { |name, source| File.write(File.join(folder, name), source) }
+    folder
+  end
+
+  private def guard(work)
+    path = File.join(work, "guard.rb")
+    File.write(path, self.class.guard(@root))
+    path
+  end
+
+  # Installs the gems +game+ requires, and what they depend on, into the
+  # GEM_HOME Lota went into. gem install's resolver does not see Ruby's
+  # default gems from an isolated GEM_PATH, though require does, so each
+  # package installs without resolving, and a dependency a default gem
+  # satisfies is left to the default gem; the game's run proves the set
+  # loads.
+  private def install_dependencies(game, env, work)
+    return if game.gems.empty?
+
+    packages = dependency_packages(game.gems).values
+    run!(env, Gem.ruby, "-S", "gem", "install", "--norc", "--local", "--no-document", "--ignore-dependencies",
+      "--install-dir", env.fetch("GEM_HOME"), *packages, chdir: work)
+    @out.puts "✅ #{game.name}: installed #{packages.map { |package| File.basename(package) }.join(', ')}"
+  end
+
+  # Each gem +names+ needs, and each it depends on that no default gem of
+  # this Ruby satisfies, by name, with the .gem file this machine installed
+  # it from.
+  private def dependency_packages(names, packages = {})
+    names.each do |name|
+      next if packages.key?(name)
+
+      spec = Gem::Specification.find_by_name(name)
+      raise Failure, "#{spec.full_name} is installed without its .gem file, #{spec.cache_file}" unless
+        File.file?(spec.cache_file)
+
+      packages[name] = spec.cache_file
+      needed = spec.runtime_dependencies.reject { |dependency| default_gem?(dependency) }
+      dependency_packages(needed.map(&:name), packages)
+    end
+    packages
+  end
+
+  # Whether a gem that comes with this Ruby satisfies +dependency+, so
+  # every Ruby has it and nothing needs installing.
+  private def default_gem?(dependency)
+    Dir.glob(File.join(Gem.default_specifications_dir, "#{dependency.name}-*.gemspec")).any? do |file|
+      spec = Gem::Specification.load(file)
+      spec&.name == dependency.name && dependency.requirement.satisfied_by?(spec.version)
+    end
+  end
+
+  private def verify_game(game, home, output, status)
+    printed = output.lines.grep_v(/^dyld\[\d+\]: /).grep_v(LOADED_FROM).join
+    unless status.exitstatus == game.status && game.output.match?(printed)
+      raise Failure, "lota run #{game.name} exited #{status.inspect}, expected #{game.status}, and printed:\n#{printed}"
     end
 
-    # macOS's own frameworks load from /System; any other comes with the gem.
-    frameworks = loaded.grep(%r{\.framework/}).reject { |path| path.start_with?("/System/") }
-    outside = frameworks.reject { |path| path.start_with?(File.join(File.realpath(home), "")) }
-    raise Failure, "lota run loaded no framework from the gem" if frameworks.empty?
-    raise Failure, "lota run loaded frameworks from outside the gem:\n#{list(outside)}" if outside.any?
+    outside = self.class.outside(output, home)
+    raise Failure, "lota run #{game.name} loaded from outside the installed gem:\n#{list(outside)}" if outside.any?
 
-    @out.puts "✅ lota run: exited #{status.exitstatus}, with #{frameworks.map { |path| File.basename(path) }.join(', ')} " \
-      "loaded from the installed gem"
+    frameworks = self.class.dyld_loaded(output).grep(%r{\.framework/}).reject { |path| path.start_with?("/System/") }
+    @out.puts "✅ lota run #{game.name}: exited #{status.exitstatus}, with Lota and " \
+      "#{frameworks.map { |path| File.basename(path) }.join(', ')} loaded from the installed gem"
   end
 
   # Runs each gem's smoke script in a process that sees only the packages.

@@ -15,12 +15,15 @@ Gem::Specification.new do |spec|
 
   spec.summary = "An independent Ruby library for 2D games, built on a modified version of LÖVE's engine."
   spec.description = File.read(File.expand_path("README.rdoc", __dir__))
+  spec.homepage = "https://github.com/setdef/lota"
   spec.license = "AGPL-3.0-or-later"
   spec.required_ruby_version = ">= 4.0.1"
   spec.required_rubygems_version = ">= 3.3.11"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["rubygems_mfa_required"] = "true"
+  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/trunk/CHANGELOG.md"
 
   # Ship what an installed game loads, and the sources of the extension,
   # which the precompiled gem also carries compiled (tasks/native_gem.rb).
