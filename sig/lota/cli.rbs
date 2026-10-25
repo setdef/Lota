@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module CLI
+    COMMANDS: Hash[String, singleton(Commands::Run)]
+
+    def self.call: (Array[String] argv) -> void
+
+    def self.usage: () -> String
+
+    module Commands
+      module Run
+        def self.call: (Array[String] argv) -> void
+
+        private def self.usage: () -> String
+
+        private def self.run_game: (String? path, Array[String] arguments) -> bot
+      end
+    end
+  end
+end

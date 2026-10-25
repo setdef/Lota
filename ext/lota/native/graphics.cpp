@@ -15,6 +15,9 @@
 #include "image/ImageData.h"
 
 #include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace lota::native {
 
@@ -47,12 +50,92 @@ void open() {
   }
 }
 
+// Whether the module is open, as boot.lua and callbacks.lua ask with
+// "if love.graphics".
+bool is_open() {
+  require_main_thread(MODULE);
+  return love::Module::getInstance<Graphics>(love::Module::M_GRAPHICS) != nullptr;
+}
+
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
 //
 // Ported from LÖVE's C++, as cited below, and changed to take its
 // arguments from Rice instead of a lua_State.
+
+// w__setGammaCorrect, w__setLowPowerPreferred, w__getDefaultRenderers, and
+// w__setRenderers (vendor/love/src/modules/love/love.cpp:354-437), which
+// boot.lua calls before the module opens. Renderers go by their names in
+// graphics/Graphics.cpp:3021-3027; setRenderers skips a name it does not
+// know, as w__setRenderers does.
+void set_gamma_correct(bool gamma_correct) {
+  require_main_thread(MODULE);
+  love::graphics::setGammaCorrect(gamma_correct);
+}
+
+void set_low_power_preferred(bool preferred) {
+  require_main_thread(MODULE);
+  love::graphics::setLowPowerPreferred(preferred);
+}
+
+Rice::Array default_renderers() {
+  require_main_thread(MODULE);
+  Rice::Array names;
+  for (const love::graphics::Renderer renderer : love::graphics::getDefaultRenderers()) {
+    const char *name = nullptr;
+    if (love::graphics::getConstant(renderer, name)) {
+      names.push(std::string(name), false);
+    }
+  }
+  return names;
+}
+
+// The names arrive as a Ruby Array of Strings: a std::vector parameter
+// would make Rice define a Ruby class for it, and Rice converts an Array
+// only by value, which this function then owns.
+void set_renderers(Rice::Array names) {
+  require_main_thread(MODULE);
+  const Rice::Array list = std::move(names);
+  std::vector<love::graphics::Renderer> renderers;
+  for (const auto item : list) {
+    const std::string name = Rice::String(item.value()).str();
+    love::graphics::Renderer renderer = love::graphics::RENDERER_NONE;
+    if (love::graphics::getConstant(name.c_str(), renderer)) {
+      renderers.push_back(renderer);
+    }
+  }
+  love::graphics::setRenderers(renderers);
+}
+
+// w_isActive (wrap_Graphics.cpp:189-193): whether there is a window, a
+// context, and the module is active (Graphics.cpp:814-820).
+bool is_active() { return graphics().isActive(); }
+
+// w_origin (wrap_Graphics.cpp:3965-3969).
+void origin() { graphics().origin(); }
+
+// w_getBackgroundColor (wrap_Graphics.cpp:2553-2561): red, green, blue,
+// and alpha, each widened from float as Lua's numbers are.
+Rice::Array background_color() {
+  const love::Colorf color = graphics().getBackgroundColor();
+  Rice::Array components;
+  components.push(static_cast<double>(color.r), false);
+  components.push(static_cast<double>(color.g), false);
+  components.push(static_cast<double>(color.b), false);
+  components.push(static_cast<double>(color.a), false);
+  return components;
+}
+
+// w_present (wrap_Graphics.cpp:177-181). Lota takes no screenshots yet,
+// so no screenshot callback waits for the frame.
+void present() { graphics().present(nullptr); }
+
+// w_getWidth and w_getHeight (wrap_Graphics.cpp:207-217): the size of the
+// window in units of its DPI scale.
+int width() { return graphics().getWidth(); }
+
+int height() { return graphics().getHeight(); }
 
 // w_newCanvas with no settings table (wrap_Graphics.cpp:873-913): a 2D
 // render target, as large as the window unless told otherwise, at the
@@ -128,6 +211,19 @@ void define_graphics(const Rice::Module &native) {
 
   Rice::define_module_under(native, "Graphics")
       .define_singleton_function("open", &open)
+      .define_singleton_function("open?", &is_open)
+      .define_singleton_function("set_gamma_correct", &set_gamma_correct,
+                                 Rice::Arg("gamma_correct"))
+      .define_singleton_function("set_low_power_preferred", &set_low_power_preferred,
+                                 Rice::Arg("preferred"))
+      .define_singleton_function("default_renderers", &default_renderers)
+      .define_singleton_function("set_renderers", &set_renderers, Rice::Arg("names"))
+      .define_singleton_function("active?", &is_active)
+      .define_singleton_function("origin", &origin)
+      .define_singleton_function("background_color", &background_color)
+      .define_singleton_function("present", &present)
+      .define_singleton_function("width", &width)
+      .define_singleton_function("height", &height)
       .define_singleton_function("new_canvas", &new_canvas, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Return().takeOwnership())
       .define_singleton_function("set_canvas", &set_canvas, Rice::Arg("texture"))

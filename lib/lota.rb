@@ -38,3 +38,88 @@ at_exit { Lota::Native.drain_release_queue }
 require_relative "lota/filesystem"
 require_relative "lota/image"
 require_relative "lota/graphics"
+require_relative "lota/timer"
+require_relative "lota/event"
+require_relative "lota/window"
+require_relative "lota/settings"
+require_relative "lota/callbacks"
+require_relative "lota/boot"
+
+# The lowercase spelling of each module, so that a LÖVE tutorial's
+# love.graphics becomes lota.graphics and nothing else changes (ADR 003,
+# section 4). Lota::Graphics remains the idiomatic spelling.
+module Lota
+  # Lota::Filesystem, as love.filesystem.
+  #
+  # === Example
+  #
+  #   lota.filesystem # => Lota::Filesystem
+  def self.filesystem
+    Filesystem
+  end
+
+  # Lota::Image, as love.image.
+  #
+  # === Example
+  #
+  #   lota.image # => Lota::Image
+  def self.image
+    Image
+  end
+
+  # Lota::Graphics, as love.graphics.
+  #
+  # === Example
+  #
+  #   lota.graphics.clear(0, 0, 0)
+  def self.graphics
+    Graphics
+  end
+
+  # Lota::Timer, as love.timer.
+  #
+  # === Example
+  #
+  #   dt = lota.timer.step
+  def self.timer
+    Timer
+  end
+
+  # Lota::Event, as love.event.
+  #
+  # === Example
+  #
+  #   lota.event.quit
+  def self.event
+    Event
+  end
+
+  # Lota::Window, as love.window.
+  #
+  # === Example
+  #
+  #   lota.window.title = "Asteroids"
+  def self.window
+    Window
+  end
+end
+
+# Ruby's Kernel, to which Lota adds one private method, +lota+.
+module Kernel
+  # Lota, from anywhere, as LÖVE's love table is everywhere in a LÖVE
+  # game (ADR 003, section 4).
+  #
+  # It is private, as +puts+ and +require+ are, so it adds no method to
+  # any object's public interface.
+  #
+  # === Examples
+  #
+  #   def lota.update(dt)
+  #     @x += 100 * dt
+  #   end
+  #
+  #   lota.graphics.clear(0, 0, 0)
+  private def lota
+    Lota
+  end
+end

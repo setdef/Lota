@@ -13,6 +13,36 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 
 Lota is a plan, not yet a gem you can install. Contributors start with [ADR 001](doc/contributors/adr/001.md), which records what Lota is and why, and [Plan 001](doc/contributors/plan/001.md), which orders the work.
 
+## Running a game
+
+A Lota game is a folder, as a LÖVE game is ([ADR 003](doc/contributors/adr/003.md)). `main.rb` defines the game's callbacks as methods on `Lota`, and an optional `conf.rb` changes its settings before the window opens:
+
+```ruby
+# conf.rb
+def Lota.conf(t)
+  t.window.title = "My Game"
+  t.window.width = 640
+  t.window.height = 480
+end
+
+# main.rb
+def Lota.load
+  @x = 0
+end
+
+def Lota.update(dt)
+  @x = (@x + 120 * dt) % Lota::Graphics.width
+end
+
+def Lota.keypressed(key)
+  Lota::Event.quit if key == :escape
+end
+```
+
+Run it with `lota run path/to/game`, or `lota run` from inside the folder. Arguments after the folder reach `Lota.load`. Lota opens the modules and the window your settings ask for, in the order LÖVE's `boot.lua` does, then runs `Lota.run`, translated from `love.run`: each frame handles queued events, calls `update(dt)`, clears the window to the background color, calls `draw`, and shows the result. Every callback is optional, and each receives only as many of LÖVE's arguments as it declares. `lota` is always there, so `lota.graphics` and `def lota.update(dt)` read as a LÖVE tutorial's `love.graphics` and `function love.update(dt)` do.
+
+An error in your game ends the program with Ruby's own backtrace. LÖVE draws an error screen instead; Lota's has not been designed yet.
+
 ## Development
 
 Clone with submodules. `vendor/love` holds the LÖVE source Lota builds against, and `vendor/love-apple-dependencies` holds the prebuilt libraries LÖVE links on macOS (SDL3, FreeType, HarfBuzz, OpenAL Soft, and the rest):

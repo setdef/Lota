@@ -1,0 +1,142 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Settings
+    type renderer_names = Array[Symbol | String]
+
+    class Window
+      attr_accessor width: Integer
+
+      attr_accessor height: Integer
+
+      attr_accessor x: Integer?
+
+      attr_accessor y: Integer?
+
+      attr_accessor minwidth: Integer
+
+      attr_accessor minheight: Integer
+
+      attr_accessor fullscreen: bool
+
+      attr_accessor fullscreentype: Symbol | String
+
+      attr_accessor displayindex: Integer
+
+      attr_accessor vsync: Integer | bool
+
+      attr_accessor msaa: Integer
+
+      attr_accessor borderless: bool
+
+      attr_accessor resizable: bool
+
+      attr_accessor centered: bool
+
+      attr_accessor usedpiscale: bool
+
+      attr_accessor title: String?
+
+      attr_accessor stencil: bool?
+
+      attr_accessor depth: bool?
+
+      def initialize: () -> void
+    end
+
+    class Graphics
+      attr_accessor gammacorrect: bool
+
+      attr_accessor lowpower: bool
+
+      attr_accessor renderers: renderer_names?
+
+      attr_accessor excluderenderers: renderer_names?
+
+      def initialize: () -> void
+    end
+
+    class Modules
+      attr_accessor data: bool
+
+      attr_accessor event: bool
+
+      attr_accessor keyboard: bool
+
+      attr_accessor mouse: bool
+
+      attr_accessor timer: bool
+
+      attr_accessor joystick: bool
+
+      attr_accessor touch: bool
+
+      attr_accessor image: bool
+
+      attr_accessor graphics: bool
+
+      attr_accessor audio: bool
+
+      attr_accessor math: bool
+
+      attr_accessor physics: bool
+
+      attr_accessor sensor: bool
+
+      attr_accessor sound: bool
+
+      attr_accessor system: bool
+
+      attr_accessor font: bool
+
+      attr_accessor thread: bool
+
+      attr_accessor window: bool
+
+      attr_accessor video: bool
+
+      def initialize: () -> void
+    end
+
+    class Audio
+      attr_accessor mixwithsystem: bool
+
+      attr_accessor mic: bool
+
+      def initialize: () -> void
+    end
+
+    attr_accessor title: String
+
+    attr_accessor version: String
+
+    attr_accessor window: Window | false | nil
+
+    attr_accessor graphics: Graphics | false | nil
+
+    attr_accessor modules: Modules
+
+    attr_accessor audio: Audio | false | nil
+
+    attr_accessor console: bool
+
+    attr_accessor identity: String | false
+
+    attr_accessor appendidentity: bool
+
+    attr_accessor externalstorage: bool
+
+    attr_accessor gammacorrect: bool?
+
+    attr_accessor highdpi: bool
+
+    attr_accessor renderers: renderer_names?
+
+    attr_accessor excluderenderers: renderer_names?
+
+    attr_accessor trackpadtouch: bool
+
+    def initialize: () -> void
+  end
+end

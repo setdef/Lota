@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "../test_helper"
 require_relative "lovetest_helper"
 
 # Lovetest::TestMethod#compare_img fails a test whose image differs from

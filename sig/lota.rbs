@@ -2,4 +2,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 module Lota
+  extend DefaultCallbacks
+
+  def self.filesystem: () -> singleton(Filesystem)
+
+  def self.image: () -> singleton(Image)
+
+  def self.graphics: () -> singleton(Graphics)
+
+  def self.timer: () -> singleton(Timer)
+
+  def self.event: () -> singleton(Event)
+
+  def self.window: () -> singleton(Window)
+end
+
+module Kernel
+  private def lota: () -> singleton(Lota)
 end

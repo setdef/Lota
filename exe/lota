@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+# Runs Lota's command-line interface: lota run [PATH] [ARGUMENTS...]
+# runs the game in the folder PATH, or in the current directory, as
+# love path/to/game runs a LÖVE game. See Lota::CLI.
+require "lota/cli"
+Lota::CLI.call(ARGV)

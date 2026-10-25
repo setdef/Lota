@@ -3,6 +3,8 @@
 
 module Lota
   module Native
+    VERSION: String
+
     def self.drain_release_queue: () -> Integer
 
     def self.queued_releases: () -> Integer
@@ -50,13 +52,37 @@ module Lota
 
       def initialize: () -> void
 
+      attr_accessor fullscreen: bool
+
+      def set_fullscreentype: (String name) -> bool
+
+      attr_accessor vsync: Integer
+
+      attr_accessor msaa: Integer
+
       attr_accessor stencil: bool
 
       attr_accessor depth: bool
 
       attr_accessor resizable: bool
 
+      attr_accessor minwidth: Integer
+
+      attr_accessor minheight: Integer
+
+      attr_accessor borderless: bool
+
+      attr_accessor centered: bool
+
+      attr_accessor displayindex: Integer
+
       attr_accessor usedpiscale: bool
+
+      attr_accessor useposition: bool
+
+      attr_accessor x: Integer
+
+      attr_accessor y: Integer
     end
 
     module Filesystem
@@ -69,20 +95,74 @@ module Lota
       def self.new_image_data: (Data data) -> ImageData
     end
 
+    module Timer
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.step: () -> Float
+
+      def self.sleep: (Float | Integer seconds) -> nil
+    end
+
     module Event
       def self.open: () -> nil
 
-      def self.pump: () -> nil
+      def self.open?: () -> bool
+
+      def self.pump: (?(Float | Integer) wait_timeout) -> nil
+
+      def self.poll: () -> Array[String | Float | Integer | bool | nil]?
+
+      def self.quit: (?Float? exit_status) -> bool
+    end
+
+    module Keyboard
+      def self.open: () -> nil
+    end
+
+    module Touch
+      def self.set_trackpad_touch: (bool enable) -> nil
     end
 
     module Window
       def self.open: () -> nil
 
-      def self.set_mode: (Integer width, Integer height, WindowSettings settings) -> bool
+      def self.set_mode: (Integer width, Integer height, WindowSettings? settings) -> bool
+
+      def self.fullscreen_types: () -> Array[String]
+
+      def self.set_title: (String title) -> nil
+
+      def self.title: () -> String
+
+      def self.set_high_dpi_allowed: (bool enable) -> nil
     end
 
     module Graphics
       def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.set_gamma_correct: (bool gamma_correct) -> nil
+
+      def self.set_low_power_preferred: (bool preferred) -> nil
+
+      def self.default_renderers: () -> Array[String]
+
+      def self.set_renderers: (Array[String] names) -> nil
+
+      def self.active?: () -> bool
+
+      def self.origin: () -> nil
+
+      def self.background_color: () -> Array[Float]
+
+      def self.present: () -> nil
+
+      def self.width: () -> Integer
+
+      def self.height: () -> Integer
 
       def self.new_canvas: (Integer? width, Integer? height) -> Texture
 

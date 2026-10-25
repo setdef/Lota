@@ -55,6 +55,18 @@ class MainThreadTest < Minitest::Test
       "readback_texture" => -> { Lota::Graphics.readback_texture(texture) },
       "canvas?" => -> { texture.canvas? },
       "open" => -> { Lota::Native::Graphics.open },
+      "open?" => -> { Lota::Native::Graphics.open? },
+      "set_gamma_correct" => -> { Lota::Native::Graphics.set_gamma_correct(false) },
+      "set_low_power_preferred" => -> { Lota::Native::Graphics.set_low_power_preferred(false) },
+      "default_renderers" => -> { Lota::Native::Graphics.default_renderers },
+      "set_renderers" => -> { Lota::Native::Graphics.set_renderers(["metal"]) },
+      "active?" => -> { Lota::Graphics.active? },
+      "origin" => -> { Lota::Graphics.origin },
+      "background_color" => -> { Lota::Graphics.background_color },
+      "present" => -> { Lota::Graphics.present },
+      "width" => -> { Lota::Graphics.width },
+      "height" => -> { Lota::Graphics.height },
+      "dimensions" => -> { Lota::Graphics.dimensions },
     }
 
     calls.each do |label, call|
@@ -69,6 +81,10 @@ class MainThreadTest < Minitest::Test
     calls = {
       "open" => -> { Lota::Native::Window.open },
       "set_mode" => -> { Lota::Native::Window.set_mode(360, 240, Lota::Native::WindowSettings.new) },
+      "Lota::Window.set_mode" => -> { Lota::Window.set_mode(360, 240) },
+      "title=" => -> { Lota::Window.title = "Elsewhere" },
+      "title" => -> { Lota::Window.title },
+      "set_high_dpi_allowed" => -> { Lota::Native::Window.set_high_dpi_allowed(false) },
     }
 
     calls.each do |label, call|

@@ -118,5 +118,105 @@ module Lota
     def self.readback_texture(texture)
       Image::ImageData.from_native(Native::Graphics.readback_texture(texture.native))
     end
+
+    # Whether drawing reaches the screen, matching love.graphics.isActive
+    # (src/modules/graphics/wrap_Graphics.cpp, w_isActive).
+    #
+    # The graphics module is only completely active when there is an open
+    # window, a context to draw with, and the system has not put the game in
+    # the background. Lota's loop draws a frame only while this is +true+.
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.active? # => true
+    def self.active?
+      Native::Graphics.active?
+    end
+
+    # Resets the current transformation, matching love.graphics.origin
+    # (src/modules/graphics/wrap_Graphics.cpp, w_origin).
+    #
+    # Afterward, (0, 0) is the window's top-left corner again, with no
+    # rotation or scale. Lota's loop calls it before each draw. Raises
+    # ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.origin
+    def self.origin
+      Native::Graphics.origin
+    end
+
+    # The color the loop clears the window to before each draw, as an
+    # Array of red, green, blue, and alpha, each from 0.0 to 1.0, matching
+    # love.graphics.getBackgroundColor
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getBackgroundColor).
+    #
+    # It starts as opaque black. Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   red, green, blue, alpha = Lota::Graphics.background_color # => [0.0, 0.0, 0.0, 1.0]
+    def self.background_color
+      Native::Graphics.background_color
+    end
+
+    # Shows what was drawn since the last present, matching
+    # love.graphics.present (src/modules/graphics/wrap_Graphics.cpp,
+    # w_present).
+    #
+    # Drawing goes to a hidden buffer, so the player never sees a frame
+    # half drawn; presenting swaps it onto the screen. Lota's loop presents
+    # once a frame, after your draw callback. It does nothing while the
+    # module is not active. Raises RuntimeError while a canvas is the
+    # target, and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.clear(0, 0, 0)
+    #   Lota::Graphics.present
+    def self.present
+      Native::Graphics.present
+    end
+
+    # The window's width, in units of the screen's DPI scale, matching
+    # love.graphics.getWidth (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getWidth).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.width # => 800
+    def self.width
+      Native::Graphics.width
+    end
+
+    # The window's height, in units of the screen's DPI scale, matching
+    # love.graphics.getHeight (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getHeight).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.height # => 600
+    def self.height
+      Native::Graphics.height
+    end
+
+    # The window's width and height, as an Array, matching
+    # love.graphics.getDimensions (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getDimensions).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   width, height = Lota::Graphics.dimensions # => [800, 600]
+    def self.dimensions
+      [Native::Graphics.width, Native::Graphics.height]
+    end
   end
 end

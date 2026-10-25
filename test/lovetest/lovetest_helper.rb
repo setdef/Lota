@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require "minitest"
 require_relative "../engine_helper"
 
 # Lövetest, LÖVE's own test suite (vendor/love/testing), translated to Ruby

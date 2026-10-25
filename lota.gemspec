@@ -28,6 +28,7 @@ Gem::Specification.new do |spec|
   # ext/lota/native_test) out without a deny list that every new file has to
   # remember. tasks/package.rake lists the same paths.
   packaged = %w[
+    exe
     lib
     sig
     README.rdoc
@@ -43,6 +44,8 @@ Gem::Specification.new do |spec|
   spec.files = IO.popen(["git", "ls-files", "-z", "--", *packaged], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true)
   end
+  spec.bindir = "exe"
+  spec.executables = ["lota"]
   spec.require_paths = ["lib"]
   spec.extensions = ["ext/lota/extconf.rb"]
 

@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Boot
+    MODULES: Hash[Symbol, (^() -> void)?]
+
+    @path: String?
+
+    @arguments: Array[String]
+
+    attr_reader directory: String
+
+    attr_reader settings: Settings
+
+    def initialize: (String? path, ?Array[String] arguments) -> void
+
+    def call: () -> Integer
+
+    def init: () -> void
+
+    def configure: () -> (StandardError | ScriptError)?
+
+    private def prepare_engine: () -> void
+
+    private def renderers: (Settings::Graphics? graphics) -> Array[Symbol]
+
+    private def open_modules: () -> void
+
+    private def open_window: () -> void
+
+    private def no_game_code?: () -> bool
+
+    private def conf_file: () -> String
+
+    private def main_file: () -> String
+
+    private def capture: () { () -> top } -> (StandardError | ScriptError)?
+  end
+end

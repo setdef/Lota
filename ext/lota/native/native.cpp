@@ -9,10 +9,16 @@
 #include "native/filesystem.hpp"
 #include "native/graphics.hpp"
 #include "native/image.hpp"
+#include "native/keyboard.hpp"
 #include "native/random_generator.hpp"
+#include "native/timer.hpp"
+#include "native/touch.hpp"
 #include "native/window.hpp"
 
+#include "common/version.h"
+
 #include <cstddef>
+#include <string>
 
 namespace {
 
@@ -36,9 +42,18 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_random_generator(native);
   lota::native::define_filesystem(native);
   lota::native::define_image(native);
+  lota::native::define_timer(native);
   lota::native::define_event(native);
+  lota::native::define_keyboard(native);
+  lota::native::define_touch(native);
   lota::native::define_window(native);
   lota::native::define_graphics(native);
+
+  // love._version (vendor/love/src/modules/love/love.cpp:546-547), the
+  // engine's version, which boot.lua's settings default to.
+  Rice::String version(std::string{love::VERSION});
+  version.freeze();
+  native.const_set("VERSION", version);
 
   native.define_singleton_function("drain_release_queue", &drain_release_queue)
       .define_singleton_function("queued_releases", &queued_releases);

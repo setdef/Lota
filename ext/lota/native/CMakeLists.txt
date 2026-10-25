@@ -10,8 +10,11 @@ add_library(lota_native MODULE
 	filesystem.cpp
 	graphics.cpp
 	image.cpp
+	keyboard.cpp
 	native.cpp
 	random_generator.cpp
+	timer.cpp
+	touch.cpp
 	window.cpp
 )
 if(LOTA_SANITIZE)

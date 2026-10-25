@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Event
+    def self.pump: (?(Float | Integer) wait_timeout) -> nil
+
+    def self.quit: (?(Integer | Float)? exit_status) -> bool
+  end
+end

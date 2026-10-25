@@ -14,6 +14,7 @@ PACKAGES = [
     name: "lota",
     dir: ".",
     packaged: %w[
+      exe
       lib
       sig
       README.rdoc
