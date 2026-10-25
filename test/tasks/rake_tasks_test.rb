@@ -146,12 +146,12 @@ class RakeTasksTest < Minitest::Test
   def test_engine_source_check_aborts_with_the_difference
     list = File.join(ROOT, "ext/lota/engine/sources_macos.cmake")
     committed = File.read(list)
-    File.write(list, committed.sub("\t${LOVE_DIR}/src/common/Data.cpp\n", ""))
+    File.write(list, committed.sub("\t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n", ""))
 
     task = Rake::Task["engine:sources:check"].tap(&:reenable)
     _, err = capture_io { assert_raises(SystemExit) { task.invoke } }
     assert_includes err, "❌ ext/lota/engine/sources_macos.cmake does not match vendor/love:\n" \
-      "  + \t${LOVE_DIR}/src/common/Data.cpp\n"
+      "  + \t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n"
     assert_includes err, "run `bundle exec rake engine:sources` to regenerate it"
   ensure
     File.write(list, committed) if committed

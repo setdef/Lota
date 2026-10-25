@@ -1,4 +1,6 @@
-== Make 2D Games in Ruby, on LÖVE's Engine
+== Make 2D Games in Ruby
 
-Lota runs LÖVE's own C++ engine and hands control to Ruby instead of
-Lua, so a game written with it behaves as the same game written in LÖVE.
+Lota is an independent project, not made, endorsed, or supported by the
+LÖVE Development Team. It builds a modified version of LÖVE's C++ engine
+and hands control to Ruby instead of Lua, so a game written with it
+behaves as the same game written in LÖVE.

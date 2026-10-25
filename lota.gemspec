@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["Kerrick Long"]
   spec.email = ["me@kerricklong.com"]
 
-  spec.summary = "LÖVE's 2D game engine, driven by Ruby instead of Lua."
+  spec.summary = "An independent Ruby library for 2D games, built on a modified version of LÖVE's engine."
   spec.description = File.read(File.expand_path("README.rdoc", __dir__))
   spec.license = "AGPL-3.0-or-later"
   spec.required_ruby_version = ">= 4.0.1"

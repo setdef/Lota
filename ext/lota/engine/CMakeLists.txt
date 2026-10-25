@@ -13,37 +13,37 @@ endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/sources_macos.cmake)
 
-set(LOVE_DEPS ${LOTA_ROOT}/vendor/love-apple-dependencies CACHE PATH "love-apple-dependencies checkout")
-set(LOVE_FRAMEWORKS ${LOVE_DEPS}/macOS/Frameworks)
-set(SDL3_FRAMEWORKS ${LOVE_DEPS}/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64)
+set(ENGINE_DEPS_DIR ${LOTA_ROOT}/vendor/love-apple-dependencies CACHE PATH "love-apple-dependencies checkout")
+set(ENGINE_FRAMEWORKS ${ENGINE_DEPS_DIR}/macOS/Frameworks)
+set(SDL3_FRAMEWORKS ${ENGINE_DEPS_DIR}/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64)
 # For the extensions' rpaths (cmake/LotaExtension.cmake).
-set(LOVE_FRAMEWORK_DIRS ${LOVE_FRAMEWORKS} ${SDL3_FRAMEWORKS} PARENT_SCOPE)
+set(ENGINE_FRAMEWORK_DIRS ${ENGINE_FRAMEWORKS} ${SDL3_FRAMEWORKS} PARENT_SCOPE)
 
-add_library(love_engine STATIC ${LOVE_ENGINE_SOURCES})
+add_library(lota_engine STATIC ${ENGINE_SOURCES})
 
 # Consumers see LÖVE's headers as system headers, so Lota's -Werror never
 # fires on a warning in LÖVE's code.
-set_target_properties(love_engine PROPERTIES SYSTEM ON)
+set_target_properties(lota_engine PROPERTIES SYSTEM ON)
 
-target_include_directories(love_engine PUBLIC
+target_include_directories(lota_engine PUBLIC
 	# The Xcode project's HEADER_SEARCH_PATHS
 	# (platform/xcode/love.xcodeproj/project.pbxproj:576-580).
-	${LOVE_DIR}/src
-	${LOVE_DIR}/src/libraries
-	${LOVE_DIR}/src/modules
+	${ENGINE_SOURCE_DIR}/src
+	${ENGINE_SOURCE_DIR}/src/libraries
+	${ENGINE_SOURCE_DIR}/src/modules
 	# vendor/love/CMakeLists.txt:1384, for <enet/enet.h>.
-	${LOVE_DIR}/src/libraries/enet/libenet/include
+	${ENGINE_SOURCE_DIR}/src/libraries/enet/libenet/include
 	# LÖVE includes <ft2build.h> and <hb.h> without a framework prefix
 	# (src/modules/font/freetype/Font.h:28, HarfbuzzShaper.cpp:27).
-	${LOVE_FRAMEWORKS}/freetype.framework/Headers
-	${LOVE_FRAMEWORKS}/harfbuzz.framework/Headers
+	${ENGINE_FRAMEWORKS}/freetype.framework/Headers
+	${ENGINE_FRAMEWORKS}/harfbuzz.framework/Headers
 )
 
 # Framework include paths, for <SDL3/...>, <ogg/...>, <vorbis/...>,
 # <theora/...>, <libmodplug/...>, and <OpenAL-Soft/...>.
-target_compile_options(love_engine PUBLIC -F${LOVE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
+target_compile_options(lota_engine PUBLIC -F${ENGINE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
 
-target_compile_definitions(love_engine PUBLIC
+target_compile_definitions(lota_engine PUBLIC
 	# The Xcode project's GCC_PREPROCESSOR_DEFINITIONS
 	# (project.pbxproj:861); src/modules/audio/openal/*.h read it.
 	LOVE_APPLE_USE_FRAMEWORKS
@@ -51,7 +51,7 @@ target_compile_definitions(love_engine PUBLIC
 	HAS_SOCKLEN_T
 )
 
-target_compile_options(love_engine PRIVATE
+target_compile_options(lota_engine PRIVATE
 	# LÖVE's warnings are LÖVE's to fix, upstream (ADR 001, section 1).
 	-w
 	# LÖVE's Objective-C relies on ARC: the Xcode project enables it for
@@ -66,9 +66,9 @@ target_compile_options(love_engine PRIVATE
 # Where to find the frameworks at link time. Where to find them at load time
 # is each extension's rpath (cmake/LotaExtension.cmake), relative to where
 # the extension is loaded from.
-target_link_options(love_engine INTERFACE -F${LOVE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
+target_link_options(lota_engine INTERFACE -F${ENGINE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
 
-target_link_libraries(love_engine INTERFACE
+target_link_libraries(lota_engine INTERFACE
 	"-framework SDL3"
 	"-framework freetype"
 	"-framework harfbuzz"

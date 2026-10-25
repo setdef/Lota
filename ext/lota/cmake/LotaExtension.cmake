@@ -50,7 +50,7 @@ function(lota_ruby_extension target feature load_directory)
 	# target's include directories are system directories).
 	target_include_directories(${target} SYSTEM PRIVATE ${RICE_DIR}/include)
 	target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..)
-	target_link_libraries(${target} PRIVATE Ruby::Module love_engine)
+	target_link_libraries(${target} PRIVATE Ruby::Module lota_engine)
 	lota_strict_warnings(${target})
 
 	# Hidden visibility covers Lota's code and Rice's, but the engine's
@@ -64,7 +64,7 @@ function(lota_ruby_extension target feature load_directory)
 	# needs none of them at load time.
 	target_link_options(${target} PRIVATE "LINKER:-dead_strip_dylibs")
 
-	foreach(frameworks IN LISTS LOVE_FRAMEWORK_DIRS)
+	foreach(frameworks IN LISTS ENGINE_FRAMEWORK_DIRS)
 		file(RELATIVE_PATH relative ${load_directory} ${frameworks})
 		target_link_options(${target} PRIVATE "LINKER:-rpath,@loader_path/${relative}")
 	endforeach()

@@ -7,7 +7,7 @@
 
 [![Certified Shovelware](https://justin.searls.co/img/shovelware.svg)](https://justin.searls.co/shovelware/)
 
-Lota lets you make 2D games in Ruby on the engine [LÖVE](https://love2d.org) games run on. It drives LÖVE's own C++ engine from Ruby instead of Lua, so a game behaves the same in both, and a LÖVE tutorial still reads true once its calls are translated by a handful of rules.
+Lota lets you make 2D games in Ruby. It is an independent project, not made, endorsed, or supported by the LÖVE Development Team. It builds a modified version of the C++ engine that [LÖVE](https://love2d.org) games run on and drives it from Ruby instead of Lua, so a game behaves the same in both, and a LÖVE tutorial still reads true once its calls are translated by a handful of rules.
 
 The name comes from the Lota Bowl, a classic Indian magic trick: the magician empties a brass vessel, and it fills itself again, and again, as often as it is poured out. A game loop does the same, every frame.
 

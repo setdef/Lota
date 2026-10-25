@@ -53,7 +53,7 @@ class EngineSources
   COMPILED = %w[STATIC_LIBRARY SHARED_LIBRARY MODULE_LIBRARY OBJECT_LIBRARY EXECUTABLE].freeze
 
   # The variable the generated file prefixes every path with.
-  ROOT_VARIABLE = "LOVE_DIR"
+  ROOT_VARIABLE = "ENGINE_SOURCE_DIR"
 
   # Raised when CMake cannot evaluate the source tree.
   class Failure < StandardError; end
@@ -130,7 +130,7 @@ class EngineSources
 
   private def sources_block(kept)
     lines = kept.sort.map { |path| "\t${#{ROOT_VARIABLE}}/#{path}\n" }
-    "set(LOVE_ENGINE_SOURCES\n#{lines.join})\n"
+    "set(ENGINE_SOURCES\n#{lines.join})\n"
   end
 
   private def excluded_block(dropped)

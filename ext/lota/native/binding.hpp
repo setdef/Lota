@@ -30,7 +30,7 @@ namespace lota::native {
 // A LÖVE engine object: anything that counts its references with
 // love::Object (vendor/love/src/common/Object.h).
 template <typename T>
-concept LoveObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
+concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
 // engine object, from the moment Ruby wraps it until Ruby's garbage
@@ -41,7 +41,7 @@ concept LoveObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 // :58), so this destructor runs when Ruby collects the object. The reference is LÖVE's
 // own love::StrongRef, which retains or adopts as it is told and releases
 // when destroyed, exactly as LÖVE's C++ holds objects.
-template <LoveObject T> class ObjectWrapper : public Rice::detail::WrapperBase {
+template <EngineObject T> class ObjectWrapper : public Rice::detail::WrapperBase {
   static_assert(!std::is_const_v<T>,
                 "love::Object counts references in non-const retain() and release(), so "
                 "bind functions that return engine objects as non-const pointers");
@@ -90,7 +90,7 @@ namespace Rice::detail {
 // creator counted (love::Object starts at one), so the wrapper adopts it;
 // any other pointer is retained.
 template <typename T>
-  requires lota::native::LoveObject<T>
+  requires lota::native::EngineObject<T>
 class Wrapper<T *> : public lota::native::ObjectWrapper<T> {
 public:
   Wrapper(rb_data_type_t *rb_data_type, T *data, bool isOwner)
@@ -101,7 +101,7 @@ public:
 // A reference that C++ keeps (wrapReference, rice/detail/Wrapper.ipp:
 // 207-218): retained like a pointer.
 template <typename T>
-  requires lota::native::LoveObject<T>
+  requires lota::native::EngineObject<T>
 class Wrapper<T &> : public lota::native::ObjectWrapper<T> {
 public:
   Wrapper(rb_data_type_t *rb_data_type, T &data)
@@ -113,9 +113,9 @@ public:
 // out engine objects by pointer, so a binding that would copy one does not
 // compile.
 template <typename T>
-  requires lota::native::LoveObject<T>
+  requires lota::native::EngineObject<T>
 class Wrapper<T> : public WrapperBase {
-  static_assert(!lota::native::LoveObject<T>,
+  static_assert(!lota::native::EngineObject<T>,
                 "engine objects cross into Ruby by pointer, never by value or as an "
                 "owned reference; bind a function that returns T*");
 };

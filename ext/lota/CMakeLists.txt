@@ -27,7 +27,7 @@ endif()
 # Normalized, so no path CMake writes (compile_commands.json among them)
 # climbs back out of ext/ with "..".
 get_filename_component(LOTA_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../.. ABSOLUTE)
-set(LOVE_DIR ${LOTA_ROOT}/vendor/love CACHE PATH "LÖVE source checkout")
+set(ENGINE_SOURCE_DIR ${LOTA_ROOT}/vendor/love CACHE PATH "LÖVE source checkout")
 
 # rake test:native builds a second tree with LOTA_SANITIZE on. It instruments
 # everything in that tree, LÖVE's engine included, so a release or a read in
