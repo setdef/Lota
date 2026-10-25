@@ -20,6 +20,10 @@ Pre-1.0, zero external users. Prefer good design over backward compatibility; re
 
 The authority is the pinned submodule `vendor/love` (`git submodule update --init` if empty). For a function's arity, overloads, defaults, and errors, read its `wrap_*.cpp` file; for its behavior, read the C++ it calls. The LÖVE wiki and `love2d-community/love-api` mostly describe LÖVE 11; where they disagree with `vendor/love`, the source wins. For Rice, read its source at the version in `Gemfile.lock`. Never guess at a reference's contents. Cite the file and lines you ported, and add an SPDX snippet (`Zlib`) around any code or prose derived from LÖVE.
 
+## Trademarks
+
+Use "LÖVE", "LOVE", "Love2D", and LÖVE's heart logo only in ways that need no permission from their owner. Use the name only as plain text, and only where it is needed to say what Lota builds on, works with, or translates from ("builds a modified version of LÖVE's engine", "matching love.graphics.push"). Never put it in Lota's own names (project, gem, module, command, repository, domain, or product), never use the logo or LÖVE's stylized artwork, and never word anything so it suggests the LÖVE Development Team made, endorses, or supports Lota. The README carries the statement that Lota is independent.
+
 ## How to work
 
 - Research before designing: read the LÖVE source and the relevant ADR in `doc/contributors/adr/` first.
