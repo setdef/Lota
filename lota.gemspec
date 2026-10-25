@@ -50,6 +50,6 @@ Gem::Specification.new do |spec|
   # a runtime dependency (docs/packaging/packaging.md, "Header Files"):
   # RubyGems has no build-time kind, and gem install compiles the extension,
   # so the headers must be installed with the gem. Pinned exactly, because
-  # ext/lota/native/object_wrapper.hpp specializes Rice::detail::Wrapper.
+  # ext/lota/native/binding.hpp specializes Rice::detail::Wrapper.
   spec.add_dependency "rice", "4.12.0"
 end

@@ -9,6 +9,8 @@
 
 Lota lets you make 2D games in Ruby on the engine [LÖVE](https://love2d.org) games run on. It drives LÖVE's own C++ engine from Ruby instead of Lua, so a game behaves the same in both, and a LÖVE tutorial still reads true once its calls are translated by a handful of rules.
 
+The name comes from the Lota Bowl, a classic Indian magic trick: the magician empties a brass vessel, and it fills itself again, and again, as often as it is poured out. A game loop does the same, every frame.
+
 Lota is a plan, not yet a gem you can install. Contributors start with [ADR 001](doc/contributors/adr/001.md), which records what Lota is and why, and [Plan 001](doc/contributors/plan/001.md), which orders the work.
 
 ## Development
@@ -33,3 +35,5 @@ Bindings live in `ext/lota/native`. Each one includes `native/binding.hpp`, neve
 ## Copyright & License
 
 Lota is copyright 2026, Kerrick Long. The code is [AGPL-3.0-or-later](LICENSES/AGPL-3.0-or-later.txt), and the documentation is [CC-BY-SA-4.0](LICENSES/CC-BY-SA-4.0.txt). LÖVE is [Zlib](vendor/love/license.txt).
+
+Lota is an independent project. It is not made, endorsed, or supported by the LÖVE Development Team. It builds a modified version of LÖVE's engine (Zlib, © LÖVE Development Team), as described in [ADR 001](doc/contributors/adr/001.md).
