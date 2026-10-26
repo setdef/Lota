@@ -74,7 +74,7 @@ namespace :reuse do
   task :normalize_ruby do
     ruby_extensions = %w[rb rake gemspec].freeze
     ruby_files = Dir.glob("**/*.{#{ruby_extensions.join(',')}}")
-      .reject { |f| f.start_with?("vendor/", "tmp/", ".") }
+      .reject { |f| f.start_with?("vendor/", "test/fixtures/", "tmp/", ".") }
 
     fixed_count = 0
     ruby_files.each do |file|

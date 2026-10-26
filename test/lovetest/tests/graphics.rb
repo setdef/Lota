@@ -17,6 +17,30 @@ class GraphicsTest < Lovetest::TestMethod
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
   #
+  # Translated to Ruby from love.test.graphics.circle
+  # (vendor/love/testing/tests/graphics.lua:1383-1400): newCanvas becomes
+  # Canvas.new (rule 2), setCanvas and setColor writers (rules 5 and 6),
+  # the draw modes symbols (rule 9), and readbackTexture readback_texture
+  # (rule 13).
+  def test_circle
+    # draw some circles
+    canvas = Lota::Graphics::Canvas.new(32, 32)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.circle(:fill, 16, 16, 16)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.circle(:line, 16, 16, 16)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.circle(:fill, 16, 16, 8)
+    Lota::Graphics.color = 0, 1, 0, 1
+    Lota::Graphics.circle(:fill, 16, 16, 4)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
   # Translated to Ruby from love.test.graphics.clear
   # (vendor/love/testing/tests/graphics.lua:1404-1413): newCanvas becomes
   # Canvas.new (rule 2), setCanvas a writer (rule 5), and readbackTexture
@@ -26,6 +50,111 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = canvas
     Lota::Graphics.clear(0, 0, 0, 1)
     Lota::Graphics.clear(1, 1, 0, 1)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.rectangle
+  # (vendor/love/testing/tests/graphics.lua:1611-1637), by the rules
+  # test_circle names.
+  def test_rectangle
+    # setup, draw a 16x16 red rectangle with a blue central square
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.color = 0, 0, 1, 1
+    Lota::Graphics.rectangle(:fill, 6, 6, 4, 4)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata1 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata1)
+    # clear canvas to do some line testing
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:line, 1, 1, 15, 15) # red border
+    Lota::Graphics.color = 0, 0, 1, 1
+    Lota::Graphics.rectangle(:line, 1, 1, 2, 15) # 3x16 left aligned blue outline
+    Lota::Graphics.color = 0, 1, 0, 1
+    Lota::Graphics.rectangle(:line, 11, 1, 5, 15) # 6x16 right aligned green outline
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata2 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata2)
+  end
+
+  # Translated to Ruby from love.test.graphics.getColor
+  # (vendor/love/testing/tests/graphics.lua:1898-1913): getColor becomes
+  # color (rule 3), whose four values come back as an Array (rule 4), and
+  # setColor a writer of several values (rule 6).
+  def test_get_color
+    # by default should be white
+    r, g, b, a = Lota::Graphics.color
+    assert_equal(1, r, "check default color r")
+    assert_equal(1, g, "check default color g")
+    assert_equal(1, b, "check default color b")
+    assert_equal(1, a, "check default color a")
+    # check set color is returned correctly
+    Lota::Graphics.color = 0, 0, 0, 0
+    r, g, b, a = Lota::Graphics.color
+    assert_equal(0, r, "check changed color r")
+    assert_equal(0, g, "check changed color g")
+    assert_equal(0, b, "check changed color b")
+    assert_equal(0, a, "check changed color a")
+    Lota::Graphics.color = 1, 1, 1, 1 # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getLineStyle
+  # (vendor/love/testing/tests/graphics.lua:1983-1990): getLineStyle
+  # becomes line_style (rule 3) and setLineStyle a writer (rule 5), with
+  # the styles as symbols (rule 9).
+  def test_get_line_style
+    # we know this should be as testsuite sets it!
+    assert_equal(:rough, Lota::Graphics.line_style)
+    # check set value returned correctly
+    Lota::Graphics.line_style = :smooth
+    assert_equal(:smooth, Lota::Graphics.line_style)
+    Lota::Graphics.line_style = :rough # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getLineWidth
+  # (vendor/love/testing/tests/graphics.lua:1994-2001): getLineWidth
+  # becomes line_width (rule 3) and setLineWidth a writer (rule 5).
+  def test_get_line_width
+    # we know this should be as testsuite sets it!
+    assert_equal(1, Lota::Graphics.line_width)
+    # check set value returned correctly
+    Lota::Graphics.line_width = 10
+    assert_equal(10, Lota::Graphics.line_width)
+    Lota::Graphics.line_width = 1 # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.setColor
+  # (vendor/love/testing/tests/graphics.lua:2220-2243), by the rules
+  # test_circle and test_get_color name.
+  def test_set_color
+    # set colors, draw rect, check color
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    r, g, b, a = Lota::Graphics.color
+    assert_equal(1, r, "check r set")
+    assert_equal(0, g, "check g set")
+    assert_equal(0, b, "check b set")
+    assert_equal(1, a, "check a set")
+
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 1)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 1, 16, 1)
+    Lota::Graphics.color = 0, 1, 0, 0.5
+    Lota::Graphics.rectangle(:fill, 0, 2, 16, 1)
+    Lota::Graphics.color = 0, 0, 1, 1
+    Lota::Graphics.rectangle(:fill, 0, 3, 16, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
     Lota::Graphics.canvas = nil
     imgdata = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata)

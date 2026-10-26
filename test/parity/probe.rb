@@ -1,0 +1,118 @@
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+require "json"
+require_relative "frame_comparison"
+
+module Parity
+  # The parity harness's Ruby side, which test/parity/lua/conf.lua mirrors
+  # for LÖVE: measurement code, loaded into <tt>lota run</tt> with
+  # <tt>ruby -r</tt> before the game. It runs a translated game unchanged,
+  # with the same fixed dt and scripted keys as the Lua side, and compares
+  # every frame the game shows with the one LÖVE showed.
+  #
+  # It prepends Callbacks to Lota's singleton class, so the game's own
+  # <tt>def Lota.update</tt> and <tt>def Lota.draw</tt> run inside the
+  # harness's, as ADR 003 has a game-state library wrap callbacks.
+  # Lota.update holds the scripted keys down or lets them up in SDL's
+  # keyboard state, which Lota::Keyboard.down? reads, then calls the
+  # game's update with 1 / LOTA_PARITY_FPS. Lota.draw calls the game's
+  # draw, then asks for the frame Lota::Graphics.present will show, and
+  # compares it with LOTA_PARITY_FRAMES_DIR/NNNN.png, the frame LÖVE showed,
+  # by Lövetest's compareImg rule (FrameComparison). After frame
+  # LOTA_PARITY_FRAMES it quits, as the Lua side does. At exit it writes
+  # LOTA_PARITY_REPORT: how many frames it compared, and the first that
+  # differed, whose pixels it also saves beside the report as raw RGBA.
+  module Probe
+    FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
+    REPORT = ENV.fetch("LOTA_PARITY_REPORT")
+    FRAMES = Integer(ENV.fetch("LOTA_PARITY_FRAMES"))
+    # 1 / 60 in Lua divides as Floats; 1 / 60 in Ruby would not.
+    DT = 1 / Float(ENV.fetch("LOTA_PARITY_FPS"))
+    # [scancode, first frame, last frame], as the Lua side reads them.
+    HOLDS = ENV.fetch("LOTA_PARITY_HOLD", "").scan(/(\d+):(\d+)-(\d+)/).map { |hold| hold.map(&:to_i) }.freeze
+
+    @frame = 0
+    @compared = 0
+    @mismatch = nil
+
+    class << self
+      # The frame under way, counting from 1.
+      attr_reader :frame
+
+      # Starts the next frame, and holds each scripted key down, or lets it
+      # up, for it. A key listed twice is down when either range holds it.
+      def next_frame
+        @frame += 1
+        down = Hash.new(false)
+        HOLDS.each { |scancode, first, last| down[scancode] ||= @frame.between?(first, last) }
+        down.each { |scancode, value| LotaNativeTest.hold(scancode, value) }
+      end
+
+      # The arguments +method+ declares, of +arguments+, as Lota passes a
+      # callback's (ADR 003, section 3).
+      def declared(method, arguments)
+        parameters = method.parameters
+        return arguments if parameters.any? { |type, _| type == :rest }
+
+        arguments.first(parameters.count { |type, _| type == :req || type == :opt })
+      end
+
+      # Compares frame +number+, shown by Lota as +native+, a
+      # Lota::Native::ImageData, with the frame LÖVE showed, until one
+      # differs.
+      def compare(number, native)
+        return if @mismatch
+
+        actual = Lota::Image::ImageData.from_native(native)
+        message = mismatch_with_love(number, actual)
+        @compared += 1
+        return unless message
+
+        @mismatch = { "frame" => number, "message" => message }
+        File.binwrite(File.join(File.dirname(REPORT), format("lota-%04d.rgba", number)),
+          LotaNativeTest.image_data_bytes(native))
+      end
+
+      # Writes the report.
+      def report
+        File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch))
+      end
+
+      private def mismatch_with_love(number, actual)
+        path = File.join(FRAMES_DIR, format("%04d.png", number))
+        return "LÖVE showed no frame #{number}" unless File.exist?(path)
+
+        expected = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
+        FrameComparison.new(expected, actual, "frame #{number}").message
+      end
+    end
+
+    # The game's update and draw, wrapped. Lota calls each with the
+    # arguments it declares, and each calls the game's with the arguments
+    # the game's declares.
+    module Callbacks
+      def update(_dt)
+        Probe.next_frame
+        game = method(:update).super_method
+        super(*Probe.declared(game, [DT])) if game
+      end
+
+      def draw
+        super if method(:draw).super_method
+        number = Probe.frame
+        Lota::Native::Graphics.capture_screenshot(lambda do |native|
+          Probe.compare(number, native)
+          Lota::Event.quit if number == FRAMES
+        end)
+      end
+    end
+  end
+end
+
+Lota.singleton_class.prepend(Parity::Probe::Callbacks)
+at_exit { Parity::Probe.report }

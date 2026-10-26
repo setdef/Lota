@@ -13,11 +13,17 @@
 
 #include <atomic>
 #include <cstddef>
+#include <iterator>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <system_error>
 #include <type_traits>
 #include <vector>
+
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_scancode.h>
 
 #include <spawn.h>
 #include <sys/fcntl.h>
@@ -307,6 +313,45 @@ ProcessId spawn(const std::vector<std::string> &command, int output,
   return pid;
 }
 
+// Holds the key with SDL scancode +scancode+ down, or lets it up, in the
+// keyboard state SDL keeps and love.keyboard.isDown reads
+// (keyboard/sdl/Keyboard.cpp:56-72). SDL is one shared framework, so its
+// state is the same for Lota::Native as for this bundle. A test cannot
+// press a key, and SDL has no public way to set its state: a key event
+// pushed into SDL's queue leaves the state alone, and one SDL reads from
+// macOS counts only while the window has keyboard focus, which no test can
+// promise. So this writes the state SDL_GetKeyboardState returns, which is
+// SDL's own array (SDL 3.4.10, src/events/SDL_keyboard.c,
+// SDL_GetKeyboardState), as the parity harness's Lua side does
+// (test/parity/lua/conf.lua). The next key event SDL reads for that key
+// sets it again.
+void hold(int scancode, bool down) {
+  int count = 0;
+  const bool *state = SDL_GetKeyboardState(&count);
+  if (scancode <= SDL_SCANCODE_UNKNOWN || scancode >= count) {
+    throw std::out_of_range("no such scancode: " + std::to_string(scancode));
+  }
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+  const std::span<bool> keys(const_cast<bool *>(state), static_cast<std::size_t>(count));
+  *std::next(keys.begin(), scancode) = down;
+}
+
+// The scancode of the key that types the character +codepoint+ on this
+// machine's keyboard layout, as love.keyboard.isDown finds the scancode of
+// a key (keyboard/sdl/Keyboard.cpp:65).
+int scancode(int codepoint) {
+  return static_cast<int>(SDL_GetScancodeFromKey(static_cast<SDL_Keycode>(codepoint), nullptr));
+}
+
+// The bytes of +image_data+, a Lota::Native::ImageData, as LÖVE's
+// Data:getString returns them (vendor/love/src/modules/data/wrap_Data.cpp:40-59),
+// so the parity harness compares two frames in one comparison instead of
+// pixel by pixel.
+std::string image_data_bytes(VALUE image_data) {
+  const love::image::ImageData *image = foreign<love::image::ImageData>(image_data, "ImageData");
+  return {static_cast<const char *>(image->getData()), image->getSize()};
+}
+
 // Deliberate bugs, for the sanitizer tests alone.
 
 // Frees the held Counted, then reads it.
@@ -402,6 +447,10 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("use_after_free", &use_after_free)
       .define_module_function("add_one", &add_one, Rice::Arg("number"))
       .define_module_function("sanitized?", &sanitized)
+      .define_module_function("hold", &hold, Rice::Arg("scancode"), Rice::Arg("down"))
+      .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
+      .define_module_function("image_data_bytes", &image_data_bytes,
+                              Rice::Arg("image_data").setValue())
       .define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),
                               Rice::Arg("environment"));
 }

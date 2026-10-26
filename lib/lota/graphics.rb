@@ -21,8 +21,8 @@ module Lota
   # when called anywhere but the process's main thread, the one that
   # started Ruby.
   #
-  # Use it to clear the screen or a canvas, to choose where drawing goes,
-  # and to read pixels back.
+  # Use it to clear the screen or a canvas, to draw shapes in a color, to
+  # choose where drawing goes, and to read pixels back.
   #
   # === Examples
   #
@@ -178,6 +178,167 @@ module Lota
     #   Lota::Graphics.present
     def self.present
       Native::Graphics.present
+    end
+
+    # Sets the color everything is drawn in, matching
+    # love.graphics.setColor (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setColor).
+    #
+    # [color] Red, green, blue, and optionally alpha, each a Float or
+    #   Integer from 0 to 1, as several values or one Array; alpha is 1
+    #   when left out.
+    #
+    # Shapes take this color as they are drawn, and keep it, so set it
+    # before each thing you draw in a different color. It starts as opaque
+    # white. LÖVE stores each component as a single-precision float,
+    # clamped to 0 through 1, and so does Lota.
+    #
+    # Raises ArgumentError for any count of components but 3 or 4,
+    # TypeError for one that is not a number, and ThreadError off the main
+    # thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.color = 1, 0, 0       # opaque red
+    #   Lota::Graphics.color = 0, 0, 1, 0.5  # half-transparent blue
+    #   Lota::Graphics.color = [1, 1, 1]     # an Array works too
+    def self.color=(color)
+      components = Array(color)
+      unless components.size == 3 || components.size == 4
+        raise ArgumentError, "wrong number of arguments (given #{components.size}, expected 3 or 4)"
+      end
+
+      Native::Graphics.set_color(components.fetch(0), components.fetch(1), components.fetch(2),
+        components.fetch(3, 1.0))
+    end
+
+    # The color everything is drawn in, as an Array of red, green, blue,
+    # and alpha, each from 0.0 to 1.0, matching love.graphics.getColor
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getColor).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   red, green, blue, alpha = Lota::Graphics.color # => [1.0, 1.0, 1.0, 1.0]
+    def self.color
+      Native::Graphics.color
+    end
+
+    # Sets how wide lines and outlines are drawn, matching
+    # love.graphics.setLineWidth (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setLineWidth).
+    #
+    # [width] Float or Integer width, in the current coordinate system's
+    #   units.
+    #
+    # It starts at 1, and applies to every shape drawn with +:line+.
+    # LÖVE stores it as a single-precision float, and so does Lota.
+    # Raises TypeError for a width that is not a number, and ThreadError
+    # off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.line_width = 3
+    def self.line_width=(width)
+      Native::Graphics.set_line_width(width)
+    end
+
+    # How wide lines and outlines are drawn, as a Float, matching
+    # love.graphics.getLineWidth (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getLineWidth).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.line_width # => 1.0
+    def self.line_width
+      Native::Graphics.line_width
+    end
+
+    # Sets how the edges of lines and outlines are drawn, matching
+    # love.graphics.setLineStyle (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setLineStyle).
+    #
+    # [style] +:smooth+, the default, blends a line's edges into what is
+    #   behind it; +:rough+ draws them sharp, for pixel art.
+    #
+    # Raises ArgumentError for an unknown style, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.line_style = :rough
+    def self.line_style=(style)
+      Native::Graphics.set_line_style(style.to_s)
+    end
+
+    # How the edges of lines and outlines are drawn, +:smooth+ or
+    # +:rough+, matching love.graphics.getLineStyle
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getLineStyle).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.line_style # => :smooth
+    def self.line_style
+      Native::Graphics.line_style.to_sym
+    end
+
+    # Draws a rectangle in the current color, matching
+    # love.graphics.rectangle (src/modules/graphics/wrap_Graphics.cpp,
+    # w_rectangle).
+    #
+    # [mode] +:fill+ to fill it, or +:line+ to draw its outline.
+    # [x] Float or Integer position of its left edge.
+    # [y] Float or Integer position of its top edge.
+    # [width] Float or Integer width.
+    # [height] Float or Integer height.
+    #
+    # Positions and sizes are in the current coordinate system, which
+    # starts as the window's or the canvas's pixels, with (0, 0) at the
+    # top left. LÖVE reads each as a single-precision float, and so does
+    # Lota. LÖVE also rounds the corners with radii and a count of
+    # segments; Lota binds that form later.
+    #
+    # Raises ArgumentError for an unknown +mode+, TypeError for a position
+    # or size that is not a number, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.rectangle(:fill, 100, 100, 50, 30)
+    #   Lota::Graphics.rectangle(:line, 500, 500, 70, 20)
+    def self.rectangle(mode, x, y, width, height)
+      Native::Graphics.rectangle(mode.to_s, x, y, width, height)
+    end
+
+    # Draws a circle in the current color, matching love.graphics.circle
+    # (src/modules/graphics/wrap_Graphics.cpp, w_circle).
+    #
+    # [mode] +:fill+ to fill it, or +:line+ to draw its outline.
+    # [x] Float or Integer position of its center.
+    # [y] Float or Integer position of its center.
+    # [radius] Float or Integer radius.
+    # [segments] Integer count of straight sides it is drawn with; when
+    #   +nil+ or left out, LÖVE picks enough for the circle's size on
+    #   screen.
+    #
+    # A circle is drawn as a polygon, so few segments show as corners.
+    # LÖVE reads the position and radius as single-precision floats, and
+    # so does Lota.
+    #
+    # Raises ArgumentError for an unknown +mode+, TypeError for a position
+    # or radius that is not a number or a count of segments that is not an
+    # Integer, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.circle(:fill, 300, 300, 10)
+    #   Lota::Graphics.circle(:line, 300, 300, 10, 16)
+    def self.circle(mode, x, y, radius, segments = nil)
+      Native::Graphics.circle(mode.to_s, x, y, radius, segments)
     end
 
     # The window's width, in units of the screen's DPI scale, matching

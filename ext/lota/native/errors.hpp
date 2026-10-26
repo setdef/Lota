@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace lota::native {
 
@@ -146,6 +147,34 @@ inline void translate_engine_error() {
     throw Rice::Exception(rb_eRuntimeError, "%s", message.c_str());
   }
 }
+
+// SPDX-SnippetBegin
+// SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+// SPDX-License-Identifier: Zlib
+//
+// Ported from luax_enumerror (vendor/love/src/common/runtime.cpp:
+// 1120-1137), and changed to raise Ruby's ArgumentError, which Lota raises
+// for a caller's mistake where LÖVE raises a Lua error (ADR 001, rule 7).
+
+// Raises ArgumentError for +value+, which names no +enum_name+.
+[[noreturn]] inline void raise_enum_error(const char *enum_name, const std::string &value) {
+  throw Rice::Exception(rb_eArgError, "Invalid %s: %s", enum_name, value.c_str());
+}
+
+// Raises ArgumentError for +value+, which names none of +values+, the
+// names of +enum_name+.
+[[noreturn]] inline void raise_enum_error(const char *enum_name,
+                                          const std::vector<std::string> &values,
+                                          const std::string &value) {
+  std::string expected;
+  for (const std::string &name : values) {
+    expected.append(expected.empty() ? "'" : ", '").append(name).append("'");
+  }
+  throw Rice::Exception(rb_eArgError, "Invalid %s '%s', expected one of: %s", enum_name,
+                        value.c_str(), expected.c_str());
+}
+
+// SPDX-SnippetEnd
 
 // Installs translate_engine_error as this bundle's handler. Each bundle has
 // its own Rice registries (cmake/LotaExtension.cmake hides them), so each

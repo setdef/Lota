@@ -94,14 +94,14 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics tests, run from the update callback of a game whose
-  # conf.rb translates Lövetest's conf.lua.
+  # love.graphics and love.keyboard tests, run from the update callback of
+  # a game whose conf.rb translates Lövetest's conf.lua.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"))
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^1 runs, 256 assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   def test_an_error_in_a_callback_ends_the_program_with_a_backtrace

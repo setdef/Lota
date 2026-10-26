@@ -20,10 +20,31 @@ module Lovetest
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
   #
+  # Translated to Ruby from the graphics settings Lövetest's love.load
+  # makes before any test runs (vendor/love/testing/main.lua:46-49), once
+  # per process, as love.load runs once. Its tests set them back when they
+  # change them. Two of its lines have no translation yet: updateMode
+  # (lines 39-43) asks for the 360 by 240 resizable, centered window that
+  # test/lovetest/conf.rb already opens, and setDefaultFilter (line 47)
+  # changes only how textures are sampled when drawn, which no translated
+  # test does. The logo, quad, and font it loads (lines 50-57) are for
+  # Lövetest's own screen.
+  def self.load
+    return if @loaded
+
+    if Lota.window && Lota.graphics
+      Lota::Graphics.line_style = :rough
+      Lota::Graphics.line_width = 1
+    end
+    @loaded = true
+  end
+
   # Translated to Ruby from Lövetest's TestMethod
   # (vendor/love/testing/classes/TestMethod.lua): the fields a graphics
-  # test reads (lines 10-50) and compareImg (lines 266-356). Lua's
-  # assertEquals becomes Minitest's assert_equal, with the same message.
+  # test reads (lines 10-50), assertNotNil (lines 249-263), and
+  # compareImg (lines 266-356). Lua's assertEquals becomes Minitest's
+  # assert_equal, with the same message, and assertNotEquals, which
+  # assertNotNil calls (lines 114-123), refute_equal.
   # compareImg also collects the differing pixels, saves the actual image,
   # and draws a picture of the differences for Lövetest's HTML report
   # (lines 326-353). That reporting is left out: Minitest reports the
@@ -33,15 +54,25 @@ module Lovetest
     # Run in the main thread, where Lota::Graphics runs.
     def setup
       EngineHelper.open_window
+      Lovetest.load
       @rgba_tolerance = 0
       @pixel_tolerance = 0
       @imgs = 1
     end
 
     # The Lövetest method this test translates: test_clear translates
-    # love.test.graphics.clear.
+    # love.test.graphics.clear, and test_set_color, named by rule 13,
+    # translates love.test.graphics.setColor.
     def lovetest_method
-      name.delete_prefix("test_")
+      name.delete_prefix("test_").gsub(/_([a-z])/) { Regexp.last_match(1).upcase }
+    end
+
+    # Asserts that +value+ is not nil. An +err+, which Lövetest's tests pass
+    # with the message of an error they caught, always fails the test, as
+    # it does in Lövetest.
+    def assert_not_nil(value, err = nil)
+      refute_equal(nil, value, "check not nil")
+      flunk(err) unless err.nil?
     end
 
     # Compares +imgdata+ with LÖVE's expected image, pixel by pixel, with a

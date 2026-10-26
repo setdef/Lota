@@ -115,7 +115,11 @@ jobs:
         run: ccache --zero-stats
 
       # Minitest prints each test's name and time (A is Minitest::TestTask's
-      # argument variable), so a stuck test shows which it is.
+      # argument variable), so a stuck test shows which it is. The gate's
+      # test:parity builds the reference love from vendor/love with LÖVE's
+      # own macOS CI commands, through the ccache configured above, and
+      # runs each fixture game in it and in Lota (tasks/reference_love.rb,
+      # test/parity). The runner's default Xcode builds it.
       - name: Run the gate
         timeout-minutes: 40
         env:
@@ -134,6 +138,15 @@ jobs:
             echo "::error::bundle exec rake changed files; run it locally and commit what it changes"
             exit 1
           fi
+
+      # xcodebuild's log of the reference love, for a build that failed.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: reference-love-build-log
+          path: tmp/reference/build.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Report ccache's statistics
         if: always()

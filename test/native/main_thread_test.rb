@@ -67,6 +67,15 @@ class MainThreadTest < Minitest::Test
       "width" => -> { Lota::Graphics.width },
       "height" => -> { Lota::Graphics.height },
       "dimensions" => -> { Lota::Graphics.dimensions },
+      "color=" => -> { Lota::Graphics.color = 1, 1, 1 },
+      "color" => -> { Lota::Graphics.color },
+      "rectangle" => -> { Lota::Graphics.rectangle(:fill, 0, 0, 1, 1) },
+      "circle" => -> { Lota::Graphics.circle(:fill, 0, 0, 1) },
+      "line_width=" => -> { Lota::Graphics.line_width = 1 },
+      "line_width" => -> { Lota::Graphics.line_width },
+      "line_style=" => -> { Lota::Graphics.line_style = :rough },
+      "line_style" => -> { Lota::Graphics.line_style },
+      "capture_screenshot" => -> { Lota::Native::Graphics.capture_screenshot(-> (_image) {}) },
     }
 
     calls.each do |label, call|

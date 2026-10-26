@@ -23,13 +23,26 @@
 # ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
 # header, ruby.h, does not export them, so misc-include-cleaner cannot be
 # satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 147,
+allow "ext/lota/native_test/native_test.cpp", line: 153,
   reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
     "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 157,
+allow "ext/lota/native_test/native_test.cpp", line: 163,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
     "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."
+
+# The test-only extension holds a key down for the tests and the parity
+# harness by writing the keyboard state SDL_GetKeyboardState returns, which
+# love.keyboard.isDown reads. SDL hands that array out as const bool * and
+# offers no function that sets it: a key event pushed into its queue leaves
+# the state alone, and one read from macOS counts only while the window has
+# keyboard focus (SDL 3.4.10, src/video/cocoa/SDL_cocoakeyboard.m,
+# Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
+# (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
+# through the cast is defined; only the cast can reach it.
+allow "ext/lota/native_test/native_test.cpp", line: 334,
+  reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
+    "the test-only key hold must write it, which only a const_cast can do."
 
 # love::Variant, the value a love::event::Message carries, keeps its value
 # in a union tagged by getType(), and offers no accessor but the union

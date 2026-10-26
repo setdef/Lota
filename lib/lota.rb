@@ -39,6 +39,7 @@ require_relative "lota/filesystem"
 require_relative "lota/image"
 require_relative "lota/graphics"
 require_relative "lota/timer"
+require_relative "lota/keyboard"
 require_relative "lota/event"
 require_relative "lota/window"
 require_relative "lota/settings"
@@ -92,6 +93,15 @@ module Lota
   #   lota.event.quit
   def self.event
     Event
+  end
+
+  # Lota::Keyboard, as love.keyboard.
+  #
+  # === Example
+  #
+  #   lota.keyboard.down?(:space)
+  def self.keyboard
+    Keyboard
   end
 
   # Lota::Window, as love.window.

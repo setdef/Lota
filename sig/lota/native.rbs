@@ -119,6 +119,8 @@ module Lota
 
     module Keyboard
       def self.open: () -> nil
+
+      def self.down?: (Array[String] names) -> bool
     end
 
     module Touch
@@ -173,6 +175,24 @@ module Lota
       def self.clear: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
       def self.readback_texture: (Texture texture) -> ImageData
+
+      def self.set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
+
+      def self.color: () -> Array[Float]
+
+      def self.set_line_width: (Float | Integer width) -> nil
+
+      def self.line_width: () -> Float
+
+      def self.set_line_style: (String name) -> nil
+
+      def self.line_style: () -> String
+
+      def self.rectangle: (String mode, Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
+
+      def self.circle: (String mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? segments) -> nil
+
+      def self.capture_screenshot: (^(ImageData) -> void callable) -> nil
     end
   end
 end

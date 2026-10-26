@@ -62,6 +62,21 @@ class RakeTasksTest < Minitest::Test
     assert_equal %w[package:check package:install], prerequisites("default").last(2)
   end
 
+  # The parity harness runs in the gate, against the reference love built
+  # from vendor/love and Lota compiled from this tree.
+  def test_default_task_runs_the_parity_harness_after_compiling
+    default = prerequisites("default")
+
+    assert_includes default, "test:parity"
+    assert_operator default.index("compile"), :<, default.index("test:parity")
+    assert_equal %w[compile reference:love], prerequisites("test:parity")
+  end
+
+  def test_the_reference_love_builds_from_vendor_love_into_tmp
+    assert_equal File.join(ROOT, "tmp/reference/src/love-macos/love.app/Contents/MacOS/love"),
+      REFERENCE_LOVE.executable
+  end
+
   def test_default_task_compiles_before_it_tests
     default = prerequisites("default")
 
@@ -91,13 +106,13 @@ class RakeTasksTest < Minitest::Test
   end
 
   # Plan 001's "Done when": the installed gem runs Lövetest's translated
-  # love.test.graphics.clear, and every test it runs passes.
+  # love.test.graphics.clear, among the rest, and every test it runs passes.
   def test_delivery_runs_lovetest_from_the_installed_gem
     lovetest = packages.first.games.find { |game| game.folder == "test/lovetest/game" }
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    assert_match lovetest.output, "love.conf\n...\n1 runs, 256 assertions, 0 failures, 0 errors, 0 skips\n"
+    assert_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n1 runs, 3 assertions, 1 failures, 0 errors, 0 skips\n"
   end
@@ -132,8 +147,11 @@ class RakeTasksTest < Minitest::Test
     Dir.chdir(ROOT) do
       ruby = Dir[*TEST_SUITES.fetch(:ruby)]
       native = Dir[*TEST_SUITES.fetch(:native)]
+      parity = Dir[*TEST_SUITES.fetch(:parity)]
 
-      assert_empty Dir["test/**/*_test.rb"] - ruby - native
+      assert_empty Dir["test/**/*_test.rb"] - ruby - native - parity
+      assert_includes parity, "test/parity/arkanoid_test.rb"
+      assert_empty ruby & parity
       assert_empty ruby.grep(%r{\Atest/sanitizers/})
       refute_empty native.grep(%r{\Atest/sanitizers/})
       assert_includes ruby, "test/native/memory_test.rb"

@@ -4,6 +4,7 @@
 #include "native/graphics.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Color.h"
 #include "common/Exception.h"
@@ -14,6 +15,8 @@
 #include "graphics/Texture.h"
 #include "image/ImageData.h"
 
+#include <exception>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -127,9 +130,74 @@ Rice::Array background_color() {
   return components;
 }
 
-// w_present (wrap_Graphics.cpp:177-181). Lota takes no screenshots yet,
-// so no screenshot callback waits for the frame.
-void present() { graphics().present(nullptr); }
+// The first error a screenshot callback raised during the present under
+// way, which present raises once LÖVE's present has returned.
+std::exception_ptr &screenshot_error() {
+  static std::exception_ptr error;
+  return error;
+}
+
+// A Ruby callable waiting for the next presented frame. The Pin keeps it
+// from Ruby's garbage collector until then.
+struct PendingScreenshot {
+  Rice::Pin callable;
+};
+
+// A screenshot callback (graphics/Graphics.h:338-345), after
+// screenshotFunctionCallback (wrap_Graphics.cpp:441-461): it calls the
+// callable with the frame, or forgets it when there is no frame, which is
+// how LÖVE cancels a capture. LÖVE releases the frame after the callback
+// returns (metal/Graphics.mm:1780-1781), so the wrapper Ruby gets retains
+// its own reference. An error the callable raises waits for present to
+// raise it, rather than unwinding through LÖVE's present, which would leave
+// the frame and the remaining captures unreleased.
+void deliver_screenshot(const Graphics::ScreenshotInfo *info, love::image::ImageData *image,
+                        void * /*data*/) {
+  if (info == nullptr) {
+    return;
+  }
+  const std::unique_ptr<PendingScreenshot> pending(static_cast<PendingScreenshot *>(info->data));
+  if (image == nullptr) {
+    return;
+  }
+  try {
+    Rice::Object(pending->callable.value()).call("call", image);
+  } catch (...) {
+    if (!screenshot_error()) {
+      screenshot_error() = std::current_exception();
+    }
+  }
+}
+
+// w_captureScreenshot with a function (wrap_Graphics.cpp:508-518 and
+// 552-555): the next present calls +callable+ with the frame it shows, as
+// an ImageData. Only the parity harness uses it so far, and Lota::Graphics
+// does not translate it yet. The callable arrives by value, as Rice
+// converts it, and is moved, as set_renderers moves its Array.
+void capture_screenshot(Rice::Object callable) {
+  Graphics &instance = graphics();
+  const Rice::Object held = std::move(callable);
+  Graphics::ScreenshotInfo info;
+  info.data =
+      std::make_unique<PendingScreenshot>(PendingScreenshot{Rice::Pin(held.value())}).release();
+  info.callback = &deliver_screenshot;
+  try {
+    instance.captureScreenshot(info);
+  } catch (...) {
+    info.callback(&info, nullptr, nullptr);
+    throw;
+  }
+}
+
+// w_present (wrap_Graphics.cpp:177-181). LÖVE passes its lua_State, which
+// its screenshot callbacks call back into; deliver_screenshot needs
+// nothing from it.
+void present() {
+  graphics().present(nullptr);
+  if (const std::exception_ptr error = std::exchange(screenshot_error(), nullptr)) {
+    std::rethrow_exception(error);
+  }
+}
 
 // w_getWidth and w_getHeight (wrap_Graphics.cpp:207-217): the size of the
 // window in units of its DPI scale.
@@ -193,6 +261,84 @@ love::image::ImageData *readback_texture(Texture *texture) {
   return instance.readbackTexture(texture, 0, mipmap, rect, nullptr, 0, 0);
 }
 
+// w_setColor with three or four numbers (wrap_Graphics.cpp:2491-2515):
+// LÖVE reads each as a float; the renderer clamps them to 0 through 1
+// (metal/Graphics.mm:1810-1818).
+void set_color(double red, double green, double blue, double alpha) {
+  graphics().setColor(love::Colorf(static_cast<float>(red), static_cast<float>(green),
+                                   static_cast<float>(blue), static_cast<float>(alpha)));
+}
+
+// w_getColor (wrap_Graphics.cpp:2517-2525): red, green, blue, and alpha,
+// each widened from float as Lua's numbers are.
+Rice::Array color() {
+  const love::Colorf color = graphics().getColor();
+  Rice::Array components;
+  components.push(static_cast<double>(color.r), false);
+  components.push(static_cast<double>(color.g), false);
+  components.push(static_cast<double>(color.b), false);
+  components.push(static_cast<double>(color.a), false);
+  return components;
+}
+
+// w_setLineWidth and w_getLineWidth (wrap_Graphics.cpp:2816-2821 and
+// 2845-2849): the width is a float, 1 until set.
+void set_line_width(double width) { graphics().setLineWidth(static_cast<float>(width)); }
+
+double line_width() { return static_cast<double>(graphics().getLineWidth()); }
+
+// w_setLineStyle and w_getLineStyle (wrap_Graphics.cpp:2823-2832 and
+// 2851-2859): the style is checked before the module, and its name comes
+// back as LÖVE spells it.
+void set_line_style(const std::string &name) {
+  Graphics::LineStyle style = Graphics::LINE_MAX_ENUM;
+  if (!Graphics::getConstant(name.c_str(), style)) {
+    raise_enum_error("line style", Graphics::getConstants(style), name);
+  }
+  graphics().setLineStyle(style);
+}
+
+std::string line_style() {
+  const char *name = nullptr;
+  if (!Graphics::getConstant(graphics().getLineStyle(), name)) {
+    throw love::Exception("Unknown line style");
+  }
+  return name;
+}
+
+// The draw mode named +name+, as w_rectangle and w_circle read their first
+// argument (wrap_Graphics.cpp:3630-3633 and 3662-3665).
+Graphics::DrawMode draw_mode(const std::string &name) {
+  Graphics::DrawMode mode = Graphics::DRAW_MAX_ENUM;
+  if (!Graphics::getConstant(name.c_str(), mode)) {
+    raise_enum_error("draw mode", Graphics::getConstants(mode), name);
+  }
+  return mode;
+}
+
+// w_rectangle without rounded corners (wrap_Graphics.cpp:3628-3644): the
+// mode is checked before the module, and each number is read as a float.
+void rectangle(const std::string &mode, double x, double y, double width, double height) {
+  const Graphics::DrawMode drawmode = draw_mode(mode);
+  graphics().rectangle(drawmode, static_cast<float>(x), static_cast<float>(y),
+                       static_cast<float>(width), static_cast<float>(height));
+}
+
+// w_circle (wrap_Graphics.cpp:3660-3680): with no count of segments, the
+// renderer picks one from the radius and the current scale.
+void circle(const std::string &mode, double x, double y, double radius,
+            std::optional<int> segments) {
+  const Graphics::DrawMode drawmode = draw_mode(mode);
+  Graphics &instance = graphics();
+  if (segments.has_value()) {
+    instance.circle(drawmode, static_cast<float>(x), static_cast<float>(y),
+                    static_cast<float>(radius), segments.value());
+  } else {
+    instance.circle(drawmode, static_cast<float>(x), static_cast<float>(y),
+                    static_cast<float>(radius));
+  }
+}
+
 // w_Texture_isCanvas (wrap_Texture.cpp:282-287): whether the texture was
 // made as a render target, as w_newCanvas makes every texture it returns.
 // A Texture belongs to love.graphics, so it answers only on the main
@@ -231,7 +377,20 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
       .define_singleton_function("readback_texture", &readback_texture, Rice::Arg("texture"),
-                                 Rice::Return().takeOwnership());
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("set_color", &set_color, Rice::Arg("red"), Rice::Arg("green"),
+                                 Rice::Arg("blue"), Rice::Arg("alpha"))
+      .define_singleton_function("color", &color)
+      .define_singleton_function("set_line_width", &set_line_width, Rice::Arg("width"))
+      .define_singleton_function("line_width", &line_width)
+      .define_singleton_function("set_line_style", &set_line_style, Rice::Arg("name"))
+      .define_singleton_function("line_style", &line_style)
+      .define_singleton_function("rectangle", &rectangle, Rice::Arg("mode"), Rice::Arg("x"),
+                                 Rice::Arg("y"), Rice::Arg("width"), Rice::Arg("height"))
+      .define_singleton_function("circle", &circle, Rice::Arg("mode"), Rice::Arg("x"),
+                                 Rice::Arg("y"), Rice::Arg("radius"),
+                                 Rice::Arg("segments") = std::optional<int>())
+      .define_singleton_function("capture_screenshot", &capture_screenshot, Rice::Arg("callable"));
 }
 
 } // namespace lota::native

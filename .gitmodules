@@ -4,3 +4,6 @@
 [submodule "vendor/love-apple-dependencies"]
 	path = vendor/love-apple-dependencies
 	url = https://github.com/love2d/love-apple-dependencies.git
+[submodule "test/fixtures/love2d_arkanoid_tutorial"]
+	path = test/fixtures/love2d_arkanoid_tutorial
+	url = https://github.com/noooway/love2d_arkanoid_tutorial.git

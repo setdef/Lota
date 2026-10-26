@@ -22,5 +22,21 @@ module Lota
     def self.height: () -> Integer
 
     def self.dimensions: () -> Array[Integer]
+
+    def self.color=: (Array[Float | Integer] color) -> void
+
+    def self.color: () -> Array[Float]
+
+    def self.line_width=: (Float | Integer width) -> void
+
+    def self.line_width: () -> Float
+
+    def self.line_style=: (Symbol | String style) -> void
+
+    def self.line_style: () -> Symbol
+
+    def self.rectangle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
+
+    def self.circle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? segments) -> nil
   end
 end

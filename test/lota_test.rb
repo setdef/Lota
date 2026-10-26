@@ -29,6 +29,7 @@ class LotaTest < Minitest::Test
       timer: Lota::Timer,
       event: Lota::Event,
       window: Lota::Window,
+      keyboard: Lota::Keyboard,
     }
 
     modules.each { |name, mod| assert_same mod, lota.public_send(name), name }

@@ -11,6 +11,7 @@
 # passed and 1 otherwise. This runner is Lota's own; the tests it runs are
 # Lövetest's.
 require_relative "../tests/graphics"
+require_relative "../tests/keyboard"
 
 def Lota.update(_dt)
   passed = Minitest.run([])
