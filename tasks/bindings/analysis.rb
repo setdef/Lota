@@ -172,6 +172,14 @@ module Bindings
     attr_reader :reads, :tests, :tables, :pushes, :counts, :errors, :enums, :enum_results, :engine_calls,
       :deprecation, :delegate, :problems, :count_tests, :statements
 
+    # The type and names of a statement that declares several variables
+    # of one type and initializes none (double x, y), or nil.
+    def self.declared_together(text)
+      match = text.match(/\A(?<type>(?:const\s+)?[\w:]+)\s+(?<names>\w+(?:\s*,\s*\w+)+)\z/) or return nil
+
+      { type: match[:type], names: match[:names].split(/\s*,\s*/) }
+    end
+
     # [function] The WrapFile::Function to read.
     # [source] Its file's CppSource, for line numbers.
     # [helpers] A Hash of LÖVE's luax_check* helpers by name, to the class
@@ -283,6 +291,11 @@ module Bindings
 
     # Records what +text+'s declaration or assignment makes of a variable.
     private def declare(text)
+      if (together = Analysis.declared_together(text))
+        together[:names].each { |name| @types[name] = together[:type] }
+        return
+      end
+
       match = text.match(/\A(?:const\s+)?(?<type>[\w:]+(?:\s*<[^;=]*?>)?(?:\s*[*&]+\s*|\s+))(?<name>\w+)\s*(?:=\s*(?<value>.+)|\((?<value>.+)\))?\z/m)
       match ||= text.match(/\A(?<name>[\w.]+)\s*=\s*(?<value>.+)\z/m)
       return unless match

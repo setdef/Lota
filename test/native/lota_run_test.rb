@@ -94,14 +94,18 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics and love.keyboard tests, run from the update callback of
-  # a game whose conf.rb translates Lövetest's conf.lua.
+  # love.graphics, love.keyboard, love.mouse, and love.math tests, run from
+  # the update callback of a game whose conf.rb translates Lövetest's
+  # conf.lua. On a GitHub Actions runner, Lövetest's arc test compares none
+  # of its three 32 by 32 images, and asserts once instead
+  # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"))
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 7968 - (3 * 32 * 32) + 1 : 7968
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^13 runs, 3607 assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^19 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   def test_an_error_in_a_callback_ends_the_program_with_a_backtrace
@@ -220,6 +224,24 @@ class LotaRunTest < Minitest::Test
 
       assert_predicate status, :success?, output
       assert_equal "player\nRequired\n#{Dir.pwd}\n", output
+    end
+  end
+
+  # boot.lua opens love.mouse and love.math (boot.lua:347-372), and so
+  # does lota run, unless the settings turn them off.
+  def test_the_mouse_and_math_modules_are_open_unless_turned_off
+    in_game("main.rb" => "def Lota.load = (p [lota.mouse, lota.math]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[Lota::Mouse, Lota::Math]\n", output
+    end
+    in_game("conf.rb" => "def Lota.conf(t) = (t.modules.mouse = false; t.modules.math = false)\n",
+      "main.rb" => "def Lota.load = (p [lota.mouse, lota.math]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[nil, nil]\n", output
     end
   end
 

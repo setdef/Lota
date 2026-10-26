@@ -12,6 +12,8 @@
 # Lövetest's.
 require_relative "../tests/graphics"
 require_relative "../tests/keyboard"
+require_relative "../tests/mouse"
+require_relative "../tests/math"
 
 def Lota.update(_dt)
   passed = Minitest.run([])

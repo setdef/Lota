@@ -41,29 +41,40 @@ module Lota
     #   end
     module Canvas
       # Creates a Lota::Graphics::Texture to draw into, matching
-      # love.graphics.newCanvas(width, height)
-      # (src/modules/graphics/wrap_Graphics.cpp, w_newCanvas).
+      # love.graphics.newCanvas(width, height, settings)
+      # (src/modules/graphics/wrap_Graphics.cpp, w_newCanvas and
+      # luax_checktexturesettings).
       #
       # [width] Integer width, in units of the screen's DPI scale; the
       #   window's width when +nil+ or left out.
       # [height] Integer height, likewise; the window's height when +nil+
       #   or left out.
+      # [msaa] Integer count of antialiasing samples drawing into it takes
+      #   per pixel, which smooths the edges of shapes; 1, which does not,
+      #   by default. Like the rest of LÖVE's settings, it is a keyword,
+      #   which translates LÖVE's table of settings (ADR 001, rule 10).
       #
       # The texture takes the screen's DPI scale, so on a high-density
       # display it has more pixels than its width and height say. It starts
       # out transparent black (src/modules/graphics/metal/Texture.mm and
-      # opengl/Texture.cpp clear every new canvas). LÖVE also takes a layer
-      # count and a table of settings; Lota binds those forms later.
+      # opengl/Texture.cpp clear every new canvas). LÖVE reads +msaa+ as it
+      # reads a number in its table, so a value that is not a number leaves
+      # the default, and the graphics card may use fewer samples than asked
+      # for. LÖVE also takes a layer count and its other settings, such as
+      # the pixel format; Lota binds those later.
       #
       # Raises RuntimeError when no window is open, and ThreadError off the
       # main thread.
       #
-      # === Example
+      # === Examples
       #
       #   minimap = Lota::Graphics::Canvas.new(128, 128)
       #   minimap.class # => Lota::Graphics::Texture
-      def self.new(width = nil, height = nil)
-        Texture.from_native(Native::Graphics.new_canvas(width, height))
+      #
+      #   smooth = Lota::Graphics::Canvas.new(800, 600, msaa: 4)
+      def self.new(width = nil, height = nil, msaa: nil)
+        msaa = (msaa.is_a?(Integer) || msaa.is_a?(Float)) ? msaa.to_i : nil
+        Texture.from_native(Native::Graphics.new_canvas(width, height, msaa))
       end
 
       # Whether +object+ is a Lota::Graphics::Texture you can draw into,

@@ -13,8 +13,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - `Lota::Native`, the compiled extension that binds LÖVE's engine, with `Lota::Native::RandomGenerator`.
-- `Lota::Graphics::Canvas.new`, `Lota::Graphics.canvas=`, `Lota::Graphics.clear`, and `Lota::Graphics.readback_texture`, translating `love.graphics.newCanvas`, `setCanvas`, `clear`, and `readbackTexture`.
+- `Lota::Graphics::Canvas.new`, `Lota::Graphics.canvas=`, `Lota::Graphics.clear`, and `Lota::Graphics.readback_texture`, translating `love.graphics.newCanvas` (with its `msaa:` setting), `setCanvas`, `clear`, and `readbackTexture`.
 - `Lota::Graphics::Texture`, with `canvas?`; `Canvas.new` returns a `Texture`, as LÖVE 12's `newCanvas` does, and `Canvas === texture` asks `texture.canvas?`.
+- `Lota::Graphics::Texture.new`, translating `love.graphics.newTexture` for one image from a `FileData` or an `ImageData`.
 - LÖVE's error messages name Lota's modules and methods (`Lota::Image`, `Lota::Window.set_mode`) where LÖVE's name Lua's (`love.image`, `love.window.setMode`).
 - `Lota::Image::ImageData`, decoded from a `Lota::Filesystem::FileData`, with `width`, `height`, and `pixel`.
 - `Lota::Filesystem::FileData.new(contents, name)`, translating `love.filesystem.newFileData`.
@@ -31,10 +32,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Window.set_mode`, `title=`, and `title`, translating `love.window.setMode`, `setTitle`, and `getTitle`.
 - `Lota::Timer.step` and `sleep`, and `Lota::Event.pump` and `quit`, translating `love.timer` and `love.event`.
 - `Lota::Graphics.active?`, `origin`, `background_color`, `present`, `width`, `height`, and `dimensions`.
-- `Lota::Graphics.rectangle` and `circle`, translating `love.graphics.rectangle` (without rounded corners yet) and `circle`, in `:fill` or `:line` mode.
+- `Lota::Graphics.rectangle`, `circle`, `ellipse`, `arc`, and `line`, translating `love.graphics.rectangle` (with rounded corners), `circle`, `ellipse`, `arc` (with its `:pie`, `:open`, or `:closed` arc mode), and `line`, in `:fill` or `:line` mode.
+- `Lota::Graphics.draw`, translating `love.graphics.draw` for a `Texture` with a position, angle, scale, origin, and shear.
 - `Lota::Graphics.color=` and `color`, `line_width=` and `line_width`, and `line_style=` and `line_style`, translating `love.graphics.setColor`, `getColor`, `setLineWidth`, `getLineWidth`, `setLineStyle`, and `getLineStyle`.
 - `Lota::Keyboard.down?`, translating `love.keyboard.isDown`, and `Lota.keyboard` returning `Lota::Keyboard`.
 - `Lota::Graphics.print` and `printf`, translating `love.graphics.print` and `printf`, which draw a String or colored text with a position, angle, scale, origin, and shear, `printf` wrapped at a limit and aligned `:left`, `:center`, `:right`, or `:justify`.
 - `Lota::Graphics::Font.new`, translating `love.graphics.newFont` for LÖVE's default font at a size and for a TrueType font in a `Lota::Filesystem::FileData`, with its hinting and DPI scale after the size or as keywords; and `Lota::Graphics.font=` and `font`, translating `setFont` and `getFont`, which until set is LÖVE's default font, Noto Sans at 13 pixels.
 - `Lota::Graphics.default_filter=` and `default_filter`, translating `love.graphics.setDefaultFilter` and `getDefaultFilter`.
 - `lota run` opens LÖVE's font module unless `t.modules.font = false`, as `boot.lua` opens `love.font`.
+- `Lota::Mouse.system_cursor`, `cursor=`, and `x`, translating `love.mouse.getSystemCursor`, `setCursor`, and `getX`, with `Lota::Mouse::Cursor`; and `Lota.mouse`, opened unless `t.modules.mouse = false`.
+- `Lota::Math.random` and `random_seed=`, translating `love.math.random` and `setRandomSeed`, which draw from LÖVE's own generator; and `Lota.math`, opened unless `t.modules.math = false`.

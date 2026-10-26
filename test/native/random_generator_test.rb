@@ -33,6 +33,22 @@ class RandomGeneratorTest < Minitest::Test
     assert_equal Array.new(5) { first.random }, Array.new(5) { second.random }
   end
 
+  # A new generator's seed is these two halves (RandomGenerator.cpp:61-64),
+  # so setting them starts its sequence over. One number is the whole
+  # 64-bit seed, so a low half alone is the seed with a high half of 0.
+  def test_set_seed_takes_the_seeds_two_halves_or_one_number
+    fresh = RandomGenerator.new.random
+    generator = RandomGenerator.new
+    3.times { generator.random }
+
+    generator.set_seed(0xCBBF7A44, 0x0139408D)
+    assert_equal fresh, generator.random
+    generator.set_seed(12_345, 0)
+    halves = generator.random
+    generator.set_seed(12_345)
+    assert_equal halves, generator.random
+  end
+
   def test_state_restores_the_sequence
     generator = RandomGenerator.new
     generator.random

@@ -12,6 +12,8 @@
 #include "native/graphics.hpp"
 #include "native/image.hpp"
 #include "native/keyboard.hpp"
+#include "native/math.hpp"
+#include "native/mouse.hpp"
 #include "native/random_generator.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
@@ -42,12 +44,14 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::install_error_translation();
   Rice::Module native = Rice::define_module_under(Rice::define_module("Lota"), "Native");
   lota::native::define_random_generator(native);
+  lota::native::define_math(native);
   lota::native::define_filesystem(native);
   lota::native::define_image(native);
   lota::native::define_font(native);
   lota::native::define_timer(native);
   lota::native::define_event(native);
   lota::native::define_keyboard(native);
+  lota::native::define_mouse(native);
   lota::native::define_touch(native);
   lota::native::define_window(native);
   lota::native::define_graphics(native);

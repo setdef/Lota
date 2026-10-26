@@ -32,7 +32,9 @@ module Lota
 
       def self.line_style: () -> String
 
-      def self.rectangle: (String mode, Float | Integer x, Float | Integer y, Float | Integer w, Float | Integer h) -> nil
+      def self.rectangle: (String mode, Float | Integer x, Float | Integer y, Float | Integer w, Float | Integer h, ?(Float | Integer)? rx, ?(Float | Integer)? ry, ?Integer? points) -> nil
+
+      def self.ellipse: (String mode, Float | Integer x, Float | Integer y, Float | Integer a, ?(Float | Integer)? b, ?Integer? points) -> nil
 
       def self.circle: (String mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? points) -> nil
 
@@ -59,6 +61,12 @@ module Lota
       def state: () -> String
 
       def state=: (String statestr) -> String
+    end
+
+    module Mouse
+      def self.set_cursor: (?Cursor? cursor) -> nil
+
+      def self.x: () -> Float
     end
 
     module Timer

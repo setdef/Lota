@@ -40,6 +40,8 @@ require_relative "lota/image"
 require_relative "lota/graphics"
 require_relative "lota/timer"
 require_relative "lota/keyboard"
+require_relative "lota/mouse"
+require_relative "lota/math"
 require_relative "lota/event"
 require_relative "lota/window"
 require_relative "lota/settings"
@@ -111,6 +113,24 @@ module Lota
   #   lota.keyboard.down?(:space)
   def self.keyboard
     Keyboard if Native::Keyboard.open?
+  end
+
+  # Lota::Mouse, as love.mouse, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.mouse.x
+  def self.mouse
+    Mouse if Native::Mouse.open?
+  end
+
+  # Lota::Math, as love.math, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.math.random(6)
+  def self.math
+    Math if Native::Math.open?
   end
 
   # Lota::Window, as love.window, or +nil+ when the module is not open.

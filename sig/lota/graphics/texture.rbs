@@ -8,6 +8,8 @@ module Lota
 
       def self.from_native: (Native::Texture native) -> Texture
 
+      def self.new: (Filesystem::FileData | Lota::Image::ImageData image) -> Texture
+
       def canvas?: () -> bool
     end
   end

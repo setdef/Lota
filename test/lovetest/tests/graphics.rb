@@ -41,6 +41,110 @@ class GraphicsTest < Lovetest::TestMethod
     compare_img(imgdata)
   end
 
+  # Translated to Ruby from love.test.graphics.arc
+  # (vendor/love/testing/tests/graphics.lua:1329-1378): arc keeps its name
+  # (rule 13), with its draw and arc modes as symbols (rule 9), and the
+  # rules test_circle names. Lua's math.pi is Ruby's Math::PI.
+  # GITHUB_RUNNER and test:isOS are Lovetest::GITHUB_RUNNER and
+  # Lovetest.os?.
+  def test_arc
+    # draw some arcs using pi format
+    canvas = Lota::Graphics::Canvas.new(32, 32)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.arc(:line, :pie, 16, 16, 16, 0 * (Math::PI / 180), 360 * (Math::PI / 180), 10)
+    Lota::Graphics.arc(:fill, :pie, 16, 16, 16, 270 * (Math::PI / 180), 45 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.arc(:line, :pie, 16, 16, 16, 0 * (Math::PI / 180), 90 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.arc(:line, :pie, 16, 16, 16, 180 * (Math::PI / 180), 135 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata1 = Lota::Graphics.readback_texture(canvas)
+    # draw some arcs with open format
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.arc(:line, :open, 16, 16, 16, 0 * (Math::PI / 180), 315 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.arc(:fill, :open, 16, 16, 16, 0 * (Math::PI / 180), 180 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.arc(:fill, :open, 16, 16, 16, 180 * (Math::PI / 180), 270 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata2 = Lota::Graphics.readback_texture(canvas)
+    # draw some arcs with closed format
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.arc(:line, :closed, 16, 16, 16, 0 * (Math::PI / 180), 315 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.arc(:fill, :closed, 16, 16, 16, 0 * (Math::PI / 180), 180 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.arc(:line, :closed, 16, 16, 16, 180 * (Math::PI / 180), 90 * (Math::PI / 180), 10)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata3 = Lota::Graphics.readback_texture(canvas)
+    if Lovetest::GITHUB_RUNNER && Lovetest.os?("OS X")
+      # on macosx runners, the arcs are not drawn as accurately at low res
+      # there's a couple pixels different in the curve of the arc but as we
+      # are at such a low resolution I think that can be expected
+      # on real hardware the test passes fine though
+      assert_equal(true, true, "skip test")
+    else
+      compare_img(imgdata1)
+      compare_img(imgdata2)
+      compare_img(imgdata3)
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.ellipse
+  # (vendor/love/testing/tests/graphics.lua:1490-1504), by the rules
+  # test_circle names.
+  def test_ellipse
+    canvas = Lota::Graphics::Canvas.new(32, 32)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.ellipse(:fill, 16, 16, 16, 8)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.ellipse(:fill, 24, 24, 10, 24)
+    Lota::Graphics.color = 1, 0, 1, 1
+    Lota::Graphics.ellipse(:fill, 16, 0, 8, 16)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.line
+  # (vendor/love/testing/tests/graphics.lua:1524-1536), by the rules
+  # test_circle names. Lua's table of numbers is a Ruby Array.
+  def test_line
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.line(1, 1, 16, 1, 16, 16, 1, 16, 1, 1)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.line([0, 0, 8, 8, 16, 0, 8, 8, 16, 16, 8, 8, 0, 16])
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.newTexture
+  # (vendor/love/testing/tests/graphics.lua:1794-1797): newImageData and
+  # newTexture become ImageData.new and Texture.new (rule 2). Lota reads no
+  # file by name yet, so 'resources/love.png' becomes the FileData
+  # newImageData would read from it, as Lovetest.load reads its font.
+  def test_new_texture
+    imgdata = Lota::Image::ImageData.new(Lovetest.resource("love.png"))
+    assert_object(Lota::Graphics::Texture.new(imgdata))
+  end
+
   # Translated to Ruby from love.test.graphics.clear
   # (vendor/love/testing/tests/graphics.lua:1404-1413): newCanvas becomes
   # Canvas.new (rule 2), setCanvas a writer (rule 5), and readbackTexture

@@ -176,6 +176,12 @@ inline void translate_engine_error() {
 
 // SPDX-SnippetEnd
 
+// Raises ArgumentError with +message+, as Lota raises for a caller's
+// mistake where LÖVE raises luaL_argerror (ADR 001, rule 7).
+[[noreturn]] inline void raise_argument_error(const char *message) {
+  throw Rice::Exception(rb_eArgError, "%s", message);
+}
+
 // Installs translate_engine_error as this bundle's handler. Each bundle has
 // its own Rice registries (cmake/LotaExtension.cmake hides them), so each
 // installs it.

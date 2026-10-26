@@ -20,6 +20,7 @@ void define_generated_event(const Rice::Module &native);
 void define_generated_graphics(const Rice::Module &native);
 void define_generated_image(const Rice::Module &native);
 void define_generated_math(const Rice::Module &native);
+void define_generated_mouse(const Rice::Module &native);
 void define_generated_timer(const Rice::Module &native);
 void define_generated_window(const Rice::Module &native);
 
@@ -28,6 +29,7 @@ inline void define_generated(const Rice::Module &native) {
   define_generated_graphics(native);
   define_generated_image(native);
   define_generated_math(native);
+  define_generated_mouse(native);
   define_generated_timer(native);
   define_generated_window(native);
 }

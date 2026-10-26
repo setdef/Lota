@@ -7,3 +7,6 @@
 [submodule "test/fixtures/love2d_arkanoid_tutorial"]
 	path = test/fixtures/love2d_arkanoid_tutorial
 	url = https://github.com/noooway/love2d_arkanoid_tutorial.git
+[submodule "test/fixtures/gravity_wars"]
+	path = test/fixtures/gravity_wars
+	url = https://github.com/whyboris/Gravity-Wars.git

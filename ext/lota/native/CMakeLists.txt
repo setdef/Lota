@@ -17,6 +17,8 @@ add_library(lota_native MODULE
 	graphics.cpp
 	image.cpp
 	keyboard.cpp
+	math.cpp
+	mouse.cpp
 	native.cpp
 	random_generator.cpp
 	timer.cpp

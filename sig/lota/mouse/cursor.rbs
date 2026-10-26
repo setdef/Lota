@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Mouse
+    class Cursor
+      attr_reader native: Native::Mouse::Cursor
+
+      def self.from_native: (Native::Mouse::Cursor native) -> Cursor
+    end
+  end
+end

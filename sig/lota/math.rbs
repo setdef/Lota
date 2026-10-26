@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Math
+    def self.random: (?(Float | Integer)? min, ?(Float | Integer)? max) -> Float
+
+    def self.random_seed=: (Float | Integer | Array[Float | Integer] seed) -> void
+
+    private def self.number: (Object? value) -> (Float | Integer)
+  end
+end

@@ -127,13 +127,28 @@ std::string w_getLineStyle() {
 }
 
 // love.graphics.rectangle: w_rectangle (wrap_Graphics.cpp:3628-3658).
-void w_rectangle(const std::string &mode, double x, double y, double w, double h) {
+void w_rectangle(const std::string &mode, double x, double y, double w, double h,
+                 std::optional<double> rx, std::optional<double> ry, std::optional<int> points) {
   Graphics::DrawMode mode_value{};
   if (!Graphics::getConstant(mode.c_str(), mode_value)) {
     raise_enum_error("draw mode", Graphics::getConstants(mode_value), mode);
   }
-  instance()->rectangle(mode_value, static_cast<float>(x), static_cast<float>(y),
-                        static_cast<float>(w), static_cast<float>(h));
+  if (!rx.has_value()) {
+    instance()->rectangle(mode_value, static_cast<float>(x), static_cast<float>(y),
+                          static_cast<float>(w), static_cast<float>(h));
+    return;
+  }
+  if (!points.has_value()) {
+    instance()->rectangle(mode_value, static_cast<float>(x), static_cast<float>(y),
+                          static_cast<float>(w), static_cast<float>(h),
+                          static_cast<float>(rx.value_or(0.0)),
+                          static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))));
+  } else {
+    instance()->rectangle(
+        mode_value, static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
+        static_cast<float>(h), static_cast<float>(rx.value_or(0.0)),
+        static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))), points.value());
+  }
 }
 
 // love.graphics.circle: w_circle (wrap_Graphics.cpp:3660-3680).
@@ -149,6 +164,24 @@ void w_circle(const std::string &mode, double x, double y, double radius,
   } else {
     instance()->circle(mode_value, static_cast<float>(x), static_cast<float>(y),
                        static_cast<float>(radius), points.value());
+  }
+}
+
+// love.graphics.ellipse: w_ellipse (wrap_Graphics.cpp:3682-3703).
+void w_ellipse(const std::string &mode, double x, double y, double a, std::optional<double> b,
+               std::optional<int> points) {
+  Graphics::DrawMode mode_value{};
+  if (!Graphics::getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("draw mode", Graphics::getConstants(mode_value), mode);
+  }
+  if (!points.has_value()) {
+    instance()->ellipse(mode_value, static_cast<float>(x), static_cast<float>(y),
+                        static_cast<float>(a),
+                        static_cast<float>(b.value_or(static_cast<float>(a))));
+  } else {
+    instance()->ellipse(mode_value, static_cast<float>(x), static_cast<float>(y),
+                        static_cast<float>(a),
+                        static_cast<float>(b.value_or(static_cast<float>(a))), points.value());
   }
 }
 
@@ -177,8 +210,13 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("line_width", &w_getLineWidth)
       .define_singleton_function("set_line_style", &w_setLineStyle, Rice::Arg("style"))
       .define_singleton_function("line_style", &w_getLineStyle)
-      .define_singleton_function("rectangle", &w_rectangle, Rice::Arg("mode"), Rice::Arg("x"),
-                                 Rice::Arg("y"), Rice::Arg("w"), Rice::Arg("h"))
+      .define_singleton_function(
+          "rectangle", &w_rectangle, Rice::Arg("mode"), Rice::Arg("x"), Rice::Arg("y"),
+          Rice::Arg("w"), Rice::Arg("h"), Rice::Arg("rx") = std::optional<double>(),
+          Rice::Arg("ry") = std::optional<double>(), Rice::Arg("points") = std::optional<int>())
+      .define_singleton_function(
+          "ellipse", &w_ellipse, Rice::Arg("mode"), Rice::Arg("x"), Rice::Arg("y"), Rice::Arg("a"),
+          Rice::Arg("b") = std::optional<double>(), Rice::Arg("points") = std::optional<int>())
       .define_singleton_function("circle", &w_circle, Rice::Arg("mode"), Rice::Arg("x"),
                                  Rice::Arg("y"), Rice::Arg("radius"),
                                  Rice::Arg("points") = std::optional<int>())

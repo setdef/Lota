@@ -35,9 +35,17 @@ module Lota
 
     def self.line_style: () -> Symbol
 
-    def self.rectangle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
+    def self.rectangle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height, ?(Float | Integer)? rx, ?(Float | Integer)? ry, ?Integer? segments) -> nil
 
     def self.circle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? segments) -> nil
+
+    def self.ellipse: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer radius_x, ?(Float | Integer)? radius_y, ?Integer? segments) -> nil
+
+    def self.arc: ((Symbol | String) drawmode, *(Symbol | String | Float | Integer | nil) arguments) -> nil
+
+    def self.line: (*(Float | Integer | Array[Float | Integer]) points) -> nil
+
+    def self.draw: (Texture drawable, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
     type text = String | Array[String | Array[Float | Integer]]
 

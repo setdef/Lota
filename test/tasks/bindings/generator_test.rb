@@ -91,6 +91,17 @@ class GeneratorTest < Minitest::Test
     assert_match(/-> Array\[Float\]\z/, port("love.graphics.getColor").rbs)
   end
 
+  # w_getX declares two doubles in one statement (double x, y;), which
+  # getPosition fills; the port declares each in a statement of its own,
+  # initialized, and pushes x as the Float LÖVE holds it in.
+  def test_variables_declared_together_are_declared_apart
+    port = port("love.mouse.getX")
+
+    assert_includes port.definition, "double w_getX() {\ndouble x{};\ndouble y{};\n" \
+      "instance()->getPosition(x, y);\nreturn x;"
+    assert_equal "def native: () -> Float", port.rbs.sub("self.", "")
+  end
+
   def test_a_method_takes_its_object_const_when_it_only_reads_it
     code = port("Texture:isCanvas", main_thread: "Lota::Graphics").definition
 
@@ -148,14 +159,17 @@ class GeneratorTest < Minitest::Test
 
   # The rules give each bound function the Ruby name lib/ already
   # defines, so the generator and the hand-written Ruby agree. RandomGenerator
-  # has no Ruby class yet, and capture_screenshot serves only the parity
+  # has no Ruby class yet, and Lota::Math draws from the math module's
+  # generator itself; and capture_screenshot serves only the parity
   # harness.
   UNWRITTEN = %w[
     RandomGenerator:_random
     RandomGenerator:getState
     RandomGenerator:randomNormal
+    RandomGenerator:setSeed
     RandomGenerator:setState
     love.graphics.captureScreenshot
+    love.math._getRandomGenerator
     love.math.newRandomGenerator
   ].freeze
 

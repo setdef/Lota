@@ -12,6 +12,7 @@
 #include "common/Matrix.h"
 #include "common/Module.h"
 #include "common/Optional.h"
+#include "common/Vector.h"
 #include "common/math.h"
 #include "filesystem/FileData.h"
 #include "font/Font.h"
@@ -21,13 +22,17 @@
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
 #include "graphics/Texture.h"
+#include "image/CompressedImageData.h"
+#include "image/Image.h"
 #include "image/ImageData.h"
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -193,10 +198,17 @@ void present() {
   }
 }
 
-// w_newCanvas with no settings table (wrap_Graphics.cpp:873-913): a 2D
+// w_newCanvas with a width and a height (wrap_Graphics.cpp:873-913): a 2D
 // render target, as large as the window unless told otherwise, at the
-// screen's DPI scale. Its one reference goes to the Ruby wrapper.
-Texture *new_canvas(std::optional<int> width, std::optional<int> height) {
+// screen's DPI scale, with +msaa+ antialiasing samples unless it is nil, the
+// one setting of luax_checktexturesettings (lines 759-871) Lota binds so
+// far, which Lota::Graphics::Canvas.new reads as luax_intflag does;
+// otherwise Texture::Settings' one sample (graphics/Texture.h:186-203). It
+// arrives as a Ruby object, as an entry of LÖVE's settings table does, by
+// value, as Rice converts it, and is moved, as capture_screenshot moves its
+// callable. Its one reference goes to the Ruby wrapper.
+Texture *new_canvas(std::optional<int> width, std::optional<int> height, Rice::Object msaa) {
+  const Rice::Object samples = std::move(msaa);
   Graphics &instance = graphics();
   // luax_checkgraphicscreated (wrap_Graphics.cpp:56-61).
   if (!instance.isCreated()) {
@@ -207,6 +219,9 @@ Texture *new_canvas(std::optional<int> width, std::optional<int> height) {
   settings.height = height.value_or(instance.getHeight());
   // luax_checktexturesettings forces renderTarget (wrap_Graphics.cpp:762-763).
   settings.renderTarget = true;
+  if (!samples.is_nil()) {
+    settings.msaa = Rice::detail::From_Ruby<int>().convert(samples.value());
+  }
   settings.dpiScale = static_cast<float>(instance.getScreenDPIScale());
   return instance.newTexture(settings);
 }
@@ -265,6 +280,68 @@ Graphics &created_graphics() {
     throw love::Exception("%s cannot function without a window.", MODULE);
   }
   return instance;
+}
+
+// parseDPIScale (wrap_Graphics.cpp:692-712): a file named like
+// "image@2x.png" holds pixels at twice the density, so the texture made
+// from it takes a DPI scale of 2. Data that is not a file has no name to
+// parse.
+void parse_dpi_scale(love::Data *data, float &dpiscale) {
+  const auto *file = dynamic_cast<love::filesystem::FileData *>(data);
+  if (file == nullptr) {
+    return;
+  }
+  const std::string &fname = file->getName();
+  const std::size_t namelen = fname.length();
+  const std::size_t atpos = fname.rfind('@');
+  if (atpos != std::string::npos && atpos + 2 < namelen &&
+      (fname.back() == 'x' || fname.back() == 'X')) {
+    char *end = nullptr;
+    constexpr int base = 10;
+    const long density = std::strtol(&fname.at(atpos + 1), &end, base);
+    if (end != nullptr && density > 0) {
+      dpiscale = static_cast<float>(density);
+    }
+  }
+}
+
+// w_newTexture of one 2D image with no settings (wrap_Graphics.cpp:
+// 916-975), its pixels from +data+ as getImageData decodes them
+// (lines 714-745): compressed formats the image module recognizes stay
+// compressed, and everything else is decoded to an ImageData. The
+// texture's one reference goes to the Ruby wrapper.
+Texture *new_texture_from_data(love::Data *data) {
+  Graphics &instance = created_graphics();
+  auto *imagemodule = love::Module::getInstance<love::image::Image>(love::Module::M_IMAGE);
+  if (imagemodule == nullptr) {
+    throw love::Exception("Cannot load images without the love.image module.");
+  }
+  Texture::Settings settings;
+  settings.type = love::graphics::TEXTURE_2D;
+  parse_dpi_scale(data, settings.dpiScale);
+  Texture::Slices slices(love::graphics::TEXTURE_2D);
+  if (imagemodule->isCompressed(data)) {
+    const love::StrongRef<love::image::CompressedImageData> cdata(
+        imagemodule->newCompressedData(data), love::Acquire::NORETAIN);
+    slices.add(cdata.get(), 0, 0, false, settings.mipmaps != Texture::MIPMAPS_NONE);
+  } else {
+    const love::StrongRef<love::image::ImageData> idata(imagemodule->newImageData(data),
+                                                        love::Acquire::NORETAIN);
+    slices.set(0, 0, idata.get());
+  }
+  return instance.newTexture(settings, &slices);
+}
+
+// w_newTexture of an ImageData with no settings (wrap_Graphics.cpp:
+// 916-975 and 714-722): the texture takes the ImageData's pixels as they
+// are, at a DPI scale of 1.
+Texture *new_texture_from_image_data(love::image::ImageData *data) {
+  Graphics &instance = created_graphics();
+  Texture::Settings settings;
+  settings.type = love::graphics::TEXTURE_2D;
+  Texture::Slices slices(love::graphics::TEXTURE_2D);
+  slices.set(0, 0, data);
+  return instance.newTexture(settings, &slices);
 }
 
 // The font module, which rasterizes the glyphs of every font the graphics
@@ -410,6 +487,71 @@ void printf(Rice::Array text, Rice::Array placement, double limit,
   graphics().printf(strings, static_cast<float>(limit), mode, matrix);
 }
 
+// w_draw of a Drawable with numbers (wrap_Graphics.cpp:3245-3279): the
+// drawable, placed by luax_checkstandardtransform's nine numbers. Lota
+// draws textures so far, which are LÖVE's Drawables.
+void draw(Texture *texture, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(texture, placement_of(numbers));
+}
+
+// w_line (wrap_Graphics.cpp:3542-3589) with its coordinates in one Array,
+// as Lota::Graphics.line passes them however they were given: LÖVE checks
+// their count before it reads them, and reads each as a float.
+void line(Rice::Array coordinates) {
+  const Rice::Array list = std::move(coordinates);
+  const std::vector<Rice::Object> given = elements(list);
+  const auto args = static_cast<int>(given.size());
+  if (args % 2 != 0) {
+    throw love::Exception("Number of vertex components must be a multiple of two.");
+  }
+  if (args < 4) {
+    throw love::Exception("Need at least two vertices to draw a line.");
+  }
+  Graphics &instance = graphics();
+  const int numvertices = args / 2;
+  const std::span<love::Vector2> coords(instance.getScratchBuffer<love::Vector2>(numvertices),
+                                        static_cast<std::size_t>(numvertices));
+  std::size_t component = 0;
+  for (love::Vector2 &coord : coords) {
+    coord.x = to_float(given.at(component));
+    coord.y = to_float(given.at(component + 1));
+    component += 2;
+  }
+  instance.polyline(coords.data(), numvertices);
+}
+
+// w_arc (wrap_Graphics.cpp:3705-3739): the arc mode is pie unless given,
+// and the draw mode is checked before it. Its position, radius, angles,
+// and optional count of points arrive in one Array, as Lota::Graphics.arc
+// passes what follows the arc mode, and each is read as LÖVE reads it.
+void arc(const std::string &drawstr, const std::optional<std::string> &arcstr,
+         Rice::Array arguments) {
+  const Rice::Array list = std::move(arguments);
+  const std::vector<Rice::Object> given = elements(list);
+  Graphics::DrawMode drawmode = Graphics::DRAW_LINE;
+  if (!Graphics::getConstant(drawstr.c_str(), drawmode)) {
+    raise_enum_error("draw mode", Graphics::getConstants(drawmode), drawstr);
+  }
+  Graphics::ArcMode arcmode = Graphics::ARC_PIE;
+  if (arcstr.has_value() && !Graphics::getConstant(arcstr->c_str(), arcmode)) {
+    raise_enum_error("arc mode", Graphics::getConstants(arcmode), *arcstr);
+  }
+  const float x = to_float(given.at(0));
+  const float y = to_float(given.at(1));
+  const float radius = to_float(given.at(2));
+  const float angle1 = to_float(given.at(3));
+  const float angle2 = to_float(given.at(4));
+  constexpr std::size_t points_index = 5;
+  Graphics &instance = graphics();
+  if (given.size() <= points_index || given.at(points_index).is_nil()) {
+    instance.arc(drawmode, arcmode, x, y, radius, angle1, angle2);
+  } else {
+    const int points = Rice::detail::From_Ruby<int>().convert(given.at(points_index).value());
+    instance.arc(drawmode, arcmode, x, y, radius, angle1, angle2, points);
+  }
+}
+
 // w_getDefaultFilter (wrap_Graphics.cpp:2769-2782): the two filters'
 // names and the anisotropy, which LÖVE holds as an integer.
 Rice::Array default_filter() {
@@ -451,7 +593,11 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("set_renderers", &set_renderers, Rice::Arg("names"))
       .define_singleton_function("present", &present)
       .define_singleton_function("new_canvas", &new_canvas, Rice::Arg("width"), Rice::Arg("height"),
+                                 Rice::Arg("msaa"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_texture_from_data", &new_texture_from_data, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("new_texture_from_image_data", &new_texture_from_image_data,
+                                 Rice::Arg("data"), Rice::Return().takeOwnership())
       .define_singleton_function("set_canvas", &set_canvas, Rice::Arg("texture"))
       .define_singleton_function("reset_canvas", &reset_canvas)
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),
@@ -473,7 +619,11 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("print", &print, Rice::Arg("text"), Rice::Arg("placement"))
       .define_singleton_function("printf", &printf, Rice::Arg("text"), Rice::Arg("placement"),
                                  Rice::Arg("limit"), Rice::Arg("align"))
-      .define_singleton_function("default_filter", &default_filter);
+      .define_singleton_function("default_filter", &default_filter)
+      .define_singleton_function("draw", &draw, Rice::Arg("texture"), Rice::Arg("placement"))
+      .define_singleton_function("line", &line, Rice::Arg("coordinates"))
+      .define_singleton_function("arc", &arc, Rice::Arg("drawstr"), Rice::Arg("arcstr"),
+                                 Rice::Arg("arguments"));
 }
 
 } // namespace lota::native

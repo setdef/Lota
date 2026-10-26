@@ -4,7 +4,7 @@
 module Lota
   module Graphics
     module Canvas
-      def self.new: (?Integer? width, ?Integer? height) -> Texture
+      def self.new: (?Integer? width, ?Integer? height, ?msaa: (Integer | Float)?) -> Texture
 
       def self.===: (top object) -> bool
     end

@@ -18,15 +18,18 @@ module Lota
     # Image and Canvas classes. Lota::Graphics::Canvas.new makes a texture
     # you can draw into, and canvas? says whether a texture is one.
     #
-    # Use it to read rendered pixels back with
-    # Lota::Graphics.readback_texture, and as the target of
-    # Lota::Graphics.canvas=.
+    # Use it to draw an image with Lota::Graphics.draw, to read rendered
+    # pixels back with Lota::Graphics.readback_texture, and as the target
+    # of Lota::Graphics.canvas=.
     #
     # === Examples
     #
     #   texture = Lota::Graphics::Canvas.new(16, 16)
     #   texture.class   # => Lota::Graphics::Texture
     #   texture.canvas? # => true
+    #
+    #   player = Lota::Graphics::Texture.new(Lota::Image::ImageData.new(data))
+    #   Lota::Graphics.draw(player, 100, 100)
     class Texture
       # The engine's Texture, for Lota's own modules. :nodoc:
       attr_reader :native
@@ -39,9 +42,41 @@ module Lota
         texture
       end
 
-      # LÖVE makes textures with factories such as love.graphics.newCanvas,
-      # so Lota does too (Lota::Graphics::Canvas.new).
-      private_class_method :new
+      # Makes a texture from an image, matching love.graphics.newTexture
+      # (src/modules/graphics/wrap_Graphics.cpp, w_newTexture and
+      # getImageData).
+      #
+      # [image] Lota::Filesystem::FileData holding an encoded image, or a
+      #   Lota::Image::ImageData.
+      #
+      # LÖVE decodes a PNG, JPEG, BMP, TGA, or one of its other formats to
+      # pixels, and keeps a compressed texture format, such as DDS or
+      # ASTC, compressed. A file named like "image@2x.png" holds pixels at
+      # twice the density, so the texture's DPI scale is 2 and it draws at
+      # half its pixel size, as LÖVE parses the FileData's name. LÖVE also
+      # reads an image from a file by name, makes a texture from several
+      # images, or of a size with no pixels, and takes a table of settings;
+      # Lota binds those forms later.
+      #
+      # Raises TypeError for anything else, RuntimeError with LÖVE's message
+      # when the data cannot be decoded, the image or graphics module is not
+      # open, or no window is, and ThreadError off the main thread.
+      #
+      # === Examples
+      #
+      #   png = File.binread("ship.png")
+      #   ship = Lota::Graphics::Texture.new(Lota::Filesystem::FileData.new(png, "ship.png"))
+      #   ship.canvas? # => false
+      def self.new(image)
+        native = case image
+        when Filesystem::FileData then Native::Graphics.new_texture_from_data(image.native)
+        when Lota::Image::ImageData then Native::Graphics.new_texture_from_image_data(image.native)
+        else
+          raise TypeError,
+            "wrong argument type #{image.class} (expected Lota::Filesystem::FileData or Lota::Image::ImageData)"
+        end
+        from_native(native)
+      end
 
       # Whether you can draw into this texture, matching Texture:isCanvas
       # (src/modules/graphics/wrap_Texture.cpp, w_Texture_isCanvas).

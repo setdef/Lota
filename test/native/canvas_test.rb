@@ -16,11 +16,9 @@ require_relative "../engine_helper"
 # Lota::Graphics::Texture and whose === asks the texture whether it is a
 # canvas (Texture:isCanvas, wrap_Texture.cpp:282-287).
 #
-# Lota binds no factory yet that makes a texture that is not a canvas
-# (love.graphics.newTexture or newImage), so these tests cannot show a
-# real non-canvas Texture failing to match; they show that everything that
-# is not a Texture fails to match, and that Canvas.=== asks canvas? rather
-# than the class.
+# A texture love.graphics.newTexture makes from an image (Texture.new) is
+# not a canvas, and fails to match; so does everything that is not a
+# Texture, and Canvas.=== asks canvas? rather than the class.
 class CanvasTest < Minitest::Test
   include NativeHelper
 
@@ -37,6 +35,14 @@ class CanvasTest < Minitest::Test
 
   def test_new_returns_a_texture
     assert_instance_of Texture, Canvas.new(4, 4)
+  end
+
+  def test_a_texture_made_from_an_image_is_not_a_canvas
+    png = File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png"))
+    image = Lota::Graphics::Texture.new(Lota::Filesystem::FileData.new(png, "love.png"))
+
+    refute_predicate image, :canvas?
+    refute_operator Canvas, :===, image
   end
 
   def test_the_texture_wraps_the_engines_texture
@@ -86,10 +92,10 @@ class CanvasTest < Minitest::Test
     assert_empty texture.singleton_class.ancestors - Texture.ancestors - [texture.singleton_class]
   end
 
-  # LÖVE makes textures only through factories, so Lota offers no
-  # Texture.new.
-  def test_texture_has_no_public_new
-    assert_raises(NoMethodError) { Texture.new }
+  # love.graphics.newTexture becomes Texture.new (rule 2), which makes a
+  # texture from an image (test/native/texture_test.rb), so it needs one.
+  def test_texture_new_needs_an_image
+    assert_raises(ArgumentError) { Texture.new }
   end
 
   def test_a_canvas_is_a_drawing_target

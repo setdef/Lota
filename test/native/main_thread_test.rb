@@ -50,6 +50,9 @@ class MainThreadTest < Minitest::Test
     font = Lota::Graphics::Font.new(8)
     font_data = Lota::Filesystem::FileData.new(File.binread(File.join(ROOT, "vendor/love/testing/resources/font.ttf")),
       "font.ttf")
+    image_file = Lota::Filesystem::FileData.new(File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png")),
+      "love.png")
+    image_data = Lota::Image::ImageData.new(image_file)
     calls = {
       "Canvas.new" => -> { Lota::Graphics::Canvas.new(2, 2) },
       "canvas=" => -> { Lota::Graphics.canvas = texture },
@@ -74,6 +77,13 @@ class MainThreadTest < Minitest::Test
       "color" => -> { Lota::Graphics.color },
       "rectangle" => -> { Lota::Graphics.rectangle(:fill, 0, 0, 1, 1) },
       "circle" => -> { Lota::Graphics.circle(:fill, 0, 0, 1) },
+      "ellipse" => -> { Lota::Graphics.ellipse(:fill, 0, 0, 1, 2) },
+      "arc" => -> { Lota::Graphics.arc(:fill, 0, 0, 1, 0, 1) },
+      "line" => -> { Lota::Graphics.line(0, 0, 1, 1) },
+      "draw" => -> { Lota::Graphics.draw(texture) },
+      "Canvas.new(msaa:)" => -> { Lota::Graphics::Canvas.new(2, 2, msaa: 2) },
+      "Texture.new(data)" => -> { Lota::Graphics::Texture.new(image_file) },
+      "Texture.new(image data)" => -> { Lota::Graphics::Texture.new(image_data) },
       "line_width=" => -> { Lota::Graphics.line_width = 1 },
       "line_width" => -> { Lota::Graphics.line_width },
       "line_style=" => -> { Lota::Graphics.line_style = :rough },

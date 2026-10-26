@@ -38,8 +38,8 @@ generate "love.graphics.setLineWidth"
 generate "love.graphics.getLineWidth"
 generate "love.graphics.setLineStyle"
 generate "love.graphics.getLineStyle"
-generate "love.graphics.rectangle", arguments: 5,
-  reason: "without rounded corners, as Lota::Graphics.rectangle binds it until a game needs them"
+generate "love.graphics.rectangle"
+generate "love.graphics.ellipse"
 generate "love.graphics.circle"
 generate "Texture:isCanvas"
 generate "love.graphics.setFont"
@@ -51,7 +51,11 @@ bound_by_hand "love.graphics.present",
   reason: "passes LÖVE's lua_State to Graphics::present for its screenshot callbacks, which Lota replaces " \
     "with deliver_screenshot"
 bound_by_hand "love.graphics.newCanvas",
-  reason: "reads its settings table through luax_checktexturesettings, at a position it computes"
+  reason: "reads its settings table through luax_checktexturesettings, at a position it computes; Lota binds a " \
+    "width, a height, and the msaa setting"
+bound_by_hand "love.graphics.newTexture",
+  reason: "chooses among its forms by its arguments' kinds, and reads its image through getImageData and " \
+    "luax_getdata, which the generator does not port; Lota binds one image, from Data or an ImageData"
 bound_by_hand "love.graphics.setCanvas",
   reason: "chooses among its forms by its arguments' kinds and count; Lota binds one texture (set_canvas) and " \
     "none (reset_canvas)"
@@ -74,6 +78,15 @@ bound_by_hand "love.graphics.print",
 bound_by_hand "love.graphics.printf",
   reason: "reads its text, Font, placement, and alignment at positions it computes; Lota binds the form " \
     "without a Font, as print"
+bound_by_hand "love.graphics.draw",
+  reason: "reads its placement at a position that depends on whether a Quad comes second; Lota binds a " \
+    "Texture with its nine numbers as an Array, as print"
+bound_by_hand "love.graphics.line",
+  reason: "reads its coordinates in a loop over every argument, or from a table; Lota::Graphics.line passes " \
+    "them as one Array"
+bound_by_hand "love.graphics.arc",
+  reason: "reads its position at an index that depends on whether an arc mode comes second; " \
+    "Lota::Graphics.arc passes the arc mode or nil"
 bound_by_hand "love.graphics.captureScreenshot",
   reason: "takes a Lua function, a Channel, or a filename; Lota binds a Ruby callable for the parity harness"
 
@@ -89,6 +102,12 @@ bound_by_hand "love.keyboard.isDown",
   reason: "reads its keys in a loop over every argument, or from a table; Lota::Keyboard.down? passes them " \
     "as one Array"
 
+# love.mouse
+bound_by_hand "love.mouse.getSystemCursor",
+  reason: "pushes its Cursor with luax_pushtype, which the generator does not port"
+generate "love.mouse.setCursor"
+generate "love.mouse.getX"
+
 # love.math
 bound_by_hand "RandomGenerator:_random",
   reason: "clang-analyzer's security.insecureAPI.rand takes the port's call to a method named random for the C " \
@@ -100,6 +119,12 @@ generate "RandomGenerator:getState"
 generate "RandomGenerator:setState"
 bound_by_hand "love.math.newRandomGenerator",
   reason: "reads its seed's two halves at a position it computes; Lota binds the generator's constructor"
+bound_by_hand "love.math._getRandomGenerator",
+  reason: "pushes its RandomGenerator with luax_pushtype, which the generator does not port; Lota::Math draws " \
+    "from it, as wrap_Math.lua does"
+bound_by_hand "RandomGenerator:setSeed",
+  reason: "reads its seed's two halves at a position it computes (luax_checkrandomseed); Lota binds the low " \
+    "half and an optional high half"
 
 # love.timer
 generate "love.timer.step"

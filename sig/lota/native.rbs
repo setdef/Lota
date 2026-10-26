@@ -15,6 +15,16 @@ module Lota
       def initialize: () -> void
 
       def random: () -> Float
+
+      def set_seed: (Float | Integer low, ?(Float | Integer)? high) -> nil
+    end
+
+    module Math
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.random_generator: () -> RandomGenerator
     end
 
     class Data
@@ -113,6 +123,18 @@ module Lota
       def self.down?: (Array[String] names) -> bool
     end
 
+    module Mouse
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.system_cursor: (String name) -> Cursor
+
+      class Cursor
+        def self.cpp_class: () -> String
+      end
+    end
+
     module Touch
       def self.set_trackpad_touch: (bool enable) -> nil
     end
@@ -144,7 +166,11 @@ module Lota
 
       def self.present: () -> nil
 
-      def self.new_canvas: (Integer? width, Integer? height) -> Texture
+      def self.new_canvas: (Integer? width, Integer? height, Integer? msaa) -> Texture
+
+      def self.new_texture_from_data: (Data data) -> Texture
+
+      def self.new_texture_from_image_data: (ImageData data) -> Texture
 
       def self.set_canvas: (Texture texture) -> nil
 
@@ -171,6 +197,12 @@ module Lota
       def self.printf: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Array[Float | Integer] placement, Float | Integer limit, String? align) -> nil
 
       def self.default_filter: () -> [String, String, Integer]
+
+      def self.draw: (Texture texture, Array[Float | Integer] placement) -> nil
+
+      def self.line: (Array[Float | Integer | Array[Float | Integer]] coordinates) -> nil
+
+      def self.arc: (String drawstr, String? arcstr, Array[Symbol | String | Float | Integer | nil] arguments) -> nil
 
       class Font
         def self.cpp_class: () -> String

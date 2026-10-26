@@ -11,6 +11,7 @@ set(LOTA_GENERATED_SOURCES
 	generated/graphics.cpp
 	generated/image.cpp
 	generated/math.cpp
+	generated/mouse.cpp
 	generated/timer.cpp
 	generated/window.cpp
 )

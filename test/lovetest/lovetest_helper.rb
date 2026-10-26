@@ -52,6 +52,20 @@ module Lovetest
     @loaded = true
   end
 
+  # Lövetest's GITHUB_RUNNER (vendor/love/testing/main.lua:86-111): true
+  # when the tests run on a GitHub Actions runner, which LÖVE's own CI
+  # says with --isRunner (vendor/love/.github/workflows/main.yml) and
+  # GitHub says to Lota's with GITHUB_ACTIONS.
+  GITHUB_RUNNER = ENV["GITHUB_ACTIONS"] == "true"
+
+  # Lövetest's TestMethod:isOS (vendor/love/testing/classes/TestMethod.lua:
+  # 406-416): whether any of +names+ is this system's name as
+  # love.system.getOS gives it ("OS X", "Windows", "Linux", "Android", or
+  # "iOS"). Lota runs on macOS alone so far.
+  def self.os?(*names)
+    names.include?(RUBY_PLATFORM.include?("darwin") ? "OS X" : RUBY_PLATFORM)
+  end
+
   # The resource file +name+, as the FileData LÖVE reads a resource into.
   def self.resource(name)
     Lota::Filesystem::FileData.new(File.binread(File.join(RESOURCES, name)), name)
@@ -91,6 +105,16 @@ module Lovetest
     def assert_not_nil(value, err = nil)
       refute_equal(nil, value, "check not nil")
       flunk(err) unless err.nil?
+    end
+
+    # Asserts that +obj+ is one of LÖVE's objects, as assertObject does
+    # (lines 211-223): not nil, and an object of the engine's, which Lua
+    # calls userdata and Lota wraps around its native object. Lota binds
+    # no Object:type yet (ADR 001, rule 16), so assertObject's last check,
+    # that obj:type() is not nil, waits for it.
+    def assert_object(obj)
+      assert_not_nil(obj)
+      assert_equal(true, obj.respond_to?(:native), "check is userdata")
     end
 
     # Compares +imgdata+ with LÖVE's expected image, pixel by pixel, with a

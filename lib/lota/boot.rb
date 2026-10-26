@@ -43,7 +43,7 @@ module Lota
       event: -> { Native::Event.open },
       keyboard: -> { Native::Keyboard.open },
       joystick: nil,
-      mouse: nil,
+      mouse: -> { Native::Mouse.open },
       touch: nil,
       sound: nil,
       system: nil,
@@ -54,7 +54,7 @@ module Lota
       font: -> { Native::Font.open },
       window: -> { Native::Window.open },
       graphics: -> { Native::Graphics.open },
-      math: nil,
+      math: -> { Native::Math.open },
       physics: nil,
     }.freeze
 

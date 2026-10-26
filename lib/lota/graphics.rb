@@ -297,22 +297,30 @@ module Lota
     # [y] Float or Integer position of its top edge.
     # [width] Float or Integer width.
     # [height] Float or Integer height.
+    # [rx] Float or Integer horizontal radius of its rounded corners;
+    #   square corners when +nil+ or left out.
+    # [ry] Float or Integer vertical radius of the corners; +rx+ when +nil+
+    #   or left out.
+    # [segments] Integer count of straight sides each corner is drawn
+    #   with; when +nil+ or left out, LÖVE picks enough for the corner's
+    #   size on screen.
     #
     # Positions and sizes are in the current coordinate system, which
     # starts as the window's or the canvas's pixels, with (0, 0) at the
     # top left. LÖVE reads each as a single-precision float, and so does
-    # Lota. LÖVE also rounds the corners with radii and a count of
-    # segments; Lota binds that form later.
+    # Lota.
     #
-    # Raises ArgumentError for an unknown +mode+, TypeError for a position
-    # or size that is not a number, and ThreadError off the main thread.
+    # Raises ArgumentError for an unknown +mode+, TypeError for a position,
+    # size, or radius that is not a number or a count of segments that is
+    # not an Integer, and ThreadError off the main thread.
     #
     # === Examples
     #
     #   Lota::Graphics.rectangle(:fill, 100, 100, 50, 30)
     #   Lota::Graphics.rectangle(:line, 500, 500, 70, 20)
-    def self.rectangle(mode, x, y, width, height)
-      Native::Graphics.rectangle(mode.to_s, x, y, width, height)
+    #   Lota::Graphics.rectangle(:fill, 10, 10, 56, 12, 4, 4) # rounded corners
+    def self.rectangle(mode, x, y, width, height, rx = nil, ry = nil, segments = nil)
+      Native::Graphics.rectangle(mode.to_s, x, y, width, height, rx, ry, segments)
     end
 
     # Draws a circle in the current color, matching love.graphics.circle
@@ -340,6 +348,138 @@ module Lota
     #   Lota::Graphics.circle(:line, 300, 300, 10, 16)
     def self.circle(mode, x, y, radius, segments = nil)
       Native::Graphics.circle(mode.to_s, x, y, radius, segments)
+    end
+
+    # Draws an ellipse in the current color, matching
+    # love.graphics.ellipse (src/modules/graphics/wrap_Graphics.cpp,
+    # w_ellipse).
+    #
+    # [mode] +:fill+ to fill it, or +:line+ to draw its outline.
+    # [x] Float or Integer position of its center.
+    # [y] Float or Integer position of its center.
+    # [radius_x] Float or Integer horizontal radius.
+    # [radius_y] Float or Integer vertical radius; +radius_x+ when +nil+
+    #   or left out, which draws a circle.
+    # [segments] Integer count of straight sides it is drawn with; when
+    #   +nil+ or left out, LÖVE picks enough for the ellipse's size on
+    #   screen.
+    #
+    # LÖVE reads the position and radii as single-precision floats, and so
+    # does Lota.
+    #
+    # Raises ArgumentError for an unknown +mode+, TypeError for a position
+    # or radius that is not a number or a count of segments that is not an
+    # Integer, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.ellipse(:fill, 400, 300, 100, 50)
+    #   Lota::Graphics.ellipse(:line, 400, 300, 10, 10, 32)
+    def self.ellipse(mode, x, y, radius_x, radius_y = nil, segments = nil)
+      Native::Graphics.ellipse(mode.to_s, x, y, radius_x, radius_y, segments)
+    end
+
+    # Draws an arc, part of a circle, in the current color, matching
+    # love.graphics.arc (src/modules/graphics/wrap_Graphics.cpp, w_arc).
+    #
+    # [drawmode] +:fill+ to fill it, or +:line+ to draw its outline.
+    # [arcmode] How its ends are joined, when given: +:pie+ (the default)
+    #   draws lines from both ends to the center, +:open+ leaves the ends
+    #   apart, and +:closed+ joins them with a line. Leave it out and the
+    #   position comes second.
+    # [x] Float or Integer position of the circle's center.
+    # [y] Float or Integer position of the circle's center.
+    # [radius] Float or Integer radius.
+    # [angle1] Float angle the arc starts at, in radians, measured
+    #   clockwise from the right, as the window's y axis points down.
+    # [angle2] Float angle it ends at, in radians.
+    # [segments] Integer count of straight sides it is drawn with; when
+    #   +nil+ or left out, LÖVE picks enough for the arc's size on screen.
+    #
+    # LÖVE tells the arc mode from the position by its type, a string
+    # rather than a number, and so does Lota: a Symbol or a String second
+    # is the arc mode.
+    #
+    # Raises ArgumentError for an unknown draw or arc mode or the wrong
+    # count of arguments, TypeError for a position, radius, or angle that
+    # is not a number, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.arc(:fill, 400, 300, 100, 0, Math::PI / 2)
+    #   Lota::Graphics.arc(:line, :open, 400, 300, 100, 0, Math::PI, 16)
+    def self.arc(drawmode, *arguments)
+      arcmode = arguments.shift.to_s if arguments.first.is_a?(Symbol) || arguments.first.is_a?(String)
+      unless arguments.size.between?(5, 6)
+        raise ArgumentError, "wrong number of arguments (given #{arguments.size + 1}, expected 6..8)"
+      end
+
+      Native::Graphics.arc(drawmode.to_s, arcmode, arguments)
+    end
+
+    # Draws lines between points in the current color and line width,
+    # matching love.graphics.line (src/modules/graphics/wrap_Graphics.cpp,
+    # w_line).
+    #
+    # [points] The x and y of each point in turn, at least two points, as
+    #   numbers or as one Array of them.
+    #
+    # The line joins each point to the next. LÖVE reads each coordinate
+    # as a single-precision float, and so does Lota.
+    #
+    # Raises RuntimeError with LÖVE's message for an odd count of
+    # coordinates or fewer than two points, TypeError for a coordinate
+    # that is not a number, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.line(100, 100, 200, 150)
+    #   Lota::Graphics.line([0, 0, 8, 8, 16, 0])
+    def self.line(*points)
+      first = points.first
+      unless first.is_a?(Array) || first.is_a?(Integer) || first.is_a?(Float)
+        raise TypeError, "wrong argument type #{first.class} (expected Array or Float)"
+      end
+
+      Native::Graphics.line((points.size == 1 && first.is_a?(Array)) ? first : points)
+    end
+
+    # Draws +drawable+ in the current color, matching love.graphics.draw
+    # (src/modules/graphics/wrap_Graphics.cpp, w_draw).
+    #
+    # [drawable] Lota::Graphics::Texture, such as a canvas.
+    # [x] Float or Integer position of its left edge; 0 when +nil+ or
+    #   left out.
+    # [y] Float or Integer position of its top edge; 0 likewise.
+    # [r] Float angle in radians; 0 likewise.
+    # [sx] Float or Integer horizontal scale; 1 likewise.
+    # [sy] Float or Integer vertical scale; +sx+ likewise.
+    # [ox] Float or Integer horizontal origin offset; 0 likewise.
+    # [oy] Float or Integer vertical origin offset; 0 likewise.
+    # [kx] Float or Integer horizontal shearing factor; 0 likewise.
+    # [ky] Float or Integer vertical shearing factor; 0 likewise.
+    #
+    # The current color tints what is drawn, so white draws it as it is.
+    # LÖVE reads each number as a single-precision float, and so does
+    # Lota. LÖVE also draws part of a texture through a Quad, places it
+    # with a Transform, and draws meshes, text, and its other drawables;
+    # Lota binds those forms later.
+    #
+    # Raises TypeError for a drawable that is not a Texture or a number of
+    # the wrong type, RuntimeError with LÖVE's message when the engine
+    # refuses the draw, as for a canvas drawn into itself, and ThreadError
+    # off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.draw(canvas)
+    #   Lota::Graphics.draw(canvas, 100, 50, 0, 2) # twice the size
+    def self.draw(drawable, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
+      unless drawable.is_a?(Texture)
+        raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)"
+      end
+
+      Native::Graphics.draw(drawable.native, placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky))
     end
 
     # The window's width, in units of the screen's DPI scale, matching

@@ -401,6 +401,9 @@ line: node.line,
     private def emit_expression(text)
       return [] if parameter_declaration?(text)
       return emit_push(text) if push?(text)
+      if (together = Analysis.declared_together(text))
+        return together[:names].map { |name| "#{declaration("#{together[:type]} #{name}")};" }
+      end
 
       ["#{declaration(rewrite(text))};"]
     end

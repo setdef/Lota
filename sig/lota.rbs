@@ -16,6 +16,10 @@ module Lota
 
   def self.keyboard: () -> singleton(Keyboard)?
 
+  def self.mouse: () -> singleton(Mouse)?
+
+  def self.math: () -> singleton(Math)?
+
   def self.window: () -> singleton(Window)?
 end
 
