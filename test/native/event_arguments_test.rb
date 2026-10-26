@@ -68,6 +68,22 @@ class EventArgumentsTest < Minitest::Test
     assert_equal [Integer, Integer], [width.class, height.class]
   end
 
+  # A key event gives the key's and the scancode's names, which are names
+  # in LÖVE and so symbols (Event.cpp:284-317; ADR 001, rule 9). Escape's
+  # scancode is 41 on every layout (SDL_scancode.h).
+  def test_a_key_press_gives_its_key_and_scancode_as_symbols
+    key, scancode, isrepeat = received(:keypressed) { LotaNativeTest.press_key(41, true) }
+
+    assert_equal %i[escape escape], [key, scancode]
+    assert_equal false, isrepeat
+  end
+
+  def test_a_key_release_gives_its_key_and_scancode_as_symbols
+    key, scancode = received(:keyreleased) { LotaNativeTest.press_key(41, false) }
+
+    assert_equal %i[escape escape], [key, scancode]
+  end
+
   # The display's index counts from 1 (Event.cpp:507).
   def test_a_display_rotation_gives_its_display_index_as_an_integer
     display, orientation = received(:displayrotated) { LotaNativeTest.rotate_display }

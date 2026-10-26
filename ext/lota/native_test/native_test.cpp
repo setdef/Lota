@@ -401,6 +401,26 @@ void edit_text() {
   push(event);
 }
 
+// SDL's key event for the key with scancode +scancode+ going down, when
+// +down+ is true, or coming up, as macOS would report it to a window with
+// keyboard focus. LÖVE's Event::convert reads only the event's key and
+// scancode (vendor/love/src/modules/event/sdl/Event.cpp:284-317); the key
+// is the one SDL itself would put in the event (SDL_SendKeyboardKey calls
+// SDL_GetKeyFromScancode with key_event true), so that the key name LÖVE
+// gives follows this machine's layout, as a real press's would. Pushing
+// the event bypasses keyboard focus, which SDL checks only for events it
+// reads from the system, so the parity harness's presses reach a window
+// the player is not looking at; the harness's Lua side pushes the same
+// event through LuaJIT's FFI (test/parity/lua/conf.lua).
+void press_key(int scancode, bool down) {
+  SDL_Event event{};
+  event.key.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+  event.key.scancode = static_cast<SDL_Scancode>(scancode);
+  event.key.key = SDL_GetKeyFromScancode(event.key.scancode, SDL_KMOD_NONE, true);
+  event.key.down = down;
+  push(event);
+}
+
 // The first window's size in pixels changing to the size it already has,
 // so that LÖVE's handler (Event::convertWindowEvent) reads the window's
 // real size and nothing changes.
@@ -526,6 +546,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("hold", &hold, Rice::Arg("scancode"), Rice::Arg("down"))
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
       .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
+      .define_module_function("press_key", &press_key, Rice::Arg("scancode"), Rice::Arg("down"))
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
       .define_module_function("rotate_display", &rotate_display)

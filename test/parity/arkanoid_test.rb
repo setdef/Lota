@@ -11,58 +11,129 @@ require_relative "parity_helper"
 # their Ruby translations in Lota, frame by frame (Plan 001, "Shapes and
 # the keyboard").
 class ArkanoidTest < Minitest::Test
-  # SDL's scancodes for the arrow keys (SDL_scancode.h), which are the
-  # same on every keyboard layout.
+  # SDL's scancodes for the arrow keys and Escape (SDL_scancode.h), which
+  # are the same on every keyboard layout.
   RIGHT = 79
   LEFT = 80
+  ESCAPE = 41
 
-  # 1-01 moves the ball 5 pixels a frame at 60 frames a second, off the
-  # bottom of the window by frame 62, and the platform 5 pixels a frame
-  # while an arrow key is held: right for half a second, left for a whole
-  # one, then both at once, which cancel out.
-  SCRIPT = Parity::Script.new(frames: 240, fps: 60, holds: [
-    [RIGHT, 31..60],
-    [LEFT, 91..150],
-    [RIGHT, 181..210],
-    [LEFT, 181..210],
-  ])
+  # What every snapshot's love.quit prints.
+  GOODBYE = "Thanks for playing! Come back soon!\n"
 
-  SNAPSHOT = "1-01_TheBallTheBrickThePlatform"
+  # Each snapshot, and the script both engines run it under. At 60 frames
+  # a second, the ball moves 5 pixels a frame until 1-05 speeds it up to
+  # about 11.7, and the platform 5 pixels a frame, then about 8.3, while an
+  # arrow key is down.
+  SCRIPTS = {
+    # The ball leaves the window by frame 62; the platform moves right for
+    # half a second, left for a whole one, then is held both ways at once,
+    # which cancel out.
+    "1-01_TheBallTheBrickThePlatform" => Parity::Script.new(frames: 240, fps: 60, holds: [
+      [RIGHT, 31..60],
+      [LEFT, 91..150],
+      [RIGHT, 181..210],
+      [LEFT, 181..210],
+    ]),
+    # The ball crosses the five bricks' row and leaves the window; the
+    # platform moves both ways.
+    "1-02_GameObjectsAsLuaTables" => Parity::Script.new(frames: 120, fps: 60, holds: [
+      [RIGHT, 11..40],
+      [LEFT, 61..110],
+    ]),
+    # The ball crosses the wall of bricks and the bottom wall; the platform
+    # passes through the right wall, which nothing stops yet, and back.
+    "1-03_BricksAndWalls" => Parity::Script.new(frames: 150, fps: 60, holds: [
+      [RIGHT, 2..70],
+      [LEFT, 91..140],
+    ]),
+    # The ball crosses bricks and walls, and the platform runs into the
+    # right wall, each collision printing a line; the arrow keys are
+    # pressed, so the game hears them come up and carries on, until Escape
+    # comes up after the last frame and the game quits.
+    "1-04_DetectingCollisions" => Parity::Script.new(frames: 180, fps: 60, holds: [], presses: [
+      [RIGHT, 2..60],
+      [LEFT, 101..130],
+      [ESCAPE, 180..180],
+    ]),
+    # The ball rebounds from walls, bricks, and the platform, and knocks
+    # out about 30 bricks; the platform runs into the right wall and is
+    # pushed back, then moves left.
+    "1-05_ResolvingCollisions" => Parity::Script.new(frames: 600, fps: 60, holds: [], presses: [
+      [RIGHT, 2..50],
+      [LEFT, 151..260],
+      [ESCAPE, 600..600],
+    ]),
+  }.freeze
 
-  # LÖVE runs the snapshot once for every test here.
-  def self.love
-    @love ||= Parity::LoveRun.new(File.join(Parity::ARKANOID, SNAPSHOT), SCRIPT, Dir.mktmpdir("lota-parity-"))
+  # The script of the first snapshot, whose test checks the harness too.
+  SCRIPT = SCRIPTS.fetch("1-01_TheBallTheBrickThePlatform")
+
+  # LÖVE runs each snapshot once for every test here.
+  def self.love(snapshot)
+    @love ||= {}
+    @love[snapshot] ||= Parity::LoveRun.new(File.join(Parity::ARKANOID, snapshot), SCRIPTS.fetch(snapshot),
+      Dir.mktmpdir("lota-parity-"))
   end
 
-  def love
-    self.class.love
+  def love(snapshot = SCRIPTS.keys.first)
+    self.class.love(snapshot)
   end
 
-  def lota(script = SCRIPT)
-    Parity::LotaRun.new(File.join(Parity::ARKANOID_TRANSLATED, SNAPSHOT), script, love,
-      File.dirname(love.frames_dir))
+  def lota(snapshot = SCRIPTS.keys.first, script = SCRIPTS.fetch(snapshot))
+    Parity::LotaRun.new(File.join(Parity::ARKANOID_TRANSLATED, snapshot), script, love(snapshot),
+      File.dirname(love(snapshot).frames_dir))
+  end
+
+  # LÖVE runs +snapshot+ for every frame of its script, and the snapshot
+  # quits through its love.quit; then Lota runs its translation, which
+  # matches LÖVE's on every frame and prints what LÖVE's printed.
+  def assert_matches_love(snapshot)
+    script = SCRIPTS.fetch(snapshot)
+    expected = love(snapshot)
+
+    assert_predicate expected.output.status, :success?, expected.output.text
+    assert_equal script.frames, expected.frames.size
+    assert expected.output.text.end_with?(GOODBYE), expected.output.text
+
+    run = lota(snapshot)
+
+    assert_predicate run.output.status, :success?, run.output.text
+    assert_nil run.mismatch, "first differing frame: #{run.mismatch}"
+    assert_equal script.frames, run.compared
+    assert_equal expected.output.text, run.output.text
   end
 
   def test_love_runs_the_snapshot_for_every_frame_and_quits_through_its_quit_callback
     assert_predicate love.output.status, :success?, love.output.text
     assert_equal SCRIPT.frames, love.frames.size
-    assert_equal "Thanks for playing! Come back soon!\n", love.output.text
+    assert_equal GOODBYE, love.output.text
   end
 
-  def test_1_01_the_ball_the_brick_the_platform_matches_love_frame_by_frame
-    run = lota
+  SCRIPTS.each_key do |snapshot|
+    define_method("test_#{snapshot.downcase.tr('-', '_')}_matches_love_frame_by_frame") do
+      assert_matches_love(snapshot)
+    end
+  end
 
-    assert_predicate run.output.status, :success?, run.output.text
-    assert_nil run.mismatch, "first differing frame: #{run.mismatch}"
+  # The harness itself: a script that ends by pressing a key leaves
+  # quitting to the game, and stops a game that did not quit with status
+  # 1, once its frames all matched. 1-01 has no keyreleased.
+  def test_a_game_that_does_not_quit_on_the_last_key_fails
+    script = Parity::Script.new(frames: SCRIPT.frames, fps: SCRIPT.fps, holds: SCRIPT.holds,
+      presses: [[ESCAPE, (SCRIPT.frames)..(SCRIPT.frames)]])
+    run = lota(SCRIPTS.keys.first, script)
+
+    assert_equal 1, run.output.status.exitstatus, run.output.text
+    assert_equal "The game did not quit after frame #{SCRIPT.frames}.\n#{GOODBYE}", run.output.text
+    assert_nil run.mismatch
     assert_equal SCRIPT.frames, run.compared
-    assert_equal love.output.text, run.output.text
   end
 
   # The harness itself: with the keys left alone in Lota, the first frame
   # that differs from LÖVE's is the first one LÖVE drew with the right
   # arrow held, and comparing stops there.
   def test_a_frame_that_differs_is_reported_with_its_first_differing_pixel
-    run = lota(Parity::Script.new(frames: SCRIPT.frames, fps: SCRIPT.fps, holds: []))
+    run = lota(SCRIPTS.keys.first, Parity::Script.new(frames: SCRIPT.frames, fps: SCRIPT.fps, holds: []))
 
     assert_predicate run.output.status, :success?, run.output.text
     assert_equal 31, run.mismatch&.fetch("frame"), run.mismatch.inspect

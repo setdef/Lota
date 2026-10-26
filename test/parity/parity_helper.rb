@@ -32,17 +32,42 @@ module Parity
   Output = Data.define(:text, :status)
 
   # A script both engines run the same game under: how many frames, the
-  # fixed dt as frames a second, and the keys held, each as an SDL scancode
-  # and the first and last frames, counting from 1, it is held in.
-  class Script < Data.define(:frames, :fps, :holds)
+  # fixed dt as frames a second, the keys held, and the keys pressed, each
+  # as an SDL scancode and the first and last frames, counting from 1, it
+  # is down in.
+  #
+  # A held key is only down, in the keyboard state Lota::Keyboard.down?
+  # reads. A pressed key is down too, and also goes down and comes up as a
+  # player's does: the game's keypressed hears of it at the start of its
+  # first frame, and its keyreleased at the start of the frame after its
+  # last. The harness pushes the key events a frame early, so a press
+  # cannot start in frame 1. A press whose last frame is the script's last
+  # comes up after it, and then the game must quit on its own, as on
+  # Escape; otherwise the harness quits after the last frame.
+  class Script < Data.define(:frames, :fps, :holds, :presses)
+    def initialize(frames:, fps:, holds:, presses: [])
+      if presses.any? { |_, range| range.first < 2 || range.last > frames }
+        raise ArgumentError, "a press must start in frame 2 or later and end by frame #{frames}"
+      end
+
+      super
+    end
+
     # The environment both sides read the script from.
     def environment
       {
         "LOTA_PARITY_FRAMES" => frames.to_s,
         "LOTA_PARITY_FPS" => fps.to_s,
-        "LOTA_PARITY_HOLD" => holds.map { |scancode, frames| "#{scancode}:#{frames.first}-#{frames.last}" }.join(","),
+        "LOTA_PARITY_HOLD" => Parity.keys(holds),
+        "LOTA_PARITY_PRESS" => Parity.keys(presses),
       }
     end
+  end
+
+  # +keys+, each an SDL scancode and a Range of frames, as the two sides
+  # read them: scancode:first-last, separated by commas.
+  def self.keys(keys)
+    keys.map { |scancode, frames| "#{scancode}:#{frames.first}-#{frames.last}" }.join(",")
   end
 
   # A game run in the reference love, whose frames a run in Lota is

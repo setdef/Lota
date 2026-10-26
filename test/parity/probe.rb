@@ -20,13 +20,19 @@ module Parity
   # harness's, as ADR 003 has a game-state library wrap callbacks.
   # Lota.update holds the scripted keys down or lets them up in SDL's
   # keyboard state, which Lota::Keyboard.down? reads, then calls the
-  # game's update with 1 / LOTA_PARITY_FPS. Lota.draw calls the game's
+  # game's update with 1 / LOTA_PARITY_FPS, then pushes the key events of
+  # LOTA_PARITY_PRESS due at the start of the next frame into SDL's queue,
+  # through LotaNativeTest.press_key, which does not depend on the window
+  # having keyboard focus. Lota.draw calls the game's
   # draw, then asks for the frame Lota::Graphics.present will show, and
   # compares it with LOTA_PARITY_FRAMES_DIR/NNNN.png, the frame LÖVE showed,
   # by Lövetest's compareImg rule (FrameComparison). After frame
-  # LOTA_PARITY_FRAMES it quits, as the Lua side does. At exit it writes
-  # LOTA_PARITY_REPORT: how many frames it compared, and the first that
-  # differed, whose pixels it also saves beside the report as raw RGBA.
+  # LOTA_PARITY_FRAMES it quits, as the Lua side does, unless a pressed key
+  # comes up after it, which leaves quitting to the game; a game still
+  # running a frame later did not quit, and the probe quits with status 1.
+  # At exit it writes LOTA_PARITY_REPORT: how many frames it compared, and
+  # the first that differed, whose pixels it also saves beside the report
+  # as raw RGBA.
   module Probe
     FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
     REPORT = ENV.fetch("LOTA_PARITY_REPORT")
@@ -34,7 +40,13 @@ module Parity
     # 1 / 60 in Lua divides as Floats; 1 / 60 in Ruby would not.
     DT = 1 / Float(ENV.fetch("LOTA_PARITY_FPS"))
     # [scancode, first frame, last frame], as the Lua side reads them.
-    HOLDS = ENV.fetch("LOTA_PARITY_HOLD", "").scan(/(\d+):(\d+)-(\d+)/).map { |hold| hold.map(&:to_i) }.freeze
+    PRESSES = ENV.fetch("LOTA_PARITY_PRESS", "").scan(/(\d+):(\d+)-(\d+)/).map { |key| key.map(&:to_i) }.freeze
+    # A pressed key is held for its frames too.
+    HOLDS = (ENV.fetch("LOTA_PARITY_HOLD", "").scan(/(\d+):(\d+)-(\d+)/).map { |key| key.map(&:to_i) } +
+      PRESSES).freeze
+    # Whether a pressed key comes up after the last frame, so that the
+    # game, not the probe, ends the run.
+    GAME_QUITS = PRESSES.any? { |_, _, last| last == FRAMES }
 
     @frame = 0
     @compared = 0
@@ -51,6 +63,25 @@ module Parity
         down = Hash.new(false)
         HOLDS.each { |scancode, first, last| down[scancode] ||= @frame.between?(first, last) }
         down.each { |scancode, value| LotaNativeTest.hold(scancode, value) }
+      end
+
+      # Pushes the key events due at the start of the next frame, and
+      # writes each key's state with its event, as the Lua side does.
+      def press_keys
+        PRESSES.each do |scancode, first, last|
+          press_key(scancode, true) if first == @frame + 1
+          press_key(scancode, false) if last + 1 == @frame + 1
+        end
+      end
+
+      private def press_key(scancode, down)
+        LotaNativeTest.hold(scancode, down)
+        LotaNativeTest.press_key(scancode, down)
+      end
+
+      # Whether the probe should quit after frame +number+.
+      def last_frame?(number)
+        number == FRAMES && !GAME_QUITS
       end
 
       # The arguments +method+ declares, of +arguments+, as Lota passes a
@@ -98,16 +129,24 @@ module Parity
     module Callbacks
       def update(_dt)
         Probe.next_frame
+        if Probe.frame > FRAMES
+          puts("The game did not quit after frame #{FRAMES}.")
+          return Lota::Event.quit(1)
+        end
+
         game = method(:update).super_method
         super(*Probe.declared(game, [DT])) if game
+        Probe.press_keys
       end
 
       def draw
         super if method(:draw).super_method
         number = Probe.frame
+        return if number > FRAMES
+
         Lota::Native::Graphics.capture_screenshot(lambda do |native|
           Probe.compare(number, native)
-          Lota::Event.quit if number == FRAMES
+          Lota::Event.quit if Probe.last_frame?(number)
         end)
       end
     end
