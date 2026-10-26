@@ -45,6 +45,13 @@ class RakeTasksTest < Minitest::Test
     Rake::Task[name].prerequisites
   end
 
+  # rake bench opens a window for each of dozens of runs, so the gate
+  # never runs it; it builds what it runs, Lota and the reference love.
+  def test_bench_is_not_part_of_the_gate_and_builds_both_engines
+    assert_equal %w[compile reference:love], prerequisites("bench")
+    refute_includes prerequisites("default"), "bench"
+  end
+
   def test_default_task_builds_the_engine_and_runs_every_cpp_gate
     assert_includes prerequisites("default"), "engine"
     assert_includes prerequisites("default"), "cpp"

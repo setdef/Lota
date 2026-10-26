@@ -448,6 +448,13 @@ void rotate_display() {
   push(event);
 }
 
+// Takes the arguments Lota::Native::Graphics.rectangle takes, converted by
+// Rice the same way, and does nothing with them, so rake bench can time a
+// call from Ruby into C++ apart from LÖVE's own drawing
+// (tasks/bench.rb).
+void noop_rectangle(const std::string & /*mode*/, double /*x*/, double /*y*/, double /*width*/,
+                    double /*height*/) {}
+
 // Deliberate bugs, for the sanitizer tests alone.
 
 // Frees the held Counted, then reads it.
@@ -491,6 +498,10 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_singleton_function("constructions", [] { return constructions().load(); })
       .define_singleton_function("destructions", [] { return destructions().load(); })
       .define_singleton_function("begin_generation", &begin_generation);
+
+  test.define_singleton_function("noop_rectangle", &noop_rectangle, Rice::Arg("mode"),
+                                 Rice::Arg("x"), Rice::Arg("y"), Rice::Arg("width"),
+                                 Rice::Arg("height"));
 
   test.define_module_function(
           "hold", [](Counted *counted) { held().set(counted); }, Rice::Arg("counted"))
