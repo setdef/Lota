@@ -77,7 +77,7 @@ void set_seed(RandomGenerator &rng, double low, std::optional<double> high) {
 // its seed's two halves at a position LÖVE computes
 // (wrap_RandomGenerator.cpp:49-62 and 88-102), so it is bound here.
 void define_random_generator(const Rice::Module &native) {
-  Rice::define_class_under<RandomGenerator>(native, "RandomGenerator")
+  define_engine_class<RandomGenerator>(native, "RandomGenerator")
       // love.math.newRandomGenerator() with no seed: Math::newRandomGenerator
       // is `new RandomGenerator()` (vendor/love/src/modules/math/
       // MathModule.cpp:216-219), and the wrapper adopts its reference.

@@ -59,6 +59,11 @@ module Lovetest
   # GitHub says to Lota's with GITHUB_ACTIONS.
   GITHUB_RUNNER = ENV["GITHUB_ACTIONS"] == "true"
 
+  # Lövetest's love.test.windowmode (vendor/love/testing/classes/
+  # TestSuite.lua:25): whether the tests run with a window, which they
+  # always do in Lota, as in Lövetest unless it is told otherwise.
+  WINDOWMODE = true
+
   # Lövetest's TestMethod:isOS (vendor/love/testing/classes/TestMethod.lua:
   # 406-416): whether any of +names+ is this system's name as
   # love.system.getOS gives it ("OS X", "Windows", "Linux", "Android", or
@@ -100,6 +105,12 @@ module Lovetest
       name.delete_prefix("test_").gsub(/_([a-z])/) { Regexp.last_match(1).upcase }
     end
 
+    # Asserts that +value+ is true, as assertTrue does (lines 79-88): true
+    # itself, not merely truthy.
+    def assert_true(value, label = nil)
+      assert_equal(true, value, label)
+    end
+
     # Asserts that +value+ is not nil. An +err+, which Lövetest's tests pass
     # with the message of an error they caught, always fails the test, as
     # it does in Lövetest.
@@ -109,13 +120,14 @@ module Lovetest
     end
 
     # Asserts that +obj+ is one of LÖVE's objects, as assertObject does
-    # (lines 211-223): not nil, and an object of the engine's, which Lua
-    # calls userdata and Lota wraps around its native object. Lota binds
-    # no Object:type yet (ADR 001, rule 16), so assertObject's last check,
-    # that obj:type() is not nil, waits for it.
+    # (lines 211-223): not nil, an object of the engine's, which Lua calls
+    # userdata and Lota wraps around its native object, and one with a
+    # type, which obj:type() gives in Lua and obj.type in Ruby (ADR 001,
+    # rule 16).
     def assert_object(obj)
       assert_not_nil(obj)
       assert_equal(true, obj.respond_to?(:native), "check is userdata")
+      refute_equal(nil, obj.type, "check has :type()") unless obj.nil?
     end
 
     # Compares +imgdata+ with LÖVE's expected image, pixel by pixel, with a

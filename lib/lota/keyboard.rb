@@ -50,7 +50,7 @@ module Lota
     #   Lota::Keyboard.down?(:space)          # => false
     #   Lota::Keyboard.down?(:lshift, :rshift) # either shift key
     def self.down?(*keys)
-      Native::Keyboard.down?(keys.map(&:to_s))
+      Native::Keyboard.down?(keys.map { |key| EnumName.of(key) })
     end
   end
 end

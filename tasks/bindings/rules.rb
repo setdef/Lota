@@ -150,10 +150,9 @@ module Bindings
       snake_case(name) != run_together(name)
     end
 
-    # The other reading of rule 13, which ext/lota/native/errors.hpp's
-    # snake_case applies to LÖVE's error messages: a capital starts a word
-    # only after a lower-case letter or a digit, so capitals run together
-    # (getDPIScale becomes get_dpiscale).
+    # The other reading of rule 13: a capital starts a word only after a
+    # lower-case letter or a digit, so capitals run together (getDPIScale
+    # becomes get_dpiscale).
     def self.run_together(name)
       name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
     end
@@ -323,7 +322,7 @@ module Bindings
 
         open_question([13], "rule 13 does not say where #{rest}'s capitals split into words: " \
           "#{Rules.snake_case(rest)}, as set_high_dpi_allowed splits them, or #{Rules.run_together(rest)}, " \
-          "as errors.hpp's snake_case does")
+          "with the capitals run together")
       end
 
       private def made_type

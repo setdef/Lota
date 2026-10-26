@@ -8,6 +8,8 @@ module Lota
     module UnknownSettings
       WRITER: Regexp
 
+      READER: Regexp
+
       @unknown_settings: Hash[Symbol, top]?
 
       private def method_missing: (Symbol name, *top arguments) -> top

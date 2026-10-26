@@ -21,6 +21,7 @@ add_library(lota_native MODULE
 	mouse.cpp
 	native.cpp
 	random_generator.cpp
+	system.cpp
 	timer.cpp
 	touch.cpp
 	window.cpp

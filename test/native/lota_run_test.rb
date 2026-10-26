@@ -19,12 +19,17 @@ class LotaRunTest < Minitest::Test
 
   GAMES = File.join(ROOT, "test/games")
 
+  # Quits a game's error screen once it is up (quit_on_error.rb).
+  QUIT_ON_ERROR = File.expand_path("quit_on_error.rb", __dir__)
+
   # Runs <tt>lota run</tt> with +arguments+ and returns its output and
-  # Process::Status. -w makes any warning part of the output.
-  def lota_run(*)
+  # Process::Status. -w makes any warning part of the output. +preload+
+  # names a file Ruby loads first, as ruby -r does.
+  def lota_run(*, preload: nil)
     native = File.dirname(File.dirname(loaded("lota/native")))
     load_path = [native, File.join(ROOT, "lib")].uniq.join(File::PATH_SEPARATOR)
-    capture2e({}, RbConfig.ruby, "-w", "-I#{load_path}", File.join(ROOT, "exe/lota"), "run", *)
+    capture2e({}, RbConfig.ruby, "-w", "-I#{load_path}", *(preload && "-r#{preload}"), File.join(ROOT, "exe/lota"),
+      "run", *)
   end
 
   def game(name)
@@ -94,48 +99,158 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics, love.keyboard, love.mouse, and love.math tests, run from
+  # love.graphics, love.keyboard, love.mouse, love.math, love.event,
+  # love.system, and love.window tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
   # conf.lua. On a GitHub Actions runner, Lövetest's arc test compares none
   # of its three 32 by 32 images, and asserts once instead
   # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"))
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 7972 - (3 * 32 * 32) + 1 : 7972
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 7992 - (3 * 32 * 32) + 1 : 7992
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^20 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^32 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
-  def test_an_error_in_a_callback_ends_the_program_with_a_backtrace
+  # An error in a callback shows LÖVE's error screen, after printing the
+  # error and its backtrace (callbacks.lua:221-224), and the screen ends
+  # the program with 1 when the player quits (lines 319-321).
+  def test_an_error_in_a_callback_shows_the_error_screen_and_prints_a_backtrace
     in_game("main.rb" => "def Lota.update(dt) = raise('broken update')\n") do |directory|
-      output, status = lota_run(directory)
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
 
-      refute_predicate status, :success?
-      assert_includes output, "main.rb:1:in 'Lota.update': broken update (RuntimeError)"
+      assert_equal 1, status.exitstatus, output
+      assert_includes output, "Error: #{directory}/main.rb:1:in 'Lota.update': broken update (RuntimeError)\n" \
+        "stack traceback:\n\t#{directory}/main.rb:1:in 'Lota.update'\n"
+      assert output.end_with?("error screen shown\n"), output
     end
   end
 
-  # LÖVE raises conf.lua's error only once the modules are open; the window
-  # opens after it (boot.lua:394-396), so the error ends the program.
-  def test_an_error_in_conf_ends_the_program_with_a_backtrace
+  # LÖVE raises conf.lua's error only once the modules are open (boot.lua:
+  # 394-396), and its error screen opens the window the game did not get
+  # to (callbacks.lua:230-239).
+  def test_an_error_in_conf_shows_the_error_screen
     in_game("conf.rb" => "def Lota.conf(t) = raise('broken conf')\n", "main.rb" => "puts 'main loaded'\n") do |directory|
-      output, status = lota_run(directory)
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
 
-      refute_predicate status, :success?
+      assert_equal 1, status.exitstatus, output
       assert_includes output, "conf.rb:1:in 'Lota.conf': broken conf (RuntimeError)"
+      assert_includes output, "error screen shown"
       refute_includes output, "main loaded"
     end
   end
 
   def test_a_folder_without_main_or_conf_has_no_code_to_run
     in_game({}) do |directory|
-      output, status = lota_run(directory)
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
 
-      refute_predicate status, :success?
+      assert_equal 1, status.exitstatus, output
       assert_includes output, "No code to run at #{directory} (RuntimeError)\n" \
         "Your game might be packaged incorrectly.\nMake sure main.rb is at the top level of the zip or folder.\n"
+    end
+  end
+
+  # A game's Lota.errorhandler replaces Lota's, as love.errorhandler does
+  # (boot.lua:476): it receives what the game raised, and the frame it
+  # returns runs until it returns the exit status (boot.lua:515-516).
+  def test_a_games_error_handler_replaces_loves_and_its_frame_gives_the_status
+    in_game("main.rb" => <<~RUBY) do |directory|
+      def Lota.update(dt) = raise(ArgumentError, "broken")
+      def Lota.errorhandler(error)
+        puts "handled \#{error.class} \#{error.message}"
+        frames = 0
+        -> { (frames += 1) == 3 ? 7 : nil }
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_equal 7, status.exitstatus, output
+      assert_equal "handled ArgumentError broken\n", output
+    end
+  end
+
+  # A handler that returns no frame ends the program with 1 (boot.lua:520).
+  def test_an_error_handler_that_returns_no_frame_ends_the_program_with_1
+    in_game("main.rb" => "def Lota.load = raise('broken')\ndef Lota.errorhandler(error) = nil\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_equal 1, status.exitstatus, output
+      assert_empty output
+    end
+  end
+
+  # An error in the error handler is printed by error_printer instead, and
+  # the program ends with 1 (boot.lua:475-481 and 520).
+  def test_an_error_in_the_error_handler_is_printed_and_ends_the_program
+    in_game("main.rb" => "def Lota.load = raise('broken')\ndef Lota.errorhandler(error) = raise('worse')\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_equal 1, status.exitstatus, output
+      assert_match(%r{\AError: #{Regexp.escape(directory)}/main.rb:2:in 'Lota.errorhandler': worse \(RuntimeError\)\n},
+        output)
+      refute_includes output, "broken"
+    end
+  end
+
+  # LÖVE 12 keeps love.errhand only as another name for its own handler,
+  # and calls love.errorhandler while there is one (boot.lua:476 and
+  # callbacks.lua:351-352), so a game's errhand alone changes nothing.
+  def test_a_games_errhand_alone_does_not_replace_the_error_handler
+    in_game("main.rb" => "def Lota.load = raise('broken')\ndef Lota.errhand(error) = puts('errhand')\n") do |directory|
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
+
+      assert_equal 1, status.exitstatus, output
+      assert_includes output, "error screen shown"
+      refute_includes output, "errhand\n"
+    end
+  end
+
+  # A game that removes Lota.errorhandler gets its errhand, as boot.lua
+  # falls back to love.errhand (line 476).
+  def test_without_an_error_handler_a_games_errhand_handles_errors
+    in_game("main.rb" => <<~RUBY) do |directory|
+      Lota.singleton_class.undef_method(:errorhandler)
+      def Lota.load = raise("broken")
+      def Lota.errhand(error) = (puts("errhand \#{error.message}"); -> { 5 })
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_equal 5, status.exitstatus, output
+      assert_equal "errhand broken\n", output
+    end
+  end
+
+  # Without the window module the handler only prints (callbacks.lua:
+  # 226-228), and the program ends with 1.
+  def test_without_the_window_module_an_error_is_printed_and_ends_the_program
+    in_game("conf.rb" => "def Lota.conf(t) = (t.modules.window = false)\n",
+      "main.rb" => "def Lota.load = raise('broken')\n") do |directory|
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
+
+      assert_equal 1, status.exitstatus, output
+      assert_includes output, "main.rb:1:in 'Lota.load': broken (RuntimeError)"
+      assert_includes output, "error screen not shown"
+    end
+  end
+
+  # boot.lua opens love.system before conf.lua runs, whatever the settings
+  # say (boot.lua:48-49), and love.font with the other modules unless the
+  # settings turn it off (lines 347-372).
+  def test_the_system_module_is_always_open_and_the_font_module_unless_turned_off
+    in_game("conf.rb" => "def Lota.conf(t) = (p lota.system; t.modules.system = false; t.modules.font = false)\n",
+      "main.rb" => "def Lota.load = (p [lota.font, lota.system]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "Lota::System\n[nil, Lota::System]\n", output
+    end
+    in_game("main.rb" => "def Lota.load = (p [lota.font, lota.system]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[Lota::Font, Lota::System]\n", output
     end
   end
 

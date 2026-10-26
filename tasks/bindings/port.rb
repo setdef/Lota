@@ -490,12 +490,39 @@ line: node.line,
       text = replace_reads(text)
       text = replace_identifiers(text)
       text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
+      text = keep_strings(text)
       text.gsub(/(!?)\s*lua_isnone(?:ornil)?\s*\(\s*L\s*,\s*(\d+)\s*\)/) do
         parameter = parameters.find { |candidate| candidate.index == Regexp.last_match(2).to_i }
         raise Unsupported, "#{@function.love_name} tests argument #{Regexp.last_match(2)}, which it does not bind" unless parameter
 
         "#{Regexp.last_match(1).empty? ? '!' : ''}#{parameter.name}.has_value()"
       end
+    end
+
+    # A string LÖVE reads as a const char * becomes a std::string
+    # parameter, which a read passes on with c_str(); where the engine
+    # method takes a std::string, as System::setClipboardText does, the
+    # parameter passes as it is, rather than as a new copy of its bytes.
+    private def keep_strings(text)
+      Calls.in(text).select(&:member).reverse_each do |call|
+        owner = (call.receiver == "instance()") ? @module_class : (@self_parameter && self_type)
+        method = owner && @types.methods(owner, call.base_name, module_dir: @module_dir)
+          .find { |candidate| candidate.parameters.size == call.arguments.size }
+        next unless method
+
+        start = text.index("(", call.offset)
+        finish = Statements.matching(text, start)
+        arguments = call.arguments.each_with_index.map do |argument, position|
+          stripped = argument.strip
+          if stripped.end_with?(".c_str()") && method.parameters[position].type.include?("std::string")
+            stripped.delete_suffix(".c_str()")
+          else
+            stripped
+          end
+        end
+        text = "#{text[0..start]}#{arguments.join(', ')}#{text[finish..]}"
+      end
+      text
     end
 
     private def replace_reads(text)

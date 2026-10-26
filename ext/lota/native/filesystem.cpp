@@ -82,8 +82,8 @@ FileData *file_data(const std::string &filename) {
 } // namespace
 
 void define_filesystem(const Rice::Module &native) {
-  Rice::define_class_under<love::Data>(native, "Data");
-  Rice::define_class_under<FileData, love::Data>(native, "FileData");
+  define_engine_class<love::Data>(native, "Data");
+  define_engine_class<FileData, love::Data>(native, "FileData");
 
   Rice::define_module_under(native, "Filesystem")
       .define_singleton_function("open", &open)

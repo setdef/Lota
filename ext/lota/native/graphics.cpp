@@ -581,11 +581,11 @@ Rice::Array default_filter() {
 
 void define_graphics(const Rice::Module &native) {
   // Its methods are generated (ext/lota/native/generated/graphics.cpp).
-  Rice::define_class_under<Texture>(native, "Texture");
+  define_engine_class<Texture>(native, "Texture");
   // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
   // love.font, the module that rasterizes its glyphs (native/font.cpp).
   Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
-  Rice::define_class_under<Font>(graphics_module, "Font");
+  define_engine_class<Font>(graphics_module, "Font");
 
   graphics_module.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)

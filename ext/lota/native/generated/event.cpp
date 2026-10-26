@@ -45,13 +45,17 @@ Event *instance() {
 // love.event.pump: w_pump (wrap_Event.cpp:67-72).
 void w_pump(double wait_timeout) { instance()->pump(static_cast<float>(wait_timeout)); }
 
+// love.event.clear: w_clear (wrap_Event.cpp:117-121).
+void w_clear() { instance()->clear(); }
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_generated_event(const Rice::Module &native) {
   Rice::define_module_under(native, "Event")
-      .define_singleton_function("pump", &w_pump, Rice::Arg("wait_timeout") = 0.0);
+      .define_singleton_function("pump", &w_pump, Rice::Arg("wait_timeout") = 0.0)
+      .define_singleton_function("clear", &w_clear);
 }
 
 } // namespace lota::native

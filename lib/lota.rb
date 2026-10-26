@@ -35,13 +35,17 @@ require "lota/native"
 # remaining wrappers on the main thread.
 at_exit { Lota::Native.drain_release_queue }
 
+require_relative "lota/enum_name"
+require_relative "lota/engine_object"
 require_relative "lota/filesystem"
 require_relative "lota/image"
+require_relative "lota/font"
 require_relative "lota/graphics"
 require_relative "lota/timer"
 require_relative "lota/keyboard"
 require_relative "lota/mouse"
 require_relative "lota/math"
+require_relative "lota/system"
 require_relative "lota/event"
 require_relative "lota/window"
 require_relative "lota/settings"
@@ -58,8 +62,9 @@ require_relative "lota/boot"
 # not (vendor/love/src/modules/love/boot.lua:347-372). So
 # <tt>if lota.timer</tt> asks what LÖVE's <tt>if love.timer then</tt>
 # asks. The constant stays defined, as LÖVE keeps the module's code: only
-# the accessor tells whether the module was loaded. love.filesystem is
-# always loaded (boot.lua:46), and so is Lota.filesystem.
+# the accessor tells whether the module was loaded. love.filesystem and
+# love.system are always loaded (boot.lua:44-49), and so are
+# Lota.filesystem and, once lota run boots, Lota.system.
 module Lota
   # Lota::Filesystem, as love.filesystem.
   #
@@ -77,6 +82,15 @@ module Lota
   #   lota.image # => Lota::Image
   def self.image
     Image if Native::Image.open?
+  end
+
+  # Lota::Font, as love.font, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.font # => Lota::Font
+  def self.font
+    Font if Native::Font.open?
   end
 
   # Lota::Graphics, as love.graphics, or +nil+ when the module is not open.
@@ -131,6 +145,17 @@ module Lota
   #   lota.math.random(6)
   def self.math
     Math if Native::Math.open?
+  end
+
+  # Lota::System, as love.system, or +nil+ when the module is not open.
+  # boot.lua opens love.system before conf.lua runs, whatever the settings
+  # say, and so does lota run.
+  #
+  # === Example
+  #
+  #   lota.system.clipboard_text = "Copied!"
+  def self.system
+    System if Native::System.open?
   end
 
   # Lota::Window, as love.window, or +nil+ when the module is not open.

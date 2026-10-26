@@ -31,6 +31,8 @@ module Lota
     #   player = Lota::Graphics::Texture.new("assets/player.png")
     #   Lota::Graphics.draw(player, 100, 100)
     class Texture
+      include EngineObject
+
       # The engine's Texture, for Lota's own modules. :nodoc:
       attr_reader :native
 

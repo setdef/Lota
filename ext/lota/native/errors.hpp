@@ -8,7 +8,9 @@
 // module ("love.image must be loaded in order to decode an ImageData.",
 // vendor/love/src/modules/image/ImageData.cpp:116) or a module function
 // ("love.window.setMode cannot be called while a render target is active
-// in love.graphics.", vendor/love/src/modules/window/sdl/Window.cpp:477).
+// in love.graphics.", vendor/love/src/modules/window/sdl/Window.cpp:477),
+// or a method ("ImageData:getPixel does not currently support the %s pixel
+// format.", ImageData.cpp:549).
 // Rice turns every C++ exception into a Ruby one in cpp_protect (Rice
 // 4.12.0, rice/detail/cpp_protect.hpp:20-109), after first calling the
 // one handler its HandlerRegistry holds (cpp_protect.hpp:34-35). Lota
@@ -19,9 +21,11 @@
 #define LOTA_NATIVE_ERRORS_HPP
 
 #include "native/binding.hpp"
+#include "native/generated/names.hpp"
 
 #include "common/Exception.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <string>
@@ -59,77 +63,112 @@ inline std::size_t identifier_length(std::string_view text, std::size_t start) {
   return end - start;
 }
 
-// Rule 13: a camelCase name in snake_case ("readbackTexture" becomes
-// "readback_texture"). An upper-case letter after a lower-case letter or a
-// digit starts a new word.
-inline std::string snake_case(std::string_view name) {
-  std::string snake;
-  snake.reserve(name.size() + 4);
-  char previous = '\0';
-  for (const char character : name) {
-    if (is_upper(character)) {
-      if (previous != '\0' && !is_upper(previous) && previous != '_') {
-        snake.push_back('_');
-      }
-      snake.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(character))));
-    } else {
-      snake.push_back(character);
-    }
-    previous = character;
+// The Ruby name ADR 001's rules give the LÖVE function +love_name+
+// (love.window.setMode, ImageData:getPixel), from the binding generator's
+// name table, or an empty view when the table has none.
+inline std::string_view ruby_name(std::string_view love_name) {
+  const auto *found = std::ranges::lower_bound(LOVE_NAMES, love_name, {}, &LoveName::first);
+  if (found == LOVE_NAMES.end() || found->first != love_name) {
+    return {};
   }
-  return snake;
+  return found->second;
+}
+
+// Rule 1: a LÖVE module's Ruby module ("image" becomes "Lota::Image").
+inline std::string module_constant(std::string_view module) {
+  std::string constant("Lota::");
+  constant.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(module.front()))));
+  constant.append(module.substr(1));
+  return constant;
+}
+
+// Appends the module or module function at +start+ in +message+, in LÖVE's
+// notation ("love.image", "love.window.setMode"), to +translated+ by its
+// Ruby name, and returns where it ends; or returns +start+ when none
+// starts there.
+inline std::size_t translate_function(std::string_view message, std::size_t start,
+                                      std::string &translated) {
+  constexpr std::string_view prefix = "love.";
+  const std::size_t module_start = start + prefix.size();
+  if (message.substr(start, prefix.size()) != prefix || !is_lower(char_at(message, module_start))) {
+    return start;
+  }
+  std::size_t module_end = module_start;
+  while (is_lower(char_at(message, module_end))) {
+    ++module_end;
+  }
+  const std::string_view module = message.substr(module_start, module_end - module_start);
+  const std::size_t function_start = module_end + 1;
+  if (char_at(message, module_end) != '.' ||
+      std::isalpha(static_cast<unsigned char>(char_at(message, function_start))) == 0) {
+    translated.append(module_constant(module));
+    return module_end;
+  }
+  const std::size_t function_end = function_start + identifier_length(message, function_start);
+  const std::string_view ruby = ruby_name(message.substr(start, function_end - start));
+  if (ruby.empty()) {
+    translated.append(module_constant(module));
+    translated.append(message.substr(module_end, function_end - module_end));
+  } else {
+    translated.append(ruby);
+  }
+  return function_end;
+}
+
+// Appends the method at +start+ in +message+, in LÖVE's Type:method
+// notation ("ImageData:getPixel"), to +translated+ by its Ruby name, or as
+// LÖVE wrote it when the name table does not know it, and returns where it
+// ends; or returns +start+ when no method starts there.
+inline std::size_t translate_method(std::string_view message, std::size_t start,
+                                    std::string &translated) {
+  if (!is_upper(char_at(message, start))) {
+    return start;
+  }
+  const std::size_t type_end = start + identifier_length(message, start);
+  if (char_at(message, type_end) != ':' || !is_lower(char_at(message, type_end + 1))) {
+    translated.append(message.substr(start, type_end - start));
+    return type_end;
+  }
+  const std::size_t method_end = type_end + 1 + identifier_length(message, type_end + 1);
+  const std::string_view love_name = message.substr(start, method_end - start);
+  const std::string_view ruby = ruby_name(love_name);
+  translated.append(ruby.empty() ? love_name : ruby);
+  return method_end;
 }
 
 } // namespace errors_detail
 
 // +message+ with every Lua name of LÖVE's API translated by ADR 001's
 // rules, and nothing else changed. A module, "love.image", becomes
-// "Lota::Image" (rule 1). A module function, "love.graphics.readbackTexture",
-// becomes "Lota::Graphics.readback_texture": rule 1 for the module and
-// rule 13 for the function. Every module function LÖVE's compiled C++
-// names in a message falls under rule 13 or, for setMode and setFullscreen,
-// rule 7, which gives the same name. A name counts only where it starts a
-// word, so "glove.x" is left alone, and a full stop that ends a sentence
-// ("active in love.graphics.") is not taken for a function.
+// "Lota::Image" (rule 1). A function, "love.graphics.readbackTexture" or
+// "ImageData:getPixel", becomes the exact Ruby name the rules give it,
+// "Lota::Graphics.readback_texture" or "Lota::Image::ImageData#pixel",
+// looked up in the binding generator's name table (LOVE_NAMES) rather than
+// respelled here. A module function the table does not know keeps its
+// module's Ruby name and LÖVE's spelling after it, and a method it does not
+// know stays as LÖVE wrote it. A name counts only where it starts a word,
+// so "glove.x" is left alone, and a full stop that ends a sentence ("active
+// in love.graphics.") is not taken for a function.
 inline std::string translate_love_names(std::string_view message) {
   using errors_detail::char_at;
-  using errors_detail::identifier_length;
   using errors_detail::is_identifier;
-  using errors_detail::is_lower;
-  using errors_detail::snake_case;
+  using errors_detail::translate_function;
+  using errors_detail::translate_method;
 
-  constexpr std::string_view prefix = "love.";
   std::string translated;
   translated.reserve(message.size());
   std::size_t index = 0;
   while (index < message.size()) {
     const bool starts_word = index == 0 || !is_identifier(char_at(message, index - 1));
-    const std::size_t module_start = index + prefix.size();
-    if (!starts_word || message.substr(index, prefix.size()) != prefix ||
-        !is_lower(char_at(message, module_start))) {
+    std::size_t next = starts_word ? translate_function(message, index, translated) : index;
+    if (next == index && starts_word) {
+      next = translate_method(message, index, translated);
+    }
+    if (next == index) {
       translated.push_back(char_at(message, index));
-      ++index;
-      continue;
+      next = index + 1;
     }
-
-    std::size_t module_end = module_start;
-    while (is_lower(char_at(message, module_end))) {
-      ++module_end;
-    }
-    translated.append("Lota::");
-    translated.push_back(static_cast<char>(
-        std::toupper(static_cast<unsigned char>(char_at(message, module_start)))));
-    translated.append(message.substr(module_start + 1, module_end - module_start - 1));
-    index = module_end;
-
-    const std::size_t function_start = index + 1;
-    if (char_at(message, index) == '.' &&
-        std::isalpha(static_cast<unsigned char>(char_at(message, function_start))) != 0) {
-      const std::size_t length = identifier_length(message, function_start);
-      translated.push_back('.');
-      translated.append(snake_case(message.substr(function_start, length)));
-      index = function_start + length;
-    }
+    index = next;
   }
   return translated;
 }

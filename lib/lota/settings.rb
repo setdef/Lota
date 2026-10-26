@@ -25,7 +25,8 @@ module Lota
   # A setting LÖVE does not know is accepted and ignored, as LÖVE ignores
   # a key it does not read in its table (ADR 003, section 5), so a
   # translated conf.lua that sets keys of its own still runs. Reading one
-  # back returns what was set; reading one never set raises NoMethodError.
+  # back returns what was set, and reading a setting never set returns
+  # +nil+, as reading a missing key does in Lua.
   # Lota reads the settings boot.lua reads, except +console+, +identity+,
   # +appendidentity+, +externalstorage+, +audio+, and +version+, which
   # wait for the features they configure.
@@ -54,22 +55,29 @@ module Lota
       # <tt>t.name = value</tt> spells it, followed by =.
       WRITER = /\A[A-Za-z_]\w*=\z/
 
+      # The name of a setting's reader: a Lua identifier, as
+      # <tt>t.name</tt> spells it.
+      READER = /\A[A-Za-z_]\w*\z/
+
       # Keeps +value+ for <tt>name=</tt>, or returns what was kept for
-      # +name+. Anything else raises NoMethodError.
+      # +name+, or +nil+ for a setting never set, as Lua returns nil for a
+      # missing key (ADR 003, section 5). Anything else, such as a reader
+      # given arguments, raises NoMethodError.
       private def method_missing(name, *arguments)
-        kept = @unknown_settings
         if WRITER.match?(name) && arguments.size == 1
-          kept ||= @unknown_settings = {} #: Hash[Symbol, top]
+          kept = @unknown_settings ||= {} #: Hash[Symbol, top]
           kept[name.name.chomp("=").to_sym] = arguments.first
-        elsif arguments.empty? && kept&.key?(name)
-          kept[name]
+        elsif arguments.empty? && READER.match?(name)
+          @unknown_settings&.[](name)
         else
           super
         end
       end
 
       # Whether +name+ is a setting's writer, or the reader of a setting
-      # already kept.
+      # already kept. A setting never set reads as +nil+ but is not one
+      # the object responds to, so that Ruby's implicit conversions, which
+      # ask respond_to? first, find no +to_ary+ or +to_str+ here.
       private def respond_to_missing?(name, include_private = false)
         WRITER.match?(name) || @unknown_settings&.key?(name.to_sym) || super
       end

@@ -30,9 +30,21 @@ module Lota
     def self.dispatch: () -> argument
 
     def self.handle: (Symbol name, *argument arguments) -> Object?
+
+    ERRORS: Array[singleton(Exception)]
+
+    def self.error_message: (Object error) -> String
+
+    def self.traceback: (Array[String] frames) -> String
+
+    def self.error_printer: (Object error, ?Array[String] frames) -> nil
   end
 
   module DefaultCallbacks
     def run: () -> ^() -> Object?
+
+    def errorhandler: (Object msg) -> (^() -> Integer?)?
+
+    def errhand: (Object msg) -> (^() -> Integer?)?
   end
 end

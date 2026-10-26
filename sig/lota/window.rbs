@@ -14,5 +14,7 @@ module Lota
     def self.title=: (String title) -> void
 
     def self.title: () -> String
+
+    def self.open?: () -> bool
   end
 end

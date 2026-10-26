@@ -54,6 +54,9 @@ void w_setCursor(std::optional<Cursor *> cursor) {
   instance()->setCursor(cursor.value());
 }
 
+// love.mouse.isCursorSupported: w_isCursorSupported (wrap_Mouse.cpp:135-139).
+bool w_isCursorSupported() { return instance()->isCursorSupported(); }
+
 // love.mouse.getX: w_getX (wrap_Mouse.cpp:141-147).
 double w_getX() {
   double x{};
@@ -61,6 +64,24 @@ double w_getX() {
   instance()->getPosition(x, y);
   return x;
 }
+
+// love.mouse.setVisible: w_setVisible (wrap_Mouse.cpp:230-235).
+void w_setVisible(bool b) { instance()->setVisible(b); }
+
+// love.mouse.isVisible: w_isVisible (wrap_Mouse.cpp:237-241).
+bool w_isVisible() { return instance()->isVisible(); }
+
+// love.mouse.setGrabbed: w_setGrabbed (wrap_Mouse.cpp:243-248).
+void w_setGrabbed(bool b) { instance()->setGrabbed(b); }
+
+// love.mouse.isGrabbed: w_isGrabbed (wrap_Mouse.cpp:250-254).
+bool w_isGrabbed() { return instance()->isGrabbed(); }
+
+// love.mouse.setRelativeMode: w_setRelativeMode (wrap_Mouse.cpp:256-261).
+bool w_setRelativeMode(bool relative) { return instance()->setRelativeMode(relative); }
+
+// love.mouse.getRelativeMode: w_getRelativeMode (wrap_Mouse.cpp:263-267).
+bool w_getRelativeMode() { return instance()->getRelativeMode(); }
 
 // SPDX-SnippetEnd
 
@@ -70,7 +91,14 @@ void define_generated_mouse(const Rice::Module &native) {
   Rice::define_module_under(native, "Mouse")
       .define_singleton_function("set_cursor", &w_setCursor,
                                  Rice::Arg("cursor") = std::optional<Cursor *>())
-      .define_singleton_function("x", &w_getX);
+      .define_singleton_function("x", &w_getX)
+      .define_singleton_function("set_visible", &w_setVisible, Rice::Arg("b"))
+      .define_singleton_function("visible?", &w_isVisible)
+      .define_singleton_function("set_grabbed", &w_setGrabbed, Rice::Arg("b"))
+      .define_singleton_function("grabbed?", &w_isGrabbed)
+      .define_singleton_function("set_relative_mode", &w_setRelativeMode, Rice::Arg("relative"))
+      .define_singleton_function("relative_mode", &w_getRelativeMode)
+      .define_singleton_function("cursor_supported?", &w_isCursorSupported);
 }
 
 } // namespace lota::native

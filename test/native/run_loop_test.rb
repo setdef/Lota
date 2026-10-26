@@ -64,11 +64,15 @@ class RunLoopTest < Minitest::Test
     assert_operator received, :>=, 0
   end
 
+  # The status is an Integer, as love.cpp holds it (ADR 001, rule 14).
   def test_a_quit_event_ends_the_game_with_its_status
     record(:update)
     Lota::Event.quit(3)
 
-    assert_equal 3, Lota.run.call
+    status = Lota.run.call
+
+    assert_equal 3, status
+    assert_instance_of Integer, status
     assert_empty @calls, "a frame that quits does not update"
   end
 

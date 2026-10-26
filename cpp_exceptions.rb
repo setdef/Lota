@@ -50,5 +50,5 @@ allow "ext/lota/native_test/native_test.cpp", line: 350,
 # LÖVE's own luax_pushvariant reads the union the same way. Reading the
 # bytes some other way (memcpy) would only hide the same access from the
 # check.
-allow "ext/lota/native/event.cpp", lines: [64, 87],
+allow "ext/lota/native/event.cpp", lines: [66, 89],
   reason: "love::Variant exposes its value only as a union tagged by getType(); there is no other accessor."

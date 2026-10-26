@@ -15,6 +15,7 @@
 #include "native/math.hpp"
 #include "native/mouse.hpp"
 #include "native/random_generator.hpp"
+#include "native/system.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
 #include "native/window.hpp"
@@ -53,6 +54,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_keyboard(native);
   lota::native::define_mouse(native);
   lota::native::define_touch(native);
+  lota::native::define_system(native);
   lota::native::define_window(native);
   lota::native::define_graphics(native);
   // After the hand-written bindings, which define the classes the

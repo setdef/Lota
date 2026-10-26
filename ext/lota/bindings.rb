@@ -19,6 +19,10 @@
 
 # love.event
 generate "love.event.pump"
+generate "love.event.clear"
+bound_by_hand "love.event.push",
+  reason: "reads a Variant of any kind at every position after the name (luax_checkvariant), which Lota " \
+    "narrows to the booleans, numbers, and strings an event carries"
 bound_by_hand "love.event.quit",
   reason: "reads a Variant of any kind at every position (luax_checkvariant), which Lota narrows to an exit status"
 
@@ -31,6 +35,8 @@ bound_by_hand "love.filesystem.newFileData",
 
 # love.graphics
 generate "love.graphics.isActive"
+generate "love.graphics.isCreated"
+generate "love.graphics.reset"
 generate "love.graphics.origin"
 generate "love.graphics.getBackgroundColor"
 generate "love.graphics.getWidth"
@@ -112,6 +118,13 @@ bound_by_hand "love.mouse.getSystemCursor",
   reason: "pushes its Cursor with luax_pushtype, which the generator does not port"
 generate "love.mouse.setCursor"
 generate "love.mouse.getX"
+generate "love.mouse.setVisible"
+generate "love.mouse.isVisible"
+generate "love.mouse.setGrabbed"
+generate "love.mouse.isGrabbed"
+generate "love.mouse.setRelativeMode"
+generate "love.mouse.getRelativeMode"
+generate "love.mouse.isCursorSupported"
 
 # love.math
 bound_by_hand "RandomGenerator:_random",
@@ -131,6 +144,10 @@ bound_by_hand "RandomGenerator:setSeed",
   reason: "reads its seed's two halves at a position it computes (luax_checkrandomseed); Lota binds the low " \
     "half and an optional high half"
 
+# love.system
+generate "love.system.setClipboardText"
+generate "love.system.getClipboardText"
+
 # love.timer
 generate "love.timer.step"
 generate "love.timer.sleep"
@@ -138,5 +155,9 @@ generate "love.timer.sleep"
 # love.window
 generate "love.window.setTitle"
 generate "love.window.getTitle"
+generate "love.window.isOpen"
+bound_by_hand "love.window.showMessageBox",
+  reason: "chooses between its forms by whether its third argument is a table, which also holds the " \
+    "enterbutton and escapebutton settings; Lota binds each form as a function of its own"
 bound_by_hand "love.window.setMode",
   reason: "reads its settings table through readWindowSettings, which Lota::Window.set_mode ports to Ruby"

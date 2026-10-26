@@ -22,6 +22,7 @@
 
 #include "common/Module.h"
 #include "common/Object.h" // IWYU pragma: export
+#include "common/types.h"
 
 // The engine classes of the modules LÖVE confines to its main thread, so
 // that every binding sees the same list (ReleasedOnMainThread, below).
@@ -32,6 +33,7 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -193,6 +195,46 @@ public:
 private:
   love::StrongRef<T> reference_;
 };
+
+// SPDX-SnippetBegin
+// SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+// SPDX-License-Identifier: Zlib
+//
+// Ported from luax_register_type, w__type, and w__typeOf
+// (vendor/love/src/common/runtime.cpp:65-80, 489-491, and 538-544), and
+// changed to define Ruby methods on a Rice class instead of filling a Lua
+// metatable.
+
+// Defines Lota::Native's class +name+ under +parent+ for the engine class
+// T, with the methods every LÖVE object has (ADR 001, rule 16): +type+,
+// LÖVE's name for T, and +type_of?+, whether T is the type of that name or
+// one of its parents. Every engine class Lota binds is defined through
+// here, once, so every one answers both. Base, when given, is the bound
+// class Ruby's class inherits from, as Rice's define_class_under takes it.
+//
+// LÖVE registers each type it pushes to Lua before pushing one, which
+// initializes the type (luax_register_type), and love::Type::byName finds
+// only an initialized type (common/types.cpp); initializing T initializes
+// its parents too. So T is initialized here, and type_of? finds T and every
+// parent by name, as typeOf does once LÖVE has registered T. A name no
+// type has is false, as luax_type's nullptr is. As in LÖVE, +type+ names
+// the class the object was bound as (luax_pushtype pushes T::type), not
+// the object's most derived class.
+template <EngineObject T, typename Base = void>
+Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *name) {
+  T::type.init();
+  return Rice::define_class_under<T, Base>(parent, name)
+      .define_method("type", [](const T & /*self*/) { return std::string(T::type.getName()); })
+      .define_method(
+          "type_of?",
+          [](const T & /*self*/, const std::string &type_name) {
+            const love::Type *type = love::Type::byName(type_name.c_str());
+            return type != nullptr && T::type.isa(*type);
+          },
+          Rice::Arg("name"));
+}
+
+// SPDX-SnippetEnd
 
 } // namespace lota::native
 

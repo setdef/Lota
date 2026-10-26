@@ -10,12 +10,13 @@
 # SPDX-License-Identifier: Zlib
 #
 # Translated to Ruby from Lövetest's conf.lua (vendor/love/testing/
-# conf.lua:1-11). Lua's print becomes puts. t.window.name is a field
+# conf.lua:1-22). Lua's print becomes puts. t.window.name is a field
 # boot.lua never reads, which Lota::Settings accepts and ignores, as a Lua
-# table does. One part has no translation: conf.lua's love.errorhandler
-# (lines 13-22) prints the error instead of drawing LÖVE's error screen;
-# Lota has no error screen yet, and prints the error and its backtrace
-# already.
+# table does. conf.lua's love.errorhandler prints the error instead of
+# drawing LÖVE's error screen, and returns no frame, so the program ends;
+# its error_printer is a copy of LÖVE's own (callbacks.lua:217-219), which
+# Lota ports as Lota::Callbacks.error_printer, so the translation calls
+# that one, which takes the error's text as tostring does.
 def Lota.conf(t)
   puts("love.conf")
   t.console = true
@@ -26,5 +27,11 @@ def Lota.conf(t)
   t.window.depth = true
   t.window.stencil = true
   t.window.usedpiscale = false
+end
+
+# custom crash message here to catch anything that might occur with modules
+# loading before we hit main.lua
+def Lota.errorhandler(msg)
+  Lota::Callbacks.error_printer(msg)
 end
 # SPDX-SnippetEnd

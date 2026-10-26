@@ -136,6 +136,38 @@ module Lota
       Native::Graphics.active?
     end
 
+    # Whether the graphics module has a window to draw in, matching
+    # love.graphics.isCreated (src/modules/graphics/wrap_Graphics.cpp,
+    # w_isCreated).
+    #
+    # It is +false+ until the window first opens, as when the settings
+    # open none (<tt>t.window = false</tt>). Raises ThreadError off the main
+    # thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.created? # => true
+    def self.created?
+      Native::Graphics.created?
+    end
+
+    # Puts the drawing state back as it starts, matching
+    # love.graphics.reset (src/modules/graphics/wrap_Graphics.cpp,
+    # w_reset).
+    #
+    # The color, the background color, the font, the line's width and
+    # style, the canvas, the default filter, and the rest of LÖVE's drawing
+    # state return to their defaults, and the transformation to the origin
+    # (Graphics::reset and restoreState, src/modules/graphics/Graphics.cpp).
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.reset
+    def self.reset
+      Native::Graphics.reset
+    end
+
     # Resets the current transformation, matching love.graphics.origin
     # (src/modules/graphics/wrap_Graphics.cpp, w_origin).
     #
@@ -273,7 +305,7 @@ module Lota
     #
     #   Lota::Graphics.line_style = :rough
     def self.line_style=(style)
-      Native::Graphics.set_line_style(style.to_s)
+      Native::Graphics.set_line_style(EnumName.of(style))
     end
 
     # How the edges of lines and outlines are drawn, +:smooth+ or
@@ -321,7 +353,7 @@ module Lota
     #   Lota::Graphics.rectangle(:line, 500, 500, 70, 20)
     #   Lota::Graphics.rectangle(:fill, 10, 10, 56, 12, 4, 4) # rounded corners
     def self.rectangle(mode, x, y, width, height, rx = nil, ry = nil, segments = nil)
-      Native::Graphics.rectangle(mode.to_s, x, y, width, height, rx, ry, segments)
+      Native::Graphics.rectangle(EnumName.of(mode), x, y, width, height, rx, ry, segments)
     end
 
     # Draws a circle in the current color, matching love.graphics.circle
@@ -348,7 +380,7 @@ module Lota
     #   Lota::Graphics.circle(:fill, 300, 300, 10)
     #   Lota::Graphics.circle(:line, 300, 300, 10, 16)
     def self.circle(mode, x, y, radius, segments = nil)
-      Native::Graphics.circle(mode.to_s, x, y, radius, segments)
+      Native::Graphics.circle(EnumName.of(mode), x, y, radius, segments)
     end
 
     # Draws an ellipse in the current color, matching
@@ -377,7 +409,7 @@ module Lota
     #   Lota::Graphics.ellipse(:fill, 400, 300, 100, 50)
     #   Lota::Graphics.ellipse(:line, 400, 300, 10, 10, 32)
     def self.ellipse(mode, x, y, radius_x, radius_y = nil, segments = nil)
-      Native::Graphics.ellipse(mode.to_s, x, y, radius_x, radius_y, segments)
+      Native::Graphics.ellipse(EnumName.of(mode), x, y, radius_x, radius_y, segments)
     end
 
     # Draws an arc, part of a circle, in the current color, matching
@@ -410,12 +442,12 @@ module Lota
     #   Lota::Graphics.arc(:fill, 400, 300, 100, 0, Math::PI / 2)
     #   Lota::Graphics.arc(:line, :open, 400, 300, 100, 0, Math::PI, 16)
     def self.arc(drawmode, *arguments)
-      arcmode = arguments.shift.to_s if arguments.first.is_a?(Symbol) || arguments.first.is_a?(String)
+      arcmode = EnumName.of(arguments.shift) if arguments.first.is_a?(Symbol) || arguments.first.is_a?(String)
       unless arguments.size.between?(5, 6)
         raise ArgumentError, "wrong number of arguments (given #{arguments.size + 1}, expected 6..8)"
       end
 
-      Native::Graphics.arc(drawmode.to_s, arcmode, arguments)
+      Native::Graphics.arc(EnumName.of(drawmode), arcmode, arguments)
     end
 
     # Draws lines between points in the current color and line width,
@@ -621,7 +653,7 @@ module Lota
     def self.printf(text, x, y, limit, align = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
       ky = nil
     )
-      Native::Graphics.printf(colored_text(text), placement(x, y, r, sx, sy, ox, oy, kx, ky), limit, align&.to_s)
+      Native::Graphics.printf(colored_text(text), placement(x, y, r, sx, sy, ox, oy, kx, ky), limit, align && EnumName.of(align))
     end
 
     # SPDX-SnippetBegin
@@ -682,7 +714,7 @@ module Lota
       when nil then 1
       else raise TypeError, "wrong argument type #{anisotropy.class} for anisotropy (expected Integer)"
       end
-      Native::Graphics.set_default_filter(min.to_s, mag&.to_s, anisotropy)
+      Native::Graphics.set_default_filter(EnumName.of(min), mag && EnumName.of(mag), anisotropy)
     end
 
     # The filters textures and fonts are made with, as an Array of the

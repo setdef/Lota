@@ -8,6 +8,8 @@ module Lota
 
   def self.image: () -> singleton(Image)?
 
+  def self.font: () -> singleton(Font)?
+
   def self.graphics: () -> singleton(Graphics)?
 
   def self.timer: () -> singleton(Timer)?
@@ -19,6 +21,8 @@ module Lota
   def self.mouse: () -> singleton(Mouse)?
 
   def self.math: () -> singleton(Math)?
+
+  def self.system: () -> singleton(System)?
 
   def self.window: () -> singleton(Window)?
 end

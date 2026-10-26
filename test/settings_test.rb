@@ -112,9 +112,24 @@ class SettingsTest < Minitest::Test
     assert_equal 800, settings.window.width
   end
 
-  def test_reading_a_setting_never_set_raises
-    assert_raises(NoMethodError) { settings.window.name }
+  # ADR 003, section 5: reading a setting never set returns nil, as
+  # reading a missing key of a Lua table does, at every level of the
+  # settings. It answers respond_to? only once set, so Ruby's implicit
+  # conversions (to_ary, to_str) still find no method.
+  def test_reading_a_setting_never_set_returns_nil
+    assert_nil settings.window.name
+    assert_nil settings.loading_screen
+    assert_nil settings.graphics.shaders
+    assert_nil settings.modules.network
+    assert_nil settings.audio.reverb
     refute_respond_to settings.window, :name
+    refute_respond_to settings.window, :to_ary
+  end
+
+  # Lua errors on indexing a nil field ("attempt to index field 'x' (a
+  # nil value)"), and so does Ruby on calling a method of nil.
+  def test_a_setting_never_set_is_not_a_table_of_settings
+    assert_raises(NoMethodError) { settings.network.port = 1 }
   end
 
   def test_only_a_setting_writer_is_accepted

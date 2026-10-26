@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace lota::native {
@@ -119,6 +121,24 @@ bool quit(std::optional<double> exit_status) {
   return true;
 }
 
+// w_push (wrap_Event.cpp:85-110): queues a message named +name+ with
+// +arguments+. Lota::Event.push reads them as w_push does, up to the first
+// nil and raising its error for a value an event cannot carry, and passes
+// on what luax_checkvariant would make of each: a boolean, a number, or a
+// string.
+bool push(const std::string &name, Rice::Array list) {
+  const Rice::Array arguments = std::move(list);
+  std::vector<Variant> args;
+  Rice::detail::From_Ruby<std::variant<bool, double, std::string>> from_ruby;
+  for (const auto item : arguments) {
+    std::visit([&args](const auto &value) { args.emplace_back(value); },
+               from_ruby.convert(item.value()));
+  }
+  const love::StrongRef<Message> message(new Message(name, args), love::Acquire::NORETAIN);
+  event().push(message.get());
+  return true;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -128,6 +148,7 @@ void define_event(const Rice::Module &native) {
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("poll", &poll)
+      .define_singleton_function("push", &push, Rice::Arg("name"), Rice::Arg("arguments"))
       .define_singleton_function("quit", &quit, Rice::Arg("exit_status") = std::optional<double>());
 }
 

@@ -93,9 +93,11 @@ module Lota
     # plus 1, lines 645, 657, and 672), and a rotated display's index,
     # counting from 1 (line 507). A window's new size is the graphics
     # module's int width and height (lines 811-835), while that module is
-    # open (argument). Every other number, such as a position, a wheel's
-    # travel, or an axis's value, is a float in SDL or in LÖVE and stays a
-    # Float. :nodoc:
+    # open (argument). A quit's first argument is the program's exit
+    # status, which love.cpp's runlove holds as an int
+    # (vendor/love/src/love.cpp:282-283). Every other number, such as a
+    # position, a wheel's travel, or an axis's value, is a float in SDL or
+    # in LÖVE and stays a Float. :nodoc:
     INTEGER_ARGUMENTS = {
       textedited: [1, 2],
       mousepressed: [2, 4],
@@ -106,6 +108,7 @@ module Lota
       joystickhat: [1],
       displayrotated: [0],
       resize: [0, 1],
+      quit: [0],
     }.freeze
 
     # SPDX-SnippetEnd
@@ -236,15 +239,13 @@ module Lota
     # callback, or when the quit callback returns a falsy value; the
     # status is its first argument, or 0.
     def self.dispatch
-      while (message = poll)
-        name, (a, b, c, d, e, f, g, h) = message
+      Event.poll do |name, a, b, c, d, e, f, g, h|
         if name == :quit && (c || !Lota.respond_to?(:quit) || !call(:quit))
           return a || 0
         end
 
         handle(name, a, b, c, d, e, f, g, h)
       end
-      nil
     end
 
     # Runs the handler for the event +name+ with +arguments+, raising
@@ -252,6 +253,51 @@ module Lota
     # :nodoc:
     def self.handle(name, *)
       HANDLERS.fetch(name) { raise "Unknown event: #{name}" }.call(*)
+    end
+
+    # SPDX-SnippetEnd
+
+    # The errors a game's code raises that Lota's error handler takes, as
+    # Lua's xpcall takes every error: the StandardError and ScriptError a
+    # program's mistakes raise (a SyntaxError in main.rb among them), and
+    # SystemStackError, Ruby's stack overflow. SystemExit, Interrupt, and
+    # Ruby's other signals pass through to end the program, as Ruby ends it.
+    # :nodoc:
+    ERRORS = [StandardError, ScriptError, SystemStackError].freeze
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # The text of +error+, as Lua's tostring gives an error's message
+    # (callbacks.lua:222). A Lua error's message starts with where it was
+    # raised ("main.lua:3: boom"); a Ruby exception's text, as Ruby prints
+    # one it does not rescue, is where it was raised and its detailed
+    # message ("main.rb:3:in 'Lota.update': boom (RuntimeError)"). Anything
+    # else a game passes an error handler is its +to_s+. :nodoc:
+    def self.error_message(error)
+      return error.to_s unless error.is_a?(Exception)
+
+      message = error.detailed_message(highlight: false)
+      location = error.backtrace&.first
+      location ? "#{location}: #{message}" : message
+    end
+
+    # The Ruby counterpart of Lua's debug.traceback for +frames+, the
+    # backtrace of an exception, or of where the error handler was called
+    # for anything else: "stack traceback:" and a line for each frame,
+    # starting with a tab, as debug.traceback lays them out. :nodoc:
+    def self.traceback(frames)
+      ["stack traceback:", *frames.map { |frame| "\t#{frame}" }].join("\n")
+    end
+
+    # Prints +error+ and its traceback, as error_printer does
+    # (callbacks.lua:217-219, and boot.lua:462-464, its copy): "Error: ",
+    # the error's text, and its traceback without the outermost frame,
+    # which error_printer drops. +frames+ is the traceback's frames.
+    # :nodoc:
+    def self.error_printer(error, frames = error.is_a?(Exception) ? error.backtrace.to_a : caller)
+      puts "Error: #{error_message(error)}\n#{traceback(frames)}".sub(/\n[^\n]+\z/, "")
     end
 
     # SPDX-SnippetEnd
@@ -354,6 +400,173 @@ module Lota
         nil
       end
     end
+
+    # Shows LÖVE's error screen for +msg+, an error your game raised, and
+    # returns the screen's frame: Lota's default error handler, translated
+    # from love.errorhandler (vendor/love/src/modules/love/callbacks.lua:
+    # 221-349).
+    #
+    # When your game raises, Lota calls <tt>Lota.errorhandler</tt> with
+    # what it raised, as LÖVE calls love.errorhandler (ADR 003, section 7).
+    # This one prints the error and its backtrace, then, in the game's
+    # window, opening one at 800 by 600 if the game has none, puts the
+    # mouse and the drawing state back as they start and shows the error
+    # in white, in LÖVE's default font at 15 pixels, on LÖVE's blue: the
+    # word "Error", the error's text, and its backtrace under
+    # "Traceback", without the frames of Lota's boot.rb, as LÖVE leaves out
+    # those of its boot.lua. Where LÖVE shows a Lua traceback, Lota shows
+    # Ruby's backtrace. When no window can open it shows the error in a
+    # message box instead and returns +nil+, and without the window module
+    # it only prints.
+    #
+    # The frame it returns pumps and polls the event queue, as the frames
+    # of Lota.run do, until the player quits, which exits with the quit's
+    # status or 1, or presses Escape, which exits with 1. Ctrl+C copies the
+    # error and its backtrace to the clipboard, and a touch asks whether
+    # to quit in a message box with a button that copies them. A string
+    # +msg+ is shown as given, with the backtrace of where the handler was
+    # called.
+    #
+    # Define <tt>Lota.errorhandler</tt> yourself to replace it, as a LÖVE
+    # game can replace love.errorhandler: receive the error, and return a
+    # frame for Lota to call until it returns an exit status, or +nil+ to
+    # exit with 1. An error your handler raises is printed, and the
+    # program exits with 1.
+    #
+    # === Example
+    #
+    #   def Lota.errorhandler(error)
+    #     File.write("crash.log", error.full_message(highlight: false))
+    #     super
+    #   end
+    def errorhandler(msg)
+      frames = msg.is_a?(Exception) ? msg.backtrace.to_a : caller
+      error = msg
+      msg = Callbacks.error_message(msg)
+
+      Callbacks.error_printer(error, frames)
+
+      return unless Native::Window.open?
+
+      if !Native::Graphics.open? || !Native::Event.open? || !Graphics.created? || !Window.open?
+        success = status = nil
+        if Native::Graphics.open? && Native::Event.open?
+          success, status = begin
+            [true, Window.set_mode(800, 600)]
+          rescue *Callbacks::ERRORS
+            [false, nil]
+          end
+        end
+        unless success && status
+          Native::Window.show_message_box("Initialization error", msg, "error", false)
+          return
+        end
+      end
+
+      # Reset state.
+      if Native::Mouse.open?
+        Mouse.visible = true
+        Mouse.grabbed = false
+        Mouse.set_relative_mode(false)
+        Mouse.cursor = nil if Mouse.cursor_supported?
+      end
+      # LÖVE also stops every joystick's vibration and all audio here
+      # (lines 250-256); Lota has no love.joystick or love.audio yet.
+
+      Graphics.reset
+      Graphics.font = Graphics::Font.new(15)
+
+      Graphics.color = 1, 1, 1
+
+      trace = Callbacks.traceback(frames)
+
+      Graphics.origin
+
+      sanitizedmsg = msg.b.scan(/[\x00-\x7F\xC2-\xFD][\x80-\xBF]*/n).join.force_encoding(Encoding::UTF_8)
+
+      err = [] #: Array[String]
+
+      err << "Error\n"
+      err << sanitizedmsg
+
+      err << "Invalid UTF-8 string in error message." if sanitizedmsg.bytesize != msg.bytesize
+
+      err << "\n"
+
+      trace.each_line(chomp: true) do |l|
+        next if l.empty? || l.match?(/boot.rb/)
+
+        err << l.sub("stack traceback:", "Traceback\n")
+      end
+
+      p = err.join("\n")
+
+      p = p.delete("\t")
+      # LÖVE also unwraps the names Lua gives code loaded from a string
+      # ([string "name"]), which Ruby's backtraces do not have.
+
+      draw = lambda do
+        next unless Graphics.active?
+
+        pos = 60
+        Graphics.clear(89 / 255.0, 157 / 255.0, 220 / 255.0)
+        Graphics.printf(p, pos, pos, Graphics.width - pos)
+        Graphics.present
+      end
+
+      full_error_text = p
+      copy_to_clipboard = lambda do
+        next unless Native::System.open?
+
+        System.clipboard_text = full_error_text
+        p += "\nCopied to clipboard!"
+      end
+
+      p += "\n\nPress Ctrl+C or tap to copy this error" if Native::System.open?
+
+      lambda do
+        Event.pump(0.1)
+
+        # Lua returns from inside its for loop; a Ruby block breaks out of
+        # Event.poll with the status instead, which the frame returns.
+        status = Event.poll do |e, a, _b, _c|
+          if e == :quit
+            # LÖVE also passes on a restart's arguments, and Lota does not
+            # restart games yet.
+            break a || 1
+          elsif e == :keypressed && a == :escape
+            break 1
+          elsif e == :keypressed && a == :c && Keyboard.down?(:lctrl, :rctrl)
+            copy_to_clipboard.call
+          elsif e == :touchpressed
+            name = Window.title
+            name = "Game" if name.empty? || name == "Untitled"
+            buttons = ["OK", "Cancel"]
+            buttons[2] = "Copy to clipboard" if Native::System.open?
+            pressed = Native::Window.show_message_box_with_buttons("Quit #{name}?", "", buttons)
+            if pressed == 1
+              break 1
+            elsif pressed == 3
+              copy_to_clipboard.call
+            end
+          end
+        end
+        next status if status
+
+        draw.call
+
+        Timer.sleep(0.001) if Native::Timer.open?
+        nil
+      end
+    end
+
+    # Legacy code support: LÖVE keeps love.errhand as another name for
+    # love.errorhandler (callbacks.lua:351-352), and boot.lua calls
+    # love.errorhandler, or love.errhand only when a game has removed
+    # love.errorhandler (boot.lua:476). So does Lota: a game that defines
+    # only <tt>Lota.errhand</tt> keeps this default handler, as a LÖVE 12
+    # game that defines only love.errhand does.
+    alias errhand errorhandler
 
     # SPDX-SnippetEnd
   end

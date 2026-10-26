@@ -11,6 +11,10 @@ module Lota
 
     def self.active?: () -> bool
 
+    def self.created?: () -> bool
+
+    def self.reset: () -> nil
+
     def self.origin: () -> nil
 
     def self.background_color: () -> Array[Float]

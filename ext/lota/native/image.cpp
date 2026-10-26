@@ -41,7 +41,7 @@ ImageData *new_image_data(love::Data *data) {
 
 void define_image(const Rice::Module &native) {
   // Its methods are generated (ext/lota/native/generated/image.cpp).
-  Rice::define_class_under<ImageData>(native, "ImageData");
+  define_engine_class<ImageData>(native, "ImageData");
 
   Rice::define_module_under(native, "Image")
       .define_singleton_function("open", &open)

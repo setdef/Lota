@@ -20,3 +20,11 @@
 native_name "RandomGenerator:setState", as: "state=",
   reason: "bound as a writer since the walking skeleton (04b6f52), with no Ruby wrapper between it and " \
     "test/native/random_generator_test.rb, which assigns state= as rule 5 spells it."
+
+# Every Lota::Native module answers open? for whether LÖVE's module is open
+# (Lota.window asks it), so love.window.isOpen, whether the window is,
+# cannot take the name rule 8 gives it there. Lota::Window.open? keeps
+# rule 8's name; only the native layer beneath it differs.
+native_name "love.window.isOpen", as: "window_open?",
+  reason: "Lota::Native::Window.open? already says whether the window module is open, as open? does on " \
+    "every Lota::Native module, and boot and Lota.window ask it; Lota::Window.open? calls this one."

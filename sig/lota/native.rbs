@@ -17,6 +17,10 @@ module Lota
       def random: () -> Float
 
       def set_seed: (Float | Integer low, ?(Float | Integer)? high) -> nil
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
     end
 
     module Math
@@ -29,18 +33,34 @@ module Lota
 
     class Data
       def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
     end
 
     class FileData < Data
       def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
     end
 
     class ImageData
       def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
     end
 
     class Texture
       def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
     end
 
     class WindowSettings
@@ -119,6 +139,8 @@ module Lota
       def self.poll: () -> Array[String | Float | Integer | bool | nil]?
 
       def self.quit: (?Float? exit_status) -> bool
+
+      def self.push: (String name, Array[bool | Float | String] arguments) -> bool
     end
 
     module Keyboard
@@ -138,7 +160,17 @@ module Lota
 
       class Cursor
         def self.cpp_class: () -> String
+
+        def type: () -> String
+
+        def type_of?: (String name) -> bool
       end
+    end
+
+    module System
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
     end
 
     module Touch
@@ -155,6 +187,10 @@ module Lota
       def self.fullscreen_types: () -> Array[String]
 
       def self.set_high_dpi_allowed: (bool enable) -> nil
+
+      def self.show_message_box: (String title, String message, ?String? type, ?bool attachtowindow) -> bool
+
+      def self.show_message_box_with_buttons: (String title, String message, Array[String] buttons, ?Integer? enterbutton, ?Integer? escapebutton, ?String? type, ?bool attachtowindow) -> Integer
     end
 
     module Graphics
@@ -212,6 +248,10 @@ module Lota
 
       class Font
         def self.cpp_class: () -> String
+
+        def type: () -> String
+
+        def type_of?: (String name) -> bool
       end
     end
   end

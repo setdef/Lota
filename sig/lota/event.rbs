@@ -5,6 +5,13 @@ module Lota
   module Event
     def self.pump: (?(Float | Integer) wait_timeout) -> nil
 
+    def self.poll: () { (Symbol name, *Callbacks::argument arguments) -> void } -> nil
+                 | () -> Enumerator[Array[Callbacks::argument], nil]
+
+    def self.push: (Symbol | String name, *(bool | Float | Integer | String | Symbol | nil) arguments) -> bool
+
+    def self.clear: () -> nil
+
     def self.quit: (?(Integer | Float)? exit_status) -> bool
   end
 end

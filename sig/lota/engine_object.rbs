@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  interface _EngineNative
+    def type: () -> String
+
+    def type_of?: (String name) -> bool
+  end
+
+  interface _WrapsEngineObject
+    def native: () -> _EngineNative
+  end
+
+  module EngineObject : _WrapsEngineObject
+    def type: () -> String
+
+    def type_of?: (Object name) -> bool
+  end
+end

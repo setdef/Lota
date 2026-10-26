@@ -54,6 +54,15 @@ class GeneratorTest < Minitest::Test
     assert_includes code, "#include <algorithm>"
   end
 
+  # w_setClipboardText reads a const char *, which the port's std::string
+  # parameter stands for; System::setClipboardText takes a std::string, so
+  # the parameter passes as it is, while a method that takes a const char *
+  # still gets c_str().
+  def test_a_string_parameter_passes_as_it_is_where_the_engine_takes_a_string
+    assert_includes port("love.system.setClipboardText").definition, "instance()->setClipboardText(text);"
+    assert_includes port("love.graphics.setLineStyle").definition, "getConstant(style.c_str(), style_value)"
+  end
+
   def test_a_runtime_test_of_an_argument_makes_it_optional
     port = port("love.graphics.circle")
 
@@ -161,8 +170,11 @@ class GeneratorTest < Minitest::Test
   # defines, so the generator and the hand-written Ruby agree. RandomGenerator
   # has no Ruby class yet, and Lota::Math draws from the math module's
   # generator itself; capture_screenshot serves only the parity harness;
-  # and love.filesystem's init and setSource only Lota::Boot, as they serve
-  # only boot.lua.
+  # love.filesystem's init and setSource only Lota::Boot, as they serve
+  # only boot.lua; and love.window.showMessageBox only Lota's error
+  # handler, until the maintainer settles how its buttons form, whose table
+  # holds both the buttons and the enterbutton and escapebutton settings,
+  # translates.
   UNWRITTEN = %w[
     RandomGenerator:_random
     RandomGenerator:getState
@@ -174,6 +186,7 @@ class GeneratorTest < Minitest::Test
     love.graphics.captureScreenshot
     love.math._getRandomGenerator
     love.math.newRandomGenerator
+    love.window.showMessageBox
   ].freeze
 
   def test_lib_defines_the_name_the_rules_give_each_bound_function
@@ -200,6 +213,23 @@ class GeneratorTest < Minitest::Test
 
       scope.const_get(name, false)
     end
+  end
+
+  # The name table errors.hpp translates LÖVE's messages with (ADR 001,
+  # section 7): every function a rule names, with the Ruby name the rules
+  # give it, sorted for errors.hpp's binary search; a function no rule
+  # names is not in it.
+  def test_the_name_table_gives_each_function_the_name_the_rules_give_it
+    table = BindingsHelper.generator.name_table
+
+    assert_equal "Lota::Window.title=", table.fetch("love.window.setTitle")
+    assert_equal "Lota::Window.set_mode", table.fetch("love.window.setMode")
+    assert_equal "Lota::Graphics::Canvas.new", table.fetch("love.graphics.newCanvas")
+    assert_equal "Lota::Image::ImageData#pixel", table.fetch("ImageData:getPixel")
+    refute table.key?("love.math._getRandomGenerator")
+    assert_equal table.keys.sort, table.keys
+    assert_includes BindingsHelper.generator.files.fetch("ext/lota/native/generated/names.hpp"),
+      %(    LoveName("love.window.setTitle", "Lota::Window.title="),\n)
   end
 
   def test_the_committed_bindings_match_the_generator

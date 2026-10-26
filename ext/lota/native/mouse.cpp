@@ -59,7 +59,7 @@ Cursor *system_cursor(const std::string &name) {
 
 void define_mouse(const Rice::Module &native) {
   Rice::Module mouse = Rice::define_module_under(native, "Mouse");
-  Rice::define_class_under<Cursor>(mouse, "Cursor");
+  define_engine_class<Cursor>(mouse, "Cursor");
   mouse.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("system_cursor", &system_cursor, Rice::Arg("name"));

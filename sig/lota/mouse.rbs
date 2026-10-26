@@ -8,5 +8,19 @@ module Lota
     def self.cursor=: (Object? cursor) -> void
 
     def self.x: () -> Float
+
+    def self.visible=: (bool visible) -> void
+
+    def self.visible?: () -> bool
+
+    def self.grabbed=: (bool grabbed) -> void
+
+    def self.grabbed?: () -> bool
+
+    def self.set_relative_mode: (bool relative) -> bool
+
+    def self.relative_mode: () -> bool
+
+    def self.cursor_supported?: () -> bool
   end
 end

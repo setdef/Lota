@@ -21,9 +21,9 @@ module Lota
   # Use it through <tt>lota run</tt>. Tests that draw use init alone, to
   # open a window from a conf.rb.
   #
-  # An error in the game ends the program with Ruby's own backtrace,
-  # where LÖVE shows its error screen; how Lota shows errors is not
-  # decided yet (Plan 001, "Design questions").
+  # An error in the game shows LÖVE's error screen in the game's window,
+  # with Ruby's backtrace, as LÖVE's love.errorhandler does, or whatever
+  # the game's own <tt>Lota.errorhandler</tt> shows (ADR 003, section 7).
   #
   # === Examples
   #
@@ -46,7 +46,7 @@ module Lota
       mouse: -> { Native::Mouse.open },
       touch: nil,
       sound: nil,
-      system: nil,
+      system: -> { Native::System.open },
       sensor: nil,
       audio: nil,
       image: -> { Native::Image.open },
@@ -90,13 +90,22 @@ module Lota
 
     # Runs the game until it quits, and returns the program's exit status,
     # as boot.lua's root function (lines 470-521) runs love.boot,
-    # love.init, and love.run's frame.
+    # love.init, and love.run's frame, with LÖVE's error handling.
+    #
+    # An error in booting the engine prints its error and returns 1. An
+    # error your game raises from conf.rb onward goes to
+    # <tt>Lota.errorhandler</tt>, whose frame then runs in place of the
+    # game's until it returns a status, or the program exits with 1 when
+    # the handler returns +nil+. An error in the error handler itself is
+    # printed, and the program exits with 1.
     #
     # Lota drains its release queue after every frame, so that graphics
     # objects Ruby's garbage collector freed on another thread are released
     # on the main thread (ADR 001, section 5). A frame that returns an
     # Integer or Float exits with it; any other truthy value exits with 0,
-    # as LÖVE's love.cpp treats a value that is not a number.
+    # as LÖVE's love.cpp treats a value that is not a number. LÖVE also
+    # hands each new frame to the event module, to draw while the system
+    # holds the window modal (lines 511-514); Lota does not bind that yet.
     #
     # === Example
     #
@@ -104,15 +113,16 @@ module Lota
     def call
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
-      init
-      frame = Lota.run
-      loop do
-        status = frame.call
-        Native.drain_release_queue
-        next unless status
+      @inerror = false
+      @func = method(:earlyinit)
 
-        return (status.is_a?(Integer) || status.is_a?(Float)) ? status.to_i : 0
+      while (func = @func)
+        _, retval = protect { func.call }
+        Native.drain_release_queue
+        return (retval.is_a?(Integer) || retval.is_a?(Float)) ? retval.to_i : 0 if retval
       end
+
+      1
     end
 
     # Brings the game up to the point where its loop starts, as love.boot
@@ -124,15 +134,32 @@ module Lota
     # whose error screen needs the window. Raises RuntimeError
     # (<tt>"Could not set window mode"</tt>) when the system refuses the
     # window, and RuntimeError when the folder holds neither main.rb nor
-    # conf.rb.
+    # conf.rb. It raises what the game raises, and shows no error screen,
+    # which call shows.
     #
     # === Example
     #
     #   Lota::Boot.new("games/pong").init
     #   Lota::Graphics.dimensions # => [800, 600]
     def init
+      boot
+      init_game
+    end
+
+    # The part of starting up that is love.boot's (boot.lua:43-173): puts
+    # the game's folder on <tt>$LOAD_PATH</tt>, and opens the filesystem
+    # and the system module, which LÖVE opens before conf.lua whatever the
+    # settings say (boot.lua:44-49).
+    private def boot
       add_to_load_path
       open_filesystem
+      Native::System.open
+    end
+
+    # The part of starting up that is love.init's (boot.lua:175-456):
+    # configures the game, opens its modules and its window, and loads
+    # main.rb.
+    private def init_game
       conf_error = configure
       prepare_engine
       open_modules
@@ -158,6 +185,64 @@ module Lota
       gamestr = @path.nil? ? "" : " at #{@path}"
       raise "No code to run#{gamestr}\nYour game might be packaged incorrectly.\n" \
         "Make sure main.rb is at the top level of the zip or folder."
+    end
+
+    # The first frame boot.lua's root function runs (earlyinit, lines
+    # 483-505): boots, initializes, and runs the game, and makes the frame
+    # Lota.run returns the next to run. An error in booting prints and
+    # returns 1; an error after it goes to the error handler, whose frame
+    # runs next.
+    private def earlyinit
+      @func = nil
+
+      # If boot fails, return 1 and finish immediately
+      begin
+        boot
+      rescue *Callbacks::ERRORS => e
+        Callbacks.error_printer(e)
+        return 1
+      end
+
+      # If init or run fails, don't return a value,
+      # as we want the error handler to take over
+      result, = protect { init_game }
+      return unless result
+
+      # NOTE: We can't assign to @func directly, as we'd
+      # overwrite the result of handle_error with nil on error
+      result, main = protect { Lota.run }
+      @func = main if result
+      # boot.lua prints an error raised in the error handler here (lines
+      # 502-503), when Lua could not call deferErrhand for it; handle_error
+      # has always printed it already.
+      nil
+    end
+
+    # Runs the block as boot.lua runs a function with xpcall and
+    # deferErrhand (lines 492, 498, and 515), and returns +true+ and the
+    # block's value, or +false+ once the error handler has taken what it
+    # raised.
+    private def protect
+      [true, yield]
+    rescue *Callbacks::ERRORS => e
+      handle_error(e)
+      [false, nil]
+    end
+
+    # deferErrhand (boot.lua:475-481): hands +error+ to the game's error
+    # handler, <tt>Lota.errorhandler</tt> or, when the game has removed it,
+    # <tt>Lota.errhand</tt>, and makes the frame it returns the next to
+    # run. While handling an error, the error printer takes its place, so
+    # an error the handler raises is printed, as Lua calls deferErrhand
+    # again for it with inerror set, and the game ends.
+    private def handle_error(error)
+      errhand = %i[errorhandler errhand].find { |name| Lota.respond_to?(name) }
+      handler = !@inerror && errhand
+      @inerror = true
+      @func = handler ? Callbacks.call(handler, error) : Callbacks.error_printer(error) #: _Frame?
+      @inerror = false
+    rescue *Callbacks::ERRORS => e
+      handle_error(e)
     end
 
     # Builds the settings and lets the game change them, as love.init does

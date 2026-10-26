@@ -205,4 +205,22 @@ class CallbacksTest < Minitest::Test
 
     assert_equal names - %i[threaderror audiodisconnected], Lota::Callbacks::HANDLERS.keys
   end
+
+  # tostring(msg) (callbacks.lua:222): a raised error's text is where it
+  # was raised and its message, as Ruby prints an error it does not
+  # rescue; anything else is its own text.
+  def test_an_errors_text_is_where_it_was_raised_and_its_detailed_message
+    raised = ArgumentError.new("bad\nworse")
+    raised.set_backtrace(["main.rb:3:in 'Lota.update'", "callbacks.rb:56:in 'Lota::Callbacks.call'"])
+
+    assert_equal "main.rb:3:in 'Lota.update': bad (ArgumentError)\nworse", Lota::Callbacks.error_message(raised)
+    assert_equal "plain (RuntimeError)", Lota::Callbacks.error_message(RuntimeError.new("plain"))
+    assert_equal "a message", Lota::Callbacks.error_message("a message")
+  end
+
+  # debug.traceback's layout: a heading, then each frame after a tab.
+  def test_a_traceback_lays_out_ruby_frames_as_debug_traceback_does
+    assert_equal "stack traceback:\n\ta.rb:1:in 'x'\n\tb.rb:2:in 'y'",
+      Lota::Callbacks.traceback(["a.rb:1:in 'x'", "b.rb:2:in 'y'"])
+  end
 end

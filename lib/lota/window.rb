@@ -160,5 +160,19 @@ module Lota
     def self.title
       Native::Window.title.force_encoding(Encoding::UTF_8)
     end
+
+    # Whether the window is open, matching love.window.isOpen
+    # (src/modules/window/wrap_Window.cpp, w_isOpen).
+    #
+    # It is +false+ until Lota::Window.set_mode first opens the window, as
+    # when the settings open none (<tt>t.window = false</tt>). Raises
+    # ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.open? # => true
+    def self.open?
+      Native::Window.window_open?
+    end
   end
 end

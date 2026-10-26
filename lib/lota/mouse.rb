@@ -89,5 +89,100 @@ module Lota
     def self.x
       Native::Mouse.x
     end
+
+    # Shows the pointer when +visible+ is truthy and hides it otherwise,
+    # matching love.mouse.setVisible (src/modules/mouse/wrap_Mouse.cpp,
+    # w_setVisible).
+    #
+    # Raises TypeError unless +visible+ is +true+ or +false+, and
+    # RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.visible = false
+    def self.visible=(visible)
+      Native::Mouse.set_visible(visible)
+    end
+
+    # Whether the pointer is shown, matching love.mouse.isVisible
+    # (src/modules/mouse/wrap_Mouse.cpp, w_isVisible).
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.visible? # => true
+    def self.visible?
+      Native::Mouse.visible?
+    end
+
+    # Keeps the pointer inside the window when +grabbed+ is +true+, and
+    # lets it leave when +false+, matching love.mouse.setGrabbed
+    # (src/modules/mouse/wrap_Mouse.cpp, w_setGrabbed).
+    #
+    # Raises TypeError unless +grabbed+ is +true+ or +false+, and
+    # RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.grabbed = true
+    def self.grabbed=(grabbed)
+      Native::Mouse.set_grabbed(grabbed)
+    end
+
+    # Whether the pointer is kept inside the window, matching
+    # love.mouse.isGrabbed (src/modules/mouse/wrap_Mouse.cpp, w_isGrabbed).
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.grabbed? # => false
+    def self.grabbed?
+      Native::Mouse.grabbed?
+    end
+
+    # Turns relative mode on when +relative+ is +true+, and off when
+    # +false+, matching love.mouse.setRelativeMode
+    # (src/modules/mouse/wrap_Mouse.cpp, w_setRelativeMode).
+    #
+    # In relative mode the pointer is hidden and stays where it is, and the
+    # +mousemoved+ callback reports how far the mouse moved, as a game that
+    # turns a camera with the mouse needs. Returns +false+ when the system
+    # cannot turn it on, so it stays a method rather than a writer (ADR
+    # 001, rule 7). Raises TypeError unless +relative+ is +true+ or
+    # +false+, and RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.set_relative_mode(true) # => true
+    def self.set_relative_mode(relative)
+      Native::Mouse.set_relative_mode(relative)
+    end
+
+    # Whether relative mode is on, matching love.mouse.getRelativeMode
+    # (src/modules/mouse/wrap_Mouse.cpp, w_getRelativeMode).
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.relative_mode # => false
+    def self.relative_mode
+      Native::Mouse.relative_mode
+    end
+
+    # Whether the system lets a game change the pointer's shape, matching
+    # love.mouse.isCursorSupported (src/modules/mouse/wrap_Mouse.cpp,
+    # w_isCursorSupported).
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.cursor = Lota::Mouse.system_cursor(:hand) if Lota::Mouse.cursor_supported?
+    def self.cursor_supported?
+      Native::Mouse.cursor_supported?
+    end
   end
 end

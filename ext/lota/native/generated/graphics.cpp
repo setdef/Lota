@@ -52,6 +52,12 @@ Graphics *instance() {
 // (vendor/love/src/modules/graphics), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// love.graphics.reset: w_reset (wrap_Graphics.cpp:63-67).
+void w_reset() { instance()->reset(); }
+
+// love.graphics.isCreated: w_isCreated (wrap_Graphics.cpp:183-187).
+bool w_isCreated() { return instance()->isCreated(); }
+
 // love.graphics.isActive: w_isActive (wrap_Graphics.cpp:189-193).
 bool w_isActive() { return instance()->isActive(); }
 
@@ -201,6 +207,8 @@ bool w_Texture_isCanvas(const Texture &t) {
 void define_generated_graphics(const Rice::Module &native) {
   Rice::define_module_under(native, "Graphics")
       .define_singleton_function("active?", &w_isActive)
+      .define_singleton_function("created?", &w_isCreated)
+      .define_singleton_function("reset", &w_reset)
       .define_singleton_function("origin", &w_origin)
       .define_singleton_function("background_color", &w_getBackgroundColor)
       .define_singleton_function("width", &w_getWidth)

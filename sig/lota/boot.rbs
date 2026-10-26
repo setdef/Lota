@@ -9,6 +9,14 @@ module Lota
 
     @arguments: Array[String]
 
+    interface _Frame
+      def call: () -> top
+    end
+
+    @inerror: bool
+
+    @func: _Frame?
+
     attr_reader directory: String
 
     attr_reader settings: Settings
@@ -18,6 +26,16 @@ module Lota
     def call: () -> Integer
 
     def init: () -> void
+
+    private def boot: () -> void
+
+    private def init_game: () -> void
+
+    private def earlyinit: () -> Integer?
+
+    private def protect: [T] () { () -> T } -> ([true, T] | [false, nil])
+
+    private def handle_error: (Exception error) -> void
 
     def configure: () -> (StandardError | ScriptError)?
 

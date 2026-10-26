@@ -35,16 +35,20 @@ class LotaTest < Minitest::Test
       event: Lota::Event,
       window: Lota::Window,
       keyboard: Lota::Keyboard,
+      font: Lota::Font,
+      system: Lota::System,
     }
 
     modules.each { |name, mod| assert_same mod, lota.public_send(name), name }
   end
 
   # Every module Lota translates from LÖVE has an accessor; its native
-  # extension, its callbacks, and its command line are not LÖVE modules.
+  # extension, its callbacks, its command line, the methods every engine
+  # object has, and the enum names it passes the engine are not LÖVE
+  # modules.
   def test_no_module_lacks_an_accessor
     EngineHelper.open_window
-    own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI]
+    own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI Lota::EngineObject Lota::EnumName]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }
 

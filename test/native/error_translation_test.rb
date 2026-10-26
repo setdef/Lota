@@ -9,15 +9,16 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 
 # ADR 001, section 7: where LÖVE's own C++ raises a message that names a
-# Lua module, Lota rewrites the name by rule 1 and leaves the rest of the
-# message word for word (ext/lota/native/errors.hpp).
+# Lua module, Lota rewrites the name by rule 1, and a function by the name
+# the rules give it in the binding generator's name table, and leaves the
+# rest of the message word for word (ext/lota/native/errors.hpp).
 class ErrorTranslationTest < Minitest::Test
   include NativeHelper
 
   PNG = File.binread(File.join(ROOT, "vendor/love/testing/output/expected/love.test.graphics.clear-1.png"))
 
   # Every message in the LÖVE C++ that Lota compiles that names a Lua
-  # module, with what Lota raises instead. The %s in
+  # module or a method, with what Lota raises instead. The %s in
   # vendor/love/src/modules/event/sdl/Event.cpp:250 is filled in with
   # love.event.pump, love.event.wait, or love.event.clear (lines 129, 213,
   # and 225).
@@ -57,7 +58,66 @@ class ErrorTranslationTest < Minitest::Test
     "love.graphics.readbackBuffer failed." => "Lota::Graphics.readback_buffer failed.",
     # Graphics.cpp:513
     "love.graphics.readbackTexture failed." => "Lota::Graphics.readback_texture failed.",
+    # ImageData.cpp:535, with the format's name for %s
+    "ImageData:setPixel does not currently support the r16 pixel format." =>
+      "Lota::Image::ImageData#pixel= does not currently support the r16 pixel format.",
+    # ImageData.cpp:549
+    "ImageData:getPixel does not currently support the r16 pixel format." =>
+      "Lota::Image::ImageData#pixel does not currently support the r16 pixel format.",
+    # ImageData.cpp:760
+    "ImageData:paste does not currently support converting from the r16 pixel format." =>
+      "Lota::Image::ImageData#paste does not currently support converting from the r16 pixel format.",
   }.freeze
+
+  # The C++ Lota compiles from LÖVE, as the engine's source list names it.
+  def self.engine_sources
+    list = File.read(File.join(ROOT, "ext/lota/engine/sources_macos.cmake"))
+    list.scan(%r{\$\{ENGINE_SOURCE_DIR\}/(\S+)}).flatten.map { |path| File.join(ROOT, "vendor/love", path) }
+  end
+
+  # Every function a string in that C++ names, in LÖVE's notation, has the
+  # Ruby name the rules give it in the generator's name table, which the
+  # translation looks it up in. Names of a module's implementation, such as
+  # love.graphics.metal (graphics/metal/Graphics.mm:271), are what
+  # Module::getName returns, not functions, and no message names them.
+  def test_every_function_the_engines_strings_name_is_in_the_name_table
+    names = ErrorTranslationTest.engine_sources.flat_map do |path|
+      File.read(path).scan(/"[^"\n]*"/).flat_map { |literal| literal.scan(/\b(?:love\.[a-z]+\.[A-Za-z]\w*|[A-Z]\w*:[a-z]\w*)/) }
+    end
+    functions = names.uniq.sort.grep_v(/\Alove\.[a-z]+\.(?:sdl|null|openal|physfs|freetype|metal|opengl|vulkan|magpie|lullaby|theora|box)\z/)
+
+    assert_equal %w[
+      ImageData:getPixel
+      ImageData:paste
+      ImageData:setPixel
+      love.event.clear
+      love.event.pump
+      love.event.wait
+      love.graphics.readbackBuffer
+      love.graphics.readbackTexture
+      love.window.close
+      love.window.setFullscreen
+      love.window.setMode
+    ], functions
+    functions.each do |name|
+      refute_equal name, LotaNativeTest.translate_love_names(name), "#{name} is not in the name table"
+    end
+  end
+
+  # A name the rules give differently from a snake_case of LÖVE's: a factory
+  # becomes a constructor (rule 2), a setter a writer (rule 5), and a
+  # predicate drops its "is" (rule 8).
+  def test_a_function_takes_the_exact_name_the_rules_give_it
+    assert_equal "Lota::Graphics::Canvas.new failed; Lota::Window.title= and Lota::Window.open?",
+      LotaNativeTest.translate_love_names("love.graphics.newCanvas failed; love.window.setTitle and love.window.isOpen")
+  end
+
+  # A function the name table does not know keeps LÖVE's spelling after
+  # its module's Ruby name, and a method it does not know stays as written.
+  def test_a_name_the_table_does_not_know_keeps_loves_spelling
+    assert_equal "Lota::Graphics.noSuchFunction and Texture:noSuchMethod, at Error: x",
+      LotaNativeTest.translate_love_names("love.graphics.noSuchFunction and Texture:noSuchMethod, at Error: x")
+  end
 
   def test_each_surveyed_message_translates
     SURVEYED.each do |love, lota|

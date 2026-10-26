@@ -17,7 +17,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics::Texture`, with `canvas?`; `Canvas.new` returns a `Texture`, as LÖVE 12's `newCanvas` does, and `Canvas === texture` asks `texture.canvas?`.
 - `Lota::Graphics::Texture.new`, translating `love.graphics.newTexture` for one image from a file name, a `FileData`, or an `ImageData`, with its `canvas:` setting.
 - `Lota::Graphics::Image.new`, translating `love.graphics.newImage`, which in LÖVE 12 is `newTexture`; `Image === x` is true for any `Texture`, canvases included.
-- LÖVE's error messages name Lota's modules and methods (`Lota::Image`, `Lota::Window.set_mode`) where LÖVE's name Lua's (`love.image`, `love.window.setMode`).
+- LÖVE's error messages name Lota's modules and methods (`Lota::Image`, `Lota::Window.set_mode`, `Lota::Image::ImageData#pixel`) where LÖVE's name Lua's (`love.image`, `love.window.setMode`, `ImageData:getPixel`), each method by the exact name ADR 001's rules give it.
 - `Lota::Image::ImageData`, decoded from a `Lota::Filesystem::FileData` or a file name, with `width`, `height`, and `pixel`.
 - `Lota::Filesystem::FileData.new(contents, name)`, translating `love.filesystem.newFileData`.
 - `Lota::Graphics` raises `ThreadError` anywhere but the main thread, as LÖVE keeps `love.graphics` there.
@@ -27,11 +27,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The gem's homepage, source code, and changelog links, pointing at https://github.com/setdef/lota.
 - The source gem stops at `gem install` with a message naming the precompiled gem, since it ships no LÖVE sources to build from.
 - The `lota` executable: `lota run [path] [arguments]` runs the game in a folder, as `love path/to/game` does.
-- A game is a folder of `conf.rb` and `main.rb`; `Lota::Boot` starts it in `boot.lua`'s order, calling `def Lota.conf(t)` with a `Lota::Settings` under LÖVE's names and defaults, which accepts and ignores settings LÖVE does not know; `lota run` puts the folder on `$LOAD_PATH` and leaves the working directory alone.
+- A game is a folder of `conf.rb` and `main.rb`; `Lota::Boot` starts it in `boot.lua`'s order, calling `def Lota.conf(t)` with a `Lota::Settings` under LÖVE's names and defaults, which accepts and ignores settings LÖVE does not know and reads a setting never set as `nil`; `lota run` puts the folder on `$LOAD_PATH` and leaves the working directory alone.
 - `Lota.run`, the game loop translated from `love.run`, calls the callbacks a game defines on `Lota` (`load`, `update`, `draw`, `quit`, `keypressed`, and the rest of LÖVE's), passing each only the arguments it declares and `nil` for a required parameter beyond LÖVE's (an optional one keeps its default), with Integers for the numbers LÖVE holds as integers (a mouse button, a resized window's size) and Floats for the rest; a game can define its own `Lota.run`.
 - A private `Kernel#lota` returning `Lota`, and `Lota.filesystem`, `image`, `graphics`, `timer`, `event`, and `window` returning their modules, or `nil` when a module is not open, as when the settings turn it off.
 - `Lota::Window.set_mode`, `title=`, and `title`, translating `love.window.setMode`, `setTitle`, and `getTitle`.
-- `Lota::Timer.step` and `sleep`, and `Lota::Event.pump` and `quit`, translating `love.timer` and `love.event`.
+- `Lota::Timer.step` and `sleep`, and `Lota::Event.pump` and `quit`, translating `love.timer` and `love.event`; a quit's exit status leaves the event queue as an Integer, so `Lota::Event.quit(3)` exits with 3.
 - `Lota::Graphics.active?`, `origin`, `background_color`, `present`, `width`, `height`, and `dimensions`.
 - `Lota::Graphics.rectangle`, `circle`, `ellipse`, `arc`, and `line`, translating `love.graphics.rectangle` (with rounded corners), `circle`, `ellipse`, `arc` (with its `:pie`, `:open`, or `:closed` arc mode), and `line`, in `:fill` or `:line` mode.
 - `Lota::Graphics.draw`, translating `love.graphics.draw` for a `Texture` with a position, angle, scale, origin, and shear.
@@ -44,3 +44,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `lota run` opens LÖVE's filesystem with the game's folder as its source, as `boot.lua` does, so a file name a game passes is read from its folder; no save directory is mounted yet.
 - `Lota::Mouse.system_cursor`, `cursor=`, and `x`, translating `love.mouse.getSystemCursor`, `setCursor`, and `getX`, with `Lota::Mouse::Cursor`; and `Lota.mouse`, opened unless `t.modules.mouse = false`.
 - `Lota::Math.random` and `random_seed=`, translating `love.math.random` and `setRandomSeed`, which draw from LÖVE's own generator; and `Lota.math`, opened unless `t.modules.math = false`.
+- `Lota::Event.poll`, translating `love.event.poll`, as an Enumerator of each queued message's name and arguments that also takes a block; and `Lota::Event.push` and `clear`.
+- `type` and `type_of?` on every engine object (`Texture`, `Font`, `ImageData`, `FileData`, `Cursor`), translating `Object:type` and `Object:typeOf`, with LÖVE's type names and parents.
+- `Lota::Font` and `Lota.font`, for LÖVE's font module, `nil` when `t.modules.font = false`.
+- `Lota::System.clipboard_text=` and `clipboard_text`, translating `love.system.setClipboardText` and `getClipboardText`, and `Lota.system`; `lota run` opens the system module before `conf.rb`, as `boot.lua` does.
+- LÖVE's error screen: an error a game raises prints the error and its Ruby backtrace and shows them in the game's window, as `love.errorhandler` does, until the player presses Escape or quits; Ctrl+C copies them. A game may define `Lota.errorhandler` to replace it; `Lota.errhand` is another name for the default handler.
+- `Lota::Mouse.visible=`, `visible?`, `grabbed=`, `grabbed?`, `set_relative_mode`, `relative_mode`, and `cursor_supported?`; `Lota::Graphics.created?` and `reset`; and `Lota::Window.open?`.

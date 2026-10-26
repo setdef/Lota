@@ -9,6 +9,8 @@ module Lota
   module Native
     module Event
       def self.pump: (?(Float | Integer) wait_timeout) -> nil
+
+      def self.clear: () -> nil
     end
 
     module Filesystem
@@ -19,6 +21,10 @@ module Lota
 
     module Graphics
       def self.active?: () -> bool
+
+      def self.created?: () -> bool
+
+      def self.reset: () -> nil
 
       def self.origin: () -> nil
 
@@ -73,6 +79,26 @@ module Lota
       def self.set_cursor: (?Cursor? cursor) -> nil
 
       def self.x: () -> Float
+
+      def self.set_visible: (bool b) -> nil
+
+      def self.visible?: () -> bool
+
+      def self.set_grabbed: (bool b) -> nil
+
+      def self.grabbed?: () -> bool
+
+      def self.set_relative_mode: (bool relative) -> bool
+
+      def self.relative_mode: () -> bool
+
+      def self.cursor_supported?: () -> bool
+    end
+
+    module System
+      def self.set_clipboard_text: (String text) -> nil
+
+      def self.clipboard_text: () -> String
     end
 
     module Timer
@@ -85,6 +111,8 @@ module Lota
       def self.set_title: (String title) -> nil
 
       def self.title: () -> String
+
+      def self.window_open?: () -> bool
     end
   end
 end
