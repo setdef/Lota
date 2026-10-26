@@ -193,7 +193,15 @@ module Bench
         raise Failure, "#{scenario} failed (#{status.inspect}):\n#{output}"
       end
 
-      Result.new(scenario, JSON.parse(File.read(report)))
+      data = JSON.parse(File.read(report))
+      # A Ruby built without ZJIT or YJIT warns at --zjit or --yjit and
+      # runs the interpreter, and LuaJIT can start with its JIT off, so a
+      # run that reports another JIT fails rather than being labeled with
+      # the one it was asked for.
+      ran = data.fetch("jit")
+      raise Failure, "#{scenario} ran under #{ran}, not #{scenario.jit}:\n#{output}" unless ran == scenario.jit
+
+      Result.new(scenario, data)
     end
   end
 

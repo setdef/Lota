@@ -36,10 +36,16 @@ defaults:
     shell: bash
 
 env:
-  # mise installs Ruby from jdx/ruby's precompiled builds where they exist
-  # (mise's Ruby documentation); false makes a missing build fail instead
-  # of compiling Ruby for ten minutes.
-  MISE_RUBY_COMPILE: "false"
+  # Ruby comes from ruby/setup-ruby, not mise, so mise ignores the Ruby in
+  # mise.toml. mise's precompiled Ruby comes from jdx/ruby, whose macOS
+  # build passes --enable-yjit and installs Rust 1.58 (libexec/package.rb),
+  # too old for Ruby's ZJIT check (configure.ac's "prerequisites for ZJIT",
+  # which needs Rust 1.85 or newer, for the 2024 edition), so it has no
+  # ZJIT, and ruby --zjit only warns and runs the interpreter.
+  # setup-ruby's Ruby is built by ruby-build with the runner's Rust
+  # (ruby/ruby-builder, .github/workflows/build.yml), as a Ruby mise
+  # compiles is, and has both JITs, which rake bench measures.
+  MISE_DISABLE_TOOLS: ruby
   # Install exactly what Gemfile.lock locks, or fail.
   BUNDLE_FROZEN: "true"
 
@@ -60,9 +66,12 @@ jobs:
       - name: Report the GUI session
         run: echo "launchctl managername is $(launchctl managername)"
 
-      # mise.toml pins the tools contributors use (bin/setup), the REUSE
-      # tool among them; CI installs the same pins the same way. Its cache is
-      # keyed by mise.toml's hash.
+      # The Ruby version mise.toml pins, which setup-ruby reads from it.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      # mise.toml pins the other tools contributors use (bin/setup), the
+      # REUSE tool among them; CI installs the same pins the same way. Its
+      # cache is keyed by mise.toml's hash.
       - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
         with:
           version: 2026.10.11
@@ -76,11 +85,13 @@ jobs:
             echo "BUNDLE_PATH=$HOME/.cache/lota/bundle"
             echo "CCACHE_DIR=$HOME/.cache/lota/ccache"
           } >> "$GITHUB_ENV"
-          echo "ruby=$(ruby -e 'print RUBY_VERSION, "-", RUBY_PLATFORM')" >> "$GITHUB_OUTPUT"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
           echo "submodules=$(git submodule status | shasum -a 256 | cut -c 1-16)" >> "$GITHUB_OUTPUT"
 
       # Gems with native extensions compile against one Ruby on one macOS,
-      # so the key names both, with the lockfile. Only an exact match
+      # so the key names both, with the lockfile. Ruby's version and
+      # platform do not tell one build of it from another, so the key also
+      # hashes the arguments Ruby was configured with. Only an exact match
       # restores.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -204,16 +215,14 @@ jobs:
       - name: Report the GUI session
         run: echo "launchctl managername is $(launchctl managername)"
 
-      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
-        with:
-          version: 2026.10.11
-          install_args: ruby
+      # The same Ruby the gate built the gem with.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
 
       - name: Place Bundler outside the checkout
         id: paths
         run: |
           echo "BUNDLE_PATH=$HOME/.cache/lota/bundle" >> "$GITHUB_ENV"
-          echo "ruby=$(ruby -e 'print RUBY_VERSION, "-", RUBY_PLATFORM')" >> "$GITHUB_OUTPUT"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

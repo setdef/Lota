@@ -95,14 +95,16 @@ class BenchTest < Minitest::Test
   end
 
   # A stand-in love that writes the report a frame scenario writes, with
-  # a draw time read from +draws+, one line a run.
-  def stand_in_love(dir, draws)
+  # a draw time read from +draws+, one line a run, and +jit+ as the JIT
+  # that ran.
+  def stand_in_love(dir, draws, jit: "luajit")
     write(dir, "draws", draws.join("\n"))
     path = write(dir, "love", <<~SH)
       #!/bin/sh
       draw=$(head -n 1 #{dir}/draws); tail -n +2 #{dir}/draws > #{dir}/rest; mv #{dir}/rest #{dir}/draws
       [ "$draw" = fail ] && { echo broken; exit 3; }
-      printf '{"scenario":"%s","draws":10,"draw":[%s],"frame":[1]}' "$LOTA_BENCH_SCENARIO" "$draw" > "$LOTA_BENCH_REPORT"
+      echo "a warning about the JIT"
+      printf '{"scenario":"%s","jit":"#{jit}","draws":10,"draw":[%s],"frame":[1]}' "$LOTA_BENCH_SCENARIO" "$draw" > "$LOTA_BENCH_REPORT"
     SH
     File.chmod(0o755, path)
     path
@@ -131,6 +133,23 @@ class BenchTest < Minitest::Test
       error = assert_raises(Bench::Failure) { runner.call([scenario]) }
 
       assert_includes error.message, "broken"
+    end
+  end
+
+  # Ruby built without ZJIT (or YJIT) warns at --zjit and runs the
+  # interpreter, and LuaJIT can start with its JIT off, so a run reports
+  # the JIT that ran, and a report from any other JIT fails the run
+  # rather than being labeled with the JIT that was asked for.
+  def test_the_runner_fails_a_run_that_reports_another_jit_than_it_was_asked_for
+    in_tree do |dir|
+      love = stand_in_love(dir, [0.1], jit: "luajit, JIT off")
+      runner = Bench::Runner.new(settings: Bench::Settings.from("BENCH_RUNS" => "1"), love:,
+        directory: File.join(dir, "runs"), out: StringIO.new)
+      scenario = Bench::Scenario.new(engine: "love", jit: "luajit", name: "rectangle")
+      error = assert_raises(Bench::Failure) { runner.call([scenario]) }
+
+      assert_includes error.message, "love rectangle (luajit) ran under luajit, JIT off"
+      assert_includes error.message, "a warning about the JIT"
     end
   end
 
