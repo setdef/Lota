@@ -13,9 +13,12 @@
 #include "common/Color.h"
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/int.h"
+#include "graphics/Font.h"
 #include "graphics/Graphics.h"
 #include "graphics/Texture.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 
@@ -78,6 +81,24 @@ Rice::Array w_getBackgroundColor() {
   results.push(static_cast<double>(c.b), false);
   results.push(static_cast<double>(c.a), false);
   return results;
+}
+
+// love.graphics.setFont: w_setFont (wrap_Graphics.cpp:2573-2578).
+void w_setFont(Font *font) { instance()->setFont(font); }
+
+// love.graphics.setDefaultFilter: w_setDefaultFilter (wrap_Graphics.cpp:2751-2767).
+void w_setDefaultFilter(const std::string &minstr, const std::optional<std::string> &magstr,
+                        double max_anisotropy) {
+  SamplerState s = instance()->getDefaultSamplerState();
+  if (!SamplerState::getConstant(minstr.c_str(), s.minFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.minFilter), minstr);
+  }
+  if (!SamplerState::getConstant(magstr.value_or(minstr.c_str()).c_str(), s.magFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.magFilter),
+                     magstr.value_or(minstr.c_str()));
+  }
+  s.maxAnisotropy = std::min(std::max(1, static_cast<int>(max_anisotropy)), LOVE_UINT8_MAX);
+  instance()->setDefaultSamplerState(s);
 }
 
 // love.graphics.setLineWidth: w_setLineWidth (wrap_Graphics.cpp:2816-2821).
@@ -160,7 +181,11 @@ void define_generated_graphics(const Rice::Module &native) {
                                  Rice::Arg("y"), Rice::Arg("w"), Rice::Arg("h"))
       .define_singleton_function("circle", &w_circle, Rice::Arg("mode"), Rice::Arg("x"),
                                  Rice::Arg("y"), Rice::Arg("radius"),
-                                 Rice::Arg("points") = std::optional<int>());
+                                 Rice::Arg("points") = std::optional<int>())
+      .define_singleton_function("set_font", &w_setFont, Rice::Arg("font"))
+      .define_singleton_function("set_default_filter", &w_setDefaultFilter, Rice::Arg("minstr"),
+                                 Rice::Arg("magstr") = std::optional<std::string>(),
+                                 Rice::Arg("max_anisotropy") = 1.0);
   Rice::define_class_under<Texture>(native, "Texture")
       .define_method("canvas?", &w_Texture_isCanvas);
 }

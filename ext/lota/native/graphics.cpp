@@ -4,26 +4,40 @@
 #include "native/graphics.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Color.h"
+#include "common/Data.h"
 #include "common/Exception.h"
+#include "common/Matrix.h"
 #include "common/Module.h"
 #include "common/Optional.h"
 #include "common/math.h"
+#include "filesystem/FileData.h"
+#include "font/Font.h"
+#include "font/Rasterizer.h"
+#include "font/TextShaper.h"
+#include "font/TrueTypeRasterizer.h"
+#include "graphics/Font.h"
 #include "graphics/Graphics.h"
 #include "graphics/Texture.h"
 #include "image/ImageData.h"
 
+#include <array>
+#include <cstddef>
 #include <exception>
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 namespace lota::native {
 
+using love::graphics::Font;
 using love::graphics::Graphics;
+using love::graphics::SamplerState;
 using love::graphics::Texture;
 
 namespace {
@@ -243,6 +257,178 @@ void set_color(double red, double green, double blue, double alpha) {
                                    static_cast<float>(blue), static_cast<float>(alpha)));
 }
 
+// luax_checkgraphicscreated (wrap_Graphics.cpp:56-61): the module, once
+// it has a window to draw in.
+Graphics &created_graphics() {
+  Graphics &instance = graphics();
+  if (!instance.isCreated()) {
+    throw love::Exception("%s cannot function without a window.", MODULE);
+  }
+  return instance;
+}
+
+// The font module, which rasterizes the glyphs of every font the graphics
+// module makes, with Graphics::newDefaultFont's message when it is not
+// open (Graphics.cpp:338-340).
+love::font::Font &font_module() {
+  auto *instance = love::Module::getInstance<love::font::Font>(love::Module::M_FONT);
+  if (instance == nullptr) {
+    throw love::Exception("Font module has not been loaded.");
+  }
+  return *instance;
+}
+
+// luax_checktruetypesettings (wrap_Font.cpp:67-104): the hinting mode by
+// name, the DPI scale when given, and whether glyphs are signed distance
+// fields.
+love::font::TrueTypeRasterizer::Settings
+truetype_settings(const std::optional<std::string> &hinting, std::optional<double> dpiscale,
+                  bool sdf) {
+  love::font::TrueTypeRasterizer::Settings settings;
+  if (hinting.has_value() &&
+      !love::font::TrueTypeRasterizer::getConstant(hinting->c_str(), settings.hinting)) {
+    raise_enum_error("TrueType font hinting mode",
+                     love::font::TrueTypeRasterizer::getConstants(settings.hinting), *hinting);
+  }
+  if (dpiscale.has_value()) {
+    settings.dpiScale.set(static_cast<float>(dpiscale.value()));
+  }
+  settings.sdf = sdf;
+  return settings;
+}
+
+// w_newFont (wrap_Graphics.cpp:1382-1408) of the Rasterizer +rasterizer+,
+// which the font takes its own reference to; the font's one reference goes
+// to the Ruby wrapper.
+Font *new_font(Graphics &instance, love::font::Rasterizer *made) {
+  const love::StrongRef<love::font::Rasterizer> rasterizer(made, love::Acquire::NORETAIN);
+  return instance.newFont(rasterizer.get());
+}
+
+// w_newFont with a size or nothing, through w_newTrueTypeRasterizer
+// (wrap_Font.cpp:106-121): LÖVE's default font, 13 pixels tall unless
+// told otherwise.
+Font *new_default_font(std::optional<int> size, const std::optional<std::string> &hinting,
+                       std::optional<double> dpiscale, bool sdf) {
+  Graphics &instance = created_graphics();
+  const love::font::TrueTypeRasterizer::Settings settings =
+      truetype_settings(hinting, dpiscale, sdf);
+  constexpr int default_size = 13;
+  return new_font(instance,
+                  font_module().newTrueTypeRasterizer(size.value_or(default_size), settings));
+}
+
+// w_newFont with data and a size, through w_newTrueTypeRasterizer
+// (wrap_Font.cpp:122-145): the TrueType font in +data+.
+Font *new_truetype_font(love::Data *data, int size, const std::optional<std::string> &hinting,
+                        std::optional<double> dpiscale, bool sdf) {
+  Graphics &instance = created_graphics();
+  const love::font::TrueTypeRasterizer::Settings settings =
+      truetype_settings(hinting, dpiscale, sdf);
+  return new_font(instance, font_module().newTrueTypeRasterizer(data, size, settings));
+}
+
+// w_newFont with a file's data alone, through w_newRasterizer
+// (wrap_Font.cpp:45-59): Font::newRasterizer reads a TrueType font at 12
+// pixels, or a BMFont definition, as the data holds.
+Font *new_font_from_file(love::filesystem::FileData *data) {
+  Graphics &instance = created_graphics();
+  return new_font(instance, font_module().newRasterizer(data));
+}
+
+// w_getFont (wrap_Graphics.cpp:2580-2589): the font text is drawn in,
+// which is LÖVE's default font, made on first use, until one is set.
+Font *font() { return created_graphics().getFont(); }
+
+// A Ruby number, read as a float, as luaL_checknumber and LÖVE's casts
+// read each number of a color or a placement.
+float to_float(const Rice::Object &number) {
+  return static_cast<float>(Rice::detail::From_Ruby<double>().convert(number.value()));
+}
+
+// The elements of +array+.
+std::vector<Rice::Object> elements(const Rice::Array &array) {
+  std::vector<Rice::Object> values;
+  for (const auto item : array) {
+    values.emplace_back(item.value());
+  }
+  return values;
+}
+
+// luax_checkcoloredstring (wrap_Font.cpp:33-76), from what Lota::Graphics
+// passes: an Array of Arrays, each a string and the red, green, blue, and
+// alpha it is drawn in.
+std::vector<love::font::ColoredString> colored_strings(const Rice::Array &text) {
+  std::vector<love::font::ColoredString> strings;
+  for (const auto item : text) {
+    const std::vector<Rice::Object> part = elements(Rice::Array(item.value()));
+    love::font::ColoredString colored;
+    colored.str = Rice::String(part.at(0).value()).str();
+    colored.color = love::Colorf(to_float(part.at(1)), to_float(part.at(2)), to_float(part.at(3)),
+                                 to_float(part.at(4)));
+    strings.push_back(colored);
+  }
+  return strings;
+}
+
+// The placement LÖVE builds from a position, an angle, scale factors,
+// origin offsets, and shearing factors, each read as a float
+// (luax_checkstandardtransform, wrap_SpriteBatch.h:33-64, and w_printf),
+// from an Array of those nine numbers in that order.
+love::Matrix4 placement_of(const Rice::Array &numbers) {
+  constexpr std::size_t count = 9;
+  const std::vector<Rice::Object> given = elements(numbers);
+  std::array<float, count> values{};
+  for (std::size_t index = 0; index < count; index++) {
+    values.at(index) = to_float(given.at(index));
+  }
+  return std::apply([](auto... value) { return love::Matrix4(value...); }, values);
+}
+
+// w_print with numbers (wrap_Graphics.cpp:3410-3433): +text+ in the
+// current font, from the top left of its first line.
+void print(Rice::Array text, Rice::Array placement) {
+  const Rice::Array parts = std::move(text);
+  const Rice::Array numbers = std::move(placement);
+  const std::vector<love::font::ColoredString> strings = colored_strings(parts);
+  graphics().print(strings, placement_of(numbers));
+}
+
+// w_printf with numbers (wrap_Graphics.cpp:3435-3492): +text+ in the
+// current font, wrapped at +limit+ and aligned within it. The alignment is
+// checked after the numbers, and before the module.
+void printf(Rice::Array text, Rice::Array placement, double limit,
+            const std::optional<std::string> &align) {
+  const Rice::Array parts = std::move(text);
+  const Rice::Array numbers = std::move(placement);
+  const std::vector<love::font::ColoredString> strings = colored_strings(parts);
+  const love::Matrix4 matrix = placement_of(numbers);
+  Font::AlignMode mode = Font::ALIGN_LEFT;
+  if (align.has_value() && !Font::getConstant(align->c_str(), mode)) {
+    raise_enum_error("alignment", Font::getConstants(mode), *align);
+  }
+  graphics().printf(strings, static_cast<float>(limit), mode, matrix);
+}
+
+// w_getDefaultFilter (wrap_Graphics.cpp:2769-2782): the two filters'
+// names and the anisotropy, which LÖVE holds as an integer.
+Rice::Array default_filter() {
+  const SamplerState &state = graphics().getDefaultSamplerState();
+  const char *min = nullptr;
+  const char *mag = nullptr;
+  if (!SamplerState::getConstant(state.minFilter, min)) {
+    throw love::Exception("Unknown minification filter mode");
+  }
+  if (!SamplerState::getConstant(state.magFilter, mag)) {
+    throw love::Exception("Unknown magnification filter mode");
+  }
+  Rice::Array filter;
+  filter.push(std::string(min), false);
+  filter.push(std::string(mag), false);
+  filter.push(static_cast<int>(state.maxAnisotropy), false);
+  return filter;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -250,9 +436,12 @@ void set_color(double red, double green, double blue, double alpha) {
 void define_graphics(const Rice::Module &native) {
   // Its methods are generated (ext/lota/native/generated/graphics.cpp).
   Rice::define_class_under<Texture>(native, "Texture");
+  // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
+  // love.font, the module that rasterizes its glyphs (native/font.cpp).
+  Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
+  Rice::define_class_under<Font>(graphics_module, "Font");
 
-  Rice::define_module_under(native, "Graphics")
-      .define_singleton_function("open", &open)
+  graphics_module.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("set_gamma_correct", &set_gamma_correct,
                                  Rice::Arg("gamma_correct"))
@@ -271,7 +460,20 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Return().takeOwnership())
       .define_singleton_function("set_color", &set_color, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
-      .define_singleton_function("capture_screenshot", &capture_screenshot, Rice::Arg("callable"));
+      .define_singleton_function("capture_screenshot", &capture_screenshot, Rice::Arg("callable"))
+      .define_singleton_function("new_default_font", &new_default_font, Rice::Arg("size"),
+                                 Rice::Arg("hinting"), Rice::Arg("dpiscale"), Rice::Arg("sdf"),
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("new_truetype_font", &new_truetype_font, Rice::Arg("data"),
+                                 Rice::Arg("size"), Rice::Arg("hinting"), Rice::Arg("dpiscale"),
+                                 Rice::Arg("sdf"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_font_from_file", &new_font_from_file, Rice::Arg("data"),
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("font", &font)
+      .define_singleton_function("print", &print, Rice::Arg("text"), Rice::Arg("placement"))
+      .define_singleton_function("printf", &printf, Rice::Arg("text"), Rice::Arg("placement"),
+                                 Rice::Arg("limit"), Rice::Arg("align"))
+      .define_singleton_function("default_filter", &default_filter);
 }
 
 } // namespace lota::native

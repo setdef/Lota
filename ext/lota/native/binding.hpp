@@ -25,6 +25,7 @@
 
 // The engine classes of the modules LÖVE confines to its main thread, so
 // that every binding sees the same list (ReleasedOnMainThread, below).
+#include "graphics/Font.h"
 #include "graphics/Texture.h"
 
 #include <concepts>
@@ -65,6 +66,7 @@ inline void require_main_thread(const char *module) {
 // in this one header, so that every translation unit agrees.
 template <typename T> struct ReleasedOnMainThread : std::false_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Texture> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Font> : std::true_type {};
 
 // Releases that Ruby's garbage collector asked for off the main thread, for
 // the main thread to carry out (ADR 001, section 5). Ruby frees a wrapper

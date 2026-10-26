@@ -117,6 +117,22 @@ class ReleaseQueueTest < Minitest::Test
     assert_equal 0, Lota::Native.queued_releases
   end
 
+  # A real Font, made by Font.new, waits for the main thread as a Texture
+  # does: love.graphics runs only there.
+  def test_a_font_freed_off_the_main_thread_is_released_on_the_main_thread
+    collect_garbage_off_the_main_thread do
+      on_a_finished_fiber { LotaNativeTest.observe_font(Lota::Graphics::Font.new(8).native) }
+      assert_equal [2], LotaNativeTest.observed_reference_counts
+    end
+
+    assert_equal 1, Lota::Native.queued_releases
+    assert_equal [2], LotaNativeTest.observed_reference_counts
+
+    assert_equal 1, Lota::Native.drain_release_queue
+    assert_equal [1], LotaNativeTest.observed_reference_counts
+    assert_equal 0, Lota::Native.queued_releases
+  end
+
   # love.image may run on any thread, so its objects need no queue.
   def test_an_image_data_freed_off_the_main_thread_is_released_at_once
     texture = Lota::Graphics::Canvas.new(16, 16)

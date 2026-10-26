@@ -63,6 +63,12 @@ function(lota_ruby_extension target feature load_directory)
 	# links every framework LÖVE needs, and a bundle that binds no window
 	# needs none of them at load time.
 	target_link_options(${target} PRIVATE "LINKER:-dead_strip_dylibs")
+	# The linker's map of the bundle: every object file it took, from the
+	# engine's archive among them. The precompiled gem reads it to learn
+	# which libraries the bundle carries, and so which licenses it must
+	# record (tasks/native_gem.rb).
+	target_link_options(${target} PRIVATE
+		"LINKER:-map,${CMAKE_BINARY_DIR}/lib/${directory}/${name}.map")
 
 	foreach(frameworks IN LISTS ENGINE_FRAMEWORK_DIRS)
 		file(RELATIVE_PATH relative ${load_directory} ${frameworks})

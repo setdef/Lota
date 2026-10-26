@@ -243,10 +243,13 @@ module Bindings
       love << '"common/Exception.h"' if code.include?("love::Exception") || code.include?("instance()")
       love << '"common/Module.h"' if code.include?("instance()")
       love << '"common/Color.h"' if code.match?(/\bColor[fD]?\b|\bColorT\b/)
+      love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b/)
       classes = ports.map { |port| port.function.wrap.instance_class }.compact +
-        ports.filter_map { |port| port.self_parameter&.fetch(:type) }
+        ports.filter_map { |port| port.self_parameter&.fetch(:type) } +
+        ports.flat_map { |port| port.parameters.compact.filter_map(&:object) }
       classes.uniq.each { |type| love << %("#{header_of(name, type)}") }
       std = []
+      std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
       std << "<optional>" if code.include?("std::optional")
       std << "<string>" if code.include?("std::string")
       [lota.sort, love.uniq.sort, std.sort].reject(&:empty?).map { |group| group.map { |file| "#include #{file}" }.join("\n") }

@@ -47,6 +47,9 @@ class MainThreadTest < Minitest::Test
 
   def test_graphics_raises_off_the_main_thread
     texture = Lota::Graphics::Canvas.new(2, 2)
+    font = Lota::Graphics::Font.new(8)
+    font_data = Lota::Filesystem::FileData.new(File.binread(File.join(ROOT, "vendor/love/testing/resources/font.ttf")),
+      "font.ttf")
     calls = {
       "Canvas.new" => -> { Lota::Graphics::Canvas.new(2, 2) },
       "canvas=" => -> { Lota::Graphics.canvas = texture },
@@ -76,6 +79,16 @@ class MainThreadTest < Minitest::Test
       "line_style=" => -> { Lota::Graphics.line_style = :rough },
       "line_style" => -> { Lota::Graphics.line_style },
       "capture_screenshot" => -> { Lota::Native::Graphics.capture_screenshot(-> (_image) {}) },
+      "Font.new" => -> { Lota::Graphics::Font.new },
+      "Font.new(size)" => -> { Lota::Graphics::Font.new(8) },
+      "Font.new(data)" => -> { Lota::Graphics::Font.new(font_data) },
+      "Font.new(data, size)" => -> { Lota::Graphics::Font.new(font_data, 8) },
+      "font=" => -> { Lota::Graphics.font = font },
+      "font" => -> { Lota::Graphics.font },
+      "print" => -> { Lota::Graphics.print("off", 0, 0) },
+      "printf" => -> { Lota::Graphics.printf("off", 0, 0, 100, :center) },
+      "default_filter=" => -> { Lota::Graphics.default_filter = :nearest },
+      "default_filter" => -> { Lota::Graphics.default_filter },
     }
 
     calls.each do |label, call|

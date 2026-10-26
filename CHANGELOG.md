@@ -20,8 +20,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Filesystem::FileData.new(contents, name)`, translating `love.filesystem.newFileData`.
 - `Lota::Graphics` raises `ThreadError` anywhere but the main thread, as LÖVE keeps `love.graphics` there.
 - Graphics objects that Ruby's garbage collector frees on another thread are released on the main thread.
-- Dependency on SDL3, from `love-apple-dependencies`, which `Lota::Native` now loads at run time.
-- A precompiled gem for Apple Silicon macOS (platform `arm64-darwin`) and Ruby 4.0, carrying the compiled extension, SDL3, and their license notices, so `gem install lota` compiles nothing.
+- Dependency on SDL3, FreeType, and HarfBuzz, from `love-apple-dependencies`, which `Lota::Native` now loads at run time.
+- A precompiled gem for Apple Silicon macOS (platform `arm64-darwin`) and Ruby 4.0, carrying the compiled extension and the frameworks it loads, with their licenses recorded by the REUSE Specification (`REUSE.toml`, and the texts in `LICENSES/`), so `gem install lota` compiles nothing.
 - The gem's homepage, source code, and changelog links, pointing at https://github.com/setdef/lota.
 - The source gem stops at `gem install` with a message naming the precompiled gem, since it ships no LÖVE sources to build from.
 - The `lota` executable: `lota run [path] [arguments]` runs the game in a folder, as `love path/to/game` does.
@@ -34,3 +34,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics.rectangle` and `circle`, translating `love.graphics.rectangle` (without rounded corners yet) and `circle`, in `:fill` or `:line` mode.
 - `Lota::Graphics.color=` and `color`, `line_width=` and `line_width`, and `line_style=` and `line_style`, translating `love.graphics.setColor`, `getColor`, `setLineWidth`, `getLineWidth`, `setLineStyle`, and `getLineStyle`.
 - `Lota::Keyboard.down?`, translating `love.keyboard.isDown`, and `Lota.keyboard` returning `Lota::Keyboard`.
+- `Lota::Graphics.print` and `printf`, translating `love.graphics.print` and `printf`, which draw a String or colored text with a position, angle, scale, origin, and shear, `printf` wrapped at a limit and aligned `:left`, `:center`, `:right`, or `:justify`.
+- `Lota::Graphics::Font.new`, translating `love.graphics.newFont` for LÖVE's default font at a size and for a TrueType font in a `Lota::Filesystem::FileData`, with its hinting and DPI scale after the size or as keywords; and `Lota::Graphics.font=` and `font`, translating `setFont` and `getFont`, which until set is LÖVE's default font, Noto Sans at 13 pixels.
+- `Lota::Graphics.default_filter=` and `default_filter`, translating `love.graphics.setDefaultFilter` and `getDefaultFilter`.
+- `lota run` opens LÖVE's font module unless `t.modules.font = false`, as `boot.lua` opens `love.font`.

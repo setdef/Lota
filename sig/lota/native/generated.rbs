@@ -35,6 +35,10 @@ module Lota
       def self.rectangle: (String mode, Float | Integer x, Float | Integer y, Float | Integer w, Float | Integer h) -> nil
 
       def self.circle: (String mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? points) -> nil
+
+      def self.set_font: (Font font) -> nil
+
+      def self.set_default_filter: (String minstr, ?String? magstr, ?(Float | Integer) max_anisotropy) -> nil
     end
 
     class Texture

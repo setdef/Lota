@@ -24,9 +24,11 @@ require "tmpdir"
 # it ships no LÖVE sources, so the check installs it and expects gem
 # install to stop with the message that names the precompiled gem. The
 # precompiled gem (NativeGem) carries the compiled bundle and the
-# frameworks it loads.
+# frameworks it loads, and the REUSE record of who wrote them under which
+# licenses.
 #
-# Fast mode unpacks the precompiled gem and loads it from there. Delivery
+# Fast mode unpacks the precompiled gem, checks its licensing with the
+# REUSE tool, and loads it from there. Delivery
 # takes a precompiled gem already built, by rake package:native here or by
 # CI's gate job on another runner, installs it into an empty GEM_HOME that
 # sees no other installed gem, then runs the lota executable RubyGems
@@ -148,7 +150,8 @@ class PackageCheck
       home = File.join(work, "gems")
       env = isolated_env(home)
       @gems.each do |gem|
-        verify_files(gem, unpack(packages.fetch(gem), work), gem.packaged + gem.native_packaged)
+        verify_files(gem, unpack(packages.fetch(gem), work), gem.packaged + gem.native_packaged,
+          assembled: gem.native.assembled)
         install(gem, packages.fetch(gem), env, work)
       end
       installed = @gems.to_h { |gem| [gem, Dir.glob(File.join(home, "gems", "#{gem.name}-*")).first] }
@@ -300,7 +303,9 @@ class PackageCheck
 
   private def build_native(gem, work)
     package = gem.native.build(File.join(work, "native", gem.name))
-    verify_files(gem, unpack(package, work), gem.packaged + gem.native_packaged)
+    unpacked = unpack(package, work)
+    verify_files(gem, unpacked, gem.packaged + gem.native_packaged, assembled: gem.native.assembled)
+    verify_licensing(gem, unpacked)
     package
   end
 
@@ -336,10 +341,14 @@ class PackageCheck
     Dir.glob("**/*", File::FNM_DOTMATCH, base: dir).reject { |path| File.directory?(File.join(dir, path)) }
   end
 
-  private def verify_files(gem, dir, allowed)
+  # Fails when the package at +dir+ ships a path outside +allowed+, or
+  # lacks a file of the working tree's, except under +assembled+, which
+  # the package builds for itself.
+  private def verify_files(gem, dir, allowed, assembled: [])
     packaged = contents(dir)
     unexpected = self.class.unexpected_files(allowed, packaged)
-    missing = self.class.missing_files(working_tree(gem), packaged)
+    tree = working_tree(gem).reject { |path| assembled.any? { |prefix| path.start_with?("#{prefix}/") } }
+    missing = self.class.missing_files(tree, packaged)
     problems = []
     problems << "ships development files:\n#{list(unexpected)}" if unexpected.any?
     problems << "lacks files the repository loads (git add them, or add them to spec.files):\n#{list(missing)}" if missing.any?
@@ -358,6 +367,19 @@ class PackageCheck
     raise Failure, "git ls-files failed in #{dir}" unless status.success?
 
     listed.split("\x0").select { |path| File.file?(File.join(dir, path)) }
+  end
+
+  # The unpacked package at +dir+ is a REUSE project the REUSE tool calls
+  # compliant (REUSE Specification 3.3): every file has its copyright and
+  # license, the frameworks and the bundle by the annotations NativeGem
+  # wrote, and LICENSES/ holds each license's text, and no other.
+  private def verify_licensing(gem, dir)
+    output, status = Open3.capture2e("reuse", "--root", dir, "lint")
+    raise Failure, "#{File.basename(dir)} is not REUSE compliant:\n#{output}" unless status.success?
+
+    @out.puts "✅ #{gem.name}: REUSE compliant, #{Dir.glob('LICENSES/*.txt', base: dir).size} license texts"
+  rescue Errno::ENOENT
+    raise Failure, "reuse is not on PATH; bin/setup installs it"
   end
 
   # The bundle and each framework it loads, in +dir+, load from +dir+

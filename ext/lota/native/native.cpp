@@ -7,6 +7,7 @@
 #include "native/errors.hpp"
 #include "native/event.hpp"
 #include "native/filesystem.hpp"
+#include "native/font.hpp"
 #include "native/generated/bindings.hpp"
 #include "native/graphics.hpp"
 #include "native/image.hpp"
@@ -43,6 +44,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_random_generator(native);
   lota::native::define_filesystem(native);
   lota::native::define_image(native);
+  lota::native::define_font(native);
   lota::native::define_timer(native);
   lota::native::define_event(native);
   lota::native::define_keyboard(native);

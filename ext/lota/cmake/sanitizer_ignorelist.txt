@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# The checks the sanitized build (LOTA_SANITIZE, ext/lota/CMakeLists.txt)
+# leaves out, which clang reads through -fsanitize-ignorelist. Each entry
+# turns off one check in one function, and must explain WHY the code it
+# covers cannot be changed instead. Every other check stays on, in that
+# function's file and everywhere else. Review carefully before adding new
+# entries.
+#
+# UBSan's float-cast-overflow, in floatToFixed26_6 alone, which is
+# love::font::freetype's static function in
+# vendor/love/src/modules/font/freetype/HarfbuzzShaper.cpp (lines 45-51),
+# named here by its mangled name, so no other function matches. It casts a
+# negative float to uint32, which C++ leaves undefined, and every TrueType
+# font LÖVE makes reaches it at line 120 with the space glyph's negative
+# vertical advance. The result, tabSpacesAdvanceY, is read only for
+# vertical text directions (lines 325 and 420), which LÖVE never uses:
+# hb_buffer_guess_segment_properties (lines 152 and 173) picks only LTR or
+# RTL. Lota and the reference love compile the same file the same way, so
+# a patch would only make Lota differ from LÖVE; the bug goes upstream
+# instead.
+[float-cast-overflow]
+fun:_ZN4love4font8freetypeL16floatToFixed26_6Ef

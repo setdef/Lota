@@ -20,23 +20,41 @@ module Lovetest
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
   #
+  # The resources Lövetest's tests read (vendor/love/testing/resources).
+  RESOURCES = File.expand_path("../../vendor/love/testing/resources", __dir__)
+
+  class << self
+    # The font Lövetest's love.load makes, which its text tests draw in:
+    # its Lua global Font.
+    attr_reader :font
+  end
+
   # Translated to Ruby from the graphics settings Lövetest's love.load
-  # makes before any test runs (vendor/love/testing/main.lua:46-49), once
+  # makes before any test runs (vendor/love/testing/main.lua:46-57), once
   # per process, as love.load runs once. Its tests set them back when they
-  # change them. Two of its lines have no translation yet: updateMode
-  # (lines 39-43) asks for the 360 by 240 resizable, centered window that
-  # test/lovetest/conf.rb already opens, and setDefaultFilter (line 47)
-  # changes only how textures are sampled when drawn, which no translated
-  # test does. The logo, quad, and font it loads (lines 50-57) are for
-  # Lövetest's own screen.
+  # change them. setDefaultFilter becomes a writer of several values
+  # (rule 6), and newFont Font.new (rule 2), with the hinting a symbol
+  # (rule 9); Lota reads no file by name yet, so the font file's bytes
+  # become the FileData newFont would read from it, as compare_img reads
+  # LÖVE's expected images. updateMode (lines 39-43) has no translation
+  # yet: it asks for the 360 by 240 resizable, centered window that
+  # test/lovetest/conf.rb already opens. The logo and quad it loads
+  # (lines 50-54) are for Lövetest's own screen.
   def self.load
     return if @loaded
 
     if Lota.window && Lota.graphics
+      Lota::Graphics.default_filter = :nearest, :nearest
       Lota::Graphics.line_style = :rough
       Lota::Graphics.line_width = 1
+      @font = Lota::Graphics::Font.new(resource("font.ttf"), 8, :normal)
     end
     @loaded = true
+  end
+
+  # The resource file +name+, as the FileData LÖVE reads a resource into.
+  def self.resource(name)
+    Lota::Filesystem::FileData.new(File.binread(File.join(RESOURCES, name)), name)
   end
 
   # Translated to Ruby from Lövetest's TestMethod

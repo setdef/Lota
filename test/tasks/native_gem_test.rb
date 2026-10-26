@@ -17,16 +17,18 @@ class NativeGemTest < Minitest::Test
 
   BUNDLE = "lib/lota/native.#{RbConfig::CONFIG['DLEXT']}".freeze
   SDL3 = "lib/lota/frameworks/SDL3.framework/Versions/A"
-  NOTICES = { "NOTICES/love.txt" => "vendor/love/license.txt", "NOTICES/rice.txt" => "COPYING.rice" }.freeze
-  FRAMEWORK_NOTICES = { "SDL3.framework" => "Versions/A/Resources/License.txt" }.freeze
+  FRAMEWORKS = %w[SDL3.framework freetype.framework harfbuzz.framework].freeze
 
-  # The rice notice comes from the rice gem; the test gives it a stand-in
-  # inside the repository, which NativeGem copies as it would the real one.
-  def self.native_gem(work, framework_notices: FRAMEWORK_NOTICES)
-    rice = File.join(work, "COPYING.rice")
-    File.write(rice, "Rice's license\n")
-    NativeGem.new(root: ROOT, gemspec: "lota.gemspec", bundle: BUNDLE,
-      notices: NOTICES.merge("NOTICES/rice.txt" => rice), framework_notices:)
+  # The repository's own record, read afresh, so a test may take an entry
+  # out of it.
+  def self.licensing
+    Licensing.load(File.join(ROOT, "ext/lota/licenses.rb"))
+  end
+
+  # A NativeGem of rake compile's bundle, as rake package:native builds it.
+  def self.native_gem(gemspec: "lota.gemspec", licensing: self.licensing)
+    NativeGem.new(root: ROOT, gemspec:, bundle: BUNDLE, build: "tmp/engine/build", licensing:,
+      licenses: %w[LICENSES ext/lota/licenses])
   end
 
   # The built gem's specification and the directory it unpacked to.
@@ -34,7 +36,7 @@ class NativeGemTest < Minitest::Test
     @built ||= begin
       work = File.realpath(Dir.mktmpdir("lota-native-gem-test"))
       Minitest.after_run { FileUtils.rm_rf(work) }
-      package = Gem::Package.new(native_gem(work).build(work))
+      package = Gem::Package.new(native_gem.build(work))
       unpacked = File.join(work, "unpacked")
       package.extract_files(unpacked)
       [package.spec, unpacked]
@@ -60,22 +62,58 @@ class NativeGemTest < Minitest::Test
     assert_empty spec.runtime_dependencies
   end
 
-  def test_it_ships_the_source_gems_files_with_the_bundle_frameworks_and_notices
+  def test_it_ships_the_source_gems_files_with_the_bundle_frameworks_and_licensing
     source = Gem::Specification.load(File.join(ROOT, "lota.gemspec")).files
 
-    assert_empty source - spec.files
+    assert_empty source.grep_v(%r{\ALICENSES/}) - spec.files
     assert_includes spec.files, BUNDLE
+    assert_includes spec.files, "REUSE.toml"
+    FRAMEWORKS.each { |name| assert_includes spec.files, "lib/lota/frameworks/#{name}/Versions/A/Resources/Info.plist" }
     assert_includes spec.files, "#{SDL3}/SDL3"
     assert_includes spec.files, "#{SDL3}/_CodeSignature/CodeResources"
-    assert_includes spec.files, "#{SDL3}/Resources/Info.plist"
-    assert_equal %w[NOTICES/SDL3.txt NOTICES/love.txt NOTICES/rice.txt], spec.files.grep(%r{\ANOTICES/}).sort
+    assert_empty spec.files.grep(%r{\ANOTICES/})
   end
 
-  def test_notices_are_copies_of_their_sources
-    assert_equal File.read(File.join(ROOT, "vendor/love/license.txt")), File.read(File.join(unpacked, "NOTICES/love.txt"))
-    assert_equal "Rice's license\n", File.read(File.join(unpacked, "NOTICES/rice.txt"))
-    assert_equal File.read(File.join(unpacked, SDL3, "Resources/License.txt")),
-      File.read(File.join(unpacked, "NOTICES/SDL3.txt"))
+  # The REUSE tool, run on the unpacked gem, finds every file's copyright
+  # and license, and a text for each license and no other.
+  def test_the_gem_is_reuse_compliant
+    output, status = Open3.capture2e("reuse", "--root", unpacked, "lint")
+
+    assert status.success?, output
+  end
+
+  # LICENSES holds what the gem's files use: the licenses of the
+  # frameworks and bundled libraries, from ext/lota/licenses, but not the
+  # repository's CC0-1.0 or MIT-0, which only files the gem leaves out use.
+  def test_the_gem_ships_the_license_texts_its_files_use_and_no_other
+    licenses = spec.files.grep(%r{\ALICENSES/}).map { |path| File.basename(path, ".txt") }
+
+    assert_includes licenses, "FTL"
+    assert_includes licenses, "MIT-Modern-Variant"
+    assert_includes licenses, "Bison-exception-2.2"
+    assert_includes licenses, "LicenseRef-NVIDIA-Software-2002"
+    assert_includes licenses, "AGPL-3.0-or-later"
+    refute_includes licenses, "CC0-1.0"
+    refute_includes licenses, "MIT-0"
+    assert_equal File.read(File.join(ROOT, "ext/lota/licenses/LICENSE-FTL.txt")),
+      File.read(File.join(unpacked, "LICENSES/FTL.txt"))
+    assert_equal File.read(File.join(ROOT, "LICENSES/Zlib.txt")), File.read(File.join(unpacked, "LICENSES/Zlib.txt"))
+  end
+
+  # The gem's REUSE.toml is the repository's, then the record's
+  # annotations: the bundle's, with the works the linker put in it, and
+  # each framework's.
+  def test_the_reuse_toml_annotates_the_bundle_and_each_framework
+    toml = File.read(File.join(unpacked, "REUSE.toml"))
+
+    assert toml.start_with?(File.read(File.join(ROOT, "REUSE.toml")))
+    assert_includes toml, %(path = "#{BUNDLE}")
+    FRAMEWORKS.each { |name| assert_includes toml, %(path = "lib/lota/frameworks/#{name}/**") }
+    assert_includes toml, %("2005-2021 Lode Vandevenne")
+    assert_includes toml, %("2006-2026 LOVE Development Team")
+    assert_includes toml, %("OFL-1.1")
+    assert_includes toml, %("GPL-3.0-or-later WITH Bison-exception-2.2")
+    refute_includes toml, "yet to decide"
   end
 
   # RubyGems warns on every symlink it packages, so the framework ships
@@ -95,11 +133,11 @@ class NativeGemTest < Minitest::Test
     rpaths = PackageCheck.otool("-l", bundle).scan(/^\s+path (\S+) \(offset \d+\)$/).flatten
 
     assert_equal ["@loader_path/frameworks"], rpaths
-    assert_equal ["frameworks/SDL3.framework"], PackageCheck.rpath_dependencies(bundle)
+    assert_equal FRAMEWORKS.map { |name| "frameworks/#{name}" }, PackageCheck.rpath_dependencies(bundle)
   end
 
   def test_every_signature_verifies_strictly_once_unpacked
-    [BUNDLE, SDL3].each do |path|
+    [BUNDLE, *FRAMEWORKS.map { |name| "lib/lota/frameworks/#{name}/Versions/A" }].each do |path|
       output, status = codesign_verify(File.join(unpacked, path))
 
       assert status.success?, output
@@ -115,20 +153,32 @@ class NativeGemTest < Minitest::Test
         Gem::Specification.load(#{File.join(ROOT, 'lota.gemspec').inspect}).dup.tap { |spec| spec.homepage = nil }
       RUBY
       relative = Pathname.new(gemspec).relative_path_from(ROOT).to_s
-      native = NativeGem.new(root: ROOT, gemspec: relative, bundle: BUNDLE, notices: NOTICES.merge(
-        "NOTICES/rice.txt" => write(work, "COPYING.rice", "Rice's license\n")
-      ), framework_notices: FRAMEWORK_NOTICES)
-      error = assert_raises(PackageCheck::Failure) { native.build(work) }
+      error = assert_raises(PackageCheck::Failure) { self.class.native_gem(gemspec: relative).build(work) }
 
       assert_includes error.message, "arm64-darwin.gem built with warnings:\nWARNING:  no homepage specified"
     end
   end
 
-  def test_a_framework_without_a_notice_stops_the_build
+  def test_a_framework_the_record_lacks_stops_the_build
+    licensing = self.class.licensing
+    licensing.frameworks.delete("freetype.framework")
     in_tree do |work|
-      error = assert_raises(PackageCheck::Failure) { self.class.native_gem(work, framework_notices: {}).build(work) }
+      error = assert_raises(PackageCheck::Failure) { self.class.native_gem(licensing:).build(work) }
 
-      assert_includes error.message, "SDL3.framework has no license notice"
+      assert_includes error.message, "freetype.framework has no recorded license"
+    end
+  end
+
+  # LodePNG is compiled into the bundle, so a record without it names its
+  # files.
+  def test_a_bundled_library_the_record_lacks_stops_the_build
+    licensing = self.class.licensing
+    licensing.works.reject! { |work| work.name == "LodePNG" }
+    in_tree do |work|
+      error = assert_raises(PackageCheck::Failure) { self.class.native_gem(licensing:).build(work) }
+
+      assert_includes error.message, "the bundle compiles files no entry in"
+      assert_includes error.message, File.join(ROOT, "vendor/love/src/libraries/lodepng/lodepng.h")
     end
   end
 end

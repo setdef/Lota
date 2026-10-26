@@ -37,8 +37,10 @@ module Bindings
     #   (lua_isnoneornil), so it is a std::optional.
     # [default] The C++ literal Rice passes when it is left out, or nil.
     class Parameter < Data.define(:index, :name, :kind, :cpp, :object, :optional, :default)
-      # Its C++ declaration.
+      # Its C++ declaration. An optional class, such as a String, is taken
+      # by reference, as the class itself is: Rice converts it once.
       def declaration
+        return "const std::optional<#{base}> &#{name}" if optional && cpp.end_with?("&")
         return "std::optional<#{base}> #{name}" if optional
 
         cpp.end_with?("&", "*") ? "#{cpp}#{name}" : "#{cpp} #{name}"

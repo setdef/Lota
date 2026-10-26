@@ -42,6 +42,8 @@ generate "love.graphics.rectangle", arguments: 5,
   reason: "without rounded corners, as Lota::Graphics.rectangle binds it until a game needs them"
 generate "love.graphics.circle"
 generate "Texture:isCanvas"
+generate "love.graphics.setFont"
+generate "love.graphics.setDefaultFilter"
 bound_by_hand "love.graphics.setColor",
   reason: "LÖVE assigns each component in a statement of its own, so the port's four numbers fail clang-tidy's " \
     "bugprone-easily-swappable-parameters; Lota binds the form with separate numbers in one constructor call"
@@ -57,6 +59,21 @@ bound_by_hand "love.graphics.clear",
   reason: "reads its stencil and depth at a position it computes (startidx)"
 bound_by_hand "love.graphics.readbackTexture",
   reason: "reads its slice, mipmap, and rectangle at positions it computes; Lota binds the whole texture"
+bound_by_hand "love.graphics.newFont",
+  reason: "chooses among its forms by its arguments' kinds, and makes its Rasterizer through love.font's " \
+    "wrap functions (w_newRasterizer, w_newTrueTypeRasterizer), which read a settings table; Lota binds the " \
+    "default font at a size, a TrueType font in FileData at a size, and a font from FileData alone"
+bound_by_hand "love.graphics.getFont",
+  reason: "pushes its Font with luax_pushtype, which the generator does not port"
+bound_by_hand "love.graphics.getDefaultFilter",
+  reason: "pushes SamplerState's maxAnisotropy, whose C++ type the headers the generator reads do not give"
+bound_by_hand "love.graphics.print",
+  reason: "reads its text through luax_checkcoloredstring and its placement through " \
+    "luax_checkstandardtransform, at positions that depend on whether a Font comes first; Lota binds the " \
+    "form without a Font, with its text and nine numbers as Arrays"
+bound_by_hand "love.graphics.printf",
+  reason: "reads its text, Font, placement, and alignment at positions it computes; Lota binds the form " \
+    "without a Font, as print"
 bound_by_hand "love.graphics.captureScreenshot",
   reason: "takes a Lua function, a Channel, or a filename; Lota binds a Ruby callable for the parity harness"
 

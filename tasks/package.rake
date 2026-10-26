@@ -9,20 +9,17 @@ require "fileutils"
 require_relative "native_gem"
 require_relative "package_check"
 
-# Lota's precompiled gem, built from rake compile's bundle. Rice's notice
-# comes from the rice gem Bundler installed, whose headers the bundle
-# compiled in; LÖVE's license.txt covers the engine and the libraries
-# LÖVE bundles (vendor/love/license.txt:1-176).
+# Lota's precompiled gem, built from rake compile's bundle, which CMake
+# links in ENGINE_BUILD (tasks/engine.rake), with the licensing
+# ext/lota/licenses.rb records.
 def native_gem
   NativeGem.new(
     root: Dir.pwd,
     gemspec: "lota.gemspec",
     bundle: "lib/lota/native.#{RbConfig::CONFIG['DLEXT']}",
-    notices: {
-      "NOTICES/love.txt" => "vendor/love/license.txt",
-      "NOTICES/rice.txt" => File.join(Gem.loaded_specs.fetch("rice").full_gem_path, "COPYING"),
-    },
-    framework_notices: { "SDL3.framework" => "#{NativeGem::VERSION}/Resources/License.txt" }
+    build: ENGINE_BUILD,
+    licensing: Licensing.load("ext/lota/licenses.rb"),
+    licenses: %w[LICENSES ext/lota/licenses]
   )
 end
 
@@ -84,7 +81,7 @@ def packages
         ext/lota/engine
         ext/lota/native
       ],
-      native_packaged: %w[NOTICES],
+      native_packaged: [NativeGem::REUSE_TOML],
       extension: "lib/lota/native",
       native: native_gem,
       refusal: "Install Lota's precompiled gem instead, for Apple Silicon macOS",

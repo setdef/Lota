@@ -53,7 +53,10 @@ if(LOTA_SANITIZE)
 		# stack. ASan's use-after-return detection moves locals to a heap
 		# "fake stack" the collector never scans, so a Ruby object held only
 		# in a local would be collected while still in use.
-		-fsanitize-address-use-after-return=never)
+		-fsanitize-address-use-after-return=never
+		# The few checks left out of LÖVE's code, each in one function, with
+		# why (cmake/sanitizer_ignorelist.txt).
+		-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer_ignorelist.txt)
 	add_compile_options(${LOTA_SANITIZER_FLAGS})
 	add_link_options(-fsanitize=address,undefined -fno-sanitize=vptr)
 endif()

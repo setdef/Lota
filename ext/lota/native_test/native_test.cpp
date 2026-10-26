@@ -7,10 +7,12 @@
 #include "native/errors.hpp"
 
 #include "filesystem/FileData.h"
+#include "graphics/Font.h"
 #include "graphics/Texture.h"
 #include "image/ImageData.h"
 #include "math/RandomGenerator.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <iterator>
@@ -159,8 +161,16 @@ template <typename T>
 // NOLINTNEXTLINE(misc-include-cleaner)
 T *foreign(VALUE value, const char *name) {
   const Rice::Object object(value);
-  const Rice::Module native = Rice::define_module_under(Rice::define_module("Lota"), "Native");
-  if (!object.is_a(native.const_get(name))) {
+  // +name+ may name a class inside a module of Lota::Native, such as
+  // Graphics::Font, which Ruby's constants are looked up in one by one.
+  Rice::Object expected = Rice::define_module_under(Rice::define_module("Lota"), "Native");
+  const std::string path(name);
+  for (std::size_t start = 0; start <= path.size();) {
+    const std::size_t end = std::min(path.find("::", start), path.size());
+    expected = Rice::Module(expected.value()).const_get(path.substr(start, end - start));
+    start = end + 2;
+  }
+  if (!object.is_a(expected)) {
     throw std::invalid_argument(std::string("expected a Lota::Native::") + name);
   }
   Rice::detail::WrapperBase *wrapper = Rice::detail::getWrapper(object.value());
@@ -516,6 +526,9 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
           "observe_texture",
           [](VALUE texture) { observe<love::graphics::Texture>(texture, "Texture"); },
           Rice::Arg("texture").setValue())
+      .define_module_function(
+          "observe_font", [](VALUE font) { observe<love::graphics::Font>(font, "Graphics::Font"); },
+          Rice::Arg("font").setValue())
       .define_module_function(
           "observe_image_data",
           [](VALUE image_data) { observe<love::image::ImageData>(image_data, "ImageData"); },

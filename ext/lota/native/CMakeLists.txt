@@ -13,6 +13,7 @@ add_library(lota_native MODULE
 	${LOTA_GENERATED_SOURCES}
 	event.cpp
 	filesystem.cpp
+	font.cpp
 	graphics.cpp
 	image.cpp
 	keyboard.cpp

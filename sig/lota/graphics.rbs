@@ -38,5 +38,23 @@ module Lota
     def self.rectangle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
 
     def self.circle: ((Symbol | String) mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? segments) -> nil
+
+    type text = String | Array[String | Array[Float | Integer]]
+
+    def self.font=: (Font font) -> void
+
+    def self.font: () -> Font
+
+    def self.print: (text text, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+
+    def self.printf: (text text, Float | Integer x, Float | Integer y, Float | Integer limit, ?(Symbol | String)? align, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+
+    private def self.colored_text: (text text) -> Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
+
+    private def self.placement: (Float | Integer x, Float | Integer y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
+
+    def self.default_filter=: (Symbol | String | Array[Symbol | String | Integer | Float] filter) -> void
+
+    def self.default_filter: () -> [Symbol, Symbol, Integer]
   end
 end

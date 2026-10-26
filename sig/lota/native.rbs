@@ -83,6 +83,12 @@ module Lota
       def self.new_image_data: (Data data) -> ImageData
     end
 
+    module Font
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+    end
+
     module Timer
       def self.open: () -> nil
 
@@ -151,6 +157,24 @@ module Lota
       def self.set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
       def self.capture_screenshot: (^(ImageData) -> void callable) -> nil
+
+      def self.new_default_font: (Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
+
+      def self.new_truetype_font: (Data data, Integer size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
+
+      def self.new_font_from_file: (FileData data) -> Font
+
+      def self.font: () -> Font
+
+      def self.print: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Array[Float | Integer] placement) -> nil
+
+      def self.printf: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Array[Float | Integer] placement, Float | Integer limit, String? align) -> nil
+
+      def self.default_filter: () -> [String, String, Integer]
+
+      class Font
+        def self.cpp_class: () -> String
+      end
     end
   end
 end

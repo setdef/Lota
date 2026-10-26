@@ -16,6 +16,13 @@ class PackageCheckTest < Minitest::Test
 
   BUNDLE = File.expand_path("../../lib/lota/native.#{RbConfig::CONFIG['DLEXT']}", __dir__)
 
+  # The libraries the bundle loads through @rpath.
+  FRAMEWORKS = %w[
+    SDL3.framework/Versions/A/SDL3
+    freetype.framework/Versions/A/freetype
+    harfbuzz.framework/Versions/A/harfbuzz
+  ].freeze
+
   # A PackageCheck of one gem, tiny, whose gemspec in +dir+ has +homepage+
   # and ships one empty file.
   def check(dir, homepage: "https://example.com/tiny")
@@ -56,10 +63,13 @@ class PackageCheckTest < Minitest::Test
     end
   end
 
-  def test_the_extension_needs_sdl_beside_it_through_its_rpath
+  # SDL3 for the window and events, and FreeType and HarfBuzz for text.
+  def test_the_extension_needs_sdl_freetype_and_harfbuzz_beside_it_through_its_rpaths
     assert_equal [
-"../../vendor/love-apple-dependencies/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64/" \
-  "SDL3.framework",
+      "../../vendor/love-apple-dependencies/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64/" \
+        "SDL3.framework",
+      "../../vendor/love-apple-dependencies/macOS/Frameworks/freetype.framework",
+      "../../vendor/love-apple-dependencies/macOS/Frameworks/harfbuzz.framework",
 ], PackageCheck.rpath_dependencies(BUNDLE)
   end
 
@@ -69,10 +79,10 @@ class PackageCheckTest < Minitest::Test
     end
   end
 
-  # From lib/, SDL3 resolves into vendor/, outside the directory a gem
-  # would be; from the repository root, it resolves inside.
+  # From lib/, the frameworks resolve into vendor/, outside the directory
+  # a gem would be; from the repository root, they resolve inside.
   def test_a_library_that_resolves_outside_the_gem_escapes_it
-    assert_equal ["@rpath/SDL3.framework/Versions/A/SDL3 resolves outside #{File.join(ROOT, 'lib')}"],
+    assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{File.join(ROOT, 'lib')}" },
       PackageCheck.escapes(BUNDLE, File.join(ROOT, "lib"))
     assert_empty PackageCheck.escapes(BUNDLE, ROOT)
   end
@@ -81,7 +91,7 @@ class PackageCheckTest < Minitest::Test
     in_tree do |dir|
       FileUtils.cp(BUNDLE, dir)
 
-      assert_equal ["@rpath/SDL3.framework/Versions/A/SDL3 resolves outside #{dir}"],
+      assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{dir}" },
         PackageCheck.escapes(File.join(dir, File.basename(BUNDLE)), dir)
     end
   end

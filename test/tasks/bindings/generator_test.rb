@@ -30,6 +30,30 @@ class GeneratorTest < Minitest::Test
       code.index("instance()->setLineStyle(style_value)")
   end
 
+  # w_setDefaultFilter reads its magnification filter only when given
+  # (luaL_optstring), and Rice converts it once, so the binding takes it
+  # by reference, as it takes a String it always reads.
+  def test_an_optional_string_is_taken_by_reference
+    port = port("love.graphics.setDefaultFilter")
+
+    assert_includes port.definition, "const std::optional<std::string> &magstr"
+    assert_includes port.registration, %(Rice::Arg("magstr") = std::optional<std::string>())
+  end
+
+  # The generated file includes a header for each name it uses: the class
+  # of an object argument (w_setFont's Font), std::min and std::max, and
+  # LÖVE's integer limits, as clang-tidy's misc-include-cleaner requires.
+  def test_a_module_file_includes_what_its_ports_use
+    list = Bindings::BindingList.new
+    list.generate("love.graphics.setFont")
+    list.generate("love.graphics.setDefaultFilter")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/graphics.cpp")
+
+    assert_includes code, %(#include "graphics/Font.h")
+    assert_includes code, %(#include "common/int.h")
+    assert_includes code, "#include <algorithm>"
+  end
+
   def test_a_runtime_test_of_an_argument_makes_it_optional
     port = port("love.graphics.circle")
 

@@ -51,7 +51,7 @@ module Lota
       audio: nil,
       image: -> { Native::Image.open },
       video: nil,
-      font: nil,
+      font: -> { Native::Font.open },
       window: -> { Native::Window.open },
       graphics: -> { Native::Graphics.open },
       math: nil,

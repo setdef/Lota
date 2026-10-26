@@ -16,3 +16,11 @@ nothing:
 
 On another platform or Ruby, RubyGems picks Lota's source gem, which
 stops and says so: Lota has no build for those yet.
+
+== License
+
+Lota is AGPL-3.0-or-later. Its compiled gem also carries LÖVE's engine
+and the libraries it uses, each under its own license, which the gem's
+REUSE.toml records, by the REUSE Specification 3.3, and whose texts are
+in its LICENSES folder. The software is based in part of the work of
+the FreeType Team.

@@ -101,7 +101,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^13 runs, 3607 assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   def test_an_error_in_a_callback_ends_the_program_with_a_backtrace

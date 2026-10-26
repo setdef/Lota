@@ -20,6 +20,15 @@ class ArkanoidTest < Minitest::Test
   # What every snapshot's love.quit prints.
   GOODBYE = "Thanks for playing! Come back soon!\n"
 
+  # The script for the snapshots with levels, which ends in the game's
+  # last screen.
+  LEVELS = Parity::Script.new(frames: 1640, fps: 60, holds: [], presses: [
+    [LEFT, 85..166],
+    [LEFT, 176..253],
+    [RIGHT, 380..392],
+    [ESCAPE, 1640..1640],
+  ])
+
   # Each snapshot, and the script both engines run it under. At 60 frames
   # a second, the ball moves 5 pixels a frame until 1-05 speeds it up to
   # about 11.7, and the platform 5 pixels a frame, then about 8.3, while an
@@ -63,6 +72,12 @@ class ArkanoidTest < Minitest::Test
       [LEFT, 151..260],
       [ESCAPE, 600..600],
     ]),
+    # The platform steers the ball until it clears the first level, about
+    # frame 936, and the second, about frame 1577; the last second shows
+    # the congratulations, drawn with LÖVE's default font.
+    "1-06_Levels" => LEVELS,
+    # The same game, with its levels drawn as strings.
+    "1-A_LevelsAsStrings" => LEVELS,
   }.freeze
 
   # The script of the first snapshot, whose test checks the harness too.

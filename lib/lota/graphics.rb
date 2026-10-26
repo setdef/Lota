@@ -7,6 +7,7 @@
 
 require_relative "graphics/texture"
 require_relative "graphics/canvas"
+require_relative "graphics/font"
 
 module Lota
   # Drawing, translated from love.graphics.
@@ -378,6 +379,185 @@ module Lota
     #   width, height = Lota::Graphics.dimensions # => [800, 600]
     def self.dimensions
       [Native::Graphics.width, Native::Graphics.height]
+    end
+
+    # Sets the font text is drawn in, matching love.graphics.setFont
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setFont).
+    #
+    # [font] Lota::Graphics::Font.
+    #
+    # Lota::Graphics.print and Lota::Graphics.printf draw in this font
+    # until you set another. Raises TypeError for anything but a Font, and
+    # ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.font = Lota::Graphics::Font.new(24)
+    def self.font=(font)
+      raise TypeError, "wrong argument type #{font.class} (expected Lota::Graphics::Font)" unless font.is_a?(Font)
+
+      Native::Graphics.set_font(font.native)
+    end
+
+    # The font text is drawn in, matching love.graphics.getFont
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getFont).
+    #
+    # Until you set one, it is LÖVE's default font, Noto Sans at 13 pixels,
+    # which LÖVE makes the first time it is asked for. Raises RuntimeError
+    # when the window is not open, and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.font # => #<Lota::Graphics::Font ...>
+    def self.font
+      Font.from_native(Native::Graphics.font)
+    end
+
+    # Draws text in the current font and color, matching
+    # love.graphics.print (src/modules/graphics/wrap_Graphics.cpp,
+    # w_print).
+    #
+    # [text] String, or an Array of colored text: Strings, each drawn in
+    #   the color given by the Array of red, green, blue, and optionally
+    #   alpha before it, as love.graphics.print's table of colored text.
+    # [x] Float or Integer position of the text's left edge; 0 when +nil+
+    #   or left out.
+    # [y] Float or Integer position of its top edge; 0 likewise.
+    # [r] Float angle in radians; 0 likewise.
+    # [sx] Float or Integer horizontal scale; 1 likewise.
+    # [sy] Float or Integer vertical scale; +sx+ likewise.
+    # [ox] Float or Integer horizontal origin offset; 0 likewise.
+    # [oy] Float or Integer vertical origin offset; 0 likewise.
+    # [kx] Float or Integer horizontal shearing factor; 0 likewise.
+    # [ky] Float or Integer vertical shearing factor; 0 likewise.
+    #
+    # A newline in the text starts a new line. Colored text is multiplied
+    # by the current color. LÖVE reads each number as a single-precision
+    # float, and so does Lota. LÖVE also draws in a Font given before the
+    # position, and places text with a Transform; Lota binds those forms
+    # later.
+    #
+    # Raises TypeError for text or a number of the wrong type, and
+    # ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.print("Score: 100", 10, 10)
+    #   Lota::Graphics.print([[1, 0, 0], "red ", [0, 0, 1], "blue"], 10, 30)
+    def self.print(text, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
+      Native::Graphics.print(colored_text(text), placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky))
+    end
+
+    # Draws text in the current font and color, wrapped and aligned within
+    # a width, matching love.graphics.printf
+    # (src/modules/graphics/wrap_Graphics.cpp, w_printf).
+    #
+    # [text] String, or an Array of colored text, as for print.
+    # [x] Float or Integer position of the text's left edge.
+    # [y] Float or Integer position of its top edge.
+    # [limit] Float or Integer width at which lines wrap, and within which
+    #   they are aligned.
+    # [align] +:left+ (the default, also when +nil+), +:center+, +:right+,
+    #   or +:justify+.
+    # [r] Float angle in radians; 0 when +nil+ or left out.
+    # [sx] Float or Integer horizontal scale; 1 likewise.
+    # [sy] Float or Integer vertical scale; +sx+ likewise.
+    # [ox] Float or Integer horizontal origin offset; 0 likewise.
+    # [oy] Float or Integer vertical origin offset; 0 likewise.
+    # [kx] Float or Integer horizontal shearing factor; 0 likewise.
+    # [ky] Float or Integer vertical shearing factor; 0 likewise.
+    #
+    # Lines break at a newline, and wrap between words that would cross
+    # the limit. LÖVE also draws in a Font given before the position, and
+    # places text with a Transform; Lota binds those forms later.
+    #
+    # Raises ArgumentError for an unknown alignment, TypeError for text or
+    # a number of the wrong type, and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.printf("Congratulations!\nYou have finished the game!", 300, 250, 200, :center)
+    def self.printf(text, x, y, limit, align = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
+      ky = nil
+    )
+      Native::Graphics.printf(colored_text(text), placement(x, y, r, sx, sy, ox, oy, kx, ky), limit, align&.to_s)
+    end
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # luax_checkcoloredstring (src/modules/font/wrap_Font.cpp:33-76): text
+    # as parts, each a String and the color it is drawn in, white until a
+    # color comes before it, with alpha 1 when left out.
+    private_class_method def self.colored_text(text)
+      return [[text, 1.0, 1.0, 1.0, 1.0]] if text.is_a?(String)
+
+      color = [1.0, 1.0, 1.0, 1.0] #: [Float | Integer, Float | Integer, Float | Integer, Float | Integer]
+      parts = [] #: Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
+      Array(text).each do |part|
+        case part
+        when Array then color = [part.fetch(0), part.fetch(1), part.fetch(2), part.fetch(3, 1.0)]
+        when String then parts << [part, color[0], color[1], color[2], color[3]]
+        else raise TypeError, "wrong argument type #{part.class} (expected String or Array)"
+        end
+      end
+      parts
+    end
+
+    # The numbers of luax_checkstandardtransform
+    # (src/modules/graphics/wrap_SpriteBatch.h:33-64) and w_printf, each
+    # taking its default when +nil+: the vertical scale defaults to the
+    # horizontal.
+    private_class_method def self.placement(x, y, r, sx, sy, ox, oy, kx, ky)
+      sx ||= 1
+      [x, y, r || 0, sx, sy || sx, ox || 0, oy || 0, kx || 0, ky || 0]
+    end
+
+    # SPDX-SnippetEnd
+
+    # Sets the filters that textures and fonts made afterward are sampled
+    # with, matching love.graphics.setDefaultFilter
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setDefaultFilter).
+    #
+    # [filter] The filter used when drawing smaller, +:linear+ or
+    #   +:nearest+; then optionally the one used when drawing larger, the
+    #   same as the first when left out; then optionally the Integer
+    #   maximum anisotropy, 1 when left out, as one value or an Array.
+    #
+    # +:nearest+ keeps pixel art's hard edges, and +:linear+ smooths. It
+    # starts as +:linear+ for both. LÖVE clamps the anisotropy to 1
+    # through 255, and so does Lota. Raises ArgumentError for an unknown
+    # filter, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.default_filter = :nearest
+    #   Lota::Graphics.default_filter = :linear, :nearest, 4
+    def self.default_filter=(filter)
+      min, mag, anisotropy = filter.is_a?(Array) ? filter : [filter]
+      anisotropy = case anisotropy
+      when Integer, Float then anisotropy
+      when nil then 1
+      else raise TypeError, "wrong argument type #{anisotropy.class} for anisotropy (expected Integer)"
+      end
+      Native::Graphics.set_default_filter(min.to_s, mag&.to_s, anisotropy)
+    end
+
+    # The filters textures and fonts are made with, as an Array of the
+    # filter used when drawing smaller, the one used when drawing larger,
+    # and the Integer maximum anisotropy, matching
+    # love.graphics.getDefaultFilter
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getDefaultFilter).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   min, mag, anisotropy = Lota::Graphics.default_filter # => [:linear, :linear, 1]
+    def self.default_filter
+      min, mag, anisotropy = Native::Graphics.default_filter
+      [min.to_sym, mag.to_sym, anisotropy]
     end
   end
 end

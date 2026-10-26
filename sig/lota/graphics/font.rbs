@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Font
+      attr_reader native: Native::Graphics::Font
+
+      def self.from_native: (Native::Graphics::Font native) -> Font
+
+      def initialize: (*argument? arguments, ?hinting: argument?, ?dpiscale: argument?, ?sdf: bool) -> void
+
+      type argument = Filesystem::FileData | Integer | Float | Symbol | String
+
+      private def native_font: (Filesystem::FileData? data, argument? size, argument? hinting, argument? dpiscale, bool sdf) -> Native::Graphics::Font
+    end
+  end
+end
