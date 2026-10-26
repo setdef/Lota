@@ -33,6 +33,11 @@ module Parity
   # At exit it writes LOTA_PARITY_REPORT: how many frames it compared, and
   # the first that differed, whose pixels it also saves beside the report
   # as raw RGBA.
+  #
+  # Time.now, called with no arguments, returns LOTA_PARITY_CLOCK seconds
+  # after the epoch, as the Lua side's os.time() does, so a game that
+  # seeds Lota::Math's generator from the clock draws the same numbers
+  # LÖVE's does (Plan 001, "Random numbers").
   module Probe
     FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
     REPORT = ENV.fetch("LOTA_PARITY_REPORT")
@@ -47,6 +52,8 @@ module Parity
     # Whether a pressed key comes up after the last frame, so that the
     # game, not the probe, ends the run.
     GAME_QUITS = PRESSES.any? { |_, _, last| last == FRAMES }
+    # The seconds since the epoch the clock is fixed at.
+    CLOCK = Integer(ENV.fetch("LOTA_PARITY_CLOCK"))
 
     @frame = 0
     @compared = 0
@@ -153,5 +160,17 @@ module Parity
   end
 end
 
+module Parity
+  module Probe
+    # Time.now, fixed at CLOCK when called with no arguments.
+    module Clock
+      def now(*arguments, **options)
+        (arguments.empty? && options.empty?) ? at(CLOCK) : super
+      end
+    end
+  end
+end
+
+Time.singleton_class.prepend(Parity::Probe::Clock)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
 at_exit { Parity::Probe.report }

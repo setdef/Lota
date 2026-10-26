@@ -1,0 +1,4 @@
+This is just a bunch of the LZMA SDK mushed together into one header.
+This code is all public domain, and mostly (if not entirely) written by
+Igor Pavlov. http://www.7-zip.org/sdk.html
+--ryan.

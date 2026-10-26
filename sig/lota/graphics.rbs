@@ -7,7 +7,7 @@ module Lota
 
     def self.clear: (*(Float | Integer) color) -> nil
 
-    def self.readback_texture: (Texture texture) -> Image::ImageData
+    def self.readback_texture: (Texture texture) -> Lota::Image::ImageData
 
     def self.active?: () -> bool
 

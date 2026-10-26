@@ -247,15 +247,42 @@ work "SPIRV-Cross",
   ],
   license: ["MIT"]
 
-# PhysicsFS, which LÖVE compiles but the bundle does not link yet: the
-# bundle reads only physfs.h's declarations, which carry no code, so the
-# gem does not carry it. LÖVE's copy has no license text and no notice of
-# copyright (physfs.c:1-9 points to a LICENSE.txt it lacks).
+# PhysicsFS's copy of miniz's inflater, under the Unlicense
+# (vendor/love/src/libraries/physfs/physfs_miniz.h:1-3 and 685-708), which
+# the zip archiver compiles in (physfs_archiver_zip.c:23).
+work "PhysicsFS's miniz",
+  sources: ["vendor/love/src/libraries/physfs/physfs_miniz.h"],
+  copyright: ["2011 Rich Geldreich <richgel99@gmail.com>"],
+  license: ["Unlicense"]
+
+# PhysicsFS's copy of the LZMA SDK, which the 7z archiver compiles in
+# (physfs_archiver_7z.c:14). Its header puts it in the public domain
+# (vendor/love/src/libraries/physfs/physfs_lzmasdk.h:4-7), which no SPDX
+# identifier names, so the dedication's text, copied from those lines, is
+# recorded as LicenseRef-LZMA-SDK-Public-Domain. The file holds no notice
+# of copyright; its sections name their author and date ("2009-05-26 :
+# Igor Pavlov : Public domain" through 2016-06-09), so the record names
+# him with those years.
+work "PhysicsFS's LZMA SDK",
+  sources: ["vendor/love/src/libraries/physfs/physfs_lzmasdk.h"],
+  copyright: ["2009-2016 Igor Pavlov"],
+  license: ["LicenseRef-LZMA-SDK-Public-Domain"]
+
+# PhysicsFS 3.2.0 (vendor/love/src/libraries/physfs/physfs.h:437-439),
+# which the bundle links since Lota::Boot opens LÖVE's filesystem. LÖVE's
+# copy has no license text: physfs.c:1-9 points to a LICENSE.txt in the
+# source's root, which LÖVE leaves out. Its copyright and license come
+# from that file in PhysicsFS's own release, LICENSE.txt:1-17 at the
+# release-3.2.0 tag (https://github.com/icculus/physfs, commit
+# eb3383b532c5f74bfeb42ec306ba2cf80eed988c), whose text is the zlib
+# License's. Every other file of LÖVE's copy points to that LICENSE.txt
+# (physfs.c:6, physfs.h:210-211) or states no license of its own
+# (physfs_archiver_vdf.c, physfs_platforms.h, physfs_unicode.c), except
+# miniz and the LZMA SDK, recorded above.
 work "PhysicsFS",
   sources: ["vendor/love/src/libraries/physfs/**"],
-  copyright: [],
-  pending: "no license text in LÖVE's copy, whose physfs.c points to a LICENSE.txt it lacks; physfs_miniz.h " \
-    "is under the Unlicense and physfs_lzmasdk.h in the public domain"
+  copyright: ["2001-2022 Ryan C. Gordon <icculus@icculus.org> and others"],
+  license: ["Zlib"]
 
 # Noise1234, which LÖVE compiles but the bundle does not link yet: the
 # bundle reads only its headers' declarations, so the gem does not carry

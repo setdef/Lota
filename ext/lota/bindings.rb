@@ -23,6 +23,8 @@ bound_by_hand "love.event.quit",
   reason: "reads a Variant of any kind at every position (luax_checkvariant), which Lota narrows to an exit status"
 
 # love.filesystem
+generate "love.filesystem.init"
+generate "love.filesystem.setSource"
 bound_by_hand "love.filesystem.newFileData",
   reason: "converts its argument through luax_getfiledata; Lota ports Filesystem::newFileData so it need not " \
     "open PhysicsFS"
@@ -53,6 +55,9 @@ bound_by_hand "love.graphics.present",
 bound_by_hand "love.graphics.newCanvas",
   reason: "reads its settings table through luax_checktexturesettings, at a position it computes; Lota binds a " \
     "width, a height, and the msaa setting"
+bound_by_hand "love.graphics.newImage",
+  reason: "LÖVE 12 makes it with w_newTexture (wrap_Graphics.cpp:1251-1255); Lota::Graphics::Image.new calls " \
+    "Lota::Graphics::Texture.new, bound with newTexture"
 bound_by_hand "love.graphics.newTexture",
   reason: "chooses among its forms by its arguments' kinds, and reads its image through getImageData and " \
     "luax_getdata, which the generator does not port; Lota binds one image, from Data or an ImageData"

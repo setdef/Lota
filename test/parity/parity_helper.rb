@@ -31,10 +31,16 @@ module Parity
   # What a run of one engine printed, and how it ended.
   Output = Data.define(:text, :status)
 
+  # The seconds since the epoch both engines' clocks stand at, unless a
+  # script names its own: 2020-09-13, 12:26:40 UTC.
+  CLOCK = 1_600_000_000
+
   # A script both engines run the same game under: how many frames, the
   # fixed dt as frames a second, the keys held, and the keys pressed, each
   # as an SDL scancode and the first and last frames, counting from 1, it
-  # is down in.
+  # is down in, and the clock, in seconds since the epoch, that a game
+  # reading the time reads, so that a game seeding its random numbers from
+  # the clock draws the same ones in both.
   #
   # A held key is only down, in the keyboard state Lota::Keyboard.down?
   # reads. A pressed key is down too, and also goes down and comes up as a
@@ -44,8 +50,8 @@ module Parity
   # cannot start in frame 1. A press whose last frame is the script's last
   # comes up after it, and then the game must quit on its own, as on
   # Escape; otherwise the harness quits after the last frame.
-  class Script < Data.define(:frames, :fps, :holds, :presses)
-    def initialize(frames:, fps:, holds:, presses: [])
+  class Script < Data.define(:frames, :fps, :holds, :presses, :clock)
+    def initialize(frames:, fps:, holds:, presses: [], clock: CLOCK)
       if presses.any? { |_, range| range.first < 2 || range.last > frames }
         raise ArgumentError, "a press must start in frame 2 or later and end by frame #{frames}"
       end
@@ -58,6 +64,7 @@ module Parity
       {
         "LOTA_PARITY_FRAMES" => frames.to_s,
         "LOTA_PARITY_FPS" => fps.to_s,
+        "LOTA_PARITY_CLOCK" => clock.to_s,
         "LOTA_PARITY_HOLD" => Parity.keys(holds),
         "LOTA_PARITY_PRESS" => Parity.keys(presses),
       }

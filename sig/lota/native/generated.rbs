@@ -11,6 +11,12 @@ module Lota
       def self.pump: (?(Float | Integer) wait_timeout) -> nil
     end
 
+    module Filesystem
+      def self.init: (String arg0) -> nil
+
+      def self.set_source: (String arg) -> nil
+    end
+
     module Graphics
       def self.active?: () -> bool
 

@@ -135,13 +135,23 @@ class GraphicsTest < Lovetest::TestMethod
     compare_img(imgdata)
   end
 
+  # Translated to Ruby from love.test.graphics.newFont
+  # (vendor/love/testing/tests/graphics.lua:1711-1714): newFont becomes
+  # Font.new (rule 2), and its hinting a symbol (rule 9). Lövetest reads
+  # resources/ from its own folder, which LÖVE's filesystem searches;
+  # Lota's runners have resources/ beside their conf.rb, a link to
+  # Lövetest's.
+  def test_new_font
+    assert_object(Lota::Graphics::Font.new("resources/font.ttf"))
+    assert_object(Lota::Graphics::Font.new("resources/font.ttf", 8, :normal, 1))
+  end
+
   # Translated to Ruby from love.test.graphics.newTexture
   # (vendor/love/testing/tests/graphics.lua:1794-1797): newImageData and
-  # newTexture become ImageData.new and Texture.new (rule 2). Lota reads no
-  # file by name yet, so 'resources/love.png' becomes the FileData
-  # newImageData would read from it, as Lovetest.load reads its font.
+  # newTexture become ImageData.new and Texture.new (rule 2), reading
+  # resources/ as test_new_font does.
   def test_new_texture
-    imgdata = Lota::Image::ImageData.new(Lovetest.resource("love.png"))
+    imgdata = Lota::Image::ImageData.new("resources/love.png")
     assert_object(Lota::Graphics::Texture.new(imgdata))
   end
 

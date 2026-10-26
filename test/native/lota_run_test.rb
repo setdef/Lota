@@ -101,11 +101,11 @@ class LotaRunTest < Minitest::Test
   # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"))
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 7968 - (3 * 32 * 32) + 1 : 7968
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 7972 - (3 * 32 * 32) + 1 : 7972
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^19 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^20 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   def test_an_error_in_a_callback_ends_the_program_with_a_backtrace
@@ -245,10 +245,31 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # boot.lua makes the game's folder the source LÖVE's filesystem reads
+  # (boot.lua:123), so a file the game names is found in its folder,
+  # wherever lota run was started, and the mouse and math modules are open,
+  # as boot.lua opens love.mouse and love.math (boot.lua:347-372).
+  def test_a_game_reads_the_files_it_names_from_its_folder
+    logo = File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png"))
+    in_game("logo.png" => logo, "main.rb" => <<~RUBY) do |directory|
+      def Lota.load
+        image = Lota::Image::ImageData.new("logo.png")
+        p [image.width, image.height, lota.mouse, lota.math]
+        Lota::Event.quit
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[64, 64, Lota::Mouse, Lota::Math]\n", output
+      refute_equal File.realpath(directory), File.realpath(Dir.pwd)
+    end
+  end
+
   # Writes a game folder of +files+ (name to source) and yields its path.
   private def in_game(files)
     Dir.mktmpdir("lota-run-test") do |directory|
-      files.each { |name, source| File.write(File.join(directory, name), source) }
+      files.each { |name, source| File.binwrite(File.join(directory, name), source) }
       yield directory
     end
   end

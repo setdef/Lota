@@ -9,8 +9,9 @@
 namespace lota::native {
 
 // Binds love::Data as <native>::Data and love::filesystem::FileData as
-// <native>::FileData, with the function that makes one from a string as a
-// module function of <native>::Filesystem.
+// <native>::FileData, with the functions that make one from a string or
+// read one from a file, and the ones that open LÖVE's filesystem module,
+// as module functions of <native>::Filesystem.
 void define_filesystem(const Rice::Module &native);
 
 } // namespace lota::native

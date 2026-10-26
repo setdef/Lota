@@ -82,7 +82,13 @@ module Lota
     end
 
     module Filesystem
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
       def self.new_file_data: (String contents, String filename) -> FileData
+
+      def self.file_data: (String filename) -> FileData
     end
 
     module Image
@@ -168,9 +174,9 @@ module Lota
 
       def self.new_canvas: (Integer? width, Integer? height, Integer? msaa) -> Texture
 
-      def self.new_texture_from_data: (Data data) -> Texture
+      def self.new_texture_from_data: (Data data, bool canvas) -> Texture
 
-      def self.new_texture_from_image_data: (ImageData data) -> Texture
+      def self.new_texture_from_image_data: (ImageData data, bool canvas) -> Texture
 
       def self.set_canvas: (Texture texture) -> nil
 

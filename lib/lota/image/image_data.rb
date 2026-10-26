@@ -47,19 +47,24 @@ module Lota
       # love.image.newImageData(filedata)
       # (src/modules/image/wrap_Image.cpp, w_newImageData).
       #
-      # [data] Lota::Filesystem::FileData holding an image in a format
-      #   LÖVE's image module decodes, such as PNG, JPEG, or QOI.
+      # [data] String name of an image file in the game's folder, or a
+      #   Lota::Filesystem::FileData, holding an image in a format LÖVE's
+      #   image module decodes, such as PNG, JPEG, or QOI.
       #
-      # Raises RuntimeError with LÖVE's message when no decoder can read
-      # the data. LÖVE also makes a blank ImageData from a width and a
-      # height, and decodes a file by name; Lota binds neither form yet.
+      # A file name is a path in the game's folder, as
+      # Lota::Graphics::Font.new reads one. Raises RuntimeError with LÖVE's
+      # message when the file cannot be read, when no decoder can read the
+      # data, or when the filesystem is not open. LÖVE also makes a blank
+      # ImageData from a width and a height; Lota binds that form later.
       #
-      # === Example
+      # === Examples
       #
       #   png = File.binread("logo.png")
       #   Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(png, "logo.png"))
+      #   Lota::Image::ImageData.new("assets/logo.png")
       def initialize(data)
-        @native = Native::Image.new_image_data(data.native)
+        native = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
+        @native = Native::Image.new_image_data(native)
       end
 
       # The width in pixels, matching ImageData:getWidth

@@ -160,14 +160,17 @@ class GeneratorTest < Minitest::Test
   # The rules give each bound function the Ruby name lib/ already
   # defines, so the generator and the hand-written Ruby agree. RandomGenerator
   # has no Ruby class yet, and Lota::Math draws from the math module's
-  # generator itself; and capture_screenshot serves only the parity
-  # harness.
+  # generator itself; capture_screenshot serves only the parity harness;
+  # and love.filesystem's init and setSource only Lota::Boot, as they serve
+  # only boot.lua.
   UNWRITTEN = %w[
     RandomGenerator:_random
     RandomGenerator:getState
     RandomGenerator:randomNormal
     RandomGenerator:setSeed
     RandomGenerator:setState
+    love.filesystem.init
+    love.filesystem.setSource
     love.graphics.captureScreenshot
     love.math._getRandomGenerator
     love.math.newRandomGenerator

@@ -41,29 +41,32 @@ class RandomTest < Minitest::Test
     assert_equal first, Array.new(10) { Lota::Math.random(1, 6) }
   end
 
-  # LÖVE computes a whole number from the generator's double in Lua, whose
-  # numbers are all doubles, so the bounded forms return Floats (ADR 001,
-  # rule 14), and each lies within its bounds.
-  def test_random_with_bounds_returns_whole_floats_within_them
+  # getrandom computes a whole number from the generator's Float with
+  # floor (wrap_RandomGenerator.lua:33-44), which in Ruby is an Integer,
+  # and each lies within its bounds; random alone is the Float itself.
+  def test_random_with_whole_bounds_returns_integers_within_them
     Lota::Math.random_seed = 1
     unit = Array.new(200) { Lota::Math.random }
     single = Array.new(200) { Lota::Math.random(6) }
     double = Array.new(200) { Lota::Math.random(-20, 20) }
 
     assert(unit.all? { |r| r.is_a?(Float) && r >= 0 && r < 1 })
-    assert(single.all? { |r| r.is_a?(Float) && r == r.floor && r.between?(1, 6) })
-    assert(double.all? { |r| r.is_a?(Float) && r == r.floor && r.between?(-20, 20) })
-    assert_equal (1..6).to_a, single.uniq.sort.map(&:to_i)
+    assert(single.all? { |r| r.is_a?(Integer) && r.between?(1, 6) })
+    assert(double.all? { |r| r.is_a?(Integer) && r.between?(-20, 20) })
+    assert_equal (1..6).to_a, single.uniq.sort
   end
 
   # getrandom adds the lower bound to floor(r * (max - min + 1)), so a
-  # bound that is not whole moves every number by its fraction.
+  # bound that is not whole moves every number by its fraction, and the
+  # sum is a Float.
   def test_a_lower_bound_that_is_not_whole_is_added_as_it_is
     Lota::Math.random_seed = 3
     r = Lota::Native::Math.random_generator.random
     Lota::Math.random_seed = 3
+    number = Lota::Math.random(1.5, 3.5)
 
-    assert_equal (r * (10.5 - 0.5 + 1)).floor + 0.5, Lota::Math.random(0.5, 10.5)
+    assert_instance_of Float, number
+    assert_equal (r * (3.5 - 1.5 + 1)).floor + 1.5, number
   end
 
   def test_a_bound_must_be_a_number

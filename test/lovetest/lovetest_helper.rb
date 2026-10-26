@@ -34,9 +34,10 @@ module Lovetest
   # per process, as love.load runs once. Its tests set them back when they
   # change them. setDefaultFilter becomes a writer of several values
   # (rule 6), and newFont Font.new (rule 2), with the hinting a symbol
-  # (rule 9); Lota reads no file by name yet, so the font file's bytes
-  # become the FileData newFont would read from it, as compare_img reads
-  # LÖVE's expected images. updateMode (lines 39-43) has no translation
+  # (rule 9). Lövetest reads resources/ from its own folder, which LÖVE's
+  # filesystem searches; each of Lota's runners, test/lovetest and
+  # test/lovetest/game, has a resources/ beside its conf.rb that links to
+  # Lövetest's. updateMode (lines 39-43) has no translation
   # yet: it asks for the 360 by 240 resizable, centered window that
   # test/lovetest/conf.rb already opens. The logo and quad it loads
   # (lines 50-54) are for Lövetest's own screen.
@@ -47,7 +48,7 @@ module Lovetest
       Lota::Graphics.default_filter = :nearest, :nearest
       Lota::Graphics.line_style = :rough
       Lota::Graphics.line_width = 1
-      @font = Lota::Graphics::Font.new(resource("font.ttf"), 8, :normal)
+      @font = Lota::Graphics::Font.new("resources/font.ttf", 8, :normal)
     end
     @loaded = true
   end

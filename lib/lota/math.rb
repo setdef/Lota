@@ -24,8 +24,8 @@ module Lota
   #
   #   Lota::Math.random_seed = 42
   #   Lota::Math.random        # => a Float from 0 up to 1
-  #   Lota::Math.random(6)     # => a whole number from 1 to 6
-  #   Lota::Math.random(10, 20) # => a whole number from 10 to 20
+  #   Lota::Math.random(6)     # => an Integer from 1 to 6
+  #   Lota::Math.random(10, 20) # => an Integer from 10 to 20
   module Math
     # SPDX-SnippetBegin
     # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -41,10 +41,12 @@ module Lota
     #
     # With no arguments it returns a Float from 0 up to, but not
     # including, 1. With one, a whole number from 1 to +min+; with two, a
-    # whole number from +min+ to +max+. LÖVE computes the whole number
-    # from the Float as <tt>floor(r * (max - min + 1)) + min</tt>, in Lua,
-    # which holds every number as a double, so Lota returns it as a Float
-    # too (ADR 001, rule 14): <tt>random(6)</tt> returns 4.0, not 4.
+    # whole number from +min+ to +max+, as LÖVE computes them from the
+    # Float: <tt>floor(r * min) + 1</tt> and
+    # <tt>floor(r * (max - min + 1)) + min</tt>. Ruby's floor is an
+    # Integer, so whole bounds give an Integer, and a bound that is a
+    # Float gives a Float: <tt>random(1, 6)</tt> returns 4, and
+    # <tt>random(1.5, 3.5)</tt> 2.5.
     #
     # Raises TypeError for a bound that is not a number, and RuntimeError
     # when the math module is not open, as when
@@ -53,15 +55,20 @@ module Lota
     # === Examples
     #
     #   Lota::Math.random         # => 0.37068322251463
-    #   Lota::Math.random(10)     # => 4.0
-    #   Lota::Math.random(15, 100) # => 92.0
+    #   Lota::Math.random(10)     # => 4
+    #   Lota::Math.random(15, 100) # => 92
     def self.random(min = nil, max = nil)
       r = Native::Math.random_generator.random
       if !max.nil?
         low = number(min)
-        (r * (number(max).to_f - low + 1)).floor.to_f + low
+        whole = (r * (number(max).to_f - low + 1)).floor
+        # The same sum either way, which Steep types for each kind of bound.
+        case low
+        when Integer then whole + low
+        else whole + low
+        end
       elsif !min.nil?
-        (r * number(min)).floor.to_f + 1
+        (r * number(min)).floor + 1
       else
         r
       end

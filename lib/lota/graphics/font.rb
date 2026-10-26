@@ -46,9 +46,10 @@ module Lota
       # (src/modules/font/wrap_Font.cpp, w_newRasterizer and
       # w_newTrueTypeRasterizer).
       #
-      # [data] Lota::Filesystem::FileData holding a TrueType or OpenType
-      #   font, or a BMFont definition when +size+ is left out; leave it
-      #   out for LÖVE's default font.
+      # [data] String name of a font file in the game's folder, or a
+      #   Lota::Filesystem::FileData, holding a TrueType or OpenType font,
+      #   or a BMFont definition when +size+ is left out; leave it out for
+      #   LÖVE's default font.
       # [size] Integer height in pixels: 13 by default for LÖVE's default
       #   font, and 12 for a TrueType font in +data+.
       # [hinting] +:normal+ (the default), +:light+, +:mono+, or +:none+:
@@ -63,24 +64,27 @@ module Lota
       # older form, or as keywords, which translate the table of settings
       # LÖVE 12 also takes (ADR 001, rule 10). Given +data+ and no size,
       # LÖVE reads the font at its own default size and ignores the
-      # settings, and so does Lota. LÖVE also reads a font from a file
-      # by name, and a BMFont with its images; Lota binds neither form
-      # yet.
+      # settings, and so does Lota. A file name is a path in the game's
+      # folder, as LÖVE's filesystem reads it (Lota::Boot makes the folder
+      # its source, as boot.lua does), with forward slashes and no "..".
+      # LÖVE also reads a BMFont with its images; Lota binds that form
+      # later.
       #
       # Raises ArgumentError for an unknown hinting mode or for settings
-      # given both ways, RuntimeError with LÖVE's message when the data
-      # holds no font or the window is not open, and ThreadError off the
-      # main thread.
+      # given both ways, RuntimeError with LÖVE's message when the file
+      # cannot be read, the data holds no font, the window is not open, or
+      # the filesystem is not, and ThreadError off the main thread.
       #
       # === Examples
       #
       #   Lota::Graphics::Font.new                    # Noto Sans at 13 pixels
       #   Lota::Graphics::Font.new(24)                # Noto Sans at 24 pixels
       #   Lota::Graphics::Font.new(data, 8, :normal)  # the font in data, at 8 pixels
+      #   Lota::Graphics::Font.new("assets/pixel.ttf", 16) # a font file in the game's folder
       #   Lota::Graphics::Font.new(data, 8, hinting: :mono, dpiscale: 1)
       def initialize(*arguments, hinting: nil, dpiscale: nil, sdf: false)
         first = arguments.first
-        data = first if first.is_a?(Filesystem::FileData)
+        data = first if first.is_a?(Filesystem::FileData) || first.is_a?(String)
         size, legacy_hinting, legacy_dpiscale = data ? arguments.drop(1) : arguments
         unless legacy_hinting.nil? && legacy_dpiscale.nil?
           if hinting || dpiscale
@@ -95,7 +99,8 @@ module Lota
 
       # The engine's Font, made as w_newRasterizer chooses: LÖVE's default
       # font without data, the font in +data+ at LÖVE's default size
-      # without a size, and a TrueType font otherwise.
+      # without a size, and a TrueType font otherwise. A file name is read
+      # as luax_getfiledata reads one (wrap_Filesystem.cpp:308-379).
       private def native_font(data, size, hinting, dpiscale, sdf)
         size = case size
         when Integer, nil then size
@@ -109,12 +114,13 @@ module Lota
         when Float, Integer, nil then dpiscale
         else raise TypeError, "wrong argument type #{dpiscale.class} for dpiscale (expected Float)"
         end
-        if data.nil?
-          Native::Graphics.new_default_font(size, hinting, dpiscale, sdf)
-        elsif size.nil?
-          Native::Graphics.new_font_from_file(data.native)
+        return Native::Graphics.new_default_font(size, hinting, dpiscale, sdf) if data.nil?
+
+        native = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
+        if size.nil?
+          Native::Graphics.new_font_from_file(native)
         else
-          Native::Graphics.new_truetype_font(data.native, size, hinting, dpiscale, sdf)
+          Native::Graphics.new_truetype_font(native, size, hinting, dpiscale, sdf)
         end
       end
     end

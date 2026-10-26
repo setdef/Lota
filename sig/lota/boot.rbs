@@ -21,6 +21,8 @@ module Lota
 
     def configure: () -> (StandardError | ScriptError)?
 
+    private def open_filesystem: () -> void
+
     private def add_to_load_path: () -> void
 
     private def prepare_engine: () -> void

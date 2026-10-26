@@ -9,7 +9,7 @@
 -- Run as:
 --
 --   LOTA_PARITY_GAME=/abs/game LOTA_PARITY_FRAMES_DIR=/abs/frames \
---   LOTA_PARITY_FRAMES=240 LOTA_PARITY_FPS=60 \
+--   LOTA_PARITY_FRAMES=240 LOTA_PARITY_FPS=60 LOTA_PARITY_CLOCK=1600000000 \
 --   LOTA_PARITY_HOLD=79:31-60,80:91-150 LOTA_PARITY_PRESS=41:240-240 \
 --   love test/parity/lua
 --
@@ -52,12 +52,37 @@
 --   the game's to do, as on Escape. A game still running at the next
 --   frame's love.update did not, and the harness quits with status 1.
 --
+-- Random numbers come from LÖVE's own generator, as Plan 001 has both
+-- engines draw them: Lua's math.random and math.randomseed are pointed at
+-- love.math.random and love.math.setRandomSeed (wrap_Math.lua:37-47),
+-- which Lota::Math.random and Lota::Math.random_seed= port, and os.time()
+-- with no table returns LOTA_PARITY_CLOCK, as Time.now does in
+-- test/parity/probe.rb, so a game that seeds from the clock draws the same
+-- numbers in both. Lua's own generator, which Ruby cannot reproduce, is
+-- never reached. love.math opens after this file runs (boot.lua:347-372),
+-- so the two are looked up when the game calls them.
+--
 -- The game's own code is not changed, and runs as love.run calls it.
 
 local GAME = assert(os.getenv("LOTA_PARITY_GAME"), "LOTA_PARITY_GAME is not set")
 local FRAMES_DIR = assert(os.getenv("LOTA_PARITY_FRAMES_DIR"), "LOTA_PARITY_FRAMES_DIR is not set")
 local FRAMES = assert(tonumber(os.getenv("LOTA_PARITY_FRAMES")), "LOTA_PARITY_FRAMES is not a number")
 local DT = 1 / assert(tonumber(os.getenv("LOTA_PARITY_FPS")), "LOTA_PARITY_FPS is not a number")
+local CLOCK = assert(tonumber(os.getenv("LOTA_PARITY_CLOCK")), "LOTA_PARITY_CLOCK is not a number")
+
+local real_time = os.time
+os.time = function(date)
+  if date ~= nil then
+    return real_time(date)
+  end
+  return CLOCK
+end
+math.random = function(...)
+  return love.math.random(...)
+end
+math.randomseed = function(...)
+  return love.math.setRandomSeed(...)
+end
 
 -- The keys LOTA_PARITY_HOLD or LOTA_PARITY_PRESS names, in its order.
 local function keys(variable)

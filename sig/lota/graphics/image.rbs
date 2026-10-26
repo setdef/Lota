@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    module Image
+      def self.new: (String | Filesystem::FileData | Lota::Image::ImageData image, ?canvas: Object?) -> Texture
+
+      def self.===: (top object) -> bool
+    end
+  end
+end

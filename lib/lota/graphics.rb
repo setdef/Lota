@@ -8,6 +8,7 @@
 require_relative "graphics/texture"
 require_relative "graphics/canvas"
 require_relative "graphics/font"
+require_relative "graphics/image"
 
 module Lota
   # Drawing, translated from love.graphics.
@@ -117,7 +118,7 @@ module Lota
     #   pixels = Lota::Graphics.readback_texture(canvas)
     #   pixels.pixel(0, 0) # => [1.0, 1.0, 0.0, 1.0]
     def self.readback_texture(texture)
-      Image::ImageData.from_native(Native::Graphics.readback_texture(texture.native))
+      Lota::Image::ImageData.from_native(Native::Graphics.readback_texture(texture.native))
     end
 
     # Whether drawing reaches the screen, matching love.graphics.isActive

@@ -8,6 +8,7 @@
 # The generated bindings, for ext/lota/native/CMakeLists.txt.
 set(LOTA_GENERATED_SOURCES
 	generated/event.cpp
+	generated/filesystem.cpp
 	generated/graphics.cpp
 	generated/image.cpp
 	generated/math.cpp

@@ -305,12 +305,14 @@ void parse_dpi_scale(love::Data *data, float &dpiscale) {
   }
 }
 
-// w_newTexture of one 2D image with no settings (wrap_Graphics.cpp:
-// 916-975), its pixels from +data+ as getImageData decodes them
-// (lines 714-745): compressed formats the image module recognizes stay
-// compressed, and everything else is decoded to an ImageData. The
-// texture's one reference goes to the Ruby wrapper.
-Texture *new_texture_from_data(love::Data *data) {
+// w_newTexture of one 2D image (wrap_Graphics.cpp:916-975), its pixels
+// from +data+ as getImageData decodes them (lines 714-745): compressed
+// formats the image module recognizes stay compressed, and everything else
+// is decoded to an ImageData. Of luax_checktexturesettings's settings
+// (lines 759-871), Lota binds the canvas setting so far, which makes the
+// texture one you can draw into (lines 770-771). The texture's one
+// reference goes to the Ruby wrapper.
+Texture *new_texture_from_data(love::Data *data, bool canvas) {
   Graphics &instance = created_graphics();
   auto *imagemodule = love::Module::getInstance<love::image::Image>(love::Module::M_IMAGE);
   if (imagemodule == nullptr) {
@@ -318,6 +320,7 @@ Texture *new_texture_from_data(love::Data *data) {
   }
   Texture::Settings settings;
   settings.type = love::graphics::TEXTURE_2D;
+  settings.renderTarget = canvas;
   parse_dpi_scale(data, settings.dpiScale);
   Texture::Slices slices(love::graphics::TEXTURE_2D);
   if (imagemodule->isCompressed(data)) {
@@ -332,13 +335,14 @@ Texture *new_texture_from_data(love::Data *data) {
   return instance.newTexture(settings, &slices);
 }
 
-// w_newTexture of an ImageData with no settings (wrap_Graphics.cpp:
-// 916-975 and 714-722): the texture takes the ImageData's pixels as they
-// are, at a DPI scale of 1.
-Texture *new_texture_from_image_data(love::image::ImageData *data) {
+// w_newTexture of an ImageData (wrap_Graphics.cpp:916-975 and 714-722):
+// the texture takes the ImageData's pixels as they are, at a DPI scale of
+// 1, with the canvas setting as new_texture_from_data takes it.
+Texture *new_texture_from_image_data(love::image::ImageData *data, bool canvas) {
   Graphics &instance = created_graphics();
   Texture::Settings settings;
   settings.type = love::graphics::TEXTURE_2D;
+  settings.renderTarget = canvas;
   Texture::Slices slices(love::graphics::TEXTURE_2D);
   slices.set(0, 0, data);
   return instance.newTexture(settings, &slices);
@@ -595,9 +599,10 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("new_canvas", &new_canvas, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Arg("msaa"), Rice::Return().takeOwnership())
       .define_singleton_function("new_texture_from_data", &new_texture_from_data, Rice::Arg("data"),
-                                 Rice::Return().takeOwnership())
+                                 Rice::Arg("canvas"), Rice::Return().takeOwnership())
       .define_singleton_function("new_texture_from_image_data", &new_texture_from_image_data,
-                                 Rice::Arg("data"), Rice::Return().takeOwnership())
+                                 Rice::Arg("data"), Rice::Arg("canvas"),
+                                 Rice::Return().takeOwnership())
       .define_singleton_function("set_canvas", &set_canvas, Rice::Arg("texture"))
       .define_singleton_function("reset_canvas", &reset_canvas)
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),

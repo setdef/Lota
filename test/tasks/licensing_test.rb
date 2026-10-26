@@ -106,7 +106,8 @@ class LicensingTest < Minitest::Test
   end
 
   # rake compile's bundle, as the linker and ninja report it: the
-  # libraries its graphics and images need, and none it only declares.
+  # libraries its graphics, images, and filesystem need, and none it only
+  # declares.
   def test_the_real_bundle_carries_what_its_objects_were_compiled_from
     linked = LinkedFiles.read(map: File.join(BUILD, "lib/lota/native.map"), build: BUILD)
     outside = [
@@ -116,8 +117,18 @@ class LicensingTest < Minitest::Test
 ].map { |dir| File.join(dir, "") }
     names = record.bundled(linked, root: ROOT, outside:).map(&:name)
 
-    ["Lota", "Rice", "LodePNG", "glslang", "SPIRV-Cross", "Noto Sans", "LÖVE"].each { |name| assert_includes names, name }
-    refute_includes names, "PhysicsFS"
+    [
+      "Lota",
+      "Rice",
+      "LodePNG",
+      "glslang",
+      "SPIRV-Cross",
+      "PhysicsFS",
+      "PhysicsFS's miniz",
+      "PhysicsFS's LZMA SDK",
+      "Noto Sans",
+      "LÖVE",
+].each { |name| assert_includes names, name }
     refute_includes names, "Noise1234"
   end
 

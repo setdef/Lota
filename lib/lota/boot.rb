@@ -132,6 +132,7 @@ module Lota
     #   Lota::Graphics.dimensions # => [800, 600]
     def init
       add_to_load_path
+      open_filesystem
       conf_error = configure
       prepare_engine
       open_modules
@@ -231,6 +232,32 @@ module Lota
         renderers.delete_at(index) if index
       end
       renderers
+    end
+
+    # Opens the filesystem and makes the game's folder its source, as
+    # love.boot does (boot.lua:46, 63-65, and 123 for a game folder given
+    # by name), so that files the game names, such as a font, are read from
+    # its folder wherever the game was started. The filesystem opens and
+    # initializes once per process, as LÖVE boots once, with Ruby's program
+    # name for LÖVE's argv[0]. A source already set stays, as
+    # love.filesystem.setSource refuses a second, and boot.lua calls it
+    # with pcall. A Lota game is a folder, never fused into the executable
+    # (boot.lua:76-94), so Lota leaves the module unfused, as it starts.
+    #
+    # boot.lua also names the game's save directory, from its folder's name
+    # (boot.lua:136-150 and 442, setIdentity). Where a Lota game saves is
+    # not decided yet, so Lota mounts no save directory, and reads only
+    # from the game's folder.
+    private def open_filesystem
+      unless Native::Filesystem.open?
+        Native::Filesystem.open
+        Native::Filesystem.init($PROGRAM_NAME)
+      end
+      begin
+        Native::Filesystem.set_source(@directory)
+      rescue RuntimeError
+        nil
+      end
     end
 
     # Puts the game's folder at the front of <tt>$LOAD_PATH</tt>, once, so

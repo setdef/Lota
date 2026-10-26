@@ -12,7 +12,7 @@ module Lota
 
       type argument = Filesystem::FileData | Integer | Float | Symbol | String
 
-      private def native_font: (Filesystem::FileData? data, argument? size, argument? hinting, argument? dpiscale, bool sdf) -> Native::Graphics::Font
+      private def native_font: ((Filesystem::FileData | String)? data, argument? size, argument? hinting, argument? dpiscale, bool sdf) -> Native::Graphics::Font
     end
   end
 end

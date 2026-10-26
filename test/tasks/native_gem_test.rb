@@ -92,6 +92,8 @@ class NativeGemTest < Minitest::Test
     assert_includes licenses, "MIT-Modern-Variant"
     assert_includes licenses, "Bison-exception-2.2"
     assert_includes licenses, "LicenseRef-NVIDIA-Software-2002"
+    assert_includes licenses, "LicenseRef-LZMA-SDK-Public-Domain"
+    assert_includes licenses, "Unlicense"
     assert_includes licenses, "AGPL-3.0-or-later"
     refute_includes licenses, "CC0-1.0"
     refute_includes licenses, "MIT-0"

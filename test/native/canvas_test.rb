@@ -38,8 +38,7 @@ class CanvasTest < Minitest::Test
   end
 
   def test_a_texture_made_from_an_image_is_not_a_canvas
-    png = File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png"))
-    image = Lota::Graphics::Texture.new(Lota::Filesystem::FileData.new(png, "love.png"))
+    image = Lota::Graphics::Texture.new(Lota::Image::ImageData.new("resources/love.png"))
 
     refute_predicate image, :canvas?
     refute_operator Canvas, :===, image

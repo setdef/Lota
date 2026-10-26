@@ -3,7 +3,7 @@
 
 module Lota
   module Math
-    def self.random: (?(Float | Integer)? min, ?(Float | Integer)? max) -> Float
+    def self.random: (?(Float | Integer)? min, ?(Float | Integer)? max) -> (Float | Integer)
 
     def self.random_seed=: (Float | Integer | Array[Float | Integer] seed) -> void
 
