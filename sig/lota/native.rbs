@@ -92,6 +92,8 @@ module Lota
     module Image
       def self.open: () -> nil
 
+      def self.open?: () -> bool
+
       def self.new_image_data: (Data data) -> ImageData
     end
 
@@ -120,6 +122,8 @@ module Lota
     module Keyboard
       def self.open: () -> nil
 
+      def self.open?: () -> bool
+
       def self.down?: (Array[String] names) -> bool
     end
 
@@ -129,6 +133,8 @@ module Lota
 
     module Window
       def self.open: () -> nil
+
+      def self.open?: () -> bool
 
       def self.set_mode: (Integer width, Integer height, WindowSettings? settings) -> bool
 

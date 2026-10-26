@@ -28,6 +28,9 @@ namespace {
 // (event/sdl/Event.cpp:284-290), and it starts with key repeat off.
 void open() { open_module<Keyboard, love::keyboard::sdl::Keyboard>(love::Module::M_KEYBOARD); }
 
+// Whether the module is open, as a game asks with "if love.keyboard then".
+bool is_open() { return love::Module::getInstance<Keyboard>(love::Module::M_KEYBOARD) != nullptr; }
+
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
@@ -65,6 +68,7 @@ bool is_down(Rice::Array names) {
 void define_keyboard(const Rice::Module &native) {
   Rice::define_module_under(native, "Keyboard")
       .define_singleton_function("open", &open)
+      .define_singleton_function("open?", &is_open)
       .define_singleton_function("down?", &is_down, Rice::Arg("names"));
 }
 

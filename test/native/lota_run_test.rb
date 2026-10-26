@@ -145,6 +145,84 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # Numbers LÖVE's C++ holds as integers reach the game as Integers (ADR
+  # 001, rule 14): opening the window and changing its mode each resize
+  # it, with the graphics module's int width and height
+  # (vendor/love/src/modules/event/sdl/Event.cpp:811-835).
+  def test_a_resize_reaches_the_game_with_integers
+    in_game("main.rb" => <<~RUBY) do |directory|
+      $stdout.sync = true
+      def Lota.load = Lota::Window.set_mode(400, 300)
+      def Lota.resize(width, height) = puts("resize \#{width.inspect} \#{height.inspect}")
+      def Lota.update(dt)
+        @frames = (@frames || 0) + 1
+        Lota::Event.quit if @frames == 30
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_includes output, "resize 400 300\n"
+    end
+  end
+
+  # Lua passes nil for parameters its caller left out (ADR 003, section
+  # 3); update receives one argument and draw none. Lua has no defaults,
+  # so draw's is the game's own and stays.
+  def test_a_required_parameter_love_does_not_pass_receives_nil
+    in_game("main.rb" => <<~RUBY) do |directory|
+      def Lota.update(dt, extra) = (@update = [dt.class, extra])
+      def Lota.draw(frame = 1)
+        puts [*@update, frame].inspect
+        Lota::Event.quit
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[Float, nil, 1]\n", output
+    end
+  end
+
+  # A module the settings turn off is nil through its accessor, as
+  # love.timer is nil in LÖVE, while its constant stays defined (ADR 003,
+  # section 6).
+  def test_a_module_the_settings_turn_off_is_nil_through_its_accessor
+    in_game("conf.rb" => "def Lota.conf(t) = (t.modules.timer = false; t.modules.keyboard = false)\n",
+      "main.rb" => <<~RUBY) do |directory|
+        def Lota.update(dt)
+          p [lota.timer, lota.keyboard, Lota::Timer, lota.event, lota.graphics, dt]
+          Lota::Event.quit
+        end
+      RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[nil, nil, Lota::Timer, Lota::Event, Lota::Graphics, 0]\n", output
+    end
+  end
+
+  # LÖVE's require searches the game's folder, from conf.lua as from
+  # main.lua, and LÖVE leaves the working directory alone (ADR 003,
+  # section 6).
+  def test_a_game_requires_files_from_its_folder_and_keeps_the_working_directory
+    in_game("conf.rb" => "require 'title'\ndef Lota.conf(t) = (t.window.title = TITLE)\n",
+      "title.rb" => "TITLE = 'Required'\n",
+      "player.rb" => "module Player\n  def self.name = 'player'\nend\n",
+      "main.rb" => <<~RUBY) do |directory|
+        require "player"
+        def Lota.load
+          puts Player.name, Lota::Window.title, Dir.pwd
+          Lota::Event.quit
+        end
+      RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "player\nRequired\n#{Dir.pwd}\n", output
+    end
+  end
+
   # Writes a game folder of +files+ (name to source) and yields its path.
   private def in_game(files)
     Dir.mktmpdir("lota-run-test") do |directory|

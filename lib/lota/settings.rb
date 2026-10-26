@@ -22,9 +22,11 @@ module Lota
   # Use it in conf.rb to size and title the window and to turn off modules
   # your game does not use.
   #
-  # Unlike a Lua table, a Settings has only LÖVE's settings, so a
-  # misspelled one raises NoMethodError instead of being ignored. Lota
-  # reads the settings boot.lua reads, except +console+, +identity+,
+  # A setting LÖVE does not know is accepted and ignored, as LÖVE ignores
+  # a key it does not read in its table (ADR 003, section 5), so a
+  # translated conf.lua that sets keys of its own still runs. Reading one
+  # back returns what was set; reading one never set raises NoMethodError.
+  # Lota reads the settings boot.lua reads, except +console+, +identity+,
   # +appendidentity+, +externalstorage+, +audio+, and +version+, which
   # wait for the features they configure.
   #
@@ -44,6 +46,37 @@ module Lota
   #     t.window = false
   #   end
   class Settings
+    # The settings LÖVE does not know, which each part of Settings accepts
+    # and keeps, as a Lua table keeps any key it is given, and which no
+    # part of Lota reads. :nodoc:
+    module UnknownSettings
+      # The name of a writer a setting could have: a Lua identifier, as
+      # <tt>t.name = value</tt> spells it, followed by =.
+      WRITER = /\A[A-Za-z_]\w*=\z/
+
+      # Keeps +value+ for <tt>name=</tt>, or returns what was kept for
+      # +name+. Anything else raises NoMethodError.
+      private def method_missing(name, *arguments)
+        kept = @unknown_settings
+        if WRITER.match?(name) && arguments.size == 1
+          kept ||= @unknown_settings = {} #: Hash[Symbol, top]
+          kept[name.name.chomp("=").to_sym] = arguments.first
+        elsif arguments.empty? && kept&.key?(name)
+          kept[name]
+        else
+          super
+        end
+      end
+
+      # Whether +name+ is a setting's writer, or the reader of a setting
+      # already kept.
+      private def respond_to_missing?(name, include_private = false)
+        WRITER.match?(name) || @unknown_settings&.key?(name.to_sym) || super
+      end
+    end
+
+    include UnknownSettings
+
     # SPDX-SnippetBegin
     # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
     # SPDX-License-Identifier: Zlib
@@ -55,6 +88,8 @@ module Lota
 
     # How the window opens: <tt>t.window</tt>.
     class Window
+      include UnknownSettings
+
       # Integer width, in units of the screen's DPI scale; 800 by default.
       attr_accessor :width
 
@@ -143,6 +178,8 @@ module Lota
 
     # How the graphics module starts: <tt>t.graphics</tt>.
     class Graphics
+      include UnknownSettings
+
       # Whether colors blend in linear space; +false+ by default.
       attr_accessor :gammacorrect
 
@@ -176,6 +213,8 @@ module Lota
     # window, and graphics) when theirs is +true+; the rest wait for Lota
     # to bind them.
     class Modules
+      include UnknownSettings
+
       # Whether love.data opens.
       attr_accessor :data
 
@@ -263,6 +302,8 @@ module Lota
 
     # How audio starts on phones: <tt>t.audio</tt>.
     class Audio
+      include UnknownSettings
+
       # Whether the game's audio mixes with other apps' on Android and
       # iOS; +true+ by default.
       attr_accessor :mixwithsystem

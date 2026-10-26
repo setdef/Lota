@@ -49,6 +49,15 @@ require_relative "lota/boot"
 # The lowercase spelling of each module, so that a LÖVE tutorial's
 # love.graphics becomes lota.graphics and nothing else changes (ADR 003,
 # section 4). Lota::Graphics remains the idiomatic spelling.
+#
+# Each accessor returns +nil+ until its module is open, and for good when
+# the settings turn the module off (<tt>t.modules.timer = false</tt>), as
+# love.timer is nil until boot.lua requires it and stays nil when it does
+# not (vendor/love/src/modules/love/boot.lua:347-372). So
+# <tt>if lota.timer</tt> asks what LÖVE's <tt>if love.timer then</tt>
+# asks. The constant stays defined, as LÖVE keeps the module's code: only
+# the accessor tells whether the module was loaded. love.filesystem is
+# always loaded (boot.lua:46), and so is Lota.filesystem.
 module Lota
   # Lota::Filesystem, as love.filesystem.
   #
@@ -59,58 +68,58 @@ module Lota
     Filesystem
   end
 
-  # Lota::Image, as love.image.
+  # Lota::Image, as love.image, or +nil+ when the module is not open.
   #
   # === Example
   #
   #   lota.image # => Lota::Image
   def self.image
-    Image
+    Image if Native::Image.open?
   end
 
-  # Lota::Graphics, as love.graphics.
+  # Lota::Graphics, as love.graphics, or +nil+ when the module is not open.
   #
   # === Example
   #
   #   lota.graphics.clear(0, 0, 0)
   def self.graphics
-    Graphics
+    Graphics if Native::Graphics.open?
   end
 
-  # Lota::Timer, as love.timer.
+  # Lota::Timer, as love.timer, or +nil+ when the module is not open.
   #
   # === Example
   #
   #   dt = lota.timer.step
   def self.timer
-    Timer
+    Timer if Native::Timer.open?
   end
 
-  # Lota::Event, as love.event.
+  # Lota::Event, as love.event, or +nil+ when the module is not open.
   #
   # === Example
   #
   #   lota.event.quit
   def self.event
-    Event
+    Event if Native::Event.open?
   end
 
-  # Lota::Keyboard, as love.keyboard.
+  # Lota::Keyboard, as love.keyboard, or +nil+ when the module is not open.
   #
   # === Example
   #
   #   lota.keyboard.down?(:space)
   def self.keyboard
-    Keyboard
+    Keyboard if Native::Keyboard.open?
   end
 
-  # Lota::Window, as love.window.
+  # Lota::Window, as love.window, or +nil+ when the module is not open.
   #
   # === Example
   #
   #   lota.window.title = "Asteroids"
   def self.window
-    Window
+    Window if Native::Window.open?
   end
 end
 

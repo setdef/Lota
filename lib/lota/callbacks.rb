@@ -11,7 +11,9 @@ module Lota
   # A game's callbacks are methods it defines on Lota (ADR 003, section
   # 2). Lota calls one only when the game defined it, and passes it only
   # as many of LÖVE's arguments as it declares (section 3), so
-  # <tt>def Lota.keypressed(key)</tt> receives the key alone.
+  # <tt>def Lota.keypressed(key)</tt> receives the key alone; a required
+  # parameter beyond LÖVE's receives +nil+, as in Lua, and an optional one
+  # keeps its default.
   module Callbacks
     # The arguments after the game's folder on the command line, which
     # Lota's loop passes to the load callback first. :nodoc:
@@ -38,17 +40,22 @@ module Lota
     # declares, and returns what it returns, or +nil+ when the game did
     # not define it. :nodoc:
     #
-    # A callback that takes a splat receives every argument. One that
-    # declares more than LÖVE passes raises ArgumentError, as any Ruby
-    # method called with too few arguments does.
+    # A callback that takes a splat receives every argument. A required
+    # parameter LÖVE does not pass receives +nil+, as a Lua function
+    # receives nil for arguments its caller left out (ADR 003, section 3).
+    # An optional parameter LÖVE does not pass keeps its default: Lua has
+    # no defaults, so one is the game's own Ruby, which Lota leaves alone.
+    # LÖVE passes no keywords, so a keyword parameter keeps its default,
+    # and a required one raises ArgumentError, as Ruby does for any call
+    # that leaves it out.
     def self.call(name, *arguments)
       return unless Lota.respond_to?(name)
 
-      parameters = Lota.method(name).parameters
-      unless parameters.any? { |type, _| type == :rest }
-        arguments = arguments.first(parameters.count { |type, _| type == :req || type == :opt })
-      end
-      Lota.public_send(name, *arguments)
+      types = Lota.method(name).parameters.map(&:first)
+      required = types.count(:req)
+      accepted = types.include?(:rest) ? [arguments.size, required].max : required + types.count(:opt)
+      count = arguments.size.clamp(required, accepted)
+      Lota.public_send(name, *Array.new(count) { |index| arguments[index] })
     end
 
     # Event arguments that are names in LÖVE (enum strings), by event and
@@ -72,24 +79,72 @@ module Lota
       displayrotated: [1],
     }.freeze
 
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+    #
+    # Event arguments LÖVE's C++ holds as integers, by event and position,
+    # so that they reach a callback as Integers (ADR 001, rule 14). LÖVE
+    # passes every number through its Variant as a double; these are the
+    # ones event/sdl/Event.cpp casts to double from an integer: a text
+    # edit's start and length (SDL's Sint32, lines 326-327), a mouse
+    # button as LÖVE numbers it and its click count (int and Uint8, lines
+    # 358-379), a joystick's button, axis, and hat, counting from 1 (Uint8
+    # plus 1, lines 645, 657, and 672), and a rotated display's index,
+    # counting from 1 (line 507). A window's new size is the graphics
+    # module's int width and height (lines 811-835), while that module is
+    # open (argument). Every other number, such as a position, a wheel's
+    # travel, or an axis's value, is a float in SDL or in LÖVE and stays a
+    # Float. :nodoc:
+    INTEGER_ARGUMENTS = {
+      textedited: [1, 2],
+      mousepressed: [2, 4],
+      mousereleased: [2, 4],
+      joystickpressed: [1],
+      joystickreleased: [1],
+      joystickaxis: [1],
+      joystickhat: [1],
+      displayrotated: [0],
+      resize: [0, 1],
+    }.freeze
+
+    # SPDX-SnippetEnd
+
     # The next message in the event queue, as its name and an Array of its
     # arguments, or +nil+ when the queue is empty. :nodoc:
     #
     # The message's name becomes a Symbol, as do its arguments that are
     # names in LÖVE (ENUM_ARGUMENTS); the strings SDL gives are UTF-8.
+    # Numbers LÖVE holds as integers (INTEGER_ARGUMENTS) become Integers,
+    # and the rest stay Floats.
     def self.poll
       message = Native::Event.poll
       return unless message
 
       name = message.first.to_s.to_sym
-      enums = ENUM_ARGUMENTS.fetch(name, [])
-      arguments = message.drop(1).map.with_index do |argument, index|
-        next argument unless argument.is_a?(String)
-
-        argument = argument.dup.force_encoding(Encoding::UTF_8)
-        enums.include?(index) ? argument.to_sym : argument
-      end
+      arguments = message.drop(1).map.with_index { |argument, index| argument(name, index, argument) }
       [name, arguments]
+    end
+
+    # The argument at +index+ of the event +name+, as Ruby sees it.
+    # :nodoc:
+    #
+    # Without the graphics module, LÖVE's resize gives the window's size in
+    # DPI-scaled units, which it computes as doubles
+    # (event/sdl/Event.cpp:826-832), so a resize's size is an Integer
+    # only while Lota::Graphics is open.
+    def self.argument(name, index, argument)
+      case argument
+      when String
+        argument = argument.dup.force_encoding(Encoding::UTF_8)
+        ENUM_ARGUMENTS.fetch(name, []).include?(index) ? argument.to_sym : argument
+      when Float
+        integer = INTEGER_ARGUMENTS.fetch(name, []).include?(index)
+        integer &&= Native::Graphics.open? if name == :resize
+        integer ? argument.to_i : argument
+      else
+        argument
+      end
     end
 
     # SPDX-SnippetBegin
@@ -233,7 +288,10 @@ module Lota
     # to Lota::Event.quit, or 0.
     #
     # Every callback is optional, and each receives as many of LÖVE's
-    # arguments as it declares:
+    # arguments as it declares; a required parameter beyond them receives
+    # +nil+, as in Lua, and an optional one keeps its default. Numbers LÖVE holds as integers, such as a
+    # mouse button or a resized window's width, are Integers; the rest,
+    # such as positions and +dt+, are Floats:
     #
     #   load(arguments, raw_arguments)   update(dt)   draw
     #   quit                             keypressed(key, scancode, isrepeat)

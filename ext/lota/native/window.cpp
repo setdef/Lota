@@ -40,6 +40,10 @@ void open() {
   open_module<Window, love::window::sdl::Window>(love::Module::M_WINDOW);
 }
 
+// Whether the module is open, as boot.lua asks with "if love.window then".
+// Asking reads no window state, so any thread may ask.
+bool is_open() { return love::Module::getInstance<Window>(love::Module::M_WINDOW) != nullptr; }
+
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
@@ -113,6 +117,7 @@ void define_window(const Rice::Module &native) {
 
   Rice::define_module_under(native, "Window")
       .define_singleton_function("open", &open)
+      .define_singleton_function("open?", &is_open)
       .define_singleton_function("set_mode", &set_mode, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Arg("settings"))
       .define_singleton_function("fullscreen_types", &fullscreen_types)

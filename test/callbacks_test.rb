@@ -60,10 +60,44 @@ class CallbacksTest < Minitest::Test
     assert_equal 1, calls
   end
 
-  def test_a_callback_that_declares_more_than_love_passes_raises
+  # Lua gives nil for every parameter its caller left out.
+  def test_a_callback_that_declares_more_than_love_passes_receives_nil_for_the_rest
     define_callback(:keyreleased) { |key, scancode, extra| [key, scancode, extra] }
 
-    assert_raises(ArgumentError) { Lota::Callbacks.call(:keyreleased, :a, :a) }
+    assert_equal [:a, :q, nil], Lota::Callbacks.call(:keyreleased, :a, :q)
+  end
+
+  # Lua has no defaults, so a default is the game's own Ruby.
+  def test_an_optional_parameter_love_does_not_pass_keeps_its_default
+    define_callback(:textinput) { |text, extra = :default| [text, extra] }
+
+    assert_equal ["é", :default], Lota::Callbacks.call(:textinput, "é")
+  end
+
+  def test_a_required_parameter_after_an_optional_one_receives_nil
+    define_callback(:textinput) { |text, extra = :default, last| [text, extra, last] }
+
+    assert_equal ["é", :default, nil], Lota::Callbacks.call(:textinput, "é")
+  end
+
+  def test_a_callback_with_a_splat_receives_nil_for_parameters_love_does_not_pass
+    define_callback(:keyreleased) { |key, scancode, extra, *rest| [key, scancode, extra, rest] }
+
+    assert_equal [:a, :q, nil, []], Lota::Callbacks.call(:keyreleased, :a, :q)
+  end
+
+  # LÖVE passes no keywords.
+  def test_a_keyword_parameter_keeps_its_default
+    define_callback(:keypressed) { |key, mode: :default| [key, mode] }
+
+    assert_equal %i[a default], Lota::Callbacks.call(:keypressed, :a, :q, false)
+  end
+
+  def test_a_required_keyword_parameter_raises_as_ruby_does
+    define_callback(:keypressed) { |key, mode:| [key, mode] }
+
+    error = assert_raises(ArgumentError) { Lota::Callbacks.call(:keypressed, :a, :q, false) }
+    assert_equal "missing keyword: :mode", error.message
   end
 
   def test_a_callback_defined_with_def_is_called

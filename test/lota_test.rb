@@ -6,10 +6,14 @@
 #++
 
 require_relative "test_helper"
+require_relative "engine_helper"
 
 # lota is always there, and each module has a lowercase accessor, so a
 # tutorial's love. becomes lota. and nothing else changes (ADR 003,
-# section 4).
+# section 4). An accessor returns its module once the module is open, so
+# the tests that read them open the engine first. That a module the
+# settings turn off is nil is test/native/lota_run_test.rb's to prove, in
+# a process of its own.
 class LotaTest < Minitest::Test
   def test_lota_returns_lota_from_anywhere
     assert_same Lota, lota
@@ -22,6 +26,7 @@ class LotaTest < Minitest::Test
   end
 
   def test_each_module_has_a_lowercase_accessor
+    EngineHelper.open_window
     modules = {
       filesystem: Lota::Filesystem,
       image: Lota::Image,
@@ -38,6 +43,7 @@ class LotaTest < Minitest::Test
   # Every module Lota translates from LÖVE has an accessor; its native
   # extension, its callbacks, and its command line are not LÖVE modules.
   def test_no_module_lacks_an_accessor
+    EngineHelper.open_window
     own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }

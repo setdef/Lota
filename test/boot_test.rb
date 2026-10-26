@@ -107,6 +107,17 @@ class BootTest < Minitest::Test
     assert_raises(SystemExit) { boot.configure }
   end
 
+  # LÖVE's require looks in the game's folder before anywhere else but
+  # package.preload (src/modules/filesystem/wrap_Filesystem.cpp:1122-1124).
+  def test_the_game_folder_goes_first_on_the_load_path_once
+    2.times { boot.__send__(:add_to_load_path) }
+
+    assert_equal @directory, $LOAD_PATH.first
+    assert_equal 1, $LOAD_PATH.count(@directory)
+  ensure
+    $LOAD_PATH.delete(@directory)
+  end
+
   def test_renderers_default_to_loves_order
     assert_equal Lota::Native::Graphics.default_renderers.map(&:to_sym), renderers
   end

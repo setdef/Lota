@@ -24,6 +24,9 @@ namespace {
 // as LÖVE's lives until the game quits.
 void open() { open_module<Image, Image>(love::Module::M_IMAGE); }
 
+// Whether the module is open, as a game asks with "if love.image then".
+bool is_open() { return love::Module::getInstance<Image>(love::Module::M_IMAGE) != nullptr; }
+
 // w_newImageData from encoded Data (wrap_Image.cpp:84-96): decodes it with
 // the first of the module's format handlers that can. Its one reference
 // goes to the Ruby wrapper.
@@ -57,6 +60,7 @@ void define_image(const Rice::Module &native) {
 
   Rice::define_module_under(native, "Image")
       .define_singleton_function("open", &open)
+      .define_singleton_function("open?", &is_open)
       .define_singleton_function("new_image_data", &new_image_data, Rice::Arg("data"),
                                  Rice::Return().takeOwnership());
 }

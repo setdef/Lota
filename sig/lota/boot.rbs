@@ -21,6 +21,8 @@ module Lota
 
     def configure: () -> (StandardError | ScriptError)?
 
+    private def add_to_load_path: () -> void
+
     private def prepare_engine: () -> void
 
     private def renderers: (Settings::Graphics? graphics) -> Array[Symbol]

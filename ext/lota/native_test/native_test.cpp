@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -21,9 +22,14 @@
 #include <type_traits>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
 
 #include <spawn.h>
 #include <sys/fcntl.h>
@@ -352,6 +358,76 @@ std::string image_data_bytes(VALUE image_data) {
   return {static_cast<const char *>(image->getData()), image->getSize()};
 }
 
+// Events SDL reads from the system, pushed into SDL's queue instead, so
+// that LÖVE's own Event::convert (vendor/love/src/modules/event/sdl/
+// Event.cpp) turns each into the message a game would receive. A test
+// cannot click, type into an input method, resize a window it does not
+// own the screen for, or turn a display. SDL is one shared framework, so
+// its queue is the same for Lota::Native as for this bundle.
+
+// Pushes +event+, stamped with the time now, or throws SDL's error.
+void push(SDL_Event &event) {
+  event.common.timestamp = SDL_GetTicksNS();
+  if (!SDL_PushEvent(&event)) {
+    throw std::runtime_error(SDL_GetError());
+  }
+}
+
+// A double click's second press of SDL mouse button +button+ (3 is the
+// right button, which LÖVE numbers 2), at (10.5, 20.25) in the window.
+void press_mouse(int button) {
+  constexpr float x = 10.5F;
+  constexpr float y = 20.25F;
+  SDL_Event event{};
+  event.button.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+  event.button.button = static_cast<Uint8>(button);
+  event.button.down = true;
+  event.button.clicks = 2;
+  event.button.x = x;
+  event.button.y = y;
+  push(event);
+}
+
+// An input method editing the text "lota", with the cursor after its first
+// character and no selection (-1, as SDL marks a length it does not set).
+// The text is a literal, which outlives the event, as SDL needs of a
+// string it did not allocate.
+void edit_text() {
+  SDL_Event event{};
+  event.edit.type = SDL_EVENT_TEXT_EDITING;
+  event.edit.text = "lota";
+  event.edit.start = 1;
+  event.edit.length = -1;
+  push(event);
+}
+
+// The first window's size in pixels changing to the size it already has,
+// so that LÖVE's handler (Event::convertWindowEvent) reads the window's
+// real size and nothing changes.
+void resize_window() {
+  int count = 0;
+  // SDL_GetWindows allocates the list, which SDL_free releases.
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  if (window == nullptr) {
+    throw std::runtime_error("no window is open");
+  }
+  SDL_Event event{};
+  event.window.type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+  event.window.windowID = SDL_GetWindowID(window);
+  SDL_GetWindowSizeInPixels(window, &event.window.data1, &event.window.data2);
+  push(event);
+}
+
+// The primary display turning to landscape.
+void rotate_display() {
+  SDL_Event event{};
+  event.display.type = SDL_EVENT_DISPLAY_ORIENTATION;
+  event.display.displayID = SDL_GetPrimaryDisplay();
+  event.display.data1 = SDL_ORIENTATION_LANDSCAPE;
+  push(event);
+}
+
 // Deliberate bugs, for the sanitizer tests alone.
 
 // Frees the held Counted, then reads it.
@@ -449,6 +525,10 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("sanitized?", &sanitized)
       .define_module_function("hold", &hold, Rice::Arg("scancode"), Rice::Arg("down"))
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
+      .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
+      .define_module_function("edit_text", &edit_text)
+      .define_module_function("resize_window", &resize_window)
+      .define_module_function("rotate_display", &rotate_display)
       .define_module_function("image_data_bytes", &image_data_bytes,
                               Rice::Arg("image_data").setValue())
       .define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),

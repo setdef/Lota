@@ -5,7 +5,21 @@ module Lota
   class Settings
     type renderer_names = Array[Symbol | String]
 
+    module UnknownSettings
+      WRITER: Regexp
+
+      @unknown_settings: Hash[Symbol, top]?
+
+      private def method_missing: (Symbol name, *top arguments) -> top
+
+      private def respond_to_missing?: (Symbol | String name, ?bool include_private) -> bool
+    end
+
+    include UnknownSettings
+
     class Window
+      include UnknownSettings
+
       attr_accessor width: Integer
 
       attr_accessor height: Integer
@@ -46,6 +60,8 @@ module Lota
     end
 
     class Graphics
+      include UnknownSettings
+
       attr_accessor gammacorrect: bool
 
       attr_accessor lowpower: bool
@@ -58,6 +74,8 @@ module Lota
     end
 
     class Modules
+      include UnknownSettings
+
       attr_accessor data: bool
 
       attr_accessor event: bool
@@ -100,6 +118,8 @@ module Lota
     end
 
     class Audio
+      include UnknownSettings
+
       attr_accessor mixwithsystem: bool
 
       attr_accessor mic: bool

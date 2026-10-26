@@ -89,8 +89,37 @@ class SettingsTest < Minitest::Test
     refute settings.modules.physics
   end
 
-  def test_a_misspelled_setting_raises
-    assert_raises(NoMethodError) { settings.window.widht = 1280 }
+  # Lövetest's conf.lua sets t.window.name, which boot.lua never reads
+  # (vendor/love/testing/conf.lua:4).
+  def test_a_setting_love_does_not_know_is_accepted_and_reads_back
+    settings.window.name = "love.test"
+    settings.loading_screen = true
+    settings.graphics.shaders = :fancy
+    settings.modules.network = false
+    settings.audio.reverb = 2
+
+    assert_equal "love.test", settings.window.name
+    assert settings.loading_screen
+    assert_equal :fancy, settings.graphics.shaders
+    refute settings.modules.network
+    assert_equal 2, settings.audio.reverb
+    assert_respond_to settings.window, :name
+  end
+
+  def test_a_setting_love_does_not_know_changes_no_setting_it_knows
+    settings.window.widht = 1280
+
+    assert_equal 800, settings.window.width
+  end
+
+  def test_reading_a_setting_never_set_raises
+    assert_raises(NoMethodError) { settings.window.name }
+    refute_respond_to settings.window, :name
+  end
+
+  def test_only_a_setting_writer_is_accepted
+    assert_raises(NoMethodError) { settings.window.name(1) }
+    assert_raises(NoMethodError) { settings.window <= 1 }
   end
 
   # Every module boot.lua lists in its settings has a switch, and every

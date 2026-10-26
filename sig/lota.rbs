@@ -6,17 +6,17 @@ module Lota
 
   def self.filesystem: () -> singleton(Filesystem)
 
-  def self.image: () -> singleton(Image)
+  def self.image: () -> singleton(Image)?
 
-  def self.graphics: () -> singleton(Graphics)
+  def self.graphics: () -> singleton(Graphics)?
 
-  def self.timer: () -> singleton(Timer)
+  def self.timer: () -> singleton(Timer)?
 
-  def self.event: () -> singleton(Event)
+  def self.event: () -> singleton(Event)?
 
-  def self.keyboard: () -> singleton(Keyboard)
+  def self.keyboard: () -> singleton(Keyboard)?
 
-  def self.window: () -> singleton(Window)
+  def self.window: () -> singleton(Window)?
 end
 
 module Kernel

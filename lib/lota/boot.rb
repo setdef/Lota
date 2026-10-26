@@ -115,8 +115,9 @@ module Lota
       end
     end
 
-    # Brings the game up to the point where its loop starts, as love.init
-    # does (boot.lua:173-456): configures it, opens its modules and its
+    # Brings the game up to the point where its loop starts, as love.boot
+    # and love.init do (boot.lua:43-456): puts the game's folder on
+    # <tt>$LOAD_PATH</tt>, configures the game, opens its modules and its
     # window, and loads main.rb.
     #
     # An error in conf.rb waits until the modules are open, as in LÖVE,
@@ -130,6 +131,7 @@ module Lota
     #   Lota::Boot.new("games/pong").init
     #   Lota::Graphics.dimensions # => [800, 600]
     def init
+      add_to_load_path
       conf_error = configure
       prepare_engine
       open_modules
@@ -229,6 +231,17 @@ module Lota
         renderers.delete_at(index) if index
       end
       renderers
+    end
+
+    # Puts the game's folder at the front of <tt>$LOAD_PATH</tt>, once, so
+    # that conf.rb and main.rb can <tt>require "player"</tt> for the
+    # player.rb beside them. love.boot makes the game's folder the source
+    # LÖVE's filesystem reads (boot.lua:123) before conf.lua loads, and
+    # LÖVE's require looks there before anywhere but package.preload
+    # (src/modules/filesystem/wrap_Filesystem.cpp:897-929 and 1122-1124).
+    # Like LÖVE, it leaves the working directory alone.
+    private def add_to_load_path
+      $LOAD_PATH.unshift(@directory) unless $LOAD_PATH.include?(@directory)
     end
 
     # Gets desired modules (boot.lua:347-372). Lota's event handlers

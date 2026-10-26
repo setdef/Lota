@@ -19,7 +19,10 @@ module Lota
       # This command starts the game in the folder you name, or in the
       # current directory, with Lota::Boot, and exits with the status the
       # game quits with. Arguments after the folder reach the game's load
-      # callback.
+      # callback. The folder goes on <tt>$LOAD_PATH</tt>, so main.rb can
+      # <tt>require "player"</tt> for the player.rb beside it, as LÖVE's
+      # require searches the game's folder; the working directory stays
+      # where you ran the command, as it does for LÖVE.
       #
       # Use it from your game's folder while you work on it.
       #

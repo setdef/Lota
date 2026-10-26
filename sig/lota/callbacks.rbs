@@ -19,7 +19,11 @@ module Lota
 
     ENUM_ARGUMENTS: Hash[Symbol, Array[Integer]]
 
+    INTEGER_ARGUMENTS: Hash[Symbol, Array[Integer]]
+
     def self.poll: () -> [Symbol, Array[argument]]?
+
+    def self.argument: (Symbol name, Integer index, String | Float | Integer | bool | nil argument) -> argument
 
     HANDLERS: Hash[Symbol, handler]
 
