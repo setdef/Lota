@@ -224,8 +224,8 @@ jobs:
   # through macOS automation, which needs Accessibility permission. This
   # records whether a runner allows it, and never fails the run: read the
   # answer in the run's annotations or this job's summary, "Accessibility
-  # probe: allowed" or "denied", with what System Events and the dialog
-  # reported.
+  # probe: allowed", "denied", or "inconclusive", with what System Events
+  # and the dialog reported.
   accessibility-probe:
     name: Accessibility probe
     runs-on: macos-15

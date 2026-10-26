@@ -36,6 +36,16 @@ option(LOTA_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer
 if(LOTA_SANITIZE)
 	set(LOTA_SANITIZER_FLAGS
 		-fsanitize=address,undefined
+		# Clang 21 took the vptr check out of "undefined" (llvm-project
+		# 038731c709c6, #121115); Apple clang 17, in every Xcode the macos-15
+		# runner has, still puts it in. That check runs before ASan's on a
+		# member call, and on a freed object it reads the vptr slot, where
+		# ASan's allocator has written the free stack's id (asan_allocator.cpp,
+		# ChunkBase, "Header2, intersects with user memory"). So it reports a
+		# use-after-free as "invalid vptr", without the stacks that freed and
+		# allocated it, and ends the process before ASan can. Turning it off
+		# makes every Xcode check the same set.
+		-fno-sanitize=vptr
 		# A sanitizer report ends the process, so a test cannot pass after one.
 		-fno-sanitize-recover=all
 		-fno-omit-frame-pointer
@@ -45,7 +55,7 @@ if(LOTA_SANITIZE)
 		# in a local would be collected while still in use.
 		-fsanitize-address-use-after-return=never)
 	add_compile_options(${LOTA_SANITIZER_FLAGS})
-	add_link_options(-fsanitize=address,undefined)
+	add_link_options(-fsanitize=address,undefined -fno-sanitize=vptr)
 endif()
 
 # The test-only extension (native_test/), for rake test; never packaged.
