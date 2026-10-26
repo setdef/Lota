@@ -51,8 +51,10 @@ Use "LÖVE", "LOVE", "Love2D", and LÖVE's heart logo only in ways that need no 
 
 The maintainer uses three words for how work comes to exist. *Written* means typed by hand, with nothing generated. *Wrought* means an agent generated it while the maintainer iterated with it and reviewed every change before committing it. *Requested* means an agent built it with little or no review.
 
-- **Wrought:** ADRs, plans, and this file. The maintainer approves each change to them as a diff.
-- **Requested:** everything else, including all code (`lib/`, `sig/`, `ext/`, `tasks/`, `test/`), patch files, the binding generator and everything it generates, the README, and the user guide. Because no one reviews this work line by line, the gates review it: sanitizers, clang-tidy, the memory test, the package check, and the parity harness. Never weaken a gate to make requested work pass.
+Provenance belongs to each change, not to a kind of file, so one file can hold wrought and requested changes, and each commit's trailer says which it holds.
+
+- **Wrought:** changes to ADRs and this file. The maintainer approves each one as a diff before it is committed.
+- **Requested:** every other change, including changes to plans, which are made without the maintainer's review, and all code (`lib/`, `sig/`, `ext/`, `tasks/`, `test/`), patch files, the binding generator and everything it generates, the README, and the user guide. Because no one reviews this work line by line, the gates review it: sanitizers, clang-tidy, the memory test, the package check, and the parity harness. Never weaken a gate to make requested work pass.
 - **Decisions** that belong to the maintainer as product owner go to the maintainer as questions, never as decisions: the public Ruby API, how a game is laid out and started, rule collisions, licensing, and anything that publishes outside this repository.
 - **Tests:** the Lua side of every parity test comes from LÖVE's own Lövetest or from published LÖVE games, never from an agent, so a test checks Lota against something an agent did not write.
 - **Generated code** is marked as generated in its header and is never edited by hand; change the rules or the generator instead.
