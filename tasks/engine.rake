@@ -50,6 +50,6 @@ namespace :engine do
 end
 
 desc "Build LÖVE's engine as a static library, with the extensions that link it"
-task engine: %w[engine:sources:check engine:configure] do
+task engine: %w[engine:sources:check bindings:check engine:configure] do
   ENGINE.build
 end

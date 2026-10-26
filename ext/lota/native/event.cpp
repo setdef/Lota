@@ -42,10 +42,6 @@ void open() { open_module<Event, love::event::sdl::Event>(love::Module::M_EVENT)
 // "if love.event then".
 bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) != nullptr; }
 
-// w_pump (wrap_Event.cpp:67-72): gathers what SDL has queued, waiting up
-// to wait_timeout seconds for the first event.
-void pump(float wait_timeout) { event().pump(wait_timeout); }
-
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
@@ -131,7 +127,6 @@ void define_event(const Rice::Module &native) {
   Rice::define_module_under(native, "Event")
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("pump", &pump, Rice::Arg("wait_timeout") = 0.0F)
       .define_singleton_function("poll", &poll)
       .define_singleton_function("quit", &quit, Rice::Arg("exit_status") = std::optional<double>());
 }

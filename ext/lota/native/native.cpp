@@ -7,6 +7,7 @@
 #include "native/errors.hpp"
 #include "native/event.hpp"
 #include "native/filesystem.hpp"
+#include "native/generated/bindings.hpp"
 #include "native/graphics.hpp"
 #include "native/image.hpp"
 #include "native/keyboard.hpp"
@@ -48,6 +49,9 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_touch(native);
   lota::native::define_window(native);
   lota::native::define_graphics(native);
+  // After the hand-written bindings, which define the classes the
+  // generated ones add methods to.
+  lota::native::define_generated(native);
 
   // love._version (vendor/love/src/modules/love/love.cpp:546-547), the
   // engine's version, which boot.lua's settings default to.

@@ -74,12 +74,6 @@ Rice::Array fullscreen_types() {
   return names;
 }
 
-// w_setTitle and w_getTitle (wrap_Window.cpp:463-474). The title waits in
-// the module until the window opens.
-void set_title(const std::string &title) { window().setWindowTitle(title); }
-
-std::string title() { return window().getWindowTitle(); }
-
 // w__setHighDPIAllowed (vendor/love/src/modules/love/love.cpp:439-445),
 // which boot.lua calls before the window opens.
 void set_high_dpi_allowed(bool enable) {
@@ -121,8 +115,6 @@ void define_window(const Rice::Module &native) {
       .define_singleton_function("set_mode", &set_mode, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Arg("settings"))
       .define_singleton_function("fullscreen_types", &fullscreen_types)
-      .define_singleton_function("set_title", &set_title, Rice::Arg("title"))
-      .define_singleton_function("title", &title)
       .define_singleton_function("set_high_dpi_allowed", &set_high_dpi_allowed,
                                  Rice::Arg("enable"));
 }

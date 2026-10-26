@@ -15,12 +15,6 @@ module Lota
       def initialize: () -> void
 
       def random: () -> Float
-
-      def random_normal: (Float | Integer stddev) -> Float
-
-      def state: () -> String
-
-      def state=: (String state) -> String
     end
 
     class Data
@@ -33,18 +27,10 @@ module Lota
 
     class ImageData
       def self.cpp_class: () -> String
-
-      def width: () -> Integer
-
-      def height: () -> Integer
-
-      def pixel: (Integer x, Integer y) -> Array[Float]
     end
 
     class Texture
       def self.cpp_class: () -> String
-
-      def canvas?: () -> bool
     end
 
     class WindowSettings
@@ -101,18 +87,12 @@ module Lota
       def self.open: () -> nil
 
       def self.open?: () -> bool
-
-      def self.step: () -> Float
-
-      def self.sleep: (Float | Integer seconds) -> nil
     end
 
     module Event
       def self.open: () -> nil
 
       def self.open?: () -> bool
-
-      def self.pump: (?(Float | Integer) wait_timeout) -> nil
 
       def self.poll: () -> Array[String | Float | Integer | bool | nil]?
 
@@ -140,10 +120,6 @@ module Lota
 
       def self.fullscreen_types: () -> Array[String]
 
-      def self.set_title: (String title) -> nil
-
-      def self.title: () -> String
-
       def self.set_high_dpi_allowed: (bool enable) -> nil
     end
 
@@ -160,17 +136,7 @@ module Lota
 
       def self.set_renderers: (Array[String] names) -> nil
 
-      def self.active?: () -> bool
-
-      def self.origin: () -> nil
-
-      def self.background_color: () -> Array[Float]
-
       def self.present: () -> nil
-
-      def self.width: () -> Integer
-
-      def self.height: () -> Integer
 
       def self.new_canvas: (Integer? width, Integer? height) -> Texture
 
@@ -183,20 +149,6 @@ module Lota
       def self.readback_texture: (Texture texture) -> ImageData
 
       def self.set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
-
-      def self.color: () -> Array[Float]
-
-      def self.set_line_width: (Float | Integer width) -> nil
-
-      def self.line_width: () -> Float
-
-      def self.set_line_style: (String name) -> nil
-
-      def self.line_style: () -> String
-
-      def self.rectangle: (String mode, Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
-
-      def self.circle: (String mode, Float | Integer x, Float | Integer y, Float | Integer radius, ?Integer? segments) -> nil
 
       def self.capture_screenshot: (^(ImageData) -> void callable) -> nil
     end

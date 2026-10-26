@@ -5,7 +5,6 @@
 
 #include "native/binding.hpp"
 
-#include "common/Color.h"
 #include "common/Data.h"
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -38,25 +37,11 @@ ImageData *new_image_data(love::Data *data) {
   return instance->newImageData(data);
 }
 
-// w_ImageData_getPixel (wrap_ImageData.cpp:104-118): the pixel's red,
-// green, blue, and alpha, each widened from float as Lua's numbers are.
-Rice::Array pixel(const ImageData &image_data, int x, int y) {
-  const love::Colorf color = image_data.getPixel(x, y);
-  Rice::Array components;
-  components.push(static_cast<double>(color.r), false);
-  components.push(static_cast<double>(color.g), false);
-  components.push(static_cast<double>(color.b), false);
-  components.push(static_cast<double>(color.a), false);
-  return components;
-}
-
 } // namespace
 
 void define_image(const Rice::Module &native) {
-  Rice::define_class_under<ImageData>(native, "ImageData")
-      .define_method("width", &ImageData::getWidth)
-      .define_method("height", &ImageData::getHeight)
-      .define_method("pixel", &pixel, Rice::Arg("x"), Rice::Arg("y"));
+  // Its methods are generated (ext/lota/native/generated/image.cpp).
+  Rice::define_class_under<ImageData>(native, "ImageData");
 
   Rice::define_module_under(native, "Image")
       .define_singleton_function("open", &open)

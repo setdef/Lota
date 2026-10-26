@@ -51,8 +51,8 @@ class RakeTasksTest < Minitest::Test
     assert_equal %w[cpp:format cpp:no_nolint cpp:tidy], prerequisites("cpp")
   end
 
-  def test_engine_checks_its_source_list_before_building
-    assert_equal %w[engine:sources:check engine:configure], prerequisites("engine")
+  def test_engine_checks_its_source_list_and_generated_bindings_before_building
+    assert_equal %w[engine:sources:check bindings:check engine:configure], prerequisites("engine")
     assert_equal %w[engine:configure], prerequisites("cpp:tidy")
   end
 
