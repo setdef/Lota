@@ -39,6 +39,10 @@ module Lota
       def channel_count: () -> Integer
     end
 
+    class Data
+      def size: () -> Integer
+    end
+
     module Event
       def self.pump: (?(Float | Integer) wait_timeout) -> nil
 
@@ -183,6 +187,30 @@ module Lota
       def self.relative_mode: () -> bool
 
       def self.cursor_supported?: () -> bool
+    end
+
+    class Decoder
+      def channel_count: () -> Integer
+
+      def bit_depth: () -> Integer
+
+      def sample_rate: () -> Integer
+
+      def duration: () -> Float
+    end
+
+    class SoundData
+      def channel_count: () -> Integer
+
+      def bit_depth: () -> Integer
+
+      def sample_rate: () -> Integer
+
+      def sample_count: () -> Integer
+
+      def duration: () -> Float
+
+      def copy_from: (SoundData src, Integer src_start, Integer count, ?Integer dst_start) -> nil
     end
 
     module System

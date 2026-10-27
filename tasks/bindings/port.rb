@@ -310,7 +310,7 @@ object:,
 
       index = index.to_i
       cast = text[/\(\s*([\w:]+)\s*\)\s*#{Regexp.escape(call.name)}\s*\(/, 1]
-      declared = text.match(/\A(?:const\s+)?(?<type>[\w:]+(?:\s*[*&]+\s*|\s+))(?<name>\w+)\s*=\s*(?:\([\w:]+\)\s*)?#{Regexp.escape(call.name)}\s*\(/)
+      declared = text.match(/\A(?<const>const\s+)?(?<type>[\w:]+(?:\s*[*&]+\s*|\s+))(?<name>\w+)\s*=\s*(?:\([\w:]+\)\s*)?#{Regexp.escape(call.name)}\s*\(/)
       field = text[/\A\w+\.(\w+)\s*=/, 1]
       # What a declaration adds to its read (int start = (int)
       # luaL_checkinteger(L, 2) - 1 subtracts 1), which the variable keeps.
@@ -321,6 +321,7 @@ call:,
 cast:,
 variable: declared&.[](:name),
 declared: declared&.[](:type)&.strip,
+constant: !declared&.[](:const).nil?,
 field:,
 rest:,
 text:,
@@ -361,7 +362,7 @@ line: node.line,
       when :integer then integral(read[:cast]) || integral(read[:declared]) || "long long"
       when :string then "const std::string &"
       when :boolean, :truthy then "bool"
-      when :object then "#{helper_type(read[:call])} *"
+      when :object then "#{'const ' if read[:constant]}#{helper_type(read[:call])} *"
       else raise Unsupported, "#{@function.love_name} reads a #{kind} argument"
       end
     end
@@ -702,7 +703,11 @@ line: node.line,
       raise Unsupported, "#{@function.love_name} pushes #{expression} (#{type}) with #{pusher}"
     end
 
+    # A float pushed as a lua_Number, a double, is widened to one; an
+    # integer cast to a lua_Number keeps its own type (rule 14), so the
+    # cast goes.
     private def convert(value, call, type)
+      return value.sub(/\A\(\s*double\s*\)\s*/, "") if type.match?(INTEGRAL)
       return value unless call.base_name == "lua_pushnumber" && type == "double"
 
       source = expression_type(call.arguments[1]).to_s.sub(/\Aconst\s+/, "").delete("&").strip

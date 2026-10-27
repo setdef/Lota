@@ -249,12 +249,14 @@ module Bindings
       love << '"common/Color.h"' if code.match?(/\bColor[fD]?\b|\bColorT\b/)
       love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b/)
       love << '"common/math.h"' if code.match?(/\bRect\b/)
-      classes = ports.map { |port| port.function.wrap.instance_class }.compact +
+      # The module's class only where a port reaches it through instance().
+      classes = ports.filter_map { |port| port.function.wrap.instance_class if port.definition.include?("instance()") } +
         ports.filter_map { |port| port.self_parameter&.fetch(:type) } +
         ports.flat_map { |port| port.parameters.compact.filter_map(&:object) }
       classes.uniq.each { |type| love << %("#{header_of(name, type)}") }
       std = []
       std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
+      std << "<cstddef>" if code.match?(/\bsize_t\b/)
       std << "<limits>" if code.include?("std::numeric_limits")
       std << "<optional>" if code.include?("std::optional")
       std << "<string>" if code.include?("std::string")
@@ -262,10 +264,15 @@ module Bindings
         .join("\n\n").lines(chomp: true)
     end
 
+    # The header that declares +type+ for module +name+'s wrap files: one
+    # of the module's own, or, for a class every module shares, as
+    # love::Data is, one in src/common, which LÖVE's sources include as
+    # common/ (common/Data.h).
     private def header_of(name, type)
-      path = Dir.glob("src/modules/#{name}/**/#{type}.h", base: @love).min_by(&:length) or
+      path = Dir.glob("src/modules/#{name}/**/#{type}.h", base: @love).min_by(&:length) ||
+        Dir.glob("src/common/#{type}.h", base: @love).first or
         raise Failure, "no header declares #{type} in love.#{name}"
-      path.delete_prefix("src/modules/")
+      path.delete_prefix("src/modules/").delete_prefix("src/")
     end
 
     private def header(modules)

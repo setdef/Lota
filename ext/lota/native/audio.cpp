@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/sound.hpp"
 
 #include "audio/Audio.h"
 #include "audio/Source.h"
@@ -12,17 +13,11 @@
 #include "audio/openal/Audio.h"
 #include "common/Exception.h"
 #include "common/Module.h"
-#include "common/Stream.h"
-#include "data/DataStream.h"
-#include "filesystem/File.h"
-#include "filesystem/FileData.h"
-#include "filesystem/Filesystem.h"
 #include "sound/Decoder.h"
 #include "sound/Sound.h"
 #include "sound/SoundData.h"
 
 #include <cstdlib>
-#include <memory>
 #include <string>
 #include <utility>
 
@@ -105,29 +100,6 @@ Rice::Array open() {
 
 bool is_open() { return love::Module::getInstance<Audio>(love::Module::M_AUDIO) != nullptr; }
 
-// w_newDecoder with a filename, a buffer size, and a stream type
-// (vendor/love/src/modules/sound/wrap_Sound.cpp:35-83), as w_newSource
-// calls it through luax_convobj: "memory" reads the whole file into a
-// DataStream, and "file" decodes from the open file as the Source plays.
-Decoder *new_decoder(const std::string &filename, Decoder::StreamSource source) {
-  auto *sound = module<love::sound::Sound>(love::Module::M_SOUND, "Lota::Sound");
-  const auto *filesystem =
-      module<love::filesystem::Filesystem>(love::Module::M_FILESYSTEM, "Lota::Filesystem");
-  const love::StrongRef<love::filesystem::File> file(
-      filesystem->openFile(filename.c_str(), love::filesystem::File::MODE_CLOSED),
-      love::Acquire::NORETAIN);
-  love::StrongRef<love::Stream> stream;
-  if (source == Decoder::STREAM_FILE) {
-    file->open(love::filesystem::File::MODE_READ);
-    stream.set(file.get());
-  } else {
-    const love::StrongRef<love::filesystem::FileData> data(file->read(), love::Acquire::NORETAIN);
-    stream.set(std::make_unique<love::data::DataStream>(data.get()).release(),
-               love::Acquire::NORETAIN);
-  }
-  return sound->newDecoder(stream.get(), Decoder::DEFAULT_BUFFER_SIZE);
-}
-
 // w_newSource with a filename and a source type (wrap_Audio.cpp:47-102): a
 // static Source decodes the whole file into SoundData first, and a
 // streaming one decodes from the file as it plays. The Source's one
@@ -148,10 +120,12 @@ Source *new_source(const std::string &filename, Rice::Object source_type) {
   if (love::Module::getInstance<love::sound::Sound>(love::Module::M_SOUND) == nullptr) {
     throw love::Exception("Could not find love.sound!");
   }
-  const love::StrongRef<Decoder> decoder(new_decoder(filename, (stype == Source::TYPE_STATIC)
-                                                                   ? Decoder::STREAM_MEMORY
-                                                                   : Decoder::STREAM_FILE),
-                                         love::Acquire::NORETAIN);
+  // luax_convobj calls w_newDecoder with the filename, the default buffer
+  // size, and a stream type (wrap_Audio.cpp:63-78).
+  const love::StrongRef<Decoder> decoder(
+      new_decoder(filename, Decoder::DEFAULT_BUFFER_SIZE,
+                  (stype == Source::TYPE_STATIC) ? Decoder::STREAM_MEMORY : Decoder::STREAM_FILE),
+      love::Acquire::NORETAIN);
   if (stype == Source::TYPE_STATIC) {
     auto *sound = module<love::sound::Sound>(love::Module::M_SOUND, "Lota::Sound");
     const love::StrongRef<SoundData> data(sound->newSoundData(decoder.get()),

@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Sound
+    class Decoder
+      include Object
+
+      DEFAULT_BUFFER_SIZE: Integer
+
+      attr_reader native: Native::Decoder
+
+      def self.from_native: (Native::Decoder native) -> Decoder
+
+      def self.new: (String | Filesystem::FileData file, ?Integer buffer_size, ?(Symbol | String)? type) -> Decoder
+
+      def decode: () -> SoundData?
+
+      def channel_count: () -> Integer
+
+      def bit_depth: () -> Integer
+
+      def sample_rate: () -> Integer
+
+      def duration: () -> Float
+    end
+  end
+end

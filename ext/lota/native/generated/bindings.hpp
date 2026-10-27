@@ -17,24 +17,28 @@
 namespace lota::native {
 
 void define_generated_audio(const Rice::Module &native);
+void define_generated_data(const Rice::Module &native);
 void define_generated_event(const Rice::Module &native);
 void define_generated_filesystem(const Rice::Module &native);
 void define_generated_graphics(const Rice::Module &native);
 void define_generated_image(const Rice::Module &native);
 void define_generated_math(const Rice::Module &native);
 void define_generated_mouse(const Rice::Module &native);
+void define_generated_sound(const Rice::Module &native);
 void define_generated_system(const Rice::Module &native);
 void define_generated_timer(const Rice::Module &native);
 void define_generated_window(const Rice::Module &native);
 
 inline void define_generated(const Rice::Module &native) {
   define_generated_audio(native);
+  define_generated_data(native);
   define_generated_event(native);
   define_generated_filesystem(native);
   define_generated_graphics(native);
   define_generated_image(native);
   define_generated_math(native);
   define_generated_mouse(native);
+  define_generated_sound(native);
   define_generated_system(native);
   define_generated_timer(native);
   define_generated_window(native);

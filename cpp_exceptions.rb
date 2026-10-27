@@ -23,10 +23,10 @@
 # ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
 # header, ruby.h, does not export them, so misc-include-cleaner cannot be
 # satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 163,
+allow "ext/lota/native_test/native_test.cpp", line: 170,
   reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
     "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 181,
+allow "ext/lota/native_test/native_test.cpp", line: 188,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
     "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."
@@ -40,7 +40,7 @@ allow "ext/lota/native_test/native_test.cpp", line: 181,
 # Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
 # (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
 # through the cast is defined; only the cast can reach it.
-allow "ext/lota/native_test/native_test.cpp", line: 352,
+allow "ext/lota/native_test/native_test.cpp", line: 359,
   reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
     "the test-only key hold must write it, which only a const_cast can do."
 
@@ -52,3 +52,12 @@ allow "ext/lota/native_test/native_test.cpp", line: 352,
 # check.
 allow "ext/lota/native/event.cpp", lines: [66, 89],
   reason: "love::Variant exposes its value only as a union tagged by getType(); there is no other accessor."
+
+# The parity harness's audio device (ext/lota/native_test/loopback.cpp)
+# interposes alcCreateContext, which OpenAL declares as taking its
+# attributes as a const ALCint * ending in a zero, with no length (alc.h).
+# Finding the zero means indexing the pointer, once; the list is a
+# std::span from then on.
+allow "ext/lota/native_test/loopback.cpp", line: 81,
+  reason: "alcCreateContext's attribute list is a zero-terminated C array with no length (alc.h), which only " \
+    "pointer arithmetic can measure before it is a std::span."

@@ -39,6 +39,13 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
 
+// The parity harness's audio device (loopback.cpp), which the harness
+// loads with DYLD_INSERT_LIBRARIES. A Ruby extension links with
+// -undefined dynamic_lookup, so this bundle finds it in whichever image
+// has it, and the weak import makes it nullptr in a process the harness
+// did not load it into.
+extern "C" __attribute__((weak_import)) long lota_loopback_render(const char *path, double dt);
+
 namespace {
 
 using love::math::RandomGenerator;
@@ -537,6 +544,22 @@ void rotate_display() {
   push(event);
 }
 
+// Mixes +dt+ seconds of game time on the parity harness's loopback device
+// into the file +path+ (lota_loopback_render, loopback.cpp), as the
+// harness's Lua side does through LuaJIT's FFI (test/parity/lua/conf.lua).
+// How many sample frames it mixed; raises when the device is not loaded
+// into this process, or has not been opened or cannot write its file.
+long render_loopback(const std::string &path, double dt) {
+  if (lota_loopback_render == nullptr) {
+    throw std::runtime_error("liblota_loopback is not loaded (DYLD_INSERT_LIBRARIES)");
+  }
+  const long count = lota_loopback_render(path.c_str(), dt);
+  if (count < 0) {
+    throw std::runtime_error("the loopback device is not open, or cannot write its file");
+  }
+  return count;
+}
+
 // Takes the arguments Lota::Native::Graphics.rectangle takes, converted by
 // Rice the same way, and does nothing with them, so rake bench can time a
 // call from Ruby into C++ apart from LÖVE's own drawing
@@ -651,6 +674,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
       .define_module_function("press_key", &press_key, Rice::Arg("scancode"), Rice::Arg("down"))
       .define_module_function("click_mouse", &click_mouse, Rice::Arg("button"), Rice::Arg("down"))
+      .define_module_function("render_loopback", &render_loopback, Rice::Arg("path"),
+                              Rice::Arg("dt"))
       .define_module_function("press_return_on_dialogs",
                               &lota::native_test::press_return_on_dialogs)
       .define_module_function("dialogs_answered", &lota::native_test::dialogs_answered)

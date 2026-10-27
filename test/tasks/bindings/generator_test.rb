@@ -58,6 +58,32 @@ class GeneratorTest < Minitest::Test
       %(#include "common/math.h")
   end
 
+  # wrap_Decoder.cpp defines LÖVE's instance() macro for love.sound's
+  # class, Sound, but Decoder:getSampleRate never reaches it, so the file
+  # does not include Sound.h, which clang-tidy's misc-include-cleaner would
+  # refuse; Data's class is LÖVE's common Data (common/Data.h), and the
+  # size_t its size is, <cstddef>'s.
+  def test_a_module_file_includes_its_modules_class_only_when_it_reaches_the_module
+    list = Bindings::BindingList.new
+    list.generate("Decoder:getSampleRate")
+    sound = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/sound.cpp")
+    data = Bindings::BindingList.new
+    data.generate("Data:getSize")
+
+    assert_includes sound, %(#include "sound/Decoder.h")
+    refute_includes sound, %(#include "sound/Sound.h")
+    data_file = BindingsHelper.generator(list: data).files.fetch("ext/lota/native/generated/data.cpp")
+    assert_includes data_file, %(#include "common/Data.h")
+    assert_includes data_file, "#include <cstddef>"
+  end
+
+  # w_SoundData_copyFrom reads its source as a const SoundData *, which the
+  # port takes as LÖVE declares it.
+  def test_an_object_read_as_const_is_taken_const
+    assert_includes port("SoundData:copyFrom").definition,
+      "void w_SoundData_copyFrom(SoundData &dst, const SoundData *src, int src_start, int count, int dst_start)"
+  end
+
   # w_Source_setPitch limits its pitch by std::numeric_limits<lua_Number>,
   # Lua's number, a double in LÖVE's LuaJIT, so the port limits it by a
   # double's and its file includes <limits>.
@@ -150,6 +176,16 @@ class GeneratorTest < Minitest::Test
     assert_match(/-> Array\[Float\]\z/, port("love.graphics.getColor").rbs)
   end
 
+  # w_Data_getSize pushes the size_t Data::getSize returns as a lua_Number,
+  # which rule 14 makes an Integer, as the C++ holds it: the port returns
+  # it as the size_t it is, without the cast to a Lua number.
+  def test_an_integer_pushed_as_a_lua_number_stays_an_integer
+    port = port("Data:getSize")
+
+    assert_includes port.definition, "size_t w_Data_getSize(const Data &t) {\nreturn t.getSize();\n}"
+    assert_match(/-> Integer\z/, port.rbs)
+  end
+
   # w_getX declares two doubles in one statement (double x, y;), which
   # getPosition fills; the port declares each in a statement of its own,
   # initialized, and pushes x as the Float LÖVE holds it in.
@@ -184,13 +220,15 @@ class GeneratorTest < Minitest::Test
 
   # Rule 4 again: w_File_tell returns luax_ioError's nil and message when
   # the position is unknown, and the position otherwise, so both are an
-  # Array, and the message is the one LÖVE formats.
+  # Array, and the message is the one LÖVE formats. The position is the
+  # Integer its int64 holds (rule 14), though LÖVE pushes it as a
+  # lua_Number.
   def test_an_io_error_returns_nil_and_its_message_in_an_array
     port = port("File:tell")
 
     assert_includes port.definition, "Rice::Array w_File_tell(File &file) {\nRice::Array results;"
     assert_includes port.definition, %(if (pos == -1) {\nreturn io_error("Invalid position.");\n})
-    assert_match(/results\.push\(\(double\)pos, false\);\n\}\n\}\nreturn results;\n\}\n\z/, port.definition)
+    assert_match(/results\.push\(pos, false\);\n\}\n\}\nreturn results;\n\}\n\z/, port.definition)
     assert_match(/-> Array\[Integer \| nil \| String\]\z/, port.rbs)
   end
 
@@ -249,8 +287,13 @@ class GeneratorTest < Minitest::Test
   # only boot.lua; and love.window.showMessageBox only Lota's error
   # handler, until the maintainer settles how its buttons form, whose table
   # holds both the buttons and the enterbutton and escapebutton settings,
-  # translates.
+  # translates. Data's getSize and getString are Lota::Sound::SoundData's
+  # size and string, as SoundData inherits them in LÖVE, where rule 1
+  # would put them on Lota::Data::Data, which waits for the maintainer:
+  # inside Lota, Lota::Data would hide Ruby's own Data class.
   UNWRITTEN = %w[
+    Data:getSize
+    Data:getString
     RandomGenerator:_random
     RandomGenerator:getState
     RandomGenerator:randomNormal

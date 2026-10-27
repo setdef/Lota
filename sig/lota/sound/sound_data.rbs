@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Sound
+    class SoundData
+      include Object
+
+      attr_reader native: Native::SoundData
+
+      def self.from_native: (Native::SoundData native) -> SoundData
+
+      def self.new: (Integer samples, ?Integer sample_rate, ?Integer bit_depth, ?Integer channels) -> SoundData
+                  | (String | Filesystem::FileData | Decoder source) -> SoundData
+
+      def channel_count: () -> Integer
+
+      def bit_depth: () -> Integer
+
+      def sample_rate: () -> Integer
+
+      def sample_count: () -> Integer
+
+      def duration: () -> Float
+
+      def size: () -> Integer
+
+      def string: (?Integer offset, ?Integer? size) -> String
+
+      def sample: (Float | Integer i, ?Integer? channel) -> Float
+
+      def sample=: (Array[Float | Integer] arguments) -> void
+
+      def copy_from: (SoundData source, Integer source_start, Integer count, ?Integer destination_start) -> nil
+
+      def slice: (Integer start, ?Integer length) -> SoundData
+    end
+  end
+end

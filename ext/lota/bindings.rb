@@ -241,6 +241,40 @@ bound_by_hand "RandomGenerator:setSeed",
   reason: "reads its seed's two halves at a position it computes (luax_checkrandomseed); Lota binds the low " \
     "half and an optional high half"
 
+# love.sound
+bound_by_hand "love.sound.newDecoder",
+  reason: "chooses among its forms by its argument's kind (luax_cangetfile, luax_istype) and pushes its " \
+    "Decoder with luax_pushtype, which the generator does not port; Lota binds a filename with its stream type, " \
+    "and Data"
+bound_by_hand "love.sound.newSoundData",
+  reason: "passes the lua_State to w_newDecoder, which the parser does not read, and pushes its SoundData with " \
+    "luax_pushtype; Lota binds the form with numbers and the form with a Decoder, which " \
+    "Lota::Sound::SoundData.new makes from a filename or a FileData first, as LÖVE does"
+bound_by_hand "Decoder:decode",
+  reason: "pushes its SoundData with luax_pushtype, or nil, which the generator does not port"
+bound_by_hand "SoundData:slice",
+  reason: "pushes its SoundData with luax_pushtype, which the generator does not port"
+bound_by_hand "SoundData:getSample",
+  reason: "LÖVE runs the LuaJIT version in wrap_SoundData.lua, which divides in double precision where the " \
+    "C++ wrap function divides in a float; Lota ports the Lua, which the generator does not read"
+bound_by_hand "SoundData:setSample",
+  reason: "LÖVE runs the LuaJIT version in wrap_SoundData.lua, which multiplies in double precision and stores " \
+    "through LuaJIT's conversions; Lota ports the Lua, which the generator does not read"
+generate "SoundData:getChannelCount"
+generate "SoundData:getBitDepth"
+generate "SoundData:getSampleRate"
+generate "SoundData:getSampleCount"
+generate "SoundData:getDuration"
+generate "SoundData:copyFrom"
+generate "Data:getSize"
+bound_by_hand "Data:getString",
+  reason: "pushes its bytes with lua_pushlstring from a pointer it computes with a C-style cast and pointer " \
+    "arithmetic, which clang-tidy refuses; Lota reads the same bytes through a std::span"
+generate "Decoder:getChannelCount"
+generate "Decoder:getBitDepth"
+generate "Decoder:getSampleRate"
+generate "Decoder:getDuration"
+
 # love.system
 generate "love.system.setClipboardText"
 generate "love.system.getClipboardText"

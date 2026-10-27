@@ -16,10 +16,13 @@ require_relative "parity_helper"
 # loads and saves them when it starts a game and when it quits
 # (main.lua:87-133, state.lua:34-39), and its pause menu saves the game
 # (states/game/gamepause.lua:63-77), under LÖVE's save directory, which
-# the harness keeps in a home of its own. Its sounds play into OpenAL
-# Soft's wave file writer there (test/alsoft.conf). Lota's run does the
-# same in a home of its own, where it saves in a Lota folder (ADR 003,
-# section 8), and both runs must save the same files, byte for byte.
+# the harness keeps in a home of its own. Lota's run does the same in a
+# home of its own, where it saves in a Lota folder (ADR 003, section 8),
+# and both runs must save the same files, byte for byte. Both runs mix
+# the game's sounds on the harness's loopback device, once a frame, for
+# the frame's dt (ext/lota/native_test/loopback.cpp), and must mix the
+# same samples; and both decode the sound files SOUNDS lists, which must
+# decode to the same samples too.
 class KleleAtomsTest < Minitest::Test
   GAME = File.join(Parity::ROOT, "test/fixtures/klele_atoms")
   TRANSLATED = File.join(Parity::ROOT, "test/games/klele_atoms")
@@ -50,6 +53,17 @@ class KleleAtomsTest < Minitest::Test
   # Quit" (gamepause.lua:79-128 and 232-252), which saves the game and
   # goes back to the menu. Escape goes down at the start of frame 400, and
   # the menu quits before the game draws it, saving its settings.
+  # The sound files both engines decode when the game loads, for their
+  # samples to be compared (Plan 001, "Sound"): KleleAtoms' three WAVE
+  # files, the only sounds of the fixture games (the arkanoid tutorial's
+  # come in chapters whose licenses are not stated, which Plan 001 leaves
+  # out), and Lövetest's four Ogg Vorbis files (vendor/love/testing/
+  # resources), which Lövetest's own sound and audio tests decode, so
+  # LÖVE's Vorbis decoder is compared as well as its WAVE one.
+  SOUNDS = (Dir[File.join(GAME, "sounds/*.wav")] +
+    %w[click clickmono pop tone].map { |name| File.join(Parity::ROOT, "vendor/love/testing/resources/#{name}.ogg") })
+    .freeze
+
   SCRIPT = Parity::Script.new(frames: 400, fps: 60, holds: [], presses: [[ESCAPE, 400..400]],
     moves: [
       [1, 620, 300],
@@ -60,7 +74,8 @@ class KleleAtomsTest < Minitest::Test
       [300, 22, 22],
       [340, 325, 170],
     ],
-    clicks: [30, 70, 110, 150, 190, 310, 350].map { |frame| [1, frame..frame] })
+    clicks: [30, 70, 110, 150, 190, 310, 350].map { |frame| [1, frame..frame] },
+    sounds: SOUNDS)
 
   # The frames the game draws: every one but the last.
   FRAMES = SCRIPT.frames - 1
@@ -131,6 +146,91 @@ class KleleAtomsTest < Minitest::Test
     assert_nil lota.mismatch, "first differing frame: #{lota.mismatch}"
     assert_equal FRAMES, lota.compared
     assert_equal love.output.text, lota.output.text
+  end
+
+  # The files the run +run+ decoded each of SOUNDS into, by name.
+  def decoded(run)
+    Dir.children(run.sounds_dir).sort.to_h { |name| [name, File.binread(File.join(run.sounds_dir, name))] }
+  end
+
+  # LÖVE decodes each sound both ways. click.wav, the first, is 8-bit mono
+  # at 44.1 kHz, one byte a sample frame, and its Decoder's pieces hold
+  # the samples its SoundData holds; tone.ogg, the last, is 16-bit.
+  def test_love_decodes_every_sound
+    files = decoded(love)
+
+    assert_equal SOUNDS.size.times.flat_map { |index| ["#{index + 1}.decoder", "#{index + 1}.sounddata"] }.sort,
+      files.keys
+    header, samples = files.fetch("1.sounddata").split("\n", 2)
+    rate, bits, channels, count, _duration, size = header.split
+    assert_equal %w[44100 8 1], [rate, bits, channels]
+    assert_equal [count.to_i, count.to_i], [size.to_i, samples.bytesize]
+    assert_equal samples, pieces(files.fetch("1.decoder")).join
+    assert_equal "16", files.fetch("#{SOUNDS.size}.sounddata").split[1]
+  end
+
+  # The samples of each piece a .decoder file holds, after its format.
+  def pieces(file)
+    rest = file.split("\n", 2).last
+    found = []
+    until rest.empty?
+      size, rest = rest.split("\n", 2)
+      found << rest.byteslice(0, size.to_i)
+      rest = rest.byteslice((size.to_i)..)
+    end
+    found
+  end
+
+  # What Lota's SoundData and Decoder decode is what LÖVE's do: the same
+  # format, and the same samples, byte for byte (Plan 001, "Sound").
+  def test_the_translation_decodes_what_love_decodes
+    assert_predicate lota.output.status, :success?, lota.output.text
+    expected = decoded(love)
+    actual = decoded(lota)
+
+    assert_equal expected.keys, actual.keys
+    expected.each do |name, bytes|
+      sound = SOUNDS.fetch(Integer(name[/\A\d+/]) - 1)
+      assert_equal bytes.lines.first, actual.fetch(name).lines.first, "#{name}, #{File.basename(sound)}: format"
+      assert bytes == actual.fetch(name), "#{name}, #{File.basename(sound)}: samples differ"
+    end
+  end
+
+  # What KleleAtoms mixes, as 32-bit float stereo sample frames, and the
+  # number of the frame, counting from 1, that sample frame +index+ was
+  # mixed in.
+  def self.frame_of(index)
+    (index / (Parity::LOOPBACK_RATE / SCRIPT.fps)) + 1
+  end
+
+  def mix(run)
+    File.binread(run.audio).unpack("e*").each_slice(2).to_a
+  end
+
+  # The harness mixes LÖVE's audio once a frame, for the frame's dt, from
+  # love.update, which runs in every frame the game draws: 800 sample
+  # frames each, at 48 kHz and 60 frames a second. The first sound is the
+  # menu's click on its play button (states/menu/menustate.lua:370-374),
+  # in frame 30, where the script clicks, from the frame's first sample.
+  def test_love_mixes_its_sounds_once_a_frame
+    mixed = mix(love)
+
+    assert_equal FRAMES * Parity::LOOPBACK_RATE / SCRIPT.fps, mixed.size
+    first = mixed.index { |frame| frame != [0.0, 0.0] }
+    assert_equal 30, self.class.frame_of(first)
+    assert_equal 0, first % (Parity::LOOPBACK_RATE / SCRIPT.fps)
+  end
+
+  # Both runs mix the same sounds, sample for sample: the chain reaction's
+  # explosions too, which overlap.
+  def test_the_translation_mixes_what_love_mixes
+    assert_predicate lota.output.status, :success?, lota.output.text
+    expected = mix(love)
+    actual = mix(lota)
+    differing = expected.each_index.find { |index| expected[index] != actual[index] }
+
+    assert_nil differing, "first differing sample frame: #{differing} in frame #{differing && self.class.frame_of(differing)}"
+    assert_equal expected.size, actual.size
   end
 
   # Both runs save the same settings and the same game, each in its own

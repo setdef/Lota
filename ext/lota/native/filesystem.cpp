@@ -20,6 +20,7 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 
 namespace lota::native {
@@ -280,12 +281,40 @@ private:
   std::size_t offset_ = 0;
 };
 
+// w_Data_getString (vendor/love/src/modules/data/wrap_Data.cpp:40-59):
+// +size+ of the Data's bytes from +offset+, or every one from +offset+ on.
+// LÖVE reads both as Lua numbers and truncates them to int64s. Data is
+// every Data's base, so its subclasses' wrappers have it too.
+std::string data_string(const love::Data &data, double offset_number,
+                        std::optional<double> size_number) {
+  const auto offset = static_cast<love::int64>(offset_number);
+  const auto total = static_cast<love::int64>(data.getSize());
+  const love::int64 size =
+      size_number.has_value() ? static_cast<love::int64>(*size_number) : total - offset;
+
+  if (size <= 0) {
+    throw love::Exception("Invalid size parameter (must be greater than 0)");
+  }
+
+  if (offset < 0 || offset + size > total) {
+    throw love::Exception("The given offset and size parameters don't fit within the Data's size.");
+  }
+
+  const std::span<const char> bytes(static_cast<const char *>(data.getData()), data.getSize());
+  const std::span<const char> part =
+      bytes.subspan(static_cast<std::size_t>(offset), static_cast<std::size_t>(size));
+  return {part.begin(), part.end()};
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_filesystem(const Rice::Module &native) {
-  define_engine_class<love::Data>(native, "Data");
+  // Its size is generated (ext/lota/native/generated/data.cpp).
+  define_engine_class<love::Data>(native, "Data")
+      .define_method("string", &data_string, Rice::Arg("offset") = 0.0,
+                     Rice::Arg("size") = std::optional<double>());
   define_engine_class<FileData, love::Data>(native, "FileData");
 
   Rice::define_module_under(native, "Filesystem")

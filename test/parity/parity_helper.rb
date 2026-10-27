@@ -31,6 +31,26 @@ module Parity
   # What a run of one engine printed, and how it ended.
   Output = Data.define(:text, :status)
 
+  # The parity harness's audio device (ext/lota/native_test/loopback.cpp),
+  # which every run, LÖVE's and Lota's, loads with DYLD_INSERT_LIBRARIES:
+  # it gives LÖVE's audio module an OpenAL Soft loopback device in place of
+  # the wave file writer test/alsoft.conf names, which each side of the
+  # harness mixes once a frame, for the frame's fixed dt, into the run's
+  # LOTA_LOOPBACK_FILE. Both engines are started directly, never through a
+  # shell, which macOS protects and would drop the variable from.
+  LOOPBACK = File.join(ROOT, "tmp/engine/build/lib/liblota_loopback.dylib")
+
+  # The sample rate and channels the loopback device mixes at, and the
+  # bytes of one sample frame: 32-bit float stereo at 48 kHz.
+  LOOPBACK_RATE = 48_000
+  LOOPBACK_FRAME_BYTES = 2 * 4
+
+  # The environment that loads the loopback device and names the file it
+  # writes, +audio+.
+  def self.loopback(audio)
+    { "DYLD_INSERT_LIBRARIES" => LOOPBACK, "LOTA_LOOPBACK_FILE" => audio }
+  end
+
   # The seconds since the epoch both engines' clocks stand at, unless a
   # script names its own: 2020-09-13, 12:26:40 UTC.
   CLOCK = 1_600_000_000
@@ -65,8 +85,12 @@ module Parity
   # cannot start in frame 1. A press whose last frame is the script's last
   # comes up after it, and then the game must quit on its own, as on
   # Escape; otherwise the harness quits after the last frame.
-  class Script < Data.define(:frames, :fps, :holds, :presses, :clock, :moves, :clicks)
-    def initialize(frames:, fps:, holds:, presses: [], clock: CLOCK, moves: [], clicks: [])
+  #
+  # The sounds are sound files, by absolute path, that both engines decode
+  # when the game loads, each as LÖVE's SoundData and Decoder decode it,
+  # for a test to compare (test/parity/lua/conf.lua, decode_sounds).
+  class Script < Data.define(:frames, :fps, :holds, :presses, :clock, :moves, :clicks, :sounds)
+    def initialize(frames:, fps:, holds:, presses: [], clock: CLOCK, moves: [], clicks: [], sounds: [])
       if (presses + clicks).any? { |_, range| range.first < 2 || range.last > frames }
         raise ArgumentError, "a press or a click must start in frame 2 or later and end by frame #{frames}"
       end
@@ -87,6 +111,7 @@ module Parity
         "LOTA_PARITY_PRESS" => Parity.keys(presses),
         "LOTA_PARITY_MOVE" => moves.map { |frame, x, y| "#{frame}:#{x}:#{y}" }.join(","),
         "LOTA_PARITY_CLICK" => Parity.keys(clicks),
+        "LOTA_PARITY_SOUNDS" => sounds.join(","),
       }
     end
   end
@@ -100,7 +125,7 @@ module Parity
   # A game run in the reference love, whose frames a run in Lota is
   # compared with.
   class LoveRun
-    attr_reader :frames_dir, :output, :home
+    attr_reader :frames_dir, :output, :home, :audio, :sounds_dir
 
     # Runs the game in the folder +game+ under +script+, keeping its frames
     # in +directory+. LÖVE's home directory is +directory+/home
@@ -116,8 +141,11 @@ module Parity
       end
       @home = File.join(directory, "home")
       Dir.mkdir(@home)
+      @audio = File.join(directory, "love.f32")
+      @sounds_dir = File.join(directory, "love-sounds")
+      Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
-        "CFFIXED_USER_HOME" => @home)
+        "CFFIXED_USER_HOME" => @home, "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio))
       @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"))
     end
 
@@ -129,7 +157,7 @@ module Parity
 
   # A translated game run in Lota, each frame compared with a LoveRun's.
   class LotaRun
-    attr_reader :output, :report, :home
+    attr_reader :output, :report, :home, :audio, :sounds_dir
 
     # Runs the game in the folder +game+ under +script+ with
     # test/parity/probe.rb, comparing its frames with +love+'s, and keeps
@@ -140,8 +168,12 @@ module Parity
       report = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.json")
       @home = File.join(directory, "lota-home-#{object_id}")
       Dir.mkdir(@home)
+      @audio = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.f32")
+      @sounds_dir = File.join(directory, "lota-sounds-#{object_id}")
+      Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
-        "LOTA_PARITY_REPORT" => report, "CFFIXED_USER_HOME" => @home)
+        "LOTA_PARITY_REPORT" => report, "CFFIXED_USER_HOME" => @home, "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir,
+        **Parity.loopback(@audio))
       native_test = File.join(ROOT, "tmp/engine/build/lib")
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
         "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game)

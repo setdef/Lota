@@ -39,6 +39,8 @@ module Lota
       def type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
     end
 
     class FileData < Data
@@ -175,10 +177,42 @@ module Lota
       def type_of?: (String name) -> bool
     end
 
+    class Decoder
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def decode: () -> SoundData?
+    end
+
+    class SoundData < Data
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def slice: (Integer start, ?Integer length) -> SoundData
+
+      def sample: (Float | Integer i, ?(Float | Integer)? channel) -> Float
+
+      def set_sample: (Array[Float | Integer] arguments) -> nil
+    end
+
     module Sound
       def self.open: () -> nil
 
       def self.open?: () -> bool
+
+      def self.new_decoder: (String filename, Integer buffer_size, ?String? type) -> Decoder
+
+      def self.new_decoder_from_data: (Data data, Integer buffer_size) -> Decoder
+
+      def self.new_sound_data: (Integer samples, Integer sample_rate, Integer bit_depth, Integer channels) -> SoundData
+
+      def self.new_sound_data_from_decoder: (Decoder decoder) -> SoundData
     end
 
     module Audio

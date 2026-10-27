@@ -54,6 +54,15 @@ module Parity
   # LOTA_PARITY_CLICK's clicks are pushed after it with
   # LotaNativeTest.click_mouse, at the pointer's position. Lota::Timer.delta returns DT, the dt
   # the game's update gets, as love.timer.getDelta does on the Lua side.
+  #
+  # Sound is measured twice, as on the Lua side. Lota.load first decodes
+  # each file LOTA_PARITY_SOUNDS lists into LOTA_PARITY_SOUNDS_DIR, with
+  # Lota::Sound::SoundData and Lota::Sound::Decoder, in the form the Lua
+  # side writes LÖVE's (decode_sounds), so the two can be compared sample
+  # for sample. And Lota.update, after the game's update, mixes the frame's
+  # dt on the loopback device the harness loads into the process
+  # (LotaNativeTest.render_loopback, ext/lota/native_test/loopback.cpp),
+  # so the game's sounds are mixed on game time, as LÖVE's are.
   module Probe
     FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
     REPORT = ENV.fetch("LOTA_PARITY_REPORT")
@@ -70,6 +79,8 @@ module Parity
     GAME_QUITS = PRESSES.any? { |_, _, last| last == FRAMES }
     # The seconds since the epoch the clock is fixed at.
     CLOCK = Integer(ENV.fetch("LOTA_PARITY_CLOCK"))
+    # The file the loopback device's mix goes to.
+    LOOPBACK_FILE = ENV.fetch("LOTA_LOOPBACK_FILE")
     # [frame, x, y], as the Lua side reads them.
     MOVES = ENV.fetch("LOTA_PARITY_MOVE", "").scan(/(\d+):(-?[\d.]+):(-?[\d.]+)/)
       .map { |frame, x, y| [Integer(frame), Float(x), Float(y)] }.freeze
@@ -155,6 +166,34 @@ module Parity
           LotaNativeTest.image_data_bytes(native))
       end
 
+      # Decodes each sound file LOTA_PARITY_SOUNDS lists into
+      # LOTA_PARITY_SOUNDS_DIR, as the Lua side's decode_sounds does: for
+      # the Nth, N.sounddata, what SoundData.new makes of it, and
+      # N.decoder, what Decoder.new decodes from it, piece by piece, each
+      # a line of its format and then its samples' bytes, each Decoder
+      # piece after a line with its size. Lua's string.format and Ruby's
+      # format both write the duration's double with C's %.17g.
+      def decode_sounds
+        dir = ENV.fetch("LOTA_PARITY_SOUNDS_DIR", nil) or return
+
+        ENV.fetch("LOTA_PARITY_SOUNDS", "").split(",").each.with_index(1) do |path, number|
+          contents = File.binread(path)
+          sound_data = Lota::Sound::SoundData.new(Lota::Filesystem::FileData.new(contents, File.basename(path)))
+          File.binwrite(File.join(dir, "#{number}.sounddata"),
+            format("%d %d %d %d %.17g %d\n", sound_data.sample_rate, sound_data.bit_depth, sound_data.channel_count,
+              sound_data.sample_count, sound_data.duration, sound_data.size) + sound_data.string.b)
+          decoder = Lota::Sound::Decoder.new(Lota::Filesystem::FileData.new(contents, File.basename(path)))
+          File.open(File.join(dir, "#{number}.decoder"), "wb") do |out|
+            out.write(format("%d %d %d %.17g\n", decoder.sample_rate, decoder.bit_depth, decoder.channel_count,
+              decoder.duration))
+            while (piece = decoder.decode)
+              bytes = piece.string.b
+              out.write("#{bytes.bytesize}\n", bytes)
+            end
+          end
+        end
+      end
+
       # Writes the report.
       def report
         File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch))
@@ -174,6 +213,7 @@ module Parity
     # the game's declares.
     module Callbacks
       def load(*arguments)
+        Probe.decode_sounds
         Lota::Math.random_seed = CLOCK if Lota.math
         Probe.hold_pointer(1) if Lota.mouse
         game = method(:load).super_method
@@ -189,6 +229,7 @@ module Parity
 
         game = method(:update).super_method
         super(*Probe.declared(game, [DT])) if game
+        LotaNativeTest.render_loopback(LOOPBACK_FILE, DT) if Lota.audio
         Probe.press_keys
         Probe.use_mouse
       end

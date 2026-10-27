@@ -378,6 +378,74 @@ local function stay_in_background()
   send_long(application, ffi.C.sel_registerName("setActivationPolicy:"), 2)
 end
 
+-- The parity harness's audio device (ext/lota/native_test/loopback.cpp),
+-- which the harness loads into this process with DYLD_INSERT_LIBRARIES
+-- (test/parity/parity_helper.rb), so that love.audio opens an OpenAL Soft
+-- loopback device, which mixes only when told to. love.update tells it to
+-- mix the frame's dt after the game's love.update, once a frame, so a
+-- sound the game played in the frame, from love.update or from an event
+-- love.run handled before it, starts at the frame's first sample, however
+-- fast the frame ran. The samples go to LOTA_LOOPBACK_FILE, which Lota's
+-- run writes too, from the same place in its frame (test/parity/probe.rb).
+ffi.cdef([[
+long lota_loopback_render(const char *path, double dt);
+]])
+
+local LOOPBACK_FILE = os.getenv("LOTA_LOOPBACK_FILE")
+
+local function mix_audio()
+  if love.audio then
+    assert(ffi.C.lota_loopback_render(assert(LOOPBACK_FILE, "LOTA_LOOPBACK_FILE is not set"), DT) >= 0,
+      "the loopback device is not open, or cannot write its file")
+  end
+end
+
+-- The sound files LOTA_PARITY_SOUNDS lists, by absolute path, separated
+-- by commas, each decoded by love.sound as a game would decode it, into
+-- LOTA_PARITY_SOUNDS_DIR, so test/parity/probe.rb's decoding in Lota can
+-- be compared with LÖVE's, sample for sample. For the Nth file, N.sounddata
+-- holds what love.sound.newSoundData makes of it, and N.decoder what
+-- love.sound.newDecoder decodes from it, piece by piece: a line of the
+-- format each reports, then the samples' bytes as getString gives them,
+-- each Decoder piece after a line with its size. The file is read with
+-- Lua's io, since it need not be in the game's folder, into a FileData
+-- named as the file, as love.filesystem.newFileData names one. Both run in
+-- love.load, before the game's, once every module is open.
+local function decode_sounds()
+  local dir = os.getenv("LOTA_PARITY_SOUNDS_DIR")
+  if not dir then
+    return
+  end
+  local number = 0
+  for path in (os.getenv("LOTA_PARITY_SOUNDS") or ""):gmatch("[^,]+") do
+    number = number + 1
+    local source = assert(io.open(path, "rb"))
+    local contents = source:read("*a")
+    source:close()
+    local name = path:match("[^/]+$")
+
+    local sounddata = love.sound.newSoundData(love.filesystem.newFileData(contents, name))
+    local out = assert(io.open(string.format("%s/%d.sounddata", dir, number), "wb"))
+    out:write(string.format("%d %d %d %d %.17g %d\n", sounddata:getSampleRate(), sounddata:getBitDepth(),
+      sounddata:getChannelCount(), sounddata:getSampleCount(), sounddata:getDuration(), sounddata:getSize()))
+    out:write(sounddata:getString())
+    out:close()
+
+    local decoder = love.sound.newDecoder(love.filesystem.newFileData(contents, name))
+    out = assert(io.open(string.format("%s/%d.decoder", dir, number), "wb"))
+    out:write(string.format("%d %d %d %.17g\n", decoder:getSampleRate(), decoder:getBitDepth(),
+      decoder:getChannelCount(), decoder:getDuration()))
+    local piece = decoder:decode()
+    while piece do
+      local bytes = piece:getString()
+      out:write(string.format("%d\n", #bytes))
+      out:write(bytes)
+      piece = decoder:decode()
+    end
+    out:close()
+  end
+end
+
 local real_require = require
 _G.require = function(name, ...)
   if name == "love.window" then
@@ -401,6 +469,7 @@ _G.require = function(name, ...)
   end
 
   love.load = function(...)
+    decode_sounds()
     if love.math then
       love.math.setRandomSeed(CLOCK)
     end
@@ -423,6 +492,7 @@ _G.require = function(name, ...)
     if update then
       update(DT)
     end
+    mix_audio()
     press_keys(frame + 1)
     use_mouse(frame + 1)
   end

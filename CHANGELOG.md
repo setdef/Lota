@@ -63,3 +63,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Window.update_mode`, `mode`, `desktop_dimensions`, and `safe_area`, translating `love.window.updateMode`, `getMode`, `getDesktopDimensions`, and `getSafeArea`; `mode` returns the width, the height, and a frozen `Lota::Window::Mode` of the settings, with LÖVE's field names.
 - `Lota::System.os`, translating `love.system.getOS`.
 - `Lota::Mouse.visible=`, `visible?`, `grabbed=`, `grabbed?`, `set_relative_mode`, `relative_mode`, and `cursor_supported?`; `Lota::Graphics.created?` and `reset`; and `Lota::Window.open?`.
+- `Lota::Sound::SoundData.new` and `Lota::Sound::Decoder.new`, translating `love.sound.newSoundData` (from a file, a `FileData`, a `Decoder`, or a sample count, rate, bit depth, and channel count) and `love.sound.newDecoder` (from a file with `:file` or `:memory`, or a `FileData`).
+- `Lota::Sound::SoundData#channel_count`, `bit_depth`, `sample_rate`, `sample_count`, `duration`, `size`, `string`, `sample`, `sample=`, `copy_from`, and `slice`; `sample` and `sample=` read and store as LÖVE's LuaJIT code does, in double precision.
+- `Lota::Sound::Decoder#decode`, `channel_count`, `bit_depth`, `sample_rate`, and `duration`.
