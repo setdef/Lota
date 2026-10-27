@@ -89,10 +89,16 @@ module Lovetest
   # first failing pixel itself, where Lövetest records every one, and the
   # test fails in both on the same images.
   class TestMethod < Minitest::Test
-    # Run in the main thread, where Lota::Graphics runs.
+    # Run in the main thread, where Lota::Graphics runs. Lövetest runs
+    # each test in a frame of its own, from love.update
+    # (vendor/love/testing/main.lua:172-182), after love.run has reset the
+    # transformation for the frame before's draw (callbacks.lua:196), so a
+    # test starts at the origin whatever the one before it translated or
+    # scaled.
     def setup
       EngineHelper.open_window
       Lovetest.load
+      Lota::Graphics.origin if Lota.graphics
       @rgba_tolerance = 0
       @pixel_tolerance = 0
       @imgs = 1
@@ -111,6 +117,17 @@ module Lovetest
       method = name.delete_prefix("test_").gsub(/_([a-z])/) { Regexp.last_match(1).upcase }
       type = method.sub(/\A[a-z]/, &:upcase)
       self.class::TYPES.include?(type) ? type : method
+    end
+
+    # Lets +frames+ frames go by, as waitFrames (lines 389-391) yields to
+    # love.run for each: each handles the queued events and shows the
+    # window, as a frame of Lota.run does, with nothing drawn, since the
+    # test has no draw callback.
+    def wait_frames(frames)
+      frames.times do
+        Lota::Event.pump
+        Lota::Graphics.present
+      end
     end
 
     # Asserts that +value+ is true, as assertTrue does (lines 79-88): true

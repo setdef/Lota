@@ -67,6 +67,8 @@ module Lota
       def width: (?Integer? mipmap) -> Integer
 
       def height: (?Integer? mipmap) -> Integer
+
+      def render_to: (Integer? slice, ^() -> void block) -> nil
     end
 
     class Quad
@@ -95,8 +97,6 @@ module Lota
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
       def texture: () -> Texture
-
-      def draw_range: () -> [Integer, Integer]?
     end
 
     class WindowSettings
@@ -107,6 +107,10 @@ module Lota
       attr_accessor fullscreen: bool
 
       def set_fullscreentype: (String name) -> bool
+
+      def fullscreentype: () -> String
+
+      attr_reader refreshrate: Float
 
       attr_accessor vsync: Integer
 
@@ -145,6 +149,14 @@ module Lota
       def self.new_file_data: (String contents, String filename) -> FileData
 
       def self.file_data: (String filename) -> FileData
+
+      def self.info: (String filepath, ?String? filtertype) -> [String, bool, Integer?, Integer?]?
+
+      def self.read: (String filename, ?Integer size) -> ([String, Integer] | [nil, String])
+
+      def self.write_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
+
+      def self.write_data: (String filename, Data data, ?Integer? size) -> ([true] | [nil, String])
 
       class Lines
         def self.cpp_class: () -> String
@@ -258,6 +270,10 @@ module Lota
 
       def self.set_mode: (Integer width, Integer height, WindowSettings? settings) -> bool
 
+      def self.get_window: (WindowSettings settings) -> [Integer, Integer]
+
+      def self.desktop_dimensions: (?Integer? displayindex) -> [Integer, Integer]
+
       def self.fullscreen_types: () -> Array[String]
 
       def self.set_high_dpi_allowed: (bool enable) -> nil
@@ -279,6 +295,8 @@ module Lota
       def self.default_renderers: () -> Array[String]
 
       def self.set_renderers: (Array[String] names) -> nil
+
+      def self.push: (?String? stack) -> nil
 
       def self.present: () -> nil
 
@@ -308,9 +326,9 @@ module Lota
 
       def self.font: () -> Font
 
-      def self.print: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Array[Float | Integer] placement) -> nil
+      def self.print: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Font? font, Array[Float | Integer] placement) -> nil
 
-      def self.printf: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Array[Float | Integer] placement, Float | Integer limit, String? align) -> nil
+      def self.printf: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Font? font, Array[Float | Integer] placement, Float | Integer limit, String? align) -> nil
 
       def self.default_filter: () -> [String, String, Integer]
 

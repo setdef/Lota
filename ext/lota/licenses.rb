@@ -18,6 +18,10 @@
 # precompiled gem uses it. Each work's notices of copyright come from
 # its own files, cited beside it.
 #
+# A framework's `source` is the archive of the source code it was built
+# from, which the gem carries where the framework's license asks for its
+# source with its object code (NativeGem).
+#
 # `pending` names licensing the maintainer has yet to decide, for a work
 # LÖVE compiles but the bundle does not carry yet. Should the bundle come
 # to carry one, the gem records its copyright, names it in a comment, and
@@ -296,17 +300,27 @@ work "dr_libs",
   copyright: ["2020 David Reid"],
   license: ["Unlicense OR MIT-0"]
 
-# Wuff, the WAVE reader love.sound's WaveDecoder compiles in
-# (src/modules/sound/lullaby/WaveDecoder.h). None of its files states a
-# license or a notice of copyright (vendor/love/src/libraries/Wuff: wuff.h
-# names it, "Wuff - A very basic WAVE reader", and nothing more), and
-# LÖVE's license.txt, which lists the libraries LÖVE bundles, does not list
-# it, so who wrote it and under which license is the maintainer's to find
-# out.
+# Wuff 0.0.0.2 (vendor/love/src/libraries/Wuff/wuff.h:13-16), the WAVE
+# reader love.sound's WaveDecoder compiles in
+# (src/modules/sound/lullaby/WaveDecoder.h). LÖVE's copy holds no license
+# or notice of copyright, and LÖVE's license.txt does not list it. LÖVE
+# took it from its author, Boolsheet, in its commit e5adc4e5f ("Fixed
+# wave sound playback by using a different wave reader library (thanks
+# Boolsheet!)", 2013-10-23). Its repository,
+# https://bitbucket.org/Boolsheet/wuff, is gone from Bitbucket; the
+# Internet Archive keeps its tag "Wuff 0.0.0.2" as the archive Bitbucket
+# served (web.archive.org/web/20200622091454/https://bitbucket.org/
+# Boolsheet/wuff/get/Wuff%200.0.0.2.tar.bz2, SHA-256
+# db22ea7bcf55929df8581b173328899d28f563ace9b4d503f1de457c554d1213, node
+# 3acfc2e7d42fa5f2f7b1fe73d7c04b1089c2807e in its .hg_archival.txt), whose
+# every source file is byte for byte LÖVE's. Its unlicense.txt dedicates
+# it to the public domain with the Unlicense's text, and its news.txt
+# dates its releases from 2012-07-25 to 2013-10-20. It holds no notice of
+# copyright, so the record names its author with those years.
 work "Wuff",
   sources: ["vendor/love/src/libraries/Wuff/**"],
-  copyright: [],
-  pending: "no license or notice of copyright in its files, and none in LÖVE's license.txt"
+  copyright: ["2012-2013 Boolsheet"],
+  license: ["Unlicense"]
 
 # Noise1234, which LÖVE compiles but the bundle does not link yet: the
 # bundle reads only its headers' declarations, so the gem does not carry
@@ -423,15 +437,139 @@ framework "libmodplug.framework",
   ],
   license: ["LicenseRef-libmodplug-Public-Domain"]
 
-# OpenAL Soft 1.24.3 (the version string in its binary; Resources/
-# Info.plist says 1.19.1), which love.audio plays through
-# (src/modules/audio/openal), is not here: the precompiled gem carries no
-# copy of it, and Lota's bundle links it weakly, so that a bundle without
-# it falls back to LÖVE's silent audio module, as LÖVE does when OpenAL
-# cannot open a device (ext/lota/engine/CMakeLists.txt). Its license, the
-# GNU Library General Public License 2.0 or later (COPYING and
-# alc/alc.cpp:1-19 at its 1.24.3 tag, https://github.com/kcat/openal-soft),
-# lets object code of the library be copied only with its complete
-# corresponding source code, or with an offer to copy the source from the
-# same place (section 4), and how the gem meets that is the maintainer's
-# to decide.
+# OpenAL Soft 1.24.3, which love.audio plays through
+# (src/modules/audio/openal). Its binary names the version (the string
+# "1.24.3" it reports, where Resources/Info.plist still says 1.19.1),
+# love-apple-dependencies' commit 62a2b23 updated it to that release, and
+# its headers are byte for byte the release's include/AL. Its licensing
+# comes from the release's own files: COPYING, the GNU Library General
+# Public License version 2, which the headers of the library's own files
+# take "or (at your option) any later version" (alc/alc.cpp:1-19), and
+# the files under other licenses that the macOS library compiles in:
+# BSD-3-Clause for the parts BSD-3Clause names and for
+# alc/effects/compressor.cpp and vmorpher.cpp (their lines 1-29); MIT for
+# core/bs2b.cpp (lines 1-22), ghc::filesystem (common/filesystem.cpp and
+# filesystem.h, lines 1-27), and the {fmt} library it links (fmt-11.1.1/
+# LICENSE); and LICENSE-pffft for common/pffft.cpp, which no SPDX
+# identifier names, so its text is recorded as LicenseRef-PFFFT. The
+# backends for other systems (alc/backends/opensl.cpp, under Apache-2.0)
+# and RTKit (core/rtkit.cpp, which needs D-Bus) are not compiled on macOS.
+# LÖVE's license.txt:124-157 lists this mixed licensing for an older
+# release, from Debian's record. The notices are each one these files
+# hold.
+#
+# Its license lets object code of the library be copied only with its
+# complete corresponding source code (section 4), so the precompiled gem
+# carries the release's own source archive beside it, as `source` records:
+# where it comes from, its SHA-256, which the release's asset on GitHub
+# also gives, and where `rake sources:fetch` keeps it (vendor/sources,
+# which git ignores), from which the gem build copies it into the gem's
+# sources/, after checking it. The archive holds more than the library
+# compiles: utilities under GPL-2.0-or-later (utils/makemhr and
+# utils/sofa-*.cpp), the Android backend under Apache-2.0, examples and
+# CMake modules under MIT and BSD-3-Clause, and {fmt}'s documentation of
+# Python's license (fmt-11.1.1/doc/python-license.txt, Python-2.0), so
+# its record names every license and notice in it. The bundle links the
+# framework as LÖVE's own macOS build does, a library apart, which a
+# player can replace.
+framework "OpenAL-Soft.framework",
+  copyright: [
+    "1999-2000 by authors.",
+    "1999-2007 by authors.",
+    "1999-2010 by authors.",
+    "2005 Boris Mikhaylov",
+    "2008-2017 by Chris Robinson and Christopher Fitzgerald.",
+    "2009 by Chris Robinson.",
+    "2010 by Chris Robinson",
+    "2011 by Chris Robinson",
+    "2011 by Chris Robinson.",
+    "2012 - 2016, Victor Zverovich",
+    "2012 - present, Victor Zverovich",
+    "2012 - present, Victor Zverovich and fmt contributors",
+    "2012 - present, Victor Zverovich and {fmt} contributors",
+    "2013 Julien Pommier ( pommier@modartt.com )",
+    "2013 by Anis A. Hireche",
+    "2013 by Mike Gorchak",
+    "2014 by Timothy Arceri <t_arceri@yahoo.com.au>.",
+    "2015, Archontis Politis",
+    "2018 - present, Victor Zverovich and fmt contributors",
+    "2018 by Raul Herraiz.",
+    "2018, Steffen Schümann <s.schuemann@pobox.com>",
+    "2019 by Anis A. Hireche",
+    "2019, Christopher Robinson",
+    "2023 Christopher Robinson",
+    "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
+  ],
+  license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
+  source: {
+    url: "https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2",
+    sha256: "cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892",
+    path: "vendor/sources/openal-soft-1.24.3.tar.bz2",
+    copyright: [
+      "1999-2000 by authors.",
+      "1999-2007 by authors.",
+      "1999-2010 by authors.",
+      "2005 Boris Mikhaylov",
+      "2006, Matthias Kretz, <kretz@kde.org>",
+      "2008, Alexander Neundorf, <neundorf@kde.org>",
+      "2008-2017 by Chris Robinson and Christopher Fitzgerald.",
+      "2009 Lennart Poettering",
+      "2009 by Chris Robinson.",
+      "2009 by Konstantinos Natsakis <konstantinos.natsakis@gmail.com>",
+      "2009-2011 Kitware, Inc.",
+      "2009-2011 Philip Lowman <philip@yhbt.com>",
+      "2010 David Henningsson <diwic@ubuntu.com>",
+      "2010 by Chris Robinson",
+      "2010 by Chris Robinson <chris.kcat@gmail.com>",
+      "2011 The Android Open Source Project",
+      "2011 by Chris Robinson",
+      "2011 by Chris Robinson <chris.kcat@gmail.com>",
+      "2011 by Chris Robinson.",
+      "2011 by authors.",
+      "2011, Michael Jansen, <kde@michael-jansen.biz>",
+      "2011-2019 Christopher Fitzgerald",
+      "2012 - 2016, Victor Zverovich",
+      "2012 - present, Victor Zverovich",
+      "2012 - present, Victor Zverovich and fmt contributors",
+      "2012 - present, Victor Zverovich and {fmt} contributors",
+      "2012 by Chris Robinson <chris.kcat@gmail.com>",
+      "2013 Julien Pommier ( pommier@modartt.com )",
+      "2013 Vladimir Keleshev, vladimir@keleshev.com",
+      "2013 by Anis A. Hireche",
+      "2013 by Chris Robinson <chris.kcat@gmail.com>",
+      "2013 by Mike Gorchak",
+      "2014 by Timothy Arceri <t_arceri@yahoo.com.au>.",
+      "2015 by Chris Robinson <chris.kcat@gmail.com>",
+      "2015, Archontis Politis",
+      "2017 by Chris Robinson <chris.kcat@gmail.com>",
+      "2018 - present, Victor Zverovich and fmt contributors",
+      "2018 by Chris Robinson <chris.kcat@gmail.com>",
+      "2018 by Raul Herraiz.",
+      "2018 by authors.",
+      "2018, Steffen Schümann <s.schuemann@pobox.com>",
+      "2018-2019 Christopher Fitzgerald",
+      "2019 Christopher Robinson",
+      "2019 by Anis A. Hireche",
+      "2019, Anis A. Hireche",
+      "2019, Christopher Robinson",
+      "2020 Jan Tojnar",
+      "2020 by Chris Robinson <chris.kcat@gmail.com>",
+      "2021 Chris Robinson",
+      "2023 Christopher Robinson",
+      "2024 by Chris Robinson <chris.kcat@gmail.com>",
+      "2024 by authors.",
+      "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
+      "2001-2012 Python Software Foundation",
+      "1995-2001 Corporation for National Research Initiatives",
+      "1991 - 1995, Stichting Mathematisch Centrum Amsterdam",
+    ],
+    license: [
+      "LGPL-2.0-or-later",
+      "GPL-2.0-or-later",
+      "Apache-2.0",
+      "BSD-3-Clause",
+      "MIT",
+      "LicenseRef-PFFFT",
+      "Python-2.0",
+    ],
+  }

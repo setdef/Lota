@@ -6,6 +6,7 @@
 #++
 
 require_relative "filesystem/file_data"
+require_relative "filesystem/info"
 
 module Lota
   # Files and the bytes read from them, translated from love.filesystem.
@@ -151,6 +152,85 @@ module Lota
     #   Lota::Filesystem.remove("savegame.dat") # => true
     def self.remove(name)
       Native::Filesystem.remove(name)
+    end
+
+    # What the filesystem knows of a file or directory, as a frozen Info,
+    # or +nil+ when there is none, matching love.filesystem.getInfo
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getInfo), whose table
+    # becomes an Info (ADR 001, rule 10).
+    #
+    # [path] String path, found in the save directory or the game's
+    #   folder.
+    # [filtertype] +:file+, +:directory+, +:symlink+, or +:other+: when
+    #   given, a path of another type is as if there were none.
+    #
+    # LÖVE also fills in a table the caller passes, to save making a new
+    # one; an Info is frozen, so Lota makes a new one each time and takes
+    # no table. Raises ArgumentError for an unknown +filtertype+.
+    #
+    # === Examples
+    #
+    #   Lota::Filesystem.info("settings.txt")&.size # => 18
+    #   Lota::Filesystem.info("replays", :directory) # => nil, if replays is a file
+    def self.info(path, filtertype = nil)
+      fields = Native::Filesystem.info(path, filtertype && EnumName.of(filtertype))
+      return nil unless fields
+
+      type, readonly, size, modtime = fields
+      Info.new(type: type.to_sym, readonly:, size:, modtime:)
+    end
+
+    # Reads a file, matching love.filesystem.read
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_read).
+    #
+    # [filename] String path of the file, found in the save directory or
+    #   the game's folder.
+    # [size] Integer most bytes to read; the whole file when +nil+, left
+    #   out, or negative.
+    #
+    # Returns an Array of LÖVE's two results (ADR 001, rule 4): the
+    # contents as a String and how many bytes they are, or +nil+ and a
+    # message String when the file cannot be read, so <tt>.first</tt> is
+    # +nil+ exactly when Lua's first result is. The String is in Ruby's
+    # default external encoding, as File.read's is, holding the file's
+    # bytes as they are. LÖVE can also read into a FileData, given
+    # <tt>"data"</tt> first; Lota binds that form later.
+    #
+    # === Examples
+    #
+    #   contents, size = Lota::Filesystem.read("savegame.dat")
+    #   Lota::Filesystem.read("missing.txt") # => [nil, "Could not open file missing.txt. Does not exist."]
+    def self.read(filename, size = nil)
+      Native::Filesystem.read(filename, size || -1)
+    end
+
+    # Writes a file in the save directory, replacing any file of the
+    # name, matching love.filesystem.write
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_write).
+    #
+    # [filename] String path of the file, inside the save directory.
+    # [data] String of the bytes to write, or a Lota::Filesystem::FileData,
+    #   whose bytes it writes.
+    # [size] Integer number of bytes of +data+ to write; all of them when
+    #   +nil+ or left out.
+    #
+    # Returns an Array (ADR 001, rule 4): <tt>[true]</tt>, or +nil+ and a
+    # message String when the file cannot be written, so
+    # <tt>.first</tt> is truthy exactly when Lua's result is. LÖVE writes
+    # +size+ bytes even past the end of +data+, reading memory beyond it;
+    # Lota writes no more than +data+ holds. Raises TypeError for +data+
+    # that is neither.
+    #
+    # === Examples
+    #
+    #   Lota::Filesystem.write("settings.txt", "10\n6") # => [true]
+    #   ok, message = Lota::Filesystem.write("", "x") # => [nil, "Could not open file . ..."]
+    def self.write(filename, data, size = nil)
+      case data
+      when String then Native::Filesystem.write_string(filename, data, size)
+      when FileData then Native::Filesystem.write_data(filename, data.native, size)
+      else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Filesystem::FileData)"
+      end
     end
 
     # The lines of a file, each a String without its line ending, as an

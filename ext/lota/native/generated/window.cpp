@@ -11,6 +11,7 @@
 
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/math.h"
 #include "window/Window.h"
 
 #include <string>
@@ -48,6 +49,17 @@ Window *instance() {
 // love.window.isOpen: w_isOpen (wrap_Window.cpp:347-351).
 bool w_isOpen() { return instance()->isOpen(); }
 
+// love.window.getSafeArea: w_getSafeArea (wrap_Window.cpp:408-416).
+Rice::Array w_getSafeArea() {
+  Rice::Array results;
+  const Rect area = instance()->getSafeArea();
+  results.push(area.x, false);
+  results.push(area.y, false);
+  results.push(area.w, false);
+  results.push(area.h, false);
+  return results;
+}
+
 // love.window.setTitle: w_setTitle (wrap_Window.cpp:463-468).
 void w_setTitle(const std::string &title) { instance()->setWindowTitle(title); }
 
@@ -60,6 +72,7 @@ std::string w_getTitle() { return instance()->getWindowTitle(); }
 
 void define_generated_window(const Rice::Module &native) {
   Rice::define_module_under(native, "Window")
+      .define_singleton_function("safe_area", &w_getSafeArea)
       .define_singleton_function("set_title", &w_setTitle, Rice::Arg("title"))
       .define_singleton_function("title", &w_getTitle)
       .define_singleton_function("window_open?", &w_isOpen);

@@ -74,6 +74,14 @@ module Lota
 
       def self.origin: () -> nil
 
+      def self.pop: () -> nil
+
+      def self.translate: (Float | Integer x, Float | Integer y) -> nil
+
+      def self.scale: (?(Float | Integer) sx, ?(Float | Integer)? sy) -> nil
+
+      def self.shear: (Float | Integer kx, Float | Integer ky) -> nil
+
       def self.background_color: () -> Array[Float]
 
       def self.width: () -> Integer
@@ -123,6 +131,8 @@ module Lota
       def buffer_size: () -> Integer
 
       def set_draw_range: (?Integer? start, ?Integer? count) -> nil
+
+      def draw_range: () -> Array[Integer]
     end
 
     class Texture
@@ -179,6 +189,8 @@ module Lota
       def self.set_clipboard_text: (String text) -> nil
 
       def self.clipboard_text: () -> String
+
+      def self.os: () -> String
     end
 
     module Timer
@@ -190,6 +202,8 @@ module Lota
     end
 
     module Window
+      def self.safe_area: () -> Array[Integer]
+
       def self.set_title: (String title) -> nil
 
       def self.title: () -> String

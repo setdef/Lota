@@ -73,18 +73,15 @@ target_compile_options(lota_engine PRIVATE
 # the extension is loaded from.
 target_link_options(lota_engine INTERFACE -F${ENGINE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
 
-# OpenAL Soft is linked weakly: a bundle loads without it, and then
-# Lota::Audio falls back to LÖVE's null audio module, as LÖVE does when
-# OpenAL cannot open a device (src/modules/audio/wrap_Audio.cpp:678-708).
-# The precompiled gem carries no copy of it until the maintainer decides how
-# the gem meets its license, the GNU Library General Public License 2.0 or
-# later, which asks for its source with every copy of its object code
-# (ext/lota/licenses.rb).
+# OpenAL Soft is a framework of its own, linked as LÖVE's macOS build
+# links it, so a player can replace it, as its license, the GNU Library
+# General Public License, allows; the precompiled gem carries it with its
+# source (ext/lota/licenses.rb).
 target_link_libraries(lota_engine INTERFACE
 	"-framework SDL3"
 	"-framework freetype"
 	"-framework harfbuzz"
-	"-weak_framework OpenAL-Soft"
+	"-framework OpenAL-Soft"
 	"-framework libmodplug"
 	"-framework theora"
 	"-framework vorbis"

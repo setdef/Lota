@@ -25,9 +25,9 @@ end
 
 # A game that opens LÖVE's default window, clears it to yellow, and quits
 # with a status of its own, so an exit status of 0 cannot pass by
-# accident. The precompiled gem carries no OpenAL Soft yet
-# (ext/lota/licenses.rb), so opening the audio module prints why it opens
-# LÖVE's silent one instead.
+# accident. It opens the audio module through the gem's OpenAL Soft, which
+# plays through its null backend in the check (PackageCheck::SILENT), so
+# it prints nothing about it.
 PACKAGE_GAME = PackageCheck::Game.new(
   name: "a window",
   folder: nil,
@@ -43,7 +43,7 @@ PACKAGE_GAME = PackageCheck::Game.new(
   RUBY
   gems: [],
   arguments: [],
-  output: /\ACould not load OpenAL Soft\.\nwindow 800x600\n\z/,
+  output: /\Awindow 800x600\n\z/,
   status: 3
 )
 
@@ -88,7 +88,7 @@ def packages
         ext/lota/engine
         ext/lota/native
       ],
-      native_packaged: [NativeGem::REUSE_TOML],
+      native_packaged: [NativeGem::REUSE_TOML, Licensing::SOURCES],
       extension: "lib/lota/native",
       native: native_gem,
       refusal: "Install Lota's precompiled gem instead, for Apple Silicon macOS",

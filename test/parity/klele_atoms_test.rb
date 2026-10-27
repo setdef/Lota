@@ -7,7 +7,8 @@
 
 require_relative "parity_helper"
 
-# KleleAtoms, unchanged, in the reference love (Plan 001, "Images, text,
+# KleleAtoms, unchanged, in the reference love, and its Ruby translation in
+# Lota (test/games/klele_atoms), frame by frame (Plan 001, "Images, text,
 # and SpriteBatch"), played with the mouse. The game is made for LÖVE 11.3
 # (its conf.lua sets t.version), so LÖVE 12 warns in a dialog before the
 # window opens (boot.lua:378-393), which the harness dismisses by pressing
@@ -16,15 +17,12 @@ require_relative "parity_helper"
 # (main.lua:87-133, state.lua:34-39), and its pause menu saves the game
 # (states/game/gamepause.lua:63-77), under LÖVE's save directory, which
 # the harness keeps in a home of its own. Its sounds play into OpenAL
-# Soft's wave file writer there (test/alsoft.conf).
-#
-# Its Ruby translation does not run in Lota yet: it reads its saves with
-# love.filesystem.getInfo and read and writes them with write, and no rule
-# of ADR 001 yet says what getInfo's table, read's two results, or the nil
-# and message that read and write return when they fail become in Ruby.
-# Until the maintainer settles them, only LÖVE's side runs.
+# Soft's wave file writer there (test/alsoft.conf). Lota's run does the
+# same in a home of its own, where it saves in a Lota folder (ADR 003,
+# section 8), and both runs must save the same files, byte for byte.
 class KleleAtomsTest < Minitest::Test
   GAME = File.join(Parity::ROOT, "test/fixtures/klele_atoms")
+  TRANSLATED = File.join(Parity::ROOT, "test/games/klele_atoms")
 
   # SDL's scancode for Escape (SDL_scancode.h).
   ESCAPE = 41
@@ -76,11 +74,26 @@ class KleleAtomsTest < Minitest::Test
     self.class.love
   end
 
+  # Lota runs the translation once for every test here, after LÖVE.
+  def self.lota
+    @lota ||= Parity::LotaRun.new(TRANSLATED, SCRIPT, love, File.dirname(love.frames_dir))
+  end
+
+  def lota
+    self.class.lota
+  end
+
   # The file +name+ LÖVE saved for the game, which is not fused, under its
   # identity (conf.lua: t.identity), in LÖVE's folder (Filesystem.cpp:
   # 608-612).
   def saved(name)
     File.binread(File.join(love.home, "Library/Application Support/LOVE/kleleatoms", name))
+  end
+
+  # The file +name+ Lota saved for the translation, in Lota's folder where
+  # LÖVE's is LOVE (ADR 003, section 8).
+  def saved_by_lota(name)
+    File.binread(File.join(lota.home, "Library/Application Support/Lota/kleleatoms", name))
   end
 
   def test_love_warns_of_the_version_in_a_dialog_then_plays_until_escape
@@ -111,5 +124,21 @@ class KleleAtomsTest < Minitest::Test
     tiles = -> (x, y) { game[20 + ((((x - 1) * 6) + (y - 1)) * 2), 2] }
     assert_equal [0, 0], tiles.call(2, 1)
     [[1, 1], [1, 2], [2, 2], [3, 1]].each { |x, y| assert_equal [1, 1], tiles.call(x, y), "tile #{x}, #{y}" }
+  end
+
+  def test_the_translation_matches_love_frame_by_frame
+    assert_predicate lota.output.status, :success?, lota.output.text
+    assert_nil lota.mismatch, "first differing frame: #{lota.mismatch}"
+    assert_equal FRAMES, lota.compared
+    assert_equal love.output.text, lota.output.text
+  end
+
+  # Both runs save the same settings and the same game, each in its own
+  # home: the files LÖVE's filesystem writes for Lota's translation are
+  # LÖVE's, byte for byte.
+  def test_the_translation_saves_what_love_saves
+    assert_predicate lota.output.status, :success?, lota.output.text
+    assert_equal saved("settings2.txt"), saved_by_lota("settings2.txt")
+    assert_equal saved("savegame.ksf").bytes, saved_by_lota("savegame.ksf").bytes
   end
 end

@@ -17,6 +17,12 @@ module Lota
 
     def self.remove: (String name) -> bool
 
+    def self.info: (String path, ?(Symbol | String)? filtertype) -> Info?
+
+    def self.read: (String filename, ?Integer? size) -> ([String, Integer] | [nil, String])
+
+    def self.write: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])
+
     def self.lines: (String filename) -> Enumerator[String, void]
                   | (String filename) { (String line) -> void } -> nil
   end

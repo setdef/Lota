@@ -34,7 +34,7 @@ module Lota
 
       def draw_range=: (Array[Integer]? range) -> void
 
-      def draw_range: () -> [Integer, Integer]?
+      def draw_range: () -> Array[Integer]
     end
   end
 end

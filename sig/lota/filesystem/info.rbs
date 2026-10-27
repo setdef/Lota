@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Filesystem
+    class Info < ::Data
+      attr_reader type: Symbol
+
+      attr_reader readonly: bool
+
+      attr_reader size: Integer?
+
+      attr_reader modtime: Integer?
+
+      def self.new: (type: Symbol, readonly: bool, size: Integer?, modtime: Integer?) -> instance
+    end
+  end
+end

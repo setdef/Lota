@@ -141,6 +141,7 @@ object:,
       @definition ||= begin
         @result_mode = result_mode
         body = emit(@body, top: true)
+        body.unshift("Rice::Array results;") if @result_mode == :many
         body.unshift("require_main_thread(MODULE);") if @main_thread && !singleton?
         params = ([@self_parameter && "#{self_const? ? 'const ' : ''}#{@self_parameter[:type]} &#{@self_parameter[:name]}"] +
           parameters.map(&:declaration)).compact
@@ -202,19 +203,28 @@ object:,
       case result_mode
       when :none then "nil"
       when :one then results.first.last
-      else "Array[#{results.map(&:last).uniq.join(' | ')}]"
+      else "Array[#{(results.map(&:last) + (io_error? ? %w[nil String] : [])).uniq.join(' | ')}]"
       end
     end
 
+    # Rule 4: a function that returns several values returns an Array of
+    # all of them, whatever it returns on the way, so a form that can
+    # return more than one value returns an Array on every path, empty
+    # where LÖVE returns none (ADR 001, section 7). A form that returns
+    # one value on some paths and none on others is not one rule 4 covers.
     private def result_mode
       counts = returns(@body)
+      return :many if counts.max > 1
       raise Unsupported, "#{@function.love_name} returns #{counts.join(' or ')} values in the bound form" if counts.uniq.size > 1
 
-      case counts.first.to_i
-      when 0 then :none
-      when 1 then :one
-      else :many
-      end
+      (counts.first == 0) ? :none : :one
+    end
+
+    # Whether the form returns luax_ioError's nil and message on a path.
+    private def io_error?
+      found = false
+      walk_texts(@body) { |text, node| found ||= node.kind == :return && text.start_with?("luax_ioError") }
+      found
     end
 
     # --- Pruning: the statements of the bound form.
@@ -451,6 +461,7 @@ line: node.line,
       call = Calls.in(text).first
       case call&.base_name
       when "luaL_error" then ["throw love::Exception(#{rewrite(call.arguments[1..].join(', '))});"]
+      when "luax_ioError" then ["return io_error(#{rewrite(call.arguments[1..].join(', '))});"]
       when "luax_enumerror" then ["raise_enum_error(#{enum_error_arguments(call)});"]
       else raise Unsupported, "#{@function.love_name} returns #{text}"
       end
@@ -470,10 +481,7 @@ line: node.line,
       value = convert(rewrite(call.arguments[1]), call, type)
       case @result_mode
       when :one then ["return #{value};"]
-      when :many
-        first = !@pushed
-        @pushed = true
-        [*(first ? ["Rice::Array results;"] : []), "results.push(#{value}, false);"]
+      when :many then ["results.push(#{value}, false);"]
       else raise Unsupported, "#{@function.love_name} pushes a result it does not return"
       end
     end
@@ -499,8 +507,23 @@ line: node.line,
 
         return true if text.match?(%r{(?<![\w.>])#{Regexp.escape(name)}(?:\.\w+)?\s*(?:[-+*/]?=(?!=)|\+\+|--)})
         return true if text.match?(/getConstant\s*\([^,]+,\s*#{Regexp.escape(name)}\s*\)/)
+        return true if Calls.in(text).any? { |call| fills?(call, name) }
       end
       false
+    end
+
+    # Whether +call+, a method call, passes +name+ where the method takes a
+    # reference it may write through, by LÖVE's headers, as
+    # SpriteBatch::getDrawRange fills its start and count.
+    private def fills?(call, name)
+      return false unless call.member
+
+      position = call.arguments.index { |argument| argument.strip == name } or return false
+      owner = (call.receiver == "instance()") ? @module_class : variable_type(call.receiver.to_s)
+      method = @types.methods(owner, call.base_name, module_dir: @module_dir)
+        .find { |candidate| candidate.parameters.size == call.arguments.size }
+      type = method&.parameters&.[](position)&.type.to_s
+      type.end_with?("&") && !type.start_with?("const ")
     end
 
     private def parameter_declaration?(text)
@@ -641,9 +664,17 @@ line: node.line,
       found
     end
 
+    # The numbers of values the form's returns give: each return of a
+    # count, and luax_ioError's two, nil and its message
+    # (src/modules/filesystem/wrap_File.cpp:34-46).
     private def returns(nodes)
       counts = []
-      walk_texts(nodes) { |text, node| counts << text.to_i if node.kind == :return && text.match?(/\A\d+\z/) }
+      walk_texts(nodes) do |text, node|
+        next unless node.kind == :return
+
+        counts << text.to_i if text.match?(/\A\d+\z/)
+        counts << 2 if text.start_with?("luax_ioError")
+      end
       counts.empty? ? [0] : counts.uniq
     end
 

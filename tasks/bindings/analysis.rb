@@ -167,6 +167,10 @@ module Bindings
     KNOWN = %w[luax_catchexcept luax_markdeprecated luax_getmodule luax_optmodule luax_checkgraphicscreated].freeze
     HELPER_READER = /\Aluax_(?:check|opt|get|to)\w+\z/
     HELPER_TEST = /\Aluax_(?:is|can)\w+\z/
+    # luax_ioError pushes nil and its message, two values, and a wrap
+    # function returns what it pushed (src/modules/filesystem/
+    # wrap_File.cpp:34-46).
+    IO_ERROR = /\Aluax_ioError\s*\(\s*L\s*,/
     RETURN_ERRORS = /\A(?:luaL_error|luax_enumerror|luaL_argerror|luax_typerror|lua_error|luax_effecterror)\s*\(/
 
     attr_reader :reads, :tests, :tables, :pushes, :counts, :errors, :enums, :enum_results, :engine_calls,
@@ -281,6 +285,8 @@ module Bindings
         counts << text.to_i
       elsif text.match?(RETURN_ERRORS)
         expression(text, node.line, loops)
+      elsif text.match?(IO_ERROR)
+        counts << 2
       elsif (target = text[/\A(w_\w+)\s*\(\s*L\s*\)\z/, 1])
         @delegate = target
       else

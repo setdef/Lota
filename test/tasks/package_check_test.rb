@@ -21,6 +21,7 @@ class PackageCheckTest < Minitest::Test
     SDL3.framework/Versions/A/SDL3
     freetype.framework/Versions/A/freetype
     harfbuzz.framework/Versions/A/harfbuzz
+    OpenAL-Soft.framework/Versions/A/OpenAL-Soft
     libmodplug.framework/Versions/A/libmodplug
     vorbis.framework/Versions/A/vorbis
   ].freeze
@@ -65,9 +66,9 @@ class PackageCheckTest < Minitest::Test
     end
   end
 
-  # SDL3 for the window and events, FreeType and HarfBuzz for text, and
-  # libmodplug and libvorbis for sound, which loads libogg in turn. OpenAL
-  # Soft, which the bundle links weakly, is not needed beside it.
+  # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
+  # Soft to play sound, and libmodplug and libvorbis to decode it, which
+  # loads libogg in turn.
   def test_the_extension_needs_its_frameworks_and_theirs_beside_it_through_its_rpaths
     frameworks = "../../vendor/love-apple-dependencies/macOS/Frameworks"
 
@@ -76,11 +77,11 @@ class PackageCheckTest < Minitest::Test
         "SDL3.framework",
       "#{frameworks}/freetype.framework",
       "#{frameworks}/harfbuzz.framework",
+      "#{frameworks}/OpenAL-Soft.framework",
       "#{frameworks}/libmodplug.framework",
       "#{frameworks}/vorbis.framework",
       "#{frameworks}/ogg.framework",
 ], PackageCheck.rpath_dependencies(BUNDLE)
-    assert_includes PackageCheck.otool("-L", BUNDLE), "@rpath/OpenAL-Soft.framework/Versions/A/OpenAL-Soft"
   end
 
   def test_each_dependency_is_a_framework_directory_that_exists

@@ -15,6 +15,10 @@ module Lota
       def width: (?Integer? mipmap) -> Integer
 
       def height: (?Integer? mipmap) -> Integer
+
+      def dimensions: (?Integer? mipmap) -> [Integer, Integer]
+
+      def render_to: (?Integer? slice) { () -> void } -> nil
     end
   end
 end

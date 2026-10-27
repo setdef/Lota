@@ -11,11 +11,10 @@ require_relative "../lovetest_helper"
 # translated to Ruby by ADR 001's rules, for the functions Lota binds.
 # They run in the test suite's own process (test/lovetest/audio_test.rb),
 # whose OpenAL Soft plays into a wave file, as Lövetest's does on LÖVE's CI
-# (test/alsoft.conf). test/lovetest/game leaves them out: it also runs from
-# the installed precompiled gem, which carries no OpenAL Soft yet
-# (ext/lota/licenses.rb), and LÖVE's silent audio module plays nothing.
-# The rest call functions Lota does not bind yet, such as
-# love.audio.pause.
+# (test/alsoft.conf), and under lota run (test/lovetest/game), also from
+# the installed precompiled gem, which carries OpenAL Soft
+# (ext/lota/licenses.rb). The rest call functions Lota does not bind yet,
+# such as love.audio.pause.
 class AudioTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

@@ -35,7 +35,12 @@ class Licensing
   # [license] The SPDX license expressions it is under.
   # [pending] What about its licensing the maintainer has yet to decide,
   #   or nil. Its license is left out of the gem until then.
-  class Work < Data.define(:name, :sources, :gem, :copyright, :license, :pending)
+  # [source] The Source archive of a framework's code, or nil.
+  class Work < Data.define(:name, :sources, :gem, :copyright, :license, :pending, :source)
+    def initialize(source: nil, **)
+      super
+    end
+
     # Whether +path+, absolute, is one of this work's files, in the
     # repository at +root+.
     def covers?(path, root)
@@ -46,6 +51,25 @@ class Licensing
       end
     end
   end
+
+  # The archive of the source code a framework was built from, which the
+  # gem carries beside it.
+  #
+  # [url] Where its release is published.
+  # [sha256] Its SHA-256, as hexadecimal.
+  # [path] Where rake sources:fetch keeps it, relative to the repository.
+  # [copyright] Its notices of copyright, every one its files hold.
+  # [license] The SPDX license expressions of everything in it.
+  class Source < Data.define(:url, :sha256, :path, :copyright, :license)
+    # The archive's file name, which it keeps in the gem's SOURCES.
+    def name
+      File.basename(path)
+    end
+  end
+
+  # Where a gem keeps the source archives its frameworks' licenses ask
+  # for, relative to the gem.
+  SOURCES = "sources"
 
   # Raised for an entry the record cannot hold.
   class Invalid < StandardError; end
@@ -73,9 +97,11 @@ class Licensing
     @works << checked(Work.new(name:, sources:, gem:, copyright:, license:, pending:))
   end
 
-  # Records a framework the gem ships, by its directory's name.
-  def framework(name, copyright:, license:, pending: nil)
-    @frameworks[name] = checked(Work.new(name:, sources: [], gem: nil, copyright:, license:, pending:))
+  # Records a framework the gem ships, by its directory's name, with the
+  # archive of its source when its license asks the gem to carry it.
+  def framework(name, copyright:, license:, pending: nil, source: nil)
+    @frameworks[name] = checked(Work.new(name:, sources: [], gem: nil, copyright:, license:, pending:,
+      source: source && Source.new(**source)))
   end
 
   # The entry for the framework +name+ (SDL3.framework).
@@ -114,10 +140,23 @@ class Licensing
   # REUSE.toml's annotations for a gem whose +bundle+ carries +works+, and
   # which ships the frameworks named +frameworks+ in +framework_dir+, all
   # paths relative to the gem.
+  # Each framework's source archive gets an annotation of its own, at
+  # its place in SOURCES.
   def annotations(bundle:, works:, framework_dir:, frameworks:)
     tables = [annotation(bundle, works)]
     tables += frameworks.map { |name| annotation("#{framework_dir}/#{name}/**", [framework_for(name)]) }
+    tables += sources(frameworks).map do |source|
+      annotation("#{SOURCES}/#{source.name}", [
+Work.new(name: source.name, sources: [], gem: nil,
+  copyright: source.copyright, license: source.license, pending: nil),
+])
+    end
     tables.join("\n")
+  end
+
+  # The source archives of the frameworks named +frameworks+.
+  def sources(frameworks)
+    frameworks.filter_map { |name| framework_for(name).source }
   end
 
   # A work must record its copyright and license, unless what it lacks is

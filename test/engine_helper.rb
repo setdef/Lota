@@ -26,8 +26,18 @@ module EngineHelper
     Lota::Native::Graphics.open? && Lota::Graphics.active?
   end
 
+  # Booting opens the window, which SDL_MAC_BACKGROUND_APP keeps from
+  # activating the program (test/test_helper.rb), but a click of the
+  # person at the computer still could, and give the window keyboard
+  # focus, which SDL lets go of every held key on losing
+  # (SDL_SetKeyboardFocus, SDL 3.4.10, src/events/SDL_keyboard.c), as when
+  # the person clicks elsewhere, so a test holding a key could find it let
+  # go. With the test extension loaded, the program stays in the
+  # background for good (LotaNativeTest.stay_in_background), and its
+  # windows never take focus but where a test asks for it.
   private_class_method def self.boot
     Lota::Boot.new(CONF).init
+    LotaNativeTest.stay_in_background if defined?(LotaNativeTest)
     true
   end
 end

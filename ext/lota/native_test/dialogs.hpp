@@ -20,6 +20,14 @@ int dialogs_answered();
 // holding keyboard focus, as a player's click on it would.
 void activate();
 
+// Keeps this program from ever becoming the active one, so none of its
+// windows can take keyboard focus, while it still shows them.
+void stay_in_background();
+
+// Undoes activate: gives keyboard focus back to the program that had it,
+// and keeps this one in the background from then on.
+void give_up_focus();
+
 } // namespace lota::native_test
 
 #endif // LOTA_NATIVE_TEST_DIALOGS_HPP

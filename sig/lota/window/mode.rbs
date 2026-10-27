@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Window
+    class Mode < ::Data
+      attr_reader fullscreentype: Symbol
+
+      attr_reader fullscreen: bool
+
+      attr_reader vsync: Integer
+
+      attr_reader msaa: Integer
+
+      attr_reader stencil: bool
+
+      attr_reader depth: bool
+
+      attr_reader resizable: bool
+
+      attr_reader minwidth: Integer
+
+      attr_reader minheight: Integer
+
+      attr_reader borderless: bool
+
+      attr_reader centered: bool
+
+      attr_reader displayindex: Integer
+
+      attr_reader usedpiscale: bool
+
+      attr_reader refreshrate: Float
+
+      attr_reader x: Integer
+
+      attr_reader y: Integer
+
+      def self.new: (fullscreentype: Symbol, fullscreen: bool, vsync: Integer, msaa: Integer, stencil: bool, depth: bool, resizable: bool, minwidth: Integer, minheight: Integer, borderless: bool, centered: bool, displayindex: Integer, usedpiscale: bool, refreshrate: Float, x: Integer, y: Integer) -> instance
+    end
+  end
+end

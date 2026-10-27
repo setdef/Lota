@@ -184,6 +184,103 @@ module Lota
       Native::Graphics.origin
     end
 
+    # Saves the current transformation, or all of the drawing state, so
+    # pop can bring it back, matching love.graphics.push
+    # (src/modules/graphics/wrap_Graphics.cpp, w_push). With a block, it
+    # pops once the block is done, also when the block raises, and returns
+    # what the block returns (ADR 001, rule 11).
+    #
+    # [stack] +:transform+ (the default, also when +nil+) saves the
+    #   transformation alone, and +:all+ the color, font, canvas, and the
+    #   rest of the state too.
+    #
+    # LÖVE also applies a Transform given after the stack type; Lota binds
+    # that form with Transform. Raises ArgumentError for an unknown stack
+    # type, RuntimeError (<tt>"Maximum stack depth reached (more pushes
+    # than pops?)"</tt>) past LÖVE's depth of 128, and ThreadError off the
+    # main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.push do
+    #     Lota::Graphics.translate(100, 50)
+    #     Lota::Graphics.rectangle(:fill, 0, 0, 10, 10)
+    #   end
+    #
+    #   Lota::Graphics.push(:all)
+    #   Lota::Graphics.color = 1, 0, 0
+    #   Lota::Graphics.pop
+    def self.push(stack = nil)
+      Native::Graphics.push(stack && EnumName.of(stack))
+      return nil unless block_given?
+
+      begin
+        yield
+      ensure
+        Native::Graphics.pop
+      end
+    end
+
+    # Brings back the state the latest push saved, matching
+    # love.graphics.pop (src/modules/graphics/wrap_Graphics.cpp, w_pop).
+    #
+    # Raises RuntimeError (<tt>"Minimum stack depth reached (more pops
+    # than pushes?)"</tt>) with nothing pushed, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.pop
+    def self.pop
+      Native::Graphics.pop
+    end
+
+    # Moves what is drawn after it by +x+ and +y+, matching
+    # love.graphics.translate (src/modules/graphics/wrap_Graphics.cpp,
+    # w_translate).
+    #
+    # [x] Float or Integer distance to the right.
+    # [y] Float or Integer distance down.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.translate(100, 50)
+    def self.translate(x, y)
+      Native::Graphics.translate(x, y)
+    end
+
+    # Scales what is drawn after it, matching love.graphics.scale
+    # (src/modules/graphics/wrap_Graphics.cpp, w_scale).
+    #
+    # [sx] Float or Integer horizontal factor; 1 when left out.
+    # [sy] Float or Integer vertical factor; +sx+ when +nil+ or left out.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.scale(2)
+    def self.scale(sx = 1, sy = nil)
+      Native::Graphics.scale(sx, sy)
+    end
+
+    # Shears what is drawn after it, matching love.graphics.shear
+    # (src/modules/graphics/wrap_Graphics.cpp, w_shear).
+    #
+    # [kx] Float or Integer horizontal shearing factor.
+    # [ky] Float or Integer vertical shearing factor.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.shear(0.5, 0)
+    def self.shear(kx, ky)
+      Native::Graphics.shear(kx, ky)
+    end
+
     # The color the loop clears the window to before each draw, as an
     # Array of red, green, blue, and alpha, each from 0.0 to 1.0, matching
     # love.graphics.getBackgroundColor
@@ -606,13 +703,15 @@ module Lota
       Font.from_native(Native::Graphics.font)
     end
 
-    # Draws text in the current font and color, matching
-    # love.graphics.print (src/modules/graphics/wrap_Graphics.cpp,
+    # Draws text in the current font and color, or in a Font given first,
+    # matching love.graphics.print (src/modules/graphics/wrap_Graphics.cpp,
     # w_print).
     #
     # [text] String, or an Array of colored text: Strings, each drawn in
     #   the color given by the Array of red, green, blue, and optionally
     #   alpha before it, as love.graphics.print's table of colored text.
+    # [font] Lota::Graphics::Font to draw in, before the position, or left
+    #   out for the current font.
     # [x] Float or Integer position of the text's left edge; 0 when +nil+
     #   or left out.
     # [y] Float or Integer position of its top edge; 0 likewise.
@@ -626,26 +725,39 @@ module Lota
     #
     # A newline in the text starts a new line. Colored text is multiplied
     # by the current color. LÖVE reads each number as a single-precision
-    # float, and so does Lota. LÖVE also draws in a Font given before the
-    # position, and places text with a Transform; Lota binds those forms
-    # later.
+    # float, and so does Lota. A Font given draws this text alone; the
+    # current font stays as it was. LÖVE also places text with a
+    # Transform; Lota binds that form later.
     #
-    # Raises TypeError for text or a number of the wrong type, and
-    # ThreadError off the main thread.
+    # Raises TypeError for text or a number of the wrong type,
+    # ArgumentError for a tenth number, and ThreadError off the main
+    # thread.
     #
     # === Examples
     #
     #   Lota::Graphics.print("Score: 100", 10, 10)
+    #   Lota::Graphics.print("Score: 100", big_font, 10, 10)
     #   Lota::Graphics.print([[1, 0, 0], "red ", [0, 0, 1], "blue"], 10, 30)
-    def self.print(text, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
-      Native::Graphics.print(colored_text(text), placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky))
+    def self.print(text, font = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
+      ky = nil
+    )
+      unless font.is_a?(Font)
+        raise ArgumentError, "wrong number of arguments (given 10 numbers, expected 0..9)" unless ky.nil?
+
+        return Native::Graphics.print(colored_text(text), nil,
+          placement(number(font || 0), number(x || 0), y, r, sx, sy, ox, oy, kx))
+      end
+
+      Native::Graphics.print(colored_text(text), font.native, placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky))
     end
 
-    # Draws text in the current font and color, wrapped and aligned within
-    # a width, matching love.graphics.printf
+    # Draws text in the current font and color, or in a Font given first,
+    # wrapped and aligned within a width, matching love.graphics.printf
     # (src/modules/graphics/wrap_Graphics.cpp, w_printf).
     #
     # [text] String, or an Array of colored text, as for print.
+    # [font] Lota::Graphics::Font to draw in, before the position, or left
+    #   out for the current font.
     # [x] Float or Integer position of the text's left edge.
     # [y] Float or Integer position of its top edge.
     # [limit] Float or Integer width at which lines wrap, and within which
@@ -661,19 +773,55 @@ module Lota
     # [ky] Float or Integer vertical shearing factor; 0 likewise.
     #
     # Lines break at a newline, and wrap between words that would cross
-    # the limit. LÖVE also draws in a Font given before the position, and
-    # places text with a Transform; Lota binds those forms later.
+    # the limit. LÖVE also places text with a Transform; Lota binds that
+    # form later.
     #
-    # Raises ArgumentError for an unknown alignment, TypeError for text or
-    # a number of the wrong type, and ThreadError off the main thread.
+    # Raises ArgumentError for an unknown alignment or a twelfth argument
+    # after the text, TypeError for text or a number of the wrong type,
+    # and ThreadError off the main thread.
     #
-    # === Example
+    # === Examples
     #
     #   Lota::Graphics.printf("Congratulations!\nYou have finished the game!", 300, 250, 200, :center)
-    def self.printf(text, x, y, limit, align = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
-      ky = nil
+    #   Lota::Graphics.printf("Victory!", big_font, 8, 8, 240, :center)
+    def self.printf(text, font, x, y, limit = nil, align = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil,
+      kx = nil, ky = nil
     )
-      Native::Graphics.printf(colored_text(text), placement(x, y, r, sx, sy, ox, oy, kx, ky), limit, align && EnumName.of(align))
+      arguments = [x, y, limit, align, r, sx, sy, ox, oy, kx, ky]
+      unless font.is_a?(Font)
+        raise ArgumentError, "wrong number of arguments (given 12 after the text, expected 3..11)" unless ky.nil?
+
+        arguments = [font, *arguments.first(10)]
+        font = nil
+      end
+      x, y, limit, align, r, sx, sy, ox, oy, kx, ky = arguments
+      Native::Graphics.printf(colored_text(text), font&.native,
+        placement(number(x), number(y), optional_number(r), optional_number(sx), optional_number(sy),
+          optional_number(ox), optional_number(oy), optional_number(kx), optional_number(ky)),
+        number(limit), alignment(align))
+    end
+
+    # +value+, a number LÖVE reads with luaL_checknumber, or TypeError.
+    private_class_method def self.number(value)
+      return value if value.is_a?(Integer) || value.is_a?(Float)
+
+      raise TypeError, "wrong argument type #{value.class} (expected Float or Integer)"
+    end
+
+    # +value+, a number LÖVE reads with luaL_optnumber: nil for its
+    # default, or TypeError.
+    private_class_method def self.optional_number(value)
+      value.nil? ? nil : number(value)
+    end
+
+    # printf's alignment as the String the engine reads, or nil for its
+    # default.
+    private_class_method def self.alignment(value)
+      case value
+      when nil then nil
+      when Symbol, String then EnumName.of(value)
+      else raise TypeError, "wrong argument type #{value.class} for the alignment (expected Symbol)"
+      end
     end
 
     # SPDX-SnippetBegin

@@ -7,6 +7,8 @@
 
 require_relative "tree_helper"
 require_relative "../../tasks/native_gem"
+require "digest"
+require "stringio"
 require "rubygems/package"
 
 # NativeGem builds the precompiled gem from rake compile's bundle and the
@@ -21,6 +23,7 @@ class NativeGemTest < Minitest::Test
     SDL3.framework
     freetype.framework
     harfbuzz.framework
+    OpenAL-Soft.framework
     libmodplug.framework
     vorbis.framework
     ogg.framework
@@ -111,9 +114,9 @@ class NativeGemTest < Minitest::Test
   end
 
   # The gem's REUSE.toml is the repository's, then the record's
-  # annotations: the bundle's, with the works the linker put in it, and
-  # each framework's. Wuff, whose licensing the maintainer has yet to find
-  # out, is the one work it names without a license.
+  # annotations: the bundle's, with the works the linker put in it, each
+  # framework's, and OpenAL Soft's source archive's. Every work the bundle
+  # carries has its license recorded, so none is pending.
   def test_the_reuse_toml_annotates_the_bundle_and_each_framework
     toml = File.read(File.join(unpacked, "REUSE.toml"))
 
@@ -125,8 +128,66 @@ class NativeGemTest < Minitest::Test
     assert_includes toml, %("OFL-1.1")
     assert_includes toml, %("GPL-3.0-or-later WITH Bison-exception-2.2")
     assert_includes toml, %("Unlicense OR MIT-0")
-    pending = toml.lines.grep(/\A#   /).map(&:chomp)
-    assert_equal ["#   Wuff: no license or notice of copyright in its files, and none in LÖVE's license.txt"], pending
+    assert_includes toml, %(path = "sources/openal-soft-1.24.3.tar.bz2")
+    assert_includes toml, %("2012-2013 Boolsheet")
+    assert_empty toml.lines.grep(/\A#   /)
+  end
+
+  # OpenAL Soft's license, the GNU Library General Public License, asks
+  # for the library's source with its object code (section 4), so the gem
+  # carries the release's archive, the one the record names by its
+  # SHA-256, and the licenses of everything in it.
+  def test_the_gem_carries_openal_softs_source_with_its_framework
+    archive = File.join(unpacked, "sources/openal-soft-1.24.3.tar.bz2")
+    licenses = spec.files.grep(%r{\ALICENSES/}).map { |path| File.basename(path, ".txt") }
+
+    assert_includes spec.files, "lib/lota/frameworks/OpenAL-Soft.framework/Versions/A/OpenAL-Soft"
+    assert_equal "cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892",
+      Digest::SHA256.file(archive).hexdigest
+    %w[LGPL-2.0-or-later GPL-2.0-or-later Python-2.0 LicenseRef-PFFFT].each { |id| assert_includes licenses, id }
+  end
+
+  # The package check finds OpenAL Soft's framework, its annotation, and
+  # its source archive in the gem, and fails a gem whose archive is gone
+  # or is another.
+  def test_the_package_check_verifies_the_source_archive_the_gem_carries
+    target = PackageCheck::Target.new(name: "lota", dir: ".", packaged: [], native_packaged: [],
+      extension: "lib/lota/native", native: self.class.native_gem, refusal: "", smoke: "", games: [])
+    out = StringIO.new
+    check = PackageCheck.new(root: ROOT, gems: [target], out:)
+    check.__send__(:verify_sources, target, unpacked)
+    assert_includes out.string, "carries its source sources/openal-soft-1.24.3.tar.bz2"
+
+    in_tree do |work|
+      copy = File.join(work, "gem")
+      FileUtils.cp_r(unpacked, copy)
+      File.write(File.join(copy, "sources/openal-soft-1.24.3.tar.bz2"), "another")
+      error = assert_raises(PackageCheck::Failure) { check.__send__(:verify_sources, target, copy) }
+      assert_includes error.message, "whose SHA-256 is not the cb5e6197"
+
+      File.delete(File.join(copy, "sources/openal-soft-1.24.3.tar.bz2"))
+      error = assert_raises(PackageCheck::Failure) { check.__send__(:verify_sources, target, copy) }
+      assert_includes error.message, "lacks sources/openal-soft-1.24.3.tar.bz2"
+    end
+  end
+
+  # The build checks the archive it copies, so one that is not the
+  # release recorded, or none at all, stops it.
+  def test_a_source_archive_that_is_missing_or_not_the_one_recorded_stops_the_build
+    licensing = self.class.licensing
+    recorded = licensing.frameworks.fetch("OpenAL-Soft.framework")
+    in_tree do |work|
+      wrong = File.join(work, "openal.tar.bz2")
+      File.write(wrong, "not the release")
+      relative = Pathname.new(wrong).relative_path_from(ROOT).to_s
+      licensing.frameworks["OpenAL-Soft.framework"] = recorded.with(source: recorded.source.with(path: relative))
+      error = assert_raises(PackageCheck::Failure) { self.class.native_gem(licensing:).build(work) }
+      assert_includes error.message, "#{relative} has SHA-256 #{Digest::SHA256.file(wrong).hexdigest}"
+
+      File.delete(wrong)
+      error = assert_raises(PackageCheck::Failure) { self.class.native_gem(licensing:).build(work) }
+      assert_includes error.message, "#{relative} is missing; run bundle exec rake sources:fetch"
+    end
   end
 
   # RubyGems warns on every symlink it packages, so the framework ships

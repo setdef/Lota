@@ -71,8 +71,8 @@ int w_getHeight() { return instance()->getHeight(); }
 
 // love.graphics.getColor: w_getColor (wrap_Graphics.cpp:2517-2525).
 Rice::Array w_getColor() {
-  const Colorf c = instance()->getColor();
   Rice::Array results;
+  const Colorf c = instance()->getColor();
   results.push(static_cast<double>(c.r), false);
   results.push(static_cast<double>(c.g), false);
   results.push(static_cast<double>(c.b), false);
@@ -82,8 +82,8 @@ Rice::Array w_getColor() {
 
 // love.graphics.getBackgroundColor: w_getBackgroundColor (wrap_Graphics.cpp:2553-2561).
 Rice::Array w_getBackgroundColor() {
-  const Colorf c = instance()->getBackgroundColor();
   Rice::Array results;
+  const Colorf c = instance()->getBackgroundColor();
   results.push(static_cast<double>(c.r), false);
   results.push(static_cast<double>(c.g), false);
   results.push(static_cast<double>(c.b), false);
@@ -193,14 +193,33 @@ void w_ellipse(const std::string &mode, double x, double y, double a, std::optio
   }
 }
 
+// love.graphics.pop: w_pop (wrap_Graphics.cpp:3928-3932).
+void w_pop() { instance()->pop(); }
+
+// love.graphics.scale: w_scale (wrap_Graphics.cpp:3941-3947).
+void w_scale(double sx, std::optional<double> sy) {
+  instance()->scale(static_cast<float>(sx),
+                    static_cast<float>(sy.value_or(static_cast<float>(sx))));
+}
+
+// love.graphics.translate: w_translate (wrap_Graphics.cpp:3949-3955).
+void w_translate(double x, double y) {
+  instance()->translate(static_cast<float>(x), static_cast<float>(y));
+}
+
+// love.graphics.shear: w_shear (wrap_Graphics.cpp:3957-3963).
+void w_shear(double kx, double ky) {
+  instance()->shear(static_cast<float>(kx), static_cast<float>(ky));
+}
+
 // love.graphics.origin: w_origin (wrap_Graphics.cpp:3965-3969).
 void w_origin() { instance()->origin(); }
 
 // Quad:getViewport: w_Quad_getViewport (wrap_Quad.cpp:56-65).
 Rice::Array w_Quad_getViewport(const Quad &quad) {
   require_main_thread(MODULE);
-  const Quad::Viewport v = quad.getViewport();
   Rice::Array results;
+  const Quad::Viewport v = quad.getViewport();
   results.push(v.x, false);
   results.push(v.y, false);
   results.push(v.w, false);
@@ -211,9 +230,9 @@ Rice::Array w_Quad_getViewport(const Quad &quad) {
 // Quad:getTextureDimensions: w_Quad_getTextureDimensions (wrap_Quad.cpp:67-75).
 Rice::Array w_Quad_getTextureDimensions(const Quad &quad) {
   require_main_thread(MODULE);
+  Rice::Array results;
   const double sw = quad.getTextureWidth();
   const double sh = quad.getTextureHeight();
-  Rice::Array results;
   results.push(sw, false);
   results.push(sh, false);
   return results;
@@ -246,8 +265,8 @@ void w_SpriteBatch_setTexture(SpriteBatch &t, Texture *tex) {
 // SpriteBatch:getColor: w_SpriteBatch_getColor (wrap_SpriteBatch.cpp:184-194).
 Rice::Array w_SpriteBatch_getColor(const SpriteBatch &t) {
   require_main_thread(MODULE);
-  const Colorf color = t.getColor();
   Rice::Array results;
+  const Colorf color = t.getColor();
   results.push(static_cast<double>(color.r), false);
   results.push(static_cast<double>(color.g), false);
   results.push(static_cast<double>(color.b), false);
@@ -278,6 +297,20 @@ void w_SpriteBatch_setDrawRange(SpriteBatch &t, std::optional<int> start,
   }
 }
 
+// SpriteBatch:getDrawRange: w_SpriteBatch_getDrawRange (wrap_SpriteBatch.cpp:249-261).
+Rice::Array w_SpriteBatch_getDrawRange(const SpriteBatch &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  int start = 0;
+  int count = 1;
+  if (!t.getDrawRange(start, count)) {
+    return results;
+  }
+  results.push(start + 1, false);
+  results.push(count, false);
+  return results;
+}
+
 // Texture:isCanvas: w_Texture_isCanvas (wrap_Texture.cpp:282-287).
 bool w_Texture_isCanvas(const Texture &t) {
   require_main_thread(MODULE);
@@ -294,6 +327,11 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("created?", &w_isCreated)
       .define_singleton_function("reset", &w_reset)
       .define_singleton_function("origin", &w_origin)
+      .define_singleton_function("pop", &w_pop)
+      .define_singleton_function("translate", &w_translate, Rice::Arg("x"), Rice::Arg("y"))
+      .define_singleton_function("scale", &w_scale, Rice::Arg("sx") = 1.0,
+                                 Rice::Arg("sy") = std::optional<double>())
+      .define_singleton_function("shear", &w_shear, Rice::Arg("kx"), Rice::Arg("ky"))
       .define_singleton_function("background_color", &w_getBackgroundColor)
       .define_singleton_function("width", &w_getWidth)
       .define_singleton_function("height", &w_getHeight)
@@ -329,7 +367,8 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_method("buffer_size", &w_SpriteBatch_getBufferSize)
       .define_method("set_draw_range", &w_SpriteBatch_setDrawRange,
                      Rice::Arg("start") = std::optional<int>(),
-                     Rice::Arg("count") = std::optional<int>());
+                     Rice::Arg("count") = std::optional<int>())
+      .define_method("draw_range", &w_SpriteBatch_getDrawRange);
   Rice::define_class_under<Texture>(native, "Texture")
       .define_method("canvas?", &w_Texture_isCanvas);
 }

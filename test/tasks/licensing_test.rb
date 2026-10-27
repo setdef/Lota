@@ -164,6 +164,36 @@ class LicensingTest < Minitest::Test
     TOML
   end
 
+  # A framework whose license asks for its source records its archive,
+  # which gets an annotation of its own in the gem's sources/.
+  def test_a_frameworks_source_archive_is_annotated_in_sources
+    licensing = Licensing.new("record.rb")
+    licensing.framework("X.framework", copyright: ["2026 X"], license: ["LGPL-2.0-or-later"],
+      source: {
+url: "https://example.com/x-1.0.tar.bz2",
+sha256: "ab",
+path: "vendor/sources/x-1.0.tar.bz2",
+copyright: ["2026 X", "2025 Y"],
+license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
+})
+    toml = licensing.annotations(bundle: "lib/x.bundle", works: [], framework_dir: "lib/frameworks",
+      frameworks: ["X.framework"])
+
+    assert_equal "x-1.0.tar.bz2", licensing.sources(["X.framework"]).first.name
+    assert toml.end_with?(<<~TOML), toml
+      [[annotations]]
+      path = "sources/x-1.0.tar.bz2"
+      SPDX-FileCopyrightText = [
+        "2026 X",
+        "2025 Y",
+      ]
+      SPDX-License-Identifier = [
+        "LGPL-2.0-or-later",
+        "GPL-2.0-or-later",
+      ]
+    TOML
+  end
+
   def test_a_framework_the_record_lacks_is_unrecorded
     error = assert_raises(Licensing::Unrecorded) { Licensing.new("record.rb").framework_for("Y.framework") }
 

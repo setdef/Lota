@@ -116,7 +116,7 @@ class LotaRunTest < Minitest::Test
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
   # love.graphics (its Quad and SpriteBatch tests among them),
-  # love.keyboard, love.mouse, love.math, love.event, love.system,
+  # love.audio, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.window, and love.filesystem tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
   # conf.lua. On a GitHub Actions runner, Lövetest's arc test compares none
@@ -124,11 +124,11 @@ class LotaRunTest < Minitest::Test
   # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 28522 - (3 * 32 * 32) + 1 : 28522
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 29859 - (3 * 32 * 32) + 1 : 29859
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^47 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^69 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

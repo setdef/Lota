@@ -103,6 +103,13 @@ jobs:
       - name: Install the bundle
         run: bundle install
 
+      # The source archives the precompiled gem carries beside the
+      # frameworks whose licenses ask for them (ext/lota/licenses.rb),
+      # downloaded once and checked by their SHA-256, so the gate itself
+      # needs no network.
+      - name: Fetch the source archives
+        run: bundle exec rake sources:fetch
+
       # ccache reuses an object only when the compiler, its arguments, the
       # source, and every header it includes hash the same, so any earlier
       # cache is safe to start from; a cache of the build tree would not be,

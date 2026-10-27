@@ -41,8 +41,8 @@ class GeneratorTest < Minitest::Test
   end
 
   # The generated file includes a header for each name it uses: the class
-  # of an object argument (w_setFont's Font), std::min and std::max, and
-  # LÖVE's integer limits, as clang-tidy's misc-include-cleaner requires.
+  # of an object argument (w_setFont's Font), std::min and std::max,
+  # LÖVE's integer limits, and its Rect (w_getSafeArea's, common/math.h), as clang-tidy's misc-include-cleaner requires.
   def test_a_module_file_includes_what_its_ports_use
     list = Bindings::BindingList.new
     list.generate("love.graphics.setFont")
@@ -52,6 +52,10 @@ class GeneratorTest < Minitest::Test
     assert_includes code, %(#include "graphics/Font.h")
     assert_includes code, %(#include "common/int.h")
     assert_includes code, "#include <algorithm>"
+    safe_area = Bindings::BindingList.new
+    safe_area.generate("love.window.getSafeArea")
+    assert_includes BindingsHelper.generator(list: safe_area).files.fetch("ext/lota/native/generated/window.cpp"),
+      %(#include "common/math.h")
   end
 
   # w_Source_setPitch limits its pitch by std::numeric_limits<lua_Number>,
@@ -163,6 +167,31 @@ class GeneratorTest < Minitest::Test
     assert_includes code, "bool w_Texture_isCanvas(const Texture &t)"
     assert_includes code, "require_main_thread(MODULE);"
     assert_includes port("RandomGenerator:setState").definition, "(RandomGenerator &rng, const std::string &statestr)"
+  end
+
+  # Rule 4: w_SpriteBatch_getDrawRange returns nothing when the batch
+  # draws every sprite and two values otherwise, so the port returns an
+  # Array on both paths, empty on the first (ADR 001, section 7).
+  def test_a_form_that_returns_several_values_returns_an_array_on_every_path
+    port = port("SpriteBatch:getDrawRange", main_thread: "Lota::Graphics")
+
+    assert_includes port.definition, "Rice::Array w_SpriteBatch_getDrawRange(const SpriteBatch &t) {\n" \
+      "require_main_thread(MODULE);\nRice::Array results;"
+    assert_includes port.definition, "if (!t.getDrawRange(start, count)) {\nreturn results;\n}"
+    assert_includes port.definition, "results.push(start + 1, false);\nresults.push(count, false);\nreturn results;"
+    assert_match(/-> Array\[Integer\]\z/, port.rbs)
+  end
+
+  # Rule 4 again: w_File_tell returns luax_ioError's nil and message when
+  # the position is unknown, and the position otherwise, so both are an
+  # Array, and the message is the one LÖVE formats.
+  def test_an_io_error_returns_nil_and_its_message_in_an_array
+    port = port("File:tell")
+
+    assert_includes port.definition, "Rice::Array w_File_tell(File &file) {\nRice::Array results;"
+    assert_includes port.definition, %(if (pos == -1) {\nreturn io_error("Invalid position.");\n})
+    assert_match(/results\.push\(\(double\)pos, false\);\n\}\n\}\nreturn results;\n\}\n\z/, port.definition)
+    assert_match(/-> Array\[Integer \| nil \| String\]\z/, port.rbs)
   end
 
   def test_errors_become_engine_exceptions

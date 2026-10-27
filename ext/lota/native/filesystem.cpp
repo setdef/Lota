@@ -4,15 +4,18 @@
 #include "native/filesystem.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Data.h"
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/int.h"
 #include "filesystem/File.h"
 #include "filesystem/FileData.h"
 #include "filesystem/Filesystem.h"
 #include "filesystem/physfs/Filesystem.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <memory>
@@ -41,6 +44,17 @@ void open() {
 bool is_open() {
   return love::Module::getInstance<love::filesystem::Filesystem>(love::Module::M_FILESYSTEM) !=
          nullptr;
+}
+
+// The filesystem module, as LÖVE's instance() macro reaches it
+// (wrap_Filesystem.cpp:50), or a RuntimeError when it is not open.
+love::filesystem::Filesystem *filesystem() {
+  auto *opened =
+      love::Module::getInstance<love::filesystem::Filesystem>(love::Module::M_FILESYSTEM);
+  if (opened == nullptr) {
+    throw love::Exception("Lota::Filesystem is not open.");
+  }
+  return opened;
 }
 
 // SPDX-SnippetBegin
@@ -81,6 +95,117 @@ FileData *file_data(const std::string &filename) {
   return file->read();
 }
 
+// The largest integer a Lua number, a double, holds exactly, to which
+// w_getInfo limits a size and a time (wrap_Filesystem.cpp:584-596).
+constexpr love::int64 LARGEST_EXACT_DOUBLE = 0x20000000000000LL;
+
+// w_getInfo (wrap_Filesystem.cpp:544-602): what the filesystem knows of
+// +filepath+, as an Array of LÖVE's fields in the order it sets them
+// (type, readonly, size, modtime), with nil for a size or time it leaves
+// out because the filesystem could not tell, or nil when there is no such
+// file, or none of the type +filtertype+ names. The table LÖVE fills in
+// when given one is not bound: Lota::Filesystem.info makes a frozen Data
+// of the fields (ADR 001, rule 10).
+Rice::Object info(const std::string &filepath, const std::optional<std::string> &filtertype) {
+  using love::filesystem::Filesystem;
+  Filesystem::Info info = {};
+
+  Filesystem::FileType filter = Filesystem::FILETYPE_MAX_ENUM;
+  if (filtertype.has_value() && !Filesystem::getConstant(filtertype->c_str(), filter)) {
+    raise_enum_error("file type", Filesystem::getConstants(filter), *filtertype);
+  }
+
+  if (!filesystem()->getInfo(filepath.c_str(), info)) {
+    return {};
+  }
+  if (filter != Filesystem::FILETYPE_MAX_ENUM && info.type != filter) {
+    return {};
+  }
+
+  const char *typestr = nullptr;
+  if (!Filesystem::getConstant(info.type, typestr)) {
+    throw love::Exception("Unknown file type.");
+  }
+
+  Rice::Array fields;
+  fields.push(std::string(typestr), false);
+  fields.push(info.readonly, false);
+  info.size = std::min<love::int64>(info.size, LARGEST_EXACT_DOUBLE);
+  if (info.size >= 0) {
+    fields.push(static_cast<long long>(info.size), false);
+  } else {
+    fields.push(Rice::Object(), false);
+  }
+  info.modtime = std::min<love::int64>(info.modtime, LARGEST_EXACT_DOUBLE);
+  if (info.modtime >= 0) {
+    fields.push(static_cast<long long>(info.modtime), false);
+  } else {
+    fields.push(Rice::Object(), false);
+  }
+  return fields;
+}
+
+// w_read into a string (wrap_Filesystem.cpp:618-659): the first +size+
+// bytes of +filename+, or all of it when +size+ is negative, and how many
+// it read, or luax_ioError's nil and message when it cannot read the
+// file, as one Array either way (ADR 001, rule 4).
+Rice::Array read(const std::string &filename, long long size) {
+  FileData *data = nullptr;
+  try {
+    if (size >= 0) {
+      data = filesystem()->read(filename.c_str(), size);
+    } else {
+      data = filesystem()->read(filename.c_str());
+    }
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+
+  if (data == nullptr) {
+    return io_error("File could not be read.");
+  }
+
+  // Ruby has a copy once it is pushed, so the FileData is released.
+  const love::StrongRef<FileData> held(data, love::Acquire::NORETAIN);
+  Rice::Array results;
+  results.push(std::string(static_cast<const char *>(data->getData()), data->getSize()), false);
+  results.push(static_cast<long long>(data->getSize()), false);
+  return results;
+}
+
+// w_write_or_append with File::MODE_WRITE (wrap_Filesystem.cpp:661-701):
+// writes +size+ bytes of +input+, which holds +length+, to +filename+ in
+// the save directory, and returns true, or luax_ioError's nil and message,
+// as one Array either way (ADR 001, rule 4). LÖVE writes +size+ bytes
+// whatever +length+ is, reading past the input for a larger size; Lota
+// writes at most +length+, since Ruby reads no memory past a String.
+Rice::Array write(const std::string &filename, const void *input, std::size_t length,
+                  std::optional<long long> size) {
+  const auto len = static_cast<love::int64>(std::clamp<long long>(
+      size.value_or(static_cast<long long>(length)), 0, static_cast<long long>(length)));
+  try {
+    filesystem()->write(filename.c_str(), input, len);
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+
+  Rice::Array results;
+  results.push(true, false);
+  return results;
+}
+
+// love.filesystem.write with a string.
+Rice::Array write_string(const std::string &filename, const std::string &contents,
+                         std::optional<long long> size) {
+  return write(filename, contents.data(), contents.size(), size);
+}
+
+// love.filesystem.write with a Data, whose bytes it writes.
+Rice::Array write_data(const std::string &filename, const love::Data *data,
+                       std::optional<long long> size) {
+  return write(filename, data->getData(), data->getSize(), size);
+}
+
 // The lines of a file, one at a time, as the iterator love.filesystem.lines
 // returns gives them (w_lines, wrap_Filesystem.cpp:727-744, and
 // w_File_lines_i, wrap_File.cpp:241-347, whose upvalues are this class's
@@ -92,7 +217,7 @@ public:
   // Opens +filename+ in the game's filesystem for reading, or raises the
   // engine's error, as w_lines does through luax_catchexcept.
   explicit Lines(const std::string &filename)
-      : file_(instance()->openFile(filename.c_str(), File::MODE_READ), love::Acquire::NORETAIN) {}
+      : file_(filesystem()->openFile(filename.c_str(), File::MODE_READ), love::Acquire::NORETAIN) {}
 
   // The next line, without its '\n' and a '\r' before it, or nil once
   // the file is read. LÖVE reads a kilobyte at a time until the buffer
@@ -134,15 +259,6 @@ public:
   }
 
 private:
-  static love::filesystem::Filesystem *instance() {
-    auto *opened =
-        love::Module::getInstance<love::filesystem::Filesystem>(love::Module::M_FILESYSTEM);
-    if (opened == nullptr) {
-      throw love::Exception("Lota::Filesystem is not open.");
-    }
-    return opened;
-  }
-
   // Keep reading until newline or EOF (wrap_File.cpp:290-302).
   void read_until_newline() {
     constexpr int readbufsize = 1024;
@@ -178,7 +294,15 @@ void define_filesystem(const Rice::Module &native) {
       .define_singleton_function("new_file_data", &new_file_data, Rice::Arg("contents"),
                                  Rice::Arg("filename"), Rice::Return().takeOwnership())
       .define_singleton_function("file_data", &file_data, Rice::Arg("filename"),
-                                 Rice::Return().takeOwnership());
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("info", &info, Rice::Arg("filepath"),
+                                 Rice::Arg("filtertype") = std::optional<std::string>())
+      .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL)
+      .define_singleton_function("write_string", &write_string, Rice::Arg("filename"),
+                                 Rice::Arg("contents"),
+                                 Rice::Arg("size") = std::optional<long long>())
+      .define_singleton_function("write_data", &write_data, Rice::Arg("filename"),
+                                 Rice::Arg("data"), Rice::Arg("size") = std::optional<long long>());
 
   Rice::define_class_under<Lines>(Rice::define_module_under(native, "Filesystem"), "Lines")
       .define_constructor(Rice::Constructor<Lines, const std::string &>(), Rice::Arg("filename"))

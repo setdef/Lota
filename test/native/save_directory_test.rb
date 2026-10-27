@@ -145,4 +145,66 @@ class SaveDirectoryTest < Minitest::Test
 
     assert_equal ["helloworld"], lines
   end
+
+  # Rule 10: getInfo's table becomes a frozen Info with LÖVE's fields,
+  # each as w_getInfo sets it (wrap_Filesystem.cpp:544-602): the type a
+  # symbol, and the size and time Integers, as LÖVE's C++ holds them.
+  def test_info_is_a_frozen_record_of_lovees_fields
+    path = saved("scores.txt", "12345")
+    info = Lota::Filesystem.info("scores.txt")
+
+    assert_instance_of Lota::Filesystem::Info, info
+    assert_predicate info, :frozen?
+    assert_equal [:file, false, 5, File.mtime(path).to_i], [info.type, info.readonly, info.size, info.modtime]
+    assert_equal :directory, Lota::Filesystem.info("", :directory).type
+    assert_nil Lota::Filesystem.info("scores.txt", :directory)
+    assert_nil Lota::Filesystem.info("missing.txt")
+  end
+
+  def test_info_raises_lovees_message_for_an_unknown_file_type
+    error = assert_raises(ArgumentError) { Lota::Filesystem.info("scores.txt", :folder) }
+
+    assert_equal "Invalid file type 'folder', expected one of: 'file', 'directory', 'symlink', 'other'", error.message
+  end
+
+  # Rule 4: read returns its two results in an Array on failure too, the
+  # nil and message of luax_ioError (wrap_Filesystem.cpp:618-659), so the
+  # shape never depends on whether it worked.
+  def test_read_returns_nil_and_the_engines_message_when_it_cannot_read
+    content, message = Lota::Filesystem.read("missing.txt")
+
+    assert_nil content
+    assert_equal "Could not open file missing.txt. Does not exist.", message
+  end
+
+  # A Lua string is bytes, so read gives back every byte the file holds,
+  # as KleleAtoms' saved game holds bytes such as 255.
+  def test_read_and_write_keep_every_byte
+    bytes = "KSF\x0a\x06\xff\x00".b
+    assert_equal [true], Lota::Filesystem.write("game.ksf", bytes)
+
+    content, size = Lota::Filesystem.read("game.ksf")
+    assert_equal bytes.bytes, content.bytes
+    assert_equal 7, size
+    assert_equal bytes, File.binread(File.join(save_directory, "game.ksf"))
+  end
+
+  def test_write_takes_a_file_data_and_writes_no_more_than_the_data_holds
+    data = Lota::Filesystem::FileData.new("helloworld", "hello.txt")
+
+    assert_equal [true], Lota::Filesystem.write("hello.txt", data, 64)
+    assert_equal "helloworld", File.binread(File.join(save_directory, "hello.txt"))
+    assert_raises(TypeError) { Lota::Filesystem.write("hello.txt", 42) }
+  end
+
+  # write returns luax_ioError's nil and message when PhysicsFS cannot
+  # open the file, here because a directory has its name.
+  def test_write_returns_nil_and_the_engines_message_when_it_cannot_write
+    Lota::Filesystem.create_directory("taken")
+    ok, message = Lota::Filesystem.write("taken", "x")
+
+    assert_nil ok
+    assert_kind_of String, message
+    refute_empty message
+  end
 end

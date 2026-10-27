@@ -13,6 +13,7 @@ require "rubygems/package"
 require "stringio"
 require_relative "licensing"
 require_relative "package_check"
+require_relative "source_archive"
 
 # Builds Lota's precompiled gem for Apple Silicon macOS.
 #
@@ -49,6 +50,11 @@ require_relative "package_check"
 # headers, and each library LÖVE bundles that the bundle carries. A
 # framework, or a file the bundle compiled, that the record lacks stops
 # the build, and so does a gem the REUSE tool does not call compliant.
+#
+# A framework whose license asks for its source code with its object code,
+# as OpenAL Soft's does, carries the archive of that source in the gem's
+# sources/, from where rake sources:fetch keeps it, checked against the
+# SHA-256 the record gives; the build stops without it.
 class NativeGem
   # The platform the bundle is built for.
   PLATFORM = "arm64-darwin"
@@ -61,6 +67,9 @@ class NativeGem
 
   # Development files in a framework's version directory.
   DEVELOPMENT = %w[Headers Resources/CMake].freeze
+
+  # The record of who wrote what the gem carries.
+  attr_reader :licensing
 
   # Where the gem's license texts go, as REUSE asks.
   LICENSES = "LICENSES"
@@ -106,6 +115,7 @@ class NativeGem
     files.each { |file| copy(File.join(@root, file), File.join(stage, file)) }
     files += stage_bundle(stage)
     files += frameworks.flat_map { |name, source| stage_framework(stage, name, source) }
+    files += stage_sources(stage, frameworks.keys)
     files += stage_licensing(stage, works, frameworks.keys)
     package(native_spec(spec, files), stage, work)
   end
@@ -191,6 +201,20 @@ class NativeGem
 
       File.join(relative, path) if File.file?(File.join(target, path))
     end
+  end
+
+  # Copies the source archive of each of +frameworks+ that records one
+  # into the gem's sources/, after checking it is the archive recorded.
+  private def stage_sources(stage, frameworks)
+    @licensing.sources(frameworks).map do |source|
+      archive = SourceArchive.new(source, root: @root)
+      archive.verify!
+      target = File.join(Licensing::SOURCES, source.name)
+      copy(archive.path, File.join(stage, target))
+      target
+    end
+  rescue SourceArchive::Failure => e
+    raise PackageCheck::Failure, e.message
   end
 
   # Writes the gem's REUSE.toml and LICENSES/, and checks the gem with

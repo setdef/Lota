@@ -248,6 +248,7 @@ module Bindings
       love << '"common/Module.h"' if code.include?("instance()")
       love << '"common/Color.h"' if code.match?(/\bColor[fD]?\b|\bColorT\b/)
       love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b/)
+      love << '"common/math.h"' if code.match?(/\bRect\b/)
       classes = ports.map { |port| port.function.wrap.instance_class }.compact +
         ports.filter_map { |port| port.self_parameter&.fetch(:type) } +
         ports.flat_map { |port| port.parameters.compact.filter_map(&:object) }

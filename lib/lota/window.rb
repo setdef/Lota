@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "window/mode"
+
 module Lota
   # The game's window, translated from love.window.
   #
@@ -84,7 +86,135 @@ module Lota
       usedpiscale: nil, refreshrate: nil, x: nil, y: nil
     )
       _ = refreshrate
+      settings = read_window_settings(Native::WindowSettings.new, fullscreen:, fullscreentype:, vsync:, msaa:,
+        stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, usedpiscale:, x:, y:)
+      Native::Window.set_mode(width, height, settings)
+    end
+
+    # Changes some of the window's settings, keeping the rest as they are,
+    # matching love.window.updateMode
+    # (src/modules/window/wrap_Window.cpp, w_updateMode).
+    #
+    # [width] Integer new width, as set_mode takes it; the window's own
+    #   when left out, with +height+.
+    # [height] Integer new height, required with +width+.
+    #
+    # Its settings are set_mode's, each the window's current value when
+    # left out or +nil+, where set_mode takes the default. As LÖVE reads
+    # a table of settings only when given one, the window's position is
+    # kept when no setting is given, and follows +x+, +y+, and +centered+,
+    # as set_mode's does, when any is. Returns +false+
+    # when the system refuses the mode (ADR 001, rule 7). Raises
+    # RuntimeError (<tt>"Expected at least one argument"</tt>) given
+    # neither a size nor a setting, as LÖVE does given nothing, and
+    # otherwise raises as set_mode does.
+    #
+    # === Examples
+    #
+    #   Lota::Window.update_mode(460, 364)
+    #   Lota::Window.update_mode(resizable: true)
+    def self.update_mode(width = nil, height = nil, fullscreen: nil, fullscreentype: nil, vsync: nil, msaa: nil,
+      stencil: nil, depth: nil, resizable: nil, minwidth: nil, minheight: nil, borderless: nil, centered: nil,
+      displayindex: nil, usedpiscale: nil, refreshrate: nil, x: nil, y: nil
+    )
       settings = Native::WindowSettings.new
+      w, h = Native::Window.get_window(settings)
+      given = [
+        fullscreen,
+        fullscreentype,
+        vsync,
+        msaa,
+        stencil,
+        depth,
+        resizable,
+        minwidth,
+        minheight,
+        borderless,
+        centered,
+        displayindex,
+        usedpiscale,
+        refreshrate,
+        x,
+        y,
+]
+      raise "Expected at least one argument" if width.nil? && given.all?(&:nil?)
+
+      if width.is_a?(Integer) || width.is_a?(Float)
+        w = width.to_i
+        h = Integer(height)
+      end
+      unless given.all?(&:nil?)
+        read_window_settings(settings, fullscreen:, fullscreentype:, vsync:, msaa:, stencil:, depth:, resizable:,
+          minwidth:, minheight:, borderless:, centered:, displayindex:, usedpiscale:, x:, y:)
+      end
+      Native::Window.set_mode(w, h, settings)
+    end
+
+    # The window's width, height, and settings, as an Array (ADR 001,
+    # rule 4) of two Integers and a frozen Mode with LÖVE's field names
+    # (rule 10), matching love.window.getMode
+    # (src/modules/window/wrap_Window.cpp, w_getMode).
+    #
+    # LÖVE also fills in a table the caller passes; a Mode is frozen, so
+    # Lota makes a new one each time. Raises ThreadError off the main
+    # thread.
+    #
+    # === Example
+    #
+    #   width, height, flags = Lota::Window.mode
+    #   flags.fullscreen # => false
+    def self.mode
+      settings = Native::WindowSettings.new
+      width, height = Native::Window.get_window(settings)
+      [
+        width,
+        height,
+        Mode.new(
+          fullscreentype: settings.fullscreentype.to_sym, fullscreen: settings.fullscreen, vsync: settings.vsync,
+          msaa: settings.msaa, stencil: settings.stencil, depth: settings.depth, resizable: settings.resizable,
+          minwidth: settings.minwidth, minheight: settings.minheight, borderless: settings.borderless,
+          centered: settings.centered, displayindex: settings.displayindex + 1, usedpiscale: settings.usedpiscale,
+          refreshrate: settings.refreshrate, x: settings.x, y: settings.y
+        ),
+]
+    end
+
+    # The width and height of a display, as an Array (ADR 001, rule 4),
+    # matching love.window.getDesktopDimensions
+    # (src/modules/window/wrap_Window.cpp, w_getDesktopDimensions).
+    #
+    # [displayindex] Integer display, counting from 1; the one the window
+    #   is on when +nil+ or left out.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   width, height = Lota::Window.desktop_dimensions # => [1728, 1117]
+    def self.desktop_dimensions(displayindex = nil)
+      Native::Window.desktop_dimensions(displayindex)
+    end
+
+    # The part of the window nothing of the system's covers, such as a
+    # phone's notch, as an Array (ADR 001, rule 4) of its Integer x, y,
+    # width, and height, matching love.window.getSafeArea
+    # (src/modules/window/wrap_Window.cpp, w_getSafeArea).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   x, y, width, height = Lota::Window.safe_area # => [0, 0, 800, 600]
+    def self.safe_area
+      Native::Window.safe_area
+    end
+
+    # readWindowSettings (wrap_Window.cpp:56-128): each setting given
+    # replaces the one +settings+ holds, which is the default for set_mode
+    # and the window's own for update_mode.
+    private_class_method def self.read_window_settings(settings, fullscreen:, fullscreentype:, vsync:, msaa:,
+      stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, usedpiscale:, x:, y:
+    )
       unless fullscreentype.nil? || settings.set_fullscreentype(fullscreentype.to_s)
         expected = Native::Window.fullscreen_types.map { |name| "'#{name}'" }.join(", ")
         raise ArgumentError, "Invalid fullscreen type '#{fullscreentype}', expected one of: #{expected}"
@@ -106,7 +236,7 @@ module Lota
         settings.x = x.to_i
         settings.y = y.to_i
       end
-      Native::Window.set_mode(width, height, settings)
+      settings
     end
 
     # luax_boolflag (src/common/runtime.cpp): the default when nil, else

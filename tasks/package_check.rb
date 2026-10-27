@@ -8,6 +8,7 @@
 require "fileutils"
 require "open3"
 require "rbconfig"
+require "digest"
 require "rubygems/package"
 require "tmpdir"
 
@@ -97,6 +98,12 @@ class PackageCheck
     "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0",
   }.freeze
 
+  # OpenAL Soft's setting that plays every Source through its null
+  # backend, which opens a device that plays nothing, so a check's run
+  # makes no sound and needs no audio device, as on a CI runner, while the
+  # gem's OpenAL Soft still loads and opens. It goes to the runs alone.
+  SILENT = { "ALSOFT_DRIVERS" => "null" }.freeze
+
   # The directory a framework's signature covers, the version its @rpath
   # install name names (NativeGem::VERSION).
   FRAMEWORK_VERSION = "Versions/A"
@@ -173,6 +180,7 @@ class PackageCheck
       installed = @gems.to_h { |gem| [gem, Dir.glob(File.join(home, "gems", "#{gem.name}-*")).first] }
       installed.each do |gem, dir|
         verify_native(gem, dir, where: "installed")
+        verify_sources(gem, dir)
         run_executable(gem, home, env, work)
       end
       smoke(env:, load_paths: [], gem_dirs: installed)
@@ -204,8 +212,7 @@ class PackageCheck
   # same place relative to it. That includes what those load in turn through
   # @rpath, as libvorbis loads libogg, which dyld finds through the rpaths
   # of the bundle that loaded them. Libraries no rpath resolves, such as the
-  # sanitizer runtime that DYLD_INSERT_LIBRARIES loads, are left out, and so
-  # are libraries the bundle links weakly, which it loads without.
+  # sanitizer runtime that DYLD_INSERT_LIBRARIES loads, are left out.
   def self.rpath_dependencies(bundle)
     directory = File.dirname(bundle)
     rpaths = relative_rpaths(bundle)
@@ -286,12 +293,11 @@ class PackageCheck
     output
   end
 
-  # The names +binary+ needs through @rpath, without those it links
-  # weakly, which otool marks "weak", once each, though otool lists a
-  # library once for each architecture of a universal binary. A library's
-  # own install name is among them.
+  # The names +binary+ needs through @rpath, once each, though otool
+  # lists a library once for each architecture of a universal binary. A
+  # library's own install name is among them.
   private_class_method def self.rpath_libraries(binary)
-    lines = otool("-L", binary).lines.grep(/\A\s/).grep_v(/, weak\)\s*\z/)
+    lines = otool("-L", binary).lines.grep(/\A\s/)
     libraries = lines.map { |line| line.split.first }.uniq
     libraries.filter_map { |library| library.delete_prefix("@rpath/") if library.start_with?("@rpath/") }
   end
@@ -338,6 +344,7 @@ class PackageCheck
     unpacked = unpack(package, work)
     verify_files(gem, unpacked, gem.packaged + gem.native_packaged, assembled: gem.native.assembled)
     verify_licensing(gem, unpacked)
+    verify_sources(gem, unpacked)
     package
   end
 
@@ -414,6 +421,42 @@ class PackageCheck
     raise Failure, "reuse is not on PATH; bin/setup installs it"
   end
 
+  # Each framework the bundle in +dir+ loads whose record names a source
+  # archive (ext/lota/licenses.rb) is in the gem, with its license record,
+  # REUSE.toml's annotations of the framework and of the archive, and the
+  # archive itself, the one recorded, in sources/, as its license asks.
+  private def verify_sources(gem, dir)
+    bundle = File.join(dir, gem.extension_file)
+    frameworks = self.class.rpath_dependencies(bundle).map { |relative| File.basename(relative) }
+    toml = File.read(File.join(dir, NativeGem::REUSE_TOML))
+    sources = frameworks.filter_map do |name|
+      source = gem.native.licensing.framework_for(name).source or next
+      archive = File.join(Licensing::SOURCES, source.name)
+      framework = File.join(File.dirname(gem.extension_file), NativeGem::FRAMEWORKS, name)
+      verify_source(dir, toml, framework, archive, source)
+      archive
+    end
+    @out.puts "✅ #{gem.name}: #{sources.empty? ? 'no framework needs' : 'carries'} its source " \
+      "#{sources.join(', ')}".rstrip
+  rescue Licensing::Unrecorded => e
+    raise Failure, e.message
+  end
+
+  private def verify_source(dir, toml, framework, archive, source)
+    problems = []
+    problems << "lacks #{framework}" unless File.directory?(File.join(dir, framework))
+    [%(path = "#{framework}/**"), %(path = "#{archive}")].each do |line|
+      problems << "has no annotation #{line} in its REUSE.toml" unless toml.include?(line)
+    end
+    path = File.join(dir, archive)
+    if !File.file?(path)
+      problems << "lacks #{archive}, the source #{File.basename(framework)}'s license asks for"
+    elsif Digest::SHA256.file(path).hexdigest != source.sha256
+      problems << "carries an #{archive} whose SHA-256 is not the #{source.sha256} recorded"
+    end
+    raise Failure, "#{File.basename(dir)} #{problems.join('; ')}" if problems.any?
+  end
+
   # The bundle and each framework it loads, in +dir+, load from +dir+
   # alone and pass strict signature verification.
   private def verify_native(gem, dir, where: "unpacked")
@@ -441,7 +484,7 @@ class PackageCheck
     guard = guard(work)
     gem.games.each do |game|
       install_dependencies(game, env, work)
-      run_env = env.merge("DYLD_PRINT_LIBRARIES" => "1").merge(game.background ? BACKGROUND : {})
+      run_env = env.merge("DYLD_PRINT_LIBRARIES" => "1", **SILENT).merge(game.background ? BACKGROUND : {})
       output, status = Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
         *game.arguments, chdir: work)
       verify_game(game, home, output, status)

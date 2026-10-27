@@ -44,6 +44,9 @@ System *instance() {
 // (vendor/love/src/modules/system), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// love.system.getOS: w_getOS (wrap_System.cpp:32-36).
+std::string w_getOS() { return System::getOS(); }
+
 // love.system.setClipboardText: w_setClipboardText (wrap_System.cpp:50-55).
 void w_setClipboardText(const std::string &text) { instance()->setClipboardText(text); }
 
@@ -61,7 +64,8 @@ std::string w_getClipboardText() {
 void define_generated_system(const Rice::Module &native) {
   Rice::define_module_under(native, "System")
       .define_singleton_function("set_clipboard_text", &w_setClipboardText, Rice::Arg("text"))
-      .define_singleton_function("clipboard_text", &w_getClipboardText);
+      .define_singleton_function("clipboard_text", &w_getClipboardText)
+      .define_singleton_function("os", &w_getOS);
 }
 
 } // namespace lota::native

@@ -125,6 +125,33 @@ class TextTest < Minitest::Test
     refute_equal pixels(with_big), pixels(with_default)
   end
 
+  # w_print and w_printf draw in a Font given before the position
+  # (wrap_Graphics.cpp:3415-3423 and 3443-3447, 3482-3483), as setting it
+  # would, and leave the current font as it was.
+  def test_print_and_printf_draw_in_a_font_given_first
+    big = Lota::Graphics::Font.new(24)
+    current = Lota::Graphics.font
+    given = drawn { Lota::Graphics.print("o", big, 0, 0) }
+    set = drawn do
+      Lota::Graphics.font = big
+      Lota::Graphics.print("o", 0, 0)
+    end
+    Lota::Graphics.font = current
+    wrapped_given = drawn { Lota::Graphics.printf("o", big, 0, 0, 32, :right) }
+    wrapped_set = drawn do
+      Lota::Graphics.font = big
+      Lota::Graphics.printf("o", 0, 0, 32, :right)
+    end
+    Lota::Graphics.font = current
+    plain = drawn { Lota::Graphics.print("o", 0, 0) }
+
+    assert_equal pixels(set), pixels(given)
+    assert_equal pixels(wrapped_set), pixels(wrapped_given)
+    refute_equal pixels(given), pixels(plain)
+    assert_raises(ArgumentError) { Lota::Graphics.print("o", 0, 0, 0, 1, 1, 0, 0, 0, 0, 0) }
+    assert_raises(TypeError) { Lota::Graphics.printf("o", big, 0, 0, nil) }
+  end
+
   def test_the_font_must_be_a_font
     error = assert_raises(TypeError) { Lota::Graphics.font = nil }
 

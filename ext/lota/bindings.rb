@@ -65,6 +65,15 @@ generate "love.filesystem.getIdentity"
 generate "love.filesystem.getSaveDirectory"
 generate "love.filesystem.createDirectory"
 generate "love.filesystem.remove"
+bound_by_hand "love.filesystem.getInfo",
+  reason: "reads its file type at a position it computes (startidx), and fills in a table it is given or makes, " \
+    "which the generator does not port; Lota returns the fields, which Lota::Filesystem.info makes a frozen Data"
+bound_by_hand "love.filesystem.read",
+  reason: "reads its arguments at positions it computes (startidx), and catches the engine's exception with " \
+    "try, which the parser does not read; Lota binds the form that reads into a string"
+bound_by_hand "love.filesystem.write",
+  reason: "returns w_write_or_append, a helper the parser does not follow, which reads a string or any Data " \
+    "(luax_istype) and catches the engine's exception with try; Lota binds the two forms as two functions"
 bound_by_hand "love.filesystem.lines",
   reason: "returns an iterator, a C closure over the open File (w_File_lines_i), which the generator does " \
     "not port; Lota binds the iterator as a class whose next_line Lota::Filesystem.lines enumerates"
@@ -74,6 +83,14 @@ generate "love.graphics.isActive"
 generate "love.graphics.isCreated"
 generate "love.graphics.reset"
 generate "love.graphics.origin"
+bound_by_hand "love.graphics.push",
+  reason: "tests its stack type's const char * as a bool (if (sname && ...)), which clang-tidy's " \
+    "readability-implicit-bool-conversion refuses; Lota binds the form with a stack type alone, and the form " \
+    "that applies a Transform waits for Transform"
+generate "love.graphics.pop"
+generate "love.graphics.translate"
+generate "love.graphics.scale"
+generate "love.graphics.shear"
 generate "love.graphics.getBackgroundColor"
 generate "love.graphics.getWidth"
 generate "love.graphics.getHeight"
@@ -119,8 +136,7 @@ bound_by_hand "SpriteBatch:set",
   reason: "reads its Quad and placement as SpriteBatch:add does"
 bound_by_hand "SpriteBatch:getTexture",
   reason: "pushes its Texture with luax_pushtype, which the generator does not port"
-bound_by_hand "SpriteBatch:getDrawRange",
-  reason: "returns no values or two, by whether a range is set; Lota returns nil or an Array"
+generate "SpriteBatch:getDrawRange"
 bound_by_hand "Texture:getWidth",
   reason: "reads its mipmap through w__optMipmap, which the generator does not port"
 bound_by_hand "Texture:getHeight",
@@ -228,6 +244,7 @@ bound_by_hand "RandomGenerator:setSeed",
 # love.system
 generate "love.system.setClipboardText"
 generate "love.system.getClipboardText"
+generate "love.system.getOS"
 
 # love.timer
 generate "love.timer.step"
@@ -235,6 +252,17 @@ generate "love.timer.getDelta"
 generate "love.timer.sleep"
 
 # love.window
+generate "love.window.getSafeArea"
+bound_by_hand "love.window.getDesktopDimensions",
+  reason: "declares its width and height in one statement with initializers (int width = 0, height = 0), " \
+    "which the generator does not split, so it cannot type their pushes"
+bound_by_hand "love.window.getMode",
+  reason: "fills in a table it is given or makes with every setting (lua_setfield), which the generator does " \
+    "not port; Lota fills a WindowSettings, which Lota::Window.mode makes a frozen Data"
+bound_by_hand "love.window.updateMode",
+  reason: "reads its settings at a position it computes (idx) through readWindowSettings, which the parser " \
+    "does not read; Lota reads the window's settings into a WindowSettings, and Lota::Window.update_mode " \
+    "reads its keywords into it as set_mode does"
 generate "love.window.setTitle"
 generate "love.window.getTitle"
 generate "love.window.isOpen"

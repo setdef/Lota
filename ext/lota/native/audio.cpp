@@ -26,8 +26,6 @@
 #include <string>
 #include <utility>
 
-#include <dlfcn.h>
-
 namespace lota::native {
 
 namespace {
@@ -36,12 +34,6 @@ using love::audio::Audio;
 using love::audio::Source;
 using love::sound::Decoder;
 using love::sound::SoundData;
-
-// Whether OpenAL Soft is loaded. Lota's bundle links its framework weakly,
-// so that a copy of the bundle without the framework still loads (the
-// precompiled gem carries none yet; ext/lota/licenses.rb says why), and
-// then its functions are absent rather than callable.
-bool openal_loaded() { return dlsym(RTLD_DEFAULT, "alcOpenDevice") != nullptr; }
 
 template <typename T> T *module(love::Module::ModuleType type, const char *name) {
   auto *instance = love::Module::getInstance<T>(type);
@@ -80,8 +72,7 @@ void close() {
 // with std::cout. Lota returns the lines instead, as an Array of Strings,
 // for Lota::Boot to print with Ruby's own standard output, so they keep
 // their place among what the game prints. Raises when neither opens, with
-// LÖVE's message. Without OpenAL Soft loaded, the first attempt fails at
-// once.
+// LÖVE's message.
 Rice::Array open() {
   Rice::Array lines;
   if (love::Module::getInstance<Audio>(love::Module::M_AUDIO) != nullptr) {
@@ -89,14 +80,10 @@ Rice::Array open() {
   }
 
   // Try OpenAL first.
-  if (!openal_loaded()) {
-    lines.push(Rice::String("Could not load OpenAL Soft."), false);
-  } else {
-    try {
-      open_module<Audio, love::audio::openal::Audio>(love::Module::M_AUDIO);
-    } catch (love::Exception &e) {
-      lines.push(Rice::String(e.what()), false);
-    }
+  try {
+    open_module<Audio, love::audio::openal::Audio>(love::Module::M_AUDIO);
+  } catch (love::Exception &e) {
+    lines.push(Rice::String(e.what()), false);
   }
 
   if (love::Module::getInstance<Audio>(love::Module::M_AUDIO) == nullptr) {

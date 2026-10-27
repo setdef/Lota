@@ -485,6 +485,31 @@ bool focus_window() {
   return false;
 }
 
+// Undoes focus_window: gives keyboard focus back to the program that had
+// it (lota::native_test::give_up_focus, dialogs.mm), and pumps SDL's
+// events, leaving them queued, until SDL hears that the window lost focus,
+// for up to a second. SDL lets go of every key held down when its window
+// loses focus (SDL 3.4.10, src/events/SDL_keyboard.c, SDL_SetKeyboardFocus
+// and SDL_ResetKeyboard), so a window left with focus would let go of a
+// key a later test holds whenever the person at the computer clicks
+// elsewhere. Whether the window lost focus.
+bool unfocus_window() {
+  lota::native_test::give_up_focus();
+  constexpr int tries = 100;
+  constexpr Uint32 wait = 10;
+  for (int i = 0; i < tries; ++i) {
+    SDL_PumpEvents();
+    int count = 0;
+    const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+    SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+    if (window == nullptr || (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) == 0) {
+      return true;
+    }
+    SDL_Delay(wait);
+  }
+  return false;
+}
+
 // The first window's size in pixels changing to the size it already has,
 // so that LÖVE's handler (Event::convertWindowEvent) reads the window's
 // real size and nothing changes.
@@ -630,6 +655,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
                               &lota::native_test::press_return_on_dialogs)
       .define_module_function("dialogs_answered", &lota::native_test::dialogs_answered)
       .define_module_function("focus_window", &focus_window)
+      .define_module_function("unfocus_window", &unfocus_window)
+      .define_module_function("stay_in_background", &lota::native_test::stay_in_background)
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
       .define_module_function("rotate_display", &rotate_display)

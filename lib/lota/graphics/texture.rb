@@ -135,6 +135,43 @@ module Lota
       def height(mipmap = nil)
         @native.height(mipmap)
       end
+
+      # The texture's width and height, as width and height measure them,
+      # as an Array (ADR 001, rule 4), matching Texture:getDimensions
+      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getDimensions).
+      #
+      # === Example
+      #
+      #   width, height = Lota::Graphics::Canvas.new(64, 32).dimensions # => [64, 32]
+      def dimensions(mipmap = nil)
+        [@native.width(mipmap), @native.height(mipmap)]
+      end
+
+      # Draws to this canvas while the block runs, then draws where it drew
+      # before, matching Texture:renderTo
+      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_renderTo), whose
+      # function becomes the block (ADR 001, rule 12).
+      #
+      # [slice] Integer slice to draw to, counting from 1, for a texture
+      #   that is not 2D; a 2D texture takes none.
+      #
+      # Every canvas and depth buffer set before comes back after the
+      # block, also when the block raises, and what it raised is raised
+      # again. Returns +nil+. Raises ArgumentError without a block, and
+      # ThreadError off the main thread.
+      #
+      # === Example
+      #
+      #   background = Lota::Graphics::Canvas.new(640, 480)
+      #   background.render_to do
+      #     Lota::Graphics.rectangle(:fill, 10, 10, 44, 44)
+      #   end
+      def render_to(slice = nil, &block)
+        raise ArgumentError, "no block given" unless block
+
+        @native.render_to(slice, block)
+        nil
+      end
     end
   end
 end

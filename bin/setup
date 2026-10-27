@@ -13,6 +13,8 @@ if command -v mise >/dev/null 2>&1; then
   # clang-tidy, and the REUSE tool, pinned in mise.toml
   mise install
   mise x -- bundle install
+  # the source archives the precompiled gem carries (ext/lota/licenses.rb)
+  mise x -- bundle exec rake sources:fetch
   pre-commit install
   bundle exec rake rdoc
 else

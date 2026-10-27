@@ -5,6 +5,16 @@ module Lota
   module Window
     def self.set_mode: (Integer width, Integer height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: bool?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
 
+    def self.update_mode: (?(Integer | Float)? width, ?(Integer | Float)? height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: bool?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
+
+    def self.mode: () -> [Integer, Integer, Mode]
+
+    def self.desktop_dimensions: (?Integer? displayindex) -> [Integer, Integer]
+
+    def self.safe_area: () -> Array[Integer]
+
+    private def self.read_window_settings: (Native::WindowSettings settings, fullscreen: bool?, fullscreentype: (Symbol | String)?, vsync: (Integer | bool)?, msaa: Integer?, stencil: bool?, depth: bool?, resizable: bool?, minwidth: Integer?, minheight: Integer?, borderless: bool?, centered: bool?, displayindex: Integer?, usedpiscale: bool?, x: Integer?, y: Integer?) -> Native::WindowSettings
+
     private def self.flag: (::Object? value, bool default) -> bool
 
     private def self.integer: (::Object? value, Integer default) -> Integer

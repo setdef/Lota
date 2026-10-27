@@ -122,7 +122,7 @@ class AnalysisTest < Minitest::Test
   def test_most_functions_are_readable
     readable = survey.entries.count(&:readable?)
 
-    assert_equal 916, readable
-    assert_equal 171, survey.entries.count { |entry| entry.source == :cpp && !entry.readable? }
+    assert_equal 919, readable
+    assert_equal 168, survey.entries.count { |entry| entry.source == :cpp && !entry.readable? }
   end
 end

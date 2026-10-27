@@ -153,4 +153,39 @@ class TextureTest < Minitest::Test
     refute_operator Lota::Graphics::Image, :===, :image
     refute_operator Lota::Graphics::Image, :===, logo
   end
+
+  # Texture:getDimensions is its width and height (wrap_Texture.cpp:73-80),
+  # as an Array (rule 4).
+  def test_dimensions_are_the_width_and_height
+    assert_equal [64, 32], Lota::Graphics::Canvas.new(64, 32).dimensions
+    assert_equal [64, 64], Lota::Graphics::Texture.new("resources/love.png").dimensions
+  end
+
+  # Texture:renderTo (wrap_Texture.cpp:459-514) draws to the canvas while
+  # its function runs, then puts back the canvas set before, which takes
+  # what is drawn after it.
+  def test_render_to_draws_to_the_canvas_then_where_it_drew_before
+    target = Lota::Graphics::Canvas.new(8, 8)
+    image = drawn(8) do
+      target.render_to { Lota::Graphics.clear(1, 1, 1, 1) }
+      Lota::Graphics.rectangle(:fill, 0, 0, 4, 8)
+    end
+
+    assert_equal WHITE, Lota::Graphics.readback_texture(target).pixel(6, 4)
+    assert_equal WHITE, image.pixel(2, 4)
+    assert_equal BLACK, image.pixel(6, 4)
+  end
+
+  # LÖVE puts the old targets back before it raises its function's error,
+  # so a block that raises leaves the canvas set as it was.
+  def test_render_to_puts_back_the_canvas_when_the_block_raises
+    target = Lota::Graphics::Canvas.new(8, 8)
+    image = drawn(8) do
+      assert_raises(ZeroDivisionError) { target.render_to { 1 / 0 } }
+      Lota::Graphics.clear(1, 1, 1, 1)
+    end
+
+    assert_equal WHITE, image.pixel(4, 4)
+    assert_raises(ArgumentError) { target.render_to }
+  end
 end

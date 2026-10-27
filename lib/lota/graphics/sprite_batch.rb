@@ -251,12 +251,17 @@ module Lota
       end
 
       # The sprites drawn, as an Array of the index of the first, counting
-      # from 1, and how many, or +nil+ when every sprite is drawn, matching
-      # SpriteBatch:getDrawRange (src/modules/graphics/wrap_SpriteBatch.cpp,
-      # w_SpriteBatch_getDrawRange), which returns nothing then.
+      # from 1, and how many, or an empty Array when every sprite is drawn,
+      # matching SpriteBatch:getDrawRange
+      # (src/modules/graphics/wrap_SpriteBatch.cpp,
+      # w_SpriteBatch_getDrawRange), which returns nothing then: a function
+      # that returns several values returns an Array of all it returns
+      # (ADR 001, rule 4), so <tt>.first</tt> is +nil+ where Lua's first
+      # result is.
       #
-      # === Example
+      # === Examples
       #
+      #   batch.draw_range # => []
       #   batch.draw_range = 1, 100
       #   batch.draw_range # => [1, 100]
       def draw_range

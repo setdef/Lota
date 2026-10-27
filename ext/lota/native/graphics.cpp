@@ -469,19 +469,24 @@ love::Matrix4 placement_of(const Rice::Array &numbers) {
   return std::apply([](auto... value) { return love::Matrix4(value...); }, values);
 }
 
-// w_print with numbers (wrap_Graphics.cpp:3410-3433): +text+ in the
-// current font, from the top left of its first line.
-void print(Rice::Array text, Rice::Array placement) {
+// w_print with numbers (wrap_Graphics.cpp:3410-3433): +text+ in +font+,
+// or in the current font when +font+ is nil, from the top left of its
+// first line.
+void print(Rice::Array text, Font *font, Rice::Array placement) {
   const Rice::Array parts = std::move(text);
   const Rice::Array numbers = std::move(placement);
   const std::vector<love::font::ColoredString> strings = colored_strings(parts);
-  graphics().print(strings, placement_of(numbers));
+  if (font != nullptr) {
+    graphics().print(strings, font, placement_of(numbers));
+  } else {
+    graphics().print(strings, placement_of(numbers));
+  }
 }
 
-// w_printf with numbers (wrap_Graphics.cpp:3435-3492): +text+ in the
-// current font, wrapped at +limit+ and aligned within it. The alignment is
-// checked after the numbers, and before the module.
-void printf(Rice::Array text, Rice::Array placement, double limit,
+// w_printf with numbers (wrap_Graphics.cpp:3435-3492): +text+ in +font+,
+// or in the current font when +font+ is nil, wrapped at +limit+ and aligned within it. The
+// alignment is checked after the numbers, and before the module.
+void printf(Rice::Array text, Font *font, Rice::Array placement, double limit,
             const std::optional<std::string> &align) {
   const Rice::Array parts = std::move(text);
   const Rice::Array numbers = std::move(placement);
@@ -491,7 +496,11 @@ void printf(Rice::Array text, Rice::Array placement, double limit,
   if (align.has_value() && !Font::getConstant(align->c_str(), mode)) {
     raise_enum_error("alignment", Font::getConstants(mode), *align);
   }
-  graphics().printf(strings, static_cast<float>(limit), mode, matrix);
+  if (font != nullptr) {
+    graphics().printf(strings, font, static_cast<float>(limit), mode, matrix);
+  } else {
+    graphics().printf(strings, static_cast<float>(limit), mode, matrix);
+  }
 }
 
 // w_draw of a Drawable with numbers (wrap_Graphics.cpp:3245-3279): the
@@ -632,22 +641,6 @@ Texture *sprite_batch_texture(const love::graphics::SpriteBatch &batch) {
   return batch.getTexture();
 }
 
-// SpriteBatch:getDrawRange (wrap_SpriteBatch.cpp:249-261): the first
-// sprite drawn, counting from 1, and how many, or nil when the batch draws
-// every sprite.
-Rice::Object sprite_batch_draw_range(const love::graphics::SpriteBatch &batch) {
-  require_main_thread(MODULE);
-  int start = 0;
-  int count = 1;
-  if (!batch.getDrawRange(start, count)) {
-    return {};
-  }
-  Rice::Array range;
-  range.push(start + 1, false);
-  range.push(count, false);
-  return range;
-}
-
 // w__optMipmap (wrap_Texture.cpp:38-51): the mipmap +mipmap+ names,
 // counting from 1 as Lua does, or the first when nil.
 int mipmap_of(const Texture &texture, std::optional<int> mipmap) {
@@ -671,6 +664,79 @@ int texture_width(const Texture &texture, std::optional<int> mipmap) {
 int texture_height(const Texture &texture, std::optional<int> mipmap) {
   require_main_thread(MODULE);
   return texture.getHeight(mipmap_of(texture, mipmap));
+}
+
+// Texture:renderTo (wrap_Texture.cpp:459-514): draws to the texture, or
+// to the slice of it that +slice+ names, counting from 1, for a texture
+// that is not 2D, while +block+ runs, then puts back the render targets
+// that were set before, also when the block raises, and raises again what
+// it raised, as LÖVE raises the error its function raised after putting
+// them back. The old targets are held while the block runs, as LÖVE holds
+// them. Without the graphics module open, LÖVE neither draws nor calls the
+// function, and neither does Lota.
+void texture_render_to(Texture &texture, std::optional<int> slice, Rice::Object block) {
+  require_main_thread(MODULE);
+  const Rice::Object function = std::move(block);
+  Graphics::RenderTarget target(&texture);
+
+  if (target.texture->getTextureType() != love::graphics::TEXTURE_2D) {
+    target.slice = required(slice, "slice") - 1;
+  }
+
+  auto *instance = love::Module::getInstance<Graphics>(love::Module::M_GRAPHICS);
+  if (instance == nullptr) {
+    return;
+  }
+
+  // Save the current render targets so we can restore them when we're done.
+  const Graphics::RenderTargets oldtargets = instance->getRenderTargets();
+  const auto release = [&oldtargets] {
+    for (const auto &color : oldtargets.colors) {
+      color.texture->release();
+    }
+    if (oldtargets.depthStencil.texture != nullptr) {
+      oldtargets.depthStencil.texture->release();
+    }
+  };
+
+  for (const auto &color : oldtargets.colors) {
+    color.texture->retain();
+  }
+  if (oldtargets.depthStencil.texture != nullptr) {
+    oldtargets.depthStencil.texture->retain();
+  }
+
+  try {
+    instance->setRenderTarget(target, 0);
+  } catch (...) {
+    release();
+    throw;
+  }
+
+  std::exception_ptr raised;
+  try {
+    function.call("call");
+  } catch (...) {
+    raised = std::current_exception();
+  }
+
+  instance->setRenderTargets(oldtargets);
+  release();
+
+  if (raised) {
+    std::rethrow_exception(raised);
+  }
+}
+
+// w_push with a stack type alone (wrap_Graphics.cpp:3910-3926): the
+// transformation, or all the state when +stack+ names "all", which LÖVE
+// checks before it pushes.
+void push(const std::optional<std::string> &stack) {
+  Graphics::StackType stype = Graphics::STACK_TRANSFORM;
+  if (stack.has_value() && !Graphics::getConstant(stack->c_str(), stype)) {
+    raise_enum_error("graphics stack type", Graphics::getConstants(stype), *stack);
+  }
+  graphics().push(stype);
 }
 
 // w_line (wrap_Graphics.cpp:3542-3589) with its coordinates in one Array,
@@ -757,7 +823,8 @@ void define_graphics(const Rice::Module &native) {
   // Its methods are generated (ext/lota/native/generated/graphics.cpp).
   define_engine_class<Texture>(native, "Texture")
       .define_method("width", &texture_width, Rice::Arg("mipmap") = std::optional<int>())
-      .define_method("height", &texture_height, Rice::Arg("mipmap") = std::optional<int>());
+      .define_method("height", &texture_height, Rice::Arg("mipmap") = std::optional<int>())
+      .define_method("render_to", &texture_render_to, Rice::Arg("slice"), Rice::Arg("block"));
   // Their other methods are generated too.
   define_engine_class<love::graphics::Quad>(native, "Quad")
       .define_method("layer", &quad_layer)
@@ -770,8 +837,7 @@ void define_graphics(const Rice::Module &native) {
                      Rice::Arg("placement"))
       .define_method("set_color", &sprite_batch_set_color, Rice::Arg("red"), Rice::Arg("green"),
                      Rice::Arg("blue"), Rice::Arg("alpha"))
-      .define_method("texture", &sprite_batch_texture)
-      .define_method("draw_range", &sprite_batch_draw_range);
+      .define_method("texture", &sprite_batch_texture);
   // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
   // love.font, the module that rasterizes its glyphs (native/font.cpp).
   Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
@@ -786,6 +852,7 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("default_renderers", &default_renderers)
       .define_singleton_function("set_renderers", &set_renderers, Rice::Arg("names"))
       .define_singleton_function("present", &present)
+      .define_singleton_function("push", &push, Rice::Arg("stack") = std::optional<std::string>())
       .define_singleton_function("new_canvas", &new_canvas, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Arg("msaa"), Rice::Return().takeOwnership())
       .define_singleton_function("new_texture_from_data", &new_texture_from_data, Rice::Arg("data"),
@@ -811,9 +878,10 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("new_font_from_file", &new_font_from_file, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
       .define_singleton_function("font", &font)
-      .define_singleton_function("print", &print, Rice::Arg("text"), Rice::Arg("placement"))
-      .define_singleton_function("printf", &printf, Rice::Arg("text"), Rice::Arg("placement"),
-                                 Rice::Arg("limit"), Rice::Arg("align"))
+      .define_singleton_function("print", &print, Rice::Arg("text"), Rice::Arg("font"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("printf", &printf, Rice::Arg("text"), Rice::Arg("font"),
+                                 Rice::Arg("placement"), Rice::Arg("limit"), Rice::Arg("align"))
       .define_singleton_function("default_filter", &default_filter)
       .define_singleton_function("draw", &draw, Rice::Arg("texture"), Rice::Arg("placement"))
       .define_singleton_function("draw_sprite_batch", &draw_sprite_batch, Rice::Arg("batch"),

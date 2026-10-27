@@ -76,18 +76,19 @@ class SpriteBatchTest < Minitest::Test
     assert_raises(TypeError) { batch.texture = :texture }
   end
 
-  # SpriteBatch:getDrawRange returns nothing until a range is set, and
-  # setDrawRange with no arguments, which Lota writes as nil, unsets it.
-  def test_a_draw_range_is_nil_until_set_and_after_it_is_unset
+  # SpriteBatch:getDrawRange returns nothing until a range is set, which
+  # rule 4 makes an empty Array, and setDrawRange with no arguments, which
+  # Lota writes as nil, unsets it.
+  def test_a_draw_range_is_empty_until_set_and_after_it_is_unset
     batch = Lota::Graphics::SpriteBatch.new(texture)
 
-    assert_nil batch.draw_range
+    assert_empty batch.draw_range
     batch.draw_range = 3, 4
 
     assert_equal [3, 4], batch.draw_range
     batch.draw_range = nil
 
-    assert_nil batch.draw_range
+    assert_empty batch.draw_range
   end
 
   def test_a_batch_color_has_alpha_1_unless_given

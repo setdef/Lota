@@ -44,9 +44,16 @@ void press_return(CFRunLoopTimerRef /*timer*/, void * /*info*/) {
 // is typing in. A program whose activation policy is prohibited is never
 // activated, and still shows its windows and dialogs, so this sets it, as
 // the parity harness's Lua side does in LÖVE (test/parity/lua/conf.lua).
-void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited]; }
+// The program that was frontmost when activate took focus from it,
+// retained, as this file is compiled without ARC.
+NSRunningApplication *&previous() {
+  static NSRunningApplication *application = nil;
+  return application;
+}
 
 } // namespace
+
+void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited]; }
 
 // A timer in AppKit's modal panel run loop mode, which runs only while a
 // dialog is up, calls press_return every tenth of a second, so that a
@@ -97,6 +104,11 @@ int dialogs_answered() { return answered().load(); }
 // activate, waits for that program to yield.
 void activate() {
   @autoreleasepool {
+    NSRunningApplication *const front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+    if (front != nil && ![front isEqual:[NSRunningApplication currentApplication]]) {
+      [previous() release];
+      previous() = [front retain];
+    }
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -104,6 +116,26 @@ void activate() {
 #pragma clang diagnostic pop
     NSWindow *const window = [[NSApp windows] firstObject];
     [window makeKeyAndOrderFront:nil];
+  }
+}
+
+// Gives keyboard focus back to the program that had it before activate,
+// as a person's click on it would, and keeps this program in the
+// background from then on (stay_in_background), so that no click of the
+// person at the computer gives one of its windows focus again. NSApp's
+// deactivate would hand focus to whichever program macOS picks, such as
+// the Finder, rather than the one the person was using.
+void give_up_focus() {
+  @autoreleasepool {
+    NSRunningApplication *const front = previous();
+    previous() = nil;
+    if (front != nil) {
+      [front activateWithOptions:0];
+      [front release];
+    } else {
+      [NSApp deactivate];
+    }
+    stay_in_background();
   }
 }
 

@@ -37,9 +37,9 @@ int w_ImageData_getHeight(const ImageData &t) { return t.getHeight(); }
 
 // ImageData:getPixel: w_ImageData_getPixel (wrap_ImageData.cpp:105-119).
 Rice::Array w_ImageData_getPixel(const ImageData &t, int x, int y) {
+  Rice::Array results;
   Colorf c{};
   t.getPixel(x, y, c);
-  Rice::Array results;
   results.push(static_cast<double>(c.r), false);
   results.push(static_cast<double>(c.g), false);
   results.push(static_cast<double>(c.b), false);

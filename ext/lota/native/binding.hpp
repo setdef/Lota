@@ -20,6 +20,7 @@
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
 
+#include "common/Exception.h"
 #include "common/Module.h"
 #include "common/Object.h" // IWYU pragma: export
 #include "common/types.h"
@@ -74,6 +75,19 @@ template <typename T> T required(const std::optional<T> &argument, const std::st
     throw std::invalid_argument("Missing argument. Name: " + name + ".");
   }
   return *argument;
+}
+
+// What luax_ioError returns (vendor/love/src/modules/filesystem/
+// wrap_File.cpp:34-46): nil and the message +format+ makes of +arguments+,
+// which LÖVE formats with lua_pushvfstring and Lota with love::Exception's
+// own formatting, as an Array, as ADR 001's rule 4 returns a function's
+// several values on failure too.
+template <typename... Arguments> Rice::Array io_error(const char *format, Arguments... arguments) {
+  const love::Exception error(format, arguments...);
+  Rice::Array results;
+  results.push(Rice::Object(), false);
+  results.push(Rice::String(error.what()), false);
+  return results;
 }
 
 // Whether engine objects of class T are released only on the main thread.

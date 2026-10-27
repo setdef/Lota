@@ -12,3 +12,6 @@
 *.bundle
 *.dll
 *.o
+
+# Source archives rake sources:fetch downloads (ext/lota/licenses.rb)
+/vendor/sources/

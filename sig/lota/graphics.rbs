@@ -17,6 +17,17 @@ module Lota
 
     def self.origin: () -> nil
 
+    def self.push: (?(Symbol | String)? stack) -> nil
+                 | [T] (?(Symbol | String)? stack) { () -> T } -> T
+
+    def self.pop: () -> nil
+
+    def self.translate: (Float | Integer x, Float | Integer y) -> nil
+
+    def self.scale: (?(Float | Integer) sx, ?(Float | Integer)? sy) -> nil
+
+    def self.shear: (Float | Integer kx, Float | Integer ky) -> nil
+
     def self.background_color: () -> Array[Float]
 
     def self.present: () -> nil
@@ -57,9 +68,15 @@ module Lota
 
     def self.font: () -> Font
 
-    def self.print: (text text, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.print: (text text, ?(Font | Float | Integer)? font, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
-    def self.printf: (text text, Float | Integer x, Float | Integer y, Float | Integer limit, ?(Symbol | String)? align, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.printf: (text text, Font | Float | Integer font, Float | Integer x, Float | Integer y, ?(Float | Integer | Symbol | String)? limit, ?(Symbol | String | Float | Integer)? align, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+
+    private def self.number: (::Object? value) -> (Float | Integer)
+
+    private def self.optional_number: (::Object? value) -> (Float | Integer)?
+
+    private def self.alignment: (::Object? value) -> String?
 
     private def self.colored_text: (text text) -> Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
 

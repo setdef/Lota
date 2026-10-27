@@ -520,5 +520,117 @@ class GraphicsTest < Lovetest::TestMethod
     imgdata = Lota::Graphics::Image.new("resources/love.png")
     assert_object(Lota::Graphics::SpriteBatch.new(imgdata, 1000))
   end
+
+  # Translated to Ruby from love.test.graphics.origin
+  # (vendor/love/testing/tests/graphics.lua:2574-2591): origin, translate,
+  # scale, and shear keep their names (rule 13), with the rules
+  # test_circle names.
+  def test_origin
+    # if we do some translations and scaling
+    # using .origin() should reset it all and draw the pixel at 0,0
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.origin
+    Lota::Graphics.translate(10, 10)
+    Lota::Graphics.scale(1, 1)
+    Lota::Graphics.shear(20, 20)
+    Lota::Graphics.origin
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.pop
+  # (vendor/love/testing/tests/graphics.lua:2595-2612), by the rules
+  # test_origin names; push and pop, called apart as here, keep their
+  # names (rule 11 adds a block form beside them).
+  def test_pop
+    # if we push at the start, and then run a pop
+    # it should reset it all and draw the pixel at 0,0
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.push
+    Lota::Graphics.translate(10, 10)
+    Lota::Graphics.scale(1, 1)
+    Lota::Graphics.shear(20, 20)
+    Lota::Graphics.pop
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.push
+  # (vendor/love/testing/tests/graphics.lua:2616-2635), by the rules
+  # test_pop names.
+  def test_push
+    # if we push at the start, do some stuff, then another push
+    # 1 pop should only go back 1 push and draw the pixel at 1, 1
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.push
+    Lota::Graphics.scale(1, 1)
+    Lota::Graphics.shear(20, 20)
+    Lota::Graphics.push
+    Lota::Graphics.translate(1, 1)
+    Lota::Graphics.pop
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.pop
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.scale
+  # (vendor/love/testing/tests/graphics.lua:2678-2691), by the rules
+  # test_origin names.
+  def test_scale
+    # starting at 0,0, we scale by 4x and then draw
+    # we can then check the drawn rectangle covers the whole canvas
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.scale(4, 4)
+    Lota::Graphics.rectangle(:fill, 0, 0, 4, 4)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.translate
+  # (vendor/love/testing/tests/graphics.lua:2739-2758), by the rules
+  # test_origin names.
+  def test_translate
+    # starting at 0,0, we translate 4 times and draw a pixel at each point
+    # we can then check the 4 points are now red
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.translate(5, 0)
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.translate(0, 5)
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.translate(-5, 0)
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.translate(0, -5)
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
   # SPDX-SnippetEnd
 end
