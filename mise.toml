@@ -1,8 +1,28 @@
 # SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# mise compiles Ruby with ruby-build rather than installing jdx/ruby's
+# precompiled build, whose macOS Ruby has no ZJIT, which rake bench
+# measures. Ruby's configure builds ZJIT only with Rust 1.85 or newer
+# (configure.ac, "prerequisites for ZJIT"), and when it is not asked to,
+# quietly leaves it out; --enable-zjit makes an install without that Rust
+# fail instead.
+[settings.ruby]
+compile = true
+ruby_build_opts = "--enable-yjit --enable-zjit"
+
+# depends installs the Rust in [tools] before Ruby and puts it on the PATH
+# ruby-build compiles with; without it, both install at once and
+# ruby-build sees no Rust from mise. It is set here, under a quoted key,
+# rather than as a table in [tools], because ruby/setup-ruby, which reads
+# CI's Ruby version from this file, takes the first line of the form
+# ruby = "4.0.7" anywhere in it, and nothing else.
+[tool_alias]
+"ruby" = "core:ruby[depends=rust]"
+
 [tools]
 ruby = "4.0.7"
+rust = { version = "1.99.1", profile = "minimal" }
 python = "3.12"
 pre-commit = "latest"
 cmake = "4.3.2"
