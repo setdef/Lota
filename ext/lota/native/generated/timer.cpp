@@ -45,6 +45,9 @@ Timer *instance() {
 // love.timer.step: w_step (wrap_Timer.cpp:33-37).
 double w_step() { return instance()->step(); }
 
+// love.timer.getDelta: w_getDelta (wrap_Timer.cpp:39-43).
+double w_getDelta() { return instance()->getDelta(); }
+
 // love.timer.sleep: w_sleep (wrap_Timer.cpp:57-61).
 void w_sleep(double seconds) { instance()->sleep(seconds); }
 
@@ -55,6 +58,7 @@ void w_sleep(double seconds) { instance()->sleep(seconds); }
 void define_generated_timer(const Rice::Module &native) {
   Rice::define_module_under(native, "Timer")
       .define_singleton_function("step", &w_step)
+      .define_singleton_function("delta", &w_getDelta)
       .define_singleton_function("sleep", &w_sleep, Rice::Arg("seconds"));
 }
 

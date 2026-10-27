@@ -1,0 +1,3 @@
+ModPlug-XMMS and libmodplug are now in the public domain.
+
+This source code is public domain.

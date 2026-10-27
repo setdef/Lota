@@ -54,6 +54,29 @@ class GeneratorTest < Minitest::Test
     assert_includes code, "#include <algorithm>"
   end
 
+  # w_Source_setPitch limits its pitch by std::numeric_limits<lua_Number>,
+  # Lua's number, a double in LÖVE's LuaJIT, so the port limits it by a
+  # double's and its file includes <limits>.
+  def test_lua_numbers_limits_become_a_doubles
+    list = Bindings::BindingList.new
+    list.generate("Source:setPitch")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/audio.cpp")
+
+    assert_includes code, "std::numeric_limits<double>::max()"
+    refute_includes code, "lua_Number"
+    assert_includes code, "<= 0.0F"
+    assert_includes code, "#include <limits>"
+  end
+
+  # w_setFused takes any value and asks whether it is truthy
+  # (luax_toboolean), which Rice reads as a bool.
+  def test_a_truthy_argument_is_a_bool
+    port = port("love.filesystem.setFused")
+
+    assert_includes port.definition, "void w_setFused(bool fused)"
+    assert_includes port.rbs, "(bool fused) -> nil"
+  end
+
   # w_setClipboardText reads a const char *, which the port's std::string
   # parameter stands for; System::setClipboardText takes a std::string, so
   # the parameter passes as it is, while a method that takes a const char *

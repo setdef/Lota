@@ -198,6 +198,28 @@ class CppGatesTest < Minitest::Test
     end
   end
 
+  # Each source gets a clang-tidy of its own, several at once, and every
+  # source that fails is reported, in the order given.
+  def test_tidy_checks_each_source_and_reports_every_failure_in_order
+    in_tree do |root|
+      cmake = project(root, UNTIDY)
+      write(root, "ext/clean.cpp", GOOD)
+      write(root, "ext/second.cpp", UNTIDY.sub("main", "second"))
+      File.write(File.join(root, "CMakeLists.txt"),
+        File.read(File.join(root, "CMakeLists.txt")).sub("ext/probe.cpp)", "ext/probe.cpp ext/clean.cpp ext/second.cpp)"))
+      cmake.configure
+      sources = %w[probe clean second].map { |name| File.join(root, "ext/#{name}.cpp") }
+      result = CppGates::Tidy.new(files: sources, config: TIDY, compile_commands: cmake.compile_commands,
+        headers: File.join(root, "ext"), jobs: 2).check
+
+      assert_equal 3, result.checked
+      assert_equal 2, result.problems.size
+      assert_includes result.problems.first, "probe.cpp:2:"
+      assert_includes result.problems.last, "second.cpp:2:"
+      refute_includes result.problems.join, "clean.cpp"
+    end
+  end
+
   def test_tidy_checks_headers_under_ext_only
     in_tree do |root|
       write(root, "ext/probe.hpp", "inline int *probe() { return 0; }\n")

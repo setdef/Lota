@@ -13,6 +13,8 @@
 #include "mouse/sdl/Mouse.h"
 
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace lota::native {
 
@@ -53,6 +55,23 @@ Cursor *system_cursor(const std::string &name) {
   return instance->getSystemCursor(type);
 }
 
+// w_isDown (wrap_Mouse.cpp:203-232): whether any of the buttons, each an
+// Integer, is held down, read from one Array where LÖVE reads them from
+// every argument or from a table.
+bool is_down(Rice::Array buttons) {
+  const Rice::Array list = std::move(buttons);
+  std::vector<int> numbers;
+  numbers.reserve(list.size());
+  for (const auto item : list) {
+    numbers.push_back(Rice::detail::From_Ruby<int>().convert(item.value()));
+  }
+  const auto *instance = love::Module::getInstance<Mouse>(love::Module::M_MOUSE);
+  if (instance == nullptr) {
+    throw love::Exception("Lota::Mouse is not open.");
+  }
+  return instance->isDown(numbers);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -62,7 +81,8 @@ void define_mouse(const Rice::Module &native) {
   define_engine_class<Cursor>(mouse, "Cursor");
   mouse.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("system_cursor", &system_cursor, Rice::Arg("name"));
+      .define_singleton_function("system_cursor", &system_cursor, Rice::Arg("name"))
+      .define_singleton_function("down?", &is_down, Rice::Arg("buttons"));
 }
 
 } // namespace lota::native

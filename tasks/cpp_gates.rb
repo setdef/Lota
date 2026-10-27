@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require "etc"
 require "json"
 require "open3"
 
@@ -96,16 +97,26 @@ module CppGates
 
   # Checks with clang-tidy, using the compiler flags from CMake's
   # compile_commands.json, and treats every warning as an error.
+  #
+  # Each source gets a clang-tidy of its own, +jobs+ at a time. One
+  # clang-tidy given every source checks them one after another on one
+  # core, and each of Lota's sources parses Rice's headers, which takes
+  # seconds, so the gate took minutes; run-clang-tidy.py, which LLVM ships
+  # beside clang-tidy, parallelizes the same way. A header's warning is
+  # found once for each source that includes it, as it was when one
+  # clang-tidy checked them all.
   class Tidy
     # [files] The sources to check.
     # [config] The .clang-tidy file to check against.
     # [compile_commands] The compilation database CMake wrote.
     # [headers] Headers under this directory are checked too.
-    def initialize(files:, config:, compile_commands:, headers:)
+    # [jobs] How many clang-tidy processes run at once.
+    def initialize(files:, config:, compile_commands:, headers:, jobs: Etc.nprocessors)
       @files = files
       @config = File.expand_path(config)
       @compile_commands = File.expand_path(compile_commands)
       @headers = File.expand_path(headers)
+      @jobs = jobs
     end
 
     # The Result of checking every source.
@@ -120,13 +131,28 @@ module CppGates
       run
     end
 
+    # Checks every source, +jobs+ at a time, and reports the output of
+    # each that failed, in the order of +files+.
     private def run
-      return Result.new(checked: 0, problems: []) if @files.empty?
+      queue = Queue.new
+      @files.each_with_index { |file, index| queue << [file, index] }
+      queue.close
+      outputs = Array.new(@files.size)
+      Array.new([@jobs, @files.size].min) do
+        Thread.new do
+          while (file, index = queue.pop)
+            outputs[index] = tidy(file)
+          end
+        end
+      end.each(&:join)
+      Result.new(checked: @files.size, problems: outputs.compact)
+    end
 
+    # clang-tidy's output for +file+, or nil when it found nothing.
+    private def tidy(file)
       output, status = Open3.capture2e("clang-tidy", "--quiet", "-p", File.dirname(@compile_commands),
-        "--config-file=#{@config}", "--warnings-as-errors=*",
-        "--header-filter=^#{Regexp.escape(@headers)}/", *@files)
-      Result.new(checked: @files.size, problems: status.success? ? [] : [output])
+        "--config-file=#{@config}", "--warnings-as-errors=*", "--header-filter=^#{Regexp.escape(@headers)}/", file)
+      status.success? ? nil : output
     end
 
     # The absolute paths of the files the database compiles.

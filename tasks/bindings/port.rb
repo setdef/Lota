@@ -64,6 +64,7 @@ number: "Float | Integer",
 integer: "Integer",
 string: "String",
 boolean: "bool",
+truthy: "bool",
 object:,
 }.fetch(kind) { raise Unsupported, "no Ruby type for a #{kind} argument" }
         type = "(#{type})" if type.include?("|") && (optional || default)
@@ -512,9 +513,16 @@ line: node.line,
 
     # +text+ with each Lua read replaced by its parameter, each renamed
     # variable renamed, and the method's object reached with a dot.
+    # Lua's number, lua_Number, is a double in the LuaJIT LÖVE builds
+    # with (luaconf.h, LUA_NUMBER), so a wrap function's limits on it, as
+    # Source:setPitch's std::numeric_limits<lua_Number>, are a double's. A
+    # float literal's suffix is written F, as clang-tidy's
+    # readability-uppercase-literal-suffix asks.
     private def rewrite(text)
       text = replace_reads(text)
       text = replace_identifiers(text)
+      text = text.gsub(/\blua_Number\b/, "double")
+      text = text.gsub(/\b(\d+\.\d*|\d*\.\d+)f\b/, '\1F')
       text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
       text = keep_strings(text)
       text.gsub(/(!?)\s*lua_isnone(?:ornil)?\s*\(\s*L\s*,\s*(\d+)\s*\)/) do

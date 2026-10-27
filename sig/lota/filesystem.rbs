@@ -3,5 +3,21 @@
 
 module Lota
   module Filesystem
+    def self.fused?: () -> bool
+
+    def self.fused=: (boolish fused) -> void
+
+    def self.identity: () -> String
+
+    def self.identity=: (String | [String, bool?] identity) -> void
+
+    def self.save_directory: () -> String
+
+    def self.create_directory: (String name) -> bool
+
+    def self.remove: (String name) -> bool
+
+    def self.lines: (String filename) -> Enumerator[String, void]
+                  | (String filename) { (String line) -> void } -> nil
   end
 end

@@ -3,6 +3,7 @@
 
 // Lota::Native: LÖVE's engine, bound to Ruby with Rice (ADR 001, section 4).
 
+#include "native/audio.hpp"
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 #include "native/event.hpp"
@@ -15,6 +16,7 @@
 #include "native/math.hpp"
 #include "native/mouse.hpp"
 #include "native/random_generator.hpp"
+#include "native/sound.hpp"
 #include "native/system.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
@@ -55,6 +57,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_keyboard(native);
   lota::native::define_mouse(native);
   lota::native::define_touch(native);
+  lota::native::define_sound(native);
+  lota::native::define_audio(native);
   lota::native::define_system(native);
   lota::native::define_window(native);
   lota::native::define_graphics(native);

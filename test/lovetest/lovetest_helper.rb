@@ -119,6 +119,12 @@ module Lovetest
       assert_equal(true, value, label)
     end
 
+    # Asserts that +value+ is false, as assertFalse does (lines 96-105):
+    # false itself, not merely falsy.
+    def assert_false(value, label = nil)
+      assert_equal(false, value, label)
+    end
+
     # Asserts that +value+ is not nil. An +err+, which Lövetest's tests pass
     # with the message of an error they caught, always fails the test, as
     # it does in Lövetest.

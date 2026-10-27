@@ -47,12 +47,37 @@ Filesystem *instance() {
 // love.filesystem.init: w_init (wrap_Filesystem.cpp:52-57).
 void w_init(const std::string &arg0) { instance()->init(arg0.c_str()); }
 
+// love.filesystem.setFused: w_setFused (wrap_Filesystem.cpp:59-65).
+void w_setFused(bool fused) { instance()->setFused(fused); }
+
+// love.filesystem.isFused: w_isFused (wrap_Filesystem.cpp:67-71).
+bool w_isFused() { return instance()->isFused(); }
+
+// love.filesystem.setIdentity: w_setIdentity (wrap_Filesystem.cpp:80-89).
+void w_setIdentity(const std::string &arg, bool append) {
+  if (!instance()->setIdentity(arg.c_str(), append)) {
+    throw love::Exception("Could not set write directory.");
+  }
+}
+
+// love.filesystem.getIdentity: w_getIdentity (wrap_Filesystem.cpp:91-95).
+std::string w_getIdentity() { return instance()->getIdentity(); }
+
 // love.filesystem.setSource: w_setSource (wrap_Filesystem.cpp:97-105).
 void w_setSource(const std::string &arg) {
   if (!instance()->setSource(arg.c_str())) {
     throw love::Exception("Could not set source.");
   }
 }
+
+// love.filesystem.getSaveDirectory: w_getSaveDirectory (wrap_Filesystem.cpp:494-498).
+std::string w_getSaveDirectory() { return instance()->getSaveDirectory(); }
+
+// love.filesystem.createDirectory: w_createDirectory (wrap_Filesystem.cpp:604-609).
+bool w_createDirectory(const std::string &arg) { return instance()->createDirectory(arg.c_str()); }
+
+// love.filesystem.remove: w_remove (wrap_Filesystem.cpp:611-616).
+bool w_remove(const std::string &arg) { return instance()->remove(arg.c_str()); }
 
 // SPDX-SnippetEnd
 
@@ -61,7 +86,15 @@ void w_setSource(const std::string &arg) {
 void define_generated_filesystem(const Rice::Module &native) {
   Rice::define_module_under(native, "Filesystem")
       .define_singleton_function("init", &w_init, Rice::Arg("arg0"))
-      .define_singleton_function("set_source", &w_setSource, Rice::Arg("arg"));
+      .define_singleton_function("set_source", &w_setSource, Rice::Arg("arg"))
+      .define_singleton_function("set_fused", &w_setFused, Rice::Arg("fused"))
+      .define_singleton_function("fused?", &w_isFused)
+      .define_singleton_function("set_identity", &w_setIdentity, Rice::Arg("arg"),
+                                 Rice::Arg("append") = false)
+      .define_singleton_function("identity", &w_getIdentity)
+      .define_singleton_function("save_directory", &w_getSaveDirectory)
+      .define_singleton_function("create_directory", &w_createDirectory, Rice::Arg("arg"))
+      .define_singleton_function("remove", &w_remove, Rice::Arg("arg"));
 }
 
 } // namespace lota::native

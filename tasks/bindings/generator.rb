@@ -254,6 +254,7 @@ module Bindings
       classes.uniq.each { |type| love << %("#{header_of(name, type)}") }
       std = []
       std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
+      std << "<limits>" if code.include?("std::numeric_limits")
       std << "<optional>" if code.include?("std::optional")
       std << "<string>" if code.include?("std::string")
       [lota.sort, love.uniq.sort, std.sort].reject(&:empty?).map { |group| group.map { |file| "#include #{file}" }.join("\n") }

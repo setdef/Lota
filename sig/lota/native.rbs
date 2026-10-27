@@ -145,6 +145,42 @@ module Lota
       def self.new_file_data: (String contents, String filename) -> FileData
 
       def self.file_data: (String filename) -> FileData
+
+      class Lines
+        def self.cpp_class: () -> String
+
+        def initialize: (String filename) -> void
+
+        def next_line: () -> String?
+      end
+    end
+
+    class Source
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    module Sound
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+    end
+
+    module Audio
+      def self.open: () -> Array[String]
+
+      def self.open?: () -> bool
+
+      def self.new_source: (String filename, String source_type) -> Source
+
+      def self.play: (Source source) -> bool
+
+      def self.stop: () -> nil
+
+      def self.stop_source: (Source source) -> nil
     end
 
     module Image
@@ -193,6 +229,8 @@ module Lota
       def self.open?: () -> bool
 
       def self.system_cursor: (String name) -> Cursor
+
+      def self.down?: (Array[Integer] buttons) -> bool
 
       class Cursor
         def self.cpp_class: () -> String

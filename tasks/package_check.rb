@@ -79,7 +79,23 @@ class PackageCheck
   # [output] What the game prints, matched against everything but dyld's
   #   lines.
   # [status] The exit status it ends with.
-  class Game < Data.define(:name, :folder, :files, :gems, :arguments, :output, :status); end
+  # [background] Whether its window stays in the background (BACKGROUND),
+  #   as every game the check runs does unless it needs keyboard focus.
+  class Game < Data.define(:name, :folder, :files, :gems, :arguments, :output, :status, :background)
+    def initialize(background: true, **)
+      super
+    end
+  end
+
+  # SDL's hints that keep a program's windows from activating it, so a
+  # check's run takes no keyboard focus from the person at the computer
+  # (test/test_helper.rb says how each works). They go to the runs alone,
+  # never into what a player's game does.
+  BACKGROUND = {
+    "SDL_MAC_BACKGROUND_APP" => "1",
+    "SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => "0",
+    "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0",
+  }.freeze
 
   # The directory a framework's signature covers, the version its @rpath
   # install name names (NativeGem::VERSION).
@@ -185,14 +201,26 @@ class PackageCheck
   # (<tt>@loader_path/...</tt>), each as a path relative to the bundle's
   # directory: the framework directory for a framework, the file itself for
   # anything else. A copy of the bundle loads only with each of these at the
-  # same place relative to it. Libraries no rpath resolves, such as the
-  # sanitizer runtime that DYLD_INSERT_LIBRARIES loads, are left out.
+  # same place relative to it. That includes what those load in turn through
+  # @rpath, as libvorbis loads libogg, which dyld finds through the rpaths
+  # of the bundle that loaded them. Libraries no rpath resolves, such as the
+  # sanitizer runtime that DYLD_INSERT_LIBRARIES loads, are left out, and so
+  # are libraries the bundle links weakly, which it loads without.
   def self.rpath_dependencies(bundle)
     directory = File.dirname(bundle)
-    rpath_libraries(bundle).filter_map do |name|
-      found = relative_rpaths(bundle).find { |rpath| File.exist?(File.join(directory, rpath, name)) } or next
-      File.join(found, name[%r{\A[^/]+\.framework}] || name)
+    rpaths = relative_rpaths(bundle)
+    found = []
+    waiting = rpath_libraries(bundle)
+    until waiting.empty?
+      name = waiting.shift
+      rpath = rpaths.find { |candidate| File.exist?(File.join(directory, candidate, name)) } or next
+      relative = File.join(rpath, name[%r{\A[^/]+\.framework}] || name)
+      next if found.include?(relative)
+
+      found << relative
+      waiting.concat(rpath_libraries(File.join(directory, rpath, name)) - [name])
     end
+    found
   end
 
   # Why +bundle+ would not load from inside +gem_dir+ alone: each rpath
@@ -258,9 +286,13 @@ class PackageCheck
     output
   end
 
-  # The names +bundle+ loads through @rpath.
-  private_class_method def self.rpath_libraries(bundle)
-    libraries = otool("-L", bundle).lines.drop(1).map { |line| line.split.first }
+  # The names +binary+ needs through @rpath, without those it links
+  # weakly, which otool marks "weak", once each, though otool lists a
+  # library once for each architecture of a universal binary. A library's
+  # own install name is among them.
+  private_class_method def self.rpath_libraries(binary)
+    lines = otool("-L", binary).lines.grep(/\A\s/).grep_v(/, weak\)\s*\z/)
+    libraries = lines.map { |line| line.split.first }.uniq
     libraries.filter_map { |library| library.delete_prefix("@rpath/") if library.start_with?("@rpath/") }
   end
 
@@ -409,8 +441,9 @@ class PackageCheck
     guard = guard(work)
     gem.games.each do |game|
       install_dependencies(game, env, work)
-      output, status = Open3.capture2e(env.merge("DYLD_PRINT_LIBRARIES" => "1"), Gem.ruby, "-r", guard, lota, "run",
-        game_folder(game, work), *game.arguments, chdir: work)
+      run_env = env.merge("DYLD_PRINT_LIBRARIES" => "1").merge(game.background ? BACKGROUND : {})
+      output, status = Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
+        *game.arguments, chdir: work)
       verify_game(game, home, output, status)
     end
   end

@@ -5,6 +5,8 @@ module Lota
   module Timer
     def self.step: () -> Float
 
+    def self.delta: () -> Float
+
     def self.sleep: (Float | Integer seconds) -> nil
   end
 end

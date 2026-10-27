@@ -10,3 +10,7 @@
 # through lota run.
 require_relative "../test_helper"
 require_relative "tests/mouse"
+require_relative "../native/native_helper"
+require_relative "../native/focus_for_grab"
+
+MouseTest.prepend(FocusForGrab)

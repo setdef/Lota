@@ -65,6 +65,46 @@ double w_getX() {
   return x;
 }
 
+// love.mouse.getY: w_getY (wrap_Mouse.cpp:149-155).
+double w_getY() {
+  double x{};
+  double y{};
+  instance()->getPosition(x, y);
+  return y;
+}
+
+// love.mouse.getPosition: w_getPosition (wrap_Mouse.cpp:157-164).
+Rice::Array w_getPosition() {
+  double x{};
+  double y{};
+  instance()->getPosition(x, y);
+  Rice::Array results;
+  results.push(x, false);
+  results.push(y, false);
+  return results;
+}
+
+// love.mouse.setX: w_setX (wrap_Mouse.cpp:166-173).
+void w_setX(double argument1) {
+  double x{};
+  double y{};
+  instance()->getPosition(x, y);
+  x = argument1;
+  instance()->setPosition(x, y);
+}
+
+// love.mouse.setY: w_setY (wrap_Mouse.cpp:175-182).
+void w_setY(double argument1) {
+  double x{};
+  double y{};
+  instance()->getPosition(x, y);
+  y = argument1;
+  instance()->setPosition(x, y);
+}
+
+// love.mouse.setPosition: w_setPosition (wrap_Mouse.cpp:184-190).
+void w_setPosition(double x, double y) { instance()->setPosition(x, y); }
+
 // love.mouse.setVisible: w_setVisible (wrap_Mouse.cpp:230-235).
 void w_setVisible(bool b) { instance()->setVisible(b); }
 
@@ -92,6 +132,11 @@ void define_generated_mouse(const Rice::Module &native) {
       .define_singleton_function("set_cursor", &w_setCursor,
                                  Rice::Arg("cursor") = std::optional<Cursor *>())
       .define_singleton_function("x", &w_getX)
+      .define_singleton_function("y", &w_getY)
+      .define_singleton_function("position", &w_getPosition)
+      .define_singleton_function("set_x", &w_setX, Rice::Arg("argument1"))
+      .define_singleton_function("set_y", &w_setY, Rice::Arg("argument1"))
+      .define_singleton_function("set_position", &w_setPosition, Rice::Arg("x"), Rice::Arg("y"))
       .define_singleton_function("set_visible", &w_setVisible, Rice::Arg("b"))
       .define_singleton_function("visible?", &w_isVisible)
       .define_singleton_function("set_grabbed", &w_setGrabbed, Rice::Arg("b"))

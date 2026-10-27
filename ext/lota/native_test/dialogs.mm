@@ -34,6 +34,18 @@ void press_return(CFRunLoopTimerRef /*timer*/, void * /*info*/) {
   ++answered();
 }
 
+// Keeps the program from becoming the active one. The tests start their
+// programs with SDL's hints that keep a window from activating its program
+// (SDL_MAC_BACKGROUND_APP, SDL_WINDOW_ACTIVATE_WHEN_SHOWN, and
+// SDL_WINDOW_ACTIVATE_WHEN_RAISED, test/test_helper.rb), but AppKit
+// activates a program that runs a modal dialog, as SDL's message box does
+// (NSAlert's runModal, SDL 3.4.10, src/video/cocoa/SDL_cocoamessagebox.m),
+// which would take keyboard focus from whatever the person at the computer
+// is typing in. A program whose activation policy is prohibited is never
+// activated, and still shows its windows and dialogs, so this sets it, as
+// the parity harness's Lua side does in LÖVE (test/parity/lua/conf.lua).
+void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited]; }
+
 } // namespace
 
 // A timer in AppKit's modal panel run loop mode, which runs only while a
@@ -43,10 +55,24 @@ void press_return(CFRunLoopTimerRef /*timer*/, void * /*info*/) {
 // harness pushes into SDL's queue do, so it needs neither keyboard focus
 // nor macOS's Accessibility permission, which System Events would need to
 // press Return from another process. The parity harness's Lua side does
-// the same through LuaJIT's FFI (test/parity/lua/conf.lua). Calling it
-// again changes nothing.
+// the same through LuaJIT's FFI (test/parity/lua/conf.lua). It also keeps
+// the program from becoming the active one (stay_in_background). Calling
+// it again changes nothing.
 void press_return_on_dialogs() {
   static const bool installed = [] {
+    // SDL makes the application when it starts its video subsystem
+    // (Cocoa_RegisterApp, src/video/cocoa/SDL_cocoaevents.m), which may come
+    // after this, and tells it that it finished launching then.
+    if (NSApp != nil) {
+      stay_in_background();
+    }
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:NSApplicationDidFinishLaunchingNotification
+                    object:nil
+                     queue:nil
+                usingBlock:^(NSNotification * /*notification*/) {
+                  stay_in_background();
+                }];
     constexpr CFTimeInterval interval = 0.1;
     CFRunLoopTimerRef timer =
         CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + interval, interval,
@@ -60,5 +86,25 @@ void press_return_on_dialogs() {
 }
 
 int dialogs_answered() { return answered().load(); }
+
+// SDL grabs the mouse only for the window with keyboard focus (SDL
+// 3.4.10, src/video/SDL_video.c, SDL_UpdateWindowGrab), and the tests'
+// windows stay in the background (test/test_helper.rb), so a test of the
+// grab gives its window focus first. A program SDL left out of the Dock
+// (SDL_MAC_BACKGROUND_APP) must become a regular one to be activated, as
+// SDL makes it otherwise (Cocoa_RegisterApp). activateIgnoringOtherApps is
+// the call that takes focus from another program; its replacement,
+// activate, waits for that program to yield.
+void activate() {
+  @autoreleasepool {
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [NSApp activateIgnoringOtherApps:YES];
+#pragma clang diagnostic pop
+    NSWindow *const window = [[NSApp windows] firstObject];
+    [window makeKeyAndOrderFront:nil];
+  }
+}
 
 } // namespace lota::native_test

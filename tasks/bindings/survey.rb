@@ -106,6 +106,9 @@ module Bindings
             "language comes before the rules (AGENTS.md, design precedence)")
         elsif Rules::KEYWORDS.include?(name)
           add(entry, :several_rules, [13], "becomes #{name}, a Ruby keyword")
+        elsif !entry.translation.singleton && Rules::OBJECT_METHODS.include?(name)
+          add(entry, :several_rules, (entry.translation.rules & [3, 13]) + [16],
+            "becomes #{name}, which rule 16 gives every LÖVE object for Object:type and Object:typeOf")
         end
       end
     end

@@ -25,6 +25,9 @@ class LotaRunTest < Minitest::Test
   # Presses Return on each dialog the game shows (press_return_on_dialogs.rb).
   PRESS_RETURN = File.expand_path("press_return_on_dialogs.rb", __dir__)
 
+  # Gives the window focus for Lövetest's setGrabbed test (focus_for_grab.rb).
+  FOCUS_FOR_GRAB = File.expand_path("focus_for_grab.rb", __dir__)
+
   # boot.lua's warning for a game made for a version the engine is not
   # compatible with (boot.lua:381-384), for t.version +version+.
   def self.version_warning(version)
@@ -35,12 +38,13 @@ class LotaRunTest < Minitest::Test
   # Runs <tt>lota run</tt> with +arguments+ and returns its output and
   # Process::Status. -w makes any warning part of the output. +preload+
   # names a file Ruby loads first, as ruby -r does, which may require
-  # lota_native_test, last on the load path.
-  def lota_run(*, preload: nil)
+  # lota_native_test, last on the load path. +environment+ changes the
+  # run's environment from this process's.
+  def lota_run(*, preload: nil, environment: {})
     native = File.dirname(File.dirname(loaded("lota/native")))
     native_test = File.dirname(loaded("lota_native_test"))
     load_path = [native, File.join(ROOT, "lib"), native_test].uniq.join(File::PATH_SEPARATOR)
-    capture2e({}, RbConfig.ruby, "-w", "-I#{load_path}", *(preload && "-r#{preload}"), File.join(ROOT, "exe/lota"),
+    capture2e(environment, RbConfig.ruby, "-w", "-I#{load_path}", *(preload && "-r#{preload}"), File.join(ROOT, "exe/lota"),
       "run", *)
   end
 
@@ -112,19 +116,19 @@ class LotaRunTest < Minitest::Test
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
   # love.graphics (its Quad and SpriteBatch tests among them),
-  # love.keyboard, love.mouse, love.math, love.event,
-  # love.system, and love.window tests, run from
+  # love.keyboard, love.mouse, love.math, love.event, love.system,
+  # love.window, and love.filesystem tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
   # conf.lua. On a GitHub Actions runner, Lövetest's arc test compares none
   # of its three 32 by 32 images, and asserts once instead
   # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
-    output, status = lota_run(File.join(ROOT, "test/lovetest/game"))
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 28503 - (3 * 32 * 32) + 1 : 28503
+    output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 28522 - (3 * 32 * 32) + 1 : 28522
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^36 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^47 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -423,6 +427,112 @@ class LotaRunTest < Minitest::Test
         assert_predicate status, :success?, output
         assert_equal "#{warned && self.class.version_warning(warned)}dialogs 0\n", output, version
       end
+    end
+  end
+
+  # Where a game's saves go: the system's application data folder under
+  # the tests' home of their own (test/test_helper.rb), then Lota's folder
+  # unless the game is fused, then its identity (ADR 003, section 8;
+  # physfs/Filesystem.cpp:608-616).
+  def self.save_directory(identity, fused: false)
+    support = File.join(File.realpath(ENV.fetch("CFFIXED_USER_HOME")), "Library/Application Support")
+    File.join(*[support, ("Lota" unless fused), identity].compact)
+  end
+
+  # boot.lua names the save directory after the game's folder, without
+  # leading dots or its last extension and with its other dots made
+  # underscores (boot.lua:136-150), and then after t.identity, once
+  # conf.lua has run (line 442).
+  def test_a_game_saves_under_its_folders_name_or_its_identity
+    in_game("main.rb" => "def Lota.load = (p [Lota::Filesystem.identity, Lota::Filesystem.save_directory, " \
+              "Lota::Filesystem.fused?]; Lota::Event.quit)\n") do |directory|
+      game = File.join(directory, ".my.game.v2")
+      Dir.mkdir(game)
+      File.write(File.join(game, "main.rb"), File.read(File.join(directory, "main.rb")))
+      output, status = lota_run(game)
+
+      assert_predicate status, :success?, output
+      assert_equal "#{['my_game', self.class.save_directory('my_game'), false].inspect}\n", output
+
+      File.write(File.join(game, "conf.rb"), "def Lota.conf(t) = (t.identity = 'kleleatoms')\n")
+      output, status = lota_run(game)
+
+      assert_predicate status, :success?, output
+      assert_equal "#{['kleleatoms', self.class.save_directory('kleleatoms'), false].inspect}\n", output
+    end
+  end
+
+  # A game shipped fused into an application of its own saves where LÖVE's
+  # fused game saves, without Lota's folder (ADR 003, section 8), which is
+  # how ADR 002's launcher is to start one.
+  def test_a_fused_game_saves_where_loves_fused_game_saves
+    in_game("conf.rb" => "def Lota.conf(t) = (t.identity = 'kleleatoms')\n",
+      "main.rb" => "def Lota.load = (p [Lota::Filesystem.save_directory, Lota::Filesystem.fused?]; " \
+        "Lota::Event.quit)\n") do |directory|
+      native = File.dirname(File.dirname(loaded("lota/native")))
+      output, status = capture2e({}, RbConfig.ruby, "-w", "-I#{native}#{File::PATH_SEPARATOR}#{File.join(ROOT, 'lib')}",
+        "-rlota", "-e", "exit Lota::Boot.new(ARGV.first, fused: true).call", directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "#{[self.class.save_directory('kleleatoms', fused: true), true].inspect}\n", output
+    end
+  end
+
+  # boot.lua requires love.sound and love.audio unless the settings turn
+  # them off (boot.lua:347-372), and love.audio opens LÖVE's null audio
+  # module when OpenAL cannot open a device (wrap_Audio.cpp:678-708); the
+  # tests' OpenAL Soft plays into a wave file (test/alsoft.conf).
+  def test_the_sound_and_audio_modules_are_open_unless_turned_off
+    in_game("main.rb" => "def Lota.load = (p [lota.sound, lota.audio]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[Lota::Sound, Lota::Audio]\n", output
+    end
+    in_game("conf.rb" => "def Lota.conf(t) = (t.modules.sound = false; t.modules.audio = false)\n",
+      "main.rb" => "def Lota.load = (p [lota.sound, lota.audio]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[nil, nil]\n", output
+    end
+  end
+
+  # LÖVE closes its modules when it closes its Lua state at exit
+  # (love.cpp:291), and so the audio device, and Lota closes the audio
+  # module at exit too. OpenAL Soft's wave writer, which the tests play
+  # into (test/alsoft.conf), writes the file's size into its header when
+  # the device closes, and leaves it unwritten when it never does.
+  def test_the_audio_device_closes_at_exit
+    Dir.mktmpdir("lota-run-test-home") do |home|
+      in_game("main.rb" => "def Lota.load = Lota::Event.quit\n") do |directory|
+        output, status = lota_run(directory, environment: { "CFFIXED_USER_HOME" => home })
+
+        assert_predicate status, :success?, output
+        wave = File.binread(File.join(home, "alsoft.wav"))
+        assert_equal "RIFF", wave[0, 4]
+        assert_equal wave.bytesize - 8, wave[4, 4].unpack1("V")
+      end
+    end
+  end
+
+  # A static Source decodes its file when it is made, and a streaming one
+  # as it plays; either plays from a file in the game's folder.
+  def test_a_game_plays_sounds_from_its_folder
+    click = File.binread(File.join(ROOT, "vendor/love/testing/resources/click.ogg"))
+    in_game("click.ogg" => click, "main.rb" => <<~RUBY) do |directory|
+      def Lota.load
+        sources = %i[static stream].map { |type| Lota::Audio::Source.new("click.ogg", type) }
+        p sources.map { |source| [source.channel_count, Lota::Audio.play(source), source.playing?] }
+        Lota::Audio.stop
+        p [sources.map(&:playing?), Lota::Audio.active_source_count]
+        Lota::Event.quit
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[[2, true, true], [2, true, true]]\n[[false, false], 0]\n", output
     end
   end
 

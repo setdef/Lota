@@ -52,6 +52,31 @@
 --   the game's to do, as on Escape. A game still running at the next
 --   frame's love.update did not, and the harness quits with status 1.
 --
+-- * The mouse moves and clicks as LOTA_PARITY_MOVE and LOTA_PARITY_CLICK
+--   say. LOTA_PARITY_MOVE lists frame:x:y, the frame a move comes at the
+--   start of and the position in the window it goes to, starting with
+--   frame 1, where the pointer starts. The pointer is held at the latest
+--   move's position, as keys are held: love.load first puts it at the
+--   start, and love.update puts it where the next frame has it after the
+--   game's love.update, every frame, with love.mouse.setPosition, which
+--   warps the system's pointer and so updates SDL's mouse state, which
+--   love.mouse.getPosition reads (mouse/sdl/Mouse.cpp:131-164), and
+--   queues SDL's mousemoved event when the pointer moves. Holding it every
+--   frame puts the pointer back where the script has it should macOS put
+--   off a warp, as it does while the window is being moved or takes focus
+--   (SDL 3.4.10, src/video/cocoa/SDL_cocoamouse.m, Cocoa_WarpMouseGlobal),
+--   or should anything else move the pointer.
+--   LOTA_PARITY_CLICK lists button:first-last, a button as LÖVE numbers it
+--   and the frames it is down in: love.update pushes SDL's button down
+--   event, where SDL's mouse state says the pointer is, before its first
+--   frame, and the button up event before the frame after its last, which
+--   LÖVE turns into mousepressed and mousereleased
+--   (event/sdl/Event.cpp:354-384). SDL keeps the buttons that are down to
+--   itself, so love.mouse.isDown does not see a click. A move comes before
+--   a click in the same frame.
+-- * love.timer.getDelta returns 1 / LOTA_PARITY_FPS, the dt love.update
+--   gets, rather than the time the frame took.
+--
 -- Random numbers come from LÖVE's own generator, as Plan 001 has both
 -- engines draw them: Lua's math.random and math.randomseed are pointed at
 -- love.math.random and love.math.setRandomSeed (wrap_Math.lua:37-47),
@@ -60,7 +85,11 @@
 -- test/parity/probe.rb, so a game that seeds from the clock draws the same
 -- numbers in both. Lua's own generator, which Ruby cannot reproduce, is
 -- never reached. love.math opens after this file runs (boot.lua:347-372),
--- so the two are looked up when the game calls them.
+-- so the two are looked up when the game calls them. LÖVE seeds its
+-- generator from the real time when love.math opens
+-- (math/MathModule.cpp:203-210), so the harness seeds it with
+-- LOTA_PARITY_CLOCK before the game's love.load, as the Ruby side does,
+-- for a game that draws numbers without seeding them.
 --
 -- The game's own code is not changed, and runs as love.run calls it.
 
@@ -182,6 +211,99 @@ local function press_keys(frame)
   end
 end
 
+-- The moves LOTA_PARITY_MOVE lists, in its order.
+local moves = {}
+for frame, x, y in (os.getenv("LOTA_PARITY_MOVE") or ""):gmatch("(%d+):(%-?[%d%.]+):(%-?[%d%.]+)") do
+  table.insert(moves, { frame = tonumber(frame), x = tonumber(x), y = tonumber(y) })
+end
+
+-- The clicks LOTA_PARITY_CLICK lists, in the form of the keys above, with
+-- a button for a scancode.
+local clicks = keys("LOTA_PARITY_CLICK")
+
+-- SDL 3's mouse button event (SDL_events.h: SDL_MouseButtonEvent), in an
+-- event union of its own, as the keyboard's above, and the call that reads
+-- where SDL's mouse state has the pointer (SDL_mouse.h).
+ffi.cdef([[
+typedef struct {
+  uint32_t type;
+  uint32_t reserved;
+  uint64_t timestamp;
+  uint32_t windowID;
+  uint32_t which;
+  uint8_t button;
+  bool down;
+  uint8_t clicks;
+  uint8_t padding;
+  float x;
+  float y;
+} LotaParityMouseButtonEvent;
+typedef union {
+  uint32_t type;
+  LotaParityMouseButtonEvent button;
+  uint8_t padding[128];
+} LotaParityMouseEvent;
+uint32_t SDL_GetMouseState(float *x, float *y);
+]])
+
+local SDL_EVENT_MOUSE_BUTTON_DOWN = 0x401
+local SDL_EVENT_MOUSE_BUTTON_UP = 0x402
+
+-- SDL's number for LÖVE's mouse button +button+: LÖVE's 2 is the right
+-- button, SDL's 3, and LÖVE's 3 the middle, SDL's 2 (event/sdl/Event.cpp:
+-- 357-367).
+local function sdl_button(button)
+  if button == 2 then
+    return 3
+  elseif button == 3 then
+    return 2
+  end
+  return button
+end
+
+-- Pushes SDL's event for mouse button +button+ going down, or coming up,
+-- as a single click, where SDL's mouse state says the pointer is.
+local function click_mouse(button, down)
+  local event = ffi.new("LotaParityMouseEvent")
+  local x, y = ffi.new("float[1]"), ffi.new("float[1]")
+  ffi.C.SDL_GetMouseState(x, y)
+  event.button.type = down and SDL_EVENT_MOUSE_BUTTON_DOWN or SDL_EVENT_MOUSE_BUTTON_UP
+  event.button.timestamp = ffi.C.SDL_GetTicksNS()
+  event.button.button = sdl_button(button)
+  event.button.down = down
+  event.button.clicks = 1
+  event.button.x = x[0]
+  event.button.y = y[0]
+  assert(ffi.C.SDL_PushEvent(ffi.cast("LotaParityEvent *", event)), ffi.string(ffi.C.SDL_GetError()))
+end
+
+-- Holds the pointer where the latest move by frame number +frame+ put it,
+-- unless the script moves it not at all.
+local function hold_pointer(frame)
+  local held = nil
+  for _, move in ipairs(moves) do
+    if move.frame <= frame then
+      held = move
+    end
+  end
+  if held then
+    love.mouse.setPosition(held.x, held.y)
+  end
+end
+
+-- Holds the pointer, and queues the clicks, for frame number +frame+.
+local function use_mouse(frame)
+  hold_pointer(frame)
+  for _, click in ipairs(clicks) do
+    if click.first == frame then
+      click_mouse(click.scancode, true)
+    end
+    if click.last + 1 == frame then
+      click_mouse(click.scancode, false)
+    end
+  end
+end
+
 -- AppKit's run loop mode while a dialog is up, and the Objective-C runtime
 -- calls that find the dialog and press its default button
 -- (objc/runtime.h, objc/message.h). objc_msgSend must be called through a
@@ -239,8 +361,30 @@ if love.filesystem.getRealDirectory("conf.lua") == GAME then
   assert(love.filesystem.load("conf.lua"))()
 end
 
+-- Keeps LÖVE from becoming the active program, as ext/lota/native_test
+-- keeps Lota (stay_in_background in dialogs.mm): the harness starts both
+-- with SDL's hints that keep a window from activating its program
+-- (test/test_helper.rb), but AppKit activates a program that runs a modal
+-- dialog, as SDL's message box does, which would take keyboard focus from
+-- the person at the computer. A program whose activation policy is
+-- prohibited (NSApplicationActivationPolicyProhibited, 2) is never
+-- activated, and still shows its windows and dialogs. SDL has made the
+-- application once love.window has opened, whose Window starts SDL's video
+-- subsystem (window/sdl/Window.cpp:88-90), and boot.lua shows its version
+-- warning only after every module has opened (boot.lua:347-393).
+local send_long = ffi.cast("void (*)(LotaParityId, LotaParityId, long)", ffi.C.objc_msgSend)
+local function stay_in_background()
+  local application = send(ffi.C.objc_getClass("NSApplication"), ffi.C.sel_registerName("sharedApplication"))
+  send_long(application, ffi.C.sel_registerName("setActivationPolicy:"), 2)
+end
+
 local real_require = require
 _G.require = function(name, ...)
+  if name == "love.window" then
+    local window = real_require(name, ...)
+    stay_in_background()
+    return window
+  end
   if name ~= "main" then
     return real_require(name, ...)
   end
@@ -248,7 +392,25 @@ _G.require = function(name, ...)
   local main = real_require(name, ...)
 
   local frame = 0
-  local update, draw = love.update, love.draw
+  local update, draw, load = love.update, love.draw, love.load
+
+  if love.timer then
+    love.timer.getDelta = function()
+      return DT
+    end
+  end
+
+  love.load = function(...)
+    if love.math then
+      love.math.setRandomSeed(CLOCK)
+    end
+    if love.mouse then
+      hold_pointer(1)
+    end
+    if load then
+      return load(...)
+    end
+  end
 
   love.update = function(dt)
     frame = frame + 1
@@ -262,6 +424,7 @@ _G.require = function(name, ...)
       update(DT)
     end
     press_keys(frame + 1)
+    use_mouse(frame + 1)
   end
 
   love.draw = function()

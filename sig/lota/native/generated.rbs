@@ -7,6 +7,38 @@
 
 module Lota
   module Native
+    module Audio
+      def self.active_source_count: () -> Integer
+
+      def self.set_volume: (Float | Integer v) -> nil
+
+      def self.volume: () -> Float
+    end
+
+    class Source
+      def play: () -> bool
+
+      def stop: () -> nil
+
+      def pause: () -> nil
+
+      def set_pitch: (Float | Integer p) -> nil
+
+      def pitch: () -> Float
+
+      def set_volume: (Float | Integer p) -> nil
+
+      def volume: () -> Float
+
+      def set_looping: (bool looping) -> nil
+
+      def looping?: () -> bool
+
+      def playing?: () -> bool
+
+      def channel_count: () -> Integer
+    end
+
     module Event
       def self.pump: (?(Float | Integer) wait_timeout) -> nil
 
@@ -17,6 +49,20 @@ module Lota
       def self.init: (String arg0) -> nil
 
       def self.set_source: (String arg) -> nil
+
+      def self.set_fused: (bool fused) -> nil
+
+      def self.fused?: () -> bool
+
+      def self.set_identity: (String arg, ?bool append) -> nil
+
+      def self.identity: () -> String
+
+      def self.save_directory: () -> String
+
+      def self.create_directory: (String arg) -> bool
+
+      def self.remove: (String arg) -> bool
     end
 
     module Graphics
@@ -104,6 +150,16 @@ module Lota
 
       def self.x: () -> Float
 
+      def self.y: () -> Float
+
+      def self.position: () -> Array[Float]
+
+      def self.set_x: (Float | Integer argument1) -> nil
+
+      def self.set_y: (Float | Integer argument1) -> nil
+
+      def self.set_position: (Float | Integer x, Float | Integer y) -> nil
+
       def self.set_visible: (bool b) -> nil
 
       def self.visible?: () -> bool
@@ -127,6 +183,8 @@ module Lota
 
     module Timer
       def self.step: () -> Float
+
+      def self.delta: () -> Float
 
       def self.sleep: (Float | Integer seconds) -> nil
     end

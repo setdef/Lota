@@ -42,7 +42,18 @@ module Parity
   # Time.now, called with no arguments, returns LOTA_PARITY_CLOCK seconds
   # after the epoch, as the Lua side's os.time() does, so a game that
   # seeds Lota::Math's generator from the clock draws the same numbers
-  # LÖVE's does (Plan 001, "Random numbers").
+  # LÖVE's does (Plan 001, "Random numbers"), and Lota.load seeds the
+  # generator with it before the game's load, as the Lua side seeds
+  # LÖVE's, for a game that draws numbers without seeding them.
+  #
+  # The mouse moves and clicks as the Lua side moves and clicks it: the
+  # pointer is held at the latest of LOTA_PARITY_MOVE's moves, from the
+  # first, in frame 1, which Lota.load puts it at, then after the game's
+  # update of the frame before each, with Lota::Mouse.position=, which
+  # updates SDL's mouse state and queues mousemoved, and
+  # LOTA_PARITY_CLICK's clicks are pushed after it with
+  # LotaNativeTest.click_mouse, at the pointer's position. Lota::Timer.delta returns DT, the dt
+  # the game's update gets, as love.timer.getDelta does on the Lua side.
   module Probe
     FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
     REPORT = ENV.fetch("LOTA_PARITY_REPORT")
@@ -59,6 +70,11 @@ module Parity
     GAME_QUITS = PRESSES.any? { |_, _, last| last == FRAMES }
     # The seconds since the epoch the clock is fixed at.
     CLOCK = Integer(ENV.fetch("LOTA_PARITY_CLOCK"))
+    # [frame, x, y], as the Lua side reads them.
+    MOVES = ENV.fetch("LOTA_PARITY_MOVE", "").scan(/(\d+):(-?[\d.]+):(-?[\d.]+)/)
+      .map { |frame, x, y| [Integer(frame), Float(x), Float(y)] }.freeze
+    # [button, first frame, last frame], as the Lua side reads them.
+    CLICKS = ENV.fetch("LOTA_PARITY_CLICK", "").scan(/(\d+):(\d+)-(\d+)/).map { |click| click.map(&:to_i) }.freeze
 
     @frame = 0
     @compared = 0
@@ -89,6 +105,24 @@ module Parity
       private def press_key(scancode, down)
         LotaNativeTest.hold(scancode, down)
         LotaNativeTest.press_key(scancode, down)
+      end
+
+      # Holds the pointer where the latest move by frame number +frame+
+      # put it, unless the script moves it not at all.
+      def hold_pointer(frame)
+        _, x, y = MOVES.select { |move, _, _| move <= frame }.last
+        Lota::Mouse.position = x, y if x && y
+      end
+
+      # Holds the pointer, and queues the clicks, for the next frame, as
+      # the Lua side does.
+      def use_mouse
+        following = @frame + 1
+        hold_pointer(following)
+        CLICKS.each do |button, first, last|
+          LotaNativeTest.click_mouse(button, true) if first == following
+          LotaNativeTest.click_mouse(button, false) if last + 1 == following
+        end
       end
 
       # Whether the probe should quit after frame +number+.
@@ -139,6 +173,13 @@ module Parity
     # arguments it declares, and each calls the game's with the arguments
     # the game's declares.
     module Callbacks
+      def load(*arguments)
+        Lota::Math.random_seed = CLOCK if Lota.math
+        Probe.hold_pointer(1) if Lota.mouse
+        game = method(:load).super_method
+        super(*Probe.declared(game, arguments)) if game
+      end
+
       def update(_dt)
         Probe.next_frame
         if Probe.frame > FRAMES
@@ -149,6 +190,7 @@ module Parity
         game = method(:update).super_method
         super(*Probe.declared(game, [DT])) if game
         Probe.press_keys
+        Probe.use_mouse
       end
 
       def draw
@@ -167,6 +209,13 @@ end
 
 module Parity
   module Probe
+    # Lota::Timer.delta, fixed at DT, the dt the game's update gets.
+    module Delta
+      def delta
+        DT
+      end
+    end
+
     # Time.now, fixed at CLOCK when called with no arguments.
     module Clock
       def now(*arguments, **options)
@@ -180,5 +229,6 @@ end
 # warning, as the Lua side presses it.
 LotaNativeTest.press_return_on_dialogs
 Time.singleton_class.prepend(Parity::Probe::Clock)
+Lota::Timer.singleton_class.prepend(Parity::Probe::Delta)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
 at_exit { Parity::Probe.report }

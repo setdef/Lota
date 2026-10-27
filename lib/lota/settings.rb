@@ -27,9 +27,9 @@ module Lota
   # translated conf.lua that sets keys of its own still runs. Reading one
   # back returns what was set, and reading a setting never set returns
   # +nil+, as reading a missing key does in Lua.
-  # Lota reads the settings boot.lua reads, except +console+, +identity+,
-  # +appendidentity+, +externalstorage+, +audio+, and +version+, which
-  # wait for the features they configure.
+  # Lota reads the settings boot.lua reads, except +console+,
+  # +externalstorage+, and +audio+, which LÖVE reads only on Windows,
+  # Android, and iOS.
   #
   # === Examples
   #

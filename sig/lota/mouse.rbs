@@ -9,6 +9,18 @@ module Lota
 
     def self.x: () -> Float
 
+    def self.y: () -> Float
+
+    def self.position: () -> Array[Float]
+
+    def self.x=: (Float | Integer x) -> void
+
+    def self.y=: (Float | Integer y) -> void
+
+    def self.position=: ([Float | Integer, Float | Integer] position) -> void
+
+    def self.down?: (*Integer buttons) -> bool
+
     def self.visible=: (bool visible) -> void
 
     def self.visible?: () -> bool

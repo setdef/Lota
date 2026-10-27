@@ -20,6 +20,10 @@ module Lota
 
   def self.mouse: () -> singleton(Mouse)?
 
+  def self.sound: () -> singleton(Sound)?
+
+  def self.audio: () -> singleton(Audio)?
+
   def self.math: () -> singleton(Math)?
 
   def self.system: () -> singleton(System)?

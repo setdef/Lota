@@ -40,7 +40,22 @@ module Parity
   # as an SDL scancode and the first and last frames, counting from 1, it
   # is down in, and the clock, in seconds since the epoch, that a game
   # reading the time reads, so that a game seeding its random numbers from
-  # the clock draws the same ones in both.
+  # the clock draws the same ones in both. Both engines also seed LÖVE's
+  # generator with the clock before the game's load, as LÖVE seeds it from
+  # the real time when love.math opens (math/MathModule.cpp:203-210).
+  #
+  # The mouse moves and clicks as a player's does. A move is the frame it
+  # happens at the start of and the position in the window it goes to,
+  # which love.mouse.setPosition puts the pointer at, so that
+  # love.mouse.getPosition reads it from then on and mousemoved hears of
+  # it; the first move is in frame 1, where the pointer starts, and the
+  # pointer is held at the latest move's position every frame, as a key is
+  # held. A click is a button, numbered as LÖVE numbers it, and the first
+  # and last frames it is down in: mousepressed hears of it at the start of
+  # its first frame and mousereleased at the start of the frame after its
+  # last, at the pointer's position then. Like a key press, a click is set
+  # up a frame early, so it cannot start in frame 1, and love.mouse.isDown
+  # does not see it.
   #
   # A held key is only down, in the keyboard state Lota::Keyboard.down?
   # reads. A pressed key is down too, and also goes down and comes up as a
@@ -50,10 +65,13 @@ module Parity
   # cannot start in frame 1. A press whose last frame is the script's last
   # comes up after it, and then the game must quit on its own, as on
   # Escape; otherwise the harness quits after the last frame.
-  class Script < Data.define(:frames, :fps, :holds, :presses, :clock)
-    def initialize(frames:, fps:, holds:, presses: [], clock: CLOCK)
-      if presses.any? { |_, range| range.first < 2 || range.last > frames }
-        raise ArgumentError, "a press must start in frame 2 or later and end by frame #{frames}"
+  class Script < Data.define(:frames, :fps, :holds, :presses, :clock, :moves, :clicks)
+    def initialize(frames:, fps:, holds:, presses: [], clock: CLOCK, moves: [], clicks: [])
+      if (presses + clicks).any? { |_, range| range.first < 2 || range.last > frames }
+        raise ArgumentError, "a press or a click must start in frame 2 or later and end by frame #{frames}"
+      end
+      if moves.any? && moves.first.first != 1
+        raise ArgumentError, "the first move must be in frame 1, where the pointer starts"
       end
 
       super
@@ -67,6 +85,8 @@ module Parity
         "LOTA_PARITY_CLOCK" => clock.to_s,
         "LOTA_PARITY_HOLD" => Parity.keys(holds),
         "LOTA_PARITY_PRESS" => Parity.keys(presses),
+        "LOTA_PARITY_MOVE" => moves.map { |frame, x, y| "#{frame}:#{x}:#{y}" }.join(","),
+        "LOTA_PARITY_CLICK" => Parity.keys(clicks),
       }
     end
   end
@@ -80,7 +100,7 @@ module Parity
   # A game run in the reference love, whose frames a run in Lota is
   # compared with.
   class LoveRun
-    attr_reader :frames_dir, :output
+    attr_reader :frames_dir, :output, :home
 
     # Runs the game in the folder +game+ under +script+, keeping its frames
     # in +directory+. LÖVE's home directory is +directory+/home
@@ -94,10 +114,10 @@ module Parity
       love = ENV.fetch("LOTA_REFERENCE_LOVE") do
         raise "LOTA_REFERENCE_LOVE is not set; bundle exec rake test:parity builds the reference love and sets it"
       end
-      home = File.join(directory, "home")
-      Dir.mkdir(home)
+      @home = File.join(directory, "home")
+      Dir.mkdir(@home)
       environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
-        "CFFIXED_USER_HOME" => home)
+        "CFFIXED_USER_HOME" => @home)
       @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"))
     end
 
@@ -109,15 +129,19 @@ module Parity
 
   # A translated game run in Lota, each frame compared with a LoveRun's.
   class LotaRun
-    attr_reader :output, :report
+    attr_reader :output, :report, :home
 
     # Runs the game in the folder +game+ under +script+ with
     # test/parity/probe.rb, comparing its frames with +love+'s, and keeps
-    # its report in +directory+.
+    # its report in +directory+. Lota's home directory is a new folder in
+    # +directory+, as LÖVE's is, so a game that saves starts each run with
+    # nothing saved and leaves nothing behind.
     def initialize(game, script, love, directory)
       report = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.json")
+      @home = File.join(directory, "lota-home-#{object_id}")
+      Dir.mkdir(@home)
       environment = script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
-        "LOTA_PARITY_REPORT" => report)
+        "LOTA_PARITY_REPORT" => report, "CFFIXED_USER_HOME" => @home)
       native_test = File.join(ROOT, "tmp/engine/build/lib")
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
         "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game)

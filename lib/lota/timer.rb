@@ -44,6 +44,19 @@ module Lota
       Native::Timer.step
     end
 
+    # The time the last step measured, in seconds, as a Float, matching
+    # love.timer.getDelta (src/modules/timer/wrap_Timer.cpp, w_getDelta):
+    # the +dt+ Lota's loop passed to the frame's update.
+    #
+    # Raises RuntimeError when the timer module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Timer.delta # => 0.0166...
+    def self.delta
+      Native::Timer.delta
+    end
+
     # Pauses the program for +seconds+, matching love.timer.sleep
     # (src/modules/timer/wrap_Timer.cpp, w_sleep).
     #

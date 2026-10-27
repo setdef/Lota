@@ -90,6 +90,96 @@ module Lota
       Native::Mouse.x
     end
 
+    # The pointer's vertical position in the window, as a Float,
+    # matching love.mouse.getY (src/modules/mouse/wrap_Mouse.cpp, w_getY).
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.y # => 230.0
+    def self.y
+      Native::Mouse.y
+    end
+
+    # The pointer's position in the window, as an Array of two Floats,
+    # matching love.mouse.getPosition (src/modules/mouse/wrap_Mouse.cpp,
+    # w_getPosition), whose two values rule 4 of ADR 001 makes one Array.
+    #
+    # A position outside the window, as while the player drags out of it,
+    # is moved to its nearest edge, as LÖVE moves it. Raises RuntimeError
+    # when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   x, y = Lota::Mouse.position # => [412.0, 230.0]
+    def self.position
+      Native::Mouse.position
+    end
+
+    # Moves the pointer across the window, keeping its height, matching
+    # love.mouse.setX (src/modules/mouse/wrap_Mouse.cpp, w_setX).
+    #
+    # [x] Float or Integer position in the window.
+    #
+    # LÖVE moves the system's pointer itself, so the player sees it jump.
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.x = 10
+    def self.x=(x)
+      Native::Mouse.set_x(x)
+    end
+
+    # Moves the pointer up or down the window, keeping its place across,
+    # matching love.mouse.setY (src/modules/mouse/wrap_Mouse.cpp, w_setY).
+    #
+    # [y] Float or Integer position in the window.
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.y = 10
+    def self.y=(y)
+      Native::Mouse.set_y(y)
+    end
+
+    # Moves the pointer to a place in the window, matching
+    # love.mouse.setPosition (src/modules/mouse/wrap_Mouse.cpp,
+    # w_setPosition), whose two values rule 6 of ADR 001 makes one Array.
+    #
+    # [position] An Array of the Float or Integer position across and
+    #   down the window.
+    #
+    # LÖVE moves the system's pointer itself, which also reports the move
+    # to the game, as a mousemoved event. Raises RuntimeError when the
+    # mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.position = 320, 240
+    def self.position=(position)
+      x, y = position
+      Native::Mouse.set_position(x, y)
+    end
+
+    # Whether any of +buttons+ is held down, matching love.mouse.isDown
+    # (src/modules/mouse/wrap_Mouse.cpp, w_isDown).
+    #
+    # [buttons] Integer buttons, as LÖVE numbers them: 1 the left, 2 the
+    #   right, and 3 the middle; LÖVE passes none of a number less than 1.
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.down?(1, 2) # => false
+    def self.down?(*buttons)
+      Native::Mouse.down?(buttons)
+    end
+
     # Shows the pointer when +visible+ is truthy and hides it otherwise,
     # matching love.mouse.setVisible (src/modules/mouse/wrap_Mouse.cpp,
     # w_setVisible).

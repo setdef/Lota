@@ -21,6 +21,11 @@ set(ENGINE_FRAMEWORK_DIRS ${ENGINE_FRAMEWORKS} ${SDL3_FRAMEWORKS} PARENT_SCOPE)
 
 add_library(lota_engine STATIC ${ENGINE_SOURCES})
 
+# A game that is not fused saves in a Lota folder where LÖVE's saves in a
+# LOVE one (appdata_folder.h says how, and why not by a definition here).
+set_source_files_properties(${ENGINE_SOURCE_DIR}/src/modules/filesystem/physfs/Filesystem.cpp PROPERTIES
+	COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/appdata_folder.h")
+
 # Consumers see LÖVE's headers as system headers, so Lota's -Werror never
 # fires on a warning in LÖVE's code.
 set_target_properties(lota_engine PROPERTIES SYSTEM ON)
@@ -68,11 +73,18 @@ target_compile_options(lota_engine PRIVATE
 # the extension is loaded from.
 target_link_options(lota_engine INTERFACE -F${ENGINE_FRAMEWORKS} -F${SDL3_FRAMEWORKS})
 
+# OpenAL Soft is linked weakly: a bundle loads without it, and then
+# Lota::Audio falls back to LÖVE's null audio module, as LÖVE does when
+# OpenAL cannot open a device (src/modules/audio/wrap_Audio.cpp:678-708).
+# The precompiled gem carries no copy of it until the maintainer decides how
+# the gem meets its license, the GNU Library General Public License 2.0 or
+# later, which asks for its source with every copy of its object code
+# (ext/lota/licenses.rb).
 target_link_libraries(lota_engine INTERFACE
 	"-framework SDL3"
 	"-framework freetype"
 	"-framework harfbuzz"
-	"-framework OpenAL-Soft"
+	"-weak_framework OpenAL-Soft"
 	"-framework libmodplug"
 	"-framework theora"
 	"-framework vorbis"

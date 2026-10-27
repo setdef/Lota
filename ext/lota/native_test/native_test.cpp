@@ -29,6 +29,7 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
@@ -399,6 +400,37 @@ void press_mouse(int button) {
   push(event);
 }
 
+// SDL's event for mouse button +button+, numbered as LÖVE numbers it (1
+// the left, 2 the right, 3 the middle), going down, when +down+ is true,
+// or coming up, where SDL's mouse state says the pointer is, as macOS
+// would report a single click to the window. LÖVE's Event::convert turns
+// it into mousepressed or mousereleased, with SDL's button numbers turned
+// back into LÖVE's (vendor/love/src/modules/event/sdl/Event.cpp:354-384).
+// SDL keeps the buttons that are down to itself, so love.mouse.isDown does
+// not see the press. The parity harness clicks with it, after moving the
+// pointer with love.mouse.setPosition, which updates SDL's mouse state;
+// its Lua side pushes the same event through LuaJIT's FFI
+// (test/parity/lua/conf.lua).
+void click_mouse(int button, bool down) {
+  constexpr int right = 2;
+  constexpr int middle = 3;
+  Uint8 sdl_button = SDL_BUTTON_LEFT;
+  if (button == right) {
+    sdl_button = SDL_BUTTON_RIGHT;
+  } else if (button == middle) {
+    sdl_button = SDL_BUTTON_MIDDLE;
+  } else {
+    sdl_button = static_cast<Uint8>(button);
+  }
+  SDL_Event event{};
+  event.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+  event.button.button = sdl_button;
+  event.button.down = down;
+  event.button.clicks = 1;
+  SDL_GetMouseState(&event.button.x, &event.button.y);
+  push(event);
+}
+
 // An input method editing the text "lota", with the cursor after its first
 // character and no selection (-1, as SDL marks a length it does not set).
 // The text is a literal, which outlives the event, as SDL needs of a
@@ -430,6 +462,27 @@ void press_key(int scancode, bool down) {
   event.key.key = SDL_GetKeyFromScancode(event.key.scancode, SDL_KMOD_NONE, true);
   event.key.down = down;
   push(event);
+}
+
+// Makes this program active, with its first window holding keyboard
+// focus (lota::native_test::activate, dialogs.mm), and pumps SDL's events,
+// leaving them queued, until SDL hears that the window has focus, for up
+// to a second. Whether it does.
+bool focus_window() {
+  lota::native_test::activate();
+  constexpr int tries = 100;
+  constexpr Uint32 wait = 10;
+  for (int i = 0; i < tries; ++i) {
+    SDL_PumpEvents();
+    int count = 0;
+    const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+    SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+    if (window != nullptr && (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0) {
+      return true;
+    }
+    SDL_Delay(wait);
+  }
+  return false;
 }
 
 // The first window's size in pixels changing to the size it already has,
@@ -572,9 +625,11 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
       .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
       .define_module_function("press_key", &press_key, Rice::Arg("scancode"), Rice::Arg("down"))
+      .define_module_function("click_mouse", &click_mouse, Rice::Arg("button"), Rice::Arg("down"))
       .define_module_function("press_return_on_dialogs",
                               &lota::native_test::press_return_on_dialogs)
       .define_module_function("dialogs_answered", &lota::native_test::dialogs_answered)
+      .define_module_function("focus_window", &focus_window)
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
       .define_module_function("rotate_display", &rotate_display)

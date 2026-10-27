@@ -25,7 +25,9 @@ end
 
 # A game that opens LÖVE's default window, clears it to yellow, and quits
 # with a status of its own, so an exit status of 0 cannot pass by
-# accident.
+# accident. The precompiled gem carries no OpenAL Soft yet
+# (ext/lota/licenses.rb), so opening the audio module prints why it opens
+# LÖVE's silent one instead.
 PACKAGE_GAME = PackageCheck::Game.new(
   name: "a window",
   folder: nil,
@@ -41,7 +43,7 @@ PACKAGE_GAME = PackageCheck::Game.new(
   RUBY
   gems: [],
   arguments: [],
-  output: /\Awindow 800x600\n\z/,
+  output: /\ACould not load OpenAL Soft\.\nwindow 800x600\n\z/,
   status: 3
 )
 
@@ -57,7 +59,12 @@ LOVETEST_GAME = PackageCheck::Game.new(
   gems: ["minitest"],
   arguments: [],
   output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, 0 skips$/m,
-  status: 0
+  status: 0,
+  # Lövetest's love.mouse.setGrabbed test passes only for a window with
+  # keyboard focus, for which SDL grabs the mouse (SDL 3.4.10,
+  # src/video/SDL_video.c, SDL_UpdateWindowGrab), so this game's window
+  # comes to the front, as a player's would.
+  background: false
 )
 
 # The gems this repository publishes. Each packaged list matches its

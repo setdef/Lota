@@ -243,23 +243,3 @@ jobs:
         run: |
           gems=$(IFS=,; files=("$RUNNER_TEMP"/gem/*.gem); echo "${files[*]}")
           bundle exec rake "package:deliver[$gems]"
-
-  # Plan 001's harness will dismiss LÖVE's dialogs by pressing Return
-  # through macOS automation, which needs Accessibility permission. This
-  # records whether a runner allows it, and never fails the run: read the
-  # answer in the run's annotations or this job's summary, "Accessibility
-  # probe: allowed", "denied", or "inconclusive", with what System Events
-  # and the dialog reported.
-  accessibility-probe:
-    name: Accessibility probe
-    runs-on: macos-15
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Press Return on a dialog through System Events
-        continue-on-error: true
-        timeout-minutes: 2
-        run: .github/scripts/accessibility-probe.sh

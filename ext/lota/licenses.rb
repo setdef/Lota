@@ -284,6 +284,30 @@ work "PhysicsFS",
   copyright: ["2001-2022 Ryan C. Gordon <icculus@icculus.org> and others"],
   license: ["Zlib"]
 
+# dr_flac and dr_mp3, which love.sound's FLAC and MP3 decoders compile in
+# (src/modules/sound/lullaby/FLACDecoder.h and MP3Decoder.h). Each offers
+# the Unlicense or MIT No Attribution, at the user's choice
+# (vendor/love/src/libraries/dr/dr_flac.h:1-2 and its license section at
+# the end of the file, "ALTERNATIVE 1" and "ALTERNATIVE 2", and
+# dr_mp3.h:2 and 4749-4800, the same), and MIT No Attribution names its
+# author (dr_mp3.h:4780).
+work "dr_libs",
+  sources: ["vendor/love/src/libraries/dr/**"],
+  copyright: ["2020 David Reid"],
+  license: ["Unlicense OR MIT-0"]
+
+# Wuff, the WAVE reader love.sound's WaveDecoder compiles in
+# (src/modules/sound/lullaby/WaveDecoder.h). None of its files states a
+# license or a notice of copyright (vendor/love/src/libraries/Wuff: wuff.h
+# names it, "Wuff - A very basic WAVE reader", and nothing more), and
+# LÖVE's license.txt, which lists the libraries LÖVE bundles, does not list
+# it, so who wrote it and under which license is the maintainer's to find
+# out.
+work "Wuff",
+  sources: ["vendor/love/src/libraries/Wuff/**"],
+  copyright: [],
+  pending: "no license or notice of copyright in its files, and none in LÖVE's license.txt"
+
 # Noise1234, which LÖVE compiles but the bundle does not link yet: the
 # bundle reads only its headers' declarations, so the gem does not carry
 # it (noise1234/simplexnoise1234.h:1-12).
@@ -361,3 +385,53 @@ framework "harfbuzz.framework",
     "Microsoft Corporation",
   ],
   license: ["MIT-Modern-Variant", "MIT"]
+
+# libvorbis 1.3.7 (Resources/Info.plist), which love.sound's Ogg Vorbis
+# decoder links (src/modules/sound/lullaby/VorbisDecoder.h): its COPYING at
+# the v1.3.7 tag (https://github.com/xiph/vorbis), the BSD-3-Clause text
+# its headers point to (Headers/codec.h:1-10).
+framework "vorbis.framework",
+  copyright: ["2002-2020 Xiph.org Foundation"],
+  license: ["BSD-3-Clause"]
+
+# libogg 1.1.4 (Resources/Info.plist, whose NSHumanReadableCopyright gives
+# its notice), which libvorbis loads: its COPYING at the v1.1.4 tag
+# (https://github.com/xiph/ogg), the BSD-3-Clause text its headers point
+# to (Headers/ogg.h:1-10).
+framework "ogg.framework",
+  copyright: ["1994-2009 Xiph.Org Foundation", "2002, Xiph.org Foundation"],
+  license: ["BSD-3-Clause"]
+
+# libmodplug, which love.sound's tracker module decoder links
+# (src/modules/sound/lullaby/ModPlugDecoder.h). The framework names no
+# version (Resources/Info.plist gives 1.0); its header dedicates it to the
+# public domain (Headers/modplug.h:1-5), as libmodplug's COPYING does
+# (https://github.com/Konstanty/libmodplug, master), which no SPDX
+# identifier names, so the two sentences are recorded as
+# LicenseRef-libmodplug-Public-Domain. Its files hold no notice of
+# copyright; the record names its authors as its AUTHORS file lists them.
+framework "libmodplug.framework",
+  copyright: [
+    "Olivier Lapicque <olivierl@jps.net>",
+    "Kenton Varda <temporal@gauge3d.org>",
+    "Konstanty Bialkowski <konstanty@ieee.org>",
+    "Colin DeVilbiss <crdevilb@mtu.edu>",
+    "Markus Fick <marf@gmx.net>",
+    "Adam Goode <adam@evdebs.org>",
+    "Marco Trillo <toad@arsystel.com>",
+    "Alistair John Strachan <s0348365@sms.ed.ac.uk>",
+  ],
+  license: ["LicenseRef-libmodplug-Public-Domain"]
+
+# OpenAL Soft 1.24.3 (the version string in its binary; Resources/
+# Info.plist says 1.19.1), which love.audio plays through
+# (src/modules/audio/openal), is not here: the precompiled gem carries no
+# copy of it, and Lota's bundle links it weakly, so that a bundle without
+# it falls back to LÖVE's silent audio module, as LÖVE does when OpenAL
+# cannot open a device (ext/lota/engine/CMakeLists.txt). Its license, the
+# GNU Library General Public License 2.0 or later (COPYING and
+# alc/alc.cpp:1-19 at its 1.24.3 tag, https://github.com/kcat/openal-soft),
+# lets object code of the library be copied only with its complete
+# corresponding source code, or with an offer to copy the source from the
+# same place (section 4), and how the gem meets that is the maintainer's
+# to decide.

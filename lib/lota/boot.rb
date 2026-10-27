@@ -45,10 +45,10 @@ module Lota
       joystick: nil,
       mouse: -> { Native::Mouse.open },
       touch: nil,
-      sound: nil,
+      sound: -> { Native::Sound.open },
       system: -> { Native::System.open },
       sensor: nil,
-      audio: nil,
+      audio: -> { Native::Audio.open.each { |line| puts line } },
       image: -> { Native::Image.open },
       video: nil,
       font: -> { Native::Font.open },
@@ -70,14 +70,25 @@ module Lota
     #   line, or +nil+ for the current directory.
     # [arguments] Array of String arguments for the game, which its load
     #   callback receives.
+    # [fused] Whether the game is fused into an application of its own, as
+    #   a shipped game is, which LÖVE's boot.lua decides from where it
+    #   found the game (boot.lua:76-96) and Lota from who starts it:
+    #   <tt>lota run</tt> leaves it +false+, and ADR 002's launcher, which
+    #   ships a game, is to pass +true+. A fused game saves in the
+    #   system's application data folder under its identity alone, where
+    #   LÖVE's fused games save; one that is not saves in a +Lota+ folder
+    #   there (ADR 003, section 8). Only the first Boot in a process sets
+    #   it, as LÖVE sets it once (Lota::Filesystem.fused=).
     #
-    # === Example
+    # === Examples
     #
     #   Lota::Boot.new("games/pong", ["--two-players"])
-    def initialize(path, arguments = [])
+    #   Lota::Boot.new("Pong.app/Contents/Resources/game", fused: true)
+    def initialize(path, arguments = [], fused: false)
       @path = path
       @directory = File.expand_path(path || ".")
       @arguments = arguments
+      @fused = fused
       @settings = Settings.new
     end
 
@@ -177,6 +188,9 @@ module Lota
       # Our first timestep, because window creation can take some time
       Timer.step if Native::Timer.open?
 
+      # boot.lua also passes t.externalstorage on (line 441), which
+      # matters only on Android.
+      Filesystem.identity = [@settings.identity || Filesystem.identity, @settings.appendidentity]
       require main_file if File.exist?(main_file)
       return unless no_game_code?
 
@@ -322,25 +336,44 @@ module Lota
     # by name), so that files the game names, such as a font, are read from
     # its folder wherever the game was started. The filesystem opens and
     # initializes once per process, as LÖVE boots once, with Ruby's program
-    # name for LÖVE's argv[0]. A source already set stays, as
-    # love.filesystem.setSource refuses a second, and boot.lua calls it
-    # with pcall. A Lota game is a folder, never fused into the executable
-    # (boot.lua:76-94), so Lota leaves the module unfused, as it starts.
+    # name for LÖVE's argv[0], and is marked fused or not then
+    # (love.filesystem.setFused, boot.lua:90-92). A source already set
+    # stays, as love.filesystem.setSource refuses a second, and boot.lua
+    # calls it with pcall. LÖVE also stops printing deprecation warnings
+    # in a fused game (line 94); Lota prints none yet.
     #
-    # boot.lua also names the game's save directory, from its folder's name
-    # (boot.lua:136-150 and 442, setIdentity). Where a Lota game saves is
-    # not decided yet, so Lota mounts no save directory, and reads only
-    # from the game's folder.
+    # Then it names the game's save directory after its folder, as
+    # boot.lua does for a game folder (lines 136-150), with pcall, so that
+    # conf.rb's files are found before saved ones: love.init names it
+    # again from t.identity once conf.rb has run (line 442).
     private def open_filesystem
       unless Native::Filesystem.open?
         Native::Filesystem.open
         Native::Filesystem.init($PROGRAM_NAME)
+        Filesystem.fused = @fused
       end
       begin
         Native::Filesystem.set_source(@directory)
       rescue RuntimeError
         nil
       end
+      begin
+        Filesystem.identity = [identity, true]
+      rescue RuntimeError
+        nil
+      end
+    end
+
+    # The save directory's name boot.lua gives a game folder: the name of
+    # the folder main.rb is in, which is the game's (boot.lua:136-142),
+    # without leading dots or its last extension, and with every other dot
+    # an underscore (lines 145-147). A name left empty becomes "lotagame",
+    # where LÖVE's is "lovegame" (line 148), so that Lota's own folder
+    # names carry Lota's name, as ADR 003, section 8 names the folder it
+    # saves in.
+    private def identity
+      identity = File.basename(@directory).sub(/\A\.+/, "").sub(/\.[^.]+\z/, "").tr(".", "_")
+      identity.empty? ? "lotagame" : identity
     end
 
     # Puts the game's folder at the front of <tt>$LOAD_PATH</tt>, once, so

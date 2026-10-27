@@ -111,6 +111,13 @@ class RulesTest < Minitest::Test
     assert_includes collisions("love.window.showMessageBox"), [:several_rules, [10]]
   end
 
+  # Rule 3 makes Source:getType type, which rule 16 already gives every
+  # object for Object:type.
+  def test_a_method_named_as_rule_16_names_objects_type_fits_two_rules
+    assert_includes collisions("Source:getType"), [:several_rules, [3, 16]]
+    assert_empty collisions("love.audio.getVolume")
+  end
+
   def test_overriding_rubys_own_methods_fits_two_rules
     assert_includes collisions("ImageData:clone"), [:several_rules, [13]]
     assert_includes collisions("love.data.hash"), [:several_rules, [13]]
@@ -123,6 +130,14 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.graphics.push")
     assert_includes collisions("Channel:push"), [:open, [11]]
     assert_empty collisions("love.filesystem.mount"), "rule 11 decides mount and unmount have no block"
+  end
+
+  # ADR 001 decides that a Source's play and stop are not a rule 11 pair:
+  # a sound plays across frames (section 7, after the table).
+  def test_playing_and_stopping_a_source_is_no_pair
+    assert_empty collisions("Source:play")
+    assert_empty collisions("love.audio.play")
+    assert_includes collisions("RecordingDevice:start"), [:open, [11]]
   end
 
   # Every function gets exactly one Ruby name, or a collision saying no

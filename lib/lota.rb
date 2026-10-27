@@ -44,6 +44,8 @@ require_relative "lota/graphics"
 require_relative "lota/timer"
 require_relative "lota/keyboard"
 require_relative "lota/mouse"
+require_relative "lota/sound"
+require_relative "lota/audio"
 require_relative "lota/math"
 require_relative "lota/system"
 require_relative "lota/event"
@@ -136,6 +138,24 @@ module Lota
   #   lota.mouse.x
   def self.mouse
     Mouse if Native::Mouse.open?
+  end
+
+  # Lota::Sound, as love.sound, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.sound # => Lota::Sound
+  def self.sound
+    Sound if Native::Sound.open?
+  end
+
+  # Lota::Audio, as love.audio, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.audio.play(@click)
+  def self.audio
+    Audio if Native::Audio.open?
   end
 
   # Lota::Math, as love.math, or +nil+ when the module is not open.

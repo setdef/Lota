@@ -17,6 +17,31 @@
 # (_setGammaCorrect, _setRenderers, _setHighDPIAllowed, and the like) are
 # not wrap functions, so they are bound by hand and not listed here.
 
+# love.audio
+generate "love.audio.getActiveSourceCount"
+bound_by_hand "love.audio.newSource",
+  reason: "converts a filename into a Decoder, and a Decoder into SoundData, through love.sound's wrap " \
+    "functions (luax_convobj); Lota binds the forms with a filename and a source type"
+bound_by_hand "love.audio.play",
+  reason: "reads a list of Sources from a table or from every argument (readSourceList, readSourceVararg), " \
+    "which the parser does not read; Lota binds the form with one Source"
+bound_by_hand "love.audio.stop",
+  reason: "reads a list of Sources from a table or from every argument, as love.audio.play; Lota binds the " \
+    "forms with no Source and with one"
+generate "love.audio.setVolume"
+generate "love.audio.getVolume"
+generate "Source:play"
+generate "Source:stop"
+generate "Source:pause"
+generate "Source:setPitch"
+generate "Source:getPitch"
+generate "Source:setVolume"
+generate "Source:getVolume"
+generate "Source:setLooping"
+generate "Source:isLooping"
+generate "Source:isPlaying"
+generate "Source:getChannelCount"
+
 # love.event
 generate "love.event.pump"
 generate "love.event.clear"
@@ -32,6 +57,17 @@ generate "love.filesystem.setSource"
 bound_by_hand "love.filesystem.newFileData",
   reason: "converts its argument through luax_getfiledata; Lota ports Filesystem::newFileData so it need not " \
     "open PhysicsFS"
+
+generate "love.filesystem.setFused"
+generate "love.filesystem.isFused"
+generate "love.filesystem.setIdentity"
+generate "love.filesystem.getIdentity"
+generate "love.filesystem.getSaveDirectory"
+generate "love.filesystem.createDirectory"
+generate "love.filesystem.remove"
+bound_by_hand "love.filesystem.lines",
+  reason: "returns an iterator, a C closure over the open File (w_File_lines_i), which the generator does " \
+    "not port; Lota binds the iterator as a class whose next_line Lota::Filesystem.lines enumerates"
 
 # love.graphics
 generate "love.graphics.isActive"
@@ -155,6 +191,14 @@ bound_by_hand "love.mouse.getSystemCursor",
   reason: "pushes its Cursor with luax_pushtype, which the generator does not port"
 generate "love.mouse.setCursor"
 generate "love.mouse.getX"
+generate "love.mouse.getY"
+generate "love.mouse.getPosition"
+generate "love.mouse.setX"
+generate "love.mouse.setY"
+generate "love.mouse.setPosition"
+bound_by_hand "love.mouse.isDown",
+  reason: "reads its buttons in a loop over every argument, or from a table; Lota::Mouse.down? passes them " \
+    "as one Array, as Lota::Keyboard.down? passes its keys"
 generate "love.mouse.setVisible"
 generate "love.mouse.isVisible"
 generate "love.mouse.setGrabbed"
@@ -187,6 +231,7 @@ generate "love.system.getClipboardText"
 
 # love.timer
 generate "love.timer.step"
+generate "love.timer.getDelta"
 generate "love.timer.sleep"
 
 # love.window

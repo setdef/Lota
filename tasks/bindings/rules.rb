@@ -53,9 +53,15 @@ module Bindings
     # love.graphics.push and pop, File:open and close.
     PAIRS = { "love.graphics.push" => "love.graphics.pop", "File:open" => "File:close" }.freeze
     # Pairs rule 11 decides against: mount and unmount, which "get no
-    # block form until a game needs one" (ADR 001, section 7, after the
-    # table).
-    NOT_PAIRS = { "love.filesystem.mount" => "love.filesystem.unmount" }.freeze
+    # block form until a game needs one", and a Source's play and stop,
+    # since "a sound plays across frames while the game runs" (ADR 001,
+    # section 7, after the table), whether the Source's own methods or
+    # love.audio's, which play and stop the Sources they are given.
+    NOT_PAIRS = {
+      "love.filesystem.mount" => "love.filesystem.unmount",
+      "Source:play" => "Source:stop",
+      "love.audio.play" => "love.audio.stop",
+    }.freeze
     # Verbs that often open and close a pair, to find pairs rule 11 has
     # not decided.
     ANTONYMS = {
@@ -75,6 +81,10 @@ module Bindings
     # Rule 2's module factories whose === the ADR decides: Canvas ===
     # texture asks texture.canvas? (rule 2's text).
     MODULE_FACTORY_MATCHES = { "newCanvas" => "Texture:isCanvas" }.freeze
+    # The methods rule 16 gives every LÖVE object, from Object:type and
+    # Object:typeOf (src/common/runtime.cpp, w__type and w__typeOf), which
+    # no wrap file lists.
+    OBJECT_METHODS = %w[type type_of?].freeze
     # Rule 7's setters, as ADR 001 lists them after the table.
     RULE_7_SETTERS = %w[
       setMode

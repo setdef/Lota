@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Audio
+    class Source
+      include Object
+
+      attr_reader native: Native::Source
+
+      def self.from_native: (Native::Source native) -> Source
+
+      def self.new: (String filename, Symbol | String type) -> Source
+
+      def play: () -> bool
+
+      def stop: () -> nil
+
+      def pause: () -> nil
+
+      def playing?: () -> bool
+
+      def pitch: () -> Float
+
+      def pitch=: (Float | Integer pitch) -> void
+
+      def volume: () -> Float
+
+      def volume=: (Float | Integer volume) -> void
+
+      def looping?: () -> bool
+
+      def looping=: (bool looping) -> void
+
+      def channel_count: () -> Integer
+    end
+  end
+end

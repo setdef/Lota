@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Audio
+    def self.play: (Source source) -> bool
+
+    def self.stop: (?Source? source) -> nil
+
+    def self.volume: () -> Float
+
+    def self.volume=: (Float | Integer volume) -> void
+
+    def self.active_source_count: () -> Integer
+  end
+end

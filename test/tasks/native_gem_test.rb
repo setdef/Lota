@@ -17,7 +17,14 @@ class NativeGemTest < Minitest::Test
 
   BUNDLE = "lib/lota/native.#{RbConfig::CONFIG['DLEXT']}".freeze
   SDL3 = "lib/lota/frameworks/SDL3.framework/Versions/A"
-  FRAMEWORKS = %w[SDL3.framework freetype.framework harfbuzz.framework].freeze
+  FRAMEWORKS = %w[
+    SDL3.framework
+    freetype.framework
+    harfbuzz.framework
+    libmodplug.framework
+    vorbis.framework
+    ogg.framework
+].freeze
 
   # The repository's own record, read afresh, so a test may take an entry
   # out of it.
@@ -95,8 +102,9 @@ class NativeGemTest < Minitest::Test
     assert_includes licenses, "LicenseRef-LZMA-SDK-Public-Domain"
     assert_includes licenses, "Unlicense"
     assert_includes licenses, "AGPL-3.0-or-later"
+    assert_includes licenses, "MIT-0"
+    assert_includes licenses, "LicenseRef-libmodplug-Public-Domain"
     refute_includes licenses, "CC0-1.0"
-    refute_includes licenses, "MIT-0"
     assert_equal File.read(File.join(ROOT, "ext/lota/licenses/LICENSE-FTL.txt")),
       File.read(File.join(unpacked, "LICENSES/FTL.txt"))
     assert_equal File.read(File.join(ROOT, "LICENSES/Zlib.txt")), File.read(File.join(unpacked, "LICENSES/Zlib.txt"))
@@ -104,7 +112,8 @@ class NativeGemTest < Minitest::Test
 
   # The gem's REUSE.toml is the repository's, then the record's
   # annotations: the bundle's, with the works the linker put in it, and
-  # each framework's.
+  # each framework's. Wuff, whose licensing the maintainer has yet to find
+  # out, is the one work it names without a license.
   def test_the_reuse_toml_annotates_the_bundle_and_each_framework
     toml = File.read(File.join(unpacked, "REUSE.toml"))
 
@@ -115,7 +124,9 @@ class NativeGemTest < Minitest::Test
     assert_includes toml, %("2006-2026 LOVE Development Team")
     assert_includes toml, %("OFL-1.1")
     assert_includes toml, %("GPL-3.0-or-later WITH Bison-exception-2.2")
-    refute_includes toml, "yet to decide"
+    assert_includes toml, %("Unlicense OR MIT-0")
+    pending = toml.lines.grep(/\A#   /).map(&:chomp)
+    assert_equal ["#   Wuff: no license or notice of copyright in its files, and none in LÖVE's license.txt"], pending
   end
 
   # RubyGems warns on every symlink it packages, so the framework ships
