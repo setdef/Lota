@@ -49,7 +49,7 @@ module Lota
 
     def self.line: (*(Float | Integer | Array[Float | Integer]) points) -> nil
 
-    def self.draw: (Texture drawable, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.draw: (Texture | SpriteBatch drawable, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
     type text = String | Array[String | Array[Float | Integer]]
 
@@ -64,6 +64,8 @@ module Lota
     private def self.colored_text: (text text) -> Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
 
     private def self.placement: (Float | Integer x, Float | Integer y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
+
+    def self.placement_after: ((Quad | Float | Integer)? quad, (Float | Integer)? x, (Float | Integer)? y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
 
     def self.default_filter=: (Symbol | String | Array[Symbol | String | Integer | Float] filter) -> void
 

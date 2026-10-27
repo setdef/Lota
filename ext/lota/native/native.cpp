@@ -24,6 +24,7 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -66,6 +67,22 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   Rice::String version(std::string{love::VERSION});
   version.freeze();
   native.const_set("VERSION", version);
+
+  // love._version_compat (love.cpp:596-602), the versions a game's
+  // t.version may name without boot.lua's compatibility warning, which
+  // love.isVersionCompatible compares it with (love.cpp:309-352).
+  Rice::Array compatibility;
+  // The list ends with a null pointer, as love.cpp's loop over it expects.
+  for (const char *entry : love::VERSION_COMPATIBILITY) {
+    if (entry == nullptr) {
+      break;
+    }
+    Rice::String name(std::string{entry});
+    name.freeze();
+    compatibility.push(std::move(name), false);
+  }
+  compatibility.freeze();
+  native.const_set("VERSION_COMPATIBILITY", compatibility);
 
   native.define_singleton_function("drain_release_queue", &drain_release_queue)
       .define_singleton_function("queued_releases", &queued_releases);

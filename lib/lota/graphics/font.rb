@@ -29,7 +29,7 @@ module Lota
     #   data = Lota::Filesystem::FileData.new(File.binread("pixel.ttf"), "pixel.ttf")
     #   Lota::Graphics.font = Lota::Graphics::Font.new(data, 8, :mono)
     class Font
-      include EngineObject
+      include Object
 
       # The engine's Font, for Lota's own modules. :nodoc:
       attr_reader :native

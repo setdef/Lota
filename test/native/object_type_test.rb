@@ -14,7 +14,8 @@ require_relative "../engine_helper"
 # (vendor/love/src/common/runtime.cpp:65-80). The parents are LÖVE's own,
 # as each type names its parent: graphics/Texture.cpp:160,
 # graphics/Drawable.cpp:29, graphics/Font.cpp:53, image/ImageData.cpp:34,
-# filesystem/FileData.cpp:32, mouse/Cursor.cpp:28, and common/Data.cpp:28.
+# filesystem/FileData.cpp:32, mouse/Cursor.cpp:28, graphics/Quad.cpp:32,
+# graphics/SpriteBatch.cpp:41, and common/Data.cpp:28.
 class ObjectTypeTest < Minitest::Test
   PNG = File.binread(File.join(NativeHelper::ROOT, "vendor/love/testing/output/expected/love.test.graphics.clear-1.png"))
 
@@ -30,6 +31,11 @@ class ObjectTypeTest < Minitest::Test
       "ImageData" => [Lota::Image::ImageData.new(file_data), %w[ImageData Data Object]],
       "FileData" => [file_data, %w[FileData Data Object]],
       "Cursor" => [Lota::Mouse.system_cursor(:hand), %w[Cursor Object]],
+      "Quad" => [Lota::Graphics::Quad.new(0, 0, 1, 1, 4, 4), %w[Quad Object]],
+      "SpriteBatch" => [
+        Lota::Graphics::SpriteBatch.new(Lota::Graphics::Canvas.new(4, 4)),
+        %w[SpriteBatch Drawable Object],
+],
     }
   end
 

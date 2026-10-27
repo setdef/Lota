@@ -32,7 +32,7 @@ module Lota
     #   Lota::Graphics.canvas = nil
     #   Lota::Graphics.readback_texture(canvas).pixel(8, 8) # => [1.0, 1.0, 0.0, 1.0]
     class ImageData
-      include EngineObject
+      include Object
 
       # The engine's ImageData, for Lota's own modules. :nodoc:
       attr_reader :native

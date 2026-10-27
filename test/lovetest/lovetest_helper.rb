@@ -98,11 +98,19 @@ module Lovetest
       @imgs = 1
     end
 
+    # The types whose tests Lövetest names by the type, capitalized as it
+    # is, where it names the rest by a function (love.test.graphics.Quad and
+    # love.test.graphics.newQuad); a test class lists its module's.
+    TYPES = [].freeze
+
     # The Lövetest method this test translates: test_clear translates
-    # love.test.graphics.clear, and test_set_color, named by rule 13,
-    # translates love.test.graphics.setColor.
+    # love.test.graphics.clear, test_set_color, named by rule 13,
+    # translates love.test.graphics.setColor, and test_sprite_batch, of a
+    # type in TYPES, love.test.graphics.SpriteBatch.
     def lovetest_method
-      name.delete_prefix("test_").gsub(/_([a-z])/) { Regexp.last_match(1).upcase }
+      method = name.delete_prefix("test_").gsub(/_([a-z])/) { Regexp.last_match(1).upcase }
+      type = method.sub(/\A[a-z]/, &:upcase)
+      self.class::TYPES.include?(type) ? type : method
     end
 
     # Asserts that +value+ is true, as assertTrue does (lines 79-88): true

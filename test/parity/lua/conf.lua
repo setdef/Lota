@@ -182,6 +182,57 @@ local function press_keys(frame)
   end
 end
 
+-- AppKit's run loop mode while a dialog is up, and the Objective-C runtime
+-- calls that find the dialog and press its default button
+-- (objc/runtime.h, objc/message.h). objc_msgSend must be called through a
+-- pointer of each method's own type, never as a variadic function, which
+-- passes its arguments differently on Apple silicon.
+ffi.cdef([[
+typedef void *LotaParityId;
+LotaParityId objc_getClass(const char *name);
+LotaParityId sel_registerName(const char *name);
+void objc_msgSend(void);
+typedef void (*LotaParityTimerCallBack)(void *timer, void *info);
+void *CFRunLoopTimerCreate(void *allocator, double fireDate, double interval, unsigned long flags, long order,
+                           LotaParityTimerCallBack callout, void *context);
+void CFRunLoopAddTimer(void *loop, void *timer, void *mode);
+void *CFRunLoopGetMain(void);
+double CFAbsoluteTimeGetCurrent(void);
+void *CFStringCreateWithCString(void *allocator, const char *string, uint32_t encoding);
+]])
+
+local send = ffi.cast("LotaParityId (*)(LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
+local send_id = ffi.cast("void (*)(LotaParityId, LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
+local kCFStringEncodingUTF8 = 0x08000100
+
+-- Presses Return on every dialog the game shows, as a player would, so a
+-- dialog such as LÖVE's version warning (boot.lua:378-393) does not wait
+-- for good. SDL shows its message box with NSAlert's runModal
+-- (SDL_ShowMessageBox, vendor/love/src/modules/window/sdl/Window.cpp),
+-- which runs the main run loop in AppKit's modal panel mode until a button
+-- is pressed, so a timer in that mode, every tenth of a second, finds the
+-- modal window and presses its default button, the one Return presses
+-- (NSWindow's defaultButtonCell, which NSAlert gives its first button).
+-- It does this in the game's own process, as the key events above are
+-- pushed into SDL's queue, so it needs neither keyboard focus nor macOS's
+-- Accessibility permission, which System Events would need to press
+-- Return from another process. ext/lota/native_test does the same for
+-- Lota (press_return_on_dialogs).
+local press_return = ffi.cast("LotaParityTimerCallBack", function()
+  local application = send(ffi.C.objc_getClass("NSApplication"), ffi.C.sel_registerName("sharedApplication"))
+  local dialog = send(application, ffi.C.sel_registerName("modalWindow"))
+  if dialog == nil then
+    return
+  end
+  local button = send(dialog, ffi.C.sel_registerName("defaultButtonCell"))
+  if button ~= nil then
+    send_id(button, ffi.C.sel_registerName("performClick:"), nil)
+  end
+end)
+ffi.C.CFRunLoopAddTimer(ffi.C.CFRunLoopGetMain(),
+  ffi.C.CFRunLoopTimerCreate(nil, ffi.C.CFAbsoluteTimeGetCurrent() + 0.1, 0.1, 0, 0, press_return, nil),
+  ffi.C.CFStringCreateWithCString(nil, "NSModalPanelRunLoopMode", kCFStringEncodingUTF8))
+
 assert(love.filesystem.mountFullPath(GAME, "/", "read", false), "could not mount " .. GAME)
 
 if love.filesystem.getRealDirectory("conf.lua") == GAME then

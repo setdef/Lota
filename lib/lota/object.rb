@@ -15,7 +15,11 @@ module Lota
   # module. Lota::Native answers both for the engine class it bound
   # (ext/lota/native/binding.hpp, define_engine_class), which each class
   # returns from its +native+ reader.
-  module EngineObject
+  #
+  # It takes the name of LÖVE's root type, Object, so inside
+  # <tt>module Lota</tt> a bare +Object+ means this module, and Ruby's
+  # root class is written <tt>::Object</tt>.
+  module Object
     # LÖVE's name for this object's type, as a String, matching
     # Object:type (src/common/runtime.cpp, w__type).
     #

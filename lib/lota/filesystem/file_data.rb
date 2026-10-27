@@ -29,7 +29,7 @@ module Lota
     #   # The name matters only for its extension.
     #   Lota::Filesystem::FileData.new(png, "anything.png")
     class FileData
-      include EngineObject
+      include Object
 
       # The engine's FileData, for Lota's own modules. :nodoc:
       attr_reader :native

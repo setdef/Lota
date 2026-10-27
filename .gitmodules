@@ -10,3 +10,6 @@
 [submodule "test/fixtures/gravity_wars"]
 	path = test/fixtures/gravity_wars
 	url = https://github.com/whyboris/Gravity-Wars.git
+[submodule "test/fixtures/klele_atoms"]
+	path = test/fixtures/klele_atoms
+	url = https://github.com/Nightwolf-47/KleleAtoms.git

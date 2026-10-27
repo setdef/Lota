@@ -7,6 +7,6 @@ module Lota
 
     def self.random_seed=: (Float | Integer | Array[Float | Integer] seed) -> void
 
-    private def self.number: (Object? value) -> (Float | Integer)
+    private def self.number: (::Object? value) -> (Float | Integer)
   end
 end

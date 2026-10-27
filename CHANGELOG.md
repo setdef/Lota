@@ -34,7 +34,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Timer.step` and `sleep`, and `Lota::Event.pump` and `quit`, translating `love.timer` and `love.event`; a quit's exit status leaves the event queue as an Integer, so `Lota::Event.quit(3)` exits with 3.
 - `Lota::Graphics.active?`, `origin`, `background_color`, `present`, `width`, `height`, and `dimensions`.
 - `Lota::Graphics.rectangle`, `circle`, `ellipse`, `arc`, and `line`, translating `love.graphics.rectangle` (with rounded corners), `circle`, `ellipse`, `arc` (with its `:pie`, `:open`, or `:closed` arc mode), and `line`, in `:fill` or `:line` mode.
-- `Lota::Graphics.draw`, translating `love.graphics.draw` for a `Texture` with a position, angle, scale, origin, and shear.
+- `Lota::Graphics.draw`, translating `love.graphics.draw` for a `Texture`, a `Texture` through a `Quad`, or a `SpriteBatch`, with a position, angle, scale, origin, and shear.
+- `Lota::Graphics::Quad.new`, translating `love.graphics.newQuad` with a texture or its size and an optional layer, with `viewport`, `viewport=`, `texture_dimensions`, `layer`, and `layer=`.
+- `Lota::Graphics::SpriteBatch.new`, translating `love.graphics.newSpriteBatch` with its size and usage hint, with `add`, `set`, `clear`, `flush`, `texture`, `texture=`, `color`, `color=`, `count`, `buffer_size`, `draw_range`, and `draw_range=` (`nil` draws every sprite again).
+- `Lota::Graphics::Texture#width` and `#height`, translating `Texture:getWidth` and `getHeight`, of the first mipmap or the one given.
+- `lota run` checks `t.version` as `boot.lua` does: a version the engine is not compatible with prints LÖVE's warning and shows it in a dialog before the window opens.
 - `Lota::Graphics.color=` and `color`, `line_width=` and `line_width`, and `line_style=` and `line_style`, translating `love.graphics.setColor`, `getColor`, `setLineWidth`, `getLineWidth`, `setLineStyle`, and `getLineStyle`.
 - `Lota::Keyboard.down?`, translating `love.keyboard.isDown`, and `Lota.keyboard` returning `Lota::Keyboard`.
 - `Lota::Graphics.print` and `printf`, translating `love.graphics.print` and `printf`, which draw a String or colored text with a position, angle, scale, origin, and shear, `printf` wrapped at a limit and aligned `:left`, `:center`, `:right`, or `:justify`.
@@ -45,7 +49,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Mouse.system_cursor`, `cursor=`, and `x`, translating `love.mouse.getSystemCursor`, `setCursor`, and `getX`, with `Lota::Mouse::Cursor`; and `Lota.mouse`, opened unless `t.modules.mouse = false`.
 - `Lota::Math.random` and `random_seed=`, translating `love.math.random` and `setRandomSeed`, which draw from LÖVE's own generator; and `Lota.math`, opened unless `t.modules.math = false`.
 - `Lota::Event.poll`, translating `love.event.poll`, as an Enumerator of each queued message's name and arguments that also takes a block; and `Lota::Event.push` and `clear`.
-- `type` and `type_of?` on every engine object (`Texture`, `Font`, `ImageData`, `FileData`, `Cursor`), translating `Object:type` and `Object:typeOf`, with LÖVE's type names and parents.
+- `Lota::Object`, included by every engine object (`Texture`, `Font`, `ImageData`, `FileData`, `Cursor`), with `type` and `type_of?`, translating `Object:type` and `Object:typeOf`, with LÖVE's type names and parents.
 - `Lota::Font` and `Lota.font`, for LÖVE's font module, `nil` when `t.modules.font = false`.
 - `Lota::System.clipboard_text=` and `clipboard_text`, translating `love.system.setClipboardText` and `getClipboardText`, and `Lota.system`; `lota run` opens the system module before `conf.rb`, as `boot.lua` does.
 - LÖVE's error screen: an error a game raises prints the error and its Ruby backtrace and shows them in the game's window, as `love.errorhandler` does, until the player presses Escape or quits; Ctrl+C copies them. A game may define `Lota.errorhandler` to replace it; `Lota.errhand` is another name for the default handler.

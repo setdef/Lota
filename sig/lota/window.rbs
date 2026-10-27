@@ -5,11 +5,11 @@ module Lota
   module Window
     def self.set_mode: (Integer width, Integer height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: bool?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
 
-    private def self.flag: (Object? value, bool default) -> bool
+    private def self.flag: (::Object? value, bool default) -> bool
 
-    private def self.integer: (Object? value, Integer default) -> Integer
+    private def self.integer: (::Object? value, Integer default) -> Integer
 
-    private def self.vsync_of: (Object? value, Integer default) -> Integer
+    private def self.vsync_of: (::Object? value, Integer default) -> Integer
 
     def self.title=: (String title) -> void
 

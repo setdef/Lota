@@ -83,14 +83,21 @@ module Parity
     attr_reader :frames_dir, :output
 
     # Runs the game in the folder +game+ under +script+, keeping its frames
-    # in +directory+.
+    # in +directory+. LÖVE's home directory is +directory+/home
+    # (CFFIXED_USER_HOME, which Foundation reads for the user's home), so a
+    # game that saves, as LÖVE saves under the home's Application Support
+    # (src/common/apple.mm, getUserDirectory), starts each run with nothing
+    # saved and leaves nothing behind.
     def initialize(game, script, directory)
       @frames_dir = File.join(directory, "love")
       Dir.mkdir(@frames_dir)
       love = ENV.fetch("LOTA_REFERENCE_LOVE") do
         raise "LOTA_REFERENCE_LOVE is not set; bundle exec rake test:parity builds the reference love and sets it"
       end
-      environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir)
+      home = File.join(directory, "home")
+      Dir.mkdir(home)
+      environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
+        "CFFIXED_USER_HOME" => home)
       @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"))
     end
 

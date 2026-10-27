@@ -5,6 +5,8 @@ module Lota
   module Native
     VERSION: String
 
+    VERSION_COMPATIBILITY: Array[String]
+
     def self.drain_release_queue: () -> Integer
 
     def self.queued_releases: () -> Integer
@@ -61,6 +63,40 @@ module Lota
       def type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def width: (?Integer? mipmap) -> Integer
+
+      def height: (?Integer? mipmap) -> Integer
+    end
+
+    class Quad
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def layer: () -> Integer
+
+      def set_viewport: (Array[Float | Integer] viewport, ?(Float | Integer)? sw, ?(Float | Integer)? sh) -> nil
+    end
+
+    class SpriteBatch
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def add: (Quad? quad, Array[Float | Integer] placement) -> Integer
+
+      def set: (Integer index, Quad? quad, Array[Float | Integer] placement) -> nil
+
+      def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
+
+      def texture: () -> Texture
+
+      def draw_range: () -> [Integer, Integer]?
     end
 
     class WindowSettings
@@ -241,6 +277,16 @@ module Lota
       def self.default_filter: () -> [String, String, Integer]
 
       def self.draw: (Texture texture, Array[Float | Integer] placement) -> nil
+
+      def self.draw_sprite_batch: (SpriteBatch batch, Array[Float | Integer] placement) -> nil
+
+      def self.draw_quad: (Texture texture, Quad quad, Array[Float | Integer] placement) -> nil
+
+      def self.new_quad: (Float | Integer layer, Array[Float | Integer] viewport, Float | Integer sw, Float | Integer sh) -> Quad
+
+      def self.new_quad_of_texture: (Float | Integer layer, Array[Float | Integer] viewport, Texture texture) -> Quad
+
+      def self.new_sprite_batch: (Texture texture, Integer? size, String? usage) -> SpriteBatch
 
       def self.line: (Array[Float | Integer | Array[Float | Integer]] coordinates) -> nil
 

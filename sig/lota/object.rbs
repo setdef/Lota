@@ -8,13 +8,13 @@ module Lota
     def type_of?: (String name) -> bool
   end
 
-  interface _WrapsEngineObject
+  interface _WrapsObject
     def native: () -> _EngineNative
   end
 
-  module EngineObject : _WrapsEngineObject
+  module Object : _WrapsObject
     def type: () -> String
 
-    def type_of?: (Object name) -> bool
+    def type_of?: (::Object name) -> bool
   end
 end

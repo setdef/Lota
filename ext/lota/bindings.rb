@@ -52,6 +52,43 @@ generate "love.graphics.circle"
 generate "Texture:isCanvas"
 generate "love.graphics.setFont"
 generate "love.graphics.setDefaultFilter"
+generate "SpriteBatch:clear"
+generate "SpriteBatch:flush"
+generate "SpriteBatch:setTexture"
+bound_by_hand "SpriteBatch:setColor",
+  reason: "LÖVE assigns each component in a statement of its own, so the port's four numbers fail clang-tidy's " \
+    "bugprone-easily-swappable-parameters, as love.graphics.setColor's do; Lota binds the form with separate " \
+    "numbers in one constructor call"
+generate "SpriteBatch:getColor"
+generate "SpriteBatch:getCount"
+generate "SpriteBatch:getBufferSize"
+generate "SpriteBatch:setDrawRange"
+bound_by_hand "Quad:setViewport",
+  reason: "LÖVE assigns each side of the viewport in a statement of its own, so the port's four numbers fail " \
+    "clang-tidy's bugprone-easily-swappable-parameters; Lota binds the viewport as an Array, as draw's placement"
+generate "Quad:getViewport"
+generate "Quad:getTextureDimensions"
+generate "Quad:setLayer"
+bound_by_hand "Quad:getLayer",
+  reason: "pushes quad->getLayer() + 1, whose C++ type the headers the generator reads do not give"
+bound_by_hand "love.graphics.newQuad",
+  reason: "chooses among its forms by its arguments' kinds, reading argument 5 as a Texture, a layer, or a " \
+    "width; Lota::Graphics::Quad.new chooses as it does, and binds the forms with a texture and with numbers"
+bound_by_hand "love.graphics.newSpriteBatch",
+  reason: "pushes its SpriteBatch with luax_pushtype, which the generator does not port"
+bound_by_hand "SpriteBatch:add",
+  reason: "reads its placement through luax_checkstandardtransform, at a position that depends on whether a " \
+    "Quad comes first; Lota binds the Quad or nil and the nine numbers as an Array, as draw"
+bound_by_hand "SpriteBatch:set",
+  reason: "reads its Quad and placement as SpriteBatch:add does"
+bound_by_hand "SpriteBatch:getTexture",
+  reason: "pushes its Texture with luax_pushtype, which the generator does not port"
+bound_by_hand "SpriteBatch:getDrawRange",
+  reason: "returns no values or two, by whether a range is set; Lota returns nil or an Array"
+bound_by_hand "Texture:getWidth",
+  reason: "reads its mipmap through w__optMipmap, which the generator does not port"
+bound_by_hand "Texture:getHeight",
+  reason: "reads its mipmap through w__optMipmap, as Texture:getWidth"
 bound_by_hand "love.graphics.setColor",
   reason: "LÖVE assigns each component in a statement of its own, so the port's four numbers fail clang-tidy's " \
     "bugprone-easily-swappable-parameters; Lota binds the form with separate numbers in one constructor call"
@@ -91,7 +128,7 @@ bound_by_hand "love.graphics.printf",
     "without a Font, as print"
 bound_by_hand "love.graphics.draw",
   reason: "reads its placement at a position that depends on whether a Quad comes second; Lota binds a " \
-    "Texture with its nine numbers as an Array, as print"
+    "Texture, a SpriteBatch, and a Texture through a Quad, each with its nine numbers as an Array, as print"
 bound_by_hand "love.graphics.line",
   reason: "reads its coordinates in a loop over every argument, or from a table; Lota::Graphics.line passes " \
     "them as one Array"

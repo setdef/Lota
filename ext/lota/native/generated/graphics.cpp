@@ -16,6 +16,8 @@
 #include "common/int.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
+#include "graphics/Quad.h"
+#include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
 
 #include <algorithm>
@@ -194,6 +196,88 @@ void w_ellipse(const std::string &mode, double x, double y, double a, std::optio
 // love.graphics.origin: w_origin (wrap_Graphics.cpp:3965-3969).
 void w_origin() { instance()->origin(); }
 
+// Quad:getViewport: w_Quad_getViewport (wrap_Quad.cpp:56-65).
+Rice::Array w_Quad_getViewport(const Quad &quad) {
+  require_main_thread(MODULE);
+  const Quad::Viewport v = quad.getViewport();
+  Rice::Array results;
+  results.push(v.x, false);
+  results.push(v.y, false);
+  results.push(v.w, false);
+  results.push(v.h, false);
+  return results;
+}
+
+// Quad:getTextureDimensions: w_Quad_getTextureDimensions (wrap_Quad.cpp:67-75).
+Rice::Array w_Quad_getTextureDimensions(const Quad &quad) {
+  require_main_thread(MODULE);
+  const double sw = quad.getTextureWidth();
+  const double sh = quad.getTextureHeight();
+  Rice::Array results;
+  results.push(sw, false);
+  results.push(sh, false);
+  return results;
+}
+
+// Quad:setLayer: w_Quad_setLayer (wrap_Quad.cpp:77-83).
+void w_Quad_setLayer(Quad &quad, int layer) {
+  require_main_thread(MODULE);
+  quad.setLayer((layer - 1));
+}
+
+// SpriteBatch:clear: w_SpriteBatch_clear (wrap_SpriteBatch.cpp:125-130).
+void w_SpriteBatch_clear(SpriteBatch &t) {
+  require_main_thread(MODULE);
+  t.clear();
+}
+
+// SpriteBatch:flush: w_SpriteBatch_flush (wrap_SpriteBatch.cpp:132-137).
+void w_SpriteBatch_flush(SpriteBatch &t) {
+  require_main_thread(MODULE);
+  t.flush();
+}
+
+// SpriteBatch:setTexture: w_SpriteBatch_setTexture (wrap_SpriteBatch.cpp:139-145).
+void w_SpriteBatch_setTexture(SpriteBatch &t, Texture *tex) {
+  require_main_thread(MODULE);
+  t.setTexture(tex);
+}
+
+// SpriteBatch:getColor: w_SpriteBatch_getColor (wrap_SpriteBatch.cpp:184-194).
+Rice::Array w_SpriteBatch_getColor(const SpriteBatch &t) {
+  require_main_thread(MODULE);
+  const Colorf color = t.getColor();
+  Rice::Array results;
+  results.push(static_cast<double>(color.r), false);
+  results.push(static_cast<double>(color.g), false);
+  results.push(static_cast<double>(color.b), false);
+  results.push(static_cast<double>(color.a), false);
+  return results;
+}
+
+// SpriteBatch:getCount: w_SpriteBatch_getCount (wrap_SpriteBatch.cpp:196-201).
+int w_SpriteBatch_getCount(const SpriteBatch &t) {
+  require_main_thread(MODULE);
+  return t.getCount();
+}
+
+// SpriteBatch:getBufferSize: w_SpriteBatch_getBufferSize (wrap_SpriteBatch.cpp:203-208).
+int w_SpriteBatch_getBufferSize(const SpriteBatch &t) {
+  require_main_thread(MODULE);
+  return t.getBufferSize();
+}
+
+// SpriteBatch:setDrawRange: w_SpriteBatch_setDrawRange (wrap_SpriteBatch.cpp:233-247).
+void w_SpriteBatch_setDrawRange(SpriteBatch &t, std::optional<int> start,
+                                std::optional<int> count) {
+  require_main_thread(MODULE);
+  if (!start.has_value()) {
+    t.setDrawRange();
+  } else {
+    t.setDrawRange((start.value() - 1), required(count, "count"));
+  }
+}
+
 // Texture:isCanvas: w_Texture_isCanvas (wrap_Texture.cpp:282-287).
 bool w_Texture_isCanvas(const Texture &t) {
   require_main_thread(MODULE);
@@ -232,6 +316,20 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("set_default_filter", &w_setDefaultFilter, Rice::Arg("minstr"),
                                  Rice::Arg("magstr") = std::optional<std::string>(),
                                  Rice::Arg("max_anisotropy") = 1.0);
+  Rice::define_class_under<Quad>(native, "Quad")
+      .define_method("viewport", &w_Quad_getViewport)
+      .define_method("texture_dimensions", &w_Quad_getTextureDimensions)
+      .define_method("set_layer", &w_Quad_setLayer, Rice::Arg("layer"));
+  Rice::define_class_under<SpriteBatch>(native, "SpriteBatch")
+      .define_method("clear", &w_SpriteBatch_clear)
+      .define_method("flush", &w_SpriteBatch_flush)
+      .define_method("set_texture", &w_SpriteBatch_setTexture, Rice::Arg("tex"))
+      .define_method("color", &w_SpriteBatch_getColor)
+      .define_method("count", &w_SpriteBatch_getCount)
+      .define_method("buffer_size", &w_SpriteBatch_getBufferSize)
+      .define_method("set_draw_range", &w_SpriteBatch_setDrawRange,
+                     Rice::Arg("start") = std::optional<int>(),
+                     Rice::Arg("count") = std::optional<int>());
   Rice::define_class_under<Texture>(native, "Texture")
       .define_method("canvas?", &w_Texture_isCanvas);
 }

@@ -36,7 +36,10 @@ module Bindings
     # [optional] Whether the binding tests for it at run time
     #   (lua_isnoneornil), so it is a std::optional.
     # [default] The C++ literal Rice passes when it is left out, or nil.
-    class Parameter < Data.define(:index, :name, :kind, :cpp, :object, :optional, :default)
+    # [checked] Whether it is optional only because it follows an optional
+    #   parameter, as a Ruby method's positional parameters must, while LÖVE
+    #   reads it with a check: the form that reads it requires it.
+    class Parameter < Data.define(:index, :name, :kind, :cpp, :object, :optional, :default, :checked)
       # Its C++ declaration. An optional class, such as a String, is taken
       # by reference, as the class itself is: Rice converts it once.
       def declaration
@@ -262,9 +265,27 @@ object:,
         @optional.concat(text.scan(/lua_isnone(?:ornil)?\s*\(\s*L\s*,\s*(\d+)\s*\)/).flatten.map(&:to_i))
         Calls.in(text).each { |call| record_read(call, text, node) if read?(call) }
       end
-      @parameters = @reads.group_by { |read| read[:index] }.sort.filter_map { |index, reads| parameter(index, reads) }
+      @parameters = trailing_optional(
+        @reads.group_by { |read| read[:index] }.sort.filter_map { |index, reads| parameter(index, reads) }
+      )
       @reads.select { |read| read[:variable] }.each do |read|
-        @aliases[read[:variable]] = read_value(read[:call], read[:cast] || cast_of(read[:declared], read[:call]))
+        value = read_value(read[:call], read[:cast] || cast_of(read[:declared], read[:call]))
+        @aliases[read[:variable]] = read[:rest].empty? ? value : "(#{value} #{read[:rest]})"
+      end
+    end
+
+    # +parameters+, each after an optional one made optional too: Ruby
+    # cannot leave out a positional argument and pass a later one, and
+    # LÖVE reads such an argument only in the form that reads the optional
+    # one before it (w_Quad_setViewport reads its texture's height only
+    # with a width), so the port requires it there (read_value).
+    private def trailing_optional(parameters)
+      seen = false
+      parameters.map do |parameter|
+        optional = parameter.optional || parameter.default
+        next parameter.tap { seen ||= optional } if optional || !seen
+
+        parameter.with(optional: true, checked: true)
       end
     end
 
@@ -280,6 +301,9 @@ object:,
       cast = text[/\(\s*([\w:]+)\s*\)\s*#{Regexp.escape(call.name)}\s*\(/, 1]
       declared = text.match(/\A(?:const\s+)?(?<type>[\w:]+(?:\s*[*&]+\s*|\s+))(?<name>\w+)\s*=\s*(?:\([\w:]+\)\s*)?#{Regexp.escape(call.name)}\s*\(/)
       field = text[/\A\w+\.(\w+)\s*=/, 1]
+      # What a declaration adds to its read (int start = (int)
+      # luaL_checkinteger(L, 2) - 1 subtracts 1), which the variable keeps.
+      rest = declared ? text[(Statements.matching(text, text.index("(", call.offset)) + 1)..].strip : ""
       @reads << {
 index:,
 call:,
@@ -287,6 +311,7 @@ cast:,
 variable: declared&.[](:name),
 declared: declared&.[](:type)&.strip,
 field:,
+rest:,
 text:,
 line: node.line,
 }
@@ -311,7 +336,8 @@ line: node.line,
       optional = @optional.include?(index)
       default = (!optional && call.base_name.match?(/opt/)) ? literal_default(call.arguments.last, cpp) : nil
       optional ||= call.base_name.match?(/opt/) && default.nil?
-      Parameter.new(index:, name:, kind:, cpp:, object: (kind == :object) ? helper_type(call) : nil, optional:, default:)
+      Parameter.new(index:, name:, kind:, cpp:, object: (kind == :object) ? helper_type(call) : nil, optional:, default:,
+        checked: false)
     end
 
     private def helper_type(call)
@@ -543,7 +569,9 @@ line: node.line,
       return cast_to(rewrite(call.arguments.last), cast) if index > @arity
 
       parameter = parameters.find { |candidate| candidate.index == index }
-      value = if parameter.optional && call.base_name.match?(/opt/)
+      value = if parameter.checked
+        %(required(#{parameter.name}, "#{parameter.name}"))
+      elsif parameter.optional && call.base_name.match?(/opt/)
         "#{parameter.name}.value_or(#{rewrite(call.arguments.last)})"
       elsif parameter.optional
         "#{parameter.name}.value()"

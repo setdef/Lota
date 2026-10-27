@@ -8,9 +8,13 @@ module Lota
 
       def self.from_native: (Native::Texture native) -> Texture
 
-      def self.new: (String | Filesystem::FileData | Lota::Image::ImageData image, ?canvas: Object?) -> Texture
+      def self.new: (String | Filesystem::FileData | Lota::Image::ImageData image, ?canvas: ::Object?) -> Texture
 
       def canvas?: () -> bool
+
+      def width: (?Integer? mipmap) -> Integer
+
+      def height: (?Integer? mipmap) -> Integer
     end
   end
 end

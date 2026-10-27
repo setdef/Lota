@@ -22,12 +22,24 @@ class LotaRunTest < Minitest::Test
   # Quits a game's error screen once it is up (quit_on_error.rb).
   QUIT_ON_ERROR = File.expand_path("quit_on_error.rb", __dir__)
 
+  # Presses Return on each dialog the game shows (press_return_on_dialogs.rb).
+  PRESS_RETURN = File.expand_path("press_return_on_dialogs.rb", __dir__)
+
+  # boot.lua's warning for a game made for a version the engine is not
+  # compatible with (boot.lua:381-384), for t.version +version+.
+  def self.version_warning(version)
+    "This game indicates it was made for version '#{version}' of LOVE.\n" \
+      "It may not be compatible with the running version (#{Lota::Native::VERSION}).\n"
+  end
+
   # Runs <tt>lota run</tt> with +arguments+ and returns its output and
   # Process::Status. -w makes any warning part of the output. +preload+
-  # names a file Ruby loads first, as ruby -r does.
+  # names a file Ruby loads first, as ruby -r does, which may require
+  # lota_native_test, last on the load path.
   def lota_run(*, preload: nil)
     native = File.dirname(File.dirname(loaded("lota/native")))
-    load_path = [native, File.join(ROOT, "lib")].uniq.join(File::PATH_SEPARATOR)
+    native_test = File.dirname(loaded("lota_native_test"))
+    load_path = [native, File.join(ROOT, "lib"), native_test].uniq.join(File::PATH_SEPARATOR)
     capture2e({}, RbConfig.ruby, "-w", "-I#{load_path}", *(preload && "-r#{preload}"), File.join(ROOT, "exe/lota"),
       "run", *)
   end
@@ -99,7 +111,8 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics, love.keyboard, love.mouse, love.math, love.event,
+  # love.graphics (its Quad and SpriteBatch tests among them),
+  # love.keyboard, love.mouse, love.math, love.event,
   # love.system, and love.window tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
   # conf.lua. On a GitHub Actions runner, Lövetest's arc test compares none
@@ -107,11 +120,11 @@ class LotaRunTest < Minitest::Test
   # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"))
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 7992 - (3 * 32 * 32) + 1 : 7992
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 28503 - (3 * 32 * 32) + 1 : 28503
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^32 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^36 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -378,6 +391,38 @@ class LotaRunTest < Minitest::Test
       assert_predicate status, :success?, output
       assert_equal "[64, 64, Lota::Mouse, Lota::Math]\n", output
       refute_equal File.realpath(directory), File.realpath(Dir.pwd)
+    end
+  end
+
+  # boot.lua checks t.version once the modules are open (boot.lua:378-393):
+  # a version love.isVersionCompatible refuses is printed, and, with the
+  # window module open, shown in a dialog before the window opens, which
+  # waits until the player presses Return.
+  def test_a_game_made_for_another_version_shows_loves_warning_in_a_dialog
+    in_game("conf.rb" => "def Lota.conf(t) = (t.version = '11.3')\n",
+      "main.rb" => "def Lota.load = (p Lota::Window.open?; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory, preload: PRESS_RETURN)
+
+      assert_predicate status, :success?, output
+      assert_equal "#{self.class.version_warning('11.3')}true\ndialogs 1\n", output
+    end
+  end
+
+  # love.isVersionCompatible appends ".0" to a version with fewer than two
+  # dots, once, and compares it with each version the engine is compatible
+  # with, written the same way (love.cpp:309-352), so "12.0" and "12.0.0"
+  # pass and "12" does not. boot.lua first turns t.version into a string
+  # with Lua's tostring, which writes nil as "nil" and 12.0 as "12". Without
+  # the window module the warning is only printed, and no dialog shows.
+  def test_the_version_is_compared_as_love_compares_it
+    { "'12.0'" => nil, "'12.0.0'" => nil, "'12'" => "12", "12.0" => "12", "nil" => "nil" }.each do |version, warned|
+      in_game("conf.rb" => "def Lota.conf(t) = (t.version = #{version}; t.modules.window = false)\n",
+        "main.rb" => "def Lota.load = Lota::Event.quit\n") do |directory|
+        output, status = lota_run(directory, preload: PRESS_RETURN)
+
+        assert_predicate status, :success?, output
+        assert_equal "#{warned && self.class.version_warning(warned)}dialogs 0\n", output, version
+      end
     end
   end
 

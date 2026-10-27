@@ -27,12 +27,16 @@
 // The engine classes of the modules LÖVE confines to its main thread, so
 // that every binding sees the same list (ReleasedOnMainThread, below).
 #include "graphics/Font.h"
+#include "graphics/Quad.h"
+#include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
 
 #include <concepts>
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -60,6 +64,18 @@ inline void require_main_thread(const char *module) {
   }
 }
 
+// The value of an argument the binding generator made optional only
+// because it follows an optional one, as a Ruby method's positional
+// parameters must (tasks/bindings/port.rb, trailing_optional), in a form
+// that requires it: LÖVE reads it with a check there. A missing one raises
+// ArgumentError, naming it as Rice names a missing argument.
+template <typename T> T required(const std::optional<T> &argument, const std::string &name) {
+  if (!argument.has_value()) {
+    throw std::invalid_argument("Missing argument. Name: " + name + ".");
+  }
+  return *argument;
+}
+
 // Whether engine objects of class T are released only on the main thread.
 // LÖVE's thread module keeps love.graphics and love.window off every other
 // thread (vendor/love/src/modules/thread/LuaThread.cpp:72-73), and Lua
@@ -69,6 +85,8 @@ inline void require_main_thread(const char *module) {
 template <typename T> struct ReleasedOnMainThread : std::false_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Texture> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Font> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Quad> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true_type {};
 
 // Releases that Ruby's garbage collector asked for off the main thread, for
 // the main thread to carry out (ADR 001, section 5). Ruby frees a wrapper

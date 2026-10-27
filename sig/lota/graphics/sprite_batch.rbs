@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class SpriteBatch
+      include Object
+
+      attr_reader native: Native::SpriteBatch
+
+      def self.from_native: (Native::SpriteBatch native) -> SpriteBatch
+
+      def self.new: (Texture texture, ?Integer? size, *(Symbol | String) usage) -> SpriteBatch
+
+      def add: (?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Integer
+
+      def set: (Integer index, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+
+      def clear: () -> nil
+
+      def flush: () -> nil
+
+      def texture=: (Texture texture) -> void
+
+      def texture: () -> Texture
+
+      def color=: (Array[Float | Integer] color) -> void
+
+      def color: () -> Array[Float]
+
+      def count: () -> Integer
+
+      def buffer_size: () -> Integer
+
+      def draw_range=: (Array[Integer]? range) -> void
+
+      def draw_range: () -> [Integer, Integer]?
+    end
+  end
+end

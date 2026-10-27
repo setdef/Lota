@@ -5,7 +5,7 @@ module Lota
   module Callbacks
     type argument = String | Symbol | Float | Integer | bool | nil
 
-    type handler = ^(*argument) -> Object?
+    type handler = ^(*argument) -> ::Object?
 
     self.@parsed_game_arguments: Array[String]
 
@@ -15,7 +15,7 @@ module Lota
 
     attr_accessor self.raw_game_arguments: Array[String]
 
-    def self.call: (Symbol name, *top arguments) -> Object?
+    def self.call: (Symbol name, *top arguments) -> ::Object?
 
     ENUM_ARGUMENTS: Hash[Symbol, Array[Integer]]
 
@@ -29,22 +29,22 @@ module Lota
 
     def self.dispatch: () -> argument
 
-    def self.handle: (Symbol name, *argument arguments) -> Object?
+    def self.handle: (Symbol name, *argument arguments) -> ::Object?
 
     ERRORS: Array[singleton(Exception)]
 
-    def self.error_message: (Object error) -> String
+    def self.error_message: (::Object error) -> String
 
     def self.traceback: (Array[String] frames) -> String
 
-    def self.error_printer: (Object error, ?Array[String] frames) -> nil
+    def self.error_printer: (::Object error, ?Array[String] frames) -> nil
   end
 
   module DefaultCallbacks
-    def run: () -> ^() -> Object?
+    def run: () -> ^() -> ::Object?
 
-    def errorhandler: (Object msg) -> (^() -> Integer?)?
+    def errorhandler: (::Object msg) -> (^() -> Integer?)?
 
-    def errhand: (Object msg) -> (^() -> Integer?)?
+    def errhand: (::Object msg) -> (^() -> Integer?)?
   end
 end

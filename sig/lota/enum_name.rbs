@@ -3,6 +3,6 @@
 
 module Lota
   module EnumName
-    def self.of: (Object? value) -> String
+    def self.of: (::Object? value) -> String
   end
 end

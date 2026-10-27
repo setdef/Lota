@@ -267,10 +267,11 @@ class ShapesTest < Minitest::Test
     assert_equal [0.0, 0.0, 0.0, 1.0], halved.pixel(6, 6)
   end
 
-  def test_only_a_texture_can_be_drawn
+  def test_only_a_drawable_can_be_drawn
     error = assert_raises(TypeError) { Lota::Graphics.draw(:canvas) }
 
-    assert_equal "wrong argument type Symbol (expected Lota::Graphics::Texture)", error.message
+    assert_equal "wrong argument type Symbol (expected Lota::Graphics::Texture or Lota::Graphics::SpriteBatch)",
+      error.message
   end
 
   # A canvas made with several antialiasing samples blends the edges of

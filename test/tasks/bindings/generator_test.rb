@@ -73,6 +73,29 @@ class GeneratorTest < Minitest::Test
       "?Integer? points) -> nil", port.rbs.sub("self.", "")
   end
 
+  # w_SpriteBatch_setDrawRange reads its start, which Lua counts from 1,
+  # into a variable as (int) luaL_checkinteger(L, 2) - 1, and the engine
+  # counts from 0, so the port keeps the subtraction the declaration
+  # makes, as w_Quad_setLayer's does.
+  def test_a_variable_read_with_arithmetic_keeps_it
+    assert_includes port("SpriteBatch:setDrawRange").definition, %(t.setDrawRange((start.value() - 1), required(count, "count"));)
+    assert_includes port("Quad:setLayer").definition, "quad.setLayer((layer - 1));"
+  end
+
+  # w_Quad_setViewport reads the texture's height (argument 7) only when
+  # it is given a width (argument 6), so Ruby may leave both out: an
+  # argument after an optional one is optional too, as a Ruby method's
+  # positional parameters are, and a form that reads it says so when it is
+  # missing, naming it as Rice names a missing argument.
+  def test_an_argument_after_an_optional_one_is_optional_and_required_where_read
+    port = port("Quad:setViewport")
+
+    assert_includes port.registration, %(Rice::Arg("sw") = std::optional<double>(), ) +
+      %(Rice::Arg("sh") = std::optional<double>())
+    assert_includes port.definition, %(quad.refresh(v, sw.value(), required(sh, "sh"));)
+    assert_match(/\?\(Float \| Integer\)\? sw, \?\(Float \| Integer\)\? sh\) -> nil\z/, port.rbs)
+  end
+
   def test_arguments_beyond_the_bound_form_are_pruned
     code = port("love.graphics.rectangle", arguments: 5).definition
 

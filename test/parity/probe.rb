@@ -34,6 +34,11 @@ module Parity
   # the first that differed, whose pixels it also saves beside the report
   # as raw RGBA.
   #
+  # Every dialog the game shows, such as LÖVE's version warning, which
+  # boot.lua shows before the window opens, has Return pressed on it, as
+  # the Lua side does (LotaNativeTest.press_return_on_dialogs), so both
+  # engines show it and neither waits for a player.
+  #
   # Time.now, called with no arguments, returns LOTA_PARITY_CLOCK seconds
   # after the epoch, as the Lua side's os.time() does, so a game that
   # seeds Lota::Math's generator from the clock draws the same numbers
@@ -171,6 +176,9 @@ module Parity
   end
 end
 
+# Return goes to every dialog the game shows, such as LÖVE's version
+# warning, as the Lua side presses it.
+LotaNativeTest.press_return_on_dialogs
 Time.singleton_class.prepend(Parity::Probe::Clock)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
 at_exit { Parity::Probe.report }

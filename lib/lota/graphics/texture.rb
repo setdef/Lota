@@ -31,7 +31,7 @@ module Lota
     #   player = Lota::Graphics::Texture.new("assets/player.png")
     #   Lota::Graphics.draw(player, 100, 100)
     class Texture
-      include EngineObject
+      include Object
 
       # The engine's Texture, for Lota's own modules. :nodoc:
       attr_reader :native
@@ -105,6 +105,35 @@ module Lota
       #   Lota::Graphics::Canvas.new(16, 16).canvas? # => true
       def canvas?
         @native.canvas?
+      end
+
+      # The Integer width of the texture in pixels, in units of its DPI
+      # scale, matching Texture:getWidth
+      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getWidth).
+      #
+      # [mipmap] Integer mipmap to measure, counting from 1; the first, the
+      #   full-size image, when +nil+ or left out.
+      #
+      # Raises RuntimeError ("Invalid mipmap index: 2") for a mipmap the
+      # texture does not have, TypeError for one that is not a number, and
+      # ThreadError off the main thread.
+      #
+      # === Example
+      #
+      #   Lota::Graphics::Canvas.new(64, 32).width # => 64
+      def width(mipmap = nil)
+        @native.width(mipmap)
+      end
+
+      # The Integer height of the texture, as width measures its width,
+      # matching Texture:getHeight (src/modules/graphics/wrap_Texture.cpp,
+      # w_Texture_getHeight).
+      #
+      # === Example
+      #
+      #   Lota::Graphics::Canvas.new(64, 32).height # => 32
+      def height(mipmap = nil)
+        @native.height(mipmap)
       end
     end
   end

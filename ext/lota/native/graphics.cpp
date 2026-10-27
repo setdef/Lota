@@ -21,7 +21,10 @@
 #include "font/TrueTypeRasterizer.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
+#include "graphics/Quad.h"
+#include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
+#include "graphics/vertex.h"
 #include "image/CompressedImageData.h"
 #include "image/Image.h"
 #include "image/ImageData.h"
@@ -499,6 +502,177 @@ void draw(Texture *texture, Rice::Array placement) {
   graphics().draw(texture, placement_of(numbers));
 }
 
+// w_draw of a SpriteBatch with numbers (wrap_Graphics.cpp:3245-3279):
+// every sprite in the batch, placed together by the nine numbers.
+void draw_sprite_batch(love::graphics::SpriteBatch *batch, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(batch, placement_of(numbers));
+}
+
+// w_draw of a Texture through a Quad (wrap_Graphics.cpp:3245-3279): the
+// part of +texture+ the quad shows, placed by the nine numbers.
+void draw_quad(Texture *texture, love::graphics::Quad *quad, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(texture, quad, placement_of(numbers));
+}
+
+// The viewport a Quad shows, from an Array of its left edge, top edge,
+// width, and height, each read as LÖVE reads them, as doubles
+// (wrap_Graphics.cpp:1339-1343 and wrap_Quad.cpp:38-42).
+love::graphics::Quad::Viewport viewport_of(const Rice::Array &sides) {
+  const std::vector<Rice::Object> given = elements(sides);
+  const auto number = [&given](std::size_t index) {
+    return Rice::detail::From_Ruby<double>().convert(given.at(index).value());
+  };
+  love::graphics::Quad::Viewport v{};
+  v.x = number(0);
+  v.y = number(1);
+  v.w = number(2);
+  v.h = number(3);
+  return v;
+}
+
+// w_newQuad (wrap_Graphics.cpp:1335-1380) of the layer of an array
+// texture it shows, counting from 1 as Lua does, a viewport, as
+// viewport_of reads it, and the size of the texture it is a part of.
+// Lota::Graphics::Quad.new reads the size from a texture, or as numbers,
+// as w_newQuad chooses between them. Its one reference goes to the Ruby
+// wrapper.
+love::graphics::Quad *new_quad(int layer, Rice::Array viewport, double sw, double sh) {
+  const Rice::Array sides = std::move(viewport);
+  Graphics &instance = created_graphics();
+  love::graphics::Quad *quad = instance.newQuad(viewport_of(sides), sw, sh);
+  quad->setLayer(layer - 1);
+  return quad;
+}
+
+// w_newQuad's forms that take the size from a texture
+// (wrap_Graphics.cpp:1349-1361): its width and height, as w_newQuad reads
+// them.
+love::graphics::Quad *new_quad_of_texture(int layer, Rice::Array viewport, Texture *texture) {
+  created_graphics();
+  return new_quad(layer, std::move(viewport), texture->getWidth(), texture->getHeight());
+}
+
+// Quad:setViewport (wrap_Quad.cpp:34-54): a viewport, as viewport_of reads
+// it, within the same texture, or within a texture of +sw+ by +sh+ when
+// they are given.
+void quad_set_viewport(love::graphics::Quad &quad, Rice::Array viewport, std::optional<double> sw,
+                       std::optional<double> sh) {
+  require_main_thread(MODULE);
+  const Rice::Array sides = std::move(viewport);
+  const love::graphics::Quad::Viewport v = viewport_of(sides);
+  if (!sw.has_value()) {
+    quad.setViewport(v);
+  } else {
+    quad.refresh(v, sw.value(), required(sh, "sh"));
+  }
+}
+
+// Quad:getLayer (wrap_Quad.cpp:85-90), counting from 1 as Lua does.
+int quad_layer(const love::graphics::Quad &quad) {
+  require_main_thread(MODULE);
+  return quad.getLayer() + 1;
+}
+
+// w_newSpriteBatch (wrap_Graphics.cpp:1438-1460): a batch of +size+
+// sprites, 1000 unless given, drawn from +texture+, with a usage hint,
+// dynamic unless given. Its one reference goes to the Ruby wrapper.
+love::graphics::SpriteBatch *new_sprite_batch(Texture *texture, std::optional<int> size,
+                                              const std::optional<std::string> &usagestr) {
+  Graphics &instance = created_graphics();
+  love::graphics::BufferDataUsage usage = love::graphics::BUFFERDATAUSAGE_DYNAMIC;
+  if (usagestr.has_value() && !love::graphics::getConstant(usagestr->c_str(), usage)) {
+    raise_enum_error("usage hint", love::graphics::getConstants(usage), *usagestr);
+  }
+  constexpr int default_size = 1000;
+  return instance.newSpriteBatch(texture, size.value_or(default_size), usage);
+}
+
+// w_SpriteBatch_add (wrap_SpriteBatch.cpp:36-56 and 85-93): adds a sprite
+// of the whole texture, or of +quad+ unless it is nil, placed by the nine
+// numbers, and returns its index, counting from 1 as Lua does.
+int sprite_batch_add(love::graphics::SpriteBatch &batch, love::graphics::Quad *quad,
+                     Rice::Array placement) {
+  require_main_thread(MODULE);
+  const Rice::Array numbers = std::move(placement);
+  const love::Matrix4 m = placement_of(numbers);
+  const int index = (quad != nullptr) ? batch.add(quad, m, -1) : batch.add(m, -1);
+  return index + 1;
+}
+
+// w_SpriteBatch_set (wrap_SpriteBatch.cpp:36-56 and 95-103): replaces the
+// sprite at +index+, counting from 1 as Lua does, as sprite_batch_add adds
+// one.
+void sprite_batch_set(love::graphics::SpriteBatch &batch, int index, love::graphics::Quad *quad,
+                      Rice::Array placement) {
+  require_main_thread(MODULE);
+  const Rice::Array numbers = std::move(placement);
+  const love::Matrix4 m = placement_of(numbers);
+  if (quad != nullptr) {
+    batch.add(quad, m, index - 1);
+  } else {
+    batch.add(m, index - 1);
+  }
+}
+
+// SpriteBatch:setColor with numbers (wrap_SpriteBatch.cpp:154-182), as
+// set_color binds love.graphics.setColor.
+void sprite_batch_set_color(love::graphics::SpriteBatch &batch, double red, double green,
+                            double blue, double alpha) {
+  require_main_thread(MODULE);
+  batch.setColor(love::Colorf(static_cast<float>(red), static_cast<float>(green),
+                              static_cast<float>(blue), static_cast<float>(alpha)));
+}
+
+// SpriteBatch:getTexture (wrap_SpriteBatch.cpp:147-152). The batch keeps
+// its own reference, and the Ruby wrapper takes another.
+Texture *sprite_batch_texture(const love::graphics::SpriteBatch &batch) {
+  require_main_thread(MODULE);
+  return batch.getTexture();
+}
+
+// SpriteBatch:getDrawRange (wrap_SpriteBatch.cpp:249-261): the first
+// sprite drawn, counting from 1, and how many, or nil when the batch draws
+// every sprite.
+Rice::Object sprite_batch_draw_range(const love::graphics::SpriteBatch &batch) {
+  require_main_thread(MODULE);
+  int start = 0;
+  int count = 1;
+  if (!batch.getDrawRange(start, count)) {
+    return {};
+  }
+  Rice::Array range;
+  range.push(start + 1, false);
+  range.push(count, false);
+  return range;
+}
+
+// w__optMipmap (wrap_Texture.cpp:38-51): the mipmap +mipmap+ names,
+// counting from 1 as Lua does, or the first when nil.
+int mipmap_of(const Texture &texture, std::optional<int> mipmap) {
+  if (!mipmap.has_value()) {
+    return 0;
+  }
+  const int index = *mipmap - 1;
+  if (index < 0 || index >= texture.getMipmapCount()) {
+    throw love::Exception("Invalid mipmap index: %d", index + 1);
+  }
+  return index;
+}
+
+// Texture:getWidth and getHeight (wrap_Texture.cpp:53-65), of the first
+// mipmap or the one given.
+int texture_width(const Texture &texture, std::optional<int> mipmap) {
+  require_main_thread(MODULE);
+  return texture.getWidth(mipmap_of(texture, mipmap));
+}
+
+int texture_height(const Texture &texture, std::optional<int> mipmap) {
+  require_main_thread(MODULE);
+  return texture.getHeight(mipmap_of(texture, mipmap));
+}
+
 // w_line (wrap_Graphics.cpp:3542-3589) with its coordinates in one Array,
 // as Lota::Graphics.line passes them however they were given: LÖVE checks
 // their count before it reads them, and reads each as a float.
@@ -581,7 +755,23 @@ Rice::Array default_filter() {
 
 void define_graphics(const Rice::Module &native) {
   // Its methods are generated (ext/lota/native/generated/graphics.cpp).
-  define_engine_class<Texture>(native, "Texture");
+  define_engine_class<Texture>(native, "Texture")
+      .define_method("width", &texture_width, Rice::Arg("mipmap") = std::optional<int>())
+      .define_method("height", &texture_height, Rice::Arg("mipmap") = std::optional<int>());
+  // Their other methods are generated too.
+  define_engine_class<love::graphics::Quad>(native, "Quad")
+      .define_method("layer", &quad_layer)
+      .define_method("set_viewport", &quad_set_viewport, Rice::Arg("viewport"),
+                     Rice::Arg("sw") = std::optional<double>(),
+                     Rice::Arg("sh") = std::optional<double>());
+  define_engine_class<love::graphics::SpriteBatch>(native, "SpriteBatch")
+      .define_method("add", &sprite_batch_add, Rice::Arg("quad"), Rice::Arg("placement"))
+      .define_method("set", &sprite_batch_set, Rice::Arg("index"), Rice::Arg("quad"),
+                     Rice::Arg("placement"))
+      .define_method("set_color", &sprite_batch_set_color, Rice::Arg("red"), Rice::Arg("green"),
+                     Rice::Arg("blue"), Rice::Arg("alpha"))
+      .define_method("texture", &sprite_batch_texture)
+      .define_method("draw_range", &sprite_batch_draw_range);
   // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
   // love.font, the module that rasterizes its glyphs (native/font.cpp).
   Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
@@ -626,6 +816,18 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("limit"), Rice::Arg("align"))
       .define_singleton_function("default_filter", &default_filter)
       .define_singleton_function("draw", &draw, Rice::Arg("texture"), Rice::Arg("placement"))
+      .define_singleton_function("draw_sprite_batch", &draw_sprite_batch, Rice::Arg("batch"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("draw_quad", &draw_quad, Rice::Arg("texture"), Rice::Arg("quad"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("new_quad", &new_quad, Rice::Arg("layer"), Rice::Arg("viewport"),
+                                 Rice::Arg("sw"), Rice::Arg("sh"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_quad_of_texture", &new_quad_of_texture, Rice::Arg("layer"),
+                                 Rice::Arg("viewport"), Rice::Arg("texture"),
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("new_sprite_batch", &new_sprite_batch, Rice::Arg("texture"),
+                                 Rice::Arg("size"), Rice::Arg("usage"),
+                                 Rice::Return().takeOwnership())
       .define_singleton_function("line", &line, Rice::Arg("coordinates"))
       .define_singleton_function("arc", &arc, Rice::Arg("drawstr"), Rice::Arg("arcstr"),
                                  Rice::Arg("arguments"));

@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Quad
+      include Object
+
+      attr_reader native: Native::Quad
+
+      def self.from_native: (Native::Quad native) -> Quad
+
+      def self.new: (Float | Integer x, Float | Integer y, Float | Integer w, Float | Integer h, Texture | Float | Integer first, ?(Texture | Float | Integer)? second, ?(Float | Integer)? third) -> Quad
+
+      def viewport: () -> Array[Float]
+
+      def viewport=: (Array[Float | Integer] viewport) -> void
+
+      def texture_dimensions: () -> Array[Float]
+
+      def layer: () -> Integer
+
+      def layer=: (Integer layer) -> void
+    end
+  end
+end

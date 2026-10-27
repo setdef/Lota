@@ -23,10 +23,10 @@
 # ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
 # header, ruby.h, does not export them, so misc-include-cleaner cannot be
 # satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 161,
+allow "ext/lota/native_test/native_test.cpp", line: 162,
   reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
     "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 179,
+allow "ext/lota/native_test/native_test.cpp", line: 180,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
     "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."
@@ -40,7 +40,7 @@ allow "ext/lota/native_test/native_test.cpp", line: 179,
 # Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
 # (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
 # through the cast is defined; only the cast can reach it.
-allow "ext/lota/native_test/native_test.cpp", line: 350,
+allow "ext/lota/native_test/native_test.cpp", line: 351,
   reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
     "the test-only key hold must write it, which only a const_cast can do."
 

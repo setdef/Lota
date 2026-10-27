@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native_test/dialogs.hpp"
 
 #include "filesystem/FileData.h"
 #include "graphics/Font.h"
@@ -571,6 +572,9 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
       .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
       .define_module_function("press_key", &press_key, Rice::Arg("scancode"), Rice::Arg("down"))
+      .define_module_function("press_return_on_dialogs",
+                              &lota::native_test::press_return_on_dialogs)
+      .define_module_function("dialogs_answered", &lota::native_test::dialogs_answered)
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
       .define_module_function("rotate_display", &rotate_display)

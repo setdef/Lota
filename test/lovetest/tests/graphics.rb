@@ -13,6 +13,9 @@ require_relative "../lovetest_helper"
 # test/lovetest/game, a game folder that runs them from its update callback
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
+  # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
+  TYPES = %w[Quad SpriteBatch].freeze
+
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
@@ -356,6 +359,166 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = nil
     imgdata = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.Quad
+  # (vendor/love/testing/tests/graphics.lua:793-818): newImage and newQuad
+  # become Image.new and Quad.new (rule 2), getLayer and
+  # getTextureDimensions readers (rules 3 and 4), setLayer and
+  # setViewport writers (rules 5 and 6), and draw takes the quad after the
+  # texture, as in LÖVE. Lua's two results are an Array (rule 4).
+  def test_quad
+    # create quad obj
+    texture = Lota::Graphics::Image.new("resources/love.png")
+    quad = Lota::Graphics::Quad.new(0, 0, 32, 32, texture)
+    assert_object(quad)
+
+    # check properties
+    assert_equal(1, quad.layer, "check default layer")
+    quad.layer = 2
+    assert_equal(2, quad.layer, "check changed layer")
+    sw, sh = quad.texture_dimensions
+    assert_equal(64, sw, "check texture w")
+    assert_equal(64, sh, "check texture h")
+
+    # check drawing and viewport changes
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.draw(texture, quad, 0, 0)
+    quad.viewport = 32, 32, 32, 32, 64, 64
+    Lota::Graphics.draw(texture, quad, 32, 32)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.SpriteBatch
+  # (vendor/love/testing/tests/graphics.lua:1093-1214): newSpriteBatch
+  # becomes SpriteBatch.new (rule 2), getCount, getBufferSize, getTexture,
+  # getColor, and getWidth readers (rules 3 and 4), setTexture, setColor,
+  # and setDrawRange writers (rules 5 and 6), and add, set, and clear keep
+  # their names (rule 13), with the rules test_quad names. Lua's table of
+  # sprites, counted from 1, is a Ruby Array, counted from 0, so
+  # sprites[s][1] is sprites[s - 1][0]; the indices the batch gives and
+  # takes count from 1 in both. Lua's s % 64 == 0 is Ruby's s % 64 == 0.
+  #
+  # Lövetest's last part draws from an array texture made by
+  # newArrayImage, which Lota does not bind yet: rule 2 has not settled
+  # what ArrayImage === asks (rake bindings:report). It and the fifth
+  # image are left out until it does.
+  def test_sprite_batch
+    # create batch
+    texture1 = Lota::Graphics::Image.new("resources/cubemap.png")
+    texture2 = Lota::Graphics::Image.new("resources/love.png")
+    quad1 = Lota::Graphics::Quad.new(32, 12, 1, 1, texture2) # lovepink
+    quad2 = Lota::Graphics::Quad.new(32, 32, 1, 1, texture2) # white
+    sbatch = Lota::Graphics::SpriteBatch.new(texture1, 5000)
+    assert_object(sbatch)
+
+    # check initial count
+    assert_equal(0, sbatch.count, "check batch size")
+
+    # check buffer size
+    assert_equal(5000, sbatch.buffer_size, "check batch size")
+
+    # check height/width/texture
+    assert_equal(texture1.width, sbatch.texture.width, "check texture match w")
+    assert_equal(texture1.height, sbatch.texture.height, "check texture match h")
+    sbatch.texture = texture2
+    assert_equal(texture2.width, sbatch.texture.width, "check texture change w")
+    assert_equal(texture2.height, sbatch.texture.height, "check texture change h")
+
+    # check colors
+    r1, g1, b1, a1 = sbatch.color
+    assert_equal(1, r1, "check initial color r")
+    assert_equal(1, g1, "check initial color g")
+    assert_equal(1, b1, "check initial color b")
+    assert_equal(1, a1, "check initial color a")
+    sbatch.color = 1, 0, 0, 1
+    r2, g2, b2, a2 = sbatch.color
+    assert_equal(1, r2, "check set color r")
+    assert_equal(0, g2, "check set color g")
+    assert_equal(0, b2, "check set color b")
+    assert_equal(1, a2, "check set color a")
+
+    # check adding sprites
+    offset_x = 0
+    offset_y = 0
+    color = "white"
+    sbatch.color = 1, 1, 1, 1
+    sprites = []
+    (1..4096).each do |s|
+      spr = sbatch.add(quad1, offset_x, offset_y, 0, 1, 1)
+      sprites << [spr, offset_x, offset_y]
+      offset_x += 1
+      next unless s % 64 == 0
+
+      # alternate row colors
+      if color == "white"
+        color = "red"
+        sbatch.color = 1, 0, 0, 1
+      else
+        color = "white"
+        sbatch.color = 1, 1, 1, 1
+      end
+      offset_y += 1
+      offset_x = 0
+    end
+    assert_equal(4096, sbatch.count)
+
+    # test drawing and setting
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(sbatch, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata1 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata1)
+
+    # use set to change some sprites
+    (1..2048).each do |s|
+      sbatch.set(sprites[s - 1][0], quad2, sprites[s - 1][1], sprites[s - 1][2] + 1, 0, 1, 1)
+    end
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(sbatch, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata2 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata2)
+
+    # set drawRange and redraw
+    sbatch.draw_range = 1025, 2048
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(sbatch, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata3 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata3)
+
+    # clear and redraw
+    sbatch.clear
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(sbatch, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata4 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata4)
+  end
+
+  # Translated to Ruby from love.test.graphics.newQuad
+  # (vendor/love/testing/tests/graphics.lua:1752-1755), by the rules
+  # test_quad names.
+  def test_new_quad
+    imgdata = Lota::Graphics::Image.new("resources/love.png")
+    assert_object(Lota::Graphics::Quad.new(0, 0, 16, 16, imgdata))
+  end
+
+  # Translated to Ruby from love.test.graphics.newSpriteBatch
+  # (vendor/love/testing/tests/graphics.lua:1778-1781), by the rules
+  # test_sprite_batch names.
+  def test_new_sprite_batch
+    imgdata = Lota::Graphics::Image.new("resources/love.png")
+    assert_object(Lota::Graphics::SpriteBatch.new(imgdata, 1000))
   end
   # SPDX-SnippetEnd
 end

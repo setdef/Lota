@@ -9,6 +9,8 @@ require_relative "graphics/texture"
 require_relative "graphics/canvas"
 require_relative "graphics/font"
 require_relative "graphics/image"
+require_relative "graphics/quad"
+require_relative "graphics/sprite_batch"
 
 module Lota
   # Drawing, translated from love.graphics.
@@ -480,7 +482,10 @@ module Lota
     # Draws +drawable+ in the current color, matching love.graphics.draw
     # (src/modules/graphics/wrap_Graphics.cpp, w_draw).
     #
-    # [drawable] Lota::Graphics::Texture, such as a canvas.
+    # [drawable] Lota::Graphics::Texture, such as a canvas, or
+    #   Lota::Graphics::SpriteBatch.
+    # [quad] Lota::Graphics::Quad of the part of a texture to draw; the
+    #   whole drawable when left out.
     # [x] Float or Integer position of its left edge; 0 when +nil+ or
     #   left out.
     # [y] Float or Integer position of its top edge; 0 likewise.
@@ -494,25 +499,40 @@ module Lota
     #
     # The current color tints what is drawn, so white draws it as it is.
     # LÖVE reads each number as a single-precision float, and so does
-    # Lota. LÖVE also draws part of a texture through a Quad, places it
-    # with a Transform, and draws meshes, text, and its other drawables;
-    # Lota binds those forms later.
+    # Lota. LÖVE also places a drawable with a Transform, and draws meshes,
+    # text, and its other drawables; Lota binds those forms later.
     #
-    # Raises TypeError for a drawable that is not a Texture or a number of
-    # the wrong type, RuntimeError with LÖVE's message when the engine
-    # refuses the draw, as for a canvas drawn into itself, and ThreadError
-    # off the main thread.
+    # Raises TypeError for a drawable Lota cannot draw, for a quad with a
+    # drawable that is not a Texture, for +nil+ in place of a quad with
+    # numbers after it, as LÖVE raises, or for a number of the wrong type;
+    # ArgumentError for more than nine numbers; RuntimeError with LÖVE's
+    # message when the engine refuses the draw, as for a canvas drawn into
+    # itself; and ThreadError off the main thread.
     #
     # === Examples
     #
     #   Lota::Graphics.draw(canvas)
     #   Lota::Graphics.draw(canvas, 100, 50, 0, 2) # twice the size
-    def self.draw(drawable, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
-      unless drawable.is_a?(Texture)
-        raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)"
+    #   Lota::Graphics.draw(sheet, grass, 16, 16)  # part of a texture
+    #
+    # :call-seq:
+    #   draw(drawable, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   draw(texture, quad, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    def self.draw(drawable, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
+      placement = placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+      if quad.is_a?(Quad)
+        raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)" unless drawable.is_a?(Texture)
+
+        return Native::Graphics.draw_quad(drawable.native, quad.native, placement)
       end
 
-      Native::Graphics.draw(drawable.native, placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky))
+      case drawable
+      when Texture then Native::Graphics.draw(drawable.native, placement)
+      when SpriteBatch then Native::Graphics.draw_sprite_batch(drawable.native, placement)
+      else
+        raise TypeError,
+          "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture or Lota::Graphics::SpriteBatch)"
+      end
     end
 
     # The window's width, in units of the screen's DPI scale, matching
@@ -685,6 +705,22 @@ module Lota
     private_class_method def self.placement(x, y, r, sx, sy, ox, oy, kx, ky)
       sx ||= 1
       [x, y, r || 0, sx, sy || sx, ox || 0, oy || 0, kx || 0, ky || 0]
+    end
+
+    # The placement the numbers after a Quad give, or, when +quad+ is not
+    # a Quad, the numbers from +quad+ on, as w_draw and
+    # w_SpriteBatch_add_or_set read them (wrap_Graphics.cpp:3245-3263 and
+    # wrap_SpriteBatch.cpp:36-44). A +nil+ in place of the quad, with a
+    # number after it, is a missing quad, which LÖVE reports as a type
+    # error; without a quad there are nine numbers, not ten. The position
+    # is 0 when +nil+ or left out. :nodoc:
+    def self.placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+      return placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky) if quad.is_a?(Quad)
+
+      raise TypeError, "wrong argument type nil (expected Lota::Graphics::Quad)" if quad.nil? && !x.nil?
+      raise ArgumentError, "wrong number of arguments (given 10 numbers, expected 0..9)" unless ky.nil?
+
+      placement(quad || 0, x || 0, y, r, sx, sy, ox, oy, kx)
     end
 
     # SPDX-SnippetEnd

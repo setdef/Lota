@@ -4,7 +4,7 @@
 module Lota
   module Graphics
     module Image
-      def self.new: (String | Filesystem::FileData | Lota::Image::ImageData image, ?canvas: Object?) -> Texture
+      def self.new: (String | Filesystem::FileData | Lota::Image::ImageData image, ?canvas: ::Object?) -> Texture
 
       def self.===: (top object) -> bool
     end

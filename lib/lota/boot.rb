@@ -163,9 +163,7 @@ module Lota
       conf_error = configure
       prepare_engine
       open_modules
-
-      # boot.lua checks t.version against the engine's here (lines
-      # 378-392); what a Lota game's version means is not decided yet.
+      check_version
 
       raise conf_error if conf_error
 
@@ -362,6 +360,54 @@ module Lota
     private def open_modules
       MODULES.each do |name, open|
         open&.call if @settings.modules.public_send(name)
+      end
+    end
+
+    # Check the version (boot.lua:378-393): turns t.version into a String,
+    # as boot.lua does with Lua's tostring, and when the engine is not
+    # compatible with it prints LÖVE's warning and, with the window module
+    # open, shows it in a dialog, which waits until the player dismisses
+    # it. boot.lua also compares the major and minor numbers of a version
+    # written major.minor.revision with love._version_major and
+    # _version_minor, but those are numbers and the captures are strings,
+    # which never equal each other in Lua, so every version the engine is
+    # not compatible with is warned about.
+    private def check_version
+      @settings.version = tostring(@settings.version)
+      return if version_compatible?(@settings.version)
+
+      msg = "This game indicates it was made for version '#{@settings.version}' of LOVE.\n" \
+        "It may not be compatible with the running version (#{Native::VERSION})."
+
+      puts msg
+
+      Native::Window.show_message_box("Compatibility Warning", msg, "warning") if Native::Window.open?
+    end
+
+    # Whether the engine is compatible with the String +version+, as
+    # love.isVersionCompatible decides for a string (love.cpp:309-352): a
+    # version with fewer than two dots gains ".0", once, and must then
+    # equal one of love._version_compat, each written the same way.
+    private def version_compatible?(version)
+      version = revision(version)
+      Native::VERSION_COMPATIBILITY.any? { |v| revision(v) == version }
+    end
+
+    # +version+ with ".0" appended when it has fewer than two dots
+    # (love.cpp:317-319 and 339-341).
+    private def revision(version)
+      (version.count(".") < 2) ? "#{version}.0" : version
+    end
+
+    # +value+ as Lua's tostring writes it, for the values a setting holds:
+    # +nil+ as <tt>"nil"</tt>, a Float as LuaJIT writes a number, with up
+    # to 14 significant digits (<tt>12.0</tt> as <tt>"12"</tt>), and
+    # anything else as its +to_s+.
+    private def tostring(value)
+      case value
+      when nil then "nil"
+      when Float then format("%.14g", value)
+      else value.to_s
       end
     end
 

@@ -5,7 +5,7 @@ module Lota
   module Mouse
     def self.system_cursor: (Symbol | String ctype) -> Cursor
 
-    def self.cursor=: (Object? cursor) -> void
+    def self.cursor=: (::Object? cursor) -> void
 
     def self.x: () -> Float
 

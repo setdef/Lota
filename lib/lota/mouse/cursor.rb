@@ -24,7 +24,7 @@ module Lota
     #   drag = Lota::Mouse.system_cursor(:sizewe)
     #   Lota::Mouse.cursor = drag
     class Cursor
-      include EngineObject
+      include Object
 
       # The engine's Cursor, for Lota's own modules. :nodoc:
       attr_reader :native

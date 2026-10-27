@@ -335,7 +335,9 @@ module Lota
     attr_accessor :title
 
     # String version of LÖVE's engine the game was made for; the engine's
-    # own version by default.
+    # own version by default. One the engine is not compatible with makes
+    # <tt>lota run</tt> print LÖVE's warning and show it in a dialog, as
+    # boot.lua does.
     attr_accessor :version
 
     # Settings::Window, or +false+ or +nil+ to open no window.

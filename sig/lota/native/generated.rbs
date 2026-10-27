@@ -55,6 +55,30 @@ module Lota
       def self.set_default_filter: (String minstr, ?String? magstr, ?(Float | Integer) max_anisotropy) -> nil
     end
 
+    class Quad
+      def viewport: () -> Array[Float]
+
+      def texture_dimensions: () -> Array[Float]
+
+      def set_layer: (Integer layer) -> nil
+    end
+
+    class SpriteBatch
+      def clear: () -> nil
+
+      def flush: () -> nil
+
+      def set_texture: (Texture tex) -> nil
+
+      def color: () -> Array[Float]
+
+      def count: () -> Integer
+
+      def buffer_size: () -> Integer
+
+      def set_draw_range: (?Integer? start, ?Integer? count) -> nil
+    end
+
     class Texture
       def canvas?: () -> bool
     end

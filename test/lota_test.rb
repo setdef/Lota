@@ -48,7 +48,7 @@ class LotaTest < Minitest::Test
   # modules.
   def test_no_module_lacks_an_accessor
     EngineHelper.open_window
-    own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI Lota::EngineObject Lota::EnumName]
+    own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI Lota::Object Lota::EnumName]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }
 

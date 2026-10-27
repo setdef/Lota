@@ -49,6 +49,14 @@ module Lota
 
     private def open_modules: () -> void
 
+    private def check_version: () -> void
+
+    private def version_compatible?: (String version) -> bool
+
+    private def revision: (String version) -> String
+
+    private def tostring: (::Object? value) -> String
+
     private def open_window: () -> void
 
     private def no_game_code?: () -> bool
