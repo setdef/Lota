@@ -22,5 +22,11 @@ module Lota
     def int16: (Float | Integer offset, ?Integer count) -> Array[Integer]
 
     def int32: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def uint8: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def uint16: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def uint32: (Float | Integer offset, ?Integer count) -> Array[Integer]
   end
 end

@@ -57,6 +57,20 @@ class PhysicsBindingsTest < Minitest::Test
     assert @body.destroyed?
   end
 
+  # newRectangleShape makes a PolygonShape (wrap_Physics.cpp:338-370), and
+  # a PolygonShape records nothing of which factory made it, so
+  # RectangleShape === is true of every PolygonShape, as Image === is of
+  # every Texture (ADR 001, rule 2).
+  def test_rectangle_shape_matches_every_polygon_shape
+    rectangle = Physics::RectangleShape.new(@body, 10, 10)
+
+    assert_instance_of Physics::PolygonShape, rectangle
+    assert_operator Physics::RectangleShape, :===, rectangle
+    assert_operator Physics::RectangleShape, :===, Physics::PolygonShape.new(@body, 0, 0, 1, 0, 1, 1)
+    refute_operator Physics::RectangleShape, :===, Physics::CircleShape.new(@body, 5)
+    refute_operator Physics::RectangleShape, :===, :rectangle
+  end
+
   # newCircleShape and newRectangleShape choose their form by how many
   # numbers follow the Body, and refuse any other count.
   def test_shape_factories_choose_their_form_by_their_arguments

@@ -7,6 +7,8 @@ module Lota
       attr_reader native: Native::Mouse::Cursor
 
       def self.from_native: (Native::Mouse::Cursor native) -> Cursor
+
+      def get_type: () -> Symbol
     end
   end
 end

@@ -14,6 +14,8 @@ module Lota
 
       def self.number: (Float | Integer | bool | nil value) -> (Float | Integer)
 
+      def get_type: () -> Symbol
+
       def bodies: () -> Array[Body]
 
       def anchors: () -> Array[Float]

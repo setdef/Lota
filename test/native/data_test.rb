@@ -69,6 +69,21 @@ class DataTest < Minitest::Test
       assert_raises(RuntimeError) { data.float(0, 0) }.message
   end
 
+  # getUInt8, getUInt16, and getUInt32 read unsigned integers of their C
+  # type (wrap_Data.cpp:138-161), named uint8, uint16, and uint32, as C
+  # names uint8_t (ADR 001, rule 13), so the bytes int8 reads as -1 are
+  # 255.
+  def test_unsigned_numbers_are_read_by_their_c_type
+    data = file_data([255, 7].pack("C2") + [65_535].pack("S<") + [4_294_967_295].pack("L<"))
+
+    assert_equal [255, 7], data.uint8(0, 2)
+    assert_equal [-1], data.int8(0)
+    assert_equal [65_535], data.uint16(2)
+    assert_equal [4_294_967_295], data.uint32(4)
+    assert_equal "The given offset and count parameters don't fit within the Data's size.",
+      assert_raises(RuntimeError) { data.uint32(6) }.message
+  end
+
   # performAtomic calls its function, the block, with the arguments after
   # it, while it holds the Data's lock, and returns what it returns; an
   # error leaves the lock, so it can be taken again.
@@ -126,6 +141,15 @@ class DataTest < Minitest::Test
     assert_in_delta 0.5, source.volume
     assert_in_delta 0.25, copy.volume
     refute copy.playing?
-    assert_equal "Source", copy.type
+    assert_equal "Source", copy.object_type
+  end
+
+  # Source:getType (wrap_Source.cpp:591-602) names how a Source holds its
+  # sound, and a copy holds it as its original does; a Source has no type
+  # (ADR 001, rule 16).
+  def test_a_source_gets_its_type
+    assert_equal :static, Lota::Audio::Source.new("resources/click.ogg", :static).clone.get_type
+    assert_equal :stream, Lota::Audio::Source.new("resources/click.ogg", :stream).get_type
+    refute Lota::Audio::Source.new("resources/click.ogg", :static).respond_to?(:type)
   end
 end

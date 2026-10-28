@@ -12,6 +12,8 @@ module Lota
 
   def self.graphics: () -> singleton(Graphics)?
 
+  def self.data: () -> singleton(Data)?
+
   def self.timer: () -> singleton(Timer)?
 
   def self.event: () -> singleton(Event)?

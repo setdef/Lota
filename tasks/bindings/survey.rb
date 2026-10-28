@@ -51,7 +51,8 @@ module Bindings
     # [lua_functions] LuaFunctions::Function objects.
     def initialize(catalog, lua_functions)
       @catalog = catalog
-      rules = Rules.new(types: catalog.types)
+      typed = catalog.functions.select { |function| function.type_name && function.lua_name == "getType" }
+      rules = Rules.new(types: catalog.types, typed: typed.map(&:type_name))
       @entries = catalog.functions.map { |function| cpp_entry(function, rules) } +
         lua_functions.map { |function| Entry.new(function:, analysis: nil, translation: rules.translate(function, nil), source: :lua) }
       across
@@ -68,6 +69,14 @@ module Bindings
           .to_h { |entry| [entry.function.love_name, entry.function] }
       end
       @replaced[love_name]
+    end
+
+    # The Ruby classes of the LÖVE types that have getType, by the scope
+    # rule 16 gives their getType, sorted: those that answer get_type and
+    # have no type.
+    def typed_classes
+      entries.select { |entry| entry.function.lua_name == "getType" && entry.translation.rules.include?(16) }
+        .map { |entry| entry.translation.scope }.uniq.sort
     end
 
     # The entry for +love_name+ (love.graphics.getWidth, Texture:isCanvas).

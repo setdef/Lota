@@ -124,11 +124,11 @@ class LotaRunTest < Minitest::Test
   # (test/lovetest/tests/graphics.rb, test_arc).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 30214 - (3 * 32 * 32) + 1 : 30214
+    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 30263 - (3 * 32 * 32) + 1 : 30263
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^98 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^99 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -324,17 +324,17 @@ class LotaRunTest < Minitest::Test
   # love.timer is nil in LÖVE, while its constant stays defined (ADR 003,
   # section 6).
   def test_a_module_the_settings_turn_off_is_nil_through_its_accessor
-    in_game("conf.rb" => "def Lota.conf(t) = (t.modules.timer = false; t.modules.keyboard = false)\n",
-      "main.rb" => <<~RUBY) do |directory|
-        def Lota.update(dt)
-          p [lota.timer, lota.keyboard, Lota::Timer, lota.event, lota.graphics, dt]
-          Lota::Event.quit
-        end
-      RUBY
+    in_game("conf.rb" => "def Lota.conf(t) = (t.modules.timer = false; t.modules.keyboard = false; " \
+              "t.modules.data = false)\n", "main.rb" => <<~RUBY) do |directory|
+                def Lota.update(dt)
+                  p [lota.timer, lota.keyboard, lota.data, Lota::Timer, lota.event, lota.graphics, dt]
+                  Lota::Event.quit
+                end
+              RUBY
       output, status = lota_run(directory)
 
       assert_predicate status, :success?, output
-      assert_equal "[nil, nil, Lota::Timer, Lota::Event, Lota::Graphics, 0]\n", output
+      assert_equal "[nil, nil, nil, Lota::Timer, Lota::Event, Lota::Graphics, 0]\n", output
     end
   end
 

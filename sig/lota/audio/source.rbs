@@ -35,6 +35,8 @@ module Lota
       def looping=: (bool looping) -> void
 
       def channel_count: () -> Integer
+
+      def get_type: () -> Symbol
     end
   end
 end

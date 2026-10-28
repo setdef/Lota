@@ -15,6 +15,7 @@
 #include "common/Module.h"
 
 #include <limits>
+#include <string>
 
 namespace lota::native {
 
@@ -95,6 +96,16 @@ bool w_Source_isPlaying(const Source &t) { return t.isPlaying(); }
 // Source:getChannelCount: w_Source_getChannelCount (wrap_Source.cpp:349-354).
 int w_Source_getChannelCount(const Source &t) { return t.getChannelCount(); }
 
+// Source:getType: w_Source_getType (wrap_Source.cpp:591-602).
+std::string w_Source_getType(const Source &t) {
+  const Source::Type type = t.getType();
+  const char *str = nullptr;
+  if (!Source::getConstant(type, str)) {
+    throw love::Exception("Unknown Source type.");
+  }
+  return str;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -115,7 +126,8 @@ void define_generated_audio(const Rice::Module &native) {
       .define_method("set_looping", &w_Source_setLooping, Rice::Arg("looping"))
       .define_method("looping?", &w_Source_isLooping)
       .define_method("playing?", &w_Source_isPlaying)
-      .define_method("channel_count", &w_Source_getChannelCount);
+      .define_method("channel_count", &w_Source_getChannelCount)
+      .define_method("get_type", &w_Source_getType);
 }
 
 } // namespace lota::native

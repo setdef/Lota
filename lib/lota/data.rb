@@ -25,8 +25,7 @@ module Lota
   #
   # Data's getPointer and getFFIPointer give Lua a raw pointer and a
   # LuaJIT FFI pointer, which Ruby has no use for, so Lota leaves them
-  # out. getUInt8, getUInt16, and getUInt32 wait for the maintainer, since
-  # rule 13 does not say where "UInt" splits into words.
+  # out.
   #
   # === Example
   #
@@ -140,6 +139,42 @@ module Lota
     #   data.int32(4) # => [65536]
     def int32(offset, count = 1)
       native.int32(offset, count)
+    end
+
+    # +count+ unsigned 8-bit integers from byte +offset+, as an Array of
+    # Integers, matching Data:getUInt8 (src/modules/data/wrap_Data.cpp,
+    # w_Data_getUInt8), as #float reads them. Rule 13 of ADR 001 spells
+    # LÖVE's UInt as C's uint, one word.
+    #
+    # === Example
+    #
+    #   data.uint8(0, 2) # => [255, 7]
+    def uint8(offset, count = 1)
+      native.uint8(offset, count)
+    end
+
+    # +count+ unsigned 16-bit integers from byte +offset+, in the
+    # machine's byte order, as an Array of Integers, matching
+    # Data:getUInt16 (src/modules/data/wrap_Data.cpp, w_Data_getUInt16),
+    # as #float reads them.
+    #
+    # === Example
+    #
+    #   data.uint16(2) # => [65535]
+    def uint16(offset, count = 1)
+      native.uint16(offset, count)
+    end
+
+    # +count+ unsigned 32-bit integers from byte +offset+, in the
+    # machine's byte order, as an Array of Integers, matching
+    # Data:getUInt32 (src/modules/data/wrap_Data.cpp, w_Data_getUInt32),
+    # as #float reads them.
+    #
+    # === Example
+    #
+    #   data.uint32(4) # => [4294967295]
+    def uint32(offset, count = 1)
+      native.uint32(offset, count)
     end
   end
 end

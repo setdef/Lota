@@ -38,6 +38,7 @@ class LotaTest < Minitest::Test
       font: Lota::Font,
       system: Lota::System,
       physics: Lota::Physics,
+      data: Lota::Data,
     }
 
     modules.each { |name, mod| assert_same mod, lota.public_send(name), name }
@@ -45,13 +46,12 @@ class LotaTest < Minitest::Test
 
   # Every module Lota translates from LÖVE has an accessor; its native
   # extension, its callbacks, its command line, the methods every engine
-  # object and every Data has, and the enum names it passes the engine are
-  # not LÖVE modules. Lota::Data is LÖVE's root type Data (ADR 001,
-  # section 7), and becomes love.data's module once a story binds its
-  # module functions.
+  # object has, and the enum names it passes the engine are not LÖVE
+  # modules. Lota::Data is both LÖVE's root type Data and love.data's
+  # module (ADR 001, section 7), so it has one.
   def test_no_module_lacks_an_accessor
     EngineHelper.open_window
-    own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI Lota::Object Lota::Data Lota::EnumName]
+    own = %w[Lota::Native Lota::Callbacks Lota::DefaultCallbacks Lota::CLI Lota::Object Lota::EnumName]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }
 

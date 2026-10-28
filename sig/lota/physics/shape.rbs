@@ -12,6 +12,8 @@ module Lota
 
       def body: () -> Body?
 
+      def get_type: () -> Symbol
+
       def child_count: () -> Integer
 
       def radius: () -> Float
@@ -84,6 +86,7 @@ module Lota
     end
 
     module RectangleShape
+      def self.===: (top object) -> bool
       def self.new: (Body body, *Float | Integer arguments) -> PolygonShape
     end
   end

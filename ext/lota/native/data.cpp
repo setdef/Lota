@@ -8,7 +8,9 @@
 
 #include "common/Data.h"
 #include "common/Exception.h"
+#include "common/Module.h"
 #include "common/int.h"
+#include "data/DataModule.h"
 #include "thread/threads.h"
 
 #include <cstddef>
@@ -23,6 +25,16 @@
 namespace lota::native {
 
 namespace {
+
+using love::data::DataModule;
+
+// luaopen_love_data (vendor/love/src/modules/data/wrap_DataModule.cpp:
+// 445-464) creates the module once; it then lives as long as the process,
+// as LÖVE's lives until the game quits.
+void open() { open_module<DataModule, DataModule>(love::Module::M_DATA); }
+
+// Whether the module is open, as a game asks with "if love.data".
+bool is_open() { return love::Module::getInstance<DataModule>(love::Module::M_DATA) != nullptr; }
 
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -77,7 +89,7 @@ Rice::Object perform_atomic(love::Data &data, Rice::Array call_given) {
 }
 
 // w_Data_getT (wrap_Data.cpp:102-121), which getFloat, getDouble,
-// getInt8, getInt16, and getInt32 call with their C types: +count+ values
+// getInt8 to getInt32, and getUInt8 to getUInt32 call with their C types: +count+ values
 // of type T from byte +offset+, as an Array, since it returns several (ADR
 // 001, rule 4): Integers for the integer types and Floats for float and
 // double (rule 14), where LÖVE pushes each as a Lua number. Offset and
@@ -120,8 +132,12 @@ Rice::Array data_values(const love::Data &data, double offset_number,
 } // namespace
 
 void define_data(const Rice::Module &native) {
-  // Its size is generated (ext/lota/native/generated/data.cpp).
+  // Its size is generated (ext/lota/native/generated/data.cpp). Data is
+  // also love.data's module, as Lota::Data is (ADR 001, section 7), so it
+  // opens and answers whether it is open.
   define_engine_class<love::Data>(native, "Data")
+      .define_singleton_function("open", &open)
+      .define_singleton_function("open?", &is_open)
       .define_method("string", &data_string, Rice::Arg("offset") = 0.0,
                      Rice::Arg("size") = std::optional<double>())
       .define_method("perform_atomic", &perform_atomic, Rice::Arg("call"))
@@ -134,6 +150,12 @@ void define_data(const Rice::Module &native) {
       .define_method("int16", &data_values<love::int16>, Rice::Arg("offset"),
                      Rice::Arg("count") = std::optional<int>())
       .define_method("int32", &data_values<love::int32>, Rice::Arg("offset"),
+                     Rice::Arg("count") = std::optional<int>())
+      .define_method("uint8", &data_values<love::uint8>, Rice::Arg("offset"),
+                     Rice::Arg("count") = std::optional<int>())
+      .define_method("uint16", &data_values<love::uint16>, Rice::Arg("offset"),
+                     Rice::Arg("count") = std::optional<int>())
+      .define_method("uint32", &data_values<love::uint32>, Rice::Arg("offset"),
                      Rice::Arg("count") = std::optional<int>());
 }
 

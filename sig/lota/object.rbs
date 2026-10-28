@@ -3,7 +3,7 @@
 
 module Lota
   interface _EngineNative
-    def type: () -> String
+    def object_type: () -> String
 
     def type_of?: (String name) -> bool
   end
@@ -13,6 +13,14 @@ module Lota
   end
 
   module Object : _WrapsObject
+    module TypeRule : Module
+      def method_added: (Symbol name) -> void
+    end
+
+    def self.included: (Module base) -> void
+
+    def object_type: () -> String
+
     def type: () -> String
 
     def type_of?: (::Object name) -> bool

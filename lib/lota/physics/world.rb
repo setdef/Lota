@@ -14,9 +14,12 @@ module Lota
     # their Joints, applies its gravity to them, and moves them all forward
     # by a step of time with #update, resolving each collision on the way.
     #
-    # LÖVE's World:setCallbacks, getCallbacks, setContactFilter, and
-    # getContactFilter wait for the maintainer to settle the shape of
-    # Ruby's contact callbacks (Plan 001, design questions).
+    # Its contact callbacks tell the game when two Shapes begin and end
+    # touching, and around each step's solving of their contact (#callbacks=),
+    # and its contact filter decides which Shapes collide at all
+    # (#contact_filter=). Each is anything that answers +call+, as LÖVE's
+    # are Lua functions, and receives only as many arguments as it declares
+    # (ADR 001, after the table; ADR 003, section 3).
     #
     # === Example
     #
@@ -66,6 +69,17 @@ module Lota
       # [position_iterations] Integer passes of the position solver, 3 by
       #   default.
       #
+      # The contact callbacks and the contact filter run during the step
+      # (#callbacks=). While it runs, the World is #locked?, and a Body,
+      # Shape, Joint, or the World destroyed is destroyed once the step
+      # ends, as in LÖVE. An error a callback raises leaves the step where
+      # it was raised and comes out of #update, as a Lua error comes out of
+      # World:update, and the World stays #locked?, as LÖVE's does. One
+      # raised from post_solve, which Box2D calls inside its solver, ends
+      # the program instead, as it ends LÖVE's: on its way out of the
+      # solver, Box2D's check of its own memory fails, and LÖVE makes that
+      # check raise an error inside a destructor, which C++ cannot pass on.
+      #
       # Raises RuntimeError for a destroyed World.
       #
       # === Example
@@ -73,6 +87,87 @@ module Lota
       #   world.update(dt)
       def update(dt, velocity_iterations = nil, position_iterations = nil)
         @native.update(dt, velocity_iterations, position_iterations)
+      end
+
+      # The World's four contact callbacks, as an Array of each callable
+      # or +nil+: begin_contact, end_contact, pre_solve, and post_solve,
+      # matching World:getCallbacks
+      # (src/modules/physics/box2d/wrap_World.cpp, w_World_getCallbacks),
+      # each exactly what #callbacks= set.
+      #
+      # === Example
+      #
+      #   begin_contact, end_contact, pre_solve, post_solve = world.callbacks
+      def callbacks
+        @native.callbacks
+      end
+
+      # Sets the World's four contact callbacks, matching
+      # World:setCallbacks (src/modules/physics/box2d/wrap_World.cpp,
+      # w_World_setCallbacks; World.cpp, World::ContactCallback), whose
+      # four functions rule 6 of ADR 001 makes one Array.
+      #
+      # [callbacks] An Array of up to four, each anything that answers
+      #   +call+, or +nil+ for none:
+      #   begin_contact:: called when two Shapes begin to touch.
+      #   end_contact:: called when they stop touching. The Contact is
+      #     destroyed once it returns.
+      #   pre_solve:: called before each step solves a touching Contact.
+      #   post_solve:: called after each step solves it, with each contact
+      #     point's normal and tangent impulse.
+      #
+      # Each receives the two Shapes, the Contact, and for post_solve the
+      # impulses, as Floats: the first point's normal impulse, its tangent
+      # impulse, then the second point's. It receives only as many of them
+      # as it declares (ADR 003, section 3), so <tt>-> {}</tt> receives
+      # none and <tt>proc { |a, b| }</tt> the two Shapes, and a required
+      # parameter beyond them receives +nil+, as in Lua. Each replaces what
+      # was set before, and the World holds it until another replaces it or
+      # the World is destroyed.
+      #
+      # Raises TypeError, and changes nothing, for one that is neither
+      # +nil+ nor answers +call+, as LÖVE raises for one that is not a
+      # function.
+      #
+      # === Example
+      #
+      #   world.callbacks = ->(a, b, contact) { hits << contact }, nil, nil,
+      #     ->(a, b, contact, normal_impulse) { thuds << normal_impulse }
+      def callbacks=(callbacks)
+        given = (callbacks.is_a?(Array) ? callbacks : [callbacks]).first(4)
+        given.each { |callable| check_callable(callable) }
+        @native.set_callbacks(Array.new(4) { |index| contact_function(given[index]) })
+      end
+
+      # The World's contact filter, or +nil+, matching World:getContactFilter
+      # (src/modules/physics/box2d/wrap_World.cpp,
+      # w_World_getContactFilter), exactly what #contact_filter= set.
+      #
+      # === Example
+      #
+      #   world.contact_filter # => nil
+      def contact_filter
+        @native.contact_filter
+      end
+
+      # Sets the World's contact filter, matching World:setContactFilter
+      # (src/modules/physics/box2d/wrap_World.cpp,
+      # w_World_setContactFilter; World.cpp, World::ShouldCollide).
+      #
+      # [filter] Anything that answers +call+, or +nil+ for none: called
+      #   with two Shapes that LÖVE's group, category, and mask rules let
+      #   collide, as many as it declares, and they collide only when it
+      #   returns a true value.
+      #
+      # Raises TypeError, and changes nothing, for a +filter+ that is
+      # neither +nil+ nor answers +call+.
+      #
+      # === Example
+      #
+      #   world.contact_filter = ->(a, b) { a.body != b.body }
+      def contact_filter=(filter)
+        check_callable(filter)
+        @native.set_contact_filter(filter && contact_filter_function(filter))
       end
 
       # The Bodies in the World, as an Array of Lota::Physics::Body,
@@ -294,6 +389,37 @@ module Lota
       #   world.destroy
       def destroy
         @native.destroy
+      end
+
+      # Raises TypeError for a callback that is neither nil nor answers
+      # call, where LÖVE's luaL_checktype raises for one that is not a
+      # function.
+      private def check_callable(callable)
+        return if callable.nil? || callable.respond_to?(:call)
+
+        raise TypeError, "wrong argument type #{callable.class} (expected an object that answers call)"
+      end
+
+      # The callable and the lambda the engine calls for it, or +nil+ for
+      # none. The lambda wraps the engine's Shapes and Contact in Lota's
+      # classes, and passes +callable+ as many of them, and of the
+      # impulses, as it declares (ADR 003, section 3), which it reads once.
+      private def contact_function(callable)
+        return unless callable
+
+        parameters = Callbacks.parameters(callable)
+        call = lambda do |a, b, contact, *impulses|
+          arguments = [Physics.shape(a), Physics.shape(b), Contact.from_native(contact), *impulses]
+          callable.call(*Callbacks.declared(parameters, arguments))
+        end
+        [callable, call]
+      end
+
+      # The filter and the lambda the engine calls for it, as
+      # #contact_function makes them, with the two Shapes.
+      private def contact_filter_function(filter)
+        parameters = Callbacks.parameters(filter)
+        [filter, -> (a, b) { filter.call(*Callbacks.declared(parameters, [Physics.shape(a), Physics.shape(b)])) }]
       end
 
       # A ray's hit, with its Shape wrapped.

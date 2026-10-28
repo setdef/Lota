@@ -173,6 +173,16 @@ double w_Body_getGravityScale(const Body &t) {
   return static_cast<double>(t.getGravityScale());
 }
 
+// Body:getType: w_Body_getType (wrap_Body.cpp:193-200).
+std::string w_Body_getType(const Body &t) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  const char *type = "";
+  Body::getConstant(t.getType(), type);
+  return type;
+}
+
 // Body:applyAngularImpulse: w_Body_applyAngularImpulse (wrap_Body.cpp:230-237).
 void w_Body_applyAngularImpulse(Body &t, double i, bool awake) {
   if (t.body == nullptr) {
@@ -495,6 +505,16 @@ Rice::Array w_Contact_getChildren(Contact &t) {
   return results;
 }
 
+// Joint:getType: w_Joint_getType (wrap_Joint.cpp:86-93).
+std::string w_Joint_getType(const Joint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  const char *type = "";
+  Joint::getConstant(t.getType(), type);
+  return type;
+}
+
 // Joint:getReactionTorque: w_Joint_getReactionTorque (wrap_Joint.cpp:125-131).
 double w_Joint_getReactionTorque(Joint &t, double inv_dt) {
   if (!t.isValid()) {
@@ -524,6 +544,13 @@ bool w_Joint_isDestroyed(const Joint &t) { return !t.isValid(); }
 
 // love.physics.setMeter: w_setMeter (wrap_Physics.cpp:782-788).
 void w_setMeter(double arg1) { Physics::setMeter(static_cast<float>(arg1)); }
+
+// Shape:getType: w_Shape_getType (wrap_Shape.cpp:65-72).
+std::string w_Shape_getType(const Shape &t) {
+  const char *type = "";
+  Shape::getConstant(t.getType(), type);
+  return type;
+}
 
 // Shape:getRadius: w_Shape_getRadius (wrap_Shape.cpp:74-81).
 double w_Shape_getRadius(const Shape &t) {
@@ -708,6 +735,7 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("sleeping_allowed?", &w_Body_isSleepingAllowed)
       .define_method("set_sleeping_allowed", &w_Body_setSleepingAllowed, Rice::Arg("b"))
       .define_method("awake?", &w_Body_isAwake)
+      .define_method("get_type", &w_Body_getType)
       .define_method("set_type", &w_Body_setType, Rice::Arg("type"))
       .define_method("touching?", &w_Body_isTouching, Rice::Arg("other"))
       .define_method("local_center", &w_Body_getLocalCenter)
@@ -749,11 +777,13 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("set_restitution", &w_Contact_setRestitution, Rice::Arg("r"))
       .define_method("reset_restitution", &w_Contact_resetRestitution);
   Rice::define_class_under<Joint>(native, "Joint")
+      .define_method("get_type", &w_Joint_getType)
       .define_method("destroyed?", &w_Joint_isDestroyed)
       .define_method("reaction_torque", &w_Joint_getReactionTorque, Rice::Arg("inv_dt"))
       .define_method("collide_connected", &w_Joint_getCollideConnected)
       .define_method("destroy", &w_Joint_destroy);
   Rice::define_class_under<Shape>(native, "Shape")
+      .define_method("get_type", &w_Shape_getType)
       .define_method("child_count", &w_Shape_getChildCount)
       .define_method("radius", &w_Shape_getRadius)
       .define_method("sensor?", &w_Shape_isSensor)

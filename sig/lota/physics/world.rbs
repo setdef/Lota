@@ -6,6 +6,18 @@ module Lota
     class World
       include Object
 
+      interface _Callable
+        def call: (*(Shape | Contact | Float | nil)) -> ::Object?
+      end
+
+      type callable = ::Object & _Callable
+
+      type callback = callable?
+
+      type contact_function = [callable, ^(Native::Shape, Native::Shape, Native::Contact, *Float) -> ::Object?]
+
+      type contact_filter_function = [callable, ^(Native::Shape, Native::Shape) -> ::Object?]
+
       attr_reader native: Native::World
 
       def self.from_native: (Native::World native) -> World
@@ -13,6 +25,14 @@ module Lota
       def self.new: (?(Float | Integer) gx, ?(Float | Integer) gy, ?bool sleep) -> World
 
       def update: (Float | Integer dt, ?Integer? velocity_iterations, ?Integer? position_iterations) -> nil
+
+      def callbacks: () -> Array[callback]
+
+      def callbacks=: (callback | Array[callback] callbacks) -> void
+
+      def contact_filter: () -> callback
+
+      def contact_filter=: (callback filter) -> void
 
       def bodies: () -> Array[Body]
 
@@ -53,6 +73,12 @@ module Lota
       def destroy: () -> nil
 
       private
+
+      def check_callable: (::Object? callable) -> void
+
+      def contact_function: (callback callable) -> contact_function?
+
+      def contact_filter_function: (callable filter) -> contact_filter_function
 
       def hit: (Array[Native::Shape | Float] results) -> Array[Shape? | Float]
     end

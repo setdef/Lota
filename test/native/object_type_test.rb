@@ -7,9 +7,11 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
+require_relative "../../tasks/bindings/survey"
 
-# ADR 001, rule 16: every object Lota hands a game answers +type+ with
-# LÖVE's name for its type, as Object:type does, and <tt>type_of?</tt>
+# ADR 001, rule 16: every object Lota hands a game answers +object_type+
+# with LÖVE's name for its type, as Object:type does, +type+ as another
+# name for it unless its class has LÖVE's getType, and <tt>type_of?</tt>
 # for that type and each type it inherits from, as Object:typeOf does
 # (vendor/love/src/common/runtime.cpp:65-80). The parents are LÖVE's own,
 # as each type names its parent: graphics/Texture.cpp:160,
@@ -41,8 +43,41 @@ class ObjectTypeTest < Minitest::Test
 
   def test_each_object_names_its_loves_type
     objects.each do |name, (object, _)|
+      assert_equal name, object.object_type
+    end
+  end
+
+  def test_type_is_another_name_for_object_type
+    objects.except("Cursor").each do |name, (object, _)|
       assert_equal name, object.type
     end
+  end
+
+  # A class with LÖVE's getType answers it as get_type, and has no type
+  # or type=, whichever classes the wrap files give getType, and their
+  # subclasses, so a call meant for either fails loudly.
+  def test_a_class_with_get_type_has_no_type
+    typed = Bindings::Survey.load(File.join(NativeHelper::ROOT, "vendor/love")).typed_classes
+    classes = typed.map { |name| Object.const_get(name) }
+
+    assert_includes classes, Lota::Mouse::Cursor
+    (classes + [Lota::Physics::CircleShape, Lota::Physics::DistanceJoint]).each do |klass|
+      assert klass.method_defined?(:get_type), "#{klass}#get_type"
+      assert klass.method_defined?(:object_type), "#{klass}#object_type"
+      refute klass.method_defined?(:type), "#{klass}#type"
+      refute klass.method_defined?(:type=), "#{klass}#type="
+    end
+    cursor = Lota::Mouse.system_cursor(:hand)
+
+    assert_equal "Cursor", cursor.object_type
+    refute cursor.respond_to?(:type)
+    assert_raises(NoMethodError) { cursor.type }
+  end
+
+  # Cursor:getType names an image cursor's kind, and a system cursor's
+  # shape (wrap_Cursor.cpp:34-54).
+  def test_a_system_cursor_gets_its_shape_as_its_type
+    assert_equal :hand, Lota::Mouse.system_cursor(:hand).get_type
   end
 
   def test_each_object_is_of_its_type_and_every_parent

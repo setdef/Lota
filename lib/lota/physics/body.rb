@@ -17,8 +17,8 @@ module Lota
     #
     # Each method raises RuntimeError ("Attempt to use destroyed body.")
     # once the Body is destroyed, but #destroyed? and #destroy. LÖVE's
-    # Body:getType, whose name rule 16 gives Lota::Object#type, waits for
-    # the maintainer.
+    # Body:getType and setType are #get_type and #set_type, and a Body has
+    # no +type+ (ADR 001, rule 16).
     #
     # === Example
     #
@@ -136,13 +136,23 @@ module Lota
         @native.set_angle(angle)
       end
 
-      # Sets whether the Body is static, dynamic, or kinematic, matching
-      # Body:setType, with a Symbol (ADR 001, rule 9).
+      # Whether the Body is static, dynamic, or kinematic, as a Symbol,
+      # matching Body:getType (ADR 001, rules 9 and 16).
       #
       # === Example
       #
-      #   body.type = :dynamic
-      def type=(type)
+      #   body.get_type # => :dynamic
+      def get_type
+        @native.get_type.to_sym
+      end
+
+      # Sets whether the Body is static, dynamic, or kinematic, matching
+      # Body:setType, with a Symbol (ADR 001, rules 9 and 16).
+      #
+      # === Example
+      #
+      #   body.set_type(:dynamic)
+      def set_type(type)
         @native.set_type(EnumName.of(type))
       end
 

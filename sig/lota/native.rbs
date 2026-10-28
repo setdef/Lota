@@ -22,7 +22,7 @@ module Lota
 
       def random_normal: (?(Float | Integer)? stddev, ?(Float | Integer)? mean) -> Float
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -38,7 +38,11 @@ module Lota
     class Data
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -55,12 +59,18 @@ module Lota
       def int16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
 
       def int32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+      def uint8: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+      def uint16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+      def uint32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
     end
 
     class FileData < Data
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -70,7 +80,7 @@ module Lota
     class ImageData < Data
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -90,7 +100,7 @@ module Lota
     class Texture
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -104,7 +114,7 @@ module Lota
     class Quad
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -116,7 +126,7 @@ module Lota
     class SpriteBatch
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -200,7 +210,7 @@ module Lota
     class Source
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -210,7 +220,7 @@ module Lota
     class Decoder
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -222,7 +232,7 @@ module Lota
     class SoundData < Data
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -327,9 +337,11 @@ module Lota
       class Cursor
         def self.cpp_class: () -> String
 
-        def type: () -> String
+        def object_type: () -> String
 
         def type_of?: (String name) -> bool
+
+        def get_type: () -> String
       end
     end
 
@@ -431,7 +443,7 @@ module Lota
       class Font
         def self.cpp_class: () -> String
 
-        def type: () -> String
+        def object_type: () -> String
 
         def type_of?: (String name) -> bool
       end
@@ -440,11 +452,19 @@ module Lota
     class World
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
       def update: (Float | Integer dt, ?Integer? velocityiterations, ?Integer? positioniterations) -> nil
+
+      def set_callbacks: (Array[::Lota::Physics::World::contact_function?] functions) -> nil
+
+      def callbacks: () -> Array[::Lota::Physics::World::callback]
+
+      def set_contact_filter: (::Lota::Physics::World::contact_filter_function? filter) -> nil
+
+      def contact_filter: () -> ::Lota::Physics::World::callback
 
       def bodies: () -> Array[Body]
 
@@ -468,7 +488,7 @@ module Lota
     class Body
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -500,7 +520,7 @@ module Lota
     class Shape
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -534,7 +554,7 @@ module Lota
     class CircleShape < Shape
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -542,7 +562,7 @@ module Lota
     class PolygonShape < Shape
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -550,7 +570,7 @@ module Lota
     class EdgeShape < Shape
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -558,7 +578,7 @@ module Lota
     class ChainShape < Shape
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -566,7 +586,7 @@ module Lota
     class Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
@@ -584,7 +604,7 @@ module Lota
     class DistanceJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -592,7 +612,7 @@ module Lota
     class FrictionJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -600,7 +620,7 @@ module Lota
     class GearJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -608,7 +628,7 @@ module Lota
     class MotorJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -616,7 +636,7 @@ module Lota
     class MouseJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -624,7 +644,7 @@ module Lota
     class PrismaticJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -632,7 +652,7 @@ module Lota
     class PulleyJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -640,7 +660,7 @@ module Lota
     class RevoluteJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -648,7 +668,7 @@ module Lota
     class RopeJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -656,7 +676,7 @@ module Lota
     class WeldJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -664,7 +684,7 @@ module Lota
     class WheelJoint < Joint
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
     end
@@ -672,7 +692,7 @@ module Lota
     class Contact
       def self.cpp_class: () -> String
 
-      def type: () -> String
+      def object_type: () -> String
 
       def type_of?: (String name) -> bool
 

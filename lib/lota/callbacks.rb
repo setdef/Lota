@@ -51,11 +51,31 @@ module Lota
     def self.call(name, *arguments)
       return unless Lota.respond_to?(name)
 
-      types = Lota.method(name).parameters.map(&:first)
+      Lota.public_send(name, *declared(Lota.method(name).parameters, arguments))
+    end
+
+    # The parameters +callable+ declares, as Method#parameters gives them:
+    # a Proc's or a Method's own, or those of the +call+ method of any
+    # other object that answers +call+. :nodoc:
+    def self.parameters(callable)
+      case callable
+      when Proc, Method then callable.parameters
+      else callable.method(:call).parameters
+      end
+    end
+
+    # As many of +arguments+ as +parameters+ declare, as #call passes a
+    # game's callback (ADR 003, section 3): every one to a splat, +nil+
+    # for each required parameter beyond them, and none for an optional
+    # parameter beyond them, which keeps its default. A Proc that is not a
+    # lambda declares each of its parameters optional, and so receives as
+    # many as it names. :nodoc:
+    def self.declared(parameters, arguments)
+      types = parameters.map(&:first)
       required = types.count(:req)
       accepted = types.include?(:rest) ? [arguments.size, required].max : required + types.count(:opt)
       count = arguments.size.clamp(required, accepted)
-      Lota.public_send(name, *Array.new(count) { |index| arguments[index] })
+      Array.new(count) { |index| arguments[index] }
     end
 
     # Event arguments that are names in LÖVE (enum strings), by event and

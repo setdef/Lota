@@ -12,9 +12,9 @@ module Lota
     # in LÖVE 12 is also what LÖVE 11 called a Fixture.
     #
     # Each Shape is of one of its subclasses: CircleShape, PolygonShape
-    # (which RectangleShape.new makes), EdgeShape, or ChainShape. LÖVE's
-    # Shape:getType, whose name rule 16 gives Lota::Object#type, waits for
-    # the maintainer.
+    # (which RectangleShape.new makes), EdgeShape, or ChainShape, which
+    # #get_type names, as LÖVE's Shape:getType does; a Shape has no +type+
+    # (ADR 001, rule 16).
     #
     # === Example
     #
@@ -47,6 +47,17 @@ module Lota
       def body
         native = @native.body
         native && Body.from_native(native)
+      end
+
+      # Which kind of Shape this is, as a Symbol, matching Shape:getType:
+      # <tt>:circle</tt>, <tt>:polygon</tt>, <tt>:edge</tt>, or
+      # <tt>:chain</tt> (ADR 001, rules 9 and 16).
+      #
+      # === Example
+      #
+      #   Lota::Physics::RectangleShape.new(body, 10, 10).get_type # => :polygon
+      def get_type
+        @native.get_type.to_sym
       end
 
       # How many children the Shape has, as an Integer: one, but for a
@@ -431,15 +442,29 @@ module Lota
 
     # LÖVE's love.physics.newRectangleShape, which makes a PolygonShape:
     # LÖVE has no RectangleShape class, so rule 2 of ADR 001 makes
-    # RectangleShape a module whose +new+ returns the PolygonShape. What
-    # <tt>RectangleShape ===</tt> asks is not settled yet, so it asks
-    # Ruby's own question, whether its argument includes this module,
-    # which no Shape does.
+    # RectangleShape a module whose +new+ returns the PolygonShape, and
+    # whose <tt>===</tt> is true of every PolygonShape, as Image === is of
+    # every Texture.
     #
     # === Example
     #
     #   Lota::Physics::RectangleShape.new(body, 10, 20)
     module RectangleShape
+      # Whether +object+ is a Lota::Physics::PolygonShape: newRectangleShape
+      # makes one, and a PolygonShape records nothing of which factory made
+      # it. Anything else is not a rectangle.
+      #
+      # === Example
+      #
+      #   Lota::Physics::RectangleShape === Lota::Physics::RectangleShape.new(body, 1, 1) # => true
+      #   Lota::Physics::RectangleShape === Lota::Physics::CircleShape.new(body, 1)       # => false
+      def self.===(object)
+        case object
+        when PolygonShape then true
+        else false
+        end
+      end
+
       # Attaches a rectangle to +body+, matching
       # love.physics.newRectangleShape (src/modules/physics/box2d/
       # wrap_Physics.cpp, w_newRectangleShape), as a PolygonShape:

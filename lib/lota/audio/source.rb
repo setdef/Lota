@@ -202,6 +202,21 @@ module Lota
       def channel_count
         @native.channel_count
       end
+
+      # How the Source holds its sound, as a Symbol, matching
+      # Source:getType (src/modules/audio/wrap_Source.cpp,
+      # w_Source_getType): <tt>:static</tt>, <tt>:stream</tt>, or
+      # <tt>:queue</tt> (ADR 001, rules 9 and 16).
+      #
+      # A Source has no +type+, as LÖVE's Source answers both Object:type
+      # and getType; #object_type is LÖVE's name for its class.
+      #
+      # === Example
+      #
+      #   Lota::Audio::Source.new("click.ogg", :static).get_type # => :static
+      def get_type
+        @native.get_type.to_sym
+      end
     end
   end
 end

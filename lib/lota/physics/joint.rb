@@ -13,8 +13,8 @@ module Lota
     # Each Joint is of one of its subclasses, made by that class's +new+.
     # Each method raises RuntimeError ("Attempt to use destroyed joint.")
     # once the Joint is destroyed, but #destroyed? and #destroy. LÖVE's
-    # Joint:getType, whose name rule 16 gives Lota::Object#type, waits for
-    # the maintainer.
+    # Joint:getType is #get_type, and a Joint has no +type+ (ADR 001, rule
+    # 16).
     #
     # === Example
     #
@@ -36,6 +36,17 @@ module Lota
         joint.instance_variable_set(:@native, native)
         native.instance_variable_set(:@lota, joint)
         joint
+      end
+
+      # Which kind of Joint this is, as a Symbol, matching Joint:getType:
+      # <tt>:distance</tt>, <tt>:revolute</tt>, and so on (ADR 001, rules 9
+      # and 16).
+      #
+      # === Example
+      #
+      #   joint.get_type # => :distance
+      def get_type
+        @native.get_type.to_sym
       end
 
       # The two Bodies the Joint joins, as an Array, matching

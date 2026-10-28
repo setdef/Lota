@@ -41,6 +41,7 @@
 #include <initializer_list>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -79,6 +80,107 @@ public:
 private:
   ruby::Root root_;
 };
+
+// A Ruby callable a World calls back for its contacts, where LÖVE keeps a
+// Lua function in a Reference (ext/lota/engine/physics.patch,
+// Reference.h): one of World:setCallbacks's four, or the function
+// World:setContactFilter takes. It holds two values: the callable the game
+// set, which World:getCallbacks and getContactFilter give back exactly, and
+// the Proc Lota::Physics::World made to call it, which wraps the engine's
+// objects in Lota's classes and passes the callable only the arguments it
+// declares (ADR 003, section 3). Both are roots of Ruby's garbage collector
+// while the World holds this, as a Lua reference keeps its function in the
+// registry: the World deletes it when another replaces it, and lets it go
+// (unref) when the World is destroyed, as LÖVE does (World::destroy).
+class RubyCallback {
+public:
+  // +pair+ holds the callable, then the Proc that calls it.
+  explicit RubyCallback(const std::vector<Rice::Object> &pair)
+      : callable_(pair.at(0)), call_(pair.at(1)) {}
+
+  [[nodiscard]] Rice::Object callable() const { return callable_.value(); }
+
+  void clear() {
+    callable_.clear();
+    call_.clear();
+  }
+
+  // Calls the Proc with +arguments+ and returns what it returns. The Proc
+  // is copied to the stack first, where Ruby's collector sees it, because a
+  // callback that sets the World's callbacks deletes this object while Ruby
+  // runs it. A Ruby error goes on through the engine, out of World#update,
+  // as a Lua error goes through it out of World:update.
+  [[nodiscard]] Rice::Object call(const Rice::Array &arguments) const {
+    Rice::Object call = call_.value();
+    return call.vcall("call", arguments);
+  }
+
+private:
+  ruby::Root callable_;
+  ruby::Root call_;
+};
+
+class RubyContactFunction final : public box2d::ContactFunction {
+public:
+  explicit RubyContactFunction(const std::vector<Rice::Object> &pair) : callback_(pair) {}
+
+  void unref() override { callback_.clear(); }
+
+  [[nodiscard]] Rice::Object callable() const { return callback_.callable(); }
+
+  // The two Shapes, the Contact, and each contact point's normal and
+  // tangent impulse, as World::ContactCallback::process gives them.
+  void call(Shape *a, Shape *b, Contact *contact, const float *impulses, int count) override {
+    Rice::Array arguments;
+    arguments.push(a, false);
+    arguments.push(b, false);
+    arguments.push(contact, false);
+    for (const float impulse : std::span<const float>(impulses, static_cast<std::size_t>(count))) {
+      arguments.push(static_cast<double>(impulse), false);
+    }
+    static_cast<void>(callback_.call(arguments));
+  }
+
+private:
+  RubyCallback callback_;
+};
+
+class RubyContactFilter final : public box2d::ContactFilterFunction {
+public:
+  explicit RubyContactFilter(const std::vector<Rice::Object> &pair) : callback_(pair) {}
+
+  void unref() override { callback_.clear(); }
+
+  [[nodiscard]] Rice::Object callable() const { return callback_.callable(); }
+
+  // Whether the two Shapes collide: Ruby's truth, which is Lua's
+  // (luax_toboolean).
+  bool call(Shape *a, Shape *b) override {
+    Rice::Array arguments;
+    arguments.push(a, false);
+    arguments.push(b, false);
+    return ruby::truthy(callback_.call(arguments));
+  }
+
+private:
+  RubyCallback callback_;
+};
+
+// The callable the game set that +function+, which Lota made, holds, or
+// nil when there is none.
+template <typename Function, typename Engine> Rice::Object callable_of(const Engine *function) {
+  const auto *ruby = dynamic_cast<const Function *>(function);
+  return (ruby == nullptr) ? ruby::nil() : ruby->callable();
+}
+
+// A new Function of +given+, nil or the callable and the Proc that calls
+// it, as Lota::Physics::World passes them, for the World that takes it.
+template <typename Function> std::unique_ptr<Function> function_of(const Rice::Object &given) {
+  if (given.is_nil()) {
+    return nullptr;
+  }
+  return std::make_unique<Function>(ruby::elements(Rice::Array(given.value())));
+}
 
 // A new RubyReference of +value+, for the engine object that takes it.
 box2d::Reference *reference_to(const Rice::Object &value) {
@@ -606,7 +708,9 @@ void apply_linear_impulse(Body &body, double jx, double jy, Rice::Array rest_giv
 // w_World_update (wrap_World.cpp:38-56): one step of +dt+ seconds, with
 // Box2D 2.3's eight velocity and three position iterations unless both are
 // given. LÖVE first points the World's callbacks at the calling Lua thread
-// (World::setCallbacksL), which Ruby has no need of.
+// (World::setCallbacksL), which Ruby has no need of. A Ruby error a contact
+// callback raises leaves the step where it is raised, as a Lua error does,
+// and Rice raises it again here.
 void world_update(World &world, double dt, std::optional<int> velocityiterations,
                   std::optional<int> positioniterations) {
   check(world);
@@ -616,6 +720,49 @@ void world_update(World &world, double dt, std::optional<int> velocityiterations
     world.update(static_cast<float>(dt), *velocityiterations,
                  required(positioniterations, "positioniterations"));
   }
+}
+
+// w_World_setCallbacks and w_World_getCallbacks (wrap_World.cpp:58-70),
+// through World::setCallbacks and getCallbacks as Lota's physics patch
+// leaves them: begin, end, presolve, and postsolve, each nil or the
+// callable and the Proc that calls it. LÖVE checks that each is a function
+// before it changes any; Lota::Physics::World#callbacks= checks that each
+// answers call.
+void set_callbacks(World &world, Rice::Array functions_given) {
+  const Rice::Array functions = std::move(functions_given);
+  check(world);
+  const std::vector<Rice::Object> given = ruby::elements(functions);
+  std::array<std::unique_ptr<RubyContactFunction>, 4> made;
+  for (std::size_t i = 0; i < made.size(); i++) {
+    made.at(i) = function_of<RubyContactFunction>(i < given.size() ? given.at(i) : ruby::nil());
+  }
+  world.setCallbacks(made.at(0).release(), made.at(1).release(), made.at(2).release(),
+                     made.at(3).release());
+}
+
+Rice::Array callbacks(World &world) {
+  check(world);
+  std::array<box2d::ContactFunction *, 4> functions{};
+  world.getCallbacks(functions.at(0), functions.at(1), functions.at(2), functions.at(3));
+  Rice::Array results;
+  for (const box2d::ContactFunction *function : functions) {
+    results.push(callable_of<RubyContactFunction>(function), false);
+  }
+  return results;
+}
+
+// w_World_setContactFilter and w_World_getContactFilter
+// (wrap_World.cpp:72-84), through World::setContactFilter and
+// getContactFilter: nil, or the callable and the Proc that calls it.
+void set_contact_filter(World &world, Rice::Object filter_given) {
+  const Rice::Object filter = std::move(filter_given);
+  check(world);
+  world.setContactFilter(function_of<RubyContactFilter>(filter).release());
+}
+
+Rice::Object contact_filter(World &world) {
+  check(world);
+  return callable_of<RubyContactFilter>(world.getContactFilter());
 }
 
 // w_World_getBodies, getJoints, and getContacts (wrap_World.cpp:154-179).
@@ -975,6 +1122,10 @@ void define_physics(const Rice::Module &native) {
       .define_method("update", &world_update, Rice::Arg("dt"),
                      Rice::Arg("velocityiterations") = std::optional<int>(),
                      Rice::Arg("positioniterations") = std::optional<int>())
+      .define_method("set_callbacks", &set_callbacks, Rice::Arg("functions"))
+      .define_method("callbacks", &callbacks)
+      .define_method("set_contact_filter", &set_contact_filter, Rice::Arg("filter"))
+      .define_method("contact_filter", &contact_filter)
       .define_method("bodies", &world_bodies)
       .define_method("joints", &world_joints)
       .define_method("contacts", &world_contacts)

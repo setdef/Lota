@@ -45,6 +45,7 @@ generate "Source:setLooping"
 generate "Source:isLooping"
 generate "Source:isPlaying"
 generate "Source:getChannelCount"
+generate "Source:getType"
 bound_by_hand "Source:clone",
   reason: "pushes its new Source with luax_pushtype, which the generator does not port; Lota::Audio::Source " \
     "makes it through Ruby's clone and dup (initialize_copy)"
@@ -238,6 +239,9 @@ generate "love.mouse.isGrabbed"
 generate "love.mouse.setRelativeMode"
 generate "love.mouse.getRelativeMode"
 generate "love.mouse.isCursorSupported"
+bound_by_hand "Cursor:getType",
+  reason: "Lota::Native defines Cursor under its Mouse module, and the generator defines each class it binds " \
+    "directly under Lota::Native"
 
 # love.math
 bound_by_hand "RandomGenerator:_random",
@@ -272,6 +276,7 @@ generate "Body:setFixedRotation"
 generate "Body:isSleepingAllowed"
 generate "Body:setSleepingAllowed"
 generate "Body:isAwake"
+generate "Body:getType"
 generate "Body:setType"
 generate "Body:isTouching"
 generate "Body:getLocalCenter"
@@ -307,6 +312,7 @@ generate "World:setGravity"
 generate "World:getContactCount"
 generate "World:isDestroyed"
 generate "World:destroy"
+generate "Shape:getType"
 generate "Shape:getChildCount"
 generate "Shape:getRadius"
 generate "Shape:isSensor"
@@ -322,6 +328,7 @@ generate "Shape:testPoint"
 generate "Shape:getGroupIndex"
 generate "Shape:setGroupIndex"
 generate "Shape:destroy"
+generate "Joint:getType"
 generate "Joint:isDestroyed"
 generate "Joint:getReactionTorque"
 generate "Joint:getCollideConnected"
@@ -418,6 +425,18 @@ bound_by_hand "Body:applyLinearImpulse",
 bound_by_hand "World:update",
   reason: "passes the lua_State to World::setCallbacksL, for Lua's coroutines, which Lota's physics patch " \
     "removes"
+bound_by_hand "World:setCallbacks",
+  reason: "passes the lua_State to World::setCallbacks, which keeps up to four Lua functions; Lota's physics " \
+    "patch makes it take Reference.h's ContactFunctions, which Lota implements for Ruby callables, and " \
+    "Lota::Physics::World#callbacks= takes them as one Array"
+bound_by_hand "World:getCallbacks",
+  reason: "passes the lua_State to World::getCallbacks, which Lota's physics patch makes give back its four " \
+    "ContactFunctions, whose Ruby callables Lota returns"
+bound_by_hand "World:setContactFilter",
+  reason: "passes the lua_State to World::setContactFilter, which keeps a Lua function; Lota's physics patch " \
+    "makes it take Reference.h's ContactFilterFunction, which Lota implements for a Ruby callable"
+bound_by_hand "World:getContactFilter",
+  reason: "passes the lua_State to World::getContactFilter, as World:getCallbacks"
 bound_by_hand "World:getBodies",
   reason: "passes the lua_State to World::getBodies, which Lota's physics patch makes return a std::vector"
 bound_by_hand "World:getJoints",
@@ -534,6 +553,12 @@ bound_by_hand "Data:getInt16",
   reason: "returns w_Data_getT<int16>, as Data:getFloat"
 bound_by_hand "Data:getInt32",
   reason: "returns w_Data_getT<int32>, as Data:getFloat"
+bound_by_hand "Data:getUInt8",
+  reason: "returns w_Data_getT<uint8>, as Data:getFloat"
+bound_by_hand "Data:getUInt16",
+  reason: "returns w_Data_getT<uint16>, as Data:getFloat"
+bound_by_hand "Data:getUInt32",
+  reason: "returns w_Data_getT<uint32>, as Data:getFloat"
 generate "Decoder:getChannelCount"
 generate "Decoder:getBitDepth"
 generate "Decoder:getSampleRate"

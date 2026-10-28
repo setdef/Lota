@@ -37,7 +37,7 @@ module Lota
     # paired with how Lota opens it, or +nil+ for one Lota does not have
     # yet. :nodoc:
     MODULES = {
-      data: nil,
+      data: -> { Native::Data.open },
       thread: nil,
       timer: -> { Native::Timer.open },
       event: -> { Native::Event.open },

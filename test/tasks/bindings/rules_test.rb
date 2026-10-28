@@ -46,11 +46,14 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.graphics.newSpriteBatch")
   end
 
-  # Rule 2 decides Canvas === itself; other factories with no class leave
-  # it open.
+  # Rule 2 decides Canvas === and Image === itself, and RectangleShape ===
+  # is decided as Image === is, true of every PolygonShape; other
+  # factories with no class leave it open.
   def test_rule_2_module_factories_leave_their_case_equality_open
     assert_equal "Lota::Graphics::Canvas.new", ruby_name("love.graphics.newCanvas")
     assert_empty collisions("love.graphics.newCanvas")
+    assert_empty collisions("love.graphics.newImage")
+    assert_empty collisions("love.physics.newRectangleShape")
     assert_equal [[:open, [2]]], collisions("love.graphics.newCubeTexture")
   end
 
@@ -112,6 +115,16 @@ class RulesTest < Minitest::Test
     assert_includes collisions("love.graphics.transformPoint"), [:no_rule, []]
   end
 
+  # Rule 13 spells LÖVE's UInt as C spells uint8_t, one word, so
+  # Data:getUInt8 is uint8, not u_int8, and leaves nothing open.
+  def test_rule_13_spells_uint_as_one_word
+    assert_equal "Lota::Data#uint8", ruby_name("Data:getUInt8")
+    assert_equal "Lota::Data#uint32", ruby_name("Data:getUInt32")
+    assert_equal "uint16", Bindings::Rules.snake_case("UInt16")
+    assert_empty collisions("Data:getUInt16")
+    assert_equal "int16", Bindings::Rules.snake_case("Int16")
+  end
+
   def test_acronyms_leave_rule_13_open
     assert_includes collisions("love.graphics.getDPIScale"), [:open, [13]]
     assert_empty collisions("love.timer.getFPS"), "FPS splits only one way"
@@ -122,10 +135,37 @@ class RulesTest < Minitest::Test
     assert_includes collisions("love.window.showMessageBox"), [:several_rules, [10]]
   end
 
-  # Rule 3 makes Source:getType type, which rule 16 already gives every
-  # object for Object:type.
-  def test_a_method_named_as_rule_16_names_objects_type_fits_two_rules
-    assert_includes collisions("Source:getType"), [:several_rules, [3, 16]]
+  # Rule 16: on a class that also has getType, where type would be
+  # ambiguous, getType and setType keep their prefixes, as methods, not
+  # the getter and writer rules 3 and 5 would make them, and no longer
+  # collide with Object:type.
+  def test_rule_16_keeps_get_type_and_set_type_where_a_class_has_get_type
+    assert_equal "Lota::Physics::Body#get_type", ruby_name("Body:getType")
+    assert_equal "Lota::Physics::Body#set_type", ruby_name("Body:setType")
+    assert_equal "Lota::Audio::Source#get_type", ruby_name("Source:getType")
+    assert_equal [1, 16, 9], rules("Body:getType")
+    refute_includes rules("Body:setType"), 5
+    %w[Body:getType Body:setType Shape:getType Joint:getType Source:getType Cursor:getType].each do |name|
+      assert_empty collisions(name), name
+    end
+  end
+
+  # Rule 16 takes type from every class with getType, found in the wrap
+  # files rather than listed by hand: its subclasses inherit getType.
+  def test_the_survey_finds_every_class_with_get_type
+    assert_equal %w[
+      Lota::Audio::Source
+      Lota::Mouse::Cursor
+      Lota::Physics::Body
+      Lota::Physics::Joint
+      Lota::Physics::Shape
+], survey.typed_classes
+  end
+
+  # Rule 16 gives every object object_type, type, and type_of?, so a
+  # function that would take one of those names collides.
+  def test_rule_16s_object_methods_are_its_own
+    assert_equal %w[object_type type type_of?], Bindings::Rules::OBJECT_METHODS
     assert_empty collisions("love.audio.getVolume")
   end
 

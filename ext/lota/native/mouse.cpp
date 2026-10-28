@@ -72,13 +72,32 @@ bool is_down(Rice::Array buttons) {
   return instance->isDown(numbers);
 }
 
+// w_Cursor_getType (vendor/love/src/modules/mouse/wrap_Cursor.cpp:34-54):
+// an image cursor's kind, or a system cursor's shape.
+std::string cursor_type(const Cursor &cursor) {
+  const Cursor::CursorType ctype = cursor.getType();
+  const char *typestr = nullptr;
+
+  if (ctype == Cursor::CURSORTYPE_IMAGE) {
+    Cursor::getConstant(ctype, typestr);
+  } else if (ctype == Cursor::CURSORTYPE_SYSTEM) {
+    const Cursor::SystemCursor systype = cursor.getSystemType();
+    Cursor::getConstant(systype, typestr);
+  }
+
+  if (typestr == nullptr) {
+    throw love::Exception("Unknown cursor type.");
+  }
+  return typestr;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_mouse(const Rice::Module &native) {
   Rice::Module mouse = Rice::define_module_under(native, "Mouse");
-  define_engine_class<Cursor>(mouse, "Cursor");
+  define_engine_class<Cursor>(mouse, "Cursor").define_method("get_type", &cursor_type);
   mouse.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("system_cursor", &system_cursor, Rice::Arg("name"))

@@ -106,6 +106,15 @@ module Lota
     Graphics if Native::Graphics.open?
   end
 
+  # Lota::Data, as love.data, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.data # => Lota::Data
+  def self.data
+    Data if Native::Data.open?
+  end
+
   # Lota::Timer, as love.timer, or +nil+ when the module is not open.
   #
   # === Example

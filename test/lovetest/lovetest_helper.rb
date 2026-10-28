@@ -153,12 +153,12 @@ module Lovetest
     # Asserts that +obj+ is one of LÖVE's objects, as assertObject does
     # (lines 211-223): not nil, an object of the engine's, which Lua calls
     # userdata and Lota wraps around its native object, and one with a
-    # type, which obj:type() gives in Lua and obj.type in Ruby (ADR 001,
-    # rule 16).
+    # type, which obj:type() gives in Lua and obj.object_type in Ruby, on
+    # every object, those with getType among them (ADR 001, rule 16).
     def assert_object(obj)
       assert_not_nil(obj)
       assert_equal(true, obj.respond_to?(:native), "check is userdata")
-      refute_equal(nil, obj.type, "check has :type()") unless obj.nil?
+      refute_equal(nil, obj.object_type, "check has :type()") unless obj.nil?
     end
 
     # Compares +imgdata+ with LÖVE's expected image, pixel by pixel, with a

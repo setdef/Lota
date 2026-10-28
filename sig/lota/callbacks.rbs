@@ -17,6 +17,12 @@ module Lota
 
     def self.call: (Symbol name, *top arguments) -> ::Object?
 
+    type parameter = [Symbol, Symbol] | [Symbol]
+
+    def self.parameters: (Physics::World::callable callable) -> Array[parameter]
+
+    def self.declared: [T] (Array[parameter] parameters, Array[T] arguments) -> Array[T?]
+
     ENUM_ARGUMENTS: Hash[Symbol, Array[Integer]]
 
     INTEGER_ARGUMENTS: Hash[Symbol, Array[Integer]]

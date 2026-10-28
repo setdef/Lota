@@ -78,13 +78,27 @@ module Bindings
       "grab" => "ungrab",
       "play" => "stop",
     }.freeze
-    # Rule 2's module factories whose === the ADR decides: Canvas ===
-    # texture asks texture.canvas? (rule 2's text).
-    MODULE_FACTORY_MATCHES = { "newCanvas" => "Texture:isCanvas" }.freeze
+    # Rule 2's module factories whose === is decided, with what it asks:
+    # Canvas === texture asks texture.canvas?, and Image === is true of
+    # every Texture (rule 2's text), as RectangleShape === is of every
+    # PolygonShape, which newRectangleShape makes (wrap_Physics.cpp,
+    # w_newRectangleShape), as the maintainer decided.
+    MODULE_FACTORY_MATCHES = {
+      "newCanvas" => "Texture:isCanvas",
+      "newImage" => "Texture",
+      "newRectangleShape" => "PolygonShape",
+    }.freeze
     # The methods rule 16 gives every LÖVE object, from Object:type and
     # Object:typeOf (src/common/runtime.cpp, w__type and w__typeOf), which
-    # no wrap file lists.
-    OBJECT_METHODS = %w[type type_of?].freeze
+    # no wrap file lists: object_type, type as another name for it, and
+    # type_of?.
+    OBJECT_METHODS = %w[object_type type type_of?].freeze
+    # The functions rule 16 keeps prefixed on a class that also has
+    # getType, where type would be ambiguous in LÖVE itself.
+    OWN_TYPE = %w[getType setType].freeze
+    # Rule 13's spelling of the words LÖVE capitalizes inside: UInt is C's
+    # uint (uint8_t), one word as Int is int, so getUInt8 becomes uint8.
+    ONE_WORD = { "UInt" => "Uint" }.freeze
     # LÖVE's root types, which keep their names inside Lota (ADR 001,
     # section 7): Data's methods are Lota::Data's, a module every Data
     # includes, as Object's are Lota::Object's. Data is love.data's type,
@@ -156,7 +170,12 @@ module Bindings
     # (getDPIScale becomes dpi_scale), as Lota's hand-written bindings
     # spell set_high_dpi_allowed.
     def self.snake_case(name)
-      name.gsub(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+      one_word(name).gsub(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+    end
+
+    # +name+ with each of ONE_WORD's words spelled as one.
+    def self.one_word(name)
+      ONE_WORD.reduce(name) { |spelled, (word, one)| spelled.gsub(word, one) }
     end
 
     # Whether rule 13 leaves the spelling open: the name runs capitals
@@ -170,28 +189,31 @@ module Bindings
     # lower-case letter or a digit, so capitals run together (getDPIScale
     # becomes get_dpiscale).
     def self.run_together(name)
-      name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+      one_word(name).gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
     end
 
     # [types] The class names LÖVE registers, with their modules.
-    def initialize(types:)
+    # [typed] The class names that have getType (rule 16).
+    def initialize(types:, typed: [])
       @types = types
+      @typed = typed
     end
 
     # The Translation of +function+ (a Catalog::LoveFunction or
     # LuaFunctions::Function), whose shape +analysis+ gives, or nil for a
     # function the analysis could not read or that is defined in Lua.
     def translate(function, analysis)
-      Translator.new(function, analysis, @types).translation
+      Translator.new(function, analysis, @types, @typed).translation
     end
 
     # Applies the rules to one function.
     class Translator
-      def initialize(function, analysis, types)
+      def initialize(function, analysis, types, typed)
         @function = function
         @analysis = analysis&.readable? ? analysis : nil
         @facts = analysis
         @types = types
+        @typed = typed
         @name = function.lua_name
         @rules = [1]
         @collisions = []
@@ -214,6 +236,7 @@ module Bindings
       private def base_name
         return no_rule("is a Lua metamethod, which no rule maps to a Ruby operator") if @name.start_with?("__")
         return no_rule("starts with an underscore, which marks a hook for LÖVE's own Lua wrapper") if @name.start_with?("_")
+        return own_type if OWN_TYPE.include?(@name) && @typed.include?(@function.type_name)
         return factory(Regexp.last_match(1)) if @name =~ /\Anew([A-Z]\w*)\z/
         return getter(Regexp.last_match(1)) if @name =~ /\Aget([A-Z]\w*)\z/
         return setter(Regexp.last_match(1)) if @name =~ /\Aset([A-Z]\w*)\z/
@@ -221,6 +244,14 @@ module Bindings
 
         @rules << 13
         spelled(@name)
+        Rules.snake_case(@name)
+      end
+
+      # Rule 16: getType and setType on a class that has getType keep
+      # their prefixes, as methods, since type there would mean either
+      # Object:type or getType.
+      private def own_type
+        @rules << 16
         Rules.snake_case(@name)
       end
 

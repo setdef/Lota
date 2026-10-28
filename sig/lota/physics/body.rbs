@@ -28,7 +28,9 @@ module Lota
 
       def angle=: (Float | Integer angle) -> void
 
-      def type=: (Symbol | String type) -> void
+      def get_type: () -> Symbol
+
+      def set_type: (Symbol | String type) -> void
 
       def active?: () -> bool
 

@@ -8,20 +8,15 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.physics tests (vendor/love/testing/tests/physics.lua),
-# translated to Ruby by ADR 001's rules. They run in the test suite's own
-# process (test/lovetest/physics_test.rb) and under lota run
-# (test/lovetest/game).
+# translated to Ruby by ADR 001's rules, every one of their checks among
+# them. They run in the test suite's own process
+# (test/lovetest/physics_test.rb) and under lota run (test/lovetest/game).
 #
-# Two kinds of check wait for the maintainer, and are left out where they
-# come: those of Body:getType, Shape:getType, and Joint:getType, whose
-# Ruby name rule 3 makes type, the name rule 16 gives every LÖVE object
-# for Object:type (rake bindings:report); and those that need
-# World:setCallbacks, getCallbacks, setContactFilter, or
-# getContactFilter, whose Ruby shape is one of Plan 001's design
-# questions. So love.test.physics.Contact, which runs inside a contact
-# callback, is left out whole, as are love.test.physics.Shape's collision
-# checks after its callbacks are set; love.test.physics.World keeps its
-# other checks, and the steps between them.
+# getType and setType on a Body, Shape, or Joint keep their prefixes, as
+# get_type and set_type (rule 16), and a World's contact callbacks are
+# callables its callbacks= writer takes as one Array (ADR 001, after the
+# table), each receiving only as many arguments as it declares (ADR 003,
+# section 3), so a Lua function() end becomes -> {}.
 class PhysicsTest < Lovetest::TestMethod
   TYPES = %w[Body Joint Shape World].freeze
 
@@ -48,8 +43,8 @@ class PhysicsTest < Lovetest::TestMethod
   # 9), and the rest is snake_case (rule 13). A function's several results
   # are an Array (rule 4), whose size Lua's # counts. Lua's table of user
   # data becomes a Hash. Lövetest's assertRange becomes Minitest's
-  # assert_includes of the Range, and assertNotEquals refute_equal. Its
-  # checks of getType are left out.
+  # assert_includes of the Range, and assertNotEquals refute_equal.
+  # getType and setType become get_type and set_type (rule 16).
   def test_body
     # create body
     world = Lota::Physics::World.new(1, 1, true)
@@ -86,7 +81,7 @@ class PhysicsTest < Lovetest::TestMethod
     world.update(1)
     assert_false(body1.awake?, "check fell asleep")
     body1.sleeping_allowed = false
-    body1.type = :dynamic
+    body1.set_type(:dynamic)
     assert_true(body1.awake?, "check waking up")
 
     # check touching
@@ -193,8 +188,10 @@ class PhysicsTest < Lovetest::TestMethod
     assert_equal(y7, 4, "check set position y")
 
     # check type
-    body1.type = :kinematic
-    body1.type = :static
+    assert_equal(:dynamic, body1.get_type, "check type match")
+    body1.set_type(:kinematic)
+    body1.set_type(:static)
+    assert_equal(:static, body1.get_type, "check type change")
 
     # check userdata
     assert_nil(body1.user_data, "check user data")
@@ -248,12 +245,100 @@ class PhysicsTest < Lovetest::TestMethod
     assert_true(body1.destroyed?, "check destroyed")
   end
 
+  # Translated to Ruby from love.test.physics.Contact
+  # (physics.lua:216-296), by the rules of test_body. setCallbacks
+  # becomes the writer callbacks= (rules 5 and 6), whose four Lua
+  # functions become lambdas that declare the arguments the Lua functions
+  # declare, and so receive those alone (ADR 003, section 3).
+  # getChildren's, getShapes's, getNormal's, and getPositions's several
+  # values are Arrays (rule 4), and Lua's tostring an interpolation.
+  def test_contact
+    # create a setup so we can access some contact objects
+    world = Lota::Physics::World.new(1, 1, true)
+    body1 = Lota::Physics::Body.new(world, 0, 0, :dynamic)
+    body2 = Lota::Physics::Body.new(world, 10, 10, :dynamic)
+    rectangle1 = Lota::Physics::RectangleShape.new(body1, 0, 0, 10, 10)
+    rectangle2 = Lota::Physics::RectangleShape.new(body2, 0, 0, 10, 10)
+    rectangle1.user_data = "rec1"
+    rectangle2.user_data = "rec2"
+
+    # used to check for collisions + no. of collisions
+    collided = false
+    pass = 1
+
+    # set callback for contact start
+    world.callbacks = [
+      lambda do |shape_a, shape_b, contact|
+        collided = true
+
+        # check contact object
+        assert_object(contact)
+
+        # check child indices
+        index_a, index_b = contact.children
+        assert_equal(1, index_a, "check child indice a")
+        assert_equal(1, index_b, "check child indice b")
+
+        # check shapes match using userdata
+        shape_a2, shape_b2 = contact.shapes
+        assert_equal(shape_a.user_data, shape_a2.user_data, "check shape a matches")
+        assert_equal(shape_b.user_data, shape_b2.user_data, "check shape b matches")
+
+        # check normal pos
+        nx, ny = contact.normal
+        assert_equal(1, nx, "check normal x")
+        assert_equal(0, ny, "check normal y")
+
+        # check actual pos
+        px1, py1, px2, py2 = contact.positions
+        assert_includes(5..6, px1, "check collide x 1")
+        assert_includes(5..6, py1, "check collide y 1")
+        assert_includes(5..6, px2, "check collide x 2")
+        assert_includes(5..6, py2, "check collide y 2")
+
+        # check touching
+        assert_true(contact.touching?, "check touching")
+
+        # check enabled (we pass through twice to test on/off)
+        assert_equal(pass == 1, contact.enabled?, "check enabled for pass #{pass}")
+
+        # check friction
+        assert_includes(0.2..0.3, contact.friction, "check def friction")
+        contact.friction = 0.1
+        assert_includes(0.1..0.2, contact.friction, "check set friction")
+        contact.reset_friction
+        assert_includes(0.2..0.3, contact.friction, "check reset friction")
+
+        # check restitution
+        assert_equal(0, contact.restitution, "check def restitution")
+        contact.restitution = 1
+        assert_equal(1, contact.restitution, "check set restitution")
+        contact.reset_restitution
+        assert_equal(0, contact.restitution, "check reset restitution")
+        pass += 1
+      end,
+      -> {},
+      lambda do |_shape_a, _shape_b, contact|
+        contact.enabled = false if pass > 2
+      end,
+      -> {},
+]
+
+    # check bodies collided
+    world.update(1)
+    assert_true(collided, "check bodies collided")
+
+    # update again for enabled check
+    world.update(1)
+    assert_equal(2, pass, "check ran twice")
+  end
+
   # Translated to Ruby from love.test.physics.Joint (physics.lua:301-348),
   # by the rules of test_body: newDistanceJoint becomes DistanceJoint.new
   # (rule 2), whose collideConnected follows its anchors. Lua's
   # rx2, ry2 = joint:getReactionTorque(1) takes the one Float it returns
-  # and nil, as Ruby's multiple assignment does. Its check of getType is
-  # left out.
+  # and nil, as Ruby's multiple assignment does. getType becomes get_type
+  # (rule 16).
   def test_joint
     # make joint
     world = Lota::Physics::World.new(1, 1, true)
@@ -261,6 +346,9 @@ class PhysicsTest < Lovetest::TestMethod
     body2 = Lota::Physics::Body.new(world, 20, 20, :dynamic)
     joint = Lota::Physics::DistanceJoint.new(body1, body2, 10, 10, 20, 20, true)
     assert_object(joint)
+
+    # check type
+    assert_equal(:distance, joint.get_type, "check joint type")
 
     # check not destroyed
     assert_false(joint.destroyed?, "check not destroyed")
@@ -302,9 +390,9 @@ class PhysicsTest < Lovetest::TestMethod
   # are an Array (rule 4), so Lua's {shape1:getCategory()} is that Array,
   # and getMask's none, which Lua reads as nil, is its first, nil.
   # setCategory and setMask take their several values as an Array (rule
-  # 6). Its check of getType, and its collision checks from line 466 on,
-  # which count the calls of a callback World:setCallbacks sets, are left
-  # out.
+  # 6). getType becomes get_type (rule 16). setCallbacks becomes the
+  # writer callbacks= (rules 5 and 6), whose four Lua functions become
+  # lambdas, which declare no arguments as the Lua functions declare none.
   def test_shape
     # create shape
     world = Lota::Physics::World.new(0, 0, false)
@@ -317,6 +405,9 @@ class PhysicsTest < Lovetest::TestMethod
 
     # check radius
     assert_includes(0..0.4, shape1.radius, "check radius")
+
+    # check type match
+    assert_equal(:polygon, shape1.get_type, "check rectangle type")
 
     # check body pointer
     assert_equal(0, shape1.body.x, "check body link")
@@ -413,6 +504,53 @@ class PhysicsTest < Lovetest::TestMethod
     shape1.destroy
     assert_true(shape1.destroyed?, "check destroyed")
     shape2.destroy
+
+    # run some collision checks using filters, setup new shapes
+    body2 = Lota::Physics::Body.new(world, 5, 5, :dynamic)
+    shape3 = Lota::Physics::RectangleShape.new(body1, 0, 0, 10, 10)
+    shape4 = Lota::Physics::RectangleShape.new(body2, 0, 0, 10, 10)
+    collisions = 0
+    world.callbacks = [
+      -> { collisions += 1 },
+      -> {},
+      -> {},
+      -> {},
+]
+
+    # same positive group do collide
+    shape3.group_index = 1
+    shape4.group_index = 1
+    world.update(1)
+    assert_equal(1, collisions, "check positive group collide")
+
+    # check negative group dont collide
+    shape3.group_index = -1
+    shape4.group_index = -1
+    body2.position = 20, 20
+    world.update(1)
+    body2.position = 0, 0
+    world.update(1)
+    assert_equal(1, collisions, "check negative group collide")
+
+    # check masks do collide
+    shape3.group_index = 0
+    shape4.group_index = 0
+    shape3.category = 2
+    shape4.mask = 3
+    body2.position = 20, 20
+    world.update(1)
+    body2.position = 0, 0
+    world.update(1)
+    assert_equal(2, collisions, "check mask collide")
+
+    # check masks not colliding
+    shape3.category = 2
+    shape4.mask = 2, 4, 6
+    body2.position = 20, 20
+    world.update(1)
+    body2.position = 0, 0
+    world.update(1)
+    assert_equal(2, collisions, "check mask not collide")
   end
 
   # Translated to Ruby from love.test.physics.World (physics.lua:508-607),
@@ -421,9 +559,10 @@ class PhysicsTest < Lovetest::TestMethod
   # nil and 1, since Ruby's block returns its last value where a Lua
   # function without a return returns nothing; rayCastClosest's and
   # rayCastAny's several values are an Array (rule 4), of which Lua's
-  # comparison keeps the first. Its checks of the callbacks
-  # World:getCallbacks gives and World:setCallbacks and setContactFilter
-  # set are left out, and its steps kept.
+  # comparison keeps the first. getCallbacks becomes callbacks (rule 3),
+  # whose four values are an Array (rule 4), and setCallbacks and
+  # setContactFilter the writers callbacks= and contact_filter= (rules 5
+  # and 6), whose Lua functions become lambdas.
   def test_world
     # create new world
     world = Lota::Physics::World.new(0, 0, false)
@@ -457,12 +596,38 @@ class PhysicsTest < Lovetest::TestMethod
     assert_equal(0, world.contacts.size, "check no contacts")
     assert_equal(0, world.contact_count, "check no contact count")
 
+    # check callbacks are called
+    begin_contact, end_contact, pre_solve, post_solve = world.callbacks
+    assert_nil(begin_contact, "check no begin contact callback")
+    assert_nil(end_contact, "check no end contact callback")
+    assert_nil(pre_solve, "check no pre solve callback")
+    assert_nil(post_solve, "check no post solve callback")
+    begin_contact_check = false
+    end_contact_check = false
+    pre_solve_check = false
+    post_solve_check = false
+    collisions = 0
+    world.callbacks = [
+      lambda do
+        begin_contact_check = true
+        collisions += 1
+      end,
+      -> { end_contact_check = true },
+      -> { pre_solve_check = true },
+      -> { post_solve_check = true },
+]
+
     # setup so we can collide stuff to call the callbacks
     body2 = Lota::Physics::Body.new(world, 10, 10, :dynamic)
     Lota::Physics::RectangleShape.new(body2, 0, 0, 10, 10)
+    assert_false(begin_contact_check, "check world didnt update after adding body")
     world.update(1)
+    assert_true(begin_contact_check, "check contact start")
+    assert_true(pre_solve_check, "check pre solve")
+    assert_true(post_solve_check, "check post solve")
     body2.position = 100, 100
     world.update(1)
+    assert_true(end_contact_check, "check contact end")
 
     # check point checking
     shapes = 0
@@ -482,9 +647,14 @@ class PhysicsTest < Lovetest::TestMethod
     refute_equal(nil, world.ray_cast_any(0, 0, 200, 200).first, "check any raycast")
 
     # change collision logic
+    assert_nil(world.contact_filter, "check def filter")
     world.update(1)
+    world.contact_filter = lambda do |_s1, _s2|
+      false # nothing collides
+    end
     body2.position = 10, 10
     world.update(1)
+    assert_equal(1, collisions, "check collision logic change")
 
     # check gravity
     world.gravity = 1, 1
