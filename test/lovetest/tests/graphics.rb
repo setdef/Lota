@@ -16,6 +16,21 @@ class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
   TYPES = %w[Quad SpriteBatch].freeze
 
+  # Lövetest runs its modules in a fixed order, graphics before window
+  # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
+  # the window conf.lua opens, with depth and stencil buffers. Minitest
+  # runs test classes in random order, and the window tests'
+  # love.window.updateMode turns both buffers off (window.lua:398), so a
+  # graphics test that runs after them, such as setDepthMode on the
+  # window's depth buffer, gets the window back as Lövetest has it.
+  def setup
+    super
+    return unless Lota.window
+
+    _width, _height, flags = Lota::Window.mode
+    Lota::Window.update_mode(depth: true, stencil: true) unless flags.depth && flags.stencil
+  end
+
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
@@ -631,6 +646,580 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = nil
     imgdata = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.discard
+  # (vendor/love/testing/tests/graphics.lua:1417-1420): test:skipTest
+  # becomes Minitest's skip, as Lövetest skips it.
+  def test_discard
+    # from the docs: "on some desktops this may do nothing"
+    skip("cant test this worked")
+  end
+
+  # Translated to Ruby from love.test.graphics.points
+  # (vendor/love/testing/tests/graphics.lua:1540-1553): points keeps its
+  # name (rule 13), push takes its stack type as a symbol (rule 9), and
+  # Lua's table of numbers is a Ruby Array, by the rules test_circle
+  # names.
+  def test_points
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.push(:all)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.translate(0.5, 0.5) # draw points at the center of pixels
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.points(0, 0, 15, 0, 15, 15, 0, 15, 0, 0)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.points([1, 1, 7, 7, 14, 1, 7, 8, 14, 14, 8, 8, 1, 14, 8, 7])
+    Lota::Graphics.pop
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.polygon
+  # (vendor/love/testing/tests/graphics.lua:1557-1569): polygon keeps its
+  # name (rule 13), with its draw mode a symbol (rule 9), by the rules
+  # test_points names.
+  def test_polygon
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.polygon(:fill, 1, 1, 4, 5, 8, 10, 16, 2, 7, 3, 5, 16, 16, 16, 1, 8)
+    Lota::Graphics.color = 1, 1, 0, 1
+    Lota::Graphics.polygon(:line, [2, 2, 4, 5, 3, 7, 8, 15, 12, 4, 5, 10])
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.getBackgroundColor
+  # (vendor/love/testing/tests/graphics.lua:1852-1867), by the rules
+  # test_get_color names.
+  def test_get_background_color
+    # check default bg is black
+    r, g, b, a = Lota::Graphics.background_color
+    assert_equal(0, r, "check default background r")
+    assert_equal(0, g, "check default background g")
+    assert_equal(0, b, "check default background b")
+    assert_equal(1, a, "check default background a")
+    # check set value returns correctly
+    Lota::Graphics.background_color = 1, 1, 1, 0
+    r, g, b, a = Lota::Graphics.background_color
+    assert_equal(1, r, "check updated background r")
+    assert_equal(1, g, "check updated background g")
+    assert_equal(1, b, "check updated background b")
+    assert_equal(0, a, "check updated background a")
+    Lota::Graphics.background_color = 0, 0, 0, 1 # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getBlendMode
+  # (vendor/love/testing/tests/graphics.lua:1871-1882): getBlendMode
+  # becomes blend_mode (rule 3), whose two values come back as an Array
+  # (rule 4), and setBlendMode a writer of several values (rule 6), with
+  # the modes as symbols (rule 9).
+  def test_get_blend_mode
+    # check default blend mode
+    mode, alphamode = Lota::Graphics.blend_mode
+    assert_equal(:alpha, mode, "check default blend mode")
+    assert_equal(:alphamultiply, alphamode, "check default alpha blend")
+    # check set mode returns correctly
+    Lota::Graphics.blend_mode = :add, :premultiplied
+    mode, alphamode = Lota::Graphics.blend_mode
+    assert_equal(:add, mode, "check changed blend mode")
+    assert_equal(:premultiplied, alphamode, "check changed alpha blend")
+    Lota::Graphics.blend_mode = :alpha, :alphamultiply # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getCanvas
+  # (vendor/love/testing/tests/graphics.lua:1886-1894): getCanvas becomes
+  # canvas (rule 3), and assertEquals(nil, ...) assert_nil, by the rules
+  # test_circle names.
+  def test_get_canvas
+    # by default should be nil if drawing to real screen
+    assert_nil(Lota::Graphics.canvas, "check no canvas set")
+    # should return not nil when we target a canvas
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    assert_object(Lota::Graphics.canvas)
+    Lota::Graphics.canvas = nil
+  end
+
+  # Translated to Ruby from love.test.graphics.getColorMask
+  # (vendor/love/testing/tests/graphics.lua:1917-1932): getColorMask
+  # becomes color_mask (rule 3), whose four values come back as an Array
+  # (rule 4), and setColorMask a writer of several values (rule 6).
+  def test_get_color_mask
+    # by default should all be active
+    r, g, b, a = Lota::Graphics.color_mask
+    assert_true(r, "check default color mask r")
+    assert_true(g, "check default color mask g")
+    assert_true(b, "check default color mask b")
+    assert_true(a, "check default color mask a")
+    # check set color mask is returned correctly
+    Lota::Graphics.color_mask = false, false, true, false
+    r, g, b, a = Lota::Graphics.color_mask
+    assert_false(r, "check changed color mask r")
+    assert_false(g, "check changed color mask g")
+    assert_true(b, "check changed color mask b")
+    assert_false(a, "check changed color mask a")
+    Lota::Graphics.color_mask = true, true, true, true # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getDepthMode
+  # (vendor/love/testing/tests/graphics.lua:1946-1951): getDepthMode
+  # becomes depth_mode (rule 3), whose two values come back as an Array
+  # (rule 4), with the compare mode a symbol (rule 9).
+  def test_get_depth_mode
+    # by default should be always/write
+    comparemode, write = Lota::Graphics.depth_mode
+    assert_equal(:always, comparemode, "check default compare depth")
+    assert_false(write, "check default depth buffer write")
+  end
+
+  # Translated to Ruby from love.test.graphics.getFont
+  # (vendor/love/testing/tests/graphics.lua:1955-1957): getFont becomes
+  # font (rule 3).
+  def test_get_font
+    assert_object(Lota::Graphics.font)
+  end
+
+  # Translated to Ruby from love.test.graphics.getFrontFaceWinding
+  # (vendor/love/testing/tests/graphics.lua:1961-1968):
+  # getFrontFaceWinding becomes front_face_winding (rule 3) and
+  # setFrontFaceWinding a writer (rule 5), with the windings as symbols
+  # (rule 9).
+  def test_get_front_face_winding
+    # check default winding
+    assert_equal(:ccw, Lota::Graphics.front_face_winding)
+    # check setting value changes it correctly
+    Lota::Graphics.front_face_winding = :cw
+    assert_equal(:cw, Lota::Graphics.front_face_winding)
+    Lota::Graphics.front_face_winding = :ccw # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getLineJoin
+  # (vendor/love/testing/tests/graphics.lua:1972-1979): getLineJoin
+  # becomes line_join (rule 3) and setLineJoin a writer (rule 5), with
+  # the joins as symbols (rule 9).
+  def test_get_line_join
+    # check default line join
+    assert_equal(:miter, Lota::Graphics.line_join)
+    # check set value returned correctly
+    Lota::Graphics.line_join = :none
+    assert_equal(:none, Lota::Graphics.line_join)
+    Lota::Graphics.line_join = :miter # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getMeshCullMode
+  # (vendor/love/testing/tests/graphics.lua:2005-2012): getMeshCullMode
+  # becomes mesh_cull_mode (rule 3) and setMeshCullMode a writer (rule
+  # 5), with the modes as symbols (rule 9).
+  def test_get_mesh_cull_mode
+    # get default mesh culling
+    assert_equal(:none, Lota::Graphics.mesh_cull_mode)
+    # check set value returned correctly
+    Lota::Graphics.mesh_cull_mode = :front
+    assert_equal(:front, Lota::Graphics.mesh_cull_mode)
+    Lota::Graphics.mesh_cull_mode = :back # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getPointSize
+  # (vendor/love/testing/tests/graphics.lua:2016-2023): getPointSize
+  # becomes point_size (rule 3) and setPointSize a writer (rule 5).
+  def test_get_point_size
+    # get default point size
+    assert_equal(1, Lota::Graphics.point_size)
+    # check set value returned correctly
+    Lota::Graphics.point_size = 10
+    assert_equal(10, Lota::Graphics.point_size)
+    Lota::Graphics.point_size = 1 # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getScissor
+  # (vendor/love/testing/tests/graphics.lua:2027-2042): getScissor
+  # becomes scissor (rule 3), whose values come back as an Array (rule
+  # 4), empty where LÖVE returns none, so each is nil as in Lua;
+  # setScissor becomes a writer of several values (rule 6), and
+  # setScissor() with no arguments scissor = nil, as setCanvas() is
+  # canvas = nil. assertEquals(nil, ...) becomes assert_nil.
+  def test_get_scissor
+    # should be no scissor atm
+    x, y, w, h = Lota::Graphics.scissor
+    assert_nil(x, "check no scissor")
+    assert_nil(y, "check no scissor")
+    assert_nil(w, "check no scissor")
+    assert_nil(h, "check no scissor")
+    # check set value returned correctly
+    Lota::Graphics.scissor = 0, 0, 16, 16
+    x, y, w, h = Lota::Graphics.scissor
+    assert_equal(0, x, "check scissor set")
+    assert_equal(0, y, "check scissor set")
+    assert_equal(16, w, "check scissor set")
+    assert_equal(16, h, "check scissor set")
+    Lota::Graphics.scissor = nil # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.getStackDepth
+  # (vendor/love/testing/tests/graphics.lua:2053-2068): getStackDepth
+  # becomes stack_depth (rule 3).
+  def test_get_stack_depth
+    # by default should be none
+    assert_equal(0, Lota::Graphics.stack_depth, "check no transforms in stack")
+    # now add 3
+    Lota::Graphics.push
+    Lota::Graphics.push
+    Lota::Graphics.push
+    assert_equal(3, Lota::Graphics.stack_depth, "check 3 transforms in stack")
+    # now remove 2
+    Lota::Graphics.pop
+    Lota::Graphics.pop
+    assert_equal(1, Lota::Graphics.stack_depth, "check 1 transforms in stack")
+    # now back to 0
+    Lota::Graphics.pop
+    assert_equal(0, Lota::Graphics.stack_depth, "check no transforms in stack")
+  end
+
+  # Translated to Ruby from love.test.graphics.getStencilState
+  # (vendor/love/testing/tests/graphics.lua:2072-2085): getStencilState
+  # becomes stencil_state (rule 3), whose five values come back as an
+  # Array (rule 4), of which Lua keeps three, and setStencilState a
+  # writer of several values (rule 6), with the action and compare mode
+  # as symbols (rule 9); setStencilState() with no arguments is
+  # stencil_state = nil, as test_get_scissor names.
+  def test_get_stencil_state
+    # check default vals
+    action, comparemode, value = Lota::Graphics.stencil_state
+    assert_equal(:keep, action, "check default stencil action")
+    assert_equal(:always, comparemode, "check default stencil compare")
+    assert_equal(0, value, "check default stencil value")
+    # check set stencil values is returned
+    Lota::Graphics.stencil_state = :replace, :less, 255
+    action, comparemode, value = Lota::Graphics.stencil_state
+    assert_equal(:replace, action, "check changed stencil action")
+    assert_equal(:less, comparemode, "check changed stencil compare")
+    assert_equal(255, value, "check changed stencil value")
+    Lota::Graphics.stencil_state = nil # reset
+  end
+
+  # Translated to Ruby from love.test.graphics.intersectScissor
+  # (vendor/love/testing/tests/graphics.lua:2089-2105): intersectScissor
+  # becomes intersect_scissor (rule 13), by the rules test_get_scissor
+  # and test_circle name.
+  def test_intersect_scissor
+    # make a scissor for the left half, then interset to make the top half
+    # then we should be able to fill the canvas with red and only top 4x4 is filled
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.origin
+    Lota::Graphics.scissor = 0, 0, 8, 16
+    Lota::Graphics.intersect_scissor(0, 0, 4, 4)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.scissor = nil
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.isActive
+  # (vendor/love/testing/tests/graphics.lua:2109-2111): isActive becomes
+  # active? (rule 8).
+  def test_is_active
+    assert_true(Lota::Graphics.active?, "check graphics is active") # i mean if you got this far
+  end
+
+  # Translated to Ruby from love.test.graphics.isGammaCorrect
+  # (vendor/love/testing/tests/graphics.lua:2115-2118): isGammaCorrect
+  # becomes gamma_correct? (rule 8).
+  def test_is_gamma_correct
+    # we know the config so know this is false
+    assert_not_nil(Lota::Graphics.gamma_correct?)
+  end
+
+  # Translated to Ruby from love.test.graphics.isWireframe
+  # (vendor/love/testing/tests/graphics.lua:2122-2134): getRendererInfo
+  # becomes renderer_info (rule 3), whose four values come back as an
+  # Array (rule 4), isWireframe wireframe? (rule 8), and setWireframe a
+  # writer (rule 5). Lua's string.match with a pattern of plain
+  # characters is String#match?.
+  def test_is_wireframe
+    name, _version, _vendor, _device = Lota::Graphics.renderer_info
+    if name.match?("OpenGL ES")
+      skip("Wireframe not supported on OpenGL ES")
+    else
+      # check off by default
+      assert_false(Lota::Graphics.wireframe?, "check no wireframe by default")
+      # check on when enabled
+      Lota::Graphics.wireframe = true
+      assert_true(Lota::Graphics.wireframe?, "check wireframe is set")
+      Lota::Graphics.wireframe = false # reset
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.reset
+  # (vendor/love/testing/tests/graphics.lua:2138-2154), by the rules
+  # test_get_color, test_get_canvas, and test_set_default_filter name.
+  def test_reset
+    # reset should reset current canvas and any colors/scissor
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.background_color = 0, 0, 1, 1
+    Lota::Graphics.color = 0, 1, 0, 1
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.reset
+    r, g, b, a = Lota::Graphics.background_color
+    assert_equal(1, r + g + b + a, "check background reset")
+    r, g, b, a = Lota::Graphics.color
+    assert_equal(4, r + g + b + a, "check color reset")
+    assert_nil(Lota::Graphics.canvas, "check canvas reset")
+    Lota::Graphics.default_filter = :nearest, :nearest
+    Lota::Graphics.line_style = :rough
+    Lota::Graphics.point_size = 1
+    Lota::Graphics.line_width = 1
+  end
+
+  # Translated to Ruby from love.test.graphics.setBackgroundColor
+  # (vendor/love/testing/tests/graphics.lua:2158-2167), by the rules
+  # test_get_color names.
+  def test_set_background_color
+    # check background is set
+    Lota::Graphics.background_color = 1, 0, 0, 1
+    r, g, b, a = Lota::Graphics.background_color
+    assert_equal(1, r, "check set bg r")
+    assert_equal(0, g, "check set bg g")
+    assert_equal(0, b, "check set bg b")
+    assert_equal(1, a, "check set bg a")
+    Lota::Graphics.background_color = 0, 0, 0, 1
+  end
+
+  # Translated to Ruby from love.test.graphics.setBlendMode
+  # (vendor/love/testing/tests/graphics.lua:2171-2195), by the rules
+  # test_get_blend_mode and test_circle name. test.rgba_tolerance is the
+  # test's @rgba_tolerance.
+  def test_set_blend_mode
+    # create fully white canvas, then draw diff. pixels through blendmodes
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0.5, 0.5, 0.5, 1)
+    Lota::Graphics.blend_mode = :add, :alphamultiply
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.blend_mode = :subtract, :alphamultiply
+    Lota::Graphics.color = 1, 1, 1, 0.5
+    Lota::Graphics.rectangle(:fill, 15, 0, 1, 1)
+    Lota::Graphics.blend_mode = :multiply, :premultiplied
+    Lota::Graphics.color = 0, 1, 0, 1
+    Lota::Graphics.rectangle(:fill, 15, 15, 1, 1)
+    Lota::Graphics.blend_mode = :replace, :premultiplied
+    Lota::Graphics.color = 0, 0, 1, 0.5
+    Lota::Graphics.rectangle(:fill, 0, 15, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    Lota::Graphics.blend_mode = :alpha, :alphamultiply # reset
+    # need 1rgba tolerance here on some machines
+    @rgba_tolerance = 1
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setColorMask
+  # (vendor/love/testing/tests/graphics.lua:2247-2266), by the rules
+  # test_get_color_mask and test_circle name.
+  def test_set_color_mask
+    # set mask, draw stuff, check output pixels
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    # mask off blue
+    Lota::Graphics.color_mask = true, true, false, true
+    r, g, b, a = Lota::Graphics.color_mask
+    assert_equal(r, true, "check r mask")
+    assert_equal(g, true, "check g mask")
+    assert_equal(b, false, "check b mask")
+    assert_equal(a, true, "check a mask")
+    # draw "black" which should then turn to yellow
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.color_mask = true, true, true, true
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setDepthMode
+  # (vendor/love/testing/tests/graphics.lua:2282-2295): setDepthMode
+  # becomes a writer of several values (rule 6) and getDepthMode
+  # depth_mode, whose values come back as an Array (rule 4), of which
+  # Lua's comparison keeps the first, as .first does, with the modes as
+  # symbols (rule 9). Lua's numeric for over a table is each.
+  def test_set_depth_mode
+    # check documented modes are valid
+    comparemode, write = Lota::Graphics.depth_mode
+    modes = %i[equal notequal less lequal gequal greater never always]
+    modes.each do |mode|
+      Lota::Graphics.depth_mode = mode, true
+      assert_equal(mode, Lota::Graphics.depth_mode.first, "check depth mode #{mode} set")
+    end
+    Lota::Graphics.depth_mode = comparemode, write
+    # @TODO better graphics drawing specific test
+  end
+
+  # Translated to Ruby from love.test.graphics.setLineJoin
+  # (vendor/love/testing/tests/graphics.lua:2345-2370), by the rules
+  # test_get_line_join, test_line, and test_set_font name.
+  def test_set_line_join
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.font = Lovetest.font
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    line = [0, 1, 8, 1, 8, 8]
+    Lota::Graphics.line_style = :rough
+    Lota::Graphics.line_width = 2
+    Lota::Graphics.color = 1, 0, 0
+    Lota::Graphics.line_join = :bevel
+    Lota::Graphics.line(line)
+    Lota::Graphics.translate(0, 4)
+    Lota::Graphics.color = 1, 1, 0
+    Lota::Graphics.line_join = :none
+    Lota::Graphics.line(line)
+    Lota::Graphics.translate(0, 4)
+    Lota::Graphics.color = 0, 0, 1
+    Lota::Graphics.line_join = :miter
+    Lota::Graphics.line(line)
+    Lota::Graphics.color = 1, 1, 1
+    Lota::Graphics.line_width = 1
+    Lota::Graphics.origin
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setLineStyle
+  # (vendor/love/testing/tests/graphics.lua:2374-2396), by the rules
+  # test_set_line_join and test_arc name.
+  def test_set_line_style
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.font = Lovetest.font
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0
+    line = [0, 1, 16, 1]
+    Lota::Graphics.line_style = :rough
+    Lota::Graphics.line(line)
+    Lota::Graphics.translate(0, 4)
+    Lota::Graphics.line_style = :smooth
+    Lota::Graphics.line(line)
+    Lota::Graphics.line_style = :rough
+    Lota::Graphics.color = 1, 1, 1
+    Lota::Graphics.origin
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    # linux runner needs a 1/255 tolerance for the blend between a rough line + bg
+    @rgba_tolerance = 1 if Lovetest::GITHUB_RUNNER && Lovetest.os?("Linux")
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setLineWidth
+  # (vendor/love/testing/tests/graphics.lua:2400-2423), by the rules
+  # test_set_line_join names.
+  def test_set_line_width
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.font = Lovetest.font
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    line = [0, 1, 8, 1, 8, 8]
+    Lota::Graphics.color = 1, 0, 0
+    Lota::Graphics.line_width = 2
+    Lota::Graphics.line(line)
+    Lota::Graphics.translate(0, 4)
+    Lota::Graphics.color = 1, 1, 0
+    Lota::Graphics.line_width = 3
+    Lota::Graphics.line(line)
+    Lota::Graphics.translate(0, 4)
+    Lota::Graphics.color = 0, 0, 1
+    Lota::Graphics.line_width = 4
+    Lota::Graphics.line(line)
+    Lota::Graphics.color = 1, 1, 1
+    Lota::Graphics.line_width = 1
+    Lota::Graphics.origin
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setMeshCullMode
+  # (vendor/love/testing/tests/graphics.lua:2427-2437), by the rules
+  # test_get_mesh_cull_mode and test_set_depth_mode name.
+  def test_set_mesh_cull_mode
+    # check documented modes are valid
+    original = Lota::Graphics.mesh_cull_mode
+    modes = %i[back front none]
+    modes.each do |mode|
+      Lota::Graphics.mesh_cull_mode = mode
+      assert_equal(mode, Lota::Graphics.mesh_cull_mode, "check mesh cull mode #{mode} was set")
+    end
+    Lota::Graphics.mesh_cull_mode = original
+    # @TODO better graphics drawing specific test
+  end
+
+  # Translated to Ruby from love.test.graphics.setScissor
+  # (vendor/love/testing/tests/graphics.lua:2441-2456), by the rules
+  # test_get_scissor and test_circle name.
+  def test_set_scissor
+    # make a scissor for the left half
+    # then we should be able to fill the canvas with red and only left is filled
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.origin
+    Lota::Graphics.scissor = 0, 0, 8, 16
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.scissor = nil
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setWireframe
+  # (vendor/love/testing/tests/graphics.lua:2508-2531), by the rules
+  # test_is_wireframe and test_circle name. test.pixel_tolerance is the
+  # test's @pixel_tolerance.
+  def test_set_wireframe
+    name, _version, _vendor, _device = Lota::Graphics.renderer_info
+    if name.match?("OpenGL ES")
+      skip("Wireframe not supported on OpenGL ES")
+    else
+      # check wireframe outlines
+      Lota::Graphics.wireframe = true
+      canvas = Lota::Graphics::Canvas.new(16, 16)
+      Lota::Graphics.canvas = canvas
+      Lota::Graphics.clear(0, 0, 0, 1)
+      Lota::Graphics.color = 1, 1, 0, 1
+      Lota::Graphics.rectangle(:fill, 2, 2, 13, 13)
+      Lota::Graphics.color = 1, 1, 1, 1
+      Lota::Graphics.canvas = nil
+      Lota::Graphics.wireframe = false
+      imgdata = Lota::Graphics.readback_texture(canvas)
+      # on macOS runners wireframes are drawn 1px off from the target
+      @pixel_tolerance = 1 if Lovetest::GITHUB_RUNNER && Lovetest.os?("OS X")
+      compare_img(imgdata)
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.getRendererInfo
+  # (vendor/love/testing/tests/graphics.lua:2888-2894), by the rules
+  # test_is_wireframe names.
+  def test_get_renderer_info
+    name, version, vendor, device = Lota::Graphics.renderer_info
+    assert_not_nil(name)
+    assert_not_nil(version)
+    assert_not_nil(vendor)
+    assert_not_nil(device)
   end
   # SPDX-SnippetEnd
 end

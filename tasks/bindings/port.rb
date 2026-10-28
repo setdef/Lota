@@ -38,7 +38,10 @@ module Bindings
     # [default] The C++ literal Rice passes when it is left out, or nil.
     # [checked] Whether it is optional only because it follows an optional
     #   parameter, as a Ruby method's positional parameters must, while LÖVE
-    #   reads it with a check: the form that reads it requires it.
+    #   reads it with a check: the form that reads it requires it. An
+    #   optional parameter LÖVE reads with a check is required there too
+    #   (read_value), since no test of its presence need guard that read
+    #   (w_setStencilState tests its first two arguments together).
     class Parameter < Data.define(:index, :name, :kind, :cpp, :object, :optional, :default, :checked)
       # Its C++ declaration. An optional class, such as a String, is taken
       # by reference, as the class itself is: Rice converts it once.
@@ -89,7 +92,7 @@ object:,
     # LÖVE's Lua glue, which a statement the port does not translate still
     # calls.
     LUA_LEFT = /\bL\b|\b(?:lua|luaL|luax)_\w+\s*\(|\bLUA_\w+/
-    COUNT_TEST = /lua_gettop\s*\(\s*L\s*\)\s*(>=|>)\s*(\d+)/
+    COUNT_TEST = /lua_gettop\s*\(\s*L\s*\)\s*(>=|>|<=|<)\s*(\d+)/
     # The pushes of an engine object: luax_pushshape pushes a Shape as the
     # class its type names (wrap_Shape.cpp:36-63), as Rice wraps a pointer
     # as the most derived class Lota::Native binds for it.
@@ -559,11 +562,36 @@ line: node.line,
     # readability-else-after-return asks.
     private def emit_if(node)
       body = emit(node.body)
-      lines = ["if (#{pointer_tests(rewrite(node.text))}) {", *body, "}"]
+      condition = pointer_tests(rewrite(node.text))
+      if node.alternative.empty? && (inner = lone_if(body))
+        return ["if (#{conjunct(condition)} && #{conjunct(inner.first)}) {", *inner.last, "}"]
+      end
+
+      lines = ["if (#{condition}) {", *body, "}"]
       return lines if node.alternative.empty?
 
       alternative = emit(node.alternative)
       body.last.to_s.match?(/\A(?:return|throw)\b|\Araise_enum_error\(/) ? lines.concat(alternative) : lines.push("else {", *alternative, "}")
+    end
+
+    # The condition and body of +body+ when it is one if and nothing else,
+    # as when w_setBlendMode tests its alpha mode's name only when given
+    # one; emit_if tests both conditions in one if, as clang-tidy's
+    # readability-redundant-nested-if asks.
+    private def lone_if(body)
+      first = body.first.to_s.match(/\Aif \((.*)\) \{\z/m) or return nil
+      depth = 0
+      body.each_with_index do |line, index|
+        depth += 1 if line.end_with?("{")
+        depth -= 1 if line.start_with?("}")
+        return nil if depth.zero? && index < body.size - 1
+      end
+      [first[1], body[1...-1]]
+    end
+
+    # +condition+, in parentheses when another operator could bind into it.
+    private def conjunct(condition)
+      condition.match?(/\|\||\?/) ? "(#{condition})" : condition
     end
 
     private def emit_return(text, last:)
@@ -694,7 +722,7 @@ line: node.line,
         parameter = parameters.find { |candidate| candidate.index == index }
         raise Unsupported, "#{@function.love_name} counts its arguments past one it does not bind" unless parameter
 
-        "#{parameter.name}.has_value()"
+        "#{Regexp.last_match(1).start_with?('<') ? '!' : ''}#{parameter.name}.has_value()"
       end
       text.gsub(/(!?)\s*lua_isnone(?:ornil)?\s*\(\s*L\s*,\s*(\d+)\s*\)/) do
         parameter = parameters.find { |candidate| candidate.index == Regexp.last_match(2).to_i }
@@ -762,7 +790,7 @@ line: node.line,
       return cast_to(rewrite(call.arguments.last), cast) if index > @arity
 
       parameter = parameters.find { |candidate| candidate.index == index }
-      value = if parameter.checked
+      value = if parameter.checked || (parameter.optional && call.base_name.match?(/check/))
         %(required(#{parameter.name}, "#{parameter.name}"))
       elsif parameter.optional && call.base_name.match?(/opt/)
         "#{parameter.name}.value_or(#{rewrite(call.arguments.last)})"
@@ -777,15 +805,21 @@ line: node.line,
 
     # The position of the argument whose presence a count of the
     # arguments tests: lua_gettop(L) > 2 asks for a third, and
-    # lua_gettop(L) >= 6 for a sixth. Ruby passes a method's positional
-    # arguments in order, so the count is at least that position exactly
-    # when that argument is given.
+    # lua_gettop(L) >= 6 for a sixth, and lua_gettop(L) <= 1 whether a
+    # second is left out, as lua_gettop(L) < 2 does. Ruby passes a
+    # method's positional arguments in order, so the count is at least
+    # that position exactly when that argument is given.
     private def counted(operator, count)
-      count.to_i + ((operator == ">") ? 1 : 0)
+      count.to_i + ([">", "<="].include?(operator) ? 1 : 0)
     end
 
+    # +value+ cast to +cast+. LÖVE's integer types (common/int.h's uint32)
+    # are named in full, love::uint32, as clang-tidy's misc-include-cleaner
+    # finds their header only so.
     private def cast_to(value, cast)
-      cast ? "static_cast<#{cast}>(#{value})" : value
+      return value unless cast
+
+      "static_cast<#{cast.match?(/\Au?int(?:8|16|32|64)\z/) ? "love::#{cast}" : cast}>(#{value})"
     end
 
     private def replace_identifiers(text)

@@ -285,8 +285,9 @@ module Bindings
       love << '"common/Exception.h"' if code.include?("love::Exception") || code.include?("instance()")
       love << '"common/Module.h"' if code.include?("instance()")
       love << '"common/Color.h"' if code.match?(/\bColor[fD]?\b|\bColorT\b/)
-      love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b/)
-      love << '"common/math.h"' if code.match?(/\bRect\b/)
+      love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b|\bu?int(?:8|16|32|64)\b/)
+      love << '"common/math.h"' if code.match?(/\bF?Rect\b/)
+      love.concat(declaring_headers(name, code))
       # The module's class only where a port reaches it through instance().
       classes = ports.filter_map do |port|
         type = port.function.wrap.instance_class
@@ -306,6 +307,56 @@ module Bindings
       std << "<string>" if code.include?("std::string")
       [lota.sort, love.uniq.sort, std.sort].reject(&:empty?).map { |group| group.map { |file| "#include #{file}" }.join("\n") }
         .join("\n\n").lines(chomp: true)
+    end
+
+    # The headers of module +name+'s own folder that declare a type or an
+    # enumerator +code+ names unqualified, outside any class: w_setBlendMode's
+    # BlendMode and BLENDALPHA_MULTIPLY (graphics/renderstate.h), and
+    # w_setMeshCullMode's CullMode (graphics/vertex.h), whose getConstant
+    # overloads are declared beside them, as clang-tidy's
+    # misc-include-cleaner asks.
+    private def declaring_headers(name, code)
+      names = code.gsub(/\w+::\w+/, "").scan(/\b[A-Z]\w*\b/).uniq
+      Dir.glob("src/modules/#{name}/*.h", base: @love).sort.filter_map do |path|
+        declared = top_level_declarations(path)
+        %("#{path.delete_prefix('src/modules/')}") if names.intersect?(declared)
+      end
+    end
+
+    # The enums and structs +path+ declares in its namespace, not inside a
+    # class, and their enumerators.
+    private def top_level_declarations(path)
+      @top_level_declarations ||= {}
+      @top_level_declarations[path] ||= begin
+        text = File.read(File.join(@love, path))
+        names = []
+        depth = 0
+        text.scan(/\b(?:enum(?:\s+class)?|struct|class)\s+(\w+)[^;{]*\{|[{}]/m) do
+          token = Regexp.last_match(0)
+          if token == "}"
+            depth -= 1
+          else
+            outside = depth.zero? || namespaces_only?(text, Regexp.last_match.begin(0), depth)
+            if (type = Regexp.last_match(1)) && outside && !token.start_with?("class")
+              names << type
+              names.concat(enumerators(text, Regexp.last_match.end(0))) if token.start_with?("enum")
+            end
+            depth += 1
+          end
+        end
+        names
+      end
+    end
+
+    # Whether every brace open at +offset+ in +text+ is a namespace's.
+    private def namespaces_only?(text, offset, depth)
+      text[0...offset].scan(/\bnamespace\s+\w+\s*\{/).size >= depth
+    end
+
+    # The enumerators of the enum whose body starts at +offset+.
+    private def enumerators(text, offset)
+      body = text[offset...(text.index("}", offset))]
+      body.gsub(%r{//[^\n]*|/\*.*?\*/}m, "").split(",").filter_map { |entry| entry[/\A\s*(\w+)/, 1] }
     end
 
     # The header that declares +type+ for module +name+'s wrap files in

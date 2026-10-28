@@ -274,6 +274,62 @@ void set_color(double red, double green, double blue, double alpha) {
                                    static_cast<float>(blue), static_cast<float>(alpha)));
 }
 
+// w_setBackgroundColor with three or four numbers
+// (wrap_Graphics.cpp:2527-2551), as set_color binds love.graphics.setColor.
+void set_background_color(double red, double green, double blue, double alpha) {
+  graphics().setBackgroundColor(love::Colorf(static_cast<float>(red), static_cast<float>(green),
+                                             static_cast<float>(blue), static_cast<float>(alpha)));
+}
+
+// The rectangle w_setScissor and w_intersectScissor read
+// (wrap_Graphics.cpp:570-576 and 586-592): each side as a float, and no
+// negative size.
+love::FRect scissor_rect(double x, double y, double width, double height) {
+  const love::FRect rect{
+      .x = static_cast<float>(x),
+      .y = static_cast<float>(y),
+      .w = static_cast<float>(width),
+      .h = static_cast<float>(height),
+  };
+  if (rect.w < 0 || rect.h < 0) {
+    throw love::Exception("Can't set scissor with negative width and/or height.");
+  }
+  return rect;
+}
+
+// w_setScissor with a rectangle (wrap_Graphics.cpp:560-582).
+void set_scissor(double x, double y, double width, double height) {
+  graphics().setScissor(scissor_rect(x, y, width, height));
+}
+
+// w_intersectScissor (wrap_Graphics.cpp:584-597): clip to where the
+// scissor and the rectangle overlap.
+void intersect_scissor(double x, double y, double width, double height) {
+  graphics().intersectScissor(scissor_rect(x, y, width, height));
+}
+
+// w_setScissor with no rectangle (wrap_Graphics.cpp:562-568): stop
+// clipping.
+void reset_scissor() { graphics().setScissor(); }
+
+// w_getCanvas (wrap_Graphics.cpp:389-437) of the targets set_canvas sets:
+// none, which LÖVE returns as nil, or one 2D texture at its first mipmap,
+// which it returns alone. LÖVE returns its other targets as a table, or
+// as several values, which Lota binds with the forms of setCanvas that
+// set them.
+Texture *canvas() {
+  const Graphics::RenderTargets targets = graphics().getRenderTargets();
+  if (targets.colors.empty()) {
+    return nullptr;
+  }
+  const Graphics::RenderTarget &target = targets.colors.front();
+  if (targets.colors.size() > 1 || targets.depthStencil.texture != nullptr || target.mipmap != 0 ||
+      target.texture->getTextureType() != love::graphics::TEXTURE_2D) {
+    throw love::Exception("%s.canvas returns only a canvas %s.canvas= set.", MODULE, MODULE);
+  }
+  return target.texture;
+}
+
 // luax_checkgraphicscreated (wrap_Graphics.cpp:56-61): the module, once
 // it has a window to draw in.
 Graphics &created_graphics() {
@@ -778,6 +834,61 @@ void arc(const std::string &drawstr, const std::optional<std::string> &arcstr,
   }
 }
 
+// w_points with its coordinates in one Array (wrap_Graphics.cpp:3490-3576),
+// as Lota::Graphics.points passes them however they were given: LÖVE
+// checks their count before it reads them, reads each as a float, and
+// draws every point in the current color.
+void points(Rice::Array coordinates) {
+  const Rice::Array list = std::move(coordinates);
+  const std::vector<Rice::Object> given = elements(list);
+  if (given.size() % 2 != 0) {
+    throw love::Exception("Number of vertex components must be a multiple of two");
+  }
+  Graphics &instance = graphics();
+  const std::size_t numpositions = given.size() / 2;
+  const std::span<love::Vector2> positions(
+      instance.getScratchBuffer<love::Vector2>(static_cast<int>(numpositions)), numpositions);
+  std::size_t component = 0;
+  for (love::Vector2 &position : positions) {
+    position.x = to_float(given.at(component));
+    position.y = to_float(given.at(component + 1));
+    component += 2;
+  }
+  instance.points(positions.data(), nullptr, numpositions);
+}
+
+// w_polygon with its coordinates in one Array (wrap_Graphics.cpp:3742-3788),
+// as Lota::Graphics.polygon passes them however they were given: LÖVE
+// checks the draw mode, then the count, reads each coordinate as a float,
+// and closes the loop by repeating the first vertex.
+void polygon(const std::string &str, Rice::Array coordinates) {
+  const Rice::Array list = std::move(coordinates);
+  const std::vector<Rice::Object> given = elements(list);
+  Graphics::DrawMode mode = Graphics::DRAW_LINE;
+  if (!Graphics::getConstant(str.c_str(), mode)) {
+    raise_enum_error("draw mode", Graphics::getConstants(mode), str);
+  }
+  constexpr std::size_t least = 6;
+  if (given.size() % 2 != 0) {
+    throw love::Exception("Number of vertex components must be a multiple of two");
+  }
+  if (given.size() < least) {
+    throw love::Exception("Need at least three vertices to draw a polygon");
+  }
+  Graphics &instance = graphics();
+  const std::size_t numvertices = given.size() / 2;
+  const std::span<love::Vector2> coords(
+      instance.getScratchBuffer<love::Vector2>(static_cast<int>(numvertices + 1)), numvertices + 1);
+  std::size_t component = 0;
+  for (love::Vector2 &coord : coords.first(numvertices)) {
+    coord.x = to_float(given.at(component));
+    coord.y = to_float(given.at(component + 1));
+    component += 2;
+  }
+  coords.back() = coords.front();
+  instance.polygon(mode, coords.data(), numvertices + 1);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -856,6 +967,16 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("size"), Rice::Arg("usage"),
                                  Rice::Return().takeOwnership())
       .define_singleton_function("line", &line, Rice::Arg("coordinates"))
+      .define_singleton_function("points", &points, Rice::Arg("coordinates"))
+      .define_singleton_function("polygon", &polygon, Rice::Arg("mode"), Rice::Arg("coordinates"))
+      .define_singleton_function("set_background_color", &set_background_color, Rice::Arg("red"),
+                                 Rice::Arg("green"), Rice::Arg("blue"), Rice::Arg("alpha"))
+      .define_singleton_function("set_scissor", &set_scissor, Rice::Arg("x"), Rice::Arg("y"),
+                                 Rice::Arg("width"), Rice::Arg("height"))
+      .define_singleton_function("reset_scissor", &reset_scissor)
+      .define_singleton_function("intersect_scissor", &intersect_scissor, Rice::Arg("x"),
+                                 Rice::Arg("y"), Rice::Arg("width"), Rice::Arg("height"))
+      .define_singleton_function("canvas", &canvas)
       .define_singleton_function("arc", &arc, Rice::Arg("drawstr"), Rice::Arg("arcstr"),
                                  Rice::Arg("arguments"));
 }

@@ -132,7 +132,7 @@ class GeneratorTest < Minitest::Test
   # counts from 0, so the port keeps the subtraction the declaration
   # makes, as w_Quad_setLayer's does.
   def test_a_variable_read_with_arithmetic_keeps_it
-    assert_includes port("SpriteBatch:setDrawRange").definition, %(t.setDrawRange((start.value() - 1), required(count, "count"));)
+    assert_includes port("SpriteBatch:setDrawRange").definition, %(t.setDrawRange((required(start, "start") - 1), required(count, "count"));)
     assert_includes port("Quad:setLayer").definition, "quad.setLayer((layer - 1));"
   end
 
@@ -146,7 +146,7 @@ class GeneratorTest < Minitest::Test
 
     assert_includes port.registration, %(Rice::Arg("sw") = std::optional<double>(), ) +
       %(Rice::Arg("sh") = std::optional<double>())
-    assert_includes port.definition, %(quad.refresh(v, sw.value(), required(sh, "sh"));)
+    assert_includes port.definition, %(quad.refresh(v, required(sw, "sw"), required(sh, "sh"));)
     assert_match(/\?\(Float \| Integer\)\? sw, \?\(Float \| Integer\)\? sh\) -> nil\z/, port.rbs)
   end
 
@@ -296,9 +296,55 @@ class GeneratorTest < Minitest::Test
   def test_a_count_of_the_arguments_tests_whether_one_is_given
     code = port("love.graphics.newSpriteBatch").definition
 
-    assert_includes code, "if (usage.has_value()) {"
+    assert_includes code, "if (usage.has_value() && "
     assert_includes code, "BufferDataUsage usage_value = BUFFERDATAUSAGE_DYNAMIC;"
     refute_includes code, "lua_gettop"
+  end
+
+  # w_setColorMask sets every channel from one boolean when it has at
+  # most one argument, and w_setStencilState resets the state when it has
+  # at most one and that one is nil, which in Ruby is when the second is
+  # not given. A form that reads an argument such a test made optional,
+  # with a check where no test guards it, requires it, as LÖVE's check
+  # raises without it.
+  def test_a_count_of_at_most_some_arguments_tests_whether_the_next_is_left_out
+    mask = port("love.graphics.setColorMask").definition
+    stencil = port("love.graphics.setStencilState").definition
+
+    assert_includes mask, "if (!g.has_value()) {"
+    refute_includes mask, "lua_gettop"
+    assert_match(/if \(!comparestr\.has_value\(\) &&\s*!actionstr\.has_value\(\)\) \{/, stencil)
+    assert_includes stencil, %(getConstant(required(comparestr, "comparestr").c_str(), s.compare))
+    assert_includes stencil, "s.readMask = static_cast<love::uint32>(read_mask.value_or(LOVE_UINT32_MAX));"
+  end
+
+  # w_setBlendMode tests its alpha mode's name only when it is given one,
+  # in an if whose body is that test alone; the port tests both in one
+  # if, as clang-tidy's readability-redundant-nested-if asks.
+  def test_an_if_holding_only_an_if_tests_both_conditions_at_once
+    code = port("love.graphics.setBlendMode").definition
+
+    assert_includes code, 'if (alphamode.has_value() && !getConstant(required(alphamode, "alphamode").c_str(), '
+    assert_equal 2, code.scan(/^if \(/).size
+  end
+
+  # The render state's enums and structs (graphics/renderstate.h) and the
+  # vertex enums (graphics/vertex.h) are declared outside any class, with
+  # the getConstant overloads that read their names, so a file whose
+  # ports name them includes those headers, as clang-tidy's
+  # misc-include-cleaner asks, and a file whose ports name none does not.
+  def test_a_module_file_includes_the_headers_of_the_enums_it_names
+    list = Bindings::BindingList.new
+    list.generate("love.graphics.setBlendMode")
+    list.generate("love.graphics.setMeshCullMode")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/graphics.cpp")
+    plain = Bindings::BindingList.new
+    plain.generate("love.graphics.setLineStyle")
+
+    assert_includes code, %(#include "graphics/renderstate.h")
+    assert_includes code, %(#include "graphics/vertex.h")
+    refute_includes BindingsHelper.generator(list: plain).files.fetch("ext/lota/native/generated/graphics.cpp"),
+      "graphics/renderstate.h"
   end
 
   # w_newBody tests its type's const char * for truth, and makes it 0

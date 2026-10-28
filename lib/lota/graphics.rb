@@ -916,5 +916,538 @@ module Lota
       min, mag, anisotropy = Native::Graphics.default_filter
       [min.to_sym, mag.to_sym, anisotropy]
     end
+
+    # Sets the color the window is cleared to before each frame, matching
+    # love.graphics.setBackgroundColor
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setBackgroundColor).
+    #
+    # [color] Red, green, blue, and optionally alpha, each a Float or
+    #   Integer from 0 to 1, as several values or one Array; alpha is 1
+    #   when left out.
+    #
+    # It starts as opaque black. Lota's loop clears the window to it at
+    # the start of each frame, as LÖVE's does. LÖVE stores each component
+    # as a single-precision float, and so does Lota.
+    #
+    # Raises ArgumentError for any count of components but 3 or 4,
+    # TypeError for one that is not a number, and ThreadError off the main
+    # thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.background_color = 0.1, 0.1, 0.2
+    #   Lota::Graphics.background_color = [1, 1, 1, 0]
+    def self.background_color=(color)
+      components = Array(color)
+      unless components.size == 3 || components.size == 4
+        raise ArgumentError, "wrong number of arguments (given #{components.size}, expected 3 or 4)"
+      end
+
+      Native::Graphics.set_background_color(components.fetch(0), components.fetch(1), components.fetch(2),
+        components.fetch(3, 1.0))
+    end
+
+    # Sets how what is drawn mixes with what is already there, matching
+    # love.graphics.setBlendMode (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setBlendMode).
+    #
+    # [mode] The blend mode, such as +:alpha+, +:add+, +:subtract+,
+    #   +:multiply+, +:lighten+, +:darken+, +:screen+, +:replace+, or
+    #   +:none+; then optionally how the colors drawn treat alpha,
+    #   +:alphamultiply+, the default, or +:premultiplied+, as one value or
+    #   an Array.
+    #
+    # It starts as +:alpha+ with +:alphamultiply+, which draws translucent
+    # colors over what is behind them.
+    #
+    # Raises ArgumentError for an unknown mode, RuntimeError with LÖVE's
+    # message for a mode this renderer cannot draw, and ThreadError off the
+    # main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.blend_mode = :add
+    #   Lota::Graphics.blend_mode = :multiply, :premultiplied
+    def self.blend_mode=(mode)
+      blend, alpha = Array(mode)
+      Native::Graphics.set_blend_mode(EnumName.of(blend), alpha && EnumName.of(alpha))
+    end
+
+    # The blend mode and how it treats alpha, as an Array of two Symbols,
+    # matching love.graphics.getBlendMode
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getBlendMode).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   mode, alphamode = Lota::Graphics.blend_mode # => [:alpha, :alphamultiply]
+    def self.blend_mode
+      Native::Graphics.blend_mode.map(&:to_sym)
+    end
+
+    # The canvas drawing goes to, or +nil+ while it goes to the window,
+    # matching love.graphics.getCanvas
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvas).
+    #
+    # It is the Lota::Graphics::Texture that Lota::Graphics.canvas= set.
+    # LÖVE also returns several canvases, or a table describing them, for
+    # the forms of setCanvas that set those; Lota binds them later.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.canvas = shadow_map
+    #   Lota::Graphics.canvas # => #<Lota::Graphics::Texture ...>
+    def self.canvas
+      native = Native::Graphics.canvas
+      native && Texture.from_native(native)
+    end
+
+    # Sets which color channels drawing writes, matching
+    # love.graphics.setColorMask (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setColorMask).
+    #
+    # [mask] Whether red, green, blue, and alpha are written, as four
+    #   booleans in one Array or several values; one boolean for all four;
+    #   or +nil+ to write every channel again.
+    #
+    # A channel that is masked keeps what the target already holds there.
+    # Every channel is written to start with.
+    #
+    # Raises ArgumentError for two or three values, and ThreadError off the
+    # main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.color_mask = true, true, false, true # leave blue alone
+    #   Lota::Graphics.color_mask = nil
+    def self.color_mask=(mask)
+      r, g, b, a = mask.is_a?(Array) ? mask : [mask]
+      Native::Graphics.set_color_mask(r, g, b, a)
+    end
+
+    # Which color channels drawing writes, as an Array of four booleans
+    # for red, green, blue, and alpha, matching love.graphics.getColorMask
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getColorMask).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   r, g, b, a = Lota::Graphics.color_mask # => [true, true, true, true]
+    def self.color_mask
+      Native::Graphics.color_mask
+    end
+
+    # Sets how drawing tests and writes the depth buffer, matching
+    # love.graphics.setDepthMode (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setDepthMode).
+    #
+    # [mode] An Array of the compare mode, one of +:equal+, +:notequal+,
+    #   +:less+, +:lequal+, +:gequal+, +:greater+, +:never+, or +:always+,
+    #   and whether drawing writes its depth; or +nil+ to turn the depth
+    #   test off.
+    #
+    # It starts as +:always+ without writing. Drawing tests and writes
+    # depth only on a target with a depth buffer.
+    #
+    # Raises ArgumentError for an unknown compare mode or one without
+    # whether to write, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.depth_mode = :lequal, true
+    #   Lota::Graphics.depth_mode = nil
+    def self.depth_mode=(mode)
+      compare, write = mode
+      Native::Graphics.set_depth_mode(compare && EnumName.of(compare), write)
+    end
+
+    # The depth test's compare mode and whether drawing writes depth, as
+    # an Array of a Symbol and a boolean, matching
+    # love.graphics.getDepthMode (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getDepthMode).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   comparemode, write = Lota::Graphics.depth_mode # => [:always, false]
+    def self.depth_mode
+      compare, write = Native::Graphics.depth_mode
+      [compare.to_sym, write]
+    end
+
+    # Sets which winding of a triangle's vertices counts as its front,
+    # matching love.graphics.setFrontFaceWinding
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setFrontFaceWinding).
+    #
+    # [winding] +:ccw+, counterclockwise, the default, or +:cw+.
+    #
+    # The mesh cull mode removes faces by it.
+    #
+    # Raises ArgumentError for an unknown winding, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.front_face_winding = :cw
+    def self.front_face_winding=(winding)
+      Native::Graphics.set_front_face_winding(EnumName.of(winding))
+    end
+
+    # Which winding counts as a triangle's front, +:ccw+ or +:cw+,
+    # matching love.graphics.getFrontFaceWinding
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getFrontFaceWinding).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.front_face_winding # => :ccw
+    def self.front_face_winding
+      Native::Graphics.front_face_winding.to_sym
+    end
+
+    # Sets how lines are joined where they meet, matching
+    # love.graphics.setLineJoin (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setLineJoin).
+    #
+    # [join] +:miter+, the default, extends the edges to a point;
+    #   +:bevel+ cuts the corner off; +:none+ leaves each segment's end
+    #   square.
+    #
+    # Raises ArgumentError for an unknown join, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.line_join = :bevel
+    def self.line_join=(join)
+      Native::Graphics.set_line_join(EnumName.of(join))
+    end
+
+    # How lines are joined, +:miter+, +:bevel+, or +:none+, matching
+    # love.graphics.getLineJoin (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getLineJoin).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.line_join # => :miter
+    def self.line_join
+      Native::Graphics.line_join.to_sym
+    end
+
+    # Sets which faces of a mesh's triangles are left undrawn, matching
+    # love.graphics.setMeshCullMode
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setMeshCullMode).
+    #
+    # [mode] +:none+, the default, draws both faces; +:back+ or +:front+
+    #   leaves that face out, by the front face winding.
+    #
+    # Raises ArgumentError for an unknown mode, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.mesh_cull_mode = :back
+    def self.mesh_cull_mode=(mode)
+      Native::Graphics.set_mesh_cull_mode(EnumName.of(mode))
+    end
+
+    # Which faces of a mesh are left undrawn, +:none+, +:back+, or
+    # +:front+, matching love.graphics.getMeshCullMode
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getMeshCullMode).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.mesh_cull_mode # => :none
+    def self.mesh_cull_mode
+      Native::Graphics.mesh_cull_mode.to_sym
+    end
+
+    # Sets the size points are drawn at, matching love.graphics.setPointSize
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setPointSize).
+    #
+    # [size] Float or Integer width of each point, in pixels; it starts
+    #   at 1.
+    #
+    # Raises TypeError for a size that is not a number, and ThreadError
+    # off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.point_size = 4
+    def self.point_size=(size)
+      Native::Graphics.set_point_size(size)
+    end
+
+    # The size points are drawn at, as a Float, matching
+    # love.graphics.getPointSize (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getPointSize).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.point_size # => 1.0
+    def self.point_size
+      Native::Graphics.point_size
+    end
+
+    # Limits drawing to a rectangle, or lets it reach everywhere again,
+    # matching love.graphics.setScissor
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setScissor).
+    #
+    # [rect] The x and y of the rectangle's top left, its width, and its
+    #   height, as one Array or several values; or +nil+ to stop clipping.
+    #
+    # The rectangle is in the target's coordinates, which the current
+    # transformation does not move. LÖVE reads each side as a single-precision float,
+    # and so does Lota. <tt>scissor = nil</tt> is LÖVE's setScissor() with
+    # no arguments.
+    #
+    # Raises ArgumentError for any count of sides but 4, TypeError for a
+    # side that is not a number, RuntimeError with LÖVE's message for a
+    # negative size, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.scissor = 0, 0, 400, 300
+    #   Lota::Graphics.scissor = nil
+    def self.scissor=(rect)
+      if rect.nil?
+        Native::Graphics.reset_scissor
+        return
+      end
+
+      sides = Array(rect)
+      raise ArgumentError, "wrong number of arguments (given #{sides.size}, expected 4)" unless sides.size == 4
+
+      Native::Graphics.set_scissor(number(sides.fetch(0)), number(sides.fetch(1)), number(sides.fetch(2)),
+        number(sides.fetch(3)))
+    end
+
+    # The rectangle drawing is limited to, as an Array of its x, y, width,
+    # and height, or an empty Array when drawing is not limited, matching
+    # love.graphics.getScissor (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getScissor), which returns no values then.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   x, y, width, height = Lota::Graphics.scissor # => []
+    def self.scissor
+      Native::Graphics.scissor
+    end
+
+    # Limits drawing to where the current scissor and a rectangle overlap,
+    # matching love.graphics.intersectScissor
+    # (src/modules/graphics/wrap_Graphics.cpp, w_intersectScissor).
+    #
+    # [x] Float or Integer position of the rectangle's left edge.
+    # [y] Float or Integer position of its top edge.
+    # [width] Float or Integer width.
+    # [height] Float or Integer height.
+    #
+    # With no scissor set, the rectangle becomes the scissor.
+    #
+    # Raises TypeError for a side that is not a number, RuntimeError with
+    # LÖVE's message for a negative size, and ThreadError off the main
+    # thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.intersect_scissor(0, 0, 4, 4)
+    def self.intersect_scissor(x, y, width, height)
+      Native::Graphics.intersect_scissor(x, y, width, height)
+    end
+
+    # How many pushes are waiting for their pop, as an Integer, matching
+    # love.graphics.getStackDepth (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getStackDepth).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.push { Lota::Graphics.stack_depth } # => 1
+    def self.stack_depth
+      Native::Graphics.stack_depth
+    end
+
+    # Sets how drawing tests and changes the stencil buffer, or turns the
+    # stencil off, matching love.graphics.setStencilState
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setStencilState).
+    #
+    # [state] An Array of what drawing does to the stencil, one of
+    #   +:keep+, +:zero+, +:replace+, +:increment+, +:decrement+,
+    #   +:incrementwrap+, +:decrementwrap+, or +:invert+; the compare mode
+    #   it tests with, as Lota::Graphics.depth_mode= names them; then
+    #   optionally the Integer value it compares and writes, 0 when left
+    #   out, and the read and write masks, every bit when left out. +nil+
+    #   turns the stencil off.
+    #
+    # It starts as +:keep+ and +:always+ with a value of 0. Drawing tests
+    # and changes the stencil only on a target with a stencil buffer.
+    #
+    # Raises ArgumentError for an unknown action or compare mode or a
+    # missing compare mode, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.stencil_state = :replace, :always, 1
+    #   Lota::Graphics.stencil_state = :keep, :greater, 0
+    #   Lota::Graphics.stencil_state = nil
+    def self.stencil_state=(state)
+      action, compare, value, read_mask, write_mask = state
+      Native::Graphics.set_stencil_state(action && EnumName.of(action), compare && EnumName.of(compare),
+        value.nil? ? 0 : integer(value), optional_number(read_mask), optional_number(write_mask))
+    end
+
+    # The stencil's action, compare mode, value, read mask, and write
+    # mask, as an Array, matching love.graphics.getStencilState
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getStencilState).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   action, comparemode, value = Lota::Graphics.stencil_state # => [:keep, :always, 0, ...]
+    def self.stencil_state
+      action, compare, *numbers = Native::Graphics.stencil_state
+      [action.to_sym, compare.to_sym, *numbers]
+    end
+
+    # Whether colors are blended in linear space, as a game asks with
+    # +t.gammacorrect+, matching love.graphics.isGammaCorrect
+    # (src/modules/graphics/wrap_Graphics.cpp, w_isGammaCorrect).
+    #
+    # === Example
+    #
+    #   Lota::Graphics.gamma_correct? # => false
+    def self.gamma_correct?
+      Native::Graphics.gamma_correct?
+    end
+
+    # Sets whether shapes are drawn as the outlines of their triangles,
+    # matching love.graphics.setWireframe
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setWireframe).
+    #
+    # [enable] +true+ to draw wireframes, +false+ to draw shapes whole, as
+    #   they start.
+    #
+    # OpenGL ES has no wireframes, and LÖVE leaves it unchanged there.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.wireframe = true
+    def self.wireframe=(enable)
+      Native::Graphics.set_wireframe(enable)
+    end
+
+    # Whether shapes are drawn as wireframes, matching
+    # love.graphics.isWireframe (src/modules/graphics/wrap_Graphics.cpp,
+    # w_isWireframe).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.wireframe? # => false
+    def self.wireframe?
+      Native::Graphics.wireframe?
+    end
+
+    # The renderer's name, version, vendor, and device, as an Array of
+    # four Strings, matching love.graphics.getRendererInfo
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getRendererInfo).
+    #
+    # The name is the renderer's, such as +"Metal"+ on macOS or
+    # +"OpenGL"+ on Linux; the rest are what the driver reports.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   name, version, vendor, device = Lota::Graphics.renderer_info
+    def self.renderer_info
+      Native::Graphics.renderer_info
+    end
+
+    # Draws points in the current color and point size, matching
+    # love.graphics.points (src/modules/graphics/wrap_Graphics.cpp,
+    # w_points).
+    #
+    # [points] The x and y of each point in turn, as numbers or as one
+    #   Array of them.
+    #
+    # LÖVE reads each coordinate as a single-precision float, and so does
+    # Lota. LÖVE also takes a table of points with a color each; Lota
+    # binds that form later.
+    #
+    # Raises RuntimeError with LÖVE's message for an odd count of
+    # coordinates, TypeError for a coordinate that is not a number, and
+    # ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.points(10, 10, 20, 20)
+    #   Lota::Graphics.points([1, 1, 7, 7, 14, 1])
+    def self.points(*points)
+      Native::Graphics.points(coordinates(points))
+    end
+
+    # Draws a polygon in the current color, matching
+    # love.graphics.polygon (src/modules/graphics/wrap_Graphics.cpp,
+    # w_polygon).
+    #
+    # [mode] +:fill+ to fill it, or +:line+ to draw its outline.
+    # [vertices] The x and y of each vertex in turn, at least three
+    #   vertices, as numbers or as one Array of them.
+    #
+    # The last vertex joins the first. LÖVE fills a polygon as a fan of
+    # triangles from its first vertex, so a filled polygon draws as
+    # expected only when it is convex. LÖVE reads each coordinate as a
+    # single-precision float, and so does Lota.
+    #
+    # Raises ArgumentError for an unknown +mode+, RuntimeError with LÖVE's
+    # message for an odd count of coordinates or fewer than three
+    # vertices, TypeError for a coordinate that is not a number, and
+    # ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.polygon(:fill, 100, 100, 200, 100, 150, 200)
+    #   Lota::Graphics.polygon(:line, [0, 0, 16, 0, 8, 16])
+    def self.polygon(mode, *vertices)
+      Native::Graphics.polygon(EnumName.of(mode), coordinates(vertices))
+    end
+
+    # The coordinates in +values+, given as numbers or as one Array of
+    # them, as w_points and w_polygon read a single table argument in
+    # place of the numbers. :nodoc:
+    private_class_method def self.coordinates(values)
+      first = values.first
+      return first if values.size == 1 && first.is_a?(Array)
+
+      values.map { |value| number(value) }
+    end
+
+    # +value+, a number LÖVE reads with luaL_checkinteger, or TypeError.
+    private_class_method def self.integer(value)
+      return value if value.is_a?(Integer)
+
+      raise TypeError, "wrong argument type #{value.class} (expected Integer)"
+    end
   end
 end

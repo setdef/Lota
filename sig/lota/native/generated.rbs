@@ -123,6 +123,50 @@ module Lota
       def self.font: () -> Font
 
       def self.default_filter: () -> [String, String, Integer]
+
+      def self.set_blend_mode: (String mode, ?String? alphamode) -> nil
+
+      def self.blend_mode: () -> [String, String]
+
+      def self.set_color_mask: (?bool? r, ?bool? g, ?bool? b, ?bool? a) -> nil
+
+      def self.color_mask: () -> [bool, bool, bool, bool]
+
+      def self.set_depth_mode: (?String? compare, ?bool? write) -> nil
+
+      def self.depth_mode: () -> [String, bool]
+
+      def self.set_front_face_winding: (String winding) -> nil
+
+      def self.front_face_winding: () -> String
+
+      def self.set_line_join: (String join) -> nil
+
+      def self.line_join: () -> String
+
+      def self.set_mesh_cull_mode: (String mode) -> nil
+
+      def self.mesh_cull_mode: () -> String
+
+      def self.set_point_size: (Float | Integer size) -> nil
+
+      def self.point_size: () -> Float
+
+      def self.scissor: () -> Array[Float]
+
+      def self.stack_depth: () -> Integer
+
+      def self.set_stencil_state: (?String? actionstr, ?String? comparestr, ?Integer value, ?(Float | Integer)? read_mask, ?(Float | Integer)? write_mask) -> nil
+
+      def self.stencil_state: () -> [String, String, Integer, Integer, Integer]
+
+      def self.gamma_correct?: () -> bool
+
+      def self.set_wireframe: (bool enable) -> nil
+
+      def self.wireframe?: () -> bool
+
+      def self.renderer_info: () -> [String, String, String, String]
     end
 
     class Quad

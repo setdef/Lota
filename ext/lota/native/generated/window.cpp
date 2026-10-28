@@ -57,7 +57,7 @@ Rice::Array w_getDesktopDimensions(std::optional<int> argument1) {
   int height = 0;
   int displayindex = 0;
   if (argument1.has_value()) {
-    displayindex = argument1.value() - 1;
+    displayindex = required(argument1, "argument1") - 1;
   } else {
     int x{};
     int y{};

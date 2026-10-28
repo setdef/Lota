@@ -192,6 +192,49 @@ bound_by_hand "love.graphics.line",
 bound_by_hand "love.graphics.arc",
   reason: "reads its position at an index that depends on whether an arc mode comes second; " \
     "Lota::Graphics.arc passes the arc mode or nil"
+generate "love.graphics.setBlendMode"
+generate "love.graphics.getBlendMode"
+generate "love.graphics.setColorMask"
+generate "love.graphics.getColorMask"
+generate "love.graphics.setDepthMode"
+generate "love.graphics.getDepthMode"
+generate "love.graphics.setFrontFaceWinding"
+generate "love.graphics.getFrontFaceWinding"
+generate "love.graphics.setLineJoin"
+generate "love.graphics.getLineJoin"
+generate "love.graphics.setMeshCullMode"
+generate "love.graphics.getMeshCullMode"
+generate "love.graphics.setPointSize"
+generate "love.graphics.getPointSize"
+generate "love.graphics.getScissor"
+bound_by_hand "love.graphics.intersectScissor",
+  reason: "assigns each side of its rectangle in a statement of its own, so the port's four numbers fail clang-tidy's " \
+    "bugprone-easily-swappable-parameters, as love.graphics.setScissor's do; Lota binds them in one initializer"
+generate "love.graphics.getStackDepth"
+generate "love.graphics.setStencilState"
+generate "love.graphics.getStencilState"
+generate "love.graphics.isGammaCorrect"
+generate "love.graphics.setWireframe"
+generate "love.graphics.isWireframe"
+generate "love.graphics.getRendererInfo"
+bound_by_hand "love.graphics.setBackgroundColor",
+  reason: "reads its color from a table or from numbers, and assigns each component in a statement of its own, " \
+    "so the port's four numbers fail clang-tidy's bugprone-easily-swappable-parameters, as " \
+    "love.graphics.setColor's do; Lota binds the form with separate numbers in one constructor call"
+bound_by_hand "love.graphics.setScissor",
+  reason: "chooses its form by a count of the arguments it keeps in a variable and by whether all four are " \
+    "nil, and assigns each side in a statement of its own, as love.graphics.setColor does; Lota binds a " \
+    "rectangle (set_scissor) and none (reset_scissor)"
+bound_by_hand "love.graphics.getCanvas",
+  reason: "returns as many values as it has targets, or a table it builds with pushRenderTarget, which the " \
+    "generator does not port; Lota binds the targets love.graphics.setCanvas's bound form sets: none or one"
+bound_by_hand "love.graphics.points",
+  reason: "reads its coordinates in a loop over every argument, from a table, or from a table of tables with " \
+    "colors; Lota::Graphics.points passes the numbers as one Array, as line, and the form with colors waits " \
+    "for a game that needs it"
+bound_by_hand "love.graphics.polygon",
+  reason: "reads its coordinates in a loop over every argument after the draw mode, or from a table; " \
+    "Lota::Graphics.polygon passes them as one Array, as line"
 bound_by_hand "love.graphics.captureScreenshot",
   reason: "takes a Lua function, a Channel, or a filename; Lota binds a Ruby callable for the parity harness"
 

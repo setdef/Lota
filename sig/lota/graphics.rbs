@@ -87,5 +87,65 @@ module Lota
     def self.default_filter=: (Symbol | String | Array[Symbol | String | Integer | Float] filter) -> void
 
     def self.default_filter: () -> [Symbol, Symbol, Integer]
+
+    def self.background_color=: (Array[Float | Integer] color) -> void
+
+    def self.blend_mode=: (Symbol | String | Array[Symbol | String] mode) -> void
+
+    def self.blend_mode: () -> Array[Symbol]
+
+    def self.canvas: () -> Texture?
+
+    def self.color_mask=: (bool | Array[bool] | nil mask) -> void
+
+    def self.color_mask: () -> [bool, bool, bool, bool]
+
+    def self.depth_mode=: ([Symbol | String, bool] | nil mode) -> void
+
+    def self.depth_mode: () -> [Symbol, bool]
+
+    def self.front_face_winding=: (Symbol | String winding) -> void
+
+    def self.front_face_winding: () -> Symbol
+
+    def self.line_join=: (Symbol | String join) -> void
+
+    def self.line_join: () -> Symbol
+
+    def self.mesh_cull_mode=: (Symbol | String mode) -> void
+
+    def self.mesh_cull_mode: () -> Symbol
+
+    def self.point_size=: (Float | Integer size) -> void
+
+    def self.point_size: () -> Float
+
+    def self.scissor=: (Array[Float | Integer] | nil rect) -> void
+
+    def self.scissor: () -> Array[Float]
+
+    def self.intersect_scissor: (Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
+
+    def self.stack_depth: () -> Integer
+
+    def self.stencil_state=: (Array[Symbol | String | Float | Integer] | nil state) -> void
+
+    def self.stencil_state: () -> Array[Symbol | Integer]
+
+    def self.gamma_correct?: () -> bool
+
+    def self.wireframe=: (bool enable) -> void
+
+    def self.wireframe?: () -> bool
+
+    def self.renderer_info: () -> [String, String, String, String]
+
+    def self.points: (*(Float | Integer | Array[Float | Integer]) points) -> nil
+
+    def self.polygon: ((Symbol | String) mode, *(Float | Integer | Array[Float | Integer]) vertices) -> nil
+
+    private def self.coordinates: (Array[Float | Integer | Array[Float | Integer]] values) -> Array[Float | Integer]
+
+    private def self.integer: (::Object? value) -> Integer
   end
 end

@@ -14,13 +14,17 @@
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/int.h"
+#include "common/math.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
 #include "graphics/Quad.h"
 #include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
+#include "graphics/renderstate.h"
+#include "graphics/vertex.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <string>
 
@@ -63,11 +67,70 @@ bool w_isCreated() { return instance()->isCreated(); }
 // love.graphics.isActive: w_isActive (wrap_Graphics.cpp:189-193).
 bool w_isActive() { return instance()->isActive(); }
 
+// love.graphics.isGammaCorrect: w_isGammaCorrect (wrap_Graphics.cpp:195-199).
+bool w_isGammaCorrect() { return graphics::isGammaCorrect(); }
+
 // love.graphics.getWidth: w_getWidth (wrap_Graphics.cpp:207-211).
 int w_getWidth() { return instance()->getWidth(); }
 
 // love.graphics.getHeight: w_getHeight (wrap_Graphics.cpp:213-217).
 int w_getHeight() { return instance()->getHeight(); }
+
+// love.graphics.getScissor: w_getScissor (wrap_Graphics.cpp:599-611).
+Rice::Array w_getScissor() {
+  Rice::Array results;
+  FRect rect{};
+  if (!instance()->getScissor(rect)) {
+    return results;
+  }
+  results.push(static_cast<double>(rect.x), false);
+  results.push(static_cast<double>(rect.y), false);
+  results.push(static_cast<double>(rect.w), false);
+  results.push(static_cast<double>(rect.h), false);
+  return results;
+}
+
+// love.graphics.setStencilState: w_setStencilState (wrap_Graphics.cpp:646-670).
+void w_setStencilState(const std::optional<std::string> &actionstr,
+                       const std::optional<std::string> &comparestr, int value,
+                       std::optional<double> read_mask, std::optional<double> write_mask) {
+  if (!comparestr.has_value() && !actionstr.has_value()) {
+    instance()->setStencilState();
+    return;
+  }
+  StencilState s{};
+  if (!getConstant(required(actionstr, "actionstr").c_str(), s.action)) {
+    raise_enum_error("stencil draw action", getConstants(s.action),
+                     required(actionstr, "actionstr"));
+  }
+  if (!getConstant(required(comparestr, "comparestr").c_str(), s.compare)) {
+    raise_enum_error("compare mode", getConstants(s.compare), required(comparestr, "comparestr"));
+  }
+  s.value = value;
+  s.readMask = static_cast<love::uint32>(read_mask.value_or(LOVE_UINT32_MAX));
+  s.writeMask = static_cast<love::uint32>(write_mask.value_or(LOVE_UINT32_MAX));
+  instance()->setStencilState(s);
+}
+
+// love.graphics.getStencilState: w_getStencilState (wrap_Graphics.cpp:672-690).
+Rice::Array w_getStencilState() {
+  Rice::Array results;
+  const StencilState &s = instance()->getStencilState();
+  const char *actionstr = nullptr;
+  if (!getConstant(s.action, actionstr)) {
+    throw love::Exception("Unknown stencil draw action.");
+  }
+  const char *comparestr = nullptr;
+  if (!getConstant(s.compare, comparestr)) {
+    throw love::Exception("Unknown compare mode.");
+  }
+  results.push(std::string(actionstr), false);
+  results.push(std::string(comparestr), false);
+  results.push(s.value, false);
+  results.push(s.readMask, false);
+  results.push(s.writeMask, false);
+  return results;
+}
 
 // love.graphics.getColor: w_getColor (wrap_Graphics.cpp:2517-2525).
 Rice::Array w_getColor() {
@@ -102,6 +165,69 @@ Font *w_getFont() {
   Font *f = nullptr;
   f = instance()->getFont();
   return f;
+}
+
+// love.graphics.setColorMask: w_setColorMask (wrap_Graphics.cpp:2591-2615).
+void w_setColorMask(std::optional<bool> r, std::optional<bool> g, std::optional<bool> b,
+                    std::optional<bool> a) {
+  ColorChannelMask mask{};
+  if (!r.has_value()) {
+    mask.r = mask.g = mask.b = mask.a = true;
+  } else {
+    if (!g.has_value()) {
+      mask.r = mask.g = mask.b = mask.a = required(r, "r");
+    } else {
+      mask.r = required(r, "r");
+      mask.g = required(g, "g");
+      mask.b = required(b, "b");
+      mask.a = required(a, "a");
+    }
+  }
+  instance()->setColorMask(mask);
+}
+
+// love.graphics.getColorMask: w_getColorMask (wrap_Graphics.cpp:2617-2627).
+Rice::Array w_getColorMask() {
+  Rice::Array results;
+  const ColorChannelMask mask = instance()->getColorMask();
+  results.push(mask.r, false);
+  results.push(mask.g, false);
+  results.push(mask.b, false);
+  results.push(mask.a, false);
+  return results;
+}
+
+// love.graphics.setBlendMode: w_setBlendMode (wrap_Graphics.cpp:2629-2646).
+void w_setBlendMode(const std::string &mode, const std::optional<std::string> &alphamode) {
+  BlendMode mode_value{};
+  if (!getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("blend mode", getConstants(mode_value), mode);
+  }
+  BlendAlpha alphamode_value = BLENDALPHA_MULTIPLY;
+  if (alphamode.has_value() &&
+      !getConstant(required(alphamode, "alphamode").c_str(), alphamode_value)) {
+    raise_enum_error("blend alpha mode", getConstants(alphamode_value),
+                     required(alphamode, "alphamode"));
+  }
+  instance()->setBlendMode(mode_value, alphamode_value);
+}
+
+// love.graphics.getBlendMode: w_getBlendMode (wrap_Graphics.cpp:2648-2665).
+Rice::Array w_getBlendMode() {
+  Rice::Array results;
+  const char *str = nullptr;
+  const char *alphastr = nullptr;
+  BlendAlpha alphamode{};
+  const BlendMode mode = instance()->getBlendMode(alphamode);
+  if (!getConstant(mode, str)) {
+    throw love::Exception("Unknown blend mode");
+  }
+  if (!getConstant(alphamode, alphastr)) {
+    throw love::Exception("Unknown blend alpha mode");
+  }
+  results.push(std::string(str), false);
+  results.push(std::string(alphastr), false);
+  return results;
 }
 
 // love.graphics.setDefaultFilter: w_setDefaultFilter (wrap_Graphics.cpp:2751-2767).
@@ -149,6 +275,15 @@ void w_setLineStyle(const std::string &style) {
   instance()->setLineStyle(style_value);
 }
 
+// love.graphics.setLineJoin: w_setLineJoin (wrap_Graphics.cpp:2834-2843).
+void w_setLineJoin(const std::string &join) {
+  Graphics::LineJoin join_value{};
+  if (!Graphics::getConstant(join.c_str(), join_value)) {
+    raise_enum_error("line join", Graphics::getConstants(join_value), join);
+  }
+  instance()->setLineJoin(join_value);
+}
+
 // love.graphics.getLineWidth: w_getLineWidth (wrap_Graphics.cpp:2845-2849).
 double w_getLineWidth() { return static_cast<double>(instance()->getLineWidth()); }
 
@@ -160,6 +295,106 @@ std::string w_getLineStyle() {
     throw love::Exception("Unknown line style");
   }
   return str;
+}
+
+// love.graphics.getLineJoin: w_getLineJoin (wrap_Graphics.cpp:2861-2869).
+std::string w_getLineJoin() {
+  const Graphics::LineJoin join = instance()->getLineJoin();
+  const char *str = nullptr;
+  if (!Graphics::getConstant(join, str)) {
+    throw love::Exception("Unknown line join");
+  }
+  return str;
+}
+
+// love.graphics.setPointSize: w_setPointSize (wrap_Graphics.cpp:2871-2876).
+void w_setPointSize(double size) { instance()->setPointSize(static_cast<float>(size)); }
+
+// love.graphics.getPointSize: w_getPointSize (wrap_Graphics.cpp:2878-2882).
+double w_getPointSize() { return static_cast<double>(instance()->getPointSize()); }
+
+// love.graphics.setDepthMode: w_setDepthMode (wrap_Graphics.cpp:2884-2901).
+void w_setDepthMode(const std::optional<std::string> &compare, std::optional<bool> write) {
+  if (!compare.has_value() && !write.has_value()) {
+    instance()->setDepthMode();
+  } else {
+    CompareMode compare_value = COMPARE_ALWAYS;
+    if (!getConstant(required(compare, "compare").c_str(), compare_value)) {
+      raise_enum_error("compare mode", getConstants(compare_value), required(compare, "compare"));
+    }
+    instance()->setDepthMode(compare_value, required(write, "write"));
+  }
+}
+
+// love.graphics.getDepthMode: w_getDepthMode (wrap_Graphics.cpp:2903-2916).
+Rice::Array w_getDepthMode() {
+  Rice::Array results;
+  CompareMode compare = COMPARE_ALWAYS;
+  bool write = false;
+  instance()->getDepthMode(compare, write);
+  const char *str = nullptr;
+  if (!getConstant(compare, str)) {
+    throw love::Exception("Unknown compare mode");
+  }
+  results.push(std::string(str), false);
+  results.push(write, false);
+  return results;
+}
+
+// love.graphics.setMeshCullMode: w_setMeshCullMode (wrap_Graphics.cpp:2918-2928).
+void w_setMeshCullMode(const std::string &mode) {
+  CullMode mode_value{};
+  if (!getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("cull mode", getConstants(mode_value), mode);
+  }
+  instance()->setMeshCullMode(mode_value);
+}
+
+// love.graphics.getMeshCullMode: w_getMeshCullMode (wrap_Graphics.cpp:2930-2938).
+std::string w_getMeshCullMode() {
+  const CullMode mode = instance()->getMeshCullMode();
+  const char *str = nullptr;
+  if (!getConstant(mode, str)) {
+    throw love::Exception("Unknown cull mode");
+  }
+  return str;
+}
+
+// love.graphics.setFrontFaceWinding: w_setFrontFaceWinding (wrap_Graphics.cpp:2940-2950).
+void w_setFrontFaceWinding(const std::string &winding) {
+  Winding winding_value{};
+  if (!getConstant(winding.c_str(), winding_value)) {
+    raise_enum_error("vertex winding", getConstants(winding_value), winding);
+  }
+  instance()->setFrontFaceWinding(winding_value);
+}
+
+// love.graphics.getFrontFaceWinding: w_getFrontFaceWinding (wrap_Graphics.cpp:2952-2960).
+std::string w_getFrontFaceWinding() {
+  const Winding winding = instance()->getFrontFaceWinding();
+  const char *str = nullptr;
+  if (!getConstant(winding, str)) {
+    throw love::Exception("Unknown vertex winding");
+  }
+  return str;
+}
+
+// love.graphics.setWireframe: w_setWireframe (wrap_Graphics.cpp:2962-2966).
+void w_setWireframe(bool enable) { instance()->setWireframe(enable); }
+
+// love.graphics.isWireframe: w_isWireframe (wrap_Graphics.cpp:2968-2972).
+bool w_isWireframe() { return instance()->isWireframe(); }
+
+// love.graphics.getRendererInfo: w_getRendererInfo (wrap_Graphics.cpp:3170-3180).
+Rice::Array w_getRendererInfo() {
+  Rice::Array results;
+  Graphics::RendererInfo info{};
+  info = instance()->getRendererInfo();
+  results.push(info.name, false);
+  results.push(info.version, false);
+  results.push(info.vendor, false);
+  results.push(info.device, false);
+  return results;
 }
 
 // love.graphics.rectangle: w_rectangle (wrap_Graphics.cpp:3628-3658).
@@ -180,10 +415,11 @@ void w_rectangle(const std::string &mode, double x, double y, double w, double h
                           static_cast<float>(rx.value_or(0.0)),
                           static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))));
   } else {
-    instance()->rectangle(
-        mode_value, static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
-        static_cast<float>(h), static_cast<float>(rx.value_or(0.0)),
-        static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))), points.value());
+    instance()->rectangle(mode_value, static_cast<float>(x), static_cast<float>(y),
+                          static_cast<float>(w), static_cast<float>(h),
+                          static_cast<float>(rx.value_or(0.0)),
+                          static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))),
+                          required(points, "points"));
   }
 }
 
@@ -199,7 +435,7 @@ void w_circle(const std::string &mode, double x, double y, double radius,
                        static_cast<float>(radius));
   } else {
     instance()->circle(mode_value, static_cast<float>(x), static_cast<float>(y),
-                       static_cast<float>(radius), points.value());
+                       static_cast<float>(radius), required(points, "points"));
   }
 }
 
@@ -215,11 +451,14 @@ void w_ellipse(const std::string &mode, double x, double y, double a, std::optio
                         static_cast<float>(a),
                         static_cast<float>(b.value_or(static_cast<float>(a))));
   } else {
-    instance()->ellipse(mode_value, static_cast<float>(x), static_cast<float>(y),
-                        static_cast<float>(a),
-                        static_cast<float>(b.value_or(static_cast<float>(a))), points.value());
+    instance()->ellipse(
+        mode_value, static_cast<float>(x), static_cast<float>(y), static_cast<float>(a),
+        static_cast<float>(b.value_or(static_cast<float>(a))), required(points, "points"));
   }
 }
+
+// love.graphics.getStackDepth: w_getStackDepth (wrap_Graphics.cpp:3904-3908).
+size_t w_getStackDepth() { return instance()->getStackDepth(); }
 
 // love.graphics.pop: w_pop (wrap_Graphics.cpp:3928-3932).
 void w_pop() { instance()->pop(); }
@@ -333,7 +572,7 @@ void w_SpriteBatch_setDrawRange(SpriteBatch &t, std::optional<int> start,
   if (!start.has_value()) {
     t.setDrawRange();
   } else {
-    t.setDrawRange((start.value() - 1), required(count, "count"));
+    t.setDrawRange((required(start, "start") - 1), required(count, "count"));
   }
 }
 
@@ -395,7 +634,41 @@ void define_generated_graphics(const Rice::Module &native) {
                                  Rice::Arg("magstr") = std::optional<std::string>(),
                                  Rice::Arg("max_anisotropy") = 1.0)
       .define_singleton_function("font", &w_getFont)
-      .define_singleton_function("default_filter", &w_getDefaultFilter);
+      .define_singleton_function("default_filter", &w_getDefaultFilter)
+      .define_singleton_function("set_blend_mode", &w_setBlendMode, Rice::Arg("mode"),
+                                 Rice::Arg("alphamode") = std::optional<std::string>())
+      .define_singleton_function("blend_mode", &w_getBlendMode)
+      .define_singleton_function(
+          "set_color_mask", &w_setColorMask, Rice::Arg("r") = std::optional<bool>(),
+          Rice::Arg("g") = std::optional<bool>(), Rice::Arg("b") = std::optional<bool>(),
+          Rice::Arg("a") = std::optional<bool>())
+      .define_singleton_function("color_mask", &w_getColorMask)
+      .define_singleton_function("set_depth_mode", &w_setDepthMode,
+                                 Rice::Arg("compare") = std::optional<std::string>(),
+                                 Rice::Arg("write") = std::optional<bool>())
+      .define_singleton_function("depth_mode", &w_getDepthMode)
+      .define_singleton_function("set_front_face_winding", &w_setFrontFaceWinding,
+                                 Rice::Arg("winding"))
+      .define_singleton_function("front_face_winding", &w_getFrontFaceWinding)
+      .define_singleton_function("set_line_join", &w_setLineJoin, Rice::Arg("join"))
+      .define_singleton_function("line_join", &w_getLineJoin)
+      .define_singleton_function("set_mesh_cull_mode", &w_setMeshCullMode, Rice::Arg("mode"))
+      .define_singleton_function("mesh_cull_mode", &w_getMeshCullMode)
+      .define_singleton_function("set_point_size", &w_setPointSize, Rice::Arg("size"))
+      .define_singleton_function("point_size", &w_getPointSize)
+      .define_singleton_function("scissor", &w_getScissor)
+      .define_singleton_function("stack_depth", &w_getStackDepth)
+      .define_singleton_function("set_stencil_state", &w_setStencilState,
+                                 Rice::Arg("actionstr") = std::optional<std::string>(),
+                                 Rice::Arg("comparestr") = std::optional<std::string>(),
+                                 Rice::Arg("value") = 0,
+                                 Rice::Arg("read_mask") = std::optional<double>(),
+                                 Rice::Arg("write_mask") = std::optional<double>())
+      .define_singleton_function("stencil_state", &w_getStencilState)
+      .define_singleton_function("gamma_correct?", &w_isGammaCorrect)
+      .define_singleton_function("set_wireframe", &w_setWireframe, Rice::Arg("enable"))
+      .define_singleton_function("wireframe?", &w_isWireframe)
+      .define_singleton_function("renderer_info", &w_getRendererInfo);
   Rice::define_class_under<Quad>(native, "Quad")
       .define_method("viewport", &w_Quad_getViewport)
       .define_method("texture_dimensions", &w_Quad_getTextureDimensions)

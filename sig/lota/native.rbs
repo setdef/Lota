@@ -416,6 +416,20 @@ module Lota
 
       def self.arc: (String drawstr, String? arcstr, Array[Symbol | String | Float | Integer | nil] arguments) -> nil
 
+      def self.points: (Array[Float | Integer] coordinates) -> nil
+
+      def self.polygon: (String mode, Array[Float | Integer] coordinates) -> nil
+
+      def self.set_background_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
+
+      def self.set_scissor: (Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
+
+      def self.reset_scissor: () -> nil
+
+      def self.intersect_scissor: (Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
+
+      def self.canvas: () -> Texture?
+
       class Font
         def self.cpp_class: () -> String
 

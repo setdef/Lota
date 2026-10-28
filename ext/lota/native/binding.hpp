@@ -83,11 +83,12 @@ inline void require_main_thread(const char *module) {
   }
 }
 
-// The value of an argument the binding generator made optional only
-// because it follows an optional one, as a Ruby method's positional
-// parameters must (tasks/bindings/port.rb, trailing_optional), in a form
-// that requires it: LÖVE reads it with a check there. A missing one raises
-// ArgumentError, naming it as Rice names a missing argument.
+// The value of an argument the binding generator made optional, because
+// it follows an optional one, as a Ruby method's positional parameters
+// must (tasks/bindings/port.rb, trailing_optional), or because LÖVE tests
+// whether it is given, in a form that requires it: LÖVE reads it with a
+// check there. A missing one raises ArgumentError, naming it as Rice
+// names a missing argument, where LÖVE's check raises.
 template <typename T> T required(const std::optional<T> &argument, const std::string &name) {
   if (!argument.has_value()) {
     throw std::invalid_argument("Missing argument. Name: " + name + ".");

@@ -131,14 +131,15 @@ class LotaRunTest < Minitest::Test
   # conf.lua. On a GitHub Actions macOS runner, Lövetest's arc test
   # compares none of its three 32 by 32 images, and asserts once instead
   # (test/lovetest/tests/graphics.rb, test_arc, which skips only on "OS X").
+  # Lövetest skips its discard test everywhere, and so does Lota.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 30263 - (3 * 32 * 32) + 1 : 30263
+    assertions = skipped ? 32908 - (3 * 32 * 32) + 1 : 32908
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^99 runs, #{assertions} assertions, 0 failures, 0 errors, 0 skips$/, output)
+    assert_match(/^131 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
