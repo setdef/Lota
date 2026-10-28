@@ -11,7 +11,8 @@ require_relative "../engine_helper"
 # ADR 001, section 7: where LÖVE's own C++ raises a message that names a
 # Lua module, Lota rewrites the name by rule 1, and a function by the name
 # the rules give it in the binding generator's name table, and leaves the
-# rest of the message word for word (ext/lota/native/errors.hpp).
+# rest of the message word for word (lib/lota/error_message.rb, which the
+# handler in ext/lota/native/errors.hpp calls as the engine raises).
 class ErrorTranslationTest < Minitest::Test
   include NativeHelper
 
@@ -186,6 +187,104 @@ class ErrorTranslationTest < Minitest::Test
       error.message
   ensure
     Lota::Graphics.canvas = nil
+  end
+
+  # What ImageData:getPixel raises for an ImageData whose pixels it does
+  # not convert (vendor/love/src/modules/image/ImageData.cpp:549), from a
+  # call into the engine that a callback makes.
+  SRGBA8 = "Lota::Image::ImageData#pixel does not currently support the srgba8 pixel format."
+
+  def raise_srgba8
+    Lota::Image::ImageData.new(1, 1, :srgba8).pixel(0, 0)
+  end
+
+  # Two bodies whose squares overlap, in a World, so that a step brings
+  # them into contact and a query or a ray finds a Shape.
+  def overlapping_world
+    EngineHelper.open_window
+    world = Lota::Physics::World.new(0, 0, false)
+    2.times { |i| Lota::Physics::RectangleShape.new(Lota::Physics::Body.new(world, i * 5, 0, :dynamic), 10, 10) }
+    world
+  end
+
+  # The engine calls back into Ruby from the middle of its own C++: a
+  # World's step calls its contact callbacks and its filter, a query and
+  # a ray call their blocks, and so do performAtomic, mapPixel, renderTo,
+  # and the screenshot a present delivers. An engine error raised by a
+  # call the callback makes is translated where that call returns to Ruby,
+  # and comes out of the engine's frames as the same RuntimeError.
+  def test_an_engine_error_raised_in_a_physics_callback_comes_out_translated
+    world = overlapping_world
+    world.callbacks = -> { raise_srgba8 }
+    contact = assert_raises(RuntimeError) { world.update(1 / 60.0) }
+    world = overlapping_world
+    world.contact_filter = -> { raise_srgba8 }
+    filter = assert_raises(RuntimeError) { world.update(1 / 60.0) }
+    query = assert_raises(RuntimeError) { overlapping_world.query_shapes_in_area(-20, -20, 20, 20) { raise_srgba8 } }
+    ray = assert_raises(RuntimeError) { overlapping_world.ray_cast(-50, 0, 50, 0) { raise_srgba8 } }
+
+    [contact, filter, query, ray].each do |error|
+      assert_instance_of RuntimeError, error
+      assert_equal SRGBA8, error.message
+    end
+  end
+
+  def test_an_engine_error_raised_in_a_block_the_engine_calls_comes_out_translated
+    EngineHelper.open_window
+    data = Lota::Image::ImageData.new(2, 2)
+    canvas = Lota::Graphics::Canvas.new(4, 4)
+    errors = [
+      assert_raises(RuntimeError) { data.perform_atomic { raise_srgba8 } },
+      assert_raises(RuntimeError) { data.map_pixel { raise_srgba8 } },
+      assert_raises(RuntimeError) { canvas.render_to { raise_srgba8 } },
+      assert_raises(RuntimeError) do
+        Lota::Native::Graphics.capture_screenshot(-> (_image) { raise_srgba8 })
+        Lota::Graphics.present
+      end,
+    ]
+
+    errors.each do |error|
+      assert_instance_of RuntimeError, error
+      assert_equal SRGBA8, error.message
+    end
+  end
+
+  # GC.compact moves objects to new addresses (test/native/
+  # compaction_test.rb), so the handler finds the translator by its name
+  # each time the engine raises, never at an address it kept.
+  def test_an_engine_error_translates_after_the_heap_is_compacted
+    EngineHelper.open_window
+    GC.verify_compaction_references(expand_heap: true, toward: :empty)
+    error = assert_raises(RuntimeError) { raise_srgba8 }
+
+    assert_equal SRGBA8, error.message
+  end
+
+  # The handler calls Ruby to translate a message, inside cpp_protect's
+  # catch block. An error that call raises leaves as that error once the
+  # C++ frames are gone, as any Ruby error raised under the engine does,
+  # rather than jumping over them.
+  def test_an_error_the_translation_raises_comes_out_in_place_of_the_engines
+    EngineHelper.open_window
+    failure = Class.new(StandardError)
+    error = replacing_translate(-> (_message) { raise failure, "translation failed" }) do
+      assert_raises(failure) { raise_srgba8 }
+    end
+
+    assert_equal "translation failed", error.message
+  end
+
+  # Runs the block with Lota::ErrorMessage.translate replaced by
+  # +replacement+, and puts the translator back after it.
+  def replacing_translate(replacement)
+    translator = Lota::ErrorMessage.singleton_class
+    translate = Lota::ErrorMessage.method(:translate).unbind
+    translator.remove_method(:translate)
+    translator.define_method(:translate, &replacement)
+    yield
+  ensure
+    translator.remove_method(:translate)
+    translator.define_method(:translate, translate)
   end
 
   # Rice's own errors are not LÖVE's, and pass through with their class

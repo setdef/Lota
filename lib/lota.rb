@@ -27,6 +27,9 @@ require_relative "lota/version"
 module Lota
 end
 
+# The engine's error messages name LÖVE's Lua API, so the extension hands
+# each to Lota::ErrorMessage as Ruby raises it (ADR 001, section 7).
+require_relative "lota/error_message"
 require "lota/native"
 
 # Ruby runs exit procs on the main thread, after the game and before it

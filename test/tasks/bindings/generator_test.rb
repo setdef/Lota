@@ -354,10 +354,10 @@ class GeneratorTest < Minitest::Test
     end
   end
 
-  # The name table errors.hpp translates LÖVE's messages with (ADR 001,
-  # section 7): every function a rule names, with the Ruby name the rules
-  # give it, sorted for errors.hpp's binary search; a function no rule
-  # names is not in it.
+  # The name table Lota::ErrorMessage translates LÖVE's messages with (ADR
+  # 001, section 7): every function a rule names, with the Ruby name the
+  # rules give it, sorted by LÖVE's name; a function no rule names is not
+  # in it.
   def test_the_name_table_gives_each_function_the_name_the_rules_give_it
     table = BindingsHelper.generator.name_table
 
@@ -367,8 +367,24 @@ class GeneratorTest < Minitest::Test
     assert_equal "Lota::Image::ImageData#pixel", table.fetch("ImageData:getPixel")
     refute table.key?("love.math._getRandomGenerator")
     assert_equal table.keys.sort, table.keys
-    assert_includes BindingsHelper.generator.files.fetch("ext/lota/native/generated/names.hpp"),
-      %(    LoveName("love.window.setTitle", "Lota::Window.title="),\n)
+  end
+
+  # The table is written as Ruby, a Hash literal that the magic comment
+  # makes deeply frozen and so shareable between Ractors, and it reads
+  # back as the table itself.
+  def test_the_name_table_is_written_as_a_shareable_ruby_hash
+    source = BindingsHelper.generator.files.fetch("lib/lota/error_message/names.rb")
+    names = in_tree do |root|
+      write(root, "names.rb", source)
+      load(File.join(root, "names.rb"), wrap = Module.new)
+      wrap::Lota::ErrorMessage::NAMES
+    end
+
+    assert_includes source, %(  "love.window.setTitle" => "Lota::Window.title=",\n)
+    assert_match(/\A# frozen_string_literal: true\n\n#--\n# SPDX-.*#\+\+\n\n# shareable_constant_value: literal\n\n# GENERATED /m, source)
+    assert_equal BindingsHelper.generator.name_table, names
+    assert Ractor.shareable?(names)
+    refute BindingsHelper.generator.files.key?("ext/lota/native/generated/names.hpp")
   end
 
   def test_the_committed_bindings_match_the_generator

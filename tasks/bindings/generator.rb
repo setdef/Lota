@@ -25,7 +25,7 @@ module Bindings
   # defines them all, a CMake list of the files, and their signatures in
   # sig/lota/native/generated.rbs, and the Ruby name the rules give every
   # function of LÖVE's API, for the engine's error messages
-  # (ext/lota/native/errors.hpp). #problems compares the result with the
+  # (lib/lota/error_message.rb). #problems compares the result with the
   # committed files, so a change to the generator, the lists, or LÖVE that
   # changes a binding fails the build until it is regenerated and
   # reviewed, as the engine's source list does (tasks/engine_sources.rb).
@@ -34,7 +34,7 @@ module Bindings
     RBS = "sig/lota/native/generated.rbs"
     HEADER = "#{CPP_DIR}/bindings.hpp".freeze
     SOURCES = "#{CPP_DIR}/sources.cmake".freeze
-    NAMES = "#{CPP_DIR}/names.hpp".freeze
+    NAMES = "lib/lota/error_message/names.rb"
     THREAD_FILE = "src/modules/thread/LuaThread.cpp"
 
     # Raised when the lists name a function the generator cannot bind.
@@ -61,7 +61,7 @@ module Bindings
         modules = ports.group_by { |port| port.function.module_name }.sort.to_h
         cpp = modules.to_h { |name, list| ["#{CPP_DIR}/#{name}.cpp", format(module_file(name, list))] }
         cpp.merge(HEADER => format(header(modules.keys)), SOURCES => sources(modules.keys), RBS => rbs(modules),
-          NAMES => format(names))
+          NAMES => names)
       end
     end
 
@@ -347,46 +347,47 @@ module Bindings
 
     # The name table: each function of LÖVE's API that the rules name, in
     # LÖVE's notation, with its Ruby name, sorted by LÖVE's name, which
-    # errors.hpp searches when a message LÖVE's C++ raises names one (ADR
-    # 001, section 7). A name LÖVE defines twice, in C++ and again in Lua,
-    # takes the translation Survey#[] gives it.
+    # Lota::ErrorMessage looks up when a message LÖVE's C++ raises names
+    # one (ADR 001, section 7). A name LÖVE defines twice, in C++ and again
+    # in Lua, takes the translation Survey#[] gives it.
     def name_table
       survey.entries.group_by { |entry| entry.function.love_name }.transform_values(&:first)
         .select { |_, entry| entry.translation.name }.sort.to_h { |love_name, entry| [love_name, entry.translation.ruby_name] }
     end
 
+    # The name table as a Ruby Hash literal, which the magic comment makes
+    # deeply frozen, so every Ractor can read it (ADR 001, section 6). It is
+    # assigned by its full name, outside the modules' bodies, so that the
+    # table is data rather than a module 1,100 lines long. Its header is
+    # laid out as rake lint:normalize_ruby lays out every Ruby file's.
     private def names
-      rows = name_table.map { |love_name, ruby_name| %(    LoveName("#{love_name}", "#{ruby_name}"),) }
-      <<~CPP
-        #{banner('//')}
-        // Every function of LÖVE's Lua API that ADR 001's rules name, in
-        // LÖVE's notation, with the Ruby name the rules give it
-        // (tasks/bindings/rules.rb), sorted by LÖVE's name. errors.hpp looks
-        // up each function a message from LÖVE's C++ names here, so the
-        // message names it as Lota does.
+      rows = name_table.map { |love_name, ruby_name| %(  #{love_name.dump} => #{ruby_name.dump},) }
+      spdx, notice = banner("#").lines.partition { |line| line.include?("SPDX-") }
+      <<~RUBY
+        # frozen_string_literal: true
 
-        #ifndef LOTA_NATIVE_GENERATED_NAMES_HPP
-        #define LOTA_NATIVE_GENERATED_NAMES_HPP
+        #--
+        #{spdx.join}#++
 
-        #include <array>
-        #include <string_view>
-        #include <utility>
+        # shareable_constant_value: literal
 
-        namespace lota::native {
+        #{notice.join.delete_suffix("#\n")}
+        module Lota
+          module ErrorMessage
+          end
+        end
 
-        // A function's name in LÖVE (love.window.setMode, ImageData:getPixel),
-        // first, and in Ruby (Lota::Window.set_mode,
-        // Lota::Image::ImageData#pixel), second.
-        using LoveName = std::pair<std::string_view, std::string_view>;
-
-        inline constexpr std::array<LoveName, #{rows.size}> LOVE_NAMES = std::to_array<LoveName>({
+        # Every function of LÖVE's Lua API that ADR 001's rules name, in
+        # LÖVE's notation (love.window.setMode, ImageData:getPixel), with
+        # the Ruby name the rules give it (Lota::Window.set_mode,
+        # Lota::Image::ImageData#pixel), from tasks/bindings/rules.rb, sorted
+        # by LÖVE's name. Lota::ErrorMessage.translate looks up each function
+        # a message from LÖVE's C++ names here, so the message names it as
+        # Lota does.
+        Lota::ErrorMessage::NAMES = {
         #{rows.join("\n")}
-        });
-
-        } // namespace lota::native
-
-        #endif // LOTA_NATIVE_GENERATED_NAMES_HPP
-      CPP
+        }
+      RUBY
     end
 
     private def sources(modules)

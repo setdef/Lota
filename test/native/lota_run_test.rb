@@ -220,6 +220,26 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # An engine error a game meets reaches its error handler with its Lua
+  # names translated (ADR 001, section 7), and so does one the handler
+  # itself meets, which error_printer prints: what ImageData:getPixel
+  # raises for an ImageData whose pixels it does not convert
+  # (ImageData.cpp:549).
+  def test_an_engine_error_reaches_the_error_handler_and_the_printer_translated
+    srgba8 = "Lota::Image::ImageData#pixel does not currently support the srgba8 pixel format."
+    meet = "Lota::Image::ImageData.new(1, 1, :srgba8).pixel(0, 0)"
+    in_game("main.rb" => "def Lota.update(dt) = #{meet}\ndef Lota.errorhandler(error) = puts(error.message)\n") do |handled|
+      in_game("main.rb" => "def Lota.load = raise('broken')\ndef Lota.errorhandler(error) = #{meet}\n") do |printed|
+        handler_output, = lota_run(handled)
+        printer_output, = lota_run(printed)
+
+        assert_equal "#{srgba8}\n", handler_output
+        assert_includes printer_output, "#{srgba8} (RuntimeError)\n"
+        refute_includes printer_output, "ImageData:getPixel"
+      end
+    end
+  end
+
   # LÖVE 12 keeps love.errhand only as another name for its own handler,
   # and calls love.errorhandler while there is one (boot.lua:476 and
   # callbacks.lua:351-352), so a game's errhand alone changes nothing.
