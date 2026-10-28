@@ -81,12 +81,29 @@ object:,
     end
 
     INTEGRAL = /\A(?:const\s+)?(?:unsigned\s+|signed\s+)?(?:int|long|short|long long|size_t|ptrdiff_t|u?int\d+(?:_t)?|lua_Integer)\z/
+    # An integer of one byte, which Rice would give Ruby as a character, so
+    # it is returned as the int it widens to.
+    BYTE = /\A(?:u?int8(?:_t)?|(?:un)?signed char|char)\z/
     FLOATING = /\A(?:const\s+)?(?:float|double|lua_Number)\z/
+    # What only Lua's API names: the lua_State, or a function of Lua's or
+    # LÖVE's Lua glue, which a statement the port does not translate still
+    # calls.
+    LUA_LEFT = /\bL\b|\b(?:lua|luaL|luax)_\w+\s*\(|\bLUA_\w+/
+    COUNT_TEST = /lua_gettop\s*\(\s*L\s*\)\s*(>=|>)\s*(\d+)/
+    # The pushes of an engine object: luax_pushshape pushes a Shape as the
+    # class its type names (wrap_Shape.cpp:36-63), as Rice wraps a pointer
+    # as the most derived class Lota::Native binds for it.
+    OBJECT_PUSHERS = %w[luax_pushtype luax_pushshape].freeze
+    # A C array LÖVE declares (int v[3]), which the port declares as a
+    # std::array, as clang-tidy's modernize-avoid-c-arrays asks.
+    C_ARRAY = /\A([\w:]+)\s+(\w+)\s*\[\s*(\d+)\s*\]\z/
+    RELEASE = /\A(\w+)\s*->\s*release\s*\(\s*\)\z/
     STRING_READERS = {
 "luaL_checkstring" => :c_str,
 "luaL_checklstring" => :c_str,
 "luaL_optstring" => :c_str,
 "luax_checkstring" => :string,
+"lua_tostring" => :c_str,
 }.freeze
 
     attr_reader :function, :native_name, :parameters, :self_parameter
@@ -102,7 +119,11 @@ object:,
     #   main thread (Lota::Graphics), or nil when any thread may call it.
     # [checks] The helpers that check the object they read, to their
     #   Catalog::Check (Catalog#checks).
-    def initialize(entry, binding, native_name:, types:, module_class:, helpers: {}, main_thread: nil, checks: {})
+    # [guards] The helpers that check a condition of the module's, to
+    #   their Catalog::Check (Catalog#guards).
+    def initialize(entry, binding, native_name:, types:, module_class:, helpers: {}, main_thread: nil, checks: {},
+      guards: {}
+    )
       @function = entry.function
       @analysis = entry.analysis
       raise Unsupported, "#{@function.love_name} is not readable" unless @analysis&.readable?
@@ -111,6 +132,7 @@ object:,
       @types = types
       @helpers = helpers
       @checks = checks
+      @guards = guards
       @module_class = module_class
       @main_thread = main_thread
       @module_dir = File.dirname(@function.wrap.path)
@@ -144,6 +166,9 @@ object:,
       @definition ||= begin
         @result_mode = result_mode
         body = emit(@body, top: true)
+        lua = body.find { |line| line.match?(LUA_LEFT) }
+        raise Unsupported, "#{@function.love_name} still reaches Lua after its port: #{lua.strip}" if lua
+
         body.unshift(*helper_checks)
         body.unshift("Rice::Array results;") if @result_mode == :many
         body.unshift("require_main_thread(MODULE);") if @main_thread && !singleton?
@@ -161,8 +186,33 @@ object:,
     # The Rice call that binds it, on a Rice::Module or Data_Type.
     def registration
       args = parameters.map(&:rice_arg)
+      args << "Rice::Return().takeOwnership()" if owned?
       kind = singleton? ? "define_singleton_function" : "define_method"
       ".#{kind}(#{[%("#{native_name}"), "&#{cpp_name}", *args].join(', ')})"
+    end
+
+    # The engine classes of the objects it returns (luax_pushtype), whose
+    # headers its file includes.
+    def result_classes
+      results.filter_map { |cpp, _rbs| cpp.delete("*").strip.split("::").last if cpp&.end_with?("*") }
+    end
+
+    # Whether Ruby owns the object it returns: the wrap function pushes a
+    # new object and releases its own reference (luax_pushtype, then
+    # release), so the reference it was made with goes to the Ruby wrapper
+    # (Return().takeOwnership(), native/binding.hpp), which the port does
+    # not release.
+    def owned?
+      return @owned if defined?(@owned)
+
+      released = []
+      walk_texts(@body) { |text, _node| released << Regexp.last_match(1) if text =~ RELEASE }
+      pushed = pushes(@body).select { |push| OBJECT_PUSHERS.include?(push.base_name) }.map { |push| push.arguments[1].strip }
+      owned = pushed.map { |name| released.include?(name) }.uniq
+      raise Unsupported, "#{@function.love_name} releases some of the objects it pushes and not others" if owned.size > 1
+      raise Unsupported, "#{@function.love_name} releases #{(released - pushed).join(', ')}, which it does not push" if (released - pushed).any?
+
+      @owned = owned.first || false
     end
 
     # Its RBS signature.
@@ -201,7 +251,7 @@ object:,
     private def return_type
       case @result_mode
       when :none then "void"
-      when :one then results.first.first
+      when :one then results.filter_map(&:first).first
       else "Rice::Array"
       end
     end
@@ -209,9 +259,30 @@ object:,
     private def rbs_result
       case result_mode
       when :none then "nil"
-      when :one then results.first.last
-      else "Array[#{(results.map(&:last) + (io_error? ? %w[nil String] : [])).uniq.join(' | ')}]"
+      when :one then one_result_rbs
+      else many_results_rbs
       end
+    end
+
+    # The RBS of the Array a form that returns several values returns: a
+    # tuple of their types where every path returns the same values, in
+    # the order it pushes them (w_getDesktopDimensions' width and height),
+    # and an Array of any of them otherwise.
+    private def many_results_rbs
+      return "[#{results.map(&:last).join(', ')}]" if returns(@body) == [results.size] && !io_error? && !results.empty?
+
+      "Array[#{(results.map(&:last) + (io_error? ? %w[nil String] : [])).uniq.join(' | ')}]"
+    end
+
+    # The RBS of the one value a form returns: an object or nil where it
+    # pushes nil on a path (w_Decoder_decode).
+    private def one_result_rbs
+      types = results.map(&:last).uniq
+      types << "nil" if returns(@body).include?(0)
+      return types.first if types.size == 1
+      raise Unsupported, "#{@function.love_name} returns #{types.join(' or ')}" unless types.size == 2 && types.include?("nil")
+
+      "#{(types - ['nil']).first}?"
     end
 
     # Rule 4: a function that returns several values returns an Array of
@@ -222,6 +293,7 @@ object:,
     private def result_mode
       counts = returns(@body)
       return :many if counts.max > 1
+      return :one if counts.sort == [0, 1] && results.all? { |cpp, _| cpp.to_s.end_with?("*") }
       raise Unsupported, "#{@function.love_name} returns #{counts.join(' or ')} values in the bound form" if counts.uniq.size > 1
 
       (counts.first == 0) ? :none : :one
@@ -305,6 +377,7 @@ object:,
       @renames = {}
       walk_texts(@body) do |text, node|
         @optional.concat(text.scan(/lua_isnone(?:ornil)?\s*\(\s*L\s*,\s*(\d+)\s*\)/).flatten.map(&:to_i))
+        @optional.concat(text.scan(COUNT_TEST).map { |operator, count| counted(operator, count) })
         Calls.in(text).each { |call| record_read(call, text, node) if read?(call) }
       end
       @parameters = trailing_optional(
@@ -469,23 +542,34 @@ line: node.line,
 
     private def emit_expression(text)
       return [] if parameter_declaration?(text)
+      return ["std::array<#{Regexp.last_match(1)}, #{Regexp.last_match(3)}> #{Regexp.last_match(2)}{};"] if text =~ C_ARRAY
+      return [] if text.match?(RELEASE) && owned?
+      return emit_guard(@guards.fetch(Regexp.last_match(1))) if text =~ /\A(\w+)\s*\(\s*L\s*\)\z/ && @guards.key?(Regexp.last_match(1))
       return emit_push(text) if push?(text)
-      if (together = Analysis.declared_together(text))
-        return together[:names].map { |name| "#{declaration("#{together[:type]} #{name}")};" }
-      end
-
       ["#{declaration(rewrite(text))};"]
     end
 
+    # A guard helper's check, made where the wrap function calls it.
+    private def emit_guard(guard)
+      ["if (#{rewrite(guard.condition)}) {", "throw love::Exception(#{guard.message});", "}"]
+    end
+
+    # An if, and its else unless its body ends by returning or throwing,
+    # when what the else holds follows the if instead, as clang-tidy's
+    # readability-else-after-return asks.
     private def emit_if(node)
-      lines = ["if (#{rewrite(node.text)}) {", *emit(node.body), "}"]
-      lines.push("else {", *emit(node.alternative), "}") if node.alternative.any?
-      lines
+      body = emit(node.body)
+      lines = ["if (#{pointer_tests(rewrite(node.text))}) {", *body, "}"]
+      return lines if node.alternative.empty?
+
+      alternative = emit(node.alternative)
+      body.last.to_s.match?(/\A(?:return|throw)\b|\Araise_enum_error\(/) ? lines.concat(alternative) : lines.push("else {", *alternative, "}")
     end
 
     private def emit_return(text, last:)
       if text.match?(/\A\d+\z/)
         return ["return results;"] if @result_mode == :many
+        return ["return nullptr;"] if @result_mode == :one && text == "0"
         return [] if @result_mode == :one || last
 
         return ["return;"]
@@ -510,12 +594,34 @@ line: node.line,
     private def emit_push(text)
       call = Calls.in(text).first
       type, = result_type(call)
-      value = convert(rewrite(call.arguments[1]), call, type)
+      value = type ? convert(rewrite(call.arguments[1]), call, type) : "nullptr"
       case @result_mode
       when :one then ["return #{value};"]
-      when :many then ["results.push(#{value}, false);"]
+      when :many then ["results.push(#{many_value(value, call, type)}, false);"]
       else raise Unsupported, "#{@function.love_name} pushes a result it does not return"
       end
+    end
+
+    # +condition+ with each pointer it tests for truth compared with
+    # nullptr, as clang-tidy's readability-implicit-bool-conversion asks:
+    # "typestr && ..." becomes "typestr != nullptr && ...", and "!typestr"
+    # becomes "typestr == nullptr".
+    private def pointer_tests(condition)
+      condition.gsub(/(?<before>\A|[(]|&&|\|\|)(?<space>\s*)(?<not>!?)\s*(?<name>[A-Za-z_]\w*)(?<after>\s*)(?=\z|\)|&&|\|\|)/) do
+        match = Regexp.last_match
+        next match[0] unless @analysis.declared_type(match[:name]).to_s.include?("*")
+
+        "#{match[:before]}#{match[:space]}#{match[:name]} #{match[:not].empty? ? '!=' : '=='} nullptr#{match[:after]}"
+      end
+    end
+
+    # A value pushed into the results Array: a string LÖVE holds as a
+    # const char * goes in as the std::string a single result returns as,
+    # so Rice gives Ruby a String in the same encoding either way.
+    private def many_value(value, call, type)
+      return value unless type == "std::string" && expression_type(call.arguments[1]).to_s.include?("char")
+
+      "std::string(#{value})"
     end
 
     # A declaration with no initializer gets one, and one never changed
@@ -525,9 +631,11 @@ line: node.line,
       return text unless match && !text.match?(/\A(?:return|throw|delete)\b/)
 
       name = match[:name]
-      type = "#{match[:type]}#{match[:pointer].include?('*') ? ' *' : ' '}"
-      return "#{type}#{name}#{match[:pointer].include?('*') ? ' = nullptr' : '{}'}" unless match[:rest]
-      return text if modified?(name, text) || match[:type].start_with?("const ")
+      pointer = match[:pointer].include?("*")
+      type = "#{match[:type]}#{pointer ? ' *' : ' '}"
+      return "#{type}#{name}#{pointer ? ' = nullptr' : '{}'}" unless match[:rest]
+      return text.sub(/\?\s*0\s*:/, "? nullptr :").sub(/=\s*0\z/, "= nullptr") if pointer
+      return text if modified?(@renames.key(name) || name, text) || match[:type].start_with?("const ")
 
       "const #{text}"
     end
@@ -580,12 +688,34 @@ line: node.line,
       text = text.gsub(/\b(\d+\.\d*|\d*\.\d+)f\b/, '\1F')
       text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
       text = keep_strings(text)
+      text = array_arguments(text)
+      text = text.gsub(COUNT_TEST) do
+        index = counted(Regexp.last_match(1), Regexp.last_match(2))
+        parameter = parameters.find { |candidate| candidate.index == index }
+        raise Unsupported, "#{@function.love_name} counts its arguments past one it does not bind" unless parameter
+
+        "#{parameter.name}.has_value()"
+      end
       text.gsub(/(!?)\s*lua_isnone(?:ornil)?\s*\(\s*L\s*,\s*(\d+)\s*\)/) do
         parameter = parameters.find { |candidate| candidate.index == Regexp.last_match(2).to_i }
         raise Unsupported, "#{@function.love_name} tests argument #{Regexp.last_match(2)}, which it does not bind" unless parameter
 
         "#{Regexp.last_match(1).empty? ? '!' : ''}#{parameter.name}.has_value()"
       end
+    end
+
+    # +text+ with each C array LÖVE passes whole to a call, which it
+    # passes as a pointer to its first element, passed as the std::array's
+    # data(), and each element it reads read with at(), as clang-tidy's
+    # cppcoreguidelines-pro-bounds-avoid-unchecked-container-access asks.
+    private def array_arguments(text)
+      arrays = []
+      walk_texts(@body) { |statement, _node| arrays << Regexp.last_match(2) if statement =~ C_ARRAY }
+      return text if arrays.empty?
+
+      names = arrays.map { |name| Regexp.escape(name) }.join("|")
+      text = text.gsub(/(?<=[(,])\s*(#{names})\s*(?=[,)])/) { "#{Regexp.last_match(1)}.data()" }
+      text.gsub(/\b(#{names})\s*\[\s*(\d+)\s*\]/) { "#{Regexp.last_match(1)}.at(#{Regexp.last_match(2)})" }
     end
 
     # A string LÖVE reads as a const char * becomes a std::string
@@ -643,6 +773,15 @@ line: node.line,
       end
       value = "#{value}.c_str()" if STRING_READERS[call.base_name] == :c_str
       cast_to(value, (cast == parameter.cpp) ? nil : cast)
+    end
+
+    # The position of the argument whose presence a count of the
+    # arguments tests: lua_gettop(L) > 2 asks for a third, and
+    # lua_gettop(L) >= 6 for a sixth. Ruby passes a method's positional
+    # arguments in order, so the count is at least that position exactly
+    # when that argument is given.
+    private def counted(operator, count)
+      count.to_i + ((operator == ">") ? 1 : 0)
     end
 
     private def cast_to(value, cast)
@@ -717,8 +856,20 @@ line: node.line,
       when "luax_pushboolean", "lua_pushboolean" then %w[bool bool]
       when "lua_pushstring", "luax_pushstring" then ["std::string", "String"]
       when "lua_pushnumber", "lua_pushinteger" then number_type(call.base_name, expression)
+      when "luax_pushtype", "luax_pushshape" then object_type(expression)
+      when "lua_pushnil" then [nil, "nil"]
       else raise Unsupported, "#{@function.love_name} pushes with #{call.base_name}"
       end
+    end
+
+    # An engine object LÖVE pushes (luax_pushtype): the pointer, which Rice
+    # wraps in the class Lota::Native binds for it.
+    private def object_type(expression)
+      type = expression_type(expression).to_s.sub(/\Aconst\s+/, "").strip
+      raise Unsupported, "#{@function.love_name} pushes #{expression}, whose class the headers do not give" unless type.end_with?("*")
+
+      name = type.delete("*").strip
+      ["#{name} *", name.split("::").last]
     end
 
     # Rule 14: an Integer where LÖVE's C++ holds the number as an integer,
@@ -728,8 +879,10 @@ line: node.line,
       raise Unsupported, "#{@function.love_name} pushes #{expression}, whose C++ type the headers do not give" unless type
 
       type = type.sub(/\Aconst\s+/, "").delete("&").strip
+      return ["int", "Integer"] if byte?(expression)
       return [type, "Integer"] if type.match?(INTEGRAL)
       return ["double", "Float"] if type.match?(FLOATING) && pusher == "lua_pushnumber"
+      return ["long long", "Integer"] if type.match?(FLOATING) && pusher == "lua_pushinteger"
 
       raise Unsupported, "#{@function.love_name} pushes #{expression} (#{type}) with #{pusher}"
     end
@@ -738,11 +891,24 @@ line: node.line,
     # integer cast to a lua_Number keeps its own type (rule 14), so the
     # cast goes.
     private def convert(value, call, type)
+      return "static_cast<long long>(#{value})" if call.base_name == "lua_pushinteger" && floating?(call.arguments[1])
+      return "static_cast<int>(#{value})" if byte?(call.arguments[1])
       return value.sub(/\A\(\s*double\s*\)\s*/, "") if type.match?(INTEGRAL)
       return value unless call.base_name == "lua_pushnumber" && type == "double"
 
       source = expression_type(call.arguments[1]).to_s.sub(/\Aconst\s+/, "").delete("&").strip
       (source == "double") ? value : "static_cast<double>(#{value})"
+    end
+
+    # Whether +expression+ holds a one-byte integer.
+    private def byte?(expression)
+      expression_type(expression).to_s.sub(/\Aconst\s+/, "").delete("&").strip.match?(BYTE)
+    end
+
+    # Whether +expression+ holds a floating-point number, which
+    # lua_pushinteger truncates to an integer, as a C cast does.
+    private def floating?(expression)
+      expression_type(expression).to_s.sub(/\Aconst\s+/, "").delete("&").strip.match?(FLOATING)
     end
 
     # The C++ type of a pushed expression, from LÖVE's declarations.
@@ -754,11 +920,22 @@ line: node.line,
         return expression_type(match[:rest])
       end
       return expression_type(Regexp.last_match(1)) if text =~ %r{\A(\w+)\s*(?:\+|-(?!>)|\*|/)\s*\S.*\z}
+      return expression_type(Regexp.last_match(1)) if text =~ %r{\A(.+\))\s*(?:\+|-(?!>)|\*|/)\s*\d+\z}
+      return method_type(Regexp.last_match(1), Regexp.last_match(2), Regexp.last_match(3)) if text =~ /\A(\w+)::(\w+)\s*\((.*)\)\z/m
       return method_type(@module_class, Regexp.last_match(1), Regexp.last_match(2)) if text =~ /\Ainstance\(\)\s*->\s*(\w+)\s*\((.*)\)\z/m
       return method_type(variable_type(Regexp.last_match(1)), Regexp.last_match(2), Regexp.last_match(3)) if text =~ /\A(\w+)\s*(?:->|\.)\s*(\w+)\s*\((.*)\)\z/m
       return @types.field(variable_type(Regexp.last_match(1)), Regexp.last_match(2), module_dir: @module_dir) if text =~ /\A(\w+)\.(\w+)\z/
+      return array_element(Regexp.last_match(1)) if text =~ /\A(\w+)\s*\[\s*\d+\s*\]\z/
 
       @analysis.declared_type(text) if text.match?(/\A\w+\z/)
+    end
+
+    # The type of an element of the C array +name+ LÖVE declares.
+    private def array_element(name)
+      walk_texts(@body) do |text, _node|
+        return Regexp.last_match(1) if text =~ C_ARRAY && Regexp.last_match(2) == name
+      end
+      nil
     end
 
     private def variable_type(variable)

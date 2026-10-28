@@ -41,12 +41,36 @@ module Bindings
     class Unreadable < StandardError; end
 
     KEYWORDS = %w[if for while do switch return break continue case default else].freeze
+    # A declaration's type, and the declarators after it: a name, with
+    # the pointer or reference marks before it and an initializer after.
+    DECLARATION = /\A(?<type>(?:const\s+)?[\w:]+)\s*(?<declarators>[*&]*\s*[A-Za-z_]\w*\s*(?:=.*)?,.*)\z/m
+    DECLARATOR = /\A[*&]*\s*[A-Za-z_]\w*\s*(?:=.+)?\z/m
     CATCH = /\Aluax_catchexcept\s*\(\s*L\s*,\s*\[[^\]]*\]\s*\(\s*\)\s*(?:->\s*[\w:]+\s*)?\{/
 
     # The statements of +text+, which starts at +offset+ in +source+ (a
     # CppSource), for line numbers.
     def self.parse(text, offset, source)
       Parser.new(text, offset, source).statements(0, text.length)
+    end
+
+    # +text+ split at each comma outside parentheses, brackets, braces,
+    # and literals, each part stripped.
+    def self.top_level_split(text)
+      parts = [+""]
+      index = 0
+      while index < text.length
+        char = text[index]
+        finish = if "([{".include?(char)
+          matching(text, index) + 1
+        elsif ['"', "'"].include?(char)
+          skip_literal(text, index)
+        else
+          index + 1
+        end
+        (char == ",") ? parts << +"" : parts.last << text[index...finish]
+        index = finish
+      end
+      parts.map(&:strip)
     end
 
     # The offset of the bracket that closes the one at +open+ in +text+.
@@ -91,10 +115,24 @@ module Bindings
         index = skip_space(start, finish)
         while index < finish
           node, index = statement(index, finish)
-          nodes << node if node
+          nodes.concat(declarations(node)) if node
           index = skip_space(index, finish)
         end
         nodes
+      end
+
+      # +node+, or, where it declares several variables of one type
+      # (int width = 0, height = 0; SoundData *t = ..., *c = nullptr),
+      # one declaration of each, as if LÖVE had written them apart, so
+      # each variable has its own type and initializer.
+      private def declarations(node)
+        return [node] unless node.kind == :expression
+
+        match = node.text.match(DECLARATION) or return [node]
+        declarators = Statements.top_level_split(match[:declarators])
+        return [node] unless declarators.size > 1 && declarators.all? { |part| part.match?(DECLARATOR) }
+
+        declarators.map { |part| node.with(text: "#{match[:type]} #{part}") }
       end
 
       private def statement(index, finish)

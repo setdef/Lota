@@ -91,27 +91,6 @@ Rice::Array get_window(WindowSettings &settings) {
   return size;
 }
 
-// w_getDesktopDimensions (wrap_Window.cpp:360-375): the width and height
-// of the display +displayindex+ names, counting from 1, or of the one the
-// window is on, as an Array.
-Rice::Array desktop_dimensions(std::optional<int> displayindex) {
-  int width = 0;
-  int height = 0;
-  int display = 0;
-  if (displayindex.has_value()) {
-    display = *displayindex - 1;
-  } else {
-    int x = 0;
-    int y = 0;
-    window().getPosition(x, y, display);
-  }
-  window().getDesktopDimensions(display, width, height);
-  Rice::Array dimensions;
-  dimensions.push(width, false);
-  dimensions.push(height, false);
-  return dimensions;
-}
-
 Rice::Array fullscreen_types() {
   Rice::Array names;
   for (const std::string &name : Window::getConstants(Window::FULLSCREEN_MAX_ENUM)) {
@@ -207,8 +186,6 @@ void define_window(const Rice::Module &native) {
       .define_singleton_function("set_mode", &set_mode, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Arg("settings"))
       .define_singleton_function("get_window", &get_window, Rice::Arg("settings"))
-      .define_singleton_function("desktop_dimensions", &desktop_dimensions,
-                                 Rice::Arg("displayindex") = std::optional<int>())
       .define_singleton_function("fullscreen_types", &fullscreen_types)
       .define_singleton_function("set_high_dpi_allowed", &set_high_dpi_allowed, Rice::Arg("enable"))
       .define_singleton_function(

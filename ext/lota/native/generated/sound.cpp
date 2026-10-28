@@ -29,6 +29,13 @@ using namespace love::sound;
 // (vendor/love/src/modules/sound), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// Decoder:clone: w_Decoder_clone (wrap_Decoder.cpp:37-45).
+Decoder *w_Decoder_clone(Decoder &t) {
+  Decoder *c = nullptr;
+  c = t.clone();
+  return c;
+}
+
 // Decoder:getChannelCount: w_Decoder_getChannelCount (wrap_Decoder.cpp:47-52).
 int w_Decoder_getChannelCount(const Decoder &t) { return t.getChannelCount(); }
 
@@ -41,10 +48,24 @@ int w_Decoder_getSampleRate(const Decoder &t) { return t.getSampleRate(); }
 // Decoder:getDuration: w_Decoder_getDuration (wrap_Decoder.cpp:68-73).
 double w_Decoder_getDuration(Decoder &t) { return t.getDuration(); }
 
+// SoundData:clone: w_SoundData_clone (wrap_SoundData.cpp:45-52).
+SoundData *w_SoundData_clone(const SoundData &t) {
+  SoundData *c = nullptr;
+  c = t.clone();
+  return c;
+}
+
 // SoundData:copyFrom: w_SoundData_copyFrom (wrap_SoundData.cpp:124-135).
 void w_SoundData_copyFrom(SoundData &dst, const SoundData *src, int src_start, int count,
                           int dst_start) {
   dst.copyFrom(src, src_start, count, dst_start);
+}
+
+// SoundData:slice: w_SoundData_slice (wrap_SoundData.cpp:137-147).
+SoundData *w_SoundData_slice(const SoundData &t, int start, int length) {
+  SoundData *c = nullptr;
+  c = t.slice(start, length);
+  return c;
 }
 
 // SPDX-SnippetEnd
@@ -53,11 +74,15 @@ void w_SoundData_copyFrom(SoundData &dst, const SoundData *src, int src_start, i
 
 void define_generated_sound(const Rice::Module &native) {
   Rice::define_class_under<Decoder>(native, "Decoder")
+      .define_method("clone", &w_Decoder_clone, Rice::Return().takeOwnership())
       .define_method("channel_count", &w_Decoder_getChannelCount)
       .define_method("bit_depth", &w_Decoder_getBitDepth)
       .define_method("sample_rate", &w_Decoder_getSampleRate)
       .define_method("duration", &w_Decoder_getDuration);
   Rice::define_class_under<SoundData>(native, "SoundData")
+      .define_method("clone", &w_SoundData_clone, Rice::Return().takeOwnership())
+      .define_method("slice", &w_SoundData_slice, Rice::Arg("start"), Rice::Arg("length") = -1,
+                     Rice::Return().takeOwnership())
       .define_method("copy_from", &w_SoundData_copyFrom, Rice::Arg("src"), Rice::Arg("src_start"),
                      Rice::Arg("count"), Rice::Arg("dst_start") = 0);
 }

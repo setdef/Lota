@@ -146,18 +146,12 @@ void stop() { module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->stop(); }
 
 void stop_source(Source &source) { source.stop(); }
 
-// w_Source_clone (wrap_Source.cpp:39-47): a new Source of the same sound,
-// stopped, with this one's settings (openal/Source.cpp, Source::Source(const
-// Source &)). Its one reference goes to the Ruby wrapper.
-Source *clone(Source &source) { return source.clone(); }
-
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_audio(const Rice::Module &native) {
-  define_engine_class<Source>(native, "Source")
-      .define_method("clone", &clone, Rice::Return().takeOwnership());
+  define_engine_class<Source>(native, "Source");
 
   Rice::define_module_under(native, "Audio")
       .define_singleton_function("open", &open)

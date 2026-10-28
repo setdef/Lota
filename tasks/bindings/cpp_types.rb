@@ -89,7 +89,7 @@ module Bindings
     # The type of field +field+ of class +name+, or nil.
     def field(name, field, module_dir: nil)
       each_declaration(name, module_dir) do |declaration, argument|
-        pattern = /^\s*(?<type>[\w:<>]+(?:\s*\*)?)(?:\s+|(?<=\*))(?<names>\w+(?:\s*,\s*\w+)*)\s*;/
+        pattern = /^\s*(?<type>[\w:<>]+(?:\s*\*)?)(?:\s+|(?<=\*))(?<names>\w+(?:\s*,\s*\w+)*)\s*(?:=[^;]*|\{[^;]*\})?;/
         declaration.body.scan(pattern) do |type, names|
           return substitute(type.strip, declaration, argument) if names.split(",").map(&:strip).include?(field)
         end

@@ -166,7 +166,7 @@ module Bindings
       wrap = entry.function.wrap
       main = main_thread_modules.include?(entry.function.module_name) ? Rules.module_constant(entry.function.module_name) : nil
       Port.new(entry, binding, native_name: native_name(entry), types:, module_class: wrap.instance_class,
-        helpers: survey.catalog.helpers, main_thread: main, checks: survey.catalog.checks)
+        helpers: survey.catalog.helpers, main_thread: main, checks: survey.catalog.checks, guards: survey.catalog.guards)
     rescue Port::Unsupported => e
       raise Failure, "#{binding.love_name}: #{e.message}"
     end
@@ -204,7 +204,7 @@ module Bindings
         using namespace love;
         using namespace #{namespace_of(wrap)};
 
-        #{module_constant(name, ports)}#{accessor(name, wrap, main) if instance?(ports)}
+        #{module_constant(name, ports)}#{accessor(name, instance_wrap(ports), main) if instance?(ports)}
         // SPDX-SnippetBegin
         // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
         // SPDX-License-Identifier: Zlib
@@ -224,6 +224,14 @@ module Bindings
 
         } // namespace lota::native
       CPP
+    end
+
+    # The wrap file whose instance() macro the ports reach the module
+    # through: the module's own (wrap_Sound.cpp), which a method's file
+    # (wrap_Decoder.cpp) includes the same macro from.
+    private def instance_wrap(ports)
+      wraps = ports.map { |port| port.function.wrap }.uniq
+      wraps.find { |wrap| wrap.source.raw.include?("#define instance()") } || wraps.first
     end
 
     private def instance?(ports)
@@ -285,11 +293,13 @@ module Bindings
         type if port.definition.include?("instance()") || (type && port.definition.match?(/\b#{type}::/))
       end +
         ports.filter_map { |port| port.self_parameter&.fetch(:type) } +
-        ports.flat_map { |port| port.parameters.compact.filter_map(&:object) }
+        ports.flat_map { |port| port.parameters.compact.filter_map(&:object) } +
+        ports.flat_map(&:result_classes)
       wrap_dir = File.dirname(ports.first.function.wrap.path)
       classes.uniq.each { |type| love << %("#{header_of(name, type, wrap_dir)}") }
       std = []
       std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
+      std << "<array>" if code.include?("std::array")
       std << "<cstddef>" if code.match?(/\bsize_t\b/)
       std << "<limits>" if code.include?("std::numeric_limits")
       std << "<optional>" if code.include?("std::optional")

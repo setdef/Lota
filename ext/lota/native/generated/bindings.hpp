@@ -21,6 +21,7 @@ void define_generated_data(const Rice::Module &native);
 void define_generated_event(const Rice::Module &native);
 void define_generated_filesystem(const Rice::Module &native);
 void define_generated_graphics(const Rice::Module &native);
+void define_generated_image(const Rice::Module &native);
 void define_generated_math(const Rice::Module &native);
 void define_generated_mouse(const Rice::Module &native);
 void define_generated_physics(const Rice::Module &native);
@@ -35,6 +36,7 @@ inline void define_generated(const Rice::Module &native) {
   define_generated_event(native);
   define_generated_filesystem(native);
   define_generated_graphics(native);
+  define_generated_image(native);
   define_generated_math(native);
   define_generated_mouse(native);
   define_generated_physics(native);

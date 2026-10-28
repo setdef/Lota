@@ -4,7 +4,6 @@
 #include "native/mouse.hpp"
 
 #include "native/binding.hpp"
-#include "native/errors.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -38,22 +37,6 @@ bool is_open() { return love::Module::getInstance<Mouse>(love::Module::M_MOUSE) 
 //
 // Ported from LÖVE's C++, as cited below, and changed to take its
 // arguments from Rice instead of a lua_State.
-
-// w_getSystemCursor (vendor/love/src/modules/mouse/wrap_Mouse.cpp:94-107):
-// the name is checked before the module is asked, and the module keeps
-// each system cursor it makes (mouse/sdl/Mouse.cpp:98-110), so the Ruby
-// wrapper retains one more reference, as luax_pushtype does.
-Cursor *system_cursor(const std::string &name) {
-  Cursor::SystemCursor type = Cursor::CURSOR_ARROW;
-  if (!Cursor::getConstant(name.c_str(), type)) {
-    raise_enum_error("system cursor type", name);
-  }
-  auto *instance = love::Module::getInstance<Mouse>(love::Module::M_MOUSE);
-  if (instance == nullptr) {
-    throw love::Exception("Lota::Mouse is not open.");
-  }
-  return instance->getSystemCursor(type);
-}
 
 // w_isDown (wrap_Mouse.cpp:203-232): whether any of the buttons, each an
 // Integer, is held down, read from one Array where LÖVE reads them from
@@ -100,7 +83,6 @@ void define_mouse(const Rice::Module &native) {
   define_engine_class<Cursor>(mouse, "Cursor").define_method("get_type", &cursor_type);
   mouse.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("system_cursor", &system_cursor, Rice::Arg("name"))
       .define_singleton_function("down?", &is_down, Rice::Arg("buttons"));
 }
 

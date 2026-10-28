@@ -14,6 +14,7 @@
 #include "common/math.h"
 #include "window/Window.h"
 
+#include <optional>
 #include <string>
 
 namespace lota::native {
@@ -49,6 +50,25 @@ Window *instance() {
 // love.window.isOpen: w_isOpen (wrap_Window.cpp:347-351).
 bool w_isOpen() { return instance()->isOpen(); }
 
+// love.window.getDesktopDimensions: w_getDesktopDimensions (wrap_Window.cpp:360-375).
+Rice::Array w_getDesktopDimensions(std::optional<int> argument1) {
+  Rice::Array results;
+  int width = 0;
+  int height = 0;
+  int displayindex = 0;
+  if (argument1.has_value()) {
+    displayindex = argument1.value() - 1;
+  } else {
+    int x{};
+    int y{};
+    instance()->getPosition(x, y, displayindex);
+  }
+  instance()->getDesktopDimensions(displayindex, width, height);
+  results.push(width, false);
+  results.push(height, false);
+  return results;
+}
+
 // love.window.getSafeArea: w_getSafeArea (wrap_Window.cpp:408-416).
 Rice::Array w_getSafeArea() {
   Rice::Array results;
@@ -73,6 +93,8 @@ std::string w_getTitle() { return instance()->getWindowTitle(); }
 void define_generated_window(const Rice::Module &native) {
   Rice::define_module_under(native, "Window")
       .define_singleton_function("safe_area", &w_getSafeArea)
+      .define_singleton_function("desktop_dimensions", &w_getDesktopDimensions,
+                                 Rice::Arg("argument1") = std::optional<int>())
       .define_singleton_function("set_title", &w_setTitle, Rice::Arg("title"))
       .define_singleton_function("title", &w_getTitle)
       .define_singleton_function("window_open?", &w_isOpen);

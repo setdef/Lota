@@ -55,6 +55,13 @@ void w_setVolume(double v) { instance()->setVolume(static_cast<float>(v)); }
 // love.audio.getVolume: w_getVolume (wrap_Audio.cpp:218-222).
 double w_getVolume() { return static_cast<double>(instance()->getVolume()); }
 
+// Source:clone: w_Source_clone (wrap_Source.cpp:39-47).
+Source *w_Source_clone(Source &t) {
+  Source *clone = nullptr;
+  clone = t.clone();
+  return clone;
+}
+
 // Source:play: w_Source_play (wrap_Source.cpp:49-54).
 bool w_Source_play(Source &t) { return t.play(); }
 
@@ -127,7 +134,8 @@ void define_generated_audio(const Rice::Module &native) {
       .define_method("looping?", &w_Source_isLooping)
       .define_method("playing?", &w_Source_isPlaying)
       .define_method("channel_count", &w_Source_getChannelCount)
-      .define_method("get_type", &w_Source_getType);
+      .define_method("get_type", &w_Source_getType)
+      .define_method("clone", &w_Source_clone, Rice::Return().takeOwnership());
 }
 
 } // namespace lota::native

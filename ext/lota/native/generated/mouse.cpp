@@ -8,6 +8,7 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -15,6 +16,7 @@
 #include "mouse/Mouse.h"
 
 #include <optional>
+#include <string>
 
 namespace lota::native {
 
@@ -44,6 +46,17 @@ Mouse *instance() {
 // Ported by the generator from the wrap functions cited below
 // (vendor/love/src/modules/mouse), with each read of the Lua
 // stack made a parameter and each push the result.
+
+// love.mouse.getSystemCursor: w_getSystemCursor (wrap_Mouse.cpp:94-107).
+Cursor *w_getSystemCursor(const std::string &system_cursor) {
+  Cursor::SystemCursor system_cursor_value{};
+  if (!Cursor::getConstant(system_cursor.c_str(), system_cursor_value)) {
+    raise_enum_error("system cursor type", system_cursor);
+  }
+  Cursor *cursor = nullptr;
+  cursor = instance()->getSystemCursor(system_cursor_value);
+  return cursor;
+}
 
 // love.mouse.setCursor: w_setCursor (wrap_Mouse.cpp:109-121).
 void w_setCursor(std::optional<Cursor *> cursor) {
@@ -129,6 +142,7 @@ bool w_getRelativeMode() { return instance()->getRelativeMode(); }
 
 void define_generated_mouse(const Rice::Module &native) {
   Rice::define_module_under(native, "Mouse")
+      .define_singleton_function("system_cursor", &w_getSystemCursor, Rice::Arg("system_cursor"))
       .define_singleton_function("set_cursor", &w_setCursor,
                                  Rice::Arg("cursor") = std::optional<Cursor *>())
       .define_singleton_function("x", &w_getX)

@@ -4,7 +4,6 @@
 #include "native/physics.hpp"
 
 #include "native/binding.hpp"
-#include "native/errors.hpp"
 #include "native/ruby.hpp"
 
 #include "common/Exception.h"
@@ -33,8 +32,6 @@
 #include "physics/box2d/WeldJoint.h"
 #include "physics/box2d/WheelJoint.h"
 #include "physics/box2d/World.h"
-
-#include <box2d/b2_math.h>
 
 #include <array>
 #include <cstddef>
@@ -300,24 +297,6 @@ template <typename T> Rice::Array objects(const std::vector<T> &values) {
 // lua_State; where a wrap function called a method Lota's physics patch
 // changed, the port calls the method as the patch leaves it.
 
-// w_newWorld (wrap_Physics.cpp:53-65). Its one reference goes to the Ruby
-// wrapper.
-World *new_world(double gx, double gy, bool sleep) {
-  return physics()->newWorld(static_cast<float>(gx), static_cast<float>(gy), sleep);
-}
-
-// w_newBody (wrap_Physics.cpp:67-83): a static Body unless +typestr+ names
-// another type. The Body's reference from its making goes to the Ruby
-// wrapper; the one its Box2D body holds stays with the World.
-Body *new_body(World *world, double x, double y, std::optional<std::string> typestr) {
-  check(world);
-  Body::Type btype = Body::BODY_STATIC;
-  if (typestr.has_value() && !Body::getConstant(typestr->c_str(), btype)) {
-    raise_enum_error("Body type", Body::getConstants(btype), *typestr);
-  }
-  return physics()->newBody(world, static_cast<float>(x), static_cast<float>(y), btype);
-}
-
 // w_newCircleShape (wrap_Physics.cpp:307-336) with a Body, in its form with
 // a position and a radius; Lota::Physics::CircleShape.new passes 0, 0 for
 // the form with a radius alone, as LÖVE does.
@@ -390,20 +369,6 @@ box2d::ChainShape *new_chain_shape(Body *body, bool loop, Rice::Array coordinate
 // The joints' factories (wrap_Physics.cpp:492-775), each with its numbers
 // as LÖVE reads them for the form Lota::Physics's joint classes choose by
 // how many there are, as LÖVE chooses by lua_gettop.
-box2d::DistanceJoint *new_distance_joint(Body *body1, Body *body2, Rice::Array anchors_given,
-                                         bool collide_connected) {
-  const Rice::Array anchors = std::move(anchors_given);
-  check(body1);
-  check(body2);
-  const auto [x1, y1, x2, y2] = take<4>(numbers(anchors), 0);
-  return physics()->newDistanceJoint(body1, body2, x1, y1, x2, y2, collide_connected);
-}
-
-box2d::MouseJoint *new_mouse_joint(Body *body, double x, double y) {
-  check(body);
-  return physics()->newMouseJoint(body, static_cast<float>(x), static_cast<float>(y));
-}
-
 // The anchors of a revolute, friction, or weld joint: xA, yA, and xB, yB,
 // which are A's when only two numbers are given.
 std::array<float, 4> anchors_of(const std::vector<double> &a) {
@@ -484,51 +449,6 @@ box2d::WheelJoint *new_wheel_joint(Body *body1, Body *body2, Rice::Array anchors
   return physics()->newWheelJoint(body1, body2, xA, yA, xB, yB, ax, ay, collide_connected);
 }
 
-// w_newPulleyJoint (wrap_Physics.cpp:616-638): the ground anchors, then the
-// anchors, then the ratio.
-box2d::PulleyJoint *new_pulley_joint(Body *body1, Body *body2, Rice::Array anchors_given,
-                                     double ratio, bool collide_connected) {
-  const Rice::Array anchors = std::move(anchors_given);
-  check(body1);
-  check(body2);
-  const std::vector<double> a = numbers(anchors);
-  const auto [gx1, gy1, gx2, gy2] = take<4>(a, 0);
-  const auto [x1, y1, x2, y2] = take<4>(a, 4);
-  return physics()->newPulleyJoint(body1, body2, b2Vec2(gx1, gy1), b2Vec2(gx2, gy2), b2Vec2(x1, y1),
-                                   b2Vec2(x2, y2), static_cast<float>(ratio), collide_connected);
-}
-
-box2d::GearJoint *new_gear_joint(Joint *joint1, Joint *joint2, double ratio,
-                                 bool collide_connected) {
-  check(joint1);
-  check(joint2);
-  return physics()->newGearJoint(joint1, joint2, static_cast<float>(ratio), collide_connected);
-}
-
-box2d::RopeJoint *new_rope_joint(Body *body1, Body *body2, Rice::Array anchors_given,
-                                 double max_length, bool collide_connected) {
-  const Rice::Array anchors = std::move(anchors_given);
-  check(body1);
-  check(body2);
-  const auto [x1, y1, x2, y2] = take<4>(numbers(anchors), 0);
-  return physics()->newRopeJoint(body1, body2, x1, y1, x2, y2, static_cast<float>(max_length),
-                                 collide_connected);
-}
-
-// w_newMotorJoint (wrap_Physics.cpp:756-775): with no correction factor,
-// Box2D's defaults.
-box2d::MotorJoint *new_motor_joint(Body *body1, Body *body2,
-                                   std::optional<double> correction_factor,
-                                   bool collide_connected) {
-  check(body1);
-  check(body2);
-  if (correction_factor.has_value()) {
-    return physics()->newMotorJoint(body1, body2, static_cast<float>(*correction_factor),
-                                    collide_connected);
-  }
-  return physics()->newMotorJoint(body1, body2);
-}
-
 // w_getDistance (wrap_Physics.cpp:777-780), through Physics::getDistance:
 // the distance between the Shapes and the two closest points.
 Rice::Array distance(Shape *shape_a, Shape *shape_b) {
@@ -538,22 +458,6 @@ Rice::Array distance(Shape *shape_a, Shape *shape_b) {
   float y2 = 0;
   const float distance = physics()->getDistance(present(shape_a), present(shape_b), x1, y1, x2, y2);
   return floats({distance, x1, y1, x2, y2});
-}
-
-// w_getMeter (wrap_Physics.cpp:782-786), which pushes the meter as a Lua
-// integer, so a meter of 30.5 is 30.
-long long meter() { return static_cast<long long>(Physics::getMeter()); }
-
-// w_Body_getWorld (wrap_Body.cpp:556-562).
-World *body_world(const Body &body) {
-  check(body);
-  return body.getWorld();
-}
-
-// w_Body_getShape (wrap_Body.cpp:610-619): the first Shape, or nil.
-Shape *body_shape(const Body &body) {
-  check(body);
-  return body.getShape();
 }
 
 // w_Body_getShapes, w_Body_getJoints, and w_Body_getContacts
@@ -930,21 +834,6 @@ Rice::Array ray_cast_closest(World &world, double x1, double y1, double x2, doub
   return ray_cast_one(world, x1, y1, x2, y2, mask, false);
 }
 
-// w_Shape_getBody (wrap_Shape.cpp:79-87): nil when it has none.
-Body *shape_body(const Shape &shape) { return shape.getBody(); }
-
-// w_Shape_getFilterData (wrap_Shape.cpp:237-246): its category bits, mask
-// bits, and group, as Integers.
-Rice::Array filter_data(Shape &shape) {
-  std::array<int, 3> v{};
-  shape.getFilterData(v.data());
-  Rice::Array results;
-  for (const int value : v) {
-    results.push(value, false);
-  }
-  return results;
-}
-
 // w_Shape_setCategory, getCategory, setMask, and getMask
 // (wrap_Shape.cpp:248-282): categories counting from 1, read from the
 // Array of every argument, or the Array that is the first.
@@ -1054,15 +943,6 @@ Rice::Array shape_ray_cast(const Shape &shape, Rice::Array ray_given, Rice::Arra
   return hit ? floats({xn, yn, fraction}) : Rice::Array();
 }
 
-// w_Joint_getBodies (wrap_Joint.cpp:95-109).
-Rice::Array joint_bodies(const Joint &joint) {
-  check(joint);
-  Rice::Array results;
-  results.push(joint.getBodyA(), false);
-  results.push(joint.getBodyB(), false);
-  return results;
-}
-
 // w_Joint_getAnchors and w_Joint_getReactionForce (wrap_Joint.cpp:111-123).
 Rice::Array anchors(Joint &joint) {
   check(joint);
@@ -1082,19 +962,7 @@ Rice::Array reaction_force(Joint &joint, double dt) {
   return floats({x, y});
 }
 
-// w_Contact_getShapes, getNormal, and getPositions (wrap_Contact.cpp:39-49
-// and 142-151).
-Rice::Array contact_shapes(Contact &contact) {
-  check(contact);
-  Shape *a = nullptr;
-  Shape *b = nullptr;
-  contact.getShapes(a, b);
-  Rice::Array results;
-  results.push(a, false);
-  results.push(b, false);
-  return results;
-}
-
+// w_Contact_getNormal and getPositions (wrap_Contact.cpp:39-49).
 Rice::Array normal(Contact &contact) {
   check(contact);
   float x = 0;
@@ -1145,8 +1013,6 @@ void define_physics(const Rice::Module &native) {
                      Rice::Arg("mask") = std::optional<long long>());
 
   define_engine_class<Body>(native, "Body")
-      .define_method("world", &body_world)
-      .define_method("shape", &body_shape)
       .define_method("shapes", &body_shapes)
       .define_method("joints", &body_joints)
       .define_method("contacts", &body_contacts)
@@ -1161,8 +1027,6 @@ void define_physics(const Rice::Module &native) {
                      Rice::Arg("jy"), Rice::Arg("rest"));
 
   define_engine_class<Shape>(native, "Shape")
-      .define_method("body", &shape_body)
-      .define_method("filter_data", &filter_data)
       .define_method("set_category", &set_category, Rice::Arg("categories"))
       .define_method("category", &category)
       .define_method("set_mask", &set_mask, Rice::Arg("masks"))
@@ -1181,7 +1045,6 @@ void define_physics(const Rice::Module &native) {
   define_engine_class<box2d::ChainShape, Shape>(native, "ChainShape");
 
   define_engine_class<Joint>(native, "Joint")
-      .define_method("bodies", &joint_bodies)
       .define_method("anchors", &anchors)
       .define_method("reaction_force", &reaction_force, Rice::Arg("dt"))
       .define_method("set_user_data", &joint_set_user_data, Rice::Arg("value"))
@@ -1199,7 +1062,6 @@ void define_physics(const Rice::Module &native) {
   define_engine_class<box2d::WheelJoint, Joint>(native, "WheelJoint");
 
   define_engine_class<Contact>(native, "Contact")
-      .define_method("shapes", &contact_shapes)
       .define_method("normal", &normal)
       .define_method("positions", &positions);
 
@@ -1207,11 +1069,6 @@ void define_physics(const Rice::Module &native) {
   Rice::define_module_under(native, "Physics")
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("new_world", &new_world, Rice::Arg("gx"), Rice::Arg("gy"),
-                                 Rice::Arg("sleep"), owned)
-      .define_singleton_function("new_body", &new_body, Rice::Arg("world"), Rice::Arg("x"),
-                                 Rice::Arg("y"),
-                                 Rice::Arg("typestr") = std::optional<std::string>(), owned)
       .define_singleton_function("new_circle_shape", &new_circle_shape, Rice::Arg("body"),
                                  Rice::Arg("x"), Rice::Arg("y"), Rice::Arg("radius"), owned)
       .define_singleton_function("new_rectangle_shape", &new_rectangle_shape, Rice::Arg("body"),
@@ -1222,11 +1079,6 @@ void define_physics(const Rice::Module &native) {
                                  Rice::Arg("coordinates"), owned)
       .define_singleton_function("new_chain_shape", &new_chain_shape, Rice::Arg("body"),
                                  Rice::Arg("loop"), Rice::Arg("coordinates"), owned)
-      .define_singleton_function("new_distance_joint", &new_distance_joint, Rice::Arg("body1"),
-                                 Rice::Arg("body2"), Rice::Arg("anchors"),
-                                 Rice::Arg("collide_connected"), owned)
-      .define_singleton_function("new_mouse_joint", &new_mouse_joint, Rice::Arg("body"),
-                                 Rice::Arg("x"), Rice::Arg("y"), owned)
       .define_singleton_function("new_revolute_joint", &new_revolute_joint, Rice::Arg("body1"),
                                  Rice::Arg("body2"), Rice::Arg("anchors"),
                                  Rice::Arg("collide_connected"),
@@ -1245,21 +1097,7 @@ void define_physics(const Rice::Module &native) {
       .define_singleton_function("new_wheel_joint", &new_wheel_joint, Rice::Arg("body1"),
                                  Rice::Arg("body2"), Rice::Arg("anchors"),
                                  Rice::Arg("collide_connected"), owned)
-      .define_singleton_function("new_pulley_joint", &new_pulley_joint, Rice::Arg("body1"),
-                                 Rice::Arg("body2"), Rice::Arg("anchors"), Rice::Arg("ratio"),
-                                 Rice::Arg("collide_connected"), owned)
-      .define_singleton_function("new_gear_joint", &new_gear_joint, Rice::Arg("joint1"),
-                                 Rice::Arg("joint2"), Rice::Arg("ratio"),
-                                 Rice::Arg("collide_connected"), owned)
-      .define_singleton_function("new_rope_joint", &new_rope_joint, Rice::Arg("body1"),
-                                 Rice::Arg("body2"), Rice::Arg("anchors"), Rice::Arg("max_length"),
-                                 Rice::Arg("collide_connected"), owned)
-      .define_singleton_function("new_motor_joint", &new_motor_joint, Rice::Arg("body1"),
-                                 Rice::Arg("body2"),
-                                 Rice::Arg("correction_factor") = std::optional<double>(),
-                                 Rice::Arg("collide_connected") = false, owned)
-      .define_singleton_function("distance", &distance, Rice::Arg("shape_a"), Rice::Arg("shape_b"))
-      .define_singleton_function("meter", &meter);
+      .define_singleton_function("distance", &distance, Rice::Arg("shape_a"), Rice::Arg("shape_b"));
 }
 
 } // namespace lota::native

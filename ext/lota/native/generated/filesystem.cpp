@@ -11,6 +11,7 @@
 
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "filesystem/FileData.h"
 #include "filesystem/Filesystem.h"
 
 #include <string>
@@ -43,6 +44,13 @@ Filesystem *instance() {
 // Ported by the generator from the wrap functions cited below
 // (vendor/love/src/modules/filesystem), with each read of the Lua
 // stack made a parameter and each push the result.
+
+// FileData:clone: w_FileData_clone (wrap_FileData.cpp:35-42).
+FileData *w_FileData_clone(const FileData &t) {
+  FileData *c = nullptr;
+  c = t.clone();
+  return c;
+}
 
 // love.filesystem.init: w_init (wrap_Filesystem.cpp:52-57).
 void w_init(const std::string &arg0) { instance()->init(arg0.c_str()); }
@@ -95,6 +103,8 @@ void define_generated_filesystem(const Rice::Module &native) {
       .define_singleton_function("save_directory", &w_getSaveDirectory)
       .define_singleton_function("create_directory", &w_createDirectory, Rice::Arg("arg"))
       .define_singleton_function("remove", &w_remove, Rice::Arg("arg"));
+  Rice::define_class_under<FileData>(native, "FileData")
+      .define_method("clone", &w_FileData_clone, Rice::Return().takeOwnership());
 }
 
 } // namespace lota::native

@@ -45,7 +45,6 @@ namespace lota::native {
 
 using love::graphics::Font;
 using love::graphics::Graphics;
-using love::graphics::SamplerState;
 using love::graphics::Texture;
 
 namespace {
@@ -420,10 +419,6 @@ Font *new_font_from_file(love::filesystem::FileData *data) {
   return new_font(instance, font_module().newRasterizer(data));
 }
 
-// w_getFont (wrap_Graphics.cpp:2580-2589): the font text is drawn in,
-// which is LÖVE's default font, made on first use, until one is set.
-Font *font() { return created_graphics().getFont(); }
-
 // A Ruby number, read as a float, as luaL_checknumber and LÖVE's casts
 // read each number of a color or a placement.
 float to_float(const Rice::Object &number) {
@@ -578,12 +573,6 @@ void quad_set_viewport(love::graphics::Quad &quad, Rice::Array viewport, std::op
   }
 }
 
-// Quad:getLayer (wrap_Quad.cpp:85-90), counting from 1 as Lua does.
-int quad_layer(const love::graphics::Quad &quad) {
-  require_main_thread(MODULE);
-  return quad.getLayer() + 1;
-}
-
 // w_newSpriteBatch (wrap_Graphics.cpp:1438-1460): a batch of +size+
 // sprites, 1000 unless given, drawn from +texture+, with a usage hint,
 // dynamic unless given. Its one reference goes to the Ruby wrapper.
@@ -632,13 +621,6 @@ void sprite_batch_set_color(love::graphics::SpriteBatch &batch, double red, doub
   require_main_thread(MODULE);
   batch.setColor(love::Colorf(static_cast<float>(red), static_cast<float>(green),
                               static_cast<float>(blue), static_cast<float>(alpha)));
-}
-
-// SpriteBatch:getTexture (wrap_SpriteBatch.cpp:147-152). The batch keeps
-// its own reference, and the Ruby wrapper takes another.
-Texture *sprite_batch_texture(const love::graphics::SpriteBatch &batch) {
-  require_main_thread(MODULE);
-  return batch.getTexture();
 }
 
 // w__optMipmap (wrap_Texture.cpp:38-51): the mipmap +mipmap+ names,
@@ -796,25 +778,6 @@ void arc(const std::string &drawstr, const std::optional<std::string> &arcstr,
   }
 }
 
-// w_getDefaultFilter (wrap_Graphics.cpp:2769-2782): the two filters'
-// names and the anisotropy, which LÖVE holds as an integer.
-Rice::Array default_filter() {
-  const SamplerState &state = graphics().getDefaultSamplerState();
-  const char *min = nullptr;
-  const char *mag = nullptr;
-  if (!SamplerState::getConstant(state.minFilter, min)) {
-    throw love::Exception("Unknown minification filter mode");
-  }
-  if (!SamplerState::getConstant(state.magFilter, mag)) {
-    throw love::Exception("Unknown magnification filter mode");
-  }
-  Rice::Array filter;
-  filter.push(std::string(min), false);
-  filter.push(std::string(mag), false);
-  filter.push(static_cast<int>(state.maxAnisotropy), false);
-  return filter;
-}
-
 // SPDX-SnippetEnd
 
 } // namespace
@@ -827,7 +790,6 @@ void define_graphics(const Rice::Module &native) {
       .define_method("render_to", &texture_render_to, Rice::Arg("slice"), Rice::Arg("block"));
   // Their other methods are generated too.
   define_engine_class<love::graphics::Quad>(native, "Quad")
-      .define_method("layer", &quad_layer)
       .define_method("set_viewport", &quad_set_viewport, Rice::Arg("viewport"),
                      Rice::Arg("sw") = std::optional<double>(),
                      Rice::Arg("sh") = std::optional<double>());
@@ -836,8 +798,7 @@ void define_graphics(const Rice::Module &native) {
       .define_method("set", &sprite_batch_set, Rice::Arg("index"), Rice::Arg("quad"),
                      Rice::Arg("placement"))
       .define_method("set_color", &sprite_batch_set_color, Rice::Arg("red"), Rice::Arg("green"),
-                     Rice::Arg("blue"), Rice::Arg("alpha"))
-      .define_method("texture", &sprite_batch_texture);
+                     Rice::Arg("blue"), Rice::Arg("alpha"));
   // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
   // love.font, the module that rasterizes its glyphs (native/font.cpp).
   Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
@@ -877,12 +838,10 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("sdf"), Rice::Return().takeOwnership())
       .define_singleton_function("new_font_from_file", &new_font_from_file, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
-      .define_singleton_function("font", &font)
       .define_singleton_function("print", &print, Rice::Arg("text"), Rice::Arg("font"),
                                  Rice::Arg("placement"))
       .define_singleton_function("printf", &printf, Rice::Arg("text"), Rice::Arg("font"),
                                  Rice::Arg("placement"), Rice::Arg("limit"), Rice::Arg("align"))
-      .define_singleton_function("default_filter", &default_filter)
       .define_singleton_function("draw", &draw, Rice::Arg("texture"), Rice::Arg("placement"))
       .define_singleton_function("draw_sprite_batch", &draw_sprite_batch, Rice::Arg("batch"),
                                  Rice::Arg("placement"))

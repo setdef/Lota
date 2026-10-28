@@ -158,7 +158,7 @@ module Lota
       #
       #   Lota::Physics::DistanceJoint.new(a, b, 10, 10, 20, 20, true)
       def self.new(body1, body2, x1, y1, x2, y2, collide_connected = nil)
-        from_native(Native::Physics.new_distance_joint(body1.native, body2.native, [x1, y1, x2, y2],
+        from_native(Native::Physics.new_distance_joint(body1.native, body2.native, x1, y1, x2, y2,
           flag(collide_connected, false)))
       end
     end
@@ -277,8 +277,8 @@ module Lota
       #
       #   Lota::Physics::PulleyJoint.new(a, b, 10, 10, 20, 20, 15, 15, 25, 25)
       def self.new(body1, body2, gx1, gy1, gx2, gy2, x1, y1, x2, y2, ratio = 1, collide_connected = nil)
-        from_native(Native::Physics.new_pulley_joint(body1.native, body2.native,
-          [gx1, gy1, gx2, gy2, x1, y1, x2, y2], ratio, flag(collide_connected, true)))
+        from_native(Native::Physics.new_pulley_joint(body1.native, body2.native, gx1, gy1, gx2, gy2, x1, y1, x2, y2,
+          ratio, flag(collide_connected, true)))
       end
     end
 
@@ -307,7 +307,7 @@ module Lota
       #
       #   Lota::Physics::RopeJoint.new(a, b, 10, 10, 20, 20, 50, true)
       def self.new(body1, body2, x1, y1, x2, y2, max_length, collide_connected = nil)
-        from_native(Native::Physics.new_rope_joint(body1.native, body2.native, [x1, y1, x2, y2], max_length,
+        from_native(Native::Physics.new_rope_joint(body1.native, body2.native, x1, y1, x2, y2, max_length,
           flag(collide_connected, false)))
       end
     end

@@ -501,11 +501,6 @@ Rice::Array to_array(const Components &c) {
   return results;
 }
 
-// w_ImageData_clone (wrap_ImageData.cpp:47-54), the C++ LÖVE runs: a new
-// ImageData with a copy of the pixels. Its one reference goes to the Ruby
-// wrapper.
-ImageData *clone(const ImageData &data) { return data.clone(); }
-
 // ImageData:getWidth and getHeight (lines 436-442): the object cache's,
 // which it read from ImageData:getDimensions, the C++'s.
 int width(const ImageData &data) { return data.getWidth(); }
@@ -674,7 +669,6 @@ void map_pixel(ImageData &data, Rice::Array call_given) {
 
 void define_image(const Rice::Module &native) {
   define_engine_class<ImageData, love::Data>(native, "ImageData")
-      .define_method("clone", &clone, Rice::Return().takeOwnership())
       .define_method("width", &width)
       .define_method("height", &height)
       .define_method("pixel", &get_pixel, Rice::Arg("x"), Rice::Arg("y"))

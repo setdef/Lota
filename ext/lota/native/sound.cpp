@@ -135,11 +135,6 @@ SoundData *decode(Decoder &decoder) {
       decoder.getSampleRate(), decoder.getBitDepth(), decoder.getChannelCount());
 }
 
-// w_SoundData_slice (wrap_SoundData.cpp:137-147): a new SoundData of
-// +length+ sample frames from +start+, or of every frame from +start+ on
-// when +length+ is -1.
-SoundData *slice(const SoundData &data, int start, int length) { return data.slice(start, length); }
-
 // The largest value of a 16-bit and of an 8-bit sample, as
 // wrap_SoundData.lua's typemaxvals (line 46) holds them.
 constexpr double int16_max = 0x7FFF;
@@ -232,15 +227,6 @@ void set_sample(SoundData &data, Rice::Array arguments) {
   }
 }
 
-// w_Decoder_clone (wrap_Decoder.cpp:37-45) and w_SoundData_clone
-// (wrap_SoundData.cpp:45-52): a new Decoder of the same file, decoding from
-// its start (Decoder::clone), and a new SoundData with a copy of the
-// samples (SoundData::clone). Each one's reference goes to its Ruby
-// wrapper.
-Decoder *clone_decoder(Decoder &decoder) { return decoder.clone(); }
-
-SoundData *clone_sound_data(const SoundData &data) { return data.clone(); }
-
 // SoundData:getChannelCount, getBitDepth, getSampleRate, getSampleCount,
 // and getDuration, in the FFI code LÖVE runs under LuaJIT, which replaces
 // their wrap functions (wrap_SoundData.lua:142-160): each returns what the
@@ -274,12 +260,8 @@ bool is_open() { return love::Module::getInstance<Sound>(love::Module::M_SOUND) 
 void define_sound(const Rice::Module &native) {
   // Their other methods are generated (ext/lota/native/generated/sound.cpp).
   define_engine_class<Decoder>(native, "Decoder")
-      .define_method("decode", &decode, Rice::Return().takeOwnership())
-      .define_method("clone", &clone_decoder, Rice::Return().takeOwnership());
+      .define_method("decode", &decode, Rice::Return().takeOwnership());
   define_engine_class<SoundData, love::Data>(native, "SoundData")
-      .define_method("slice", &slice, Rice::Arg("start"), Rice::Arg("length") = -1,
-                     Rice::Return().takeOwnership())
-      .define_method("clone", &clone_sound_data, Rice::Return().takeOwnership())
       .define_method("sample", &get_sample, Rice::Arg("i"),
                      Rice::Arg("channel") = std::optional<double>())
       .define_method("set_sample", &set_sample, Rice::Arg("arguments"))

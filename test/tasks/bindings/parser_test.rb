@@ -49,6 +49,35 @@ class ParserTest < Minitest::Test
     assert_equal ["instance()->rectangle(mode, x, y, w, h)"], catches.first.body.map(&:text)
   end
 
+  # A statement that declares several variables of one type, with
+  # initializers or pointer marks (SoundData *t = ..., *c = nullptr), is
+  # one declaration of each, so each has its own type and initializer; a
+  # call's arguments and a comma inside parentheses are not declarators.
+  def test_a_declaration_of_several_variables_is_one_of_each
+    text = "int width = 0, height = f(a, b); SoundData *t = g(L, 1), *c = nullptr; double x, y; call(a, b);"
+    nodes = Bindings::Statements.parse(text, 0, source(text))
+
+    assert_equal [
+      "int width = 0",
+      "int height = f(a, b)",
+      "SoundData *t = g(L, 1)",
+      "SoundData *c = nullptr",
+      "double x",
+      "double y",
+      "call(a, b)",
+], nodes.map(&:text)
+  end
+
+  # A helper that only checks a condition of the module's and raises
+  # (luax_checkgraphicscreated, wrap_Graphics.cpp:56-61) is a guard, which
+  # the port makes where a wrap function calls it.
+  def test_guards_are_the_helpers_that_check_a_condition_and_raise
+    guard = survey.catalog.guards.fetch("luax_checkgraphicscreated")
+
+    assert_equal "!instance()->isCreated()", guard.condition
+    assert_equal '"love.graphics cannot function without a window."', guard.message
+  end
+
   def test_an_unbalanced_body_is_unreadable
     assert_raises(Bindings::Statements::Unreadable) { Bindings::Statements.parse("if (x { y; }", 0, source("")) }
   end

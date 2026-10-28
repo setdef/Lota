@@ -73,8 +73,6 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
-
-      def clone: () -> FileData
     end
 
     class ImageData < Data
@@ -83,8 +81,6 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
-
-      def clone: () -> ImageData
 
       def width: () -> Integer
 
@@ -118,8 +114,6 @@ module Lota
 
       def type_of?: (String name) -> bool
 
-      def layer: () -> Integer
-
       def set_viewport: (Array[Float | Integer] viewport, ?(Float | Integer)? sw, ?(Float | Integer)? sh) -> nil
     end
 
@@ -135,8 +129,6 @@ module Lota
       def set: (Integer index, Quad? quad, Array[Float | Integer] placement) -> nil
 
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
-
-      def texture: () -> Texture
     end
 
     class WindowSettings
@@ -213,8 +205,6 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
-
-      def clone: () -> Source
     end
 
     class Decoder
@@ -225,8 +215,6 @@ module Lota
       def type_of?: (String name) -> bool
 
       def decode: () -> SoundData?
-
-      def clone: () -> Decoder
     end
 
     class SoundData < Data
@@ -236,13 +224,9 @@ module Lota
 
       def type_of?: (String name) -> bool
 
-      def slice: (Integer start, ?Integer length) -> SoundData
-
       def sample: (Float | Integer i, ?(Float | Integer)? channel) -> Float
 
       def set_sample: (Array[Float | Integer] arguments) -> nil
-
-      def clone: () -> SoundData
 
       def channel_count: () -> Integer
 
@@ -330,8 +314,6 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.system_cursor: (String name) -> Cursor
-
       def self.down?: (Array[Integer] buttons) -> bool
 
       class Cursor
@@ -363,8 +345,6 @@ module Lota
       def self.set_mode: (Integer width, Integer height, WindowSettings? settings) -> bool
 
       def self.get_window: (WindowSettings settings) -> [Integer, Integer]
-
-      def self.desktop_dimensions: (?Integer? displayindex) -> [Integer, Integer]
 
       def self.fullscreen_types: () -> Array[String]
 
@@ -416,13 +396,9 @@ module Lota
 
       def self.new_font_from_file: (FileData data) -> Font
 
-      def self.font: () -> Font
-
       def self.print: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Font? font, Array[Float | Integer] placement) -> nil
 
       def self.printf: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Font? font, Array[Float | Integer] placement, Float | Integer limit, String? align) -> nil
-
-      def self.default_filter: () -> [String, String, Integer]
 
       def self.draw: (Texture texture, Array[Float | Integer] placement) -> nil
 
@@ -492,10 +468,6 @@ module Lota
 
       def type_of?: (String name) -> bool
 
-      def world: () -> World
-
-      def shape: () -> Shape?
-
       def shapes: () -> Array[Shape]
 
       def joints: () -> Array[Joint]
@@ -523,10 +495,6 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
-
-      def body: () -> Body?
-
-      def filter_data: () -> Array[Integer]
 
       def set_category: (Array[Integer | Array[Integer]] categories) -> nil
 
@@ -589,8 +557,6 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
-
-      def bodies: () -> Array[Body]
 
       def anchors: () -> Array[Float]
 
@@ -696,8 +662,6 @@ module Lota
 
       def type_of?: (String name) -> bool
 
-      def shapes: () -> Array[Shape]
-
       def normal: () -> Array[Float]
 
       def positions: () -> Array[Float]
@@ -707,10 +671,6 @@ module Lota
       def self.open: () -> nil
 
       def self.open?: () -> bool
-
-      def self.new_world: (Float | Integer gx, Float | Integer gy, bool sleep) -> World
-
-      def self.new_body: (World world, Float | Integer x, Float | Integer y, ?String? typestr) -> Body
 
       def self.new_circle_shape: (Body body, Float | Integer x, Float | Integer y, Float | Integer radius) -> CircleShape
 
@@ -722,10 +682,6 @@ module Lota
 
       def self.new_chain_shape: (Body body, bool loop, Array[Float | Integer] coordinates) -> ChainShape
 
-      def self.new_distance_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected) -> DistanceJoint
-
-      def self.new_mouse_joint: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
-
       def self.new_revolute_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected, ?(Float | Integer)? reference_angle) -> RevoluteJoint
 
       def self.new_friction_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected) -> FrictionJoint
@@ -736,17 +692,7 @@ module Lota
 
       def self.new_wheel_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected) -> WheelJoint
 
-      def self.new_pulley_joint: (Body body1, Body body2, Array[Float | Integer] anchors, Float | Integer ratio, bool collide_connected) -> PulleyJoint
-
-      def self.new_gear_joint: (Joint joint1, Joint joint2, Float | Integer ratio, bool collide_connected) -> GearJoint
-
-      def self.new_rope_joint: (Body body1, Body body2, Array[Float | Integer] anchors, Float | Integer max_length, bool collide_connected) -> RopeJoint
-
-      def self.new_motor_joint: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool collide_connected) -> MotorJoint
-
       def self.distance: (Shape shape_a, Shape shape_b) -> Array[Float]
-
-      def self.meter: () -> Integer
     end
   end
 end

@@ -17,7 +17,8 @@ class GeneratorTest < Minitest::Test
     binding = Bindings::BindingList::Generated.new(love_name:, arguments:, assume:, reason: nil)
     entry = entry(love_name)
     Bindings::Port.new(entry, binding, native_name: "native", types: BindingsHelper.types,
-      module_class: entry.function.wrap.instance_class, helpers: survey.catalog.helpers, main_thread:)
+      module_class: entry.function.wrap.instance_class, helpers: survey.catalog.helpers, main_thread:,
+      guards: survey.catalog.guards)
   end
 
   # w_setLineStyle checks the name before it reaches the module, as the
@@ -173,7 +174,7 @@ class GeneratorTest < Minitest::Test
     assert_includes port("love.graphics.getLineWidth").definition,
       "double w_getLineWidth() {\nreturn static_cast<double>(instance()->getLineWidth());"
     assert_includes port("love.graphics.getWidth").definition, "int w_getWidth() {"
-    assert_match(/-> Array\[Float\]\z/, port("love.graphics.getColor").rbs)
+    assert_match(/-> \[Float, Float, Float, Float\]\z/, port("love.graphics.getColor").rbs)
   end
 
   # w_Data_getSize pushes the size_t Data::getSize returns as a lua_Number,
@@ -222,14 +223,140 @@ class GeneratorTest < Minitest::Test
   # the position is unknown, and the position otherwise, so both are an
   # Array, and the message is the one LÖVE formats. The position is the
   # Integer its int64 holds (rule 14), though LÖVE pushes it as a
-  # lua_Number.
+  # lua_Number. Each else follows an if that returns, so what it holds
+  # follows the if instead, as clang-tidy's readability-else-after-return
+  # asks.
   def test_an_io_error_returns_nil_and_its_message_in_an_array
     port = port("File:tell")
 
     assert_includes port.definition, "Rice::Array w_File_tell(File &file) {\nRice::Array results;"
     assert_includes port.definition, %(if (pos == -1) {\nreturn io_error("Invalid position.");\n})
-    assert_match(/results\.push\(pos, false\);\n\}\n\}\nreturn results;\n\}\n\z/, port.definition)
+    assert_match(/\}\nresults\.push\(pos, false\);\nreturn results;\n\}\n\z/, port.definition)
+    refute_includes port.definition, "else"
     assert_match(/-> Array\[Integer \| nil \| String\]\z/, port.rbs)
+  end
+
+  # w_Source_clone pushes the Source it made and releases its own
+  # reference, so the port returns the pointer, keeps the release out,
+  # and has Rice give that reference to the Ruby wrapper
+  # (Return().takeOwnership(), native/binding.hpp). w_SpriteBatch_getTexture
+  # pushes a Texture the batch keeps, so the wrapper retains its own.
+  def test_a_pushed_engine_object_is_returned_and_one_the_wrap_function_releases_is_owned
+    clone = port("Source:clone")
+    texture = port("SpriteBatch:getTexture", main_thread: "Lota::Graphics")
+
+    assert_includes clone.definition, "Source * w_Source_clone(Source &t) {\nSource *clone = nullptr;\n" \
+      "clone = t.clone();\nreturn clone;\n}"
+    assert_includes clone.registration, "Rice::Return().takeOwnership()"
+    assert_equal "def native: () -> Source", clone.rbs
+    refute_includes texture.registration, "takeOwnership"
+    assert_includes texture.definition, "return t.getTexture();"
+    assert_equal "def native: () -> Texture", texture.rbs
+  end
+
+  # luax_pushshape pushes a Shape as the class its type names
+  # (wrap_Shape.cpp:36-63), as Rice wraps a pointer, so it is a push of the
+  # Shape; and w_Body_getShape pushes nil when there is none.
+  def test_a_shape_is_pushed_as_an_object_and_nil_as_a_null_pointer
+    port = port("Body:getShape")
+
+    assert_includes port.definition, "Shape *s = t.getShape();\nif (s != nullptr) {\nreturn s;\n}\nreturn nullptr;\n}"
+    assert_equal "def native: () -> Shape?", port.rbs
+    assert_equal "def native: () -> [Shape, Shape]", port("Contact:getShapes").rbs
+  end
+
+  # w_Shape_getBody returns no value when the Shape has no Body, which a
+  # Lua caller reads as nil, so the port returns nil there.
+  def test_a_form_that_returns_one_object_or_none_returns_nil_for_none
+    port = port("Shape:getBody")
+
+    assert_includes port.definition, "if (body == nullptr) {\nreturn nullptr;\n}\nreturn body;"
+    assert_equal "def native: () -> Body?", port.rbs
+  end
+
+  # w_SoundData_slice declares its SoundData and the slice in one
+  # statement, and w_getDesktopDimensions its width and height with their
+  # initializers; the port declares each apart, with its own.
+  def test_variables_declared_together_with_initializers_are_declared_apart
+    assert_includes port("SoundData:slice").definition, "SoundData *c = nullptr;\nc = t.slice(start, length);"
+    assert_includes port("love.window.getDesktopDimensions", main_thread: "Lota::Window").definition,
+      "int width = 0;\nint height = 0;\n"
+  end
+
+  # luax_checkgraphicscreated (wrap_Graphics.cpp:56-61) raises unless the
+  # graphics module has a window; the port makes its check where the wrap
+  # function calls it.
+  def test_a_guard_helper_is_checked_where_it_is_called
+    assert_includes port("love.graphics.getFont").definition,
+      %(if (!instance()->isCreated()) {\nthrow love::Exception("love.graphics cannot function without a window.");\n})
+  end
+
+  # w_newSpriteBatch reads its usage only when it has more than two
+  # arguments, which in Ruby is when the third is given.
+  def test_a_count_of_the_arguments_tests_whether_one_is_given
+    code = port("love.graphics.newSpriteBatch").definition
+
+    assert_includes code, "if (usage.has_value()) {"
+    assert_includes code, "BufferDataUsage usage_value = BUFFERDATAUSAGE_DYNAMIC;"
+    refute_includes code, "lua_gettop"
+  end
+
+  # w_newBody tests its type's const char * for truth, and makes it 0
+  # where it has none, as w_getSystemCursor starts its Cursor at 0; the
+  # port compares the pointer with nullptr and starts it there, as
+  # clang-tidy's readability-implicit-bool-conversion and
+  # modernize-use-nullptr ask.
+  def test_a_pointer_tested_for_truth_is_compared_with_nullptr
+    code = port("love.physics.newBody").definition
+
+    assert_includes code, "? nullptr : argument4.value().c_str();"
+    assert_includes code, "if (typestr != nullptr && !Body::getConstant(typestr, btype)) {"
+    assert_includes port("love.mouse.getSystemCursor").definition, "Cursor *cursor = nullptr;"
+  end
+
+  # Rule 4 returns several values as an Array; where every path returns
+  # the same ones, its type says which (w_getDesktopDimensions' width and
+  # height), and where they differ, as w_SpriteBatch_getDrawRange's do, any
+  # of them.
+  def test_several_values_every_path_returns_are_a_tuple
+    assert_match(/-> \[Integer, Integer\]\z/, port("love.window.getDesktopDimensions", main_thread: "Lota::Window").rbs)
+    assert_match(/-> Array\[Integer\]\z/, port("SpriteBatch:getDrawRange", main_thread: "Lota::Graphics").rbs)
+  end
+
+  # A string LÖVE holds as a const char * returns as a std::string, alone
+  # or among several values, so Rice gives Ruby the same String either way.
+  def test_a_c_string_among_several_values_is_pushed_as_a_std_string
+    assert_includes port("love.graphics.getDefaultFilter").definition, "results.push(std::string(minstr), false);"
+  end
+
+  # Rule 14: w_getMeter pushes the float meter as a Lua integer, which
+  # truncates it, so the port returns it as an Integer; a one-byte integer,
+  # SamplerState's maxAnisotropy, returns as the int it widens to rather
+  # than the character Rice would make of it; and a method's result with a
+  # number added (quad->getLayer() + 1) keeps the method's type.
+  def test_numbers_take_the_type_the_push_gives_them
+    assert_includes port("love.physics.getMeter").definition,
+      "long long w_getMeter() {\nreturn static_cast<long long>(Physics::getMeter());\n}"
+    assert_includes port("love.graphics.getDefaultFilter").definition, "results.push(static_cast<int>(s.maxAnisotropy), false);"
+    assert_equal "def native: () -> [String, String, Integer]", port("love.graphics.getDefaultFilter").rbs.sub("self.", "")
+    assert_includes port("Quad:getLayer").definition, "int w_Quad_getLayer(const Quad &quad) {\nreturn quad.getLayer() + 1;"
+  end
+
+  # w_Shape_getFilterData fills a C array, which the port declares as a
+  # std::array, as clang-tidy's modernize-avoid-c-arrays asks, passes by
+  # its data(), and reads with at().
+  def test_a_c_array_becomes_a_std_array
+    code = port("Shape:getFilterData").definition
+
+    assert_includes code, "std::array<int, 3> v{};\nt.getFilterData(v.data());\nresults.push(v.at(0), false);"
+  end
+
+  # A statement the port leaves calling Lua, such as w_print's
+  # luax_checkcoloredstring, would not compile, so the port refuses it.
+  def test_a_port_that_still_reaches_lua_is_refused
+    error = assert_raises(Bindings::Port::Unsupported) { port("love.graphics.print").definition }
+
+    assert_match(/\Alove\.graphics\.print still reaches Lua after its port: /, error.message)
   end
 
   def test_errors_become_engine_exceptions

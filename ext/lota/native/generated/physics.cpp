@@ -8,15 +8,24 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Exception.h"
+#include "common/Module.h"
 #include "physics/box2d/Body.h"
 #include "physics/box2d/Contact.h"
+#include "physics/box2d/DistanceJoint.h"
+#include "physics/box2d/GearJoint.h"
 #include "physics/box2d/Joint.h"
+#include "physics/box2d/MotorJoint.h"
+#include "physics/box2d/MouseJoint.h"
 #include "physics/box2d/Physics.h"
+#include "physics/box2d/PulleyJoint.h"
+#include "physics/box2d/RopeJoint.h"
 #include "physics/box2d/Shape.h"
 #include "physics/box2d/World.h"
 
+#include <array>
 #include <optional>
 #include <string>
 
@@ -28,6 +37,18 @@ namespace {
 // does inside namespace love::physics::box2d.
 using namespace love;
 using namespace love::physics::box2d;
+
+constexpr const char *MODULE = "Lota::Physics";
+
+// The physics module, as LÖVE's instance() macro reaches it
+// (wrap_Physics.cpp:51), on any thread.
+Physics *instance() {
+  auto *instance = love::Module::getInstance<Physics>(love::Module::M_PHYSICS);
+  if (instance == nullptr) {
+    throw love::Exception("%s is not open.", MODULE);
+  }
+  return instance;
+}
 
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -408,6 +429,27 @@ bool w_Body_isTouching(const Body &t, Body *other) {
   return t.isTouching(other);
 }
 
+// Body:getWorld: w_Body_getWorld (wrap_Body.cpp:602-608).
+World *w_Body_getWorld(const Body &t) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  World *world = t.getWorld();
+  return world;
+}
+
+// Body:getShape: w_Body_getShape (wrap_Body.cpp:610-619).
+Shape *w_Body_getShape(const Body &t) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  Shape *s = t.getShape();
+  if (s != nullptr) {
+    return s;
+  }
+  return nullptr;
+}
+
 // Body:destroy: w_Body_destroy (wrap_Body.cpp:654-659).
 void w_Body_destroy(Body &t) {
   if (t.body == nullptr) {
@@ -505,6 +547,20 @@ Rice::Array w_Contact_getChildren(Contact &t) {
   return results;
 }
 
+// Contact:getShapes: w_Contact_getShapes (wrap_Contact.cpp:142-152).
+Rice::Array w_Contact_getShapes(Contact &t) {
+  Rice::Array results;
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed contact.");
+  }
+  Shape *a = nullptr;
+  Shape *b = nullptr;
+  t.getShapes(a, b);
+  results.push(a, false);
+  results.push(b, false);
+  return results;
+}
+
 // Joint:getType: w_Joint_getType (wrap_Joint.cpp:86-93).
 std::string w_Joint_getType(const Joint &t) {
   if (!t.isValid()) {
@@ -513,6 +569,21 @@ std::string w_Joint_getType(const Joint &t) {
   const char *type = "";
   Joint::getConstant(t.getType(), type);
   return type;
+}
+
+// Joint:getBodies: w_Joint_getBodies (wrap_Joint.cpp:95-109).
+Rice::Array w_Joint_getBodies(const Joint &t) {
+  Rice::Array results;
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  Body *b1 = nullptr;
+  Body *b2 = nullptr;
+  b1 = t.getBodyA();
+  b2 = t.getBodyB();
+  results.push(b1, false);
+  results.push(b2, false);
+  return results;
 }
 
 // Joint:getReactionTorque: w_Joint_getReactionTorque (wrap_Joint.cpp:125-131).
@@ -542,8 +613,127 @@ void w_Joint_destroy(Joint &t) {
 // Joint:isDestroyed: w_Joint_isDestroyed (wrap_Joint.cpp:161-166).
 bool w_Joint_isDestroyed(const Joint &t) { return !t.isValid(); }
 
+// love.physics.newWorld: w_newWorld (wrap_Physics.cpp:53-65).
+World *w_newWorld(double gx, double gy, bool sleep) {
+  World *w = nullptr;
+  w = instance()->newWorld(static_cast<float>(gx), static_cast<float>(gy), sleep);
+  return w;
+}
+
+// love.physics.newBody: w_newBody (wrap_Physics.cpp:67-83).
+Body *w_newBody(World *world, double x, double y, const std::optional<std::string> &argument4) {
+  if (!world->isValid()) {
+    throw love::Exception("Attempt to use destroyed world.");
+  }
+  Body::Type btype = Body::BODY_STATIC;
+  const char *typestr = !argument4.has_value() ? nullptr : argument4.value().c_str();
+  if (typestr != nullptr && !Body::getConstant(typestr, btype)) {
+    raise_enum_error("Body type", Body::getConstants(btype), typestr);
+  }
+  Body *body = nullptr;
+  body = instance()->newBody(world, static_cast<float>(x), static_cast<float>(y), btype);
+  return body;
+}
+
+// love.physics.newDistanceJoint: w_newDistanceJoint (wrap_Physics.cpp:494-510).
+DistanceJoint *w_newDistanceJoint(Body *body1, Body *body2, double x1, double y1, double x2,
+                                  double y2, bool collide_connected) {
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (body2->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  DistanceJoint *j = nullptr;
+  j = instance()->newDistanceJoint(body1, body2, static_cast<float>(x1), static_cast<float>(y1),
+                                   static_cast<float>(x2), static_cast<float>(y2),
+                                   collide_connected);
+  return j;
+}
+
+// love.physics.newMouseJoint: w_newMouseJoint (wrap_Physics.cpp:512-522).
+MouseJoint *w_newMouseJoint(Body *body, double x, double y) {
+  if (body->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  MouseJoint *j = nullptr;
+  j = instance()->newMouseJoint(body, static_cast<float>(x), static_cast<float>(y));
+  return j;
+}
+
+// love.physics.newPulleyJoint: w_newPulleyJoint (wrap_Physics.cpp:598-620).
+PulleyJoint *w_newPulleyJoint(Body *body1, Body *body2, double gx1, double gy1, double gx2,
+                              double gy2, double x1, double y1, double x2, double y2, double ratio,
+                              bool collide_connected) {
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (body2->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  PulleyJoint *j = nullptr;
+  j = instance()->newPulleyJoint(body1, body2,
+                                 b2Vec2(static_cast<float>(gx1), static_cast<float>(gy1)),
+                                 b2Vec2(static_cast<float>(gx2), static_cast<float>(gy2)),
+                                 b2Vec2(static_cast<float>(x1), static_cast<float>(y1)),
+                                 b2Vec2(static_cast<float>(x2), static_cast<float>(y2)),
+                                 static_cast<float>(ratio), collide_connected);
+  return j;
+}
+
+// love.physics.newGearJoint: w_newGearJoint (wrap_Physics.cpp:622-636).
+GearJoint *w_newGearJoint(Joint *joint1, Joint *joint2, double ratio, bool collide_connected) {
+  if (!joint1->isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  if (!joint2->isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  GearJoint *j = nullptr;
+  j = instance()->newGearJoint(joint1, joint2, static_cast<float>(ratio), collide_connected);
+  return j;
+}
+
+// love.physics.newRopeJoint: w_newRopeJoint (wrap_Physics.cpp:736-753).
+RopeJoint *w_newRopeJoint(Body *body1, Body *body2, double x1, double y1, double x2, double y2,
+                          double max_length, bool collide_connected) {
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (body2->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  RopeJoint *j = nullptr;
+  j = instance()->newRopeJoint(body1, body2, static_cast<float>(x1), static_cast<float>(y1),
+                               static_cast<float>(x2), static_cast<float>(y2),
+                               static_cast<float>(max_length), collide_connected);
+  return j;
+}
+
+// love.physics.newMotorJoint: w_newMotorJoint (wrap_Physics.cpp:755-775).
+MotorJoint *w_newMotorJoint(Body *body1, Body *body2, std::optional<double> correction_factor,
+                            bool collide_connected) {
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (body2->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  MotorJoint *j = nullptr;
+  if (correction_factor.has_value()) {
+    j = instance()->newMotorJoint(body1, body2, static_cast<float>(correction_factor.value()),
+                                  collide_connected);
+  } else {
+    j = instance()->newMotorJoint(body1, body2);
+  }
+  return j;
+}
+
 // love.physics.setMeter: w_setMeter (wrap_Physics.cpp:782-788).
 void w_setMeter(double arg1) { Physics::setMeter(static_cast<float>(arg1)); }
+
+// love.physics.getMeter: w_getMeter (wrap_Physics.cpp:790-794).
+long long w_getMeter() { return static_cast<long long>(Physics::getMeter()); }
 
 // Shape:getType: w_Shape_getType (wrap_Shape.cpp:65-72).
 std::string w_Shape_getType(const Shape &t) {
@@ -606,6 +796,15 @@ bool w_Shape_isSensor(const Shape &t) {
   return sensor;
 }
 
+// Shape:getBody: w_Shape_getBody (wrap_Shape.cpp:160-168).
+Body *w_Shape_getBody(const Shape &t) {
+  Body *body = t.getBody();
+  if (body == nullptr) {
+    return nullptr;
+  }
+  return body;
+}
+
 // Shape:testPoint: w_Shape_testPoint (wrap_Shape.cpp:178-197).
 bool w_Shape_testPoint(const Shape &t, double x, double y, std::optional<double> r,
                        std::optional<double> px, std::optional<double> py) {
@@ -618,6 +817,17 @@ bool w_Shape_testPoint(const Shape &t, double x, double y, std::optional<double>
     result = t.testPoint(static_cast<float>(x), static_cast<float>(y));
   }
   return result;
+}
+
+// Shape:getFilterData: w_Shape_getFilterData (wrap_Shape.cpp:237-246).
+Rice::Array w_Shape_getFilterData(Shape &t) {
+  Rice::Array results;
+  std::array<int, 3> v{};
+  t.getFilterData(v.data());
+  results.push(v.at(0), false);
+  results.push(v.at(1), false);
+  results.push(v.at(2), false);
+  return results;
 }
 
 // Shape:getGroupIndex: w_Shape_getGroupIndex (wrap_Shape.cpp:320-327).
@@ -717,7 +927,38 @@ bool w_World_isDestroyed(const World &w) { return !w.isValid(); }
 
 void define_generated_physics(const Rice::Module &native) {
   Rice::define_module_under(native, "Physics")
-      .define_singleton_function("set_meter", &w_setMeter, Rice::Arg("arg1"));
+      .define_singleton_function("set_meter", &w_setMeter, Rice::Arg("arg1"))
+      .define_singleton_function("new_world", &w_newWorld, Rice::Arg("gx") = 0.0,
+                                 Rice::Arg("gy") = 0.0, Rice::Arg("sleep") = true,
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function(
+          "new_body", &w_newBody, Rice::Arg("world"), Rice::Arg("x") = 0.0, Rice::Arg("y") = 0.0,
+          Rice::Arg("argument4") = std::optional<std::string>(), Rice::Return().takeOwnership())
+      .define_singleton_function(
+          "new_distance_joint", &w_newDistanceJoint, Rice::Arg("body1"), Rice::Arg("body2"),
+          Rice::Arg("x1"), Rice::Arg("y1"), Rice::Arg("x2"), Rice::Arg("y2"),
+          Rice::Arg("collide_connected") = false, Rice::Return().takeOwnership())
+      .define_singleton_function("new_gear_joint", &w_newGearJoint, Rice::Arg("joint1"),
+                                 Rice::Arg("joint2"), Rice::Arg("ratio") = 1.0,
+                                 Rice::Arg("collide_connected") = false,
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function(
+          "new_motor_joint", &w_newMotorJoint, Rice::Arg("body1"), Rice::Arg("body2"),
+          Rice::Arg("correction_factor") = std::optional<double>(),
+          Rice::Arg("collide_connected") = false, Rice::Return().takeOwnership())
+      .define_singleton_function("new_mouse_joint", &w_newMouseJoint, Rice::Arg("body"),
+                                 Rice::Arg("x"), Rice::Arg("y"), Rice::Return().takeOwnership())
+      .define_singleton_function(
+          "new_pulley_joint", &w_newPulleyJoint, Rice::Arg("body1"), Rice::Arg("body2"),
+          Rice::Arg("gx1"), Rice::Arg("gy1"), Rice::Arg("gx2"), Rice::Arg("gy2"), Rice::Arg("x1"),
+          Rice::Arg("y1"), Rice::Arg("x2"), Rice::Arg("y2"), Rice::Arg("ratio") = 1.0,
+          Rice::Arg("collide_connected") = true, Rice::Return().takeOwnership())
+      .define_singleton_function("new_rope_joint", &w_newRopeJoint, Rice::Arg("body1"),
+                                 Rice::Arg("body2"), Rice::Arg("x1"), Rice::Arg("y1"),
+                                 Rice::Arg("x2"), Rice::Arg("y2"), Rice::Arg("max_length"),
+                                 Rice::Arg("collide_connected") = false,
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("meter", &w_getMeter);
   Rice::define_class_under<Body>(native, "Body")
       .define_method("x", &w_Body_getX)
       .define_method("y", &w_Body_getY)
@@ -764,7 +1005,9 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("apply_torque", &w_Body_applyTorque, Rice::Arg("arg"),
                      Rice::Arg("awake") = true)
       .define_method("destroyed?", &w_Body_isDestroyed)
-      .define_method("destroy", &w_Body_destroy);
+      .define_method("destroy", &w_Body_destroy)
+      .define_method("world", &w_Body_getWorld)
+      .define_method("shape", &w_Body_getShape);
   Rice::define_class_under<Contact>(native, "Contact")
       .define_method("children", &w_Contact_getChildren)
       .define_method("touching?", &w_Contact_isTouching)
@@ -775,13 +1018,15 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("reset_friction", &w_Contact_resetFriction)
       .define_method("restitution", &w_Contact_getRestitution)
       .define_method("set_restitution", &w_Contact_setRestitution, Rice::Arg("r"))
-      .define_method("reset_restitution", &w_Contact_resetRestitution);
+      .define_method("reset_restitution", &w_Contact_resetRestitution)
+      .define_method("shapes", &w_Contact_getShapes);
   Rice::define_class_under<Joint>(native, "Joint")
       .define_method("get_type", &w_Joint_getType)
       .define_method("destroyed?", &w_Joint_isDestroyed)
       .define_method("reaction_torque", &w_Joint_getReactionTorque, Rice::Arg("inv_dt"))
       .define_method("collide_connected", &w_Joint_getCollideConnected)
-      .define_method("destroy", &w_Joint_destroy);
+      .define_method("destroy", &w_Joint_destroy)
+      .define_method("bodies", &w_Joint_getBodies);
   Rice::define_class_under<Shape>(native, "Shape")
       .define_method("get_type", &w_Shape_getType)
       .define_method("child_count", &w_Shape_getChildCount)
@@ -801,7 +1046,9 @@ void define_generated_physics(const Rice::Module &native) {
                      Rice::Arg("py") = std::optional<double>())
       .define_method("group_index", &w_Shape_getGroupIndex)
       .define_method("set_group_index", &w_Shape_setGroupIndex, Rice::Arg("i"))
-      .define_method("destroy", &w_Shape_destroy);
+      .define_method("destroy", &w_Shape_destroy)
+      .define_method("body", &w_Shape_getBody)
+      .define_method("filter_data", &w_Shape_getFilterData);
   Rice::define_class_under<World>(native, "World")
       .define_method("body_count", &w_World_getBodyCount)
       .define_method("translate_origin", &w_World_translateOrigin, Rice::Arg("arg1"),

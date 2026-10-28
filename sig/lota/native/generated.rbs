@@ -39,6 +39,8 @@ module Lota
       def channel_count: () -> Integer
 
       def get_type: () -> String
+
+      def clone: () -> Source
     end
 
     class Data
@@ -71,6 +73,10 @@ module Lota
       def self.remove: (String arg) -> bool
     end
 
+    class FileData
+      def clone: () -> FileData
+    end
+
     module Graphics
       def self.active?: () -> bool
 
@@ -88,13 +94,13 @@ module Lota
 
       def self.shear: (Float | Integer kx, Float | Integer ky) -> nil
 
-      def self.background_color: () -> Array[Float]
+      def self.background_color: () -> [Float, Float, Float, Float]
 
       def self.width: () -> Integer
 
       def self.height: () -> Integer
 
-      def self.color: () -> Array[Float]
+      def self.color: () -> [Float, Float, Float, Float]
 
       def self.set_line_width: (Float | Integer width) -> nil
 
@@ -113,14 +119,20 @@ module Lota
       def self.set_font: (Font font) -> nil
 
       def self.set_default_filter: (String minstr, ?String? magstr, ?(Float | Integer) max_anisotropy) -> nil
+
+      def self.font: () -> Font
+
+      def self.default_filter: () -> [String, String, Integer]
     end
 
     class Quad
-      def viewport: () -> Array[Float]
+      def viewport: () -> [Float, Float, Float, Float]
 
-      def texture_dimensions: () -> Array[Float]
+      def texture_dimensions: () -> [Float, Float]
 
       def set_layer: (Integer layer) -> nil
+
+      def layer: () -> Integer
     end
 
     class SpriteBatch
@@ -130,7 +142,7 @@ module Lota
 
       def set_texture: (Texture tex) -> nil
 
-      def color: () -> Array[Float]
+      def color: () -> [Float, Float, Float, Float]
 
       def count: () -> Integer
 
@@ -138,11 +150,17 @@ module Lota
 
       def set_draw_range: (?Integer? start, ?Integer? count) -> nil
 
+      def texture: () -> Texture
+
       def draw_range: () -> Array[Integer]
     end
 
     class Texture
       def canvas?: () -> bool
+    end
+
+    class ImageData
+      def clone: () -> ImageData
     end
 
     class RandomGenerator
@@ -152,13 +170,15 @@ module Lota
     end
 
     module Mouse
+      def self.system_cursor: (String system_cursor) -> Cursor
+
       def self.set_cursor: (?Cursor? cursor) -> nil
 
       def self.x: () -> Float
 
       def self.y: () -> Float
 
-      def self.position: () -> Array[Float]
+      def self.position: () -> [Float, Float]
 
       def self.set_x: (Float | Integer argument1) -> nil
 
@@ -183,6 +203,24 @@ module Lota
 
     module Physics
       def self.set_meter: (Float | Integer arg1) -> nil
+
+      def self.new_world: (?(Float | Integer) gx, ?(Float | Integer) gy, ?bool sleep) -> World
+
+      def self.new_body: (World world, ?(Float | Integer) x, ?(Float | Integer) y, ?String? argument4) -> Body
+
+      def self.new_distance_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool collide_connected) -> DistanceJoint
+
+      def self.new_gear_joint: (Joint joint1, Joint joint2, ?(Float | Integer) ratio, ?bool collide_connected) -> GearJoint
+
+      def self.new_motor_joint: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool collide_connected) -> MotorJoint
+
+      def self.new_mouse_joint: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
+
+      def self.new_pulley_joint: (Body body1, Body body2, Float | Integer gx1, Float | Integer gy1, Float | Integer gx2, Float | Integer gy2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer) ratio, ?bool collide_connected) -> PulleyJoint
+
+      def self.new_rope_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_length, ?bool collide_connected) -> RopeJoint
+
+      def self.meter: () -> Integer
     end
 
     class Body
@@ -194,7 +232,7 @@ module Lota
 
       def set_y: (Float | Integer arg1) -> nil
 
-      def position: () -> Array[Float]
+      def position: () -> [Float, Float]
 
       def set_position: (Float | Integer arg1, Float | Integer arg2) -> nil
 
@@ -224,19 +262,19 @@ module Lota
 
       def touching?: (Body other) -> bool
 
-      def local_center: () -> Array[Float]
+      def local_center: () -> [Float, Float]
 
-      def local_point: (Float | Integer x, Float | Integer y) -> Array[Float]
+      def local_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
 
-      def world_point: (Float | Integer x, Float | Integer y) -> Array[Float]
+      def world_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
 
       def angular_damping: () -> Float
 
       def angular_velocity: () -> Float
 
-      def world_center: () -> Array[Float]
+      def world_center: () -> [Float, Float]
 
-      def world_vector: (Float | Integer x, Float | Integer y) -> Array[Float]
+      def world_vector: (Float | Integer x, Float | Integer y) -> [Float, Float]
 
       def inertia: () -> Float
 
@@ -248,7 +286,7 @@ module Lota
 
       def set_linear_damping: (Float | Integer arg1) -> nil
 
-      def linear_velocity: () -> Array[Float]
+      def linear_velocity: () -> [Float, Float]
 
       def set_linear_velocity: (Float | Integer arg1, Float | Integer arg2) -> nil
 
@@ -269,10 +307,14 @@ module Lota
       def destroyed?: () -> bool
 
       def destroy: () -> nil
+
+      def world: () -> World
+
+      def shape: () -> Shape?
     end
 
     class Contact
-      def children: () -> Array[Integer]
+      def children: () -> [Integer, Integer]
 
       def touching?: () -> bool
 
@@ -291,6 +333,8 @@ module Lota
       def set_restitution: (Float | Integer r) -> nil
 
       def reset_restitution: () -> nil
+
+      def shapes: () -> [Shape, Shape]
     end
 
     class Joint
@@ -303,6 +347,8 @@ module Lota
       def collide_connected: () -> bool
 
       def destroy: () -> nil
+
+      def bodies: () -> [Body, Body]
     end
 
     class Shape
@@ -337,6 +383,10 @@ module Lota
       def set_group_index: (Integer i) -> nil
 
       def destroy: () -> nil
+
+      def body: () -> Body?
+
+      def filter_data: () -> [Integer, Integer, Integer]
     end
 
     class World
@@ -362,6 +412,8 @@ module Lota
     end
 
     class Decoder
+      def clone: () -> Decoder
+
       def channel_count: () -> Integer
 
       def bit_depth: () -> Integer
@@ -372,6 +424,10 @@ module Lota
     end
 
     class SoundData
+      def clone: () -> SoundData
+
+      def slice: (Integer start, ?Integer length) -> SoundData
+
       def copy_from: (SoundData src, Integer src_start, Integer count, ?Integer dst_start) -> nil
     end
 
@@ -392,7 +448,9 @@ module Lota
     end
 
     module Window
-      def self.safe_area: () -> Array[Integer]
+      def self.safe_area: () -> [Integer, Integer, Integer, Integer]
+
+      def self.desktop_dimensions: (?Integer? argument1) -> [Integer, Integer]
 
       def self.set_title: (String title) -> nil
 

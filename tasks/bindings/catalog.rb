@@ -86,6 +86,9 @@ module Bindings
     # each checks for: luax_checktexture, whose body is
     # luax_checktype<Texture>(L, idx), to Texture, and luax_checkbody,
     # which also checks that the Body is not destroyed (#checks), to Body.
+    GUARD = /\A\s*if\s*\((?<condition>.+?)\)\s*return\s+luaL_error\s*\(\s*L\s*,\s*(?<message>"[^"]*")\s*\)\s*;
+      \s*return\s+0\s*;\s*\z/mx
+
     def helpers
       @helpers ||= files.flat_map(&:functions).filter_map do |function|
         next unless function.name.start_with?("luax_check")
@@ -107,6 +110,16 @@ module Bindings
 
     # The types LÖVE registers, by name, with the module whose file
     # registers them.
+    # The helpers that take only the lua_State and raise an error unless
+    # a condition holds (luax_checkgraphicscreated, wrap_Graphics.cpp:
+    # 56-61), to their Check, whose variable is nil.
+    def guards
+      @guards ||= files.flat_map(&:functions).filter_map do |function|
+        match = GUARD.match(function.body) or next
+        [function.name, Check.new(variable: nil, condition: match[:condition].strip, message: match[:message])]
+      end.to_h
+    end
+
     def types
       @types ||= files.flat_map do |file|
         file.type_registrations.map { |registration| [registration.type_name, file.module_name] }

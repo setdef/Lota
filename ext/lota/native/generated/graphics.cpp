@@ -94,6 +94,16 @@ Rice::Array w_getBackgroundColor() {
 // love.graphics.setFont: w_setFont (wrap_Graphics.cpp:2573-2578).
 void w_setFont(Font *font) { instance()->setFont(font); }
 
+// love.graphics.getFont: w_getFont (wrap_Graphics.cpp:2580-2589).
+Font *w_getFont() {
+  if (!instance()->isCreated()) {
+    throw love::Exception("love.graphics cannot function without a window.");
+  }
+  Font *f = nullptr;
+  f = instance()->getFont();
+  return f;
+}
+
 // love.graphics.setDefaultFilter: w_setDefaultFilter (wrap_Graphics.cpp:2751-2767).
 void w_setDefaultFilter(const std::string &minstr, const std::optional<std::string> &magstr,
                         double max_anisotropy) {
@@ -107,6 +117,24 @@ void w_setDefaultFilter(const std::string &minstr, const std::optional<std::stri
   }
   s.maxAnisotropy = std::min(std::max(1, static_cast<int>(max_anisotropy)), LOVE_UINT8_MAX);
   instance()->setDefaultSamplerState(s);
+}
+
+// love.graphics.getDefaultFilter: w_getDefaultFilter (wrap_Graphics.cpp:2769-2782).
+Rice::Array w_getDefaultFilter() {
+  Rice::Array results;
+  const SamplerState &s = instance()->getDefaultSamplerState();
+  const char *minstr = nullptr;
+  const char *magstr = nullptr;
+  if (!SamplerState::getConstant(s.minFilter, minstr)) {
+    throw love::Exception("Unknown minification filter mode");
+  }
+  if (!SamplerState::getConstant(s.magFilter, magstr)) {
+    throw love::Exception("Unknown magnification filter mode");
+  }
+  results.push(std::string(minstr), false);
+  results.push(std::string(magstr), false);
+  results.push(static_cast<int>(s.maxAnisotropy), false);
+  return results;
 }
 
 // love.graphics.setLineWidth: w_setLineWidth (wrap_Graphics.cpp:2816-2821).
@@ -244,6 +272,12 @@ void w_Quad_setLayer(Quad &quad, int layer) {
   quad.setLayer((layer - 1));
 }
 
+// Quad:getLayer: w_Quad_getLayer (wrap_Quad.cpp:85-90).
+int w_Quad_getLayer(const Quad &quad) {
+  require_main_thread(MODULE);
+  return quad.getLayer() + 1;
+}
+
 // SpriteBatch:clear: w_SpriteBatch_clear (wrap_SpriteBatch.cpp:125-130).
 void w_SpriteBatch_clear(SpriteBatch &t) {
   require_main_thread(MODULE);
@@ -260,6 +294,12 @@ void w_SpriteBatch_flush(SpriteBatch &t) {
 void w_SpriteBatch_setTexture(SpriteBatch &t, Texture *tex) {
   require_main_thread(MODULE);
   t.setTexture(tex);
+}
+
+// SpriteBatch:getTexture: w_SpriteBatch_getTexture (wrap_SpriteBatch.cpp:147-152).
+Texture *w_SpriteBatch_getTexture(const SpriteBatch &t) {
+  require_main_thread(MODULE);
+  return t.getTexture();
 }
 
 // SpriteBatch:getColor: w_SpriteBatch_getColor (wrap_SpriteBatch.cpp:184-194).
@@ -353,11 +393,14 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("set_font", &w_setFont, Rice::Arg("font"))
       .define_singleton_function("set_default_filter", &w_setDefaultFilter, Rice::Arg("minstr"),
                                  Rice::Arg("magstr") = std::optional<std::string>(),
-                                 Rice::Arg("max_anisotropy") = 1.0);
+                                 Rice::Arg("max_anisotropy") = 1.0)
+      .define_singleton_function("font", &w_getFont)
+      .define_singleton_function("default_filter", &w_getDefaultFilter);
   Rice::define_class_under<Quad>(native, "Quad")
       .define_method("viewport", &w_Quad_getViewport)
       .define_method("texture_dimensions", &w_Quad_getTextureDimensions)
-      .define_method("set_layer", &w_Quad_setLayer, Rice::Arg("layer"));
+      .define_method("set_layer", &w_Quad_setLayer, Rice::Arg("layer"))
+      .define_method("layer", &w_Quad_getLayer);
   Rice::define_class_under<SpriteBatch>(native, "SpriteBatch")
       .define_method("clear", &w_SpriteBatch_clear)
       .define_method("flush", &w_SpriteBatch_flush)
@@ -368,6 +411,7 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_method("set_draw_range", &w_SpriteBatch_setDrawRange,
                      Rice::Arg("start") = std::optional<int>(),
                      Rice::Arg("count") = std::optional<int>())
+      .define_method("texture", &w_SpriteBatch_getTexture)
       .define_method("draw_range", &w_SpriteBatch_getDrawRange);
   Rice::define_class_under<Texture>(native, "Texture")
       .define_method("canvas?", &w_Texture_isCanvas);

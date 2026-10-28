@@ -280,17 +280,12 @@ private:
   std::size_t offset_ = 0;
 };
 
-// w_FileData_clone (wrap_FileData.cpp:35-42): a new FileData with a copy
-// of the bytes and the name. Its one reference goes to the Ruby wrapper.
-FileData *clone(const FileData &data) { return data.clone(); }
-
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_filesystem(const Rice::Module &native) {
-  define_engine_class<FileData, love::Data>(native, "FileData")
-      .define_method("clone", &clone, Rice::Return().takeOwnership());
+  define_engine_class<FileData, love::Data>(native, "FileData");
 
   Rice::define_module_under(native, "Filesystem")
       .define_singleton_function("open", &open)
