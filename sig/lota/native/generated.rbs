@@ -143,17 +143,7 @@ module Lota
       def canvas?: () -> bool
     end
 
-    class ImageData
-      def width: () -> Integer
-
-      def height: () -> Integer
-
-      def pixel: (Integer x, Integer y) -> Array[Float]
-    end
-
     class RandomGenerator
-      def random_normal: (?(Float | Integer) stddev) -> Float
-
       def state: () -> String
 
       def state=: (String statestr) -> String
@@ -189,6 +179,180 @@ module Lota
       def self.cursor_supported?: () -> bool
     end
 
+    module Physics
+      def self.set_meter: (Float | Integer arg1) -> nil
+    end
+
+    class Body
+      def x: () -> Float
+
+      def y: () -> Float
+
+      def set_x: (Float | Integer arg1) -> nil
+
+      def set_y: (Float | Integer arg1) -> nil
+
+      def position: () -> Array[Float]
+
+      def set_position: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def angle: () -> Float
+
+      def set_angle: (Float | Integer arg1) -> nil
+
+      def active?: () -> bool
+
+      def bullet?: () -> bool
+
+      def set_bullet: (bool b) -> nil
+
+      def fixed_rotation?: () -> bool
+
+      def set_fixed_rotation: (bool b) -> nil
+
+      def sleeping_allowed?: () -> bool
+
+      def set_sleeping_allowed: (bool b) -> nil
+
+      def awake?: () -> bool
+
+      def set_type: (String type) -> nil
+
+      def touching?: (Body other) -> bool
+
+      def local_center: () -> Array[Float]
+
+      def local_point: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def world_point: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def angular_damping: () -> Float
+
+      def angular_velocity: () -> Float
+
+      def world_center: () -> Array[Float]
+
+      def world_vector: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def inertia: () -> Float
+
+      def gravity_scale: () -> Float
+
+      def set_gravity_scale: (Float | Integer arg1) -> nil
+
+      def linear_damping: () -> Float
+
+      def set_linear_damping: (Float | Integer arg1) -> nil
+
+      def linear_velocity: () -> Array[Float]
+
+      def set_linear_velocity: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def mass: () -> Float
+
+      def set_mass: (Float | Integer m) -> nil
+
+      def set_mass_data: (Float | Integer x, Float | Integer y, Float | Integer m, Float | Integer i) -> nil
+
+      def reset_mass_data: () -> nil
+
+      def custom_mass_data?: () -> bool
+
+      def apply_angular_impulse: (Float | Integer i, ?bool awake) -> nil
+
+      def apply_torque: (Float | Integer arg, ?bool awake) -> nil
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+    end
+
+    class Contact
+      def children: () -> Array[Integer]
+
+      def touching?: () -> bool
+
+      def enabled?: () -> bool
+
+      def set_enabled: (bool e) -> nil
+
+      def friction: () -> Float
+
+      def set_friction: (Float | Integer f) -> nil
+
+      def reset_friction: () -> nil
+
+      def restitution: () -> Float
+
+      def set_restitution: (Float | Integer r) -> nil
+
+      def reset_restitution: () -> nil
+    end
+
+    class Joint
+      def destroyed?: () -> bool
+
+      def reaction_torque: (Float | Integer inv_dt) -> Float
+
+      def collide_connected: () -> bool
+
+      def destroy: () -> nil
+    end
+
+    class Shape
+      def child_count: () -> Integer
+
+      def radius: () -> Float
+
+      def sensor?: () -> bool
+
+      def set_sensor: (bool arg1) -> nil
+
+      def destroyed?: () -> bool
+
+      def density: () -> Float
+
+      def set_density: (Float | Integer arg1) -> nil
+
+      def friction: () -> Float
+
+      def set_friction: (Float | Integer arg1) -> nil
+
+      def restitution: () -> Float
+
+      def set_restitution: (Float | Integer arg1) -> nil
+
+      def test_point: (Float | Integer x, Float | Integer y, ?(Float | Integer)? r, ?(Float | Integer)? px, ?(Float | Integer)? py) -> bool
+
+      def group_index: () -> Integer
+
+      def set_group_index: (Integer i) -> nil
+
+      def destroy: () -> nil
+    end
+
+    class World
+      def body_count: () -> Integer
+
+      def translate_origin: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def locked?: () -> bool
+
+      def sleeping_allowed?: () -> bool
+
+      def set_sleeping_allowed: (bool b) -> nil
+
+      def joint_count: () -> Integer
+
+      def set_gravity: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def contact_count: () -> Integer
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+    end
+
     class Decoder
       def channel_count: () -> Integer
 
@@ -200,16 +364,6 @@ module Lota
     end
 
     class SoundData
-      def channel_count: () -> Integer
-
-      def bit_depth: () -> Integer
-
-      def sample_rate: () -> Integer
-
-      def sample_count: () -> Integer
-
-      def duration: () -> Float
-
       def copy_from: (SoundData src, Integer src_start, Integer count, ?Integer dst_start) -> nil
     end
 

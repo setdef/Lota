@@ -23,6 +23,7 @@ class EngineSourcesTest < Minitest::Test
     src/libraries/lz4/lz4.c
     src/modules/graphics/Graphics.cpp
     src/modules/lovely/Lovely.cpp
+    src/modules/physics/box2d/World.cpp
     src/modules/thread/threads.cpp
     src/modules/thread/sdl/Thread.cpp
     src/modules/window/macos.mm
@@ -38,7 +39,7 @@ class EngineSourcesTest < Minitest::Test
     "src/modules/thread/ThreadModule.cpp" => "Lua threads and channels, ADR 001 section 1",
     "src/modules/thread/Channel.cpp" => "Lua threads and channels, ADR 001 section 1",
     "src/libraries/enet/enet.cpp" => "lua-enet binding, ADR 001 section 1",
-    "src/modules/physics/box2d/World.cpp" => "holds lua_State* until the physics patch, Plan 001",
+    "src/modules/physics/box2d/wrap_World.cpp" => "Lua binding (wrap_*), ADR 001 section 1",
     "src/love.cpp" => "main() of the love executable, which boots Lua",
     "src/libraries/lua53/lstrlib.c" => "Lua, or a library only Lua calls",
     "src/libraries/luasocket/luasocket.cpp" => "Lua, or a library only Lua calls",

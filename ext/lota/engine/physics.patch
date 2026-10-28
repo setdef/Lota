@@ -1,0 +1,2076 @@
+SPDX-FileCopyrightText: 2006-2026 LOVE Development Team
+SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+SPDX-License-Identifier: Zlib
+
+Lota's physics patch (ADR 001, section 2): the only change Lota makes to
+LÖVE's engine. LÖVE's src/modules/physics/box2d is the one module whose
+engine classes hold Lua: methods that read and push the Lua stack, the
+contact, filter, query, and raycast callbacks that call Lua functions, and
+user data kept as Lua references. Without Lua none of it compiles. This
+patch replaces each with C++: a method that pushed its results returns
+them, through LÖVE's own convention of output parameters (as
+Body::getPosition does) or a std::vector where their number varies; a
+method that read its arguments from the stack takes them as parameters;
+and what a Lua Reference held is an object of Reference.h's interfaces,
+which the binding implements. LÖVE's statements, their order, and their
+arithmetic are otherwise left as they are. CMake applies it to a copy of
+the module at configure time (ext/lota/engine/CMakeLists.txt); vendor/love
+is never written to.
+
+diff -ruN a/src/modules/physics/box2d/Body.cpp b/src/modules/physics/box2d/Body.cpp
+--- a/src/modules/physics/box2d/Body.cpp
++++ b/src/modules/physics/box2d/Body.cpp
+@@ -25,11 +25,9 @@
+ #include "Shape.h"
+ #include "World.h"
+ #include "Physics.h"
++#include "Joint.h"
++#include "Contact.h"
+ 
+-// Needed for luax_pushjoint.
+-#include "wrap_Joint.h"
+-#include "wrap_Shape.h"
+-
+ namespace love
+ {
+ namespace physics
+@@ -122,16 +120,15 @@
+ 	return Physics::scaleUp(Physics::scaleUp(body->GetInertia()));
+ }
+ 
+-int Body::getMassData(lua_State *L)
++void Body::getMassData(float &x_o, float &y_o, float &mass_o, float &inertia_o)
+ {
+ 	b2MassData data;
+ 	body->GetMassData(&data);
+ 	b2Vec2 center = Physics::scaleUp(data.center);
+-	lua_pushnumber(L, center.x);
+-	lua_pushnumber(L, center.y);
+-	lua_pushnumber(L, data.mass);
+-	lua_pushnumber(L, Physics::scaleUp(Physics::scaleUp(data.I)));
+-	return 4;
++	x_o = center.x;
++	y_o = center.y;
++	mass_o = data.mass;
++	inertia_o = Physics::scaleUp(Physics::scaleUp(data.I));
+ }
+ 
+ float Body::getAngularDamping() const
+@@ -319,28 +316,20 @@
+ 	y_o = v.y;
+ }
+ 
+-int Body::getWorldPoints(lua_State *L)
++void Body::getWorldPoints(std::vector<float> &points)
+ {
+-	int argc = lua_gettop(L);
+-	int vcount = (int)argc/2;
+-	// at least one point
+-	love::luax_assert_argc(L, 2);
++	int vcount = (int)points.size()/2;
+ 
+ 	for (int i = 0; i<vcount; i++)
+ 	{
+-		float x = (float)lua_tonumber(L, 1);
+-		float y = (float)lua_tonumber(L, 2);
+-		// Remove them, so we don't run out of stack space
+-		lua_remove(L, 1);
+-		lua_remove(L, 1);
++		float x = points[2*i];
++		float y = points[2*i+1];
+ 		// Time for scaling
+ 		b2Vec2 point = Physics::scaleUp(body->GetWorldPoint(Physics::scaleDown(b2Vec2(x, y))));
+-		// And then we push the result
+-		lua_pushnumber(L, point.x);
+-		lua_pushnumber(L, point.y);
++		// And then we store the result
++		points[2*i] = point.x;
++		points[2*i+1] = point.y;
+ 	}
+-
+-	return argc;
+ }
+ 
+ void Body::getLocalPoint(float x, float y, float &x_o, float &y_o)
+@@ -357,28 +346,20 @@
+ 	y_o = v.y;
+ }
+ 
+-int Body::getLocalPoints(lua_State *L)
++void Body::getLocalPoints(std::vector<float> &points)
+ {
+-	int argc = lua_gettop(L);
+-	int vcount = (int)argc/2;
+-	// at least one point
+-	love::luax_assert_argc(L, 2);
++	int vcount = (int)points.size()/2;
+ 
+ 	for (int i = 0; i<vcount; i++)
+ 	{
+-		float x = (float)lua_tonumber(L, 1);
+-		float y = (float)lua_tonumber(L, 2);
+-		// Remove them, so we don't run out of stack space
+-		lua_remove(L, 1);
+-		lua_remove(L, 1);
++		float x = points[2*i];
++		float y = points[2*i+1];
+ 		// Time for scaling
+ 		b2Vec2 point = Physics::scaleUp(body->GetLocalPoint(Physics::scaleDown(b2Vec2(x, y))));
+-		// And then we push the result
+-		lua_pushnumber(L, point.x);
+-		lua_pushnumber(L, point.y);
++		// And then we store the result
++		points[2*i] = point.x;
++		points[2*i+1] = point.y;
+ 	}
+-
+-	return argc;
+ }
+ 
+ void Body::getLinearVelocityFromWorldPoint(float x, float y, float &x_o, float &y_o)
+@@ -479,11 +460,10 @@
+ 	return shape;
+ }
+ 
+-int Body::getShapes(lua_State *L) const
++std::vector<Shape *> Body::getShapes() const
+ {
+-	lua_newtable(L);
++	std::vector<Shape *> shapes;
+ 	b2Fixture *f = body->GetFixtureList();
+-	int i = 1;
+ 	do
+ 	{
+ 		if (!f)
+@@ -491,19 +471,16 @@
+ 		Shape *shape = (Shape *)(f->GetUserData().pointer);
+ 		if (!shape)
+ 			throw love::Exception("A Shape has escaped Memoizer!");
+-		luax_pushshape(L, shape);
+-		lua_rawseti(L, -2, i);
+-		i++;
++		shapes.push_back(shape);
+ 	}
+ 	while ((f = f->GetNext()));
+-	return 1;
++	return shapes;
+ }
+ 
+-int Body::getJoints(lua_State *L) const
++std::vector<Joint *> Body::getJoints() const
+ {
+-	lua_newtable(L);
++	std::vector<Joint *> joints;
+ 	const b2JointEdge *je = body->GetJointList();
+-	int i = 1;
+ 
+ 	do
+ 	{
+@@ -514,20 +491,17 @@
+ 		if (!joint)
+ 			throw love::Exception("A joint has escaped Memoizer!");
+ 
+-		luax_pushjoint(L, joint);
+-		lua_rawseti(L, -2, i);
+-		i++;
++		joints.push_back(joint);
+ 	}
+ 	while ((je = je->next));
+ 
+-	return 1;
++	return joints;
+ }
+ 
+-int Body::getContacts(lua_State *L) const
++std::vector<StrongRef<Contact>> Body::getContacts() const
+ {
+-	lua_newtable(L);
++	std::vector<StrongRef<Contact>> contacts;
+ 	const b2ContactEdge *ce = body->GetContactList();
+-	int i = 1;
+ 	do
+ 	{
+ 		if (!ce)
+@@ -539,13 +513,10 @@
+ 		else
+ 			contact->retain();
+ 
+-		luax_pushtype(L, contact);
+-		contact->release();
+-		lua_rawseti(L, -2, i);
+-		i++;
++		contacts.emplace_back(contact, Acquire::NORETAIN);
+ 	}
+ 	while ((ce = ce->next));
+-	return 1;
++	return contacts;
+ }
+ 
+ void Body::destroy()
+@@ -569,26 +540,15 @@
+ 	this->release();
+ }
+ 
+-int Body::setUserData(lua_State *L)
++void Body::setUserData(Reference *data)
+ {
+-	love::luax_assert_argc(L, 1, 1);
+-
+-	if(!ref)
+-		ref = new Reference();
+-
+-	ref->ref(L);
+-
+-	return 0;
++	delete ref;
++	ref = data;
+ }
+ 
+-int Body::getUserData(lua_State *L)
++Reference *Body::getUserData() const
+ {
+-	if (ref != nullptr)
+-		ref->push(L);
+-	else
+-		lua_pushnil(L);
+-
+-	return 1;
++	return ref;
+ }
+ 
+ } // box2d
+diff -ruN a/src/modules/physics/box2d/Body.h b/src/modules/physics/box2d/Body.h
+--- a/src/modules/physics/box2d/Body.h
++++ b/src/modules/physics/box2d/Body.h
+@@ -23,10 +23,13 @@
+ 
+ // LOVE
+ #include "common/math.h"
+-#include "common/runtime.h"
++#include "Reference.h"
+ #include "common/Object.h"
+ #include "physics/Body.h"
+ 
++// STD
++#include <vector>
++
+ // Box2D
+ #include <box2d/Box2D.h>
+ 
+@@ -39,6 +42,8 @@
+ // Forward declarations.
+ class World;
+ class Shape;
++class Joint;
++class Contact;
+ 
+ /**
+  * A Body is an entity which has position and orientation
+@@ -135,7 +140,7 @@
+ 	/**
+ 	 * Gets mass properties.
+ 	 **/
+-	int getMassData(lua_State *L);
++	void getMassData(float &x_o, float &y_o, float &mass_o, float &inertia_o);
+ 
+ 	bool hasCustomMassData() const { return hasCustomMass; }
+ 
+@@ -295,7 +300,7 @@
+ 	 * Transforms a series of points (x, y) from local coordinates
+ 	 * to world coordinates.
+ 	 **/
+-	int getWorldPoints(lua_State *L);
++	void getWorldPoints(std::vector<float> &points);
+ 
+ 	/**
+ 	 * Transforms a point (x, y) from world coordinates
+@@ -321,7 +326,7 @@
+ 	 * Transforms a series of points (x, y) from world coordinates
+ 	 * to local coordinates.
+ 	 **/
+-	int getLocalPoints(lua_State *L);
++	void getLocalPoints(std::vector<float> &points);
+ 
+ 	/**
+ 	 * Gets the velocity on the Body for the given world point.
+@@ -398,19 +403,19 @@
+ 	/**
+ 	 * Get an array of all the Shapes attached to this Body.
+ 	 **/
+-	int getShapes(lua_State *L) const;
++	std::vector<Shape *> getShapes() const;
+ 
+ 	/**
+ 	 * Get an array of all Joints attached to this Body.
+ 	 **/
+-	int getJoints(lua_State *L) const;
++	std::vector<Joint *> getJoints() const;
+ 
+ 	/**
+ 	 * Get an array of all active Contacts attached to this Body.
+ 	 * This list changes during World:update and you may miss some collisions
+ 	 * if you don't use the collision callbacks.
+ 	 **/
+-	int getContacts(lua_State *L) const;
++	std::vector<StrongRef<Contact>> getContacts() const;
+ 
+ 	/**
+ 	 * Destroy this body.
+@@ -419,15 +424,15 @@
+ 
+ 	/**
+ 	 * This function stores an in-C reference to
+-	 * arbitrary Lua data in the Box2D Body object.
++	 * arbitrary data in the Box2D Body object, which the Body owns.
+ 	 **/
+-	int setUserData(lua_State *L);
++	void setUserData(Reference *data);
+ 
+ 	/**
+ 	 * Gets the data set with setData. If no
+ 	 * data is set, nil is returned.
+ 	 **/
+-	int getUserData(lua_State *L);
++	Reference *getUserData() const;
+ 
+ private:
+ 
+diff -ruN a/src/modules/physics/box2d/Contact.cpp b/src/modules/physics/box2d/Contact.cpp
+--- a/src/modules/physics/box2d/Contact.cpp
++++ b/src/modules/physics/box2d/Contact.cpp
+@@ -57,29 +57,27 @@
+ 	return contact != nullptr;
+ }
+ 
+-int Contact::getPositions(lua_State *L)
++std::vector<float> Contact::getPositions()
+ {
+-	love::luax_assert_argc(L, 1, 1);
++	std::vector<float> positions;
+ 	b2WorldManifold manifold;
+ 	contact->GetWorldManifold(&manifold);
+ 	int points = contact->GetManifold()->pointCount;
+ 	for (int i = 0; i < points; i++)
+ 	{
+ 		b2Vec2 position = Physics::scaleUp(manifold.points[i]);
+-		lua_pushnumber(L, position.x);
+-		lua_pushnumber(L, position.y);
++		positions.push_back(position.x);
++		positions.push_back(position.y);
+ 	}
+-	return points*2;
++	return positions;
+ }
+ 
+-int Contact::getNormal(lua_State *L)
++void Contact::getNormal(float &x_o, float &y_o)
+ {
+-	love::luax_assert_argc(L, 1, 1);
+ 	b2WorldManifold manifold;
+ 	contact->GetWorldManifold(&manifold);
+-	lua_pushnumber(L, manifold.normal.x);
+-	lua_pushnumber(L, manifold.normal.y);
+-	return 2;
++	x_o = manifold.normal.x;
++	y_o = manifold.normal.y;
+ }
+ 
+ float Contact::getFriction() const
+diff -ruN a/src/modules/physics/box2d/Contact.h b/src/modules/physics/box2d/Contact.h
+--- a/src/modules/physics/box2d/Contact.h
++++ b/src/modules/physics/box2d/Contact.h
+@@ -23,7 +23,6 @@
+ 
+ // LOVE
+ #include "common/Object.h"
+-#include "common/runtime.h"
+ #include "World.h"
+ 
+ // Box2D
+@@ -78,14 +77,14 @@
+ 	 * @return The position along the x-axis.
+ 	 * @return The position along the y-axis.
+ 	 **/
+-	int getPositions(lua_State *L);
++	std::vector<float> getPositions();
+ 
+ 	/**
+ 	 * Gets the collision normal.
+ 	 * @return The x-component of the normal.
+ 	 * @return The y-component of the normal.
+ 	 **/
+-	int getNormal(lua_State *L);
++	void getNormal(float &x_o, float &y_o);
+ 
+ 	/**
+ 	 * The mixed friction between the two fixtures at
+diff -ruN a/src/modules/physics/box2d/EdgeShape.cpp b/src/modules/physics/box2d/EdgeShape.cpp
+--- a/src/modules/physics/box2d/EdgeShape.cpp
++++ b/src/modules/physics/box2d/EdgeShape.cpp
+@@ -75,18 +75,16 @@
+ 	return Physics::scaleUp(e->m_vertex0);
+ }
+ 
+-int EdgeShape::getPoints(lua_State *L)
++void EdgeShape::getPoints(float &x1_o, float &y1_o, float &x2_o, float &y2_o)
+ {
+ 	throwIfShapeNotValid();
+ 	b2EdgeShape *e = (b2EdgeShape *)shape;
+ 	b2Vec2 v1 = Physics::scaleUp(e->m_vertex1);
+ 	b2Vec2 v2 = Physics::scaleUp(e->m_vertex2);
+-	lua_pushnumber(L, v1.x);
+-	lua_pushnumber(L, v1.y);
+-	lua_pushnumber(L, v2.x);
+-	lua_pushnumber(L, v2.y);
+-	return 4;
+-
++	x1_o = v1.x;
++	y1_o = v1.y;
++	x2_o = v2.x;
++	y2_o = v2.y;
+ }
+ 
+ } // box2d
+diff -ruN a/src/modules/physics/box2d/EdgeShape.h b/src/modules/physics/box2d/EdgeShape.h
+--- a/src/modules/physics/box2d/EdgeShape.h
++++ b/src/modules/physics/box2d/EdgeShape.h
+@@ -61,7 +61,7 @@
+ 	 *
+ 	 * The result can be directly passed into love.graphics.line().
+ 	 **/
+-	int getPoints(lua_State *L);
++	void getPoints(float &x1_o, float &y1_o, float &x2_o, float &y2_o);
+ };
+ 
+ } // box2d
+diff -ruN a/src/modules/physics/box2d/Joint.cpp b/src/modules/physics/box2d/Joint.cpp
+--- a/src/modules/physics/box2d/Joint.cpp
++++ b/src/modules/physics/box2d/Joint.cpp
+@@ -118,22 +118,19 @@
+ 	return joint != nullptr;
+ }
+ 
+-int Joint::getAnchors(lua_State *L)
++void Joint::getAnchors(float &x1_o, float &y1_o, float &x2_o, float &y2_o)
+ {
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorA().x));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorA().y));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorB().x));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorB().y));
+-	return 4;
++	x1_o = Physics::scaleUp(joint->GetAnchorA().x);
++	y1_o = Physics::scaleUp(joint->GetAnchorA().y);
++	x2_o = Physics::scaleUp(joint->GetAnchorB().x);
++	y2_o = Physics::scaleUp(joint->GetAnchorB().y);
+ }
+ 
+-int Joint::getReactionForce(lua_State *L)
++void Joint::getReactionForce(float dt, float &x_o, float &y_o)
+ {
+-	float dt = (float)luaL_checknumber(L, 1);
+ 	b2Vec2 v = Physics::scaleUp(joint->GetReactionForce(dt));
+-	lua_pushnumber(L, v.x);
+-	lua_pushnumber(L, v.y);
+-	return 2;
++	x_o = v.x;
++	y_o = v.y;
+ }
+ 
+ float Joint::getReactionTorque(float dt)
+@@ -182,26 +179,15 @@
+ 	return joint->GetCollideConnected();
+ }
+ 
+-int Joint::setUserData(lua_State *L)
++void Joint::setUserData(Reference *data)
+ {
+-	love::luax_assert_argc(L, 1, 1);
+-
+-	if(!ref)
+-		ref = new Reference();
+-
+-	ref->ref(L);
+-
+-	return 0;
++	delete ref;
++	ref = data;
+ }
+ 
+-int Joint::getUserData(lua_State *L)
++Reference *Joint::getUserData() const
+ {
+-	if (ref != nullptr)
+-		ref->push(L);
+-	else
+-		lua_pushnil(L);
+-
+-	return 1;
++	return ref;
+ }
+ 
+ } // box2d
+diff -ruN a/src/modules/physics/box2d/Joint.h b/src/modules/physics/box2d/Joint.h
+--- a/src/modules/physics/box2d/Joint.h
++++ b/src/modules/physics/box2d/Joint.h
+@@ -22,7 +22,7 @@
+ #define LOVE_PHYSICS_BOX2D_JOINT_H
+ 
+ // LOVE
+-#include "common/runtime.h"
++#include "Reference.h"
+ #include "physics/Joint.h"
+ 
+ // Box2D
+@@ -81,12 +81,12 @@
+ 	 * Gets the anchor positions of the Joint in world
+ 	 * coordinates. This is useful for debugdrawing the joint.
+ 	 **/
+-	int getAnchors(lua_State *L);
++	void getAnchors(float &x1_o, float &y1_o, float &x2_o, float &y2_o);
+ 
+ 	/**
+ 	 * Gets the reaction force on body2 at the joint anchor.
+ 	 **/
+-	int getReactionForce(lua_State *L);
++	void getReactionForce(float dt, float &x_o, float &y_o);
+ 
+ 	/**
+ 	 * Gets the reaction torque on body2.
+@@ -98,15 +98,15 @@
+ 	bool getCollideConnected() const;
+ 
+ 	/**
+-	 * This function stores an in-C reference to arbitrary Lua data in the Box2D
+-	 * Joint object.
++	 * This function stores an in-C reference to arbitrary data in the Box2D
++	 * Joint object, which the Joint owns.
+ 	 **/
+-	int setUserData(lua_State *L);
++	void setUserData(Reference *data);
+ 
+ 	/**
+ 	 * Gets the data set with setUserData. If no data is set, nil is returned.
+ 	 **/
+-	int getUserData(lua_State *L);
++	Reference *getUserData() const;
+ 
+ 	/**
+ 	 * Joints require pointers to a Box2D joint objects at
+diff -ruN a/src/modules/physics/box2d/MotorJoint.cpp b/src/modules/physics/box2d/MotorJoint.cpp
+--- a/src/modules/physics/box2d/MotorJoint.cpp
++++ b/src/modules/physics/box2d/MotorJoint.cpp
+@@ -66,11 +66,10 @@
+ 	joint->SetLinearOffset(Physics::scaleDown(b2Vec2(x, y)));
+ }
+ 
+-int MotorJoint::getLinearOffset(lua_State *L) const
++void MotorJoint::getLinearOffset(float &x_o, float &y_o) const
+ {
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetLinearOffset().x));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetLinearOffset().y));
+-	return 2;
++	x_o = Physics::scaleUp(joint->GetLinearOffset().x);
++	y_o = Physics::scaleUp(joint->GetLinearOffset().y);
+ }
+ 
+ void MotorJoint::setAngularOffset(float angularOffset)
+diff -ruN a/src/modules/physics/box2d/MotorJoint.h b/src/modules/physics/box2d/MotorJoint.h
+--- a/src/modules/physics/box2d/MotorJoint.h
++++ b/src/modules/physics/box2d/MotorJoint.h
+@@ -48,7 +48,7 @@
+ 
+ 	/// Set/get the target linear offset, in frame A, in meters.
+ 	void setLinearOffset(float x, float y);
+-	int getLinearOffset(lua_State *L) const;
++	void getLinearOffset(float &x_o, float &y_o) const;
+ 
+ 	/// Set/get the target angular offset, in radians.
+ 	void setAngularOffset(float angularOffset);
+diff -ruN a/src/modules/physics/box2d/MouseJoint.cpp b/src/modules/physics/box2d/MouseJoint.cpp
+--- a/src/modules/physics/box2d/MouseJoint.cpp
++++ b/src/modules/physics/box2d/MouseJoint.cpp
+@@ -62,11 +62,10 @@
+ 	joint->SetTarget(Physics::scaleDown(b2Vec2(x, y)));
+ }
+ 
+-int MouseJoint::getTarget(lua_State *L)
++void MouseJoint::getTarget(float &x_o, float &y_o)
+ {
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetTarget().x));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetTarget().y));
+-	return 2;
++	x_o = Physics::scaleUp(joint->GetTarget().x);
++	y_o = Physics::scaleUp(joint->GetTarget().y);
+ }
+ 
+ void MouseJoint::setMaxForce(float force)
+diff -ruN a/src/modules/physics/box2d/MouseJoint.h b/src/modules/physics/box2d/MouseJoint.h
+--- a/src/modules/physics/box2d/MouseJoint.h
++++ b/src/modules/physics/box2d/MouseJoint.h
+@@ -61,7 +61,7 @@
+ 	/**
+ 	 * Gets the current anchor2 target.
+ 	 **/
+-	int getTarget(lua_State *L);
++	void getTarget(float &x_o, float &y_o);
+ 
+ 	/**
+ 	 * Sets the maximum constraint force that can be exerted
+diff -ruN a/src/modules/physics/box2d/Physics.cpp b/src/modules/physics/box2d/Physics.cpp
+--- a/src/modules/physics/box2d/Physics.cpp
++++ b/src/modules/physics/box2d/Physics.cpp
+@@ -22,7 +22,6 @@
+ 
+ // LOVE
+ #include "common/math.h"
+-#include "wrap_Body.h"
+ 
+ namespace love
+ {
+@@ -307,36 +306,31 @@
+ 	return new MotorJoint(body1, body2, correctionFactor, collideConnected);
+ }
+ 
+-int Physics::getDistance(lua_State *L)
++float Physics::getDistance(Shape *shapeA, Shape *shapeB, float &x1_o, float &y1_o, float &x2_o, float &y2_o)
+ {
+-	Shape *shapeA = luax_checktype<Shape>(L, 1);
+-	Shape *shapeB = luax_checktype<Shape>(L, 2);
+ 	b2DistanceProxy pA, pB;
+ 	b2DistanceInput i;
+ 	b2DistanceOutput o;
+ 	b2SimplexCache c;
+ 	c.count = 0;
+ 
+-	luax_catchexcept(L, [&]() {
+-		if (!shapeA->isValid() || !shapeB->isValid())
+-			throw love::Exception("The given Shape is not active in the physics World.");
++	if (!shapeA->isValid() || !shapeB->isValid())
++		throw love::Exception("The given Shape is not active in the physics World.");
+ 
+-		pA.Set(shapeA->fixture->GetShape(), 0);
+-		pB.Set(shapeB->fixture->GetShape(), 0);
+-		i.proxyA = pA;
+-		i.proxyB = pB;
+-		i.transformA = shapeA->fixture->GetBody()->GetTransform();
+-		i.transformB = shapeB->fixture->GetBody()->GetTransform();
+-		i.useRadii = true;
+-		b2Distance(&o, &c, &i);
+-	});
++	pA.Set(shapeA->fixture->GetShape(), 0);
++	pB.Set(shapeB->fixture->GetShape(), 0);
++	i.proxyA = pA;
++	i.proxyB = pB;
++	i.transformA = shapeA->fixture->GetBody()->GetTransform();
++	i.transformB = shapeB->fixture->GetBody()->GetTransform();
++	i.useRadii = true;
++	b2Distance(&o, &c, &i);
+ 
+-	lua_pushnumber(L, Physics::scaleUp(o.distance));
+-	lua_pushnumber(L, Physics::scaleUp(o.pointA.x));
+-	lua_pushnumber(L, Physics::scaleUp(o.pointA.y));
+-	lua_pushnumber(L, Physics::scaleUp(o.pointB.x));
+-	lua_pushnumber(L, Physics::scaleUp(o.pointB.y));
+-	return 5;
++	x1_o = Physics::scaleUp(o.pointA.x);
++	y1_o = Physics::scaleUp(o.pointA.y);
++	x2_o = Physics::scaleUp(o.pointB.x);
++	y2_o = Physics::scaleUp(o.pointB.y);
++	return Physics::scaleUp(o.distance);
+ }
+ 
+ void Physics::setMeter(float scale)
+diff -ruN a/src/modules/physics/box2d/Physics.h b/src/modules/physics/box2d/Physics.h
+--- a/src/modules/physics/box2d/Physics.h
++++ b/src/modules/physics/box2d/Physics.h
+@@ -269,7 +269,7 @@
+ 	 * @return The distance between them, and the two points closest
+ 	 *         to each other.
+ 	 **/
+-	int getDistance(lua_State *L);
++	float getDistance(Shape *shapeA, Shape *shapeB, float &x1_o, float &y1_o, float &x2_o, float &y2_o);
+ 
+ 	/**
+ 	 * Sets the number of pixels in one meter.
+diff -ruN a/src/modules/physics/box2d/PolygonShape.cpp b/src/modules/physics/box2d/PolygonShape.cpp
+--- a/src/modules/physics/box2d/PolygonShape.cpp
++++ b/src/modules/physics/box2d/PolygonShape.cpp
+@@ -43,19 +43,19 @@
+ {
+ }
+ 
+-int PolygonShape::getPoints(lua_State *L)
++std::vector<float> PolygonShape::getPoints()
+ {
+ 	throwIfShapeNotValid();
+-	love::luax_assert_argc(L, 0);
++	std::vector<float> points;
+ 	b2PolygonShape *p = (b2PolygonShape *)shape;
+ 	int count = p->m_count;
+ 	for (int i = 0; i<count; i++)
+ 	{
+ 		b2Vec2 v = Physics::scaleUp(p->m_vertices[i]);
+-		lua_pushnumber(L, v.x);
+-		lua_pushnumber(L, v.y);
++		points.push_back(v.x);
++		points.push_back(v.y);
+ 	}
+-	return count*2;
++	return points;
+ }
+ 
+ bool PolygonShape::validate() const
+diff -ruN a/src/modules/physics/box2d/PolygonShape.h b/src/modules/physics/box2d/PolygonShape.h
+--- a/src/modules/physics/box2d/PolygonShape.h
++++ b/src/modules/physics/box2d/PolygonShape.h
+@@ -58,7 +58,7 @@
+ 	 *
+ 	 * The result can be directly passed into love.graphics.polygon().
+ 	 **/
+-	int getPoints(lua_State *L);
++	std::vector<float> getPoints();
+ 
+ 	/**
+ 	 * Validate convexity.
+diff -ruN a/src/modules/physics/box2d/PrismaticJoint.cpp b/src/modules/physics/box2d/PrismaticJoint.cpp
+--- a/src/modules/physics/box2d/PrismaticJoint.cpp
++++ b/src/modules/physics/box2d/PrismaticJoint.cpp
+@@ -147,20 +147,18 @@
+ 	return Physics::scaleUp(joint->GetUpperLimit());
+ }
+ 
+-int PrismaticJoint::getLimits(lua_State *L)
++void PrismaticJoint::getLimits(float &lower_o, float &upper_o)
+ {
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetLowerLimit()));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetUpperLimit()));
+-	return 2;
++	lower_o = Physics::scaleUp(joint->GetLowerLimit());
++	upper_o = Physics::scaleUp(joint->GetUpperLimit());
+ }
+ 
+-int PrismaticJoint::getAxis(lua_State *L)
++void PrismaticJoint::getAxis(float &x_o, float &y_o)
+ {
+ 	b2Vec2 axis = joint->GetLocalAxisA();
+ 	getBodyA()->getWorldVector(axis.x, axis.y, axis.x, axis.y);
+-	lua_pushnumber(L, axis.x);
+-	lua_pushnumber(L, axis.y);
+-	return 2;
++	x_o = axis.x;
++	y_o = axis.y;
+ }
+ 
+ float PrismaticJoint::getReferenceAngle() const
+diff -ruN a/src/modules/physics/box2d/PrismaticJoint.h b/src/modules/physics/box2d/PrismaticJoint.h
+--- a/src/modules/physics/box2d/PrismaticJoint.h
++++ b/src/modules/physics/box2d/PrismaticJoint.h
+@@ -136,14 +136,14 @@
+ 	 * @returns The upper limit.
+ 	 * @returns The lower limit.
+ 	 **/
+-	int getLimits(lua_State *L);
++	void getLimits(float &lower_o, float &upper_o);
+ 
+ 	/**
+ 	 * Gets the axis unit vector, relative to body1.
+ 	 * @returns The X component of the axis unit vector.
+ 	 * @returns The Y component of the axis unit vector.
+ 	 **/
+-	int getAxis(lua_State *L);
++	void getAxis(float &x_o, float &y_o);
+ 
+ 	/**
+ 	 * Gets the reference angle.
+diff -ruN a/src/modules/physics/box2d/PulleyJoint.cpp b/src/modules/physics/box2d/PulleyJoint.cpp
+--- a/src/modules/physics/box2d/PulleyJoint.cpp
++++ b/src/modules/physics/box2d/PulleyJoint.cpp
+@@ -50,13 +50,12 @@
+ {
+ }
+ 
+-int PulleyJoint::getGroundAnchors(lua_State *L)
++void PulleyJoint::getGroundAnchors(float &x1_o, float &y1_o, float &x2_o, float &y2_o)
+ {
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorA().x));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorA().y));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorB().x));
+-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorB().y));
+-	return 4;
++	x1_o = Physics::scaleUp(joint->GetGroundAnchorA().x);
++	y1_o = Physics::scaleUp(joint->GetGroundAnchorA().y);
++	x2_o = Physics::scaleUp(joint->GetGroundAnchorB().x);
++	y2_o = Physics::scaleUp(joint->GetGroundAnchorB().y);
+ }
+ 
+ float PulleyJoint::getLengthA() const
+diff -ruN a/src/modules/physics/box2d/PulleyJoint.h b/src/modules/physics/box2d/PulleyJoint.h
+--- a/src/modules/physics/box2d/PulleyJoint.h
++++ b/src/modules/physics/box2d/PulleyJoint.h
+@@ -54,7 +54,7 @@
+ 	 * Gets the ground anchors position in world
+ 	 * coordinates.
+ 	 **/
+-	int getGroundAnchors(lua_State *L);
++	void getGroundAnchors(float &x1_o, float &y1_o, float &x2_o, float &y2_o);
+ 
+ 	/**
+ 	 * Gets the current length of the segment attached to bodyA.
+diff -ruN a/src/modules/physics/box2d/Reference.h b/src/modules/physics/box2d/Reference.h
+--- a/src/modules/physics/box2d/Reference.h
++++ b/src/modules/physics/box2d/Reference.h
+@@ -0,0 +1,102 @@
++/**
++ * Copyright (c) 2006-2026 LOVE Development Team
++ *
++ * This software is provided 'as-is', without any express or implied
++ * warranty.  In no event will the authors be held liable for any damages
++ * arising from the use of this software.
++ *
++ * Permission is granted to anyone to use this software for any purpose,
++ * including commercial applications, and to alter it and redistribute it
++ * freely, subject to the following restrictions:
++ *
++ * 1. The origin of this software must not be misrepresented; you must not
++ *    claim that you wrote the original software. If you use this software
++ *    in a product, an acknowledgment in the product documentation would be
++ *    appreciated but is not required.
++ * 2. Altered source versions must be plainly marked as such, and must not be
++ *    misrepresented as being the original software.
++ * 3. This notice may not be removed or altered from any source distribution.
++ **/
++
++// Added by Lota's physics patch: what LÖVE keeps for a game in a Lua
++// Reference (common/Reference.h), behind an interface the binding that
++// drives the engine implements.
++
++#ifndef LOVE_PHYSICS_BOX2D_REFERENCE_H
++#define LOVE_PHYSICS_BOX2D_REFERENCE_H
++
++namespace love
++{
++namespace physics
++{
++namespace box2d
++{
++
++class Shape;
++class Contact;
++
++/**
++ * A value of the game's that the engine keeps for it: a Body's, Shape's,
++ * or Joint's user data, or a function a World calls back. The engine owns
++ * it and deletes it.
++ **/
++class Reference
++{
++public:
++	virtual ~Reference() {}
++
++	/**
++	 * Lets go of the value while its owner lives on, as a destroyed Body
++	 * lets go of its user data.
++	 **/
++	virtual void unref() = 0;
++};
++
++/**
++ * A function World:setCallbacks takes: called with the contact's two
++ * Shapes, the Contact, and, after the solver, each contact point's normal
++ * and tangent impulse, in that order.
++ **/
++class ContactFunction : public Reference
++{
++public:
++	virtual void call(Shape *a, Shape *b, Contact *contact, const float *impulses, int count) = 0;
++};
++
++/**
++ * The function World:setContactFilter takes: whether two Shapes collide.
++ **/
++class ContactFilterFunction : public Reference
++{
++public:
++	virtual bool call(Shape *a, Shape *b) = 0;
++};
++
++/**
++ * The function World:queryShapesInArea calls for each Shape in the area:
++ * whether to go on.
++ **/
++class QueryFunction
++{
++public:
++	virtual ~QueryFunction() {}
++	virtual bool call(Shape *shape) = 0;
++};
++
++/**
++ * The function World:rayCast calls for each Shape the ray hits, with the
++ * point, the normal, and the fraction of the ray: the fraction to clip the
++ * ray to.
++ **/
++class RayCastFunction
++{
++public:
++	virtual ~RayCastFunction() {}
++	virtual float call(Shape *shape, float x, float y, float xn, float yn, float fraction) = 0;
++};
++
++} // box2d
++} // physics
++} // love
++
++#endif // LOVE_PHYSICS_BOX2D_REFERENCE_H
+diff -ruN a/src/modules/physics/box2d/RevoluteJoint.cpp b/src/modules/physics/box2d/RevoluteJoint.cpp
+--- a/src/modules/physics/box2d/RevoluteJoint.cpp
++++ b/src/modules/physics/box2d/RevoluteJoint.cpp
+@@ -147,11 +147,10 @@
+ 	return joint->GetUpperLimit();
+ }
+ 
+-int RevoluteJoint::getLimits(lua_State *L)
++void RevoluteJoint::getLimits(float &lower_o, float &upper_o)
+ {
+-	lua_pushnumber(L, joint->GetLowerLimit());
+-	lua_pushnumber(L, joint->GetUpperLimit());
+-	return 2;
++	lower_o = joint->GetLowerLimit();
++	upper_o = joint->GetUpperLimit();
+ }
+ 
+ float RevoluteJoint::getReferenceAngle() const
+diff -ruN a/src/modules/physics/box2d/RevoluteJoint.h b/src/modules/physics/box2d/RevoluteJoint.h
+--- a/src/modules/physics/box2d/RevoluteJoint.h
++++ b/src/modules/physics/box2d/RevoluteJoint.h
+@@ -136,7 +136,7 @@
+ 	 * @returns The lower limit.
+ 	 * @returns The upper limit.
+ 	 **/
+-	int getLimits(lua_State *L);
++	void getLimits(float &lower_o, float &upper_o);
+ 
+ 	/**
+ 	 * Gets the reference angle.
+diff -ruN a/src/modules/physics/box2d/Shape.cpp b/src/modules/physics/box2d/Shape.cpp
+--- a/src/modules/physics/box2d/Shape.cpp
++++ b/src/modules/physics/box2d/Shape.cpp
+@@ -265,22 +265,20 @@
+ 	v[2] = (int) f.groupIndex;
+ }
+ 
+-int Shape::setCategory(lua_State *L)
++void Shape::setCategory(const std::vector<int> &categories)
+ {
+ 	throwIfFixtureNotValid();
+ 	b2Filter f = fixture->GetFilterData();
+-	f.categoryBits = (uint16)getBits(L);
++	f.categoryBits = (uint16)getBits(categories);
+ 	fixture->SetFilterData(f);
+-	return 0;
+ }
+ 
+-int Shape::setMask(lua_State *L)
++void Shape::setMask(const std::vector<int> &masks)
+ {
+ 	throwIfFixtureNotValid();
+ 	b2Filter f = fixture->GetFilterData();
+-	f.maskBits = ~(uint16)getBits(L);
++	f.maskBits = ~(uint16)getBits(masks);
+ 	fixture->SetFilterData(f);
+-	return 0;
+ }
+ 
+ void Shape::setGroupIndex(int index)
+@@ -298,42 +296,32 @@
+ 	return f.groupIndex;
+ }
+ 
+-int Shape::getCategory(lua_State *L)
++std::vector<int> Shape::getCategory()
+ {
+ 	throwIfFixtureNotValid();
+-	return pushBits(L, fixture->GetFilterData().categoryBits);
++	return pushBits(fixture->GetFilterData().categoryBits);
+ }
+ 
+-int Shape::getMask(lua_State *L)
++std::vector<int> Shape::getMask()
+ {
+ 	throwIfFixtureNotValid();
+-	return pushBits(L, ~(fixture->GetFilterData().maskBits));
++	return pushBits(~(fixture->GetFilterData().maskBits));
+ }
+ 
+-uint16 Shape::getBits(lua_State *L)
++uint16 Shape::getBits(const std::vector<int> &values)
+ {
+ 	// Get number of args.
+-	bool istable = lua_istable(L, 1);
+-	int argc = istable ? (int) luax_objlen(L, 1) : lua_gettop(L);
++	int argc = (int) values.size();
+ 
+ 	// The new bitset.
+ 	std::bitset<16> b;
+ 
+ 	for (int i = 1; i <= argc; i++)
+ 	{
+-		size_t bpos = 0;
++		size_t bpos = (size_t) (values[i - 1] - 1);
+ 
+-		if (istable)
+-		{
+-			lua_rawgeti(L, 1, i);
+-			bpos = (size_t) (lua_tointeger(L, -1) - 1);
+-			lua_pop(L, 1);
+-		}
+-		else
+-			bpos = (size_t) (lua_tointeger(L, i) - 1);
+-
+ 		if (bpos >= 16)
+-			luaL_error(L, "Values must be in range 1-16.");
++			throw love::Exception("Values must be in range 1-16.");
+ 
+ 		b.set(bpos, true);
+ 	}
+@@ -341,40 +329,29 @@
+ 	return (uint16)b.to_ulong();
+ }
+ 
+-int Shape::pushBits(lua_State *L, uint16 bits)
++std::vector<int> Shape::pushBits(uint16 bits)
+ {
+ 	// Create a bitset.
+ 	std::bitset<16> b((int)bits);
+ 
+ 	// Push all set bits.
++	std::vector<int> set;
+ 	for (int i = 0; i<16; i++)
+ 		if (b.test(i))
+-			lua_pushinteger(L, i+1);
++			set.push_back(i+1);
+ 
+-	// Count number of set bits.
+-	return (int)b.count();
++	return set;
+ }
+ 
+-int Shape::setUserData(lua_State *L)
++void Shape::setUserData(Reference *data)
+ {
+-	love::luax_assert_argc(L, 1, 1);
+-
+-	if(!ref)
+-		ref = new Reference();
+-
+-	ref->ref(L);
+-
+-	return 0;
++	delete ref;
++	ref = data;
+ }
+ 
+-int Shape::getUserData(lua_State *L)
++Reference *Shape::getUserData() const
+ {
+-	if (ref != nullptr)
+-		ref->push(L);
+-	else
+-		lua_pushnil(L);
+-
+-	return 1;
++	return ref;
+ }
+ 
+ bool Shape::testPoint(float x, float y) const
+@@ -391,13 +368,12 @@
+ 	return shape->TestPoint(transform, Physics::scaleDown(point));
+ }
+ 
+-int Shape::rayCast(lua_State *L) const
++bool Shape::rayCast(float p1x, float p1y, float p2x, float p2y, float maxFraction, const float *transform, int childIndex, float &xn_o, float &yn_o, float &fraction_o) const
+ {
+-	float p1x = Physics::scaleDown((float)luaL_checknumber(L, 1));
+-	float p1y = Physics::scaleDown((float)luaL_checknumber(L, 2));
+-	float p2x = Physics::scaleDown((float)luaL_checknumber(L, 3));
+-	float p2y = Physics::scaleDown((float)luaL_checknumber(L, 4));
+-	float maxFraction = (float)luaL_checknumber(L, 5);
++	p1x = Physics::scaleDown(p1x);
++	p1y = Physics::scaleDown(p1y);
++	p2x = Physics::scaleDown(p2x);
++	p2y = Physics::scaleDown(p2y);
+ 
+ 	b2RayCastInput input;
+ 	b2RayCastOutput output;
+@@ -405,90 +381,84 @@
+ 	input.p2.Set(p2x, p2y);
+ 	input.maxFraction = maxFraction;
+ 
+-	if (lua_isnoneornil(L, 7))
++	if (transform == nullptr)
+ 	{
+ 		throwIfFixtureNotValid();
+-		int childIndex = (int) luaL_optinteger(L, 6, 1) - 1; // Convert from 1-based index
++		childIndex = childIndex - 1; // Convert from 1-based index
+ 		if (!fixture->RayCast(&output, input, childIndex))
+-			return 0; // Nothing hit.
++			return false; // Nothing hit.
+ 	}
+ 	else
+ 	{
+ 		throwIfShapeNotValid();
+-		float x = Physics::scaleDown((float)luaL_checknumber(L, 6));
+-		float y = Physics::scaleDown((float)luaL_checknumber(L, 7));
+-		float r = (float)luaL_checknumber(L, 8);
+-		int childIndex = (int) luaL_optinteger(L, 9, 1) - 1; // Convert from 1-based index
++		float x = Physics::scaleDown(transform[0]);
++		float y = Physics::scaleDown(transform[1]);
++		float r = transform[2];
++		childIndex = childIndex - 1; // Convert from 1-based index
+ 	
+-		b2Transform transform(b2Vec2(x, y), b2Rot(r));
++		b2Transform b2transform(b2Vec2(x, y), b2Rot(r));
+ 		
+-		if (!shape->RayCast(&output, input, transform, childIndex))
+-			return 0; // No hit.
++		if (!shape->RayCast(&output, input, b2transform, childIndex))
++			return false; // No hit.
+ 	}
+ 
+-	lua_pushnumber(L, output.normal.x);
+-	lua_pushnumber(L, output.normal.y);
+-	lua_pushnumber(L, output.fraction);
+-	return 3;
++	xn_o = output.normal.x;
++	yn_o = output.normal.y;
++	fraction_o = output.fraction;
++	return true;
+ }
+ 
+-int Shape::computeAABB(lua_State *L) const
++void Shape::computeAABB(float x, float y, float r, int childIndex, float &lx_o, float &ly_o, float &ux_o, float &uy_o) const
+ {
+ 	throwIfShapeNotValid();
+-	float x = Physics::scaleDown((float)luaL_checknumber(L, 1));
+-	float y = Physics::scaleDown((float)luaL_checknumber(L, 2));
+-	float r = (float)luaL_checknumber(L, 3);
+-	int childIndex = (int) luaL_optinteger(L, 4, 1) - 1; // Convert from 1-based index
++	x = Physics::scaleDown(x);
++	y = Physics::scaleDown(y);
++	childIndex = childIndex - 1; // Convert from 1-based index
+ 	b2Transform transform(b2Vec2(x, y), b2Rot(r));
+ 	b2AABB box;
+ 	shape->ComputeAABB(&box, transform, childIndex);
+ 	box = Physics::scaleUp(box);
+-	lua_pushnumber(L, box.lowerBound.x);
+-	lua_pushnumber(L, box.lowerBound.y);
+-	lua_pushnumber(L, box.upperBound.x);
+-	lua_pushnumber(L, box.upperBound.y);
+-	return 4;
++	lx_o = box.lowerBound.x;
++	ly_o = box.lowerBound.y;
++	ux_o = box.upperBound.x;
++	uy_o = box.upperBound.y;
+ }
+ 
+-int Shape::computeMass(lua_State *L) const
++void Shape::computeMass(float density, float &x_o, float &y_o, float &mass_o, float &inertia_o) const
+ {
+ 	throwIfShapeNotValid();
+-	float density = (float)luaL_checknumber(L, 1);
+ 	b2MassData data;
+ 	shape->ComputeMass(&data, density);
+ 	b2Vec2 center = Physics::scaleUp(data.center);
+-	lua_pushnumber(L, center.x);
+-	lua_pushnumber(L, center.y);
+-	lua_pushnumber(L, data.mass);
+-	lua_pushnumber(L, Physics::scaleUp(Physics::scaleUp(data.I)));
+-	return 4;
++	x_o = center.x;
++	y_o = center.y;
++	mass_o = data.mass;
++	inertia_o = Physics::scaleUp(Physics::scaleUp(data.I));
+ }
+ 
+-int Shape::getBoundingBox(lua_State *L) const
++void Shape::getBoundingBox(int childIndex, float &lx_o, float &ly_o, float &ux_o, float &uy_o) const
+ {
+ 	throwIfFixtureNotValid();
+-	int childIndex = (int) luaL_optinteger(L, 1, 1) - 1; // Convert from 1-based index
++	childIndex = childIndex - 1; // Convert from 1-based index
+ 	b2AABB box;
+-	luax_catchexcept(L, [&]() { box = fixture->GetAABB(childIndex); });
++	box = fixture->GetAABB(childIndex);
+ 	box = Physics::scaleUp(box);
+-	lua_pushnumber(L, box.lowerBound.x);
+-	lua_pushnumber(L, box.lowerBound.y);
+-	lua_pushnumber(L, box.upperBound.x);
+-	lua_pushnumber(L, box.upperBound.y);
+-	return 4;
++	lx_o = box.lowerBound.x;
++	ly_o = box.lowerBound.y;
++	ux_o = box.upperBound.x;
++	uy_o = box.upperBound.y;
+ }
+ 
+-int Shape::getMassData(lua_State *L) const
++void Shape::getMassData(float &x_o, float &y_o, float &mass_o, float &inertia_o) const
+ {
+ 	throwIfFixtureNotValid();
+ 	b2MassData data;
+ 	fixture->GetMassData(&data);
+ 	b2Vec2 center = Physics::scaleUp(data.center);
+-	lua_pushnumber(L, center.x);
+-	lua_pushnumber(L, center.y);
+-	lua_pushnumber(L, data.mass);
+-	lua_pushnumber(L, data.I);
+-	return 4;
++	x_o = center.x;
++	y_o = center.y;
++	mass_o = data.mass;
++	inertia_o = data.I;
+ }
+ 
+ } // box2d
+diff -ruN a/src/modules/physics/box2d/Shape.h b/src/modules/physics/box2d/Shape.h
+--- a/src/modules/physics/box2d/Shape.h
++++ b/src/modules/physics/box2d/Shape.h
+@@ -24,8 +24,11 @@
+ // LOVE
+ #include "physics/Shape.h"
+ #include "physics/box2d/Body.h"
+-#include "common/Reference.h"
++#include "Reference.h"
+ 
++// STD
++#include <vector>
++
+ // Box2D
+ #include <box2d/Box2D.h>
+ 
+@@ -98,15 +101,15 @@
+ 
+ 	/**
+ 	 * This function stores an in-C reference to
+-	 * arbitrary Lua data in the Shape object.
++	 * arbitrary data in the Shape object, which the Shape owns.
+ 	 **/
+-	int setUserData(lua_State *L);
++	void setUserData(Reference *data);
+ 
+ 	/**
+ 	 * Gets the data set with setUserData. If no
+ 	 * data is set, nil is returned.
+ 	 **/
+-	int getUserData(lua_State *L);
++	Reference *getUserData() const;
+ 
+ 	/**
+ 	 * Sets the friction of the Shape.
+@@ -152,30 +155,32 @@
+ 
+ 	float getRadius() const;
+ 	int getChildCount() const;
+-	int rayCast(lua_State *L) const;
+-	int computeAABB(lua_State *L) const;
+-	int computeMass(lua_State *L) const;
++	// The transform is nullptr, to cast against the Shape where its Body
++	// is, or its x, y, and angle; childIndex counts from 1.
++	bool rayCast(float p1x, float p1y, float p2x, float p2y, float maxFraction, const float *transform, int childIndex, float &xn_o, float &yn_o, float &fraction_o) const;
++	void computeAABB(float x, float y, float r, int childIndex, float &lx_o, float &ly_o, float &ux_o, float &uy_o) const;
++	void computeMass(float density, float &x_o, float &y_o, float &mass_o, float &inertia_o) const;
+ 
+ 	void setGroupIndex(int index);
+ 	int getGroupIndex() const;
+ 
+-	int setCategory(lua_State *L);
+-	int setMask(lua_State *L);
+-	int getCategory(lua_State *L);
+-	int getMask(lua_State *L);
+-	uint16 getBits(lua_State *L);
+-	int pushBits(lua_State *L, uint16 bits);
++	void setCategory(const std::vector<int> &categories);
++	void setMask(const std::vector<int> &masks);
++	std::vector<int> getCategory();
++	std::vector<int> getMask();
++	uint16 getBits(const std::vector<int> &values);
++	std::vector<int> pushBits(uint16 bits);
+ 
+ 	/**
+ 	 * Gets the bounding box for this Shape.
+ 	 **/
+-	int getBoundingBox(lua_State *L) const;
++	void getBoundingBox(int childIndex, float &lx_o, float &ly_o, float &ux_o, float &uy_o) const;
+ 
+ 	/**
+ 	 * Gets the mass data for this Shape.
+ 	 * This operation may be expensive.
+ 	 **/
+-	int getMassData(lua_State *L) const;
++	void getMassData(float &x_o, float &y_o, float &mass_o, float &inertia_o) const;
+ 
+ 	void throwIfFixtureNotValid() const;
+ 	void throwIfShapeNotValid() const;
+diff -ruN a/src/modules/physics/box2d/WheelJoint.cpp b/src/modules/physics/box2d/WheelJoint.cpp
+--- a/src/modules/physics/box2d/WheelJoint.cpp
++++ b/src/modules/physics/box2d/WheelJoint.cpp
+@@ -116,13 +116,12 @@
+ 	return joint->GetDamping();
+ }
+ 
+-int WheelJoint::getAxis(lua_State *L)
++void WheelJoint::getAxis(float &x_o, float &y_o)
+ {
+ 	b2Vec2 axis = joint->GetLocalAxisA();
+ 	getBodyA()->getWorldVector(axis.x, axis.y, axis.x, axis.y);
+-	lua_pushnumber(L, axis.x);
+-	lua_pushnumber(L, axis.y);
+-	return 2;
++	x_o = axis.x;
++	y_o = axis.y;
+ }
+ 
+ } // box2d
+diff -ruN a/src/modules/physics/box2d/WheelJoint.h b/src/modules/physics/box2d/WheelJoint.h
+--- a/src/modules/physics/box2d/WheelJoint.h
++++ b/src/modules/physics/box2d/WheelJoint.h
+@@ -120,7 +120,7 @@
+ 	 * @returns The X component of the axis unit vector.
+ 	 * @returns The Y component of the axis unit vector.
+ 	 **/
+-	int getAxis(lua_State *L);
++	void getAxis(float &x_o, float &y_o);
+ 
+ private:
+ 
+diff -ruN a/src/modules/physics/box2d/World.cpp b/src/modules/physics/box2d/World.cpp
+--- a/src/modules/physics/box2d/World.cpp
++++ b/src/modules/physics/box2d/World.cpp
+@@ -23,12 +23,9 @@
+ #include "Shape.h"
+ #include "Contact.h"
+ #include "Physics.h"
+-#include "common/Reference.h"
++#include "Body.h"
++#include "Joint.h"
+ 
+-// Needed for World::getJoints. It should be moved to wrapper code...
+-#include "wrap_Joint.h"
+-#include "wrap_Shape.h"
+-
+ namespace love
+ {
+ namespace physics
+@@ -40,7 +37,6 @@
+ 
+ World::ContactCallback::ContactCallback(World *world)
+ 	: ref(nullptr)
+-	, L(nullptr)
+ 	, world(world)
+ {
+ }
+@@ -54,55 +50,42 @@
+ void World::ContactCallback::process(b2Contact *contact, const b2ContactImpulse *impulse)
+ {
+ 	// Process contacts.
+-	if (ref != nullptr && L != nullptr)
++	if (ref != nullptr)
+ 	{
+-		ref->push(L);
++		// First shape.
++		Shape *a = (Shape *)(contact->GetFixtureA()->GetUserData().pointer);
++		if (a == nullptr)
++			throw love::Exception("A Shape has escaped Memoizer!");
+ 
+-		// Push first shape.
+-		{
+-			Shape *a = (Shape *)(contact->GetFixtureA()->GetUserData().pointer);
+-			if (a != nullptr)
+-				luax_pushshape(L, a);
+-			else
+-				throw love::Exception("A Shape has escaped Memoizer!");
+-		}
++		// Second shape.
++		Shape *b = (Shape *)(contact->GetFixtureB()->GetUserData().pointer);
++		if (b == nullptr)
++			throw love::Exception("A Shape has escaped Memoizer!");
+ 
+-		// Push second shape.
+-		{
+-			Shape *b = (Shape *)(contact->GetFixtureB()->GetUserData().pointer);
+-			if (b != nullptr)
+-				luax_pushshape(L, b);
+-			else
+-				throw love::Exception("A Shape has escaped Memoizer!");
+-		}
+-
+ 		Contact *cobj = (Contact *)world->findObject(contact);
+ 		if (!cobj)
+ 			cobj = new Contact(world, contact);
+ 		else
+ 			cobj->retain();
++		StrongRef<Contact> cref(cobj, Acquire::NORETAIN);
+ 
+-		luax_pushtype(L, cobj);
+-		cobj->release();
+-
+-		int args = 3;
++		float impulses[2 * b2_maxManifoldPoints];
++		int args = 0;
+ 		if (impulse)
+ 		{
+ 			for (int c = 0; c < impulse->count; c++)
+ 			{
+-				lua_pushnumber(L, Physics::scaleUp(impulse->normalImpulses[c]));
+-				lua_pushnumber(L, Physics::scaleUp(impulse->tangentImpulses[c]));
+-				args += 2;
++				impulses[args++] = Physics::scaleUp(impulse->normalImpulses[c]);
++				impulses[args++] = Physics::scaleUp(impulse->tangentImpulses[c]);
+ 			}
+ 		}
+-		lua_call(L, args, 0);
++		ref->call(a, b, cobj, impulses, args);
+ 	}
+ 
+ }
+ 
+ World::ContactFilter::ContactFilter()
+ 	: ref(nullptr)
+-	, L(nullptr)
+ {
+ }
+ 
+@@ -114,24 +97,15 @@
+ 
+ bool World::ContactFilter::process(Shape *a, Shape *b)
+ {
+-	if (ref != nullptr && L != nullptr)
+-	{
+-		ref->push(L);
+-		luax_pushshape(L, a);
+-		luax_pushshape(L, b);
+-		lua_call(L, 2, 1);
+-		return luax_toboolean(L, -1);
+-	}
++	if (ref != nullptr)
++		return ref->call(a, b);
+ 
+ 	return true;
+ }
+ 
+-World::QueryCallback::QueryCallback(lua_State *L, int idx)
+-	: L(L)
+-	, funcidx(idx)
++World::QueryCallback::QueryCallback(QueryFunction *function)
++	: function(function)
+ {
+-	luaL_checktype(L, funcidx, LUA_TFUNCTION);
+-	userargs = lua_gettop(L) - funcidx;
+ }
+ 
+ World::QueryCallback::~QueryCallback()
+@@ -140,29 +114,21 @@
+ 
+ bool World::QueryCallback::ReportFixture(b2Fixture *fixture)
+ {
+-	if (L != nullptr)
++	if (function != nullptr)
+ 	{
+-		lua_pushvalue(L, funcidx);
+ 		Shape *f = (Shape *)(fixture->GetUserData().pointer);
+ 		if (!f)
+ 			throw love::Exception("A Shape has escaped Memoizer!");
+-		luax_pushshape(L, f);
+-		for (int i = 1; i <= userargs; i++)
+-			lua_pushvalue(L, funcidx + i);
+-		lua_call(L, 1 + userargs, 1);
+-		bool cont = luax_toboolean(L, -1);
+-		lua_pop(L, 1);
+-		return cont;
++		return function->call(f);
+ 	}
+ 
+ 	return true;
+ }
+ 
+-World::CollectCallback::CollectCallback(uint16 categoryMask, lua_State *L)
++World::CollectCallback::CollectCallback(uint16 categoryMask, std::vector<Shape *> &shapes)
+ 	: categoryMask(categoryMask)
+-	, L(L)
++	, shapes(shapes)
+ {
+-	lua_newtable(L);
+ }
+ 
+ World::CollectCallback::~CollectCallback()
+@@ -177,18 +143,13 @@
+ 	Shape *shape = (Shape *)(f->GetUserData().pointer);
+ 	if (!shape)
+ 		throw love::Exception("A Shape has escaped Memoizer!");
+-	luax_pushshape(L, shape);
+-	lua_rawseti(L, -2, i);
+-	i++;
++	shapes.push_back(shape);
+ 	return true;
+ }
+ 
+-World::RayCastCallback::RayCastCallback(lua_State *L, int idx)
+-	: L(L)
+-	, funcidx(idx)
++World::RayCastCallback::RayCastCallback(RayCastFunction *function)
++	: function(function)
+ {
+-	luaL_checktype(L, funcidx, LUA_TFUNCTION);
+-	userargs = lua_gettop(L) - funcidx;
+ }
+ 
+ World::RayCastCallback::~RayCastCallback()
+@@ -197,27 +158,13 @@
+ 
+ float World::RayCastCallback::ReportFixture(b2Fixture *fixture, const b2Vec2 &point, const b2Vec2 &normal, float fraction)
+ {
+-	if (L != nullptr)
++	if (function != nullptr)
+ 	{
+-		lua_pushvalue(L, funcidx);
+ 		Shape *f = (Shape *)(fixture->GetUserData().pointer);
+ 		if (!f)
+ 			throw love::Exception("A Shape has escaped Memoizer!");
+-		luax_pushshape(L, f);
+ 		b2Vec2 scaledPoint = Physics::scaleUp(point);
+-		lua_pushnumber(L, scaledPoint.x);
+-		lua_pushnumber(L, scaledPoint.y);
+-		lua_pushnumber(L, normal.x);
+-		lua_pushnumber(L, normal.y);
+-		lua_pushnumber(L, fraction);
+-		for (int i = 1; i <= userargs; i++)
+-			lua_pushvalue(L, funcidx + i);
+-		lua_call(L, 6 + userargs, 1);
+-		if (!lua_isnumber(L, -1))
+-			luaL_error(L, "Raycast callback didn't return a number!");
+-		float fraction = (float) lua_tonumber(L, -1);
+-		lua_pop(L, 1);
+-		return fraction;
++		return function->call(f, scaledPoint.x, scaledPoint.y, normal.x, normal.y, fraction);
+ 	}
+ 
+ 	return 0;
+@@ -392,89 +339,39 @@
+ 	return world != nullptr;
+ }
+ 
+-int World::setCallbacks(lua_State *L)
++void World::setCallbacks(ContactFunction *begin, ContactFunction *end, ContactFunction *presolve, ContactFunction *postsolve)
+ {
+-	int nargs = lua_gettop(L);
++	delete this->begin.ref;
++	this->begin.ref = begin;
+ 
+-	for (int i = 1; i <= 4; i++)
+-	{
+-		if (!lua_isnoneornil(L, i))
+-			luaL_checktype(L, i, LUA_TFUNCTION);
+-	}
++	delete this->end.ref;
++	this->end.ref = end;
+ 
+-	delete begin.ref;
+-	begin.ref = nullptr;
++	delete this->presolve.ref;
++	this->presolve.ref = presolve;
+ 
+-	delete end.ref;
+-	end.ref = nullptr;
+-
+-	delete presolve.ref;
+-	presolve.ref = nullptr;
+-
+-	delete postsolve.ref;
+-	postsolve.ref = nullptr;
+-
+-	if (nargs >= 1)
+-	{
+-		lua_pushvalue(L, 1);
+-		begin.ref = luax_refif(L, LUA_TFUNCTION);
+-		begin.L = L;
+-	}
+-
+-	if (nargs >= 2)
+-	{
+-		lua_pushvalue(L, 2);
+-		end.ref = luax_refif(L, LUA_TFUNCTION);
+-		end.L = L;
+-	}
+-
+-	if (nargs >= 3)
+-	{
+-		lua_pushvalue(L, 3);
+-		presolve.ref = luax_refif(L, LUA_TFUNCTION);
+-		presolve.L = L;
+-	}
+-
+-	if (nargs >= 4)
+-	{
+-		lua_pushvalue(L, 4);
+-		postsolve.ref = luax_refif(L, LUA_TFUNCTION);
+-		postsolve.L = L;
+-	}
+-
+-	return 0;
++	delete this->postsolve.ref;
++	this->postsolve.ref = postsolve;
+ }
+ 
+-int World::getCallbacks(lua_State *L)
++void World::getCallbacks(ContactFunction *&begin_o, ContactFunction *&end_o, ContactFunction *&presolve_o, ContactFunction *&postsolve_o) const
+ {
+-	begin.ref ? begin.ref->push(L) : lua_pushnil(L);
+-	end.ref ? end.ref->push(L) : lua_pushnil(L);
+-	presolve.ref ? presolve.ref->push(L) : lua_pushnil(L);
+-	postsolve.ref ? postsolve.ref->push(L) : lua_pushnil(L);
+-	return 4;
++	begin_o = begin.ref;
++	end_o = end.ref;
++	presolve_o = presolve.ref;
++	postsolve_o = postsolve.ref;
+ }
+ 
+-void World::setCallbacksL(lua_State *L)
++void World::setContactFilter(ContactFilterFunction *function)
+ {
+-	begin.L = end.L = presolve.L = postsolve.L = filter.L = L;
+-}
+-
+-int World::setContactFilter(lua_State *L)
+-{
+-	if (!lua_isnoneornil(L, 1))
+-		luaL_checktype(L, 1, LUA_TFUNCTION);
+-
+ 	if (filter.ref)
+ 		delete filter.ref;
+-	filter.ref = luax_refif(L, LUA_TFUNCTION);
+-	filter.L = L;
+-	return 0;
++	filter.ref = function;
+ }
+ 
+-int World::getContactFilter(lua_State *L)
++ContactFilterFunction *World::getContactFilter() const
+ {
+-	filter.ref ? filter.ref->push(L) : lua_pushnil(L);
+-	return 1;
++	return filter.ref;
+ }
+ 
+ void World::setGravity(float x, float y)
+@@ -482,12 +379,11 @@
+ 	world->SetGravity(Physics::scaleDown(b2Vec2(x, y)));
+ }
+ 
+-int World::getGravity(lua_State *L)
++void World::getGravity(float &x_o, float &y_o) const
+ {
+ 	b2Vec2 v = Physics::scaleUp(world->GetGravity());
+-	lua_pushnumber(L, v.x);
+-	lua_pushnumber(L, v.y);
+-	return 2;
++	x_o = v.x;
++	y_o = v.y;
+ }
+ 
+ void World::translateOrigin(float x, float y)
+@@ -525,11 +421,10 @@
+ 	return world->GetContactCount();
+ }
+ 
+-int World::getBodies(lua_State *L) const
++std::vector<Body *> World::getBodies() const
+ {
+-	lua_newtable(L);
++	std::vector<Body *> bodies;
+ 	b2Body *b = world->GetBodyList();
+-	int i = 1;
+ 	do
+ 	{
+ 		if (!b)
+@@ -539,37 +434,31 @@
+ 		Body *body = (Body *)(b->GetUserData().pointer);
+ 		if (!body)
+ 			throw love::Exception("A body has escaped Memoizer!");
+-		luax_pushtype(L, body);
+-		lua_rawseti(L, -2, i);
+-		i++;
++		bodies.push_back(body);
+ 	}
+ 	while ((b = b->GetNext()));
+-	return 1;
++	return bodies;
+ }
+ 
+-int World::getJoints(lua_State *L) const
++std::vector<Joint *> World::getJoints() const
+ {
+-	lua_newtable(L);
++	std::vector<Joint *> joints;
+ 	b2Joint *j = world->GetJointList();
+-	int i = 1;
+ 	do
+ 	{
+ 		if (!j) break;
+ 		Joint *joint = (Joint *)(j->GetUserData().pointer);
+ 		if (!joint) throw love::Exception("A joint has escaped Memoizer!");
+-		luax_pushjoint(L, joint);
+-		lua_rawseti(L, -2, i);
+-		i++;
++		joints.push_back(joint);
+ 	}
+ 	while ((j = j->GetNext()));
+-	return 1;
++	return joints;
+ }
+ 
+-int World::getContacts(lua_State *L)
++std::vector<StrongRef<Contact>> World::getContacts()
+ {
+-	lua_newtable(L);
++	std::vector<StrongRef<Contact>> contacts;
+ 	b2Contact *c = world->GetContactList();
+-	int i = 1;
+ 	do
+ 	{
+ 		if (!c) break;
+@@ -578,13 +467,10 @@
+ 			contact = new Contact(this, c);
+ 		else
+ 			contact->retain();
+-		luax_pushtype(L, contact);
+-		contact->release();
+-		lua_rawseti(L, -2, i);
+-		i++;
++		contacts.emplace_back(contact, Acquire::NORETAIN);
+ 	}
+ 	while ((c = c->GetNext()));
+-	return 1;
++	return contacts;
+ }
+ 
+ b2Body *World::getGroundBody() const
+@@ -592,57 +478,36 @@
+ 	return groundBody;
+ }
+ 
+-int World::queryShapesInArea(lua_State *L)
++void World::queryShapesInArea(float lx, float ly, float ux, float uy, QueryFunction *function)
+ {
+ 	b2AABB box;
+-	float lx = (float)luaL_checknumber(L, 1);
+-	float ly = (float)luaL_checknumber(L, 2);
+-	float ux = (float)luaL_checknumber(L, 3);
+-	float uy = (float)luaL_checknumber(L, 4);
+ 	box.lowerBound = Physics::scaleDown(b2Vec2(lx, ly));
+ 	box.upperBound = Physics::scaleDown(b2Vec2(ux, uy));
+-	luaL_checktype(L, 5, LUA_TFUNCTION);
+-	QueryCallback query(L, 5);
++	QueryCallback query(function);
+ 	world->QueryAABB(&query, box);
+-	return 0;
+ }
+ 
+-int World::getShapesInArea(lua_State *L)
++std::vector<Shape *> World::getShapesInArea(float lx, float ly, float ux, float uy, uint16 categoryMaskBits)
+ {
+-	float lx = (float)luaL_checknumber(L, 1);
+-	float ly = (float)luaL_checknumber(L, 2);
+-	float ux = (float)luaL_checknumber(L, 3);
+-	float uy = (float)luaL_checknumber(L, 4);
+-	uint16 categoryMaskBits = (uint16)luaL_optinteger(L, 5, 0xFFFF);
++	std::vector<Shape *> shapes;
+ 	b2AABB box;
+ 	box.lowerBound = Physics::scaleDown(b2Vec2(lx, ly));
+ 	box.upperBound = Physics::scaleDown(b2Vec2(ux, uy));
+-	CollectCallback query(categoryMaskBits, L);
++	CollectCallback query(categoryMaskBits, shapes);
+ 	world->QueryAABB(&query, box);
+-	return 1;
++	return shapes;
+ }
+ 
+-int World::rayCast(lua_State *L)
++void World::rayCast(float x1, float y1, float x2, float y2, RayCastFunction *function)
+ {
+-	float x1 = (float)luaL_checknumber(L, 1);
+-	float y1 = (float)luaL_checknumber(L, 2);
+-	float x2 = (float)luaL_checknumber(L, 3);
+-	float y2 = (float)luaL_checknumber(L, 4);
+ 	b2Vec2 v1 = Physics::scaleDown(b2Vec2(x1, y1));
+ 	b2Vec2 v2 = Physics::scaleDown(b2Vec2(x2, y2));
+-	luaL_checktype(L, 5, LUA_TFUNCTION);
+-	RayCastCallback raycast(L, 5);
++	RayCastCallback raycast(function);
+ 	world->RayCast(&raycast, v1, v2);
+-	return 0;
+ }
+ 
+-int World::rayCastAny(lua_State *L)
++Shape *World::rayCastAny(float x1, float y1, float x2, float y2, uint16 categoryMaskBits, float &x_o, float &y_o, float &xn_o, float &yn_o, float &fraction_o)
+ {
+-	float x1 = (float)luaL_checknumber(L, 1);
+-	float y1 = (float)luaL_checknumber(L, 2);
+-	float x2 = (float)luaL_checknumber(L, 3);
+-	float y2 = (float)luaL_checknumber(L, 4);
+-	uint16 categoryMaskBits = (uint16)luaL_optinteger(L, 5, 0xFFFF);
+ 	b2Vec2 v1 = Physics::scaleDown(b2Vec2(x1, y1));
+ 	b2Vec2 v2 = Physics::scaleDown(b2Vec2(x2, y2));
+ 	RayCastOneCallback raycast(categoryMaskBits, true);
+@@ -651,27 +516,21 @@
+ 	{
+ 		Shape *f = (Shape *)(raycast.hitFixture->GetUserData().pointer);
+ 		if (f == nullptr)
+-			return luaL_error(L, "A Shape has escaped Memoizer!");
+-		luax_pushshape(L, f);
++			throw love::Exception("A Shape has escaped Memoizer!");
+ 
+ 		b2Vec2 hitPoint = Physics::scaleUp(raycast.hitPoint);
+-		lua_pushnumber(L, hitPoint.x);
+-		lua_pushnumber(L, hitPoint.y);
+-		lua_pushnumber(L, raycast.hitNormal.x);
+-		lua_pushnumber(L, raycast.hitNormal.y);
+-		lua_pushnumber(L, raycast.hitFraction);
+-		return 6;
++		x_o = hitPoint.x;
++		y_o = hitPoint.y;
++		xn_o = raycast.hitNormal.x;
++		yn_o = raycast.hitNormal.y;
++		fraction_o = raycast.hitFraction;
++		return f;
+ 	}
+-	return 0;
++	return nullptr;
+ }
+ 
+-int World::rayCastClosest(lua_State *L)
++Shape *World::rayCastClosest(float x1, float y1, float x2, float y2, uint16 categoryMaskBits, float &x_o, float &y_o, float &xn_o, float &yn_o, float &fraction_o)
+ {
+-	float x1 = (float)luaL_checknumber(L, 1);
+-	float y1 = (float)luaL_checknumber(L, 2);
+-	float x2 = (float)luaL_checknumber(L, 3);
+-	float y2 = (float)luaL_checknumber(L, 4);
+-	uint16 categoryMaskBits = (uint16)luaL_optinteger(L, 5, 0xFFFF);
+ 	b2Vec2 v1 = Physics::scaleDown(b2Vec2(x1, y1));
+ 	b2Vec2 v2 = Physics::scaleDown(b2Vec2(x2, y2));
+ 	RayCastOneCallback raycast(categoryMaskBits, false);
+@@ -680,18 +539,17 @@
+ 	{
+ 		Shape *f = (Shape *)(raycast.hitFixture->GetUserData().pointer);
+ 		if (f == nullptr)
+-			return luaL_error(L, "A Shape has escaped Memoizer!");
+-		luax_pushshape(L, f);
++			throw love::Exception("A Shape has escaped Memoizer!");
+ 
+ 		b2Vec2 hitPoint = Physics::scaleUp(raycast.hitPoint);
+-		lua_pushnumber(L, hitPoint.x);
+-		lua_pushnumber(L, hitPoint.y);
+-		lua_pushnumber(L, raycast.hitNormal.x);
+-		lua_pushnumber(L, raycast.hitNormal.y);
+-		lua_pushnumber(L, raycast.hitFraction);
+-		return 6;
++		x_o = hitPoint.x;
++		y_o = hitPoint.y;
++		xn_o = raycast.hitNormal.x;
++		yn_o = raycast.hitNormal.y;
++		fraction_o = raycast.hitFraction;
++		return f;
+ 	}
+-	return 0;
++	return nullptr;
+ }
+ 
+ void World::destroy()
+@@ -713,7 +571,8 @@
+ 	if (filter.ref)    filter.ref->unref();
+ 
+ 	//disable callbacks
+-	begin.ref = end.ref = presolve.ref = postsolve.ref = filter.ref = nullptr;
++	begin.ref = end.ref = presolve.ref = postsolve.ref = nullptr;
++	filter.ref = nullptr;
+ 
+ 	// Cleaning up the world.
+ 	b2Body *b = world->GetBodyList();
+diff -ruN a/src/modules/physics/box2d/World.h b/src/modules/physics/box2d/World.h
+--- a/src/modules/physics/box2d/World.h
++++ b/src/modules/physics/box2d/World.h
+@@ -23,8 +23,7 @@
+ 
+ // LOVE
+ #include "common/Object.h"
+-#include "common/runtime.h"
+-#include "common/Reference.h"
++#include "Reference.h"
+ 
+ // STD
+ #include <vector>
+@@ -72,8 +71,7 @@
+ 	class ContactCallback
+ 	{
+ 	public:
+-		Reference *ref;
+-		lua_State *L;
++		ContactFunction *ref;
+ 		World *world;
+ 		ContactCallback(World *world);
+ 		~ContactCallback();
+@@ -83,8 +81,7 @@
+ 	class ContactFilter
+ 	{
+ 	public:
+-		Reference *ref;
+-		lua_State *L;
++		ContactFilterFunction *ref;
+ 		ContactFilter();
+ 		~ContactFilter();
+ 		bool process(Shape *a, Shape *b);
+@@ -93,37 +90,32 @@
+ 	class QueryCallback : public b2QueryCallback
+ 	{
+ 	public:
+-		QueryCallback(lua_State *L, int idx);
++		QueryCallback(QueryFunction *function);
+ 		virtual ~QueryCallback();
+ 		bool ReportFixture(b2Fixture *fixture) override;
+ 	private:
+-		lua_State *L;
+-		int funcidx;
+-		int userargs;
++		QueryFunction *function;
+ 	};
+ 
+ 	class CollectCallback : public b2QueryCallback
+ 	{
+ 	public:
+-		CollectCallback(uint16 categoryMask, lua_State *L);
++		CollectCallback(uint16 categoryMask, std::vector<Shape *> &shapes);
+ 		virtual ~CollectCallback();
+ 		bool ReportFixture(b2Fixture *fixture) override;
+ 	private:
+ 		uint16 categoryMask;
+-		lua_State *L;
+-		int i = 1;
++		std::vector<Shape *> &shapes;
+ 	};
+ 
+ 	class RayCastCallback : public b2RayCastCallback
+ 	{
+ 	public:
+-		RayCastCallback(lua_State *L, int idx);
++		RayCastCallback(RayCastFunction *function);
+ 		virtual ~RayCastCallback();
+ 		float ReportFixture(b2Fixture *fixture, const b2Vec2 &point, const b2Vec2 &normal, float fraction) override;
+ 	private:
+-		lua_State *L;
+-		int funcidx;
+-		int userargs;
++		RayCastFunction *function;
+ 	};
+ 
+ 	class RayCastOneCallback : public b2RayCastCallback
+@@ -187,34 +179,27 @@
+ 	bool isValid() const;
+ 
+ 	/**
+-	 * Receives up to four Lua functions as arguments. Each function is
++	 * Receives up to four functions. Each function is
+ 	 * collision callback for the four events (in order): begin, end,
+-	 * presolve and postsolve. The value "nil" is accepted if one or
+-	 * more events are uninteresting.
++	 * presolve and postsolve. nullptr is accepted if one or
++	 * more events are uninteresting. The World owns them.
+ 	 **/
+-	int setCallbacks(lua_State *L);
++	void setCallbacks(ContactFunction *begin, ContactFunction *end, ContactFunction *presolve, ContactFunction *postsolve);
+ 
+ 	/**
+ 	 * Returns the functions previously set by setCallbacks.
+ 	 **/
+-	int getCallbacks(lua_State *L);
++	void getCallbacks(ContactFunction *&begin_o, ContactFunction *&end_o, ContactFunction *&presolve_o, ContactFunction *&postsolve_o) const;
+ 
+ 	/**
+-	 * Updates the Lua thread/coroutine used when callbacks are executed in
+-	 * the update method. This should be called in the same Lua function which
+-	 * calls update().
++	 * Sets the ContactFilter callback, which the World owns.
+ 	 **/
+-	void setCallbacksL(lua_State *L);
++	void setContactFilter(ContactFilterFunction *function);
+ 
+ 	/**
+-	 * Sets the ContactFilter callback.
+-	 **/
+-	int setContactFilter(lua_State *L);
+-
+-	/**
+ 	 * Gets the ContactFilter callback.
+ 	 **/
+-	int getContactFilter(lua_State *L);
++	ContactFilterFunction *getContactFilter() const;
+ 
+ 	/**
+ 	 * Sets the current gravity of the World.
+@@ -228,7 +213,7 @@
+ 	 * @returns Gravity in the x-direction.
+ 	 * @returns Gravity in the y-direction.
+ 	 **/
+-	int getGravity(lua_State *L);
++	void getGravity(float &x_o, float &y_o) const;
+ 
+ 	/**
+ 	 * Translate the world origin.
+@@ -278,19 +263,19 @@
+ 	 * Get an array of all the Bodies in the World.
+ 	 * @return An array of Bodies.
+ 	 **/
+-	int getBodies(lua_State *L) const;
++	std::vector<Body *> getBodies() const;
+ 
+ 	/**
+ 	 * Get an array of all the Joints in the World.
+ 	 * @return An array of Joints.
+ 	 **/
+-	int getJoints(lua_State *L) const;
++	std::vector<Joint *> getJoints() const;
+ 
+ 	/**
+ 	 * Get an array of all the Contacts in the World.
+ 	 * @return An array of Contacts.
+ 	 **/
+-	int getContacts(lua_State *L);
++	std::vector<StrongRef<Contact>> getContacts();
+ 
+ 	/**
+ 	 * Gets the ground body.
+@@ -301,20 +286,20 @@
+ 	/**
+ 	 * Calls a callback on all Shapes that overlap a given bounding box.
+ 	 **/
+-	int queryShapesInArea(lua_State *L);
++	void queryShapesInArea(float lx, float ly, float ux, float uy, QueryFunction *function);
+ 
+ 	/**
+ 	 * Gets all Shapes that overlap a given bounding box.
+ 	 **/
+-	int getShapesInArea(lua_State *L);
++	std::vector<Shape *> getShapesInArea(float lx, float ly, float ux, float uy, uint16 categoryMaskBits);
+ 
+ 	/**
+ 	 * Raycasts the World for all Fixtures in the path of the ray.
+ 	 **/
+-	int rayCast(lua_State *L);
++	void rayCast(float x1, float y1, float x2, float y2, RayCastFunction *function);
+ 
+-	int rayCastAny(lua_State *L);
+-	int rayCastClosest(lua_State *L);
++	Shape *rayCastAny(float x1, float y1, float x2, float y2, uint16 categoryMaskBits, float &x_o, float &y_o, float &xn_o, float &yn_o, float &fraction_o);
++	Shape *rayCastClosest(float x1, float y1, float x2, float y2, uint16 categoryMaskBits, float &x_o, float &y_o, float &xn_o, float &yn_o, float &fraction_o);
+ 
+ 	/**
+ 	 * Destroy this world.

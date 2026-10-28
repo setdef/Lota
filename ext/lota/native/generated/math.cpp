@@ -30,12 +30,6 @@ using namespace love::math;
 // (vendor/love/src/modules/math), with each read of the Lua
 // stack made a parameter and each push the result.
 
-// RandomGenerator:randomNormal: w_RandomGenerator_randomNormal (wrap_RandomGenerator.cpp:76-86).
-double w_RandomGenerator_randomNormal(RandomGenerator &rng, double stddev) {
-  const double r = rng.randomNormal(stddev);
-  return r + 0.0;
-}
-
 // RandomGenerator:setState: w_RandomGenerator_setState (wrap_RandomGenerator.cpp:104-109).
 void w_RandomGenerator_setState(RandomGenerator &rng, const std::string &statestr) {
   rng.setState(statestr);
@@ -50,7 +44,6 @@ std::string w_RandomGenerator_getState(const RandomGenerator &rng) { return rng.
 
 void define_generated_math(const Rice::Module &native) {
   Rice::define_class_under<RandomGenerator>(native, "RandomGenerator")
-      .define_method("random_normal", &w_RandomGenerator_randomNormal, Rice::Arg("stddev") = 1.0)
       .define_method("state", &w_RandomGenerator_getState)
       .define_method("state=", &w_RandomGenerator_setState, Rice::Arg("statestr"));
 }

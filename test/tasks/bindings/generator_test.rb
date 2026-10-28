@@ -266,8 +266,34 @@ class GeneratorTest < Minitest::Test
     end
   end
 
+  # Where LÖVE runs Lua in place of a wrap function's C++, the generator
+  # refuses to port the C++, and a hand-written binding of it must say it
+  # ports the Lua; a function no Lua replaces cannot claim to.
+  def test_a_function_lua_replaces_is_ported_from_the_lua_alone
+    generated = Bindings::BindingList.new
+    generated.generate("ImageData:getPixel")
+    error = assert_raises(Bindings::Generator::Failure) { BindingsHelper.generator(list: generated).files }
+    assert_includes error.message, "ImageData:getPixel: LÖVE runs src/modules/image/wrap_ImageData.lua:395 in place " \
+      "of its C++ when LÖVE runs on LuaJIT"
+    assert_includes error.message, "list it with bound_from_lua"
+
+    by_hand = Bindings::BindingList.new
+    by_hand.bound_by_hand("SoundData:getSample", reason: "ports the Lua")
+    assert_raises(Bindings::Generator::Failure) { BindingsHelper.generator(list: by_hand).files }
+
+    claimed = Bindings::BindingList.new
+    claimed.bound_from_lua("ImageData:paste")
+    error = assert_raises(Bindings::Generator::Failure) { BindingsHelper.generator(list: claimed).files }
+    assert_includes error.message, "no wrap_*.lua file replaces its C++"
+
+    ported = Bindings::BindingList.new
+    ported.bound_from_lua("ImageData:getPixel")
+    ported.generate("Data:getSize")
+    assert BindingsHelper.generator(list: ported).files
+  end
+
   def test_every_listed_function_is_in_lovees_api_once
-    names = BindingsHelper.list.generated.map(&:love_name) + BindingsHelper.list.hand_written.map(&:love_name)
+    names = BindingsHelper.list.love_names
 
     assert_equal names.uniq, names
     names.each { |name| assert entry(name), name }
@@ -287,13 +313,8 @@ class GeneratorTest < Minitest::Test
   # only boot.lua; and love.window.showMessageBox only Lota's error
   # handler, until the maintainer settles how its buttons form, whose table
   # holds both the buttons and the enterbutton and escapebutton settings,
-  # translates. Data's getSize and getString are Lota::Sound::SoundData's
-  # size and string, as SoundData inherits them in LÖVE, where rule 1
-  # would put them on Lota::Data::Data, which waits for the maintainer:
-  # inside Lota, Lota::Data would hide Ruby's own Data class.
+  # translates.
   UNWRITTEN = %w[
-    Data:getSize
-    Data:getString
     RandomGenerator:_random
     RandomGenerator:getState
     RandomGenerator:randomNormal
@@ -309,7 +330,7 @@ class GeneratorTest < Minitest::Test
 
   def test_lib_defines_the_name_the_rules_give_each_bound_function
     list = BindingsHelper.list
-    missing = (list.generated + list.hand_written).map(&:love_name).reject do |love_name|
+    missing = list.love_names.reject do |love_name|
       defined_in_lib?(translation(love_name))
     end
 

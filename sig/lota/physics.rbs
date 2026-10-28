@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    def self.meter: () -> Integer
+
+    def self.meter=: (Float | Integer scale) -> void
+
+    def self.distance: (Shape shape1, Shape shape2) -> Array[Float]
+
+    def self.shape: (Native::Shape? native) -> Shape?
+
+    def self.joint: (Native::Joint native) -> Joint?
+  end
+end

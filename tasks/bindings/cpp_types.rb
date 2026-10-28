@@ -89,23 +89,31 @@ module Bindings
     # The type of field +field+ of class +name+, or nil.
     def field(name, field, module_dir: nil)
       each_declaration(name, module_dir) do |declaration, argument|
-        declaration.body.scan(/^\s*(?<type>[\w:<>]+(?:\s*\*)?)\s+(?<names>\w+(?:\s*,\s*\w+)*)\s*;/) do |type, names|
+        pattern = /^\s*(?<type>[\w:<>]+(?:\s*\*)?)(?:\s+|(?<=\*))(?<names>\w+(?:\s*,\s*\w+)*)\s*;/
+        declaration.body.scan(pattern) do |type, names|
           return substitute(type.strip, declaration, argument) if names.split(",").map(&:strip).include?(field)
         end
       end
       nil
     end
 
-    private def each_declaration(name, module_dir, &)
+    # Yields the declaration of +name+, then each of its bases'. A class
+    # may share its name with its base in another namespace, as
+    # love::physics::box2d::Body does love::physics::Body's, so a base is
+    # looked for among the declarations not yet seen.
+    private def each_declaration(name, module_dir, seen = [], &)
       base, argument = resolve(name)
-      declaration = declaration(base, module_dir) or return
+      declaration = declaration(base, module_dir, seen) or return
       yield declaration, argument
-      declaration.bases.each { |parent| each_declaration(parent, module_dir, &) }
+      declaration.bases.each { |parent| each_declaration(parent, module_dir, seen + [declaration], &) }
     end
 
-    private def declaration(name, module_dir)
-      found = @classes[name]
-      found.find { |declaration| module_dir && declaration.path.start_with?(module_dir) } ||
+    # The declaration of +name+ in +module_dir+ itself, then in a folder
+    # under it, then in src/common, or the only one.
+    private def declaration(name, module_dir, seen = [])
+      found = @classes[name] - seen
+      found.find { |declaration| module_dir && File.dirname(declaration.path) == module_dir } ||
+        found.find { |declaration| module_dir && declaration.path.start_with?(module_dir) } ||
         found.find { |declaration| declaration.path.start_with?("src/common/") } || ((found.size == 1) ? found.first : nil)
     end
 

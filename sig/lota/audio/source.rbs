@@ -12,6 +12,8 @@ module Lota
 
       def self.new: (String filename, Symbol | String type) -> Source
 
+      def initialize_copy: (Source source) -> void
+
       def play: () -> bool
 
       def stop: () -> nil

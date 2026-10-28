@@ -32,6 +32,13 @@
 #include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
 
+// The physics classes whose wrappers keep another object alive
+// (Companion, below).
+#include "physics/box2d/Body.h"
+#include "physics/box2d/Contact.h"
+#include "physics/box2d/Shape.h"
+#include "physics/box2d/World.h"
+
 #include <concepts>
 #include <cstddef>
 #include <memory>
@@ -101,6 +108,28 @@ template <> struct ReleasedOnMainThread<love::graphics::Texture> : std::true_typ
 template <> struct ReleasedOnMainThread<love::graphics::Font> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Quad> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true_type {};
+
+// The object a wrapper of an engine object of class T also holds a
+// reference to, so that it outlives the wrapper's own object, or nullptr.
+// LÖVE's Contact keeps a pointer to its World, which it uses when it is
+// destroyed (physics/box2d/Contact.cpp, Contact::invalidate), and holds no
+// reference to it. Lua finalizes objects in the reverse order it made them,
+// so a Contact goes before the World that made it; Ruby's collector frees
+// what it collects in no such order, so a Contact's wrapper holds its World.
+template <typename T> struct Companion {
+  static love::Object *of(T & /*object*/) { return nullptr; }
+};
+template <> struct Companion<love::physics::box2d::Contact> {
+  static love::Object *of(love::physics::box2d::Contact &contact) {
+    if (!contact.isValid()) {
+      return nullptr;
+    }
+    love::physics::box2d::Shape *a = nullptr;
+    love::physics::box2d::Shape *b = nullptr;
+    contact.getShapes(a, b);
+    return a->getBody()->getWorld();
+  }
+};
 
 // Releases that Ruby's garbage collector asked for off the main thread, for
 // the main thread to carry out (ADR 001, section 5). Ruby frees a wrapper
@@ -194,7 +223,8 @@ template <EngineObject T> class ObjectWrapper : public Rice::detail::WrapperBase
 
 public:
   ObjectWrapper(rb_data_type_t *rb_data_type, T *object, love::Acquire acquire)
-      : WrapperBase(rb_data_type), reference_(object, acquire) {}
+      : WrapperBase(rb_data_type), companion_(Companion<T>::of(*object), love::Acquire::RETAIN),
+        reference_(object, acquire) {}
 
   ObjectWrapper(const ObjectWrapper &) = delete;
   ObjectWrapper(ObjectWrapper &&) = delete;
@@ -225,6 +255,8 @@ public:
   }
 
 private:
+  // Declared first, so it is released after reference_.
+  love::StrongRef<love::Object> companion_;
   love::StrongRef<T> reference_;
 };
 

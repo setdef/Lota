@@ -56,6 +56,24 @@ module Lota
         from_native(Native::Audio.new_source(filename, EnumName.of(type)))
       end
 
+      # Makes this Source, a copy of +source+ by Ruby's +clone+ or +dup+,
+      # LÖVE's copy, matching Source:clone
+      # (src/modules/audio/wrap_Source.cpp, w_Source_clone): a new Source
+      # of the same sound, stopped, with +source+'s pitch, volume,
+      # looping, and other settings, which it then keeps apart from
+      # +source+'s (ADR 001, section 7). A streaming Source's copy streams
+      # the file again from its start.
+      #
+      # === Example
+      #
+      #   echo = source.clone
+      #   echo.volume = 0.5
+      #   source.volume # => 1.0
+      def initialize_copy(source)
+        super
+        @native = source.native.clone
+      end
+
       # Plays the Source from where it is, matching Source:play
       # (src/modules/audio/wrap_Source.cpp, w_Source_play).
       #

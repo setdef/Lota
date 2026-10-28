@@ -68,6 +68,21 @@ module Lota
         from_native(native)
       end
 
+      # Makes this Decoder, a copy of +source+ by Ruby's +clone+ or +dup+,
+      # LÖVE's copy, matching Decoder:clone
+      # (src/modules/sound/wrap_Decoder.cpp, w_Decoder_clone): a new
+      # Decoder of the same sound, which decodes it from its start however
+      # far +source+ has decoded (ADR 001, section 7).
+      #
+      # === Example
+      #
+      #   copy = decoder.dup
+      #   copy.decode.sample_count # => 2927
+      def initialize_copy(source)
+        super
+        @native = source.native.clone
+      end
+
       # Decodes the next piece of the sound, matching Decoder:decode
       # (src/modules/sound/wrap_Decoder.cpp, w_Decoder_decode).
       #

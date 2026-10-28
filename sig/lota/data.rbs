@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  interface _WrapsData
+    def native: () -> Native::Data
+  end
+
+  module Data : _WrapsData
+    def size: () -> Integer
+
+    def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
+
+    def perform_atomic: [T, R] (*T arguments) { (*T) -> R } -> R
+
+    def float: (Float | Integer offset, ?Integer count) -> Array[Float]
+
+    def double: (Float | Integer offset, ?Integer count) -> Array[Float]
+
+    def int8: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def int16: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def int32: (Float | Integer offset, ?Integer count) -> Array[Integer]
+  end
+end

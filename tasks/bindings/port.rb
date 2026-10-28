@@ -100,7 +100,9 @@ object:,
     #   (Catalog#helpers).
     # [main_thread] The Lota module to name when a method checks for the
     #   main thread (Lota::Graphics), or nil when any thread may call it.
-    def initialize(entry, binding, native_name:, types:, module_class:, helpers: {}, main_thread: nil)
+    # [checks] The helpers that check the object they read, to their
+    #   Catalog::Check (Catalog#checks).
+    def initialize(entry, binding, native_name:, types:, module_class:, helpers: {}, main_thread: nil, checks: {})
       @function = entry.function
       @analysis = entry.analysis
       raise Unsupported, "#{@function.love_name} is not readable" unless @analysis&.readable?
@@ -108,9 +110,10 @@ object:,
       @native_name = native_name
       @types = types
       @helpers = helpers
+      @checks = checks
       @module_class = module_class
       @main_thread = main_thread
-      @module_dir = File.dirname(@function.wrap.path).sub(%r{/box2d\z}, "")
+      @module_dir = File.dirname(@function.wrap.path)
       @offset = @function.type_name ? 1 : 0
       @arity = binding.arguments ? binding.arguments + @offset : Float::INFINITY
       @assume = binding.assume.transform_keys { |key| key.gsub(/\s+/, "") }
@@ -141,6 +144,7 @@ object:,
       @definition ||= begin
         @result_mode = result_mode
         body = emit(@body, top: true)
+        body.unshift(*helper_checks)
         body.unshift("Rice::Array results;") if @result_mode == :many
         body.unshift("require_main_thread(MODULE);") if @main_thread && !singleton?
         params = ([@self_parameter && "#{self_const? ? 'const ' : ''}#{@self_parameter[:type]} &#{@self_parameter[:name]}"] +
@@ -180,6 +184,9 @@ object:,
       name = @self_parameter[:name]
       calls = []
       walk_texts(@body) do |text, _node|
+        Calls.in(text).each { |call| calls << call if call.member && call.receiver == name }
+      end
+      helper_checks.each do |text|
         Calls.in(text).each { |call| calls << call if call.member && call.receiver == name }
       end
       calls.all? do |call|
@@ -225,6 +232,30 @@ object:,
       found = false
       walk_texts(@body) { |text, node| found ||= node.kind == :return && text.start_with?("luax_ioError") }
       found
+    end
+
+    # Each check a helper makes of the object it reads, as the helper makes
+    # it before the wrap function goes on (luax_checkbody's "Attempt to use
+    # destroyed body."), on the method's object or the parameter it reads.
+    # A pointer compared with 0 is compared with nullptr, as clang-tidy's
+    # modernize-use-nullptr asks.
+    private def helper_checks
+      @reads.uniq { |read| read[:index] }.filter_map do |read|
+        check = @checks[read[:call].base_name] or next
+        target = if read[:index] == 1 && @offset == 1
+          "#{@self_parameter[:name]}."
+        else
+          parameter = parameters.find { |candidate| candidate.index == read[:index] } or next
+          "#{parameter.name}->"
+        end
+        variable = Regexp.escape(check.variable)
+        condition = check.condition.gsub(/\b#{variable}\s*->\s*(\w+)\s*==\s*0\b/) do
+          field = Regexp.last_match(1)
+          type = @types.field(helper_type(read[:call]), field, module_dir: @module_dir).to_s
+          "#{check.variable}->#{field} == #{type.include?('*') ? 'nullptr' : '0'}"
+        end
+        "if (#{condition.gsub(/\b#{variable}\s*->\s*/, target)}) {\nthrow love::Exception(#{check.message});\n}"
+      end
     end
 
     # --- Pruning: the statements of the bound form.

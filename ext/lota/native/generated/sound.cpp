@@ -41,21 +41,6 @@ int w_Decoder_getSampleRate(const Decoder &t) { return t.getSampleRate(); }
 // Decoder:getDuration: w_Decoder_getDuration (wrap_Decoder.cpp:68-73).
 double w_Decoder_getDuration(Decoder &t) { return t.getDuration(); }
 
-// SoundData:getChannelCount: w_SoundData_getChannelCount (wrap_SoundData.cpp:54-59).
-int w_SoundData_getChannelCount(const SoundData &t) { return t.getChannelCount(); }
-
-// SoundData:getBitDepth: w_SoundData_getBitDepth (wrap_SoundData.cpp:61-66).
-int w_SoundData_getBitDepth(const SoundData &t) { return t.getBitDepth(); }
-
-// SoundData:getSampleRate: w_SoundData_getSampleRate (wrap_SoundData.cpp:68-73).
-int w_SoundData_getSampleRate(const SoundData &t) { return t.getSampleRate(); }
-
-// SoundData:getSampleCount: w_SoundData_getSampleCount (wrap_SoundData.cpp:75-80).
-int w_SoundData_getSampleCount(const SoundData &t) { return t.getSampleCount(); }
-
-// SoundData:getDuration: w_SoundData_getDuration (wrap_SoundData.cpp:82-87).
-double w_SoundData_getDuration(const SoundData &t) { return static_cast<double>(t.getDuration()); }
-
 // SoundData:copyFrom: w_SoundData_copyFrom (wrap_SoundData.cpp:124-135).
 void w_SoundData_copyFrom(SoundData &dst, const SoundData *src, int src_start, int count,
                           int dst_start) {
@@ -73,11 +58,6 @@ void define_generated_sound(const Rice::Module &native) {
       .define_method("sample_rate", &w_Decoder_getSampleRate)
       .define_method("duration", &w_Decoder_getDuration);
   Rice::define_class_under<SoundData>(native, "SoundData")
-      .define_method("channel_count", &w_SoundData_getChannelCount)
-      .define_method("bit_depth", &w_SoundData_getBitDepth)
-      .define_method("sample_rate", &w_SoundData_getSampleRate)
-      .define_method("sample_count", &w_SoundData_getSampleCount)
-      .define_method("duration", &w_SoundData_getDuration)
       .define_method("copy_from", &w_SoundData_copyFrom, Rice::Arg("src"), Rice::Arg("src_start"),
                      Rice::Arg("count"), Rice::Arg("dst_start") = 0);
 }

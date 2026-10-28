@@ -14,6 +14,8 @@ module Lota
 
       def self.new: (String | Filesystem::FileData file, ?Integer buffer_size, ?(Symbol | String)? type) -> Decoder
 
+      def initialize_copy: (Decoder source) -> void
+
       def decode: () -> SoundData?
 
       def channel_count: () -> Integer

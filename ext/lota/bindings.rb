@@ -13,7 +13,11 @@
 # limits, by how many arguments it binds or by a condition that picks the
 # form, says why. `bound_by_hand` lists a function bound in
 # ext/lota/native/*.cpp instead, with the reason the generator cannot
-# write it. LÖVE's boot-time functions in src/modules/love/love.cpp
+# write it. `bound_from_lua` lists a function whose C++ LÖVE replaces with
+# Lua of its own, in a wrap_*.lua file, which Lota ports by hand, as a game
+# runs the Lua (ADR 001, section 7); the generator knows which those are
+# (tasks/bindings/lua_functions.rb), refuses to port their C++, and says
+# where the Lua is and when it runs. LÖVE's boot-time functions in src/modules/love/love.cpp
 # (_setGammaCorrect, _setRenderers, _setHighDPIAllowed, and the like) are
 # not wrap functions, so they are bound by hand and not listed here.
 
@@ -41,6 +45,9 @@ generate "Source:setLooping"
 generate "Source:isLooping"
 generate "Source:isPlaying"
 generate "Source:getChannelCount"
+bound_by_hand "Source:clone",
+  reason: "pushes its new Source with luax_pushtype, which the generator does not port; Lota::Audio::Source " \
+    "makes it through Ruby's clone and dup (initialize_copy)"
 
 # love.event
 generate "love.event.pump"
@@ -54,6 +61,9 @@ bound_by_hand "love.event.quit",
 # love.filesystem
 generate "love.filesystem.init"
 generate "love.filesystem.setSource"
+bound_by_hand "FileData:clone",
+  reason: "pushes its new FileData with luax_pushtype, which the generator does not port; " \
+    "Lota::Filesystem::FileData makes it through Ruby's clone and dup (initialize_copy)"
 bound_by_hand "love.filesystem.newFileData",
   reason: "converts its argument through luax_getfiledata; Lota ports Filesystem::newFileData so it need not " \
     "open PhysicsFS"
@@ -191,11 +201,17 @@ bound_by_hand "love.graphics.captureScreenshot",
   reason: "takes a Lua function, a Channel, or a filename; Lota binds a Ruby callable for the parity harness"
 
 # love.image
-generate "ImageData:getWidth"
-generate "ImageData:getHeight"
-generate "ImageData:getPixel"
+bound_from_lua "ImageData:getWidth"
+bound_from_lua "ImageData:getHeight"
+bound_from_lua "ImageData:getPixel"
+bound_from_lua "ImageData:setPixel"
+bound_from_lua "ImageData:mapPixel"
+bound_by_hand "ImageData:clone",
+  reason: "pushes its new ImageData with luax_pushtype, which the generator does not port; " \
+    "Lota::Image::ImageData makes it through Ruby's clone and dup (initialize_copy)"
 bound_by_hand "love.image.newImageData",
-  reason: "chooses among its forms by its arguments' kinds; Lota binds the form that decodes Data"
+  reason: "chooses among its forms by its arguments' kinds, and reads raw bytes from a string or any Data " \
+    "(luax_istype); Lota binds the form that decodes Data and the form with a size, a pixel format, and bytes"
 
 # love.keyboard
 bound_by_hand "love.keyboard.isDown",
@@ -227,9 +243,7 @@ generate "love.mouse.isCursorSupported"
 bound_by_hand "RandomGenerator:_random",
   reason: "clang-analyzer's security.insecureAPI.rand takes the port's call to a method named random for the C " \
     "library's random(), so Lota binds the method itself, as random"
-generate "RandomGenerator:randomNormal", arguments: 1,
-  reason: "the standard deviation alone, as Lota::Native has bound it since the walking skeleton; the mean " \
-    "waits for Lota::Math"
+bound_from_lua "RandomGenerator:randomNormal"
 generate "RandomGenerator:getState"
 generate "RandomGenerator:setState"
 bound_by_hand "love.math.newRandomGenerator",
@@ -240,6 +254,239 @@ bound_by_hand "love.math._getRandomGenerator",
 bound_by_hand "RandomGenerator:setSeed",
   reason: "reads its seed's two halves at a position it computes (luax_checkrandomseed); Lota binds the low " \
     "half and an optional high half"
+
+# love.physics, as Lota's physics patch leaves it (ext/lota/engine/physics.patch).
+generate "Body:getX"
+generate "Body:getY"
+generate "Body:setX"
+generate "Body:setY"
+generate "Body:getPosition"
+generate "Body:setPosition"
+generate "Body:getAngle"
+generate "Body:setAngle"
+generate "Body:isActive"
+generate "Body:isBullet"
+generate "Body:setBullet"
+generate "Body:isFixedRotation"
+generate "Body:setFixedRotation"
+generate "Body:isSleepingAllowed"
+generate "Body:setSleepingAllowed"
+generate "Body:isAwake"
+generate "Body:setType"
+generate "Body:isTouching"
+generate "Body:getLocalCenter"
+generate "Body:getLocalPoint"
+generate "Body:getWorldPoint"
+generate "Body:getAngularDamping"
+generate "Body:getAngularVelocity"
+generate "Body:getWorldCenter"
+generate "Body:getWorldVector"
+generate "Body:getInertia"
+generate "Body:getGravityScale"
+generate "Body:setGravityScale"
+generate "Body:getLinearDamping"
+generate "Body:setLinearDamping"
+generate "Body:getLinearVelocity"
+generate "Body:setLinearVelocity"
+generate "Body:getMass"
+generate "Body:setMass"
+generate "Body:setMassData"
+generate "Body:resetMassData"
+generate "Body:hasCustomMassData"
+generate "Body:applyAngularImpulse"
+generate "Body:applyTorque"
+generate "Body:isDestroyed"
+generate "Body:destroy"
+generate "World:getBodyCount"
+generate "World:translateOrigin"
+generate "World:isLocked"
+generate "World:isSleepingAllowed"
+generate "World:setSleepingAllowed"
+generate "World:getJointCount"
+generate "World:setGravity"
+generate "World:getContactCount"
+generate "World:isDestroyed"
+generate "World:destroy"
+generate "Shape:getChildCount"
+generate "Shape:getRadius"
+generate "Shape:isSensor"
+generate "Shape:setSensor"
+generate "Shape:isDestroyed"
+generate "Shape:getDensity"
+generate "Shape:setDensity"
+generate "Shape:getFriction"
+generate "Shape:setFriction"
+generate "Shape:getRestitution"
+generate "Shape:setRestitution"
+generate "Shape:testPoint"
+generate "Shape:getGroupIndex"
+generate "Shape:setGroupIndex"
+generate "Shape:destroy"
+generate "Joint:isDestroyed"
+generate "Joint:getReactionTorque"
+generate "Joint:getCollideConnected"
+generate "Joint:destroy"
+generate "Contact:getChildren"
+generate "Contact:isTouching"
+generate "Contact:isEnabled"
+generate "Contact:setEnabled"
+generate "Contact:getFriction"
+generate "Contact:setFriction"
+generate "Contact:resetFriction"
+generate "Contact:getRestitution"
+generate "Contact:setRestitution"
+generate "Contact:resetRestitution"
+generate "love.physics.setMeter"
+bound_by_hand "love.physics.newWorld",
+  reason: "pushes its World with luax_pushtype, which the generator does not port"
+bound_by_hand "love.physics.newBody",
+  reason: "pushes its Body with luax_pushtype, which the generator does not port"
+bound_by_hand "love.physics.newCircleShape",
+  reason: "reads its numbers at positions that depend on whether a Body comes first (bodyidx) and chooses its " \
+    "form by their count; Lota::Physics::CircleShape.new chooses by the count, and binds the form with a " \
+    "Body"
+bound_by_hand "love.physics.newRectangleShape",
+  reason: "reads its numbers at positions that depend on whether a Body comes first, as newCircleShape; " \
+    "Lota::Physics::RectangleShape.new chooses its form by their count, and binds the numbers as an Array"
+bound_by_hand "love.physics.newEdgeShape",
+  reason: "reads its numbers at positions that depend on whether a Body comes first, as newCircleShape; Lota " \
+    "binds them as an Array"
+bound_by_hand "love.physics.newPolygonShape",
+  reason: "reads its vertices in a loop over every argument, or from a table; Lota::Physics::PolygonShape.new " \
+    "passes them as one Array"
+bound_by_hand "love.physics.newChainShape",
+  reason: "reads its vertices in a loop over every argument, or from a table, as newPolygonShape"
+bound_by_hand "love.physics.newDistanceJoint",
+  reason: "pushes its DistanceJoint with luax_pushtype, which the generator does not port; Lota binds its " \
+    "anchors as an Array"
+bound_by_hand "love.physics.newFrictionJoint",
+  reason: "chooses its form by lua_gettop and pushes its FrictionJoint with luax_pushtype; " \
+    "Lota::Physics::FrictionJoint.new chooses by the count of its numbers, which Lota binds as an Array"
+bound_by_hand "love.physics.newGearJoint",
+  reason: "pushes its GearJoint with luax_pushtype, which the generator does not port"
+bound_by_hand "love.physics.newMotorJoint",
+  reason: "pushes its MotorJoint with luax_pushtype, which the generator does not port"
+bound_by_hand "love.physics.newMouseJoint",
+  reason: "pushes its MouseJoint with luax_pushtype, which the generator does not port"
+bound_by_hand "love.physics.newPrismaticJoint",
+  reason: "chooses its form by lua_gettop and pushes its PrismaticJoint with luax_pushtype, as newFrictionJoint"
+bound_by_hand "love.physics.newPulleyJoint",
+  reason: "pushes its PulleyJoint with luax_pushtype, which the generator does not port; Lota binds its anchors " \
+    "as an Array"
+bound_by_hand "love.physics.newRevoluteJoint",
+  reason: "chooses its form by lua_gettop and pushes its RevoluteJoint with luax_pushtype, as newFrictionJoint"
+bound_by_hand "love.physics.newRopeJoint",
+  reason: "pushes its RopeJoint with luax_pushtype, which the generator does not port; Lota binds its anchors " \
+    "as an Array"
+bound_by_hand "love.physics.newWeldJoint",
+  reason: "chooses its form by lua_gettop and pushes its WeldJoint with luax_pushtype, as newFrictionJoint"
+bound_by_hand "love.physics.newWheelJoint",
+  reason: "chooses its form by lua_gettop and pushes its WheelJoint with luax_pushtype, as newFrictionJoint"
+bound_by_hand "love.physics.getDistance",
+  reason: "passes the lua_State to Physics::getDistance, which Lota's physics patch makes take two Shapes and " \
+    "return the distance and points"
+bound_by_hand "love.physics.getMeter",
+  reason: "pushes Physics::getMeter, a static float, with lua_pushinteger, whose C++ type the headers the " \
+    "generator reads do not give"
+bound_by_hand "Body:getWorld",
+  reason: "pushes its World with luax_pushtype, which the generator does not port"
+bound_by_hand "Body:getShape",
+  reason: "pushes its Shape with luax_pushshape, or nil, which the generator does not port"
+bound_by_hand "Body:getShapes",
+  reason: "passes the lua_State to Body::getShapes, which Lota's physics patch makes return a std::vector"
+bound_by_hand "Body:getJoints",
+  reason: "passes the lua_State to Body::getJoints, as Body:getShapes"
+bound_by_hand "Body:getContacts",
+  reason: "passes the lua_State to Body::getContacts, as Body:getShapes"
+bound_by_hand "Body:getMassData",
+  reason: "passes the lua_State to Body::getMassData, which Lota's physics patch makes fill four floats"
+bound_by_hand "Body:getWorldPoints",
+  reason: "passes the lua_State to Body::getWorldPoints, which Lota's physics patch makes transform a " \
+    "std::vector; Lota binds the points as an Array"
+bound_by_hand "Body:getLocalPoints",
+  reason: "passes the lua_State to Body::getLocalPoints, as Body:getWorldPoints"
+bound_by_hand "Body:setUserData",
+  reason: "passes the lua_State to Body::setUserData, which held a Lua Reference; Lota's physics patch makes it " \
+    "take Reference.h's Reference, which Lota implements for a Ruby value"
+bound_by_hand "Body:getUserData",
+  reason: "passes the lua_State to Body::getUserData, as Body:setUserData"
+bound_by_hand "Body:applyForce",
+  reason: "chooses its form by lua_gettop and lua_type; Lota binds the numbers and the flag after the force as " \
+    "an Array"
+bound_by_hand "Body:applyLinearImpulse",
+  reason: "chooses its form by lua_gettop and lua_type, as Body:applyForce"
+bound_by_hand "World:update",
+  reason: "passes the lua_State to World::setCallbacksL, for Lua's coroutines, which Lota's physics patch " \
+    "removes"
+bound_by_hand "World:getBodies",
+  reason: "passes the lua_State to World::getBodies, which Lota's physics patch makes return a std::vector"
+bound_by_hand "World:getJoints",
+  reason: "passes the lua_State to World::getJoints, as World:getBodies"
+bound_by_hand "World:getContacts",
+  reason: "passes the lua_State to World::getContacts, as World:getBodies"
+bound_by_hand "World:getGravity",
+  reason: "passes the lua_State to World::getGravity, which Lota's physics patch makes fill two floats"
+bound_by_hand "World:getShapesInArea",
+  reason: "passes the lua_State to World::getShapesInArea, which Lota's physics patch makes take its numbers " \
+    "and return a std::vector"
+bound_by_hand "World:queryShapesInArea",
+  reason: "passes the lua_State to World::queryShapesInArea, which calls a Lua function; Lota's physics patch " \
+    "makes it call Reference.h's QueryFunction, which Lota implements for the block"
+bound_by_hand "World:rayCast",
+  reason: "passes the lua_State to World::rayCast, which calls a Lua function; Lota's physics patch makes it " \
+    "call Reference.h's RayCastFunction, which Lota implements for the block"
+bound_by_hand "World:rayCastAny",
+  reason: "passes the lua_State to World::rayCastAny, which Lota's physics patch makes take its numbers and " \
+    "return the Shape it hit"
+bound_by_hand "World:rayCastClosest",
+  reason: "passes the lua_State to World::rayCastClosest, as World:rayCastAny"
+bound_by_hand "Shape:getBody",
+  reason: "returns no value when the Shape has no Body and one otherwise, and pushes its Body with " \
+    "luax_pushtype; Lota returns nil when there is none"
+bound_by_hand "Shape:getFilterData",
+  reason: "pushes the elements of an int array, whose type the parser does not read"
+bound_by_hand "Shape:setCategory",
+  reason: "passes the lua_State to Shape::setCategory, which reads every argument or a table; Lota's physics " \
+    "patch makes it take a std::vector, which Lota binds as an Array"
+bound_by_hand "Shape:getCategory",
+  reason: "passes the lua_State to Shape::getCategory, which Lota's physics patch makes return a std::vector"
+bound_by_hand "Shape:setMask",
+  reason: "passes the lua_State to Shape::setMask, as Shape:setCategory"
+bound_by_hand "Shape:getMask",
+  reason: "passes the lua_State to Shape::getMask, as Shape:getCategory"
+bound_by_hand "Shape:computeAABB",
+  reason: "passes the lua_State to Shape::computeAABB, which Lota's physics patch makes take its numbers and " \
+    "fill four floats"
+bound_by_hand "Shape:getBoundingBox",
+  reason: "passes the lua_State to Shape::getBoundingBox, as Shape:computeAABB"
+bound_by_hand "Shape:computeMass",
+  reason: "passes the lua_State to Shape::computeMass, as Shape:computeAABB"
+bound_by_hand "Shape:getMassData",
+  reason: "passes the lua_State to Shape::getMassData, as Shape:computeAABB"
+bound_by_hand "Shape:rayCast",
+  reason: "passes the lua_State to Shape::rayCast, which chooses its form by whether argument 7 is given; " \
+    "Lota's physics patch makes it take its numbers, which Lota binds as two Arrays"
+bound_by_hand "Shape:setUserData",
+  reason: "passes the lua_State to Shape::setUserData, as Body:setUserData"
+bound_by_hand "Shape:getUserData",
+  reason: "passes the lua_State to Shape::getUserData, as Body:setUserData"
+bound_by_hand "Joint:getBodies",
+  reason: "pushes its Bodies with luax_pushtype, which the generator does not port"
+bound_by_hand "Joint:getAnchors",
+  reason: "passes the lua_State to Joint::getAnchors, which Lota's physics patch makes fill four floats"
+bound_by_hand "Joint:getReactionForce",
+  reason: "passes the lua_State to Joint::getReactionForce, which Lota's physics patch makes take its step and " \
+    "fill two floats"
+bound_by_hand "Joint:setUserData",
+  reason: "passes the lua_State to Joint::setUserData, as Body:setUserData"
+bound_by_hand "Joint:getUserData",
+  reason: "passes the lua_State to Joint::getUserData, as Body:setUserData"
+bound_by_hand "Contact:getShapes",
+  reason: "pushes its Shapes with luax_pushshape, which the generator does not port"
+bound_by_hand "Contact:getNormal",
+  reason: "passes the lua_State to Contact::getNormal, which Lota's physics patch makes fill two floats"
+bound_by_hand "Contact:getPositions",
+  reason: "passes the lua_State to Contact::getPositions, which Lota's physics patch makes return a std::vector"
 
 # love.sound
 bound_by_hand "love.sound.newDecoder",
@@ -252,24 +499,41 @@ bound_by_hand "love.sound.newSoundData",
     "Lota::Sound::SoundData.new makes from a filename or a FileData first, as LÖVE does"
 bound_by_hand "Decoder:decode",
   reason: "pushes its SoundData with luax_pushtype, or nil, which the generator does not port"
+bound_by_hand "Decoder:clone",
+  reason: "pushes its new Decoder with luax_pushtype, which the generator does not port; Lota::Sound::Decoder " \
+    "makes it through Ruby's clone and dup (initialize_copy)"
+bound_by_hand "SoundData:clone",
+  reason: "pushes its new SoundData with luax_pushtype, which the generator does not port; " \
+    "Lota::Sound::SoundData makes it through Ruby's clone and dup (initialize_copy)"
 bound_by_hand "SoundData:slice",
   reason: "pushes its SoundData with luax_pushtype, which the generator does not port"
-bound_by_hand "SoundData:getSample",
-  reason: "LÖVE runs the LuaJIT version in wrap_SoundData.lua, which divides in double precision where the " \
-    "C++ wrap function divides in a float; Lota ports the Lua, which the generator does not read"
-bound_by_hand "SoundData:setSample",
-  reason: "LÖVE runs the LuaJIT version in wrap_SoundData.lua, which multiplies in double precision and stores " \
-    "through LuaJIT's conversions; Lota ports the Lua, which the generator does not read"
-generate "SoundData:getChannelCount"
-generate "SoundData:getBitDepth"
-generate "SoundData:getSampleRate"
-generate "SoundData:getSampleCount"
-generate "SoundData:getDuration"
+bound_from_lua "SoundData:getSample",
+  note: "divides in double precision, where the C++ wrap function divides in a float"
+bound_from_lua "SoundData:setSample",
+  note: "multiplies in double precision and stores through LuaJIT's conversions"
+bound_from_lua "SoundData:getChannelCount"
+bound_from_lua "SoundData:getBitDepth"
+bound_from_lua "SoundData:getSampleRate"
+bound_from_lua "SoundData:getSampleCount"
+bound_from_lua "SoundData:getDuration"
 generate "SoundData:copyFrom"
 generate "Data:getSize"
 bound_by_hand "Data:getString",
   reason: "pushes its bytes with lua_pushlstring from a pointer it computes with a C-style cast and pointer " \
     "arithmetic, which clang-tidy refuses; Lota reads the same bytes through a std::span"
+bound_by_hand "Data:performAtomic",
+  reason: "calls its function with lua_pcall while it holds the Data's lock; Lota calls the block"
+bound_by_hand "Data:getFloat",
+  reason: "returns w_Data_getT<float>, a template the parser does not follow, which pushes as many values as " \
+    "it is asked for in a loop"
+bound_by_hand "Data:getDouble",
+  reason: "returns w_Data_getT<double>, as Data:getFloat"
+bound_by_hand "Data:getInt8",
+  reason: "returns w_Data_getT<int8>, as Data:getFloat"
+bound_by_hand "Data:getInt16",
+  reason: "returns w_Data_getT<int16>, as Data:getFloat"
+bound_by_hand "Data:getInt32",
+  reason: "returns w_Data_getT<int32>, as Data:getFloat"
 generate "Decoder:getChannelCount"
 generate "Decoder:getBitDepth"
 generate "Decoder:getSampleRate"

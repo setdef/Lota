@@ -20,6 +20,7 @@ require_relative "../tests/event"
 require_relative "../tests/clipboard"
 require_relative "../tests/window"
 require_relative "../tests/filesystem"
+require_relative "../tests/physics"
 
 def Lota.update(_dt)
   passed = Minitest.run([])

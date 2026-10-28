@@ -339,6 +339,28 @@ work "Noto Sans",
   copyright: ["2019 Google Inc. All Rights Reserved."],
   license: ["OFL-1.1"]
 
+# Box2D 2.4.0 (vendor/love/src/libraries/box2d/common/b2_settings.cpp:32),
+# which the bundle links since Lota binds love.physics. Every file but one
+# carries the MIT License with "Copyright (c) 2019 Erin Catto"
+# (dynamics/b2_world.cpp:1-21, and the same in each); b2_types.h:1-3 says
+# 2020. Its README.MODIFIED says the LÖVE Development Team changed it, but
+# names no license of theirs, and the bundle compiles nothing from that
+# file.
+work "Box2D",
+  sources: ["vendor/love/src/libraries/box2d/**"],
+  copyright: ["2019 Erin Catto", "2020 Erin Catto"],
+  license: ["MIT"]
+
+# LÖVE's physics module as Lota's physics patch changes it
+# (ext/lota/engine/physics.patch), which CMake writes into the build tree
+# and the bundle compiles in place of vendor/love's (ADR 001, section 2).
+# The patched files are LÖVE's, under LÖVE's license, with changes the
+# patch's own header puts under the same license.
+work "LÖVE's patched physics module",
+  sources: ["tmp/*/build/patched/love/src/modules/physics/**"],
+  copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
+  license: ["Zlib"]
+
 # LÖVE's own sources (vendor/love/license.txt:6-9). Its bundled libraries
 # in src/libraries are works of their own, above; one the list lacks
 # stops the build.

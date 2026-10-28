@@ -57,6 +57,19 @@ module Bindings
       across
     end
 
+    # The LuaFunctions::Function that replaces the C++ wrap function
+    # +love_name+, as SoundData:getSample's LuaJIT code replaces
+    # w_SoundData_getSample, or nil when LÖVE runs the C++ or defines the
+    # function in Lua alone.
+    def replaced_by_lua(love_name)
+      @replaced ||= begin
+        cpp = entries.select { |entry| entry.source == :cpp }.map { |entry| entry.function.love_name }
+        entries.select { |entry| entry.source == :lua && cpp.include?(entry.function.love_name) }
+          .to_h { |entry| [entry.function.love_name, entry.function] }
+      end
+      @replaced[love_name]
+    end
+
     # The entry for +love_name+ (love.graphics.getWidth, Texture:isCanvas).
     def [](love_name)
       @by_name ||= entries.group_by { |entry| entry.function.love_name }

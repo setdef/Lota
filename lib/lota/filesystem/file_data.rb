@@ -18,7 +18,8 @@ module Lota
     # Lota::Image::ImageData.new.
     #
     # Use it to decode an image you read yourself, or one you built in
-    # memory.
+    # memory. It is a Data, so it includes Lota::Data, whose #size and
+    # #string give its bytes back.
     #
     # === Examples
     #
@@ -30,6 +31,7 @@ module Lota
     #   Lota::Filesystem::FileData.new(png, "anything.png")
     class FileData
       include Object
+      include Data
 
       # The engine's FileData, for Lota's own modules. :nodoc:
       attr_reader :native
@@ -50,6 +52,20 @@ module Lota
       #   Lota::Filesystem::FileData.new(File.binread("hit.png"), "hit.png")
       def initialize(contents, name)
         @native = Native::Filesystem.new_file_data(contents, name)
+      end
+
+      # Makes this FileData, a copy of +source+ by Ruby's +clone+ or
+      # +dup+, LÖVE's copy, matching FileData:clone
+      # (src/modules/filesystem/wrap_FileData.cpp, w_FileData_clone): a new
+      # FileData with a copy of the bytes and the name (ADR 001, section
+      # 7).
+      #
+      # === Example
+      #
+      #   data.clone.string # => "helloworld"
+      def initialize_copy(source)
+        super
+        @native = source.native.clone
       end
     end
   end

@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    class Body
+      include Object
+
+      attr_reader native: Native::Body
+
+      def self.from_native: (Native::Body native) -> Body
+
+      def self.new: (World world, ?(Float | Integer) x, ?(Float | Integer) y, ?(Symbol | String)? type) -> Body
+
+      def x: () -> Float
+
+      def y: () -> Float
+
+      def x=: (Float | Integer x) -> void
+
+      def y=: (Float | Integer y) -> void
+
+      def position: () -> Array[Float]
+
+      def position=: ([Float | Integer, Float | Integer] position) -> void
+
+      def angle: () -> Float
+
+      def angle=: (Float | Integer angle) -> void
+
+      def type=: (Symbol | String type) -> void
+
+      def active?: () -> bool
+
+      def awake?: () -> bool
+
+      def bullet?: () -> bool
+
+      def bullet=: (bool bullet) -> void
+
+      def fixed_rotation?: () -> bool
+
+      def fixed_rotation=: (bool fixed) -> void
+
+      def sleeping_allowed?: () -> bool
+
+      def sleeping_allowed=: (bool allowed) -> void
+
+      def touching?: (Body other) -> bool
+
+      def world: () -> World
+
+      def shape: () -> Shape?
+
+      def shapes: () -> Array[Shape?]
+
+      def joints: () -> Array[Joint?]
+
+      def contacts: () -> Array[Contact]
+
+      def local_center: () -> Array[Float]
+
+      def world_center: () -> Array[Float]
+
+      def local_point: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def world_point: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def local_points: (*Float | Integer coordinates) -> Array[Float | Integer]
+
+      def world_points: (*Float | Integer coordinates) -> Array[Float | Integer]
+
+      def world_vector: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def mass: () -> Float
+
+      def mass=: (Float | Integer mass) -> void
+
+      def inertia: () -> Float
+
+      def mass_data: () -> Array[Float]
+
+      def mass_data=: ([Float | Integer, Float | Integer, Float | Integer, Float | Integer] mass_data) -> void
+
+      def reset_mass_data: () -> nil
+
+      def custom_mass_data?: () -> bool
+
+      def angular_damping: () -> Float
+
+      def angular_velocity: () -> Float
+
+      def gravity_scale: () -> Float
+
+      def gravity_scale=: (Float | Integer scale) -> void
+
+      def linear_damping: () -> Float
+
+      def linear_damping=: (Float | Integer damping) -> void
+
+      def linear_velocity: () -> Array[Float]
+
+      def linear_velocity=: ([Float | Integer, Float | Integer] velocity) -> void
+
+      def apply_force: (Float | Integer fx, Float | Integer fy, *(Float | Integer | bool | nil) arguments) -> nil
+
+      def apply_linear_impulse: (Float | Integer jx, Float | Integer jy, *(Float | Integer | bool | nil) arguments) -> nil
+
+      def apply_angular_impulse: (Float | Integer impulse) -> nil
+
+      def apply_torque: (Float | Integer torque) -> nil
+
+      def user_data: () -> ::Object?
+
+      def user_data=: (::Object? value) -> void
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+    end
+  end
+end

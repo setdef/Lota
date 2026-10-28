@@ -33,7 +33,7 @@ constexpr UnitRandom unit_random() { return &RandomGenerator::random; }
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
 //
-// Ported from LÖVE's C++, as cited below, and changed to take its
+// Ported from LÖVE's C++ and Lua, as cited below, and changed to take its
 // arguments from Rice instead of a lua_State.
 
 // checkrandomseed_part (vendor/love/src/modules/math/
@@ -66,6 +66,16 @@ void set_seed(RandomGenerator &rng, double low, std::optional<double> high) {
   rng.setSeed(std::bit_cast<RandomGenerator::Seed>(number));
 }
 
+// RandomGenerator:randomNormal, in the FFI code LÖVE runs under LuaJIT,
+// which replaces w_RandomGenerator_randomNormal
+// (wrap_RandomGenerator.lua:82-93): a standard deviation of 1 and a mean
+// of 0 when either is nil, then the FFI function's
+// rng->randomNormal(stddev) + mean (wrap_RandomGenerator.cpp:133-137).
+double random_normal(RandomGenerator &rng, std::optional<double> stddev,
+                     std::optional<double> mean) {
+  return rng.randomNormal(stddev.value_or(1)) + mean.value_or(0);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -86,7 +96,9 @@ void define_random_generator(const Rice::Module &native) {
       // that wraps it (wrap_RandomGenerator.lua:46-49).
       .define_method("random", unit_random())
       .define_method("set_seed", &set_seed, Rice::Arg("low"),
-                     Rice::Arg("high") = std::optional<double>());
+                     Rice::Arg("high") = std::optional<double>())
+      .define_method("random_normal", &random_normal, Rice::Arg("stddev") = std::optional<double>(),
+                     Rice::Arg("mean") = std::optional<double>());
 }
 
 } // namespace lota::native

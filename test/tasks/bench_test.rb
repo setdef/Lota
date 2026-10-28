@@ -8,6 +8,7 @@
 require_relative "tree_helper"
 require_relative "../../tasks/bench"
 require_relative "../../tasks/bench/recorder"
+require "open3"
 require "stringio"
 
 # rake bench's own code, without a window: the recorder and the per-call
@@ -84,14 +85,32 @@ class BenchTest < Minitest::Test
     assert_equal recorder.gc_times.size, recorder.to_h.fetch("frame_gc_ns").size
   end
 
+  # The first two steps of the clock time the untimed run that warms the
+  # call sites, which is not kept even though it is the fastest.
   def test_per_call_counts_allocations_and_keeps_the_fastest_run
     _, nothing = Bench.per_call(iterations: 2_000) { nil }
     _, arrays = Bench.per_call(iterations: 2_000) { Array.new(4) }
-    seconds, = Bench.per_call(iterations: 2_000, repetitions: 3, clock: clock(0, 8, 0, 2, 0, 4)) { nil }
+    seconds, = Bench.per_call(iterations: 2_000, repetitions: 3, clock: clock(0, 1, 0, 8, 0, 2, 0, 4)) { nil }
 
     assert_in_delta 0.0, nothing
     assert_in_delta 1.0, arrays
     assert_in_delta 2.0 / 2_000, seconds
+  end
+
+  # The first time Ruby runs a call site it allocates the site's inline
+  # cache, so a process's first measurement, with one run, counts only
+  # the block's own allocations because an untimed run warms every call
+  # site first.
+  def test_a_first_measurement_in_a_process_counts_only_the_blocks_allocations
+    script = <<~RUBY
+      require #{File.expand_path('../../tasks/bench/recorder', __dir__).dump}
+      _, allocated = Bench.per_call(iterations: 2_000, repetitions: 1) { nil }
+      print allocated
+    RUBY
+    output, status = Open3.capture2e(RbConfig.ruby, "--disable-gems", "-e", script)
+
+    assert status.success?, output
+    assert_in_delta 0.0, Float(output)
   end
 
   # A stand-in love that writes the report a frame scenario writes, with

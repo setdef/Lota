@@ -100,7 +100,37 @@ module Bindings
 
     # Each listed function, ported.
     def ports
-      @ports ||= @list.generated.map { |binding| port(binding) }
+      @ports ||= begin
+        check_lua
+        @list.generated.map { |binding| port(binding) }
+      end
+    end
+
+    # Where LÖVE replaces a C++ wrap function with Lua, a game runs the
+    # Lua, so Lota ports the Lua by hand and the generator never ports the
+    # C++ (ADR 001, section 7): each such function must be listed with
+    # bound_from_lua, and only such a function may be.
+    private def check_lua
+      @list.generated.each do |binding|
+        lua = survey.replaced_by_lua(binding.love_name) or next
+        raise Failure, "#{binding.love_name}: #{replaced(lua)}, so Lota ports the Lua, which the generator does " \
+          "not read; list it with bound_from_lua"
+      end
+      @list.hand_written.each do |binding|
+        lua = survey.replaced_by_lua(binding.love_name) or next
+        raise Failure, "#{binding.love_name}: #{replaced(lua)}; list it with bound_from_lua, which says so"
+      end
+      @list.from_lua.each do |binding|
+        next if survey.replaced_by_lua(binding.love_name)
+
+        raise Failure, "#{binding.love_name}: no wrap_*.lua file replaces its C++; list it with generate or " \
+          "bound_by_hand"
+      end
+    end
+
+    # What LÖVE runs for a function whose C++ +lua+ replaces.
+    def replaced(lua)
+      "LÖVE runs #{lua.location} in place of its C++ #{lua.condition}"
     end
 
     # The Lota::Native name of a translated function: the rules' name,
@@ -136,7 +166,7 @@ module Bindings
       wrap = entry.function.wrap
       main = main_thread_modules.include?(entry.function.module_name) ? Rules.module_constant(entry.function.module_name) : nil
       Port.new(entry, binding, native_name: native_name(entry), types:, module_class: wrap.instance_class,
-        helpers: survey.catalog.helpers, main_thread: main)
+        helpers: survey.catalog.helpers, main_thread: main, checks: survey.catalog.checks)
     rescue Port::Unsupported => e
       raise Failure, "#{binding.love_name}: #{e.message}"
     end
@@ -170,9 +200,9 @@ module Bindings
         namespace {
 
         // The names LÖVE's own code uses, unqualified, as its wrap file
-        // does inside namespace love::#{name}.
+        // does inside namespace #{namespace_of(wrap)}.
         using namespace love;
-        using namespace love::#{name};
+        using namespace #{namespace_of(wrap)};
 
         #{module_constant(name, ports)}#{accessor(name, wrap, main) if instance?(ports)}
         // SPDX-SnippetBegin
@@ -250,10 +280,14 @@ module Bindings
       love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b/)
       love << '"common/math.h"' if code.match?(/\bRect\b/)
       # The module's class only where a port reaches it through instance().
-      classes = ports.filter_map { |port| port.function.wrap.instance_class if port.definition.include?("instance()") } +
+      classes = ports.filter_map do |port|
+        type = port.function.wrap.instance_class
+        type if port.definition.include?("instance()") || (type && port.definition.match?(/\b#{type}::/))
+      end +
         ports.filter_map { |port| port.self_parameter&.fetch(:type) } +
         ports.flat_map { |port| port.parameters.compact.filter_map(&:object) }
-      classes.uniq.each { |type| love << %("#{header_of(name, type)}") }
+      wrap_dir = File.dirname(ports.first.function.wrap.path)
+      classes.uniq.each { |type| love << %("#{header_of(name, type, wrap_dir)}") }
       std = []
       std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
       std << "<cstddef>" if code.match?(/\bsize_t\b/)
@@ -264,15 +298,25 @@ module Bindings
         .join("\n\n").lines(chomp: true)
     end
 
-    # The header that declares +type+ for module +name+'s wrap files: one
-    # of the module's own, or, for a class every module shares, as
+    # The header that declares +type+ for module +name+'s wrap files in
+    # +wrap_dir+: the one beside them (physics/box2d/Body.h, not the base
+    # class's physics/Body.h), one of the module's own, or, for a class
+    # every module shares, as
     # love::Data is, one in src/common, which LÖVE's sources include as
     # common/ (common/Data.h).
-    private def header_of(name, type)
-      path = Dir.glob("src/modules/#{name}/**/#{type}.h", base: @love).min_by(&:length) ||
+    private def header_of(name, type, wrap_dir)
+      own = File.join(wrap_dir, "#{type}.h")
+      path = (File.exist?(File.join(@love, own)) ? own : nil) ||
+        Dir.glob("src/modules/#{name}/**/#{type}.h", base: @love).min_by(&:length) ||
         Dir.glob("src/common/#{type}.h", base: @love).first or
         raise Failure, "no header declares #{type} in love.#{name}"
       path.delete_prefix("src/modules/").delete_prefix("src/")
+    end
+
+    # The namespace a wrap file's code is in, by its folder: love::physics::box2d
+    # for src/modules/physics/box2d, as LÖVE nests its namespaces.
+    private def namespace_of(wrap)
+      "love::#{File.dirname(wrap.path).delete_prefix('src/modules/').split('/').join('::')}"
     end
 
     private def header(modules)

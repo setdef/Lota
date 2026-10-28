@@ -93,6 +93,14 @@ module Bindings
         lines << "  Not read by the parser:"
         unreadable.each { |entry| lines << "    #{entry.function.love_name}  #{entry.function.location}  #{unread(entry)}" }
       end
+      replaced = entries.select { |entry| entry.source == :cpp && @survey.replaced_by_lua(entry.function.love_name) }
+      if replaced.any?
+        lines << "  Replaced by Lua, which Lota ports by hand rather than generate:"
+        replaced.each do |entry|
+          lua = @survey.replaced_by_lua(entry.function.love_name)
+          lines << "    #{entry.function.love_name}  #{entry.function.location}  by #{lua.location} #{lua.condition}"
+        end
+      end
       "#{lines.join("\n")}\n"
     end
 
@@ -102,10 +110,19 @@ module Bindings
 
     private def unread(entry)
       case entry.source
-      when :lua then "defined in Lua (#{entry.function.parameters.join(', ')}), so it is ported by hand"
+      when :lua then "defined in Lua (#{entry.function.parameters.join(', ')})#{replacing(entry)}, so it is ported by hand"
       when :outside then "its C++ is outside the wrap files"
       else entry.analysis.problems.uniq.join("; ")
       end
+    end
+
+    # For a Lua function that replaces a C++ one, which and when.
+    private def replacing(entry)
+      replaced = @survey.replaced_by_lua(entry.function.love_name)
+      return "" unless replaced.equal?(entry.function)
+
+      cpp = @survey.entries.find { |other| other.source == :cpp && other.function.love_name == entry.function.love_name }
+      ", which replaces its C++ (#{cpp.function.location}) #{replaced.condition}"
     end
 
     private def rule_7

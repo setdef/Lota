@@ -16,10 +16,8 @@ module Lota
     # sound of its own. Each sample reads and writes as a Float from -1 to
     # 1, however many bits it is stored in.
     #
-    # LÖVE's SoundData is a Data, so it also has Data's #size and #string,
-    # which Lota defines here (ADR 001's rule 1 would name their module
-    # Lota::Data, which waits for the maintainer: inside Lota it would hide
-    # Ruby's own Data class).
+    # LÖVE's SoundData is a Data, so it includes Lota::Data, with Data's
+    # methods: its #size, its bytes as a #string, and more.
     #
     # === Example
     #
@@ -29,6 +27,7 @@ module Lota
     #   end
     class SoundData
       include Object
+      include Data
 
       # The engine's SoundData, for Lota's own modules. :nodoc:
       attr_reader :native
@@ -72,9 +71,26 @@ module Lota
         from_native(native)
       end
 
+      # Makes this SoundData, a copy of +source+ by Ruby's +clone+ or
+      # +dup+, LÖVE's copy, matching SoundData:clone
+      # (src/modules/sound/wrap_SoundData.cpp, w_SoundData_clone): a new
+      # SoundData with a copy of every sample, so a change to one leaves
+      # the other as it was (ADR 001, section 7).
+      #
+      # === Example
+      #
+      #   copy = sound.clone
+      #   copy.sample = 0, 1
+      #   sound.sample(0) # => -0.00021362956633198035
+      def initialize_copy(source)
+        super
+        @native = source.native.clone
+      end
+
       # How many channels the sound has, as an Integer: 1 for mono, 2 for
-      # stereo, matching SoundData:getChannelCount
-      # (src/modules/sound/wrap_SoundData.cpp, w_SoundData_getChannelCount).
+      # stereo, matching SoundData:getChannelCount as LÖVE runs it, in the
+      # LuaJIT code that takes over from its C++
+      # (src/modules/sound/wrap_SoundData.lua).
       #
       # === Example
       #
@@ -84,8 +100,8 @@ module Lota
       end
 
       # How many bits each sample has, as an Integer, 8 or 16, matching
-      # SoundData:getBitDepth (src/modules/sound/wrap_SoundData.cpp,
-      # w_SoundData_getBitDepth).
+      # SoundData:getBitDepth as LÖVE runs it, in its LuaJIT code
+      # (src/modules/sound/wrap_SoundData.lua).
       #
       # === Example
       #
@@ -95,8 +111,8 @@ module Lota
       end
 
       # How many sample frames the sound plays a second, as an Integer,
-      # matching SoundData:getSampleRate
-      # (src/modules/sound/wrap_SoundData.cpp, w_SoundData_getSampleRate).
+      # matching SoundData:getSampleRate as LÖVE runs it, in its LuaJIT
+      # code (src/modules/sound/wrap_SoundData.lua).
       #
       # === Example
       #
@@ -106,8 +122,8 @@ module Lota
       end
 
       # How many sample frames the sound has, one sample for each channel
-      # in each, as an Integer, matching SoundData:getSampleCount
-      # (src/modules/sound/wrap_SoundData.cpp, w_SoundData_getSampleCount).
+      # in each, as an Integer, matching SoundData:getSampleCount as LÖVE
+      # runs it, in its LuaJIT code (src/modules/sound/wrap_SoundData.lua).
       #
       # === Example
       #
@@ -117,44 +133,14 @@ module Lota
       end
 
       # How many seconds the sound lasts, as a Float, matching
-      # SoundData:getDuration (src/modules/sound/wrap_SoundData.cpp,
-      # w_SoundData_getDuration).
+      # SoundData:getDuration as LÖVE runs it, in its LuaJIT code
+      # (src/modules/sound/wrap_SoundData.lua).
       #
       # === Example
       #
       #   sound.duration # => 0.06637188047170639
       def duration
         @native.duration
-      end
-
-      # How many bytes the samples take, as an Integer, matching
-      # Data:getSize (src/modules/data/wrap_Data.cpp, w_Data_getSize).
-      #
-      # === Example
-      #
-      #   sound.size # => 11708
-      def size
-        @native.size
-      end
-
-      # The samples' bytes, as LÖVE stores them, as a String, matching
-      # Data:getString (src/modules/data/wrap_Data.cpp, w_Data_getString):
-      # each sample frame's samples, channel by channel, 16-bit ones signed
-      # and 8-bit ones unsigned, in the machine's byte order.
-      #
-      # [offset] Integer byte to start at.
-      # [size] Integer bytes to take; every byte from +offset+ on when
-      #   +nil+ or left out.
-      #
-      # The String is in Ruby's default external encoding, as File.read's
-      # is, holding the bytes as they are. Raises RuntimeError, with LÖVE's
-      # message, for a +size+ below 1, or bytes outside the SoundData.
-      #
-      # === Example
-      #
-      #   sound.string(0, 4).bytesize # => 4
-      def string(offset = 0, size = nil)
-        @native.string(offset, size)
       end
 
       # Sample +i+ of the sound, from -1 to 1, as a Float, matching

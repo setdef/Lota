@@ -85,6 +85,12 @@ module Bindings
     # Object:typeOf (src/common/runtime.cpp, w__type and w__typeOf), which
     # no wrap file lists.
     OBJECT_METHODS = %w[type type_of?].freeze
+    # LÖVE's root types, which keep their names inside Lota (ADR 001,
+    # section 7): Data's methods are Lota::Data's, a module every Data
+    # includes, as Object's are Lota::Object's. Data is love.data's type,
+    # so Lota::Data is also that module, whose module functions are
+    # love.data's.
+    ROOT_TYPES = { "Data" => "Lota::Data" }.freeze
     # Rule 7's setters, as ADR 001 lists them after the table.
     RULE_7_SETTERS = %w[
       setMode
@@ -199,6 +205,8 @@ module Bindings
       end
 
       private def scope
+        return ROOT_TYPES.fetch(@function.type_name) if ROOT_TYPES.key?(@function.type_name)
+
         constant = Rules.module_constant(@function.module_name)
         @function.type_name ? "#{constant}::#{@function.type_name}" : constant
       end

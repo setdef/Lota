@@ -4,9 +4,14 @@
 module Lota
   module Filesystem
     class FileData
+      include Object
+      include Data
+
       attr_reader native: Native::FileData
 
       def initialize: (String contents, String name) -> void
+
+      def initialize_copy: (FileData source) -> void
     end
   end
 end

@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    class World
+      include Object
+
+      attr_reader native: Native::World
+
+      def self.from_native: (Native::World native) -> World
+
+      def self.new: (?(Float | Integer) gx, ?(Float | Integer) gy, ?bool sleep) -> World
+
+      def update: (Float | Integer dt, ?Integer? velocity_iterations, ?Integer? position_iterations) -> nil
+
+      def bodies: () -> Array[Body]
+
+      def body_count: () -> Integer
+
+      def joints: () -> Array[Joint?]
+
+      def joint_count: () -> Integer
+
+      def contacts: () -> Array[Contact]
+
+      def contact_count: () -> Integer
+
+      def gravity: () -> Array[Float]
+
+      def gravity=: ([Float | Integer, Float | Integer] gravity) -> void
+
+      def translate_origin: (Float | Integer x, Float | Integer y) -> nil
+
+      def sleeping_allowed?: () -> bool
+
+      def sleeping_allowed=: (bool allowed) -> void
+
+      def locked?: () -> bool
+
+      def shapes_in_area: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?Integer? mask) -> Array[Shape?]
+
+      def query_shapes_in_area: [T] (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *T arguments) { (Shape?, *T) -> ::Object? } -> nil
+
+      def ray_cast: [T] (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *T arguments) { (Shape?, *(Float | T)) -> (Float | Integer) } -> nil
+
+      def ray_cast_any: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?Integer? mask) -> Array[Shape? | Float]
+
+      def ray_cast_closest: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?Integer? mask) -> Array[Shape? | Float]
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+
+      private
+
+      def hit: (Array[Native::Shape | Float] results) -> Array[Shape? | Float]
+    end
+  end
+end

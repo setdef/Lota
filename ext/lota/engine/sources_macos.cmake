@@ -270,6 +270,30 @@ set(ENGINE_SOURCES
 	${ENGINE_SOURCE_DIR}/src/modules/mouse/Cursor.cpp
 	${ENGINE_SOURCE_DIR}/src/modules/mouse/sdl/Cursor.cpp
 	${ENGINE_SOURCE_DIR}/src/modules/mouse/sdl/Mouse.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/Body.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/Joint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/Shape.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/Body.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/ChainShape.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/CircleShape.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/Contact.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/DistanceJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/EdgeShape.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/FrictionJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/GearJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/Joint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/MotorJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/MouseJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/Physics.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/PolygonShape.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/PrismaticJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/PulleyJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/RevoluteJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/RopeJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/Shape.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/WeldJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/WheelJoint.cpp
+	${ENGINE_SOURCE_DIR}/src/modules/physics/box2d/World.cpp
 	${ENGINE_SOURCE_DIR}/src/modules/sensor/Sensor.cpp
 	${ENGINE_SOURCE_DIR}/src/modules/sensor/sdl/Sensor.cpp
 	${ENGINE_SOURCE_DIR}/src/modules/sound/Decoder.cpp
@@ -378,30 +402,6 @@ set(ENGINE_SOURCES
 #   src/modules/math/wrap_Transform.cpp: Lua binding (wrap_*), ADR 001 section 1
 #   src/modules/mouse/wrap_Cursor.cpp: Lua binding (wrap_*), ADR 001 section 1
 #   src/modules/mouse/wrap_Mouse.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/Body.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/Joint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/Shape.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/Body.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/ChainShape.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/CircleShape.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/Contact.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/DistanceJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/EdgeShape.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/FrictionJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/GearJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/Joint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/MotorJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/MouseJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/Physics.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/PolygonShape.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/PrismaticJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/PulleyJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/RevoluteJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/RopeJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/Shape.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/WeldJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/WheelJoint.cpp: holds lua_State* until the physics patch, Plan 001
-#   src/modules/physics/box2d/World.cpp: holds lua_State* until the physics patch, Plan 001
 #   src/modules/physics/box2d/wrap_Body.cpp: Lua binding (wrap_*), ADR 001 section 1
 #   src/modules/physics/box2d/wrap_ChainShape.cpp: Lua binding (wrap_*), ADR 001 section 1
 #   src/modules/physics/box2d/wrap_CircleShape.cpp: Lua binding (wrap_*), ADR 001 section 1

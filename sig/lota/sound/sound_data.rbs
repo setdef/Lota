@@ -5,6 +5,7 @@ module Lota
   module Sound
     class SoundData
       include Object
+      include Data
 
       attr_reader native: Native::SoundData
 
@@ -12,6 +13,8 @@ module Lota
 
       def self.new: (Integer samples, ?Integer sample_rate, ?Integer bit_depth, ?Integer channels) -> SoundData
                   | (String | Filesystem::FileData | Decoder source) -> SoundData
+
+      def initialize_copy: (SoundData source) -> void
 
       def channel_count: () -> Integer
 
@@ -22,10 +25,6 @@ module Lota
       def sample_count: () -> Integer
 
       def duration: () -> Float
-
-      def size: () -> Integer
-
-      def string: (?Integer offset, ?Integer? size) -> String
 
       def sample: (Float | Integer i, ?Integer? channel) -> Float
 

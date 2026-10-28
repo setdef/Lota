@@ -80,4 +80,19 @@ class RandomGeneratorTest < Minitest::Test
 
     assert_equal unit * 2.0, generator.random_normal(2.0)
   end
+
+  # RandomGenerator:randomNormal is LuaJIT code in LÖVE
+  # (wrap_RandomGenerator.lua:82-93), which defaults both its standard
+  # deviation and its mean, and adds the mean after scaling.
+  def test_random_normal_adds_its_mean_and_defaults_both
+    generator = RandomGenerator.new
+    generator.state = "0x1234"
+    unit = generator.random_normal
+    generator.state = "0x1234"
+
+    assert_equal (unit * 2.0) + 5.0, generator.random_normal(2.0, 5.0)
+    generator.state = "0x1234"
+
+    assert_equal unit + 3.0, generator.random_normal(nil, 3.0)
+  end
 end

@@ -26,6 +26,6 @@ module Lota
     #   info = Lota::Filesystem.info("settings.txt")
     #   info.type # => :file
     #   info.size # => 18
-    class Info < Data.define(:type, :readonly, :size, :modtime); end
+    class Info < ::Data.define(:type, :readonly, :size, :modtime); end
   end
 end

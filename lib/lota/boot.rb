@@ -55,7 +55,7 @@ module Lota
       window: -> { Native::Window.open },
       graphics: -> { Native::Graphics.open },
       math: -> { Native::Math.open },
-      physics: nil,
+      physics: -> { Native::Physics.open },
     }.freeze
 
     # The game's folder, as an absolute path.

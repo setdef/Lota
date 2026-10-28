@@ -13,6 +13,46 @@ endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/sources_macos.cmake)
 
+# Lota's physics patch (ADR 001, section 2, and physics.patch), applied to a
+# copy of LÖVE's physics module in the build tree, which the engine compiles
+# in place of vendor/love's. The copy is made when CMake configures, again
+# whenever the patch or a file of the module changes, and a patched file is
+# written only when it differs, so an unchanged file is not rebuilt.
+set(PHYSICS_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/physics.patch)
+set(PATCHED_SOURCE_DIR ${CMAKE_BINARY_DIR}/patched/love)
+set(PHYSICS_STAGING ${CMAKE_BINARY_DIR}/patched/staging)
+file(GLOB_RECURSE PHYSICS_FILES RELATIVE ${ENGINE_SOURCE_DIR} ${ENGINE_SOURCE_DIR}/src/modules/physics/*)
+list(FILTER PHYSICS_FILES EXCLUDE REGEX "/wrap_[^/]*$")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PHYSICS_PATCH})
+file(REMOVE_RECURSE ${PHYSICS_STAGING})
+foreach(path IN LISTS PHYSICS_FILES)
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ENGINE_SOURCE_DIR}/${path})
+	configure_file(${ENGINE_SOURCE_DIR}/${path} ${PHYSICS_STAGING}/${path} COPYONLY)
+endforeach()
+execute_process(
+	COMMAND patch -p1 --forward --batch --silent --no-backup-if-mismatch -i ${PHYSICS_PATCH}
+	WORKING_DIRECTORY ${PHYSICS_STAGING}
+	RESULT_VARIABLE physics_patch_result
+	OUTPUT_VARIABLE physics_patch_output
+	ERROR_VARIABLE physics_patch_output)
+if(NOT physics_patch_result EQUAL 0)
+	message(FATAL_ERROR "physics.patch does not apply to ${ENGINE_SOURCE_DIR}/src/modules/physics; "
+		"update it for this LÖVE:\n${physics_patch_output}")
+endif()
+file(GLOB_RECURSE PATCHED_FILES RELATIVE ${PHYSICS_STAGING} ${PHYSICS_STAGING}/*)
+foreach(path IN LISTS PATCHED_FILES)
+	cmake_path(GET path PARENT_PATH directory)
+	file(MAKE_DIRECTORY ${PATCHED_SOURCE_DIR}/${directory})
+	file(COPY_FILE ${PHYSICS_STAGING}/${path} ${PATCHED_SOURCE_DIR}/${path} ONLY_IF_DIFFERENT)
+endforeach()
+set(patched_sources)
+foreach(source IN LISTS ENGINE_SOURCES)
+	string(REPLACE "${ENGINE_SOURCE_DIR}/src/modules/physics/" "${PATCHED_SOURCE_DIR}/src/modules/physics/"
+		source "${source}")
+	list(APPEND patched_sources ${source})
+endforeach()
+set(ENGINE_SOURCES ${patched_sources})
+
 set(ENGINE_DEPS_DIR ${LOTA_ROOT}/vendor/love-apple-dependencies CACHE PATH "love-apple-dependencies checkout")
 set(ENGINE_FRAMEWORKS ${ENGINE_DEPS_DIR}/macOS/Frameworks)
 set(SDL3_FRAMEWORKS ${ENGINE_DEPS_DIR}/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64)
@@ -31,6 +71,9 @@ set_source_files_properties(${ENGINE_SOURCE_DIR}/src/modules/filesystem/physfs/F
 set_target_properties(lota_engine PROPERTIES SYSTEM ON)
 
 target_include_directories(lota_engine PUBLIC
+	# The patched physics module, before LÖVE's own modules, so that
+	# "physics/box2d/World.h" is the patched header everywhere.
+	${PATCHED_SOURCE_DIR}/src/modules
 	# The Xcode project's HEADER_SEARCH_PATHS
 	# (platform/xcode/love.xcodeproj/project.pbxproj:576-580).
 	${ENGINE_SOURCE_DIR}/src

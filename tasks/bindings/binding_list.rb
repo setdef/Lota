@@ -33,10 +33,19 @@ module Bindings
     class HandWritten < Data.define(:love_name, :reason)
     end
 
+    # A LÖVE function whose wrap_*.lua code replaces its C++, which Lota
+    # ports by hand from the Lua (ADR 001, section 7). The generator knows
+    # which Lua replaces which C++, so the reason is its own: the file, the
+    # line, and the guards it runs behind.
+    #
+    # [note] What else the port does, when it says more than the Lua.
+    class FromLua < Data.define(:love_name, :note)
+    end
+
     # Raised for an entry the list cannot hold.
     class Invalid < StandardError; end
 
-    attr_reader :generated, :hand_written
+    attr_reader :generated, :hand_written, :from_lua
 
     # Reads the list at +path+.
     def self.load(path)
@@ -46,6 +55,7 @@ module Bindings
     def initialize
       @generated = []
       @hand_written = []
+      @from_lua = []
     end
 
     # Lists +love_name+ for the generator.
@@ -58,6 +68,17 @@ module Bindings
     # Lists +love_name+ as bound by hand, for +reason+.
     def bound_by_hand(love_name, reason:)
       @hand_written << HandWritten.new(love_name:, reason:)
+    end
+
+    # Lists +love_name+ as ported by hand from the Lua that replaces its
+    # C++ in LÖVE.
+    def bound_from_lua(love_name, note: nil)
+      @from_lua << FromLua.new(love_name:, note:)
+    end
+
+    # Every function listed, of every kind.
+    def love_names
+      (generated + hand_written + from_lua).map(&:love_name)
     end
   end
 

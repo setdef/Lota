@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/luajit.hpp"
 
 #include "common/Data.h"
 #include "common/Exception.h"
@@ -23,7 +24,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -140,26 +140,6 @@ SoundData *decode(Decoder &decoder) {
 // when +length+ is -1.
 SoundData *slice(const SoundData &data, int start, int length) { return data.slice(start, length); }
 
-// LuaJIT's conversion of a Lua number to a C integer type narrower than 64
-// bits, which LÖVE's FFI code below assigns samples through: to a 32-bit
-// integer first, of which the narrower type keeps the low bits (LuaJIT
-// 2.1, lj_cconv.c, lj_cconv_ct_ct, CCX(I, F)). On Apple silicon the first
-// step is the processor's own conversion (FCVTZS), which saturates a number
-// out of range and makes NaN 0; C++ leaves both undefined, so they are
-// written out here.
-std::int32_t lua_to_int32(double number) {
-  if (std::isnan(number)) {
-    return 0;
-  }
-  if (number >= static_cast<double>(std::numeric_limits<std::int32_t>::max())) {
-    return std::numeric_limits<std::int32_t>::max();
-  }
-  if (number <= static_cast<double>(std::numeric_limits<std::int32_t>::min())) {
-    return std::numeric_limits<std::int32_t>::min();
-  }
-  return static_cast<std::int32_t>(number);
-}
-
 // The largest value of a 16-bit and of an 8-bit sample, as
 // wrap_SoundData.lua's typemaxvals (line 46) holds them.
 constexpr double int16_max = 0x7FFF;
@@ -238,7 +218,7 @@ void set_sample(SoundData &data, Rice::Array arguments) {
   const std::span<std::byte> bytes(static_cast<std::byte *>(data.getData()), data.getSize());
   if (data.getBitDepth() == sixteen_bits) {
     // 16-bit data is stored as signed values internally.
-    const auto stored = static_cast<std::int16_t>(lua_to_int32(value * int16_max));
+    const auto stored = static_cast<std::int16_t>(luajit::to_int32(value * int16_max));
     std::memcpy(bytes.subspan(position * sizeof stored, sizeof stored).data(), &stored,
                 sizeof stored);
   } else {
@@ -247,10 +227,38 @@ void set_sample(SoundData &data, Rice::Array arguments) {
     // this method.
     const auto narrowed =
         static_cast<double>(static_cast<float>((value * int8_max) + uint8_middle));
-    const auto stored = static_cast<std::uint8_t>(lua_to_int32(narrowed));
+    const auto stored = static_cast<std::uint8_t>(luajit::to_int32(narrowed));
     std::memcpy(bytes.subspan(position, sizeof stored).data(), &stored, sizeof stored);
   }
 }
+
+// w_Decoder_clone (wrap_Decoder.cpp:37-45) and w_SoundData_clone
+// (wrap_SoundData.cpp:45-52): a new Decoder of the same file, decoding from
+// its start (Decoder::clone), and a new SoundData with a copy of the
+// samples (SoundData::clone). Each one's reference goes to its Ruby
+// wrapper.
+Decoder *clone_decoder(Decoder &decoder) { return decoder.clone(); }
+
+SoundData *clone_sound_data(const SoundData &data) { return data.clone(); }
+
+// SoundData:getChannelCount, getBitDepth, getSampleRate, getSampleCount,
+// and getDuration, in the FFI code LÖVE runs under LuaJIT, which replaces
+// their wrap functions (wrap_SoundData.lua:142-160): each returns what the
+// object cache read from the C++ when it first met the SoundData (lines
+// 51-73), which is what the C++ returns, since none of them changes; the
+// bit depth is the cached bytes per sample times 8.
+int channel_count(const SoundData &data) { return data.getChannelCount(); }
+
+int bit_depth(const SoundData &data) {
+  const int bytedepth = data.getBitDepth() / bits_per_byte;
+  return bytedepth * bits_per_byte;
+}
+
+int sample_rate(const SoundData &data) { return data.getSampleRate(); }
+
+int sample_count(const SoundData &data) { return data.getSampleCount(); }
+
+double duration(const SoundData &data) { return static_cast<double>(data.getDuration()); }
 
 // luaopen_love_sound (wrap_Sound.cpp:128-150) creates the lullaby sound
 // module once, as boot.lua requires love.sound before love.audio
@@ -266,13 +274,20 @@ bool is_open() { return love::Module::getInstance<Sound>(love::Module::M_SOUND) 
 void define_sound(const Rice::Module &native) {
   // Their other methods are generated (ext/lota/native/generated/sound.cpp).
   define_engine_class<Decoder>(native, "Decoder")
-      .define_method("decode", &decode, Rice::Return().takeOwnership());
+      .define_method("decode", &decode, Rice::Return().takeOwnership())
+      .define_method("clone", &clone_decoder, Rice::Return().takeOwnership());
   define_engine_class<SoundData, love::Data>(native, "SoundData")
       .define_method("slice", &slice, Rice::Arg("start"), Rice::Arg("length") = -1,
                      Rice::Return().takeOwnership())
+      .define_method("clone", &clone_sound_data, Rice::Return().takeOwnership())
       .define_method("sample", &get_sample, Rice::Arg("i"),
                      Rice::Arg("channel") = std::optional<double>())
-      .define_method("set_sample", &set_sample, Rice::Arg("arguments"));
+      .define_method("set_sample", &set_sample, Rice::Arg("arguments"))
+      .define_method("channel_count", &channel_count)
+      .define_method("bit_depth", &bit_depth)
+      .define_method("sample_rate", &sample_rate)
+      .define_method("sample_count", &sample_count)
+      .define_method("duration", &duration);
 
   Rice::define_module_under(native, "Sound")
       .define_singleton_function("open", &open)

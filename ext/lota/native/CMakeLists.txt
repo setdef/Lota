@@ -12,6 +12,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/generated/sources.cmake)
 add_library(lota_native MODULE
 	${LOTA_GENERATED_SOURCES}
 	audio.cpp
+	data.cpp
 	event.cpp
 	filesystem.cpp
 	font.cpp
@@ -21,6 +22,7 @@ add_library(lota_native MODULE
 	math.cpp
 	mouse.cpp
 	native.cpp
+	physics.cpp
 	random_generator.cpp
 	sound.cpp
 	system.cpp

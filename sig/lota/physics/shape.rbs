@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    class Shape
+      include Object
+
+      attr_reader native: Native::Shape
+
+      def self.from_native: (Native::Shape native) -> instance
+
+      def body: () -> Body?
+
+      def child_count: () -> Integer
+
+      def radius: () -> Float
+
+      def sensor?: () -> bool
+
+      def sensor=: (bool sensor) -> void
+
+      def density: () -> Float
+
+      def density=: (Float | Integer density) -> void
+
+      def friction: () -> Float
+
+      def friction=: (Float | Integer friction) -> void
+
+      def restitution: () -> Float
+
+      def restitution=: (Float | Integer restitution) -> void
+
+      def category: () -> Array[Integer]
+
+      def category=: (Integer | Array[Integer | Array[Integer]] categories) -> void
+
+      def mask: () -> Array[Integer]
+
+      def mask=: (Integer | Array[Integer | Array[Integer]] masks) -> void
+
+      def group_index: () -> Integer
+
+      def group_index=: (Integer index) -> void
+
+      def filter_data: () -> Array[Integer]
+
+      def test_point: (Float | Integer x, Float | Integer y, ?(Float | Integer)? angle, ?(Float | Integer)? px, ?(Float | Integer)? py) -> bool
+
+      def ray_cast: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_fraction, *Float | Integer arguments) -> Array[Float]
+
+      def compute_aabb: (Float | Integer x, Float | Integer y, Float | Integer angle, ?Integer child) -> Array[Float]
+
+      def bounding_box: (?Integer child) -> Array[Float]
+
+      def compute_mass: (Float | Integer density) -> Array[Float]
+
+      def mass_data: () -> Array[Float]
+
+      def user_data: () -> ::Object?
+
+      def user_data=: (::Object? value) -> void
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+    end
+
+    class CircleShape < Shape
+      def self.new: (Body body, *Float | Integer arguments) -> CircleShape
+    end
+
+    class PolygonShape < Shape
+      def self.new: (Body body, *(Float | Integer | Array[Float | Integer]) coordinates) -> PolygonShape
+    end
+
+    class EdgeShape < Shape
+      def self.new: (Body body, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *Float | Integer neighbors) -> EdgeShape
+    end
+
+    class ChainShape < Shape
+      def self.new: (Body body, bool loop, *(Float | Integer | Array[Float | Integer]) coordinates) -> ChainShape
+    end
+
+    module RectangleShape
+      def self.new: (Body body, *Float | Integer arguments) -> PolygonShape
+    end
+  end
+end

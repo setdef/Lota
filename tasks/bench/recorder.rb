@@ -113,19 +113,32 @@ module Bench
   # times over, rather than from one long loop, because neither JIT
   # compiles a method until it has been called often enough, and a loop
   # in a method called once would stay interpreted however long it ran.
+  #
+  # The first time Ruby runs a call site it allocates the site's inline
+  # cache, an internal object GC.stat counts, once. So one run goes
+  # first, untimed and uncounted, through the same code as the measured
+  # runs, warming every call site they use, the block's and the
+  # measurement's own, and the clock's; otherwise the first run would
+  # count those caches, and could be the fastest, the one kept.
   def self.per_call(iterations:, repetitions: 5, chunk: 1_000, clock: Recorder::CLOCK, &)
     chunks = [iterations / chunk, 1].max
-    runs = Array.new(repetitions) do
-      allocated = GC.stat(:total_allocated_objects)
-      start = clock.call
-      chunks.times { calls(chunk, &) }
-      elapsed = clock.call - start
-      [elapsed, GC.stat(:total_allocated_objects) - allocated]
-    end
+    run(chunks, chunk, clock, &)
+    runs = Array.new(repetitions) { run(chunks, chunk, clock, &) }
     elapsed, allocated = runs.min_by(&:first)
     calls = chunks * chunk
     [elapsed / calls, allocated.fdiv(calls)]
   end
+
+  # One run of +chunks+ times +chunk+ calls of the block: its seconds by
+  # +clock+, and the objects it allocated.
+  def self.run(chunks, chunk, clock, &)
+    allocated = GC.stat(:total_allocated_objects)
+    start = clock.call
+    chunks.times { calls(chunk, &) }
+    elapsed = clock.call - start
+    [elapsed, GC.stat(:total_allocated_objects) - allocated]
+  end
+  private_class_method :run
 
   # Calls the block +count+ times.
   def self.calls(count)

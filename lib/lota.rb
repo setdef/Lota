@@ -37,6 +37,7 @@ at_exit { Lota::Native.drain_release_queue }
 
 require_relative "lota/enum_name"
 require_relative "lota/object"
+require_relative "lota/data"
 require_relative "lota/filesystem"
 require_relative "lota/image"
 require_relative "lota/font"
@@ -47,6 +48,7 @@ require_relative "lota/mouse"
 require_relative "lota/sound"
 require_relative "lota/audio"
 require_relative "lota/math"
+require_relative "lota/physics"
 require_relative "lota/system"
 require_relative "lota/event"
 require_relative "lota/window"
@@ -156,6 +158,15 @@ module Lota
   #   lota.audio.play(@click)
   def self.audio
     Audio if Native::Audio.open?
+  end
+
+  # Lota::Physics, as love.physics, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.physics.meter # => 30
+  def self.physics
+    Physics if Native::Physics.open?
   end
 
   # Lota::Math, as love.math, or +nil+ when the module is not open.

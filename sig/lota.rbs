@@ -24,6 +24,8 @@ module Lota
 
   def self.audio: () -> singleton(Audio)?
 
+  def self.physics: () -> singleton(Physics)?
+
   def self.math: () -> singleton(Math)?
 
   def self.system: () -> singleton(System)?

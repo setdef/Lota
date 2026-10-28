@@ -70,13 +70,38 @@ module Bindings
         ((candidates.size == 1) ? candidates.first : nil)
     end
 
+    # A helper's check of the object it read, before returning it:
+    # luax_checkbody's "if (b->body == 0) luaL_error(L, "Attempt to use
+    # destroyed body.")" (wrap_Body.cpp:32-38), with +variable+ the name
+    # its +condition+ gives the object, and +message+ the error's C++
+    # string literal.
+    class Check < Data.define(:variable, :condition, :message)
+    end
+
+    CHECKED = /\A\s*[\w:]+\s*\*\s*(?<variable>\w+)\s*=\s*luax_checktype\s*<\s*(?<type>[\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*\)\s*;
+      \s*if\s*\((?<condition>.+?)\)\s*luaL_error\s*\(\s*L\s*,\s*(?<message>"[^"]*")\s*\)\s*;
+      \s*return\s+\k<variable>\s*;\s*\z/mx
+
     # LÖVE's helpers that check an argument's class, by name, to the class
     # each checks for: luax_checktexture, whose body is
-    # luax_checktype<Texture>(L, idx), to Texture.
+    # luax_checktype<Texture>(L, idx), to Texture, and luax_checkbody,
+    # which also checks that the Body is not destroyed (#checks), to Body.
     def helpers
       @helpers ||= files.flat_map(&:functions).filter_map do |function|
-        type = function.body[/\A\s*return\s+luax_checktype\s*<\s*([\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*\)\s*;\s*\z/, 1]
-        [function.name, type.split("::").last] if type && function.name.start_with?("luax_check")
+        next unless function.name.start_with?("luax_check")
+
+        type = function.body[/\A\s*return\s+luax_checktype\s*<\s*([\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*\)\s*;\s*\z/, 1] ||
+          CHECKED.match(function.body)&.[](:type)
+        [function.name, type.split("::").last] if type
+      end.to_h
+    end
+
+    # The helpers that check the object they read before returning it, by
+    # name, to their Check.
+    def checks
+      @checks ||= files.flat_map(&:functions).filter_map do |function|
+        match = function.name.start_with?("luax_check") && CHECKED.match(function.body) or next
+        [function.name, Check.new(variable: match[:variable], condition: match[:condition].strip, message: match[:message])]
       end.to_h
     end
 

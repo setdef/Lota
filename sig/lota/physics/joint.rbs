@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    class Joint
+      include Object
+
+      attr_reader native: Native::Joint
+
+      def self.from_native: (Native::Joint native) -> instance
+
+      def self.anchored: (Array[Float | Integer | bool | nil] arguments, Integer short) -> [Array[Float | Integer], (Float | Integer | bool)?, (Float | Integer)?]
+
+      def self.number: (Float | Integer | bool | nil value) -> (Float | Integer)
+
+      def bodies: () -> Array[Body]
+
+      def anchors: () -> Array[Float]
+
+      def reaction_force: (Float | Integer dt) -> Array[Float]
+
+      def reaction_torque: (Float | Integer dt) -> Float
+
+      def collide_connected: () -> bool
+
+      def user_data: () -> ::Object?
+
+      def user_data=: (::Object? value) -> void
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+
+      private
+
+      def self.flag: ((Float | Integer | bool)? value, bool default) -> bool
+    end
+
+    class DistanceJoint < Joint
+      def self.new: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool? collide_connected) -> DistanceJoint
+    end
+
+    class MouseJoint < Joint
+      def self.new: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
+    end
+
+    class RevoluteJoint < Joint
+      def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> RevoluteJoint
+    end
+
+    class FrictionJoint < Joint
+      def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> FrictionJoint
+    end
+
+    class WeldJoint < Joint
+      def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> WeldJoint
+    end
+
+    class PrismaticJoint < Joint
+      def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> PrismaticJoint
+    end
+
+    class WheelJoint < Joint
+      def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> WheelJoint
+    end
+
+    class PulleyJoint < Joint
+      def self.new: (Body body1, Body body2, Float | Integer gx1, Float | Integer gy1, Float | Integer gx2, Float | Integer gy2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer) ratio, ?bool? collide_connected) -> PulleyJoint
+    end
+
+    class GearJoint < Joint
+      def self.new: (Joint joint1, Joint joint2, ?(Float | Integer) ratio, ?bool? collide_connected) -> GearJoint
+    end
+
+    class RopeJoint < Joint
+      def self.new: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_length, ?bool? collide_connected) -> RopeJoint
+    end
+
+    class MotorJoint < Joint
+      def self.new: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool? collide_connected) -> MotorJoint
+    end
+  end
+end

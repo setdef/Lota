@@ -18,7 +18,15 @@ module Lota
     # get one from Lota::Graphics.readback_texture, then read its pixels.
     #
     # Use it to check what a canvas holds, to compare an image with the
-    # one you expected, or to inspect a decoded file.
+    # one you expected, to inspect a decoded file, or to draw pixels of
+    # your own. It is a Data, so it includes Lota::Data, whose #size and
+    # #string give its bytes.
+    #
+    # Its pixels read and write as LÖVE runs ImageData's methods, in the
+    # LuaJIT code that takes over from their C++
+    # (src/modules/image/wrap_ImageData.lua): each component is a Float,
+    # computed in double precision, where the C++ computes in single
+    # precision, so an 8-bit 128 reads as 128 / 255.0, 0.5019607843137255.
     #
     # === Examples
     #
@@ -33,6 +41,7 @@ module Lota
     #   Lota::Graphics.readback_texture(canvas).pixel(8, 8) # => [1.0, 1.0, 0.0, 1.0]
     class ImageData
       include Object
+      include Data
 
       # The engine's ImageData, for Lota's own modules. :nodoc:
       attr_reader :native
@@ -45,32 +54,65 @@ module Lota
         image_data
       end
 
-      # Decodes the image file in +data+, matching
-      # love.image.newImageData(filedata)
-      # (src/modules/image/wrap_Image.cpp, w_newImageData).
+      # Makes an ImageData, matching love.image.newImageData
+      # (src/modules/image/wrap_Image.cpp, w_newImageData), in one of two
+      # forms:
       #
-      # [data] String name of an image file in the game's folder, or a
-      #   Lota::Filesystem::FileData, holding an image in a format LÖVE's
-      #   image module decodes, such as PNG, JPEG, or QOI.
+      # - <tt>ImageData.new(width, height, format = :rgba8, rawdata =
+      #   nil)</tt>: +width+ by +height+ pixels, as Integers, of the
+      #   pixel format +format+, a Symbol such as <tt>:rgba8</tt>,
+      #   <tt>:r16</tt>, or <tt>:rgba32f</tt> (ADR 001, rule 9), all
+      #   transparent black, or a copy of +rawdata+, a String or a
+      #   Lota::Data of exactly as many bytes as the pixels take.
+      # - <tt>ImageData.new(file)</tt>: the image in +file+, a String
+      #   name of an image file in the game's folder, or a
+      #   Lota::Filesystem::FileData, decoded from a format LÖVE's image
+      #   module reads, such as PNG, JPEG, or QOI. A file name is a path in
+      #   the game's folder, as Lota::Graphics::Font.new reads one.
       #
-      # A file name is a path in the game's folder, as
-      # Lota::Graphics::Font.new reads one. Raises RuntimeError with LÖVE's
-      # message when the file cannot be read, when no decoder can read the
-      # data, or when the filesystem is not open. LÖVE also makes a blank
-      # ImageData from a width and a height; Lota binds that form later.
+      # Raises RuntimeError with LÖVE's message for a +width+ or +height+
+      # below 1, for +rawdata+ of the wrong size, when the file cannot be
+      # read or no decoder can read the data, or when the module is not
+      # open; and ArgumentError for a pixel format LÖVE does not know.
       #
       # === Examples
       #
+      #   Lota::Image::ImageData.new(16, 16)
+      #   Lota::Image::ImageData.new(1, 1, :rgba8, "\xFF\x00\x00\xFF")
       #   png = File.binread("logo.png")
       #   Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(png, "logo.png"))
       #   Lota::Image::ImageData.new("assets/logo.png")
-      def initialize(data)
-        native = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
-        @native = Native::Image.new_image_data(native)
+      def initialize(source, height = nil, format = nil, rawdata = nil)
+        @native = case source
+        when Numeric
+          bytes = case rawdata
+          when Data then data_bytes(rawdata)
+          else rawdata
+          end
+          Native::Image.new_sized_image_data(source, Integer(height), format && EnumName.of(format), bytes)
+        when String then Native::Image.new_image_data(Native::Filesystem.file_data(source))
+        else Native::Image.new_image_data(source.native)
+        end
       end
 
-      # The width in pixels, matching ImageData:getWidth
-      # (src/modules/image/wrap_ImageData.cpp).
+      # Makes this ImageData, a copy of +source+ by Ruby's +clone+ or
+      # +dup+, LÖVE's copy, matching ImageData:clone
+      # (src/modules/image/wrap_ImageData.cpp, w_ImageData_clone): a new
+      # ImageData with a copy of every pixel, so a change to one leaves
+      # the other as it was (ADR 001, section 7).
+      #
+      # === Example
+      #
+      #   copy = image_data.clone
+      #   copy.pixel = 0, 0, 1, 0, 0
+      def initialize_copy(source)
+        super
+        @native = source.native.clone
+      end
+
+      # The width in pixels, as an Integer, matching ImageData:getWidth as
+      # LÖVE runs it, in its LuaJIT code
+      # (src/modules/image/wrap_ImageData.lua).
       #
       # === Example
       #
@@ -79,8 +121,9 @@ module Lota
         @native.width
       end
 
-      # The height in pixels, matching ImageData:getHeight
-      # (src/modules/image/wrap_ImageData.cpp).
+      # The height in pixels, as an Integer, matching ImageData:getHeight
+      # as LÖVE runs it, in its LuaJIT code
+      # (src/modules/image/wrap_ImageData.lua).
       #
       # === Example
       #
@@ -90,22 +133,80 @@ module Lota
       end
 
       # The color of the pixel at +x+, +y+, as an Array of red, green,
-      # blue, and alpha, each from 0.0 to 1.0, matching
-      # ImageData:getPixel(x, y) (src/modules/image/wrap_ImageData.cpp).
+      # blue, and alpha Floats, matching ImageData:getPixel as LÖVE runs
+      # it, in its LuaJIT code (src/modules/image/wrap_ImageData.lua).
       #
-      # [x] Integer column, from 0 at the left to <tt>width - 1</tt>.
-      # [y] Integer row, from 0 at the top to <tt>height - 1</tt>.
+      # [x] Float or Integer column, from 0 at the left, rounded down.
+      # [y] Float or Integer row, from 0 at the top, rounded down.
       #
-      # The engine stores each component as a single-precision float and
-      # converts it as LÖVE does, so an 8-bit 255 reads as exactly 1.0.
-      # Raises RuntimeError ("Attempt to get out-of-range pixel!") outside
-      # the image.
+      # Each component is computed in double precision from the format's
+      # own: an 8-bit component divided by 255.0, a 16-bit one by 65535.0,
+      # a float as it is. A component the format lacks reads as 0, and a
+      # missing alpha as 1. Raises RuntimeError, with LÖVE's message,
+      # outside the image ("Attempt to get out-of-range pixel!"), and for a
+      # pixel format the Lua does not read, such as <tt>:srgba8</tt>.
       #
       # === Example
       #
       #   red, green, blue, alpha = image_data.pixel(0, 0)
       def pixel(x, y)
         @native.pixel(x, y)
+      end
+
+      # Sets the color of a pixel, matching ImageData:setPixel as LÖVE
+      # runs it, in its LuaJIT code (src/modules/image/wrap_ImageData.lua),
+      # whose several values rule 6 of ADR 001 makes one Array.
+      #
+      # [arguments] An Array of the pixel's column and row, each rounded
+      #   down, then its red, green, and blue, and an optional alpha, each
+      #   a Float or Integer, or an Array of the four.
+      #
+      # Each component is stored as the format stores it: an 8-bit one as
+      # (component clamped to 0..1) * 255 + 0.5, cut to a whole number, a
+      # float as it is; a missing alpha stores the format's largest value.
+      # Raises TypeError, with LÖVE's message, for a color component that
+      # is not a number, and RuntimeError outside the image or for a pixel
+      # format the Lua does not write.
+      #
+      # === Examples
+      #
+      #   image_data.pixel = 0, 0, 1, 0, 0
+      #   image_data.pixel = 0, 0, [1, 0, 0, 0.5]
+      def pixel=(arguments)
+        @native.set_pixel(arguments)
+      end
+
+      # Calls the block with each pixel's position and color in a
+      # rectangle, and sets the pixel to the color it returns, matching
+      # ImageData:mapPixel as LÖVE runs it, in its LuaJIT code
+      # (src/modules/image/wrap_ImageData.lua), whose function becomes
+      # the block (ADR 001, rule 12).
+      #
+      # [x] Float or Integer left column of the rectangle, 0 by default.
+      # [y] Float or Integer top row, 0 by default.
+      # [width] Float or Integer columns, every column by default.
+      # [height] Float or Integer rows, every row by default.
+      #
+      # The block receives the column and the row, as Integers, and the
+      # red, green, blue, and alpha, as #pixel reads them, row by row,
+      # and returns the new color as an Array of red, green, blue, and
+      # alpha, which are stored as #pixel= stores them. Raises
+      # RuntimeError, with LÖVE's message, for a rectangle that is not
+      # inside the image, which it checks before rounding it down, and for
+      # a pixel format the Lua does not read.
+      #
+      # === Example
+      #
+      #   image_data.map_pixel { |_x, _y, r, g, b, a| [1 - r, 1 - g, 1 - b, a] }
+      def map_pixel(x = nil, y = nil, width = nil, height = nil, &block)
+        @native.map_pixel([block, x, y, width, height])
+      end
+
+      # The bytes of +data+, as a String: none for an empty Data, whose
+      # string LÖVE would refuse, so that LÖVE's own message about the
+      # size is the one raised.
+      private def data_bytes(data)
+        data.size.zero? ? "" : data.string
       end
     end
   end

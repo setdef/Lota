@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    class Contact
+      include Object
+
+      attr_reader native: Native::Contact
+
+      def self.from_native: (Native::Contact native) -> Contact
+
+      def shapes: () -> Array[Shape?]
+
+      def children: () -> Array[Integer]
+
+      def normal: () -> Array[Float]
+
+      def positions: () -> Array[Float]
+
+      def touching?: () -> bool
+
+      def enabled?: () -> bool
+
+      def enabled=: (bool enabled) -> void
+
+      def friction: () -> Float
+
+      def friction=: (Float | Integer friction) -> void
+
+      def reset_friction: () -> nil
+
+      def restitution: () -> Float
+
+      def restitution=: (Float | Integer restitution) -> void
+
+      def reset_restitution: () -> nil
+    end
+  end
+end

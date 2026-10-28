@@ -20,6 +20,8 @@ module Lota
 
       def set_seed: (Float | Integer low, ?(Float | Integer)? high) -> nil
 
+      def random_normal: (?(Float | Integer)? stddev, ?(Float | Integer)? mean) -> Float
+
       def type: () -> String
 
       def type_of?: (String name) -> bool
@@ -41,6 +43,18 @@ module Lota
       def type_of?: (String name) -> bool
 
       def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
+
+      def perform_atomic: [T, R] (Array[(^(*T) -> R) | T | nil] call) -> R
+
+      def float: (Float | Integer offset, ?Integer? count) -> Array[Float]
+
+      def double: (Float | Integer offset, ?Integer? count) -> Array[Float]
+
+      def int8: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+      def int16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+      def int32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
     end
 
     class FileData < Data
@@ -49,14 +63,28 @@ module Lota
       def type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def clone: () -> FileData
     end
 
-    class ImageData
+    class ImageData < Data
       def self.cpp_class: () -> String
 
       def type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def clone: () -> ImageData
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def pixel: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def set_pixel: (Array[Float | Integer | Array[Float | Integer] | nil] arguments) -> nil
+
+      def map_pixel: (Array[(^(Integer, Integer, Float, Float, Float, Float) -> (Array[Float | Integer] | Float | Integer)) | Float | Integer | nil] call) -> nil
     end
 
     class Texture
@@ -175,6 +203,8 @@ module Lota
       def type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def clone: () -> Source
     end
 
     class Decoder
@@ -185,6 +215,8 @@ module Lota
       def type_of?: (String name) -> bool
 
       def decode: () -> SoundData?
+
+      def clone: () -> Decoder
     end
 
     class SoundData < Data
@@ -199,6 +231,18 @@ module Lota
       def sample: (Float | Integer i, ?(Float | Integer)? channel) -> Float
 
       def set_sample: (Array[Float | Integer] arguments) -> nil
+
+      def clone: () -> SoundData
+
+      def channel_count: () -> Integer
+
+      def bit_depth: () -> Integer
+
+      def sample_rate: () -> Integer
+
+      def sample_count: () -> Integer
+
+      def duration: () -> Float
     end
 
     module Sound
@@ -235,6 +279,8 @@ module Lota
       def self.open?: () -> bool
 
       def self.new_image_data: (Data data) -> ImageData
+
+      def self.new_sized_image_data: (Integer w, Integer h, ?String? fstr, ?String? bytes) -> ImageData
     end
 
     module Font
@@ -389,6 +435,298 @@ module Lota
 
         def type_of?: (String name) -> bool
       end
+    end
+
+    class World
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def update: (Float | Integer dt, ?Integer? velocityiterations, ?Integer? positioniterations) -> nil
+
+      def bodies: () -> Array[Body]
+
+      def joints: () -> Array[Joint]
+
+      def contacts: () -> Array[Contact]
+
+      def gravity: () -> Array[Float]
+
+      def shapes_in_area: (Float | Integer lx, Float | Integer ly, Float | Integer ux, Float | Integer uy, ?Integer? mask) -> Array[Shape]
+
+      def query_shapes_in_area: [T] (Float | Integer lx, Float | Integer ly, Float | Integer ux, Float | Integer uy, Array[(^(Shape, *T) -> ::Object?) | T | nil] call) -> nil
+
+      def ray_cast: [T] (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Array[(^(Shape, *(Float | T)) -> (Float | Integer)) | T | nil] call) -> nil
+
+      def ray_cast_any: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?Integer? mask) -> Array[Shape | Float]
+
+      def ray_cast_closest: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?Integer? mask) -> Array[Shape | Float]
+    end
+
+    class Body
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def world: () -> World
+
+      def shape: () -> Shape?
+
+      def shapes: () -> Array[Shape]
+
+      def joints: () -> Array[Joint]
+
+      def contacts: () -> Array[Contact]
+
+      def mass_data: () -> Array[Float]
+
+      def world_points: (Array[Float | Integer] coordinates) -> Array[Float | Integer]
+
+      def local_points: (Array[Float | Integer] coordinates) -> Array[Float | Integer]
+
+      def set_user_data: (::Object? value) -> nil
+
+      def user_data: () -> ::Object?
+
+      def apply_force: (Float | Integer fx, Float | Integer fy, Array[Float | Integer | bool | nil] rest) -> nil
+
+      def apply_linear_impulse: (Float | Integer jx, Float | Integer jy, Array[Float | Integer | bool | nil] rest) -> nil
+    end
+
+    class Shape
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def body: () -> Body?
+
+      def filter_data: () -> Array[Integer]
+
+      def set_category: (Array[Integer | Array[Integer]] categories) -> nil
+
+      def category: () -> Array[Integer]
+
+      def set_mask: (Array[Integer | Array[Integer]] masks) -> nil
+
+      def mask: () -> Array[Integer]
+
+      def compute_aabb: (Float | Integer x, Float | Integer y, Float | Integer r, ?Integer child_index) -> Array[Float]
+
+      def bounding_box: (?Integer child_index) -> Array[Float]
+
+      def compute_mass: (Float | Integer density) -> Array[Float]
+
+      def mass_data: () -> Array[Float]
+
+      def ray_cast: (Array[Float | Integer] ray, Array[Float | Integer] rest) -> Array[Float]
+
+      def set_user_data: (::Object? value) -> nil
+
+      def user_data: () -> ::Object?
+    end
+
+    class CircleShape < Shape
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class PolygonShape < Shape
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class EdgeShape < Shape
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class ChainShape < Shape
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def bodies: () -> Array[Body]
+
+      def anchors: () -> Array[Float]
+
+      def reaction_force: (Float | Integer dt) -> Array[Float]
+
+      def set_user_data: (::Object? value) -> nil
+
+      def user_data: () -> ::Object?
+    end
+
+    class DistanceJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class FrictionJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class GearJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class MotorJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class MouseJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class PrismaticJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class PulleyJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class RevoluteJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class RopeJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class WeldJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class WheelJoint < Joint
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class Contact
+      def self.cpp_class: () -> String
+
+      def type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def shapes: () -> Array[Shape]
+
+      def normal: () -> Array[Float]
+
+      def positions: () -> Array[Float]
+    end
+
+    module Physics
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.new_world: (Float | Integer gx, Float | Integer gy, bool sleep) -> World
+
+      def self.new_body: (World world, Float | Integer x, Float | Integer y, ?String? typestr) -> Body
+
+      def self.new_circle_shape: (Body body, Float | Integer x, Float | Integer y, Float | Integer radius) -> CircleShape
+
+      def self.new_rectangle_shape: (Body body, Array[Float | Integer] placement) -> PolygonShape
+
+      def self.new_edge_shape: (Body body, Array[Float | Integer] coordinates) -> EdgeShape
+
+      def self.new_polygon_shape: (Body body, Array[Float | Integer] coordinates) -> PolygonShape
+
+      def self.new_chain_shape: (Body body, bool loop, Array[Float | Integer] coordinates) -> ChainShape
+
+      def self.new_distance_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected) -> DistanceJoint
+
+      def self.new_mouse_joint: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
+
+      def self.new_revolute_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected, ?(Float | Integer)? reference_angle) -> RevoluteJoint
+
+      def self.new_friction_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected) -> FrictionJoint
+
+      def self.new_weld_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected, ?(Float | Integer)? reference_angle) -> WeldJoint
+
+      def self.new_prismatic_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected, ?(Float | Integer)? reference_angle) -> PrismaticJoint
+
+      def self.new_wheel_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected) -> WheelJoint
+
+      def self.new_pulley_joint: (Body body1, Body body2, Array[Float | Integer] anchors, Float | Integer ratio, bool collide_connected) -> PulleyJoint
+
+      def self.new_gear_joint: (Joint joint1, Joint joint2, Float | Integer ratio, bool collide_connected) -> GearJoint
+
+      def self.new_rope_joint: (Body body1, Body body2, Array[Float | Integer] anchors, Float | Integer max_length, bool collide_connected) -> RopeJoint
+
+      def self.new_motor_joint: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool collide_connected) -> MotorJoint
+
+      def self.distance: (Shape shape_a, Shape shape_b) -> Array[Float]
+
+      def self.meter: () -> Integer
     end
   end
 end

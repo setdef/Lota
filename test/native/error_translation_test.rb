@@ -78,13 +78,14 @@ class ErrorTranslationTest < Minitest::Test
   # Every function a string in that C++ names, in LÖVE's notation, has the
   # Ruby name the rules give it in the generator's name table, which the
   # translation looks it up in. Names of a module's implementation, such as
-  # love.graphics.metal (graphics/metal/Graphics.mm:271), are what
+  # love.graphics.metal (graphics/metal/Graphics.mm:271) or
+  # love.physics.box2d (physics/box2d/Physics.cpp:38), are what
   # Module::getName returns, not functions, and no message names them.
   def test_every_function_the_engines_strings_name_is_in_the_name_table
     names = ErrorTranslationTest.engine_sources.flat_map do |path|
       File.read(path).scan(/"[^"\n]*"/).flat_map { |literal| literal.scan(/\b(?:love\.[a-z]+\.[A-Za-z]\w*|[A-Z]\w*:[a-z]\w*)/) }
     end
-    functions = names.uniq.sort.grep_v(/\Alove\.[a-z]+\.(?:sdl|null|openal|physfs|freetype|metal|opengl|vulkan|magpie|lullaby|theora|box)\z/)
+    functions = names.uniq.sort.grep_v(/\Alove\.[a-z]+\.(?:sdl|null|openal|physfs|freetype|metal|opengl|vulkan|magpie|lullaby|theora|box|box2d)\z/)
 
     assert_equal %w[
       ImageData:getPixel

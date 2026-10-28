@@ -121,6 +121,36 @@ class ParserTest < Minitest::Test
     assert_equal "src/modules/math/wrap_RandomGenerator.lua:46", random.first.function.location
   end
 
+  # Each Lua function records the guards its file returns at before
+  # defining it: wrap_ImageData.lua defines its FFI code only under
+  # LuaJIT with its compiler on and both libraries loaded, and
+  # wrap_Data.lua checks for LuaJIT but not its compiler, while
+  # RandomGenerator:random's first definition comes before any guard.
+  def test_lua_functions_record_the_guards_they_run_behind
+    get_pixel = survey.entries.find { |entry| entry.source == :lua && entry.function.love_name == "ImageData:getPixel" }
+
+    assert_equal ["LÖVE runs on LuaJIT", "LuaJIT's compiler is on", "LuaJIT's FFI loads", "LuaJIT's bit library loads"],
+      get_pixel.function.guards
+    assert_equal "when LÖVE runs on LuaJIT, LuaJIT's compiler is on, LuaJIT's FFI loads, and LuaJIT's bit library " \
+      "loads", get_pixel.function.condition
+    ffi_pointer = survey.replaced_by_lua("Data:getFFIPointer")
+
+    assert_equal ["LÖVE runs on LuaJIT", "LuaJIT's FFI loads"], ffi_pointer.guards
+    assert_equal "always", survey.entries.find { |entry| entry.function.love_name == "RandomGenerator:random" }
+      .function.condition
+  end
+
+  # A Lua function replaces a C++ wrap function only where both define
+  # the name: SoundData:getSample's LuaJIT code replaces
+  # w_SoundData_getSample, while RandomGenerator:random wraps a C++
+  # function of another name, _random, and ImageData:paste is C++ alone.
+  def test_the_survey_knows_which_lua_replaces_which_cpp
+    assert_equal "src/modules/sound/wrap_SoundData.lua:79", survey.replaced_by_lua("SoundData:getSample").location
+    assert_equal "src/modules/image/wrap_ImageData.lua:395", survey.replaced_by_lua("ImageData:getPixel").location
+    assert_nil survey.replaced_by_lua("RandomGenerator:random")
+    assert_nil survey.replaced_by_lua("ImageData:paste")
+  end
+
   def test_headers_give_return_types_through_bases_and_typedefs
     types = BindingsHelper.types
 

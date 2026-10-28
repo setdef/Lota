@@ -29,6 +29,17 @@ class RulesTest < Minitest::Test
     assert_equal "Lota::Physics::Body", translation("Body:applyForce").scope
   end
 
+  # LÖVE's root type Data keeps its name inside Lota (ADR 001, section 7),
+  # so Data's methods are Lota::Data's, which every Data includes, as
+  # Object's are Lota::Object's, while love.data's other types are classes
+  # in that module.
+  def test_the_root_type_data_is_lota_data
+    assert_equal "Lota::Data#size", ruby_name("Data:getSize")
+    assert_equal "Lota::Data#string", ruby_name("Data:getString")
+    assert_equal "Lota::Data.compress", ruby_name("love.data.compress")
+    assert_equal "Lota::Data::ByteData", translation("ByteData:clone").scope
+  end
+
   def test_rule_2_factories_become_constructors
     assert_equal "Lota::Graphics::SpriteBatch.new", ruby_name("love.graphics.newSpriteBatch")
     assert_includes rules("love.graphics.newSpriteBatch"), 2
@@ -164,6 +175,9 @@ class RulesTest < Minitest::Test
     assert_includes text, "File:open  src/modules/filesystem/wrap_File.cpp:75  (rule 11) opens a rule 11 pair"
     assert_includes text, "love.graphics.clear  src/modules/graphics/wrap_Graphics.cpp:69  reads the stack"
     assert_includes text, "RandomGenerator:random  src/modules/math/wrap_RandomGenerator.lua:46  defined in Lua (l, u)"
+    assert_includes text, "SoundData:getSample  src/modules/sound/wrap_SoundData.lua:79  defined in Lua (i, channel), " \
+      "which replaces its C++ (src/modules/sound/wrap_SoundData.cpp:"
+    assert_match %r{    ImageData:getPixel  src/modules/image/wrap_ImageData.cpp:105  by src/modules/image/wrap_ImageData.lua:395 when }, text
     counts = report.counts
 
     assert_equal 1133, counts.fetch(:functions)

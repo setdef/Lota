@@ -4,17 +4,31 @@
 module Lota
   module Image
     class ImageData
+      include Object
+      include Data
+
       attr_reader native: Native::ImageData
 
       def self.from_native: (Native::ImageData native) -> ImageData
 
-      def initialize: (Filesystem::FileData | String data) -> void
+      def initialize: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> void
+                    | (Filesystem::FileData | String source) -> void
+
+      def initialize_copy: (ImageData source) -> void
 
       def width: () -> Integer
 
       def height: () -> Integer
 
-      def pixel: (Integer x, Integer y) -> Array[Float]
+      def pixel: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def pixel=: (Array[Float | Integer | Array[Float | Integer]] arguments) -> void
+
+      def map_pixel: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? width, ?(Float | Integer)? height) { (Integer, Integer, Float, Float, Float, Float) -> Array[Float | Integer] } -> nil
+
+      private
+
+      def data_bytes: (Data data) -> String
     end
   end
 end
