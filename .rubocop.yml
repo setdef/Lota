@@ -13,6 +13,10 @@ AllCops:
     - "vendor/love/**/*"
     # LÖVE's prebuilt macOS dependencies, likewise not ours
     - "vendor/love-apple-dependencies/**/*"
+    # The Makefile LÖVE's Linux CI builds its dependencies with, and what
+    # it downloads (tasks/linux_build.rb), likewise not ours
+    - "vendor/love-appimage-source/**/*"
+    - "vendor/sources/**/*"
     # Fixture games, pinned submodules of other people's code, which the
     # parity harness runs unchanged (Plan 001)
     - "test/fixtures/**/*"

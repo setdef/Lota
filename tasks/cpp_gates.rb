@@ -39,8 +39,21 @@ module CppGates
   # file counts once it is staged.
   class Files
     # [root] The repository root.
-    def initialize(root:)
+    # [platform] The platform the build compiles for, as EngineSources
+    #   names it, or nil for every platform's sources.
+    def initialize(root:, platform: nil)
       @root = File.expand_path(root)
+      @platform = platform
+    end
+
+    # The platform the source at +path+ is compiled on alone, or nil for a
+    # source every platform compiles: Objective-C and Objective-C++ on
+    # macOS, and a source named for Linux (<tt>dialogs_linux.cpp</tt>) on
+    # Linux.
+    def self.platform_of(path)
+      return "macos" if %w[.m .mm].include?(File.extname(path))
+
+      "linux" if File.basename(path, ".*").end_with?("_linux")
     end
 
     # Every source and header, as absolute paths.
@@ -48,9 +61,15 @@ module CppGates
       @all ||= tracked.select { |path| (SOURCES + HEADERS).include?(File.extname(path)) }
     end
 
-    # The sources alone; clang-tidy reaches headers through them.
+    # The sources alone, those the platform's build compiles; clang-tidy
+    # reaches headers through them, and reads how to compile each from
+    # the build, so another platform's source is checked on that platform.
     def sources
-      all.select { |path| SOURCES.include?(File.extname(path)) }
+      all.select { |path| SOURCES.include?(File.extname(path)) && compiled_here?(path) }
+    end
+
+    private def compiled_here?(path)
+      @platform.nil? || [nil, @platform].include?(self.class.platform_of(path))
     end
 
     # The directory the files live under.

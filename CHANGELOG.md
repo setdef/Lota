@@ -24,6 +24,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Graphics objects that Ruby's garbage collector frees on another thread are released on the main thread.
 - Dependency on SDL3, FreeType, and HarfBuzz, from `love-apple-dependencies`, which `Lota::Native` now loads at run time.
 - A precompiled gem for Apple Silicon macOS (platform `arm64-darwin`) and Ruby 4.0, carrying the compiled extension and the frameworks it loads, with their licenses recorded by the REUSE Specification (`REUSE.toml`, and the texts in `LICENSES/`), so `gem install lota` compiles nothing.
+- Precompiled gems for Linux with glibc 2.35 or newer on x86_64 and arm64 (platforms `x86_64-linux-gnu` and `aarch64-linux-gnu`) and Ruby 4.0, carrying the compiled extension and the shared libraries it loads, built from source as LÖVE's own Linux CI builds them (SDL 3.4.10, FreeType 2.13.3 with bzip2 1.0.8, HarfBuzz 10.1.0, OpenAL Soft 1.24.3 with its source, libmodplug 0.8.8.5, libvorbis 1.3.7, libogg 1.3.5, and zlib 1.3), with their licenses recorded as the macOS gem's are; RubyGems picks the source gem on musl, such as Alpine Linux.
+- On Linux, a game that is not fused saves in `$XDG_DATA_HOME/lota/<identity>`, or `~/.local/share/lota/<identity>`, where LÖVE's `love` saves in a `love` folder.
 - The gem's homepage, source code, and changelog links, pointing at https://github.com/setdef/lota.
 - The source gem stops at `gem install` with a message naming the precompiled gem, since it ships no LÖVE sources to build from.
 - The `lota` executable: `lota run [path] [arguments]` runs the game in a folder, as `love path/to/game` does.

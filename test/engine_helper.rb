@@ -35,9 +35,18 @@ module EngineHelper
   # go. With the test extension loaded, the program stays in the
   # background for good (LotaNativeTest.stay_in_background), and its
   # windows never take focus but where a test asks for it.
+  #
+  # On Linux, the tests share one X display with the games they start, so
+  # a game can ask this program for the clipboard and exit before SDL
+  # answers; the test extension keeps that answer's error from ending the
+  # run (LotaNativeTest.tolerate_vanished_requestors,
+  # ext/lota/native_test/selections_linux.cpp).
   private_class_method def self.boot
     Lota::Boot.new(CONF).init
-    LotaNativeTest.stay_in_background if defined?(LotaNativeTest)
+    if defined?(LotaNativeTest)
+      LotaNativeTest.stay_in_background
+      LotaNativeTest.tolerate_vanished_requestors if LotaNativeTest.respond_to?(:tolerate_vanished_requestors)
+    end
     true
   end
 end

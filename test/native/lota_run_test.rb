@@ -52,6 +52,14 @@ class LotaRunTest < Minitest::Test
     File.join(GAMES, name)
   end
 
+  # What a run that presses Return on dialogs (PRESS_RETURN) needs loaded
+  # first: on Linux, the library that answers them, from the build tree
+  # this process loaded the test extension from (NativeHelper.dialogs).
+  def answering_dialogs
+    dialogs = NativeHelper.dialogs(File.dirname(loaded("lota_native_test")))
+    dialogs.empty? ? {} : NativeHelper.preload(*dialogs)
+  end
+
   # conf.rb sizes and titles the window; main.rb reads them back in load,
   # then each callback prints its name. The first draw asks to quit, the
   # quit callback refuses once, and the second request ends the game with
@@ -405,7 +413,7 @@ class LotaRunTest < Minitest::Test
   def test_a_game_made_for_another_version_shows_loves_warning_in_a_dialog
     in_game("conf.rb" => "def Lota.conf(t) = (t.version = '11.3')\n",
       "main.rb" => "def Lota.load = (p Lota::Window.open?; Lota::Event.quit)\n") do |directory|
-      output, status = lota_run(directory, preload: PRESS_RETURN)
+      output, status = lota_run(directory, preload: PRESS_RETURN, environment: answering_dialogs)
 
       assert_predicate status, :success?, output
       assert_equal "#{self.class.version_warning('11.3')}true\ndialogs 1\n", output
@@ -422,7 +430,7 @@ class LotaRunTest < Minitest::Test
     { "'12.0'" => nil, "'12.0.0'" => nil, "'12'" => "12", "12.0" => "12", "nil" => "nil" }.each do |version, warned|
       in_game("conf.rb" => "def Lota.conf(t) = (t.version = #{version}; t.modules.window = false)\n",
         "main.rb" => "def Lota.load = Lota::Event.quit\n") do |directory|
-        output, status = lota_run(directory, preload: PRESS_RETURN)
+        output, status = lota_run(directory, preload: PRESS_RETURN, environment: answering_dialogs)
 
         assert_predicate status, :success?, output
         assert_equal "#{warned && self.class.version_warning(warned)}dialogs 0\n", output, version
@@ -435,8 +443,8 @@ class LotaRunTest < Minitest::Test
   # unless the game is fused, then its identity (ADR 003, section 8;
   # physfs/Filesystem.cpp:608-616).
   def self.save_directory(identity, fused: false)
-    support = File.join(File.realpath(ENV.fetch("CFFIXED_USER_HOME")), "Library/Application Support")
-    File.join(*[support, ("Lota" unless fused), identity].compact)
+    support = TestHome.application_data(ENV.fetch("LOTA_TEST_HOME"))
+    File.join(*[support, (TestHome::LOTA_FOLDER unless fused), identity].compact)
   end
 
   # boot.lua names the save directory after the game's folder, without
@@ -506,7 +514,7 @@ class LotaRunTest < Minitest::Test
   def test_the_audio_device_closes_at_exit
     Dir.mktmpdir("lota-run-test-home") do |home|
       in_game("main.rb" => "def Lota.load = Lota::Event.quit\n") do |directory|
-        output, status = lota_run(directory, environment: { "CFFIXED_USER_HOME" => home })
+        output, status = lota_run(directory, environment: TestHome.environment(home))
 
         assert_predicate status, :success?, output
         wave = File.binread(File.join(home, "alsoft.wav"))

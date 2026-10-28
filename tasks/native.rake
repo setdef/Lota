@@ -23,6 +23,12 @@ namespace :engine do
   task configure: NATIVE_MAKEFILE
 end
 
+# The engine links LÖVE's Linux dependencies (tasks/engine.rake), so it is
+# configured again once they are built: a file task, so that a configure
+# waits for them without running again when they are current.
+DEPENDENCIES = (ENGINE_PLATFORM == "linux") ? [LINUX_BUILD.dependencies_stamp] : []
+file NATIVE_MAKEFILE => DEPENDENCIES
+
 # rake-compiler rebuilds the bundle only when a file it knows of changes,
 # and it knows only C files directly under ext/lota. CMake knows every
 # dependency, LÖVE's sources among them, and a build with nothing to do
@@ -35,7 +41,7 @@ file "#{NATIVE_TMP}/#{NATIVE.binary(NATIVE.platform)}" => "compile:cmake"
 SANITIZED = SanitizedBuild.new(build: "tmp/sanitize/build")
 SANITIZED_EXT = "tmp/sanitize/ext"
 directory SANITIZED_EXT
-file "#{SANITIZED_EXT}/Makefile" => [SANITIZED_EXT, "ext/lota/extconf.rb"] do
+file "#{SANITIZED_EXT}/Makefile" => [SANITIZED_EXT, "ext/lota/extconf.rb", *DEPENDENCIES] do
   ruby File.expand_path("ext/lota/extconf.rb"), "--with-cmake-build-dir=#{File.expand_path('tmp/sanitize/build')}",
     "--enable-native-test", "--enable-sanitizers", chdir: SANITIZED_EXT
 end

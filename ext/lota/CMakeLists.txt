@@ -10,7 +10,12 @@
 cmake_minimum_required(VERSION 3.25)
 
 include(cmake/Platform.cmake)
-project(lota C CXX OBJC OBJCXX)
+project(lota C CXX)
+# LÖVE's macOS sources include Objective-C and Objective-C++ (src/common/
+# apple.mm, the Metal renderer), and the test extension's dialogs.mm.
+if(APPLE)
+	enable_language(OBJC OBJCXX)
+endif()
 
 # As LÖVE's CMakeLists.txt sets them (vendor/love/CMakeLists.txt:31-32); a
 # Ruby extension is a shared library, so it needs position-independent code.
@@ -38,25 +43,37 @@ if(LOTA_SANITIZE)
 		-fsanitize=address,undefined
 		# Clang 21 took the vptr check out of "undefined" (llvm-project
 		# 038731c709c6, #121115); Apple clang 17, in every Xcode the macos-15
-		# runner has, still puts it in. That check runs before ASan's on a
-		# member call, and on a freed object it reads the vptr slot, where
-		# ASan's allocator has written the free stack's id (asan_allocator.cpp,
-		# ChunkBase, "Header2, intersects with user memory"). So it reports a
-		# use-after-free as "invalid vptr", without the stacks that freed and
-		# allocated it, and ends the process before ASan can. Turning it off
-		# makes every Xcode check the same set.
+		# runner has, still puts it in, and so does GCC. That check runs
+		# before ASan's on a member call, and on a freed object it reads the
+		# vptr slot, where ASan's allocator has written the free stack's id
+		# (asan_allocator.cpp, ChunkBase, "Header2, intersects with user
+		# memory"). So it reports a use-after-free as "invalid vptr", without
+		# the stacks that freed and allocated it, and ends the process before
+		# ASan can. Turning it off makes every compiler check the same set.
 		-fno-sanitize=vptr
 		# A sanitizer report ends the process, so a test cannot pass after one.
 		-fno-sanitize-recover=all
-		-fno-omit-frame-pointer
-		# Ruby's garbage collector finds live objects by scanning the machine
-		# stack. ASan's use-after-return detection moves locals to a heap
-		# "fake stack" the collector never scans, so a Ruby object held only
-		# in a local would be collected while still in use.
-		-fsanitize-address-use-after-return=never
-		# The few checks left out of LÖVE's code, each in one function, with
-		# why (cmake/sanitizer_ignorelist.txt).
-		-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer_ignorelist.txt)
+		-fno-omit-frame-pointer)
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		list(APPEND LOTA_SANITIZER_FLAGS
+			# Ruby's garbage collector finds live objects by scanning the
+			# machine stack. ASan's use-after-return detection moves locals to
+			# a heap "fake stack" the collector never scans, so a Ruby object
+			# held only in a local would be collected while still in use.
+			-fsanitize-address-use-after-return=never
+			# The few checks left out of LÖVE's code, each in one function,
+			# with why (cmake/sanitizer_ignorelist.txt).
+			-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer_ignorelist.txt)
+	else()
+		list(APPEND LOTA_SANITIZER_FLAGS
+			# GCC's way of the same: no fake stack for use-after-return (GCC's
+			# manual, "Options That Control Optimization", asan-use-after-return).
+			# GCC has no ignorelist, and needs none: the one check
+			# cmake/sanitizer_ignorelist.txt leaves out, float-cast-overflow,
+			# is not part of GCC's -fsanitize=undefined ("Program
+			# Instrumentation Options", -fsanitize=float-cast-overflow).
+			--param=asan-use-after-return=0)
+	endif()
 	add_compile_options(${LOTA_SANITIZER_FLAGS})
 	add_link_options(-fsanitize=address,undefined -fno-sanitize=vptr)
 endif()

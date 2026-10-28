@@ -19,9 +19,29 @@ module NativeHelper
   ROOT = File.expand_path("../..", __dir__)
 
   # The environment for build tools the tests run. Under rake test:native
-  # this process carries DYLD_INSERT_LIBRARIES, which would load ASan into
-  # the compiler and nm too; they are not built for it.
-  TOOL_ENV = { "DYLD_INSERT_LIBRARIES" => nil }.freeze
+  # this process carries DYLD_INSERT_LIBRARIES, or LD_PRELOAD on Linux,
+  # which would load ASan into the compiler and nm too; they are not built
+  # for it.
+  TOOL_ENV = { "DYLD_INSERT_LIBRARIES" => nil, "LD_PRELOAD" => nil }.freeze
+
+  # The environment that loads +libraries+ into a program before anything
+  # else: with DYLD_INSERT_LIBRARIES on macOS, and LD_PRELOAD on Linux,
+  # after a sanitizer runtime this process was started with, which ASan
+  # needs first on Linux (tasks/sanitized_build.rb).
+  def self.preload(*libraries)
+    return { "DYLD_INSERT_LIBRARIES" => libraries.join(":") } unless TestHome::LINUX
+
+    { "LD_PRELOAD" => [ENV.fetch("LD_PRELOAD", nil), *libraries].compact.join(" ") }
+  end
+
+  # On Linux, the libraries in the build tree's +lib+ that a program which
+  # calls LotaNativeTest.press_return_on_dialogs, or whose Lua presses
+  # Return on dialogs, needs loaded (ext/lota/native_test/
+  # answer_dialogs_linux.cpp). On macOS the test extension presses it
+  # through AppKit, and needs none.
+  def self.dialogs(lib)
+    TestHome::LINUX ? [File.join(lib, "liblota_dialogs.so")] : []
+  end
 
   # Runs +command+ and returns its standard output and standard error,
   # interleaved, and its Process::Status, as Open3.capture2e does.

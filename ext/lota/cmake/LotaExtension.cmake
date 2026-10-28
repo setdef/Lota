@@ -25,8 +25,9 @@ find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
 # in the build tree, that exports Init_<name> and nothing else.
 #
 # <load directory> is where the bundle is loaded from. The rpaths to LÖVE's
-# frameworks are relative to it (@loader_path), never absolute, so nothing
-# in the bundle names a path on the machine that built it.
+# frameworks, or on Linux its shared libraries, are relative to it
+# (@loader_path, or $ORIGIN), never absolute, so nothing in the bundle
+# names a path on the machine that built it.
 function(lota_ruby_extension target feature load_directory)
 	get_filename_component(name ${feature} NAME)
 	get_filename_component(directory ${feature} DIRECTORY)
@@ -53,6 +54,20 @@ function(lota_ruby_extension target feature load_directory)
 	target_link_libraries(${target} PRIVATE Ruby::Module lota_engine)
 	lota_strict_warnings(${target})
 
+	# The linker's map of the bundle: every object file it took, from the
+	# engine's archive among them. The precompiled gem reads it to learn
+	# which libraries the bundle carries, and so which licenses it must
+	# record (tasks/native_gem.rb).
+	set(map ${CMAKE_BINARY_DIR}/lib/${directory}/${name}.map)
+	if(APPLE)
+		lota_link_macos(${target} ${name} ${map} ${load_directory})
+	else()
+		lota_link_linux(${target} ${name} ${map} ${load_directory})
+	endif()
+endfunction()
+
+# Apple's linker, for a bundle loaded from <load directory>.
+function(lota_link_macos target name map load_directory)
 	# Hidden visibility covers Lota's code and Rice's, but the engine's
 	# archive was compiled with default visibility, so the linker is told
 	# what to export. Each bundle then keeps its own copy of Rice's
@@ -63,15 +78,36 @@ function(lota_ruby_extension target feature load_directory)
 	# links every framework LÖVE needs, and a bundle that binds no window
 	# needs none of them at load time.
 	target_link_options(${target} PRIVATE "LINKER:-dead_strip_dylibs")
-	# The linker's map of the bundle: every object file it took, from the
-	# engine's archive among them. The precompiled gem reads it to learn
-	# which libraries the bundle carries, and so which licenses it must
-	# record (tasks/native_gem.rb).
-	target_link_options(${target} PRIVATE
-		"LINKER:-map,${CMAKE_BINARY_DIR}/lib/${directory}/${name}.map")
+	target_link_options(${target} PRIVATE "LINKER:-map,${map}")
 
-	foreach(frameworks IN LISTS ENGINE_FRAMEWORK_DIRS)
+	foreach(frameworks IN LISTS ENGINE_LIBRARY_DIRS)
 		file(RELATIVE_PATH relative ${load_directory} ${frameworks})
 		target_link_options(${target} PRIVATE "LINKER:-rpath,@loader_path/${relative}")
 	endforeach()
+endfunction()
+
+# GNU ld, for a shared object loaded from <load directory>: the same three
+# things Apple's linker is told, in its terms.
+function(lota_link_linux target name map load_directory)
+	# Export Init_<name> alone, as -exported_symbol does: a version script
+	# makes every other symbol local, the engine archive's among them, so
+	# each extension keeps its own copy of Rice's registries and LÖVE's
+	# statics instead of the dynamic linker binding them to another's.
+	set(script ${CMAKE_CURRENT_BINARY_DIR}/${name}.version)
+	file(WRITE ${script} "{ global: Init_${name}; local: *; };\n")
+	target_link_options(${target} PRIVATE "LINKER:--version-script=${script}")
+	set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${script})
+	# Record only the libraries the extension uses, as -dead_strip_dylibs.
+	target_link_options(${target} PRIVATE "LINKER:--as-needed")
+	target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
+
+	# Only rpaths relative to the extension ($ORIGIN), never the absolute
+	# ones CMake adds for each library it links by path, so nothing in it
+	# names a path on the machine that built it.
+	set(rpaths)
+	foreach(libraries IN LISTS ENGINE_LIBRARY_DIRS)
+		file(RELATIVE_PATH relative ${load_directory} ${libraries})
+		list(APPEND rpaths "\$ORIGIN/${relative}")
+	endforeach()
+	set_target_properties(${target} PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH "${rpaths}")
 endfunction()

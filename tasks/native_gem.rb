@@ -12,32 +12,43 @@ require "rbconfig"
 require "rubygems/package"
 require "stringio"
 require_relative "licensing"
+require_relative "native_format"
 require_relative "package_check"
 require_relative "source_archive"
 
-# Builds Lota's precompiled gem for Apple Silicon macOS.
+# Builds Lota's precompiled gem for the platform it runs on: Apple Silicon
+# macOS (arm64-darwin), or Linux with glibc on x86_64 or arm64
+# (x86_64-linux-gnu, aarch64-linux-gnu).
 #
 # The source gem cannot build Lota's extension once installed: the build
-# needs LÖVE's sources and love-apple-dependencies' frameworks, which live
-# in vendor/ and do not ship. So Lota ships what rake compile built, as
-# rake-compiler's native gems do: the gem's platform is arm64-darwin, it
-# has no extension to compile, and the compiled bundle sits where
-# require "lota/native" finds it. gem install copies files and builds
-# nothing, so it needs neither Rice nor CMake.
+# needs LÖVE's sources and its dependencies (love-apple-dependencies'
+# frameworks, or on Linux the libraries `rake dependencies` builds), which
+# do not ship. So Lota ships what rake compile built, as rake-compiler's
+# native gems do: the gem's platform is the build's, it has no extension
+# to compile, and the compiled bundle sits where require "lota/native"
+# finds it. gem install copies files and builds nothing, so it needs
+# neither Rice nor CMake.
 #
-# The bundle loads LÖVE's frameworks through @rpath, and rake compile's
-# bundle points its rpaths into vendor/. The gem carries each framework
-# the bundle loads, in lib/lota/frameworks, and the bundle's rpaths are
-# replaced by one into that directory (@loader_path/frameworks). Each
-# framework ships as the one version directory its install name names
-# (Versions/A), without the symlinks around it, on which RubyGems warns,
-# without its headers, and with only its arm64 code.
+# The bundle loads LÖVE's libraries through rpaths relative to itself,
+# which rake compile's bundle points into vendor/ or tmp/. The gem carries
+# each library the bundle loads, and what those load, in a directory of
+# its own beside the bundle, and the bundle's rpaths are replaced by one
+# into that directory, each in its platform's terms (NativeFormat):
 #
-# Changing a Mach-O file invalidates its code signature, and SDL3's
-# signature in love-apple-dependencies seals a file its checkout lacks
-# (LICENSE.txt, checked out as License.txt), so the bundle and every
-# framework are signed again ad hoc, as love-apple-dependencies signs
-# them, and verified with codesign --verify --strict.
+# - On macOS, the frameworks go in lib/lota/frameworks
+#   (@loader_path/frameworks), each as the one version directory its
+#   install name names (Versions/A), without the symlinks around it, on
+#   which RubyGems warns, without its headers, and with only its arm64
+#   code. Changing a Mach-O file invalidates its code signature, and
+#   SDL3's signature in love-apple-dependencies seals a file its checkout
+#   lacks (LICENSE.txt, checked out as License.txt), so the bundle and
+#   every framework are signed again ad hoc, as love-apple-dependencies
+#   signs them, and verified with codesign --verify --strict.
+# - On Linux, the libraries go in lib/lota/libraries ($ORIGIN/libraries),
+#   each as a file named for the soname it is needed by, without its
+#   debugging information, and with its own rpath pointed at that
+#   directory ($ORIGIN), as LÖVE's AppImage carries them. Only glibc's and
+#   GCC's C++ runtime libraries come from the system.
 #
 # The gem is a REUSE project (REUSE Specification 3.3), as the
 # repository is: its REUSE.toml is the repository's, with an annotation
@@ -51,25 +62,16 @@ require_relative "source_archive"
 # framework, or a file the bundle compiled, that the record lacks stops
 # the build, and so does a gem the REUSE tool does not call compliant.
 #
-# A framework whose license asks for its source code with its object code,
+# A library whose license asks for its source code with its object code,
 # as OpenAL Soft's does, carries the archive of that source in the gem's
 # sources/, from where rake sources:fetch keeps it, checked against the
 # SHA-256 the record gives; the build stops without it.
 class NativeGem
-  # The platform the bundle is built for.
-  PLATFORM = "arm64-darwin"
-
-  # Where the frameworks go in the gem, relative to the bundle.
-  FRAMEWORKS = "frameworks"
-
-  # The framework version directory a @rpath install name names.
-  VERSION = PackageCheck::FRAMEWORK_VERSION
-
-  # Development files in a framework's version directory.
-  DEVELOPMENT = %w[Headers Resources/CMake].freeze
-
   # The record of who wrote what the gem carries.
   attr_reader :licensing
+
+  # How the platform holds compiled code (NativeFormat).
+  attr_reader :format
 
   # Where the gem's license texts go, as REUSE asks.
   LICENSES = "LICENSES"
@@ -87,13 +89,31 @@ class NativeGem
   # [licenses] Directories of license texts, relative to +root+: LICENSES
   #   and ext/lota/licenses, whose LICENSE-<identifier>.txt files the gem
   #   ships as LICENSES/<identifier>.txt.
-  def initialize(root:, gemspec:, bundle:, build:, licensing:, licenses:)
+  # [format] The NativeFormat of the platform the bundle was built on.
+  # [dependencies] Where LÖVE's dependencies' headers are, relative to
+  #   +root+, which the bundle compiled against but does not carry.
+  def initialize(root:, gemspec:, bundle:, build:, licensing:, licenses:, format: NativeFormat.host,
+    dependencies: "vendor/love-apple-dependencies"
+  )
     @root = root
     @gemspec = gemspec
     @bundle = bundle
     @build = build
     @licensing = licensing
     @licenses = licenses
+    @format = format
+    @dependencies = dependencies
+  end
+
+  # The platform of the gem it builds.
+  def platform
+    @format.platform
+  end
+
+  # Where the gem carries the libraries the bundle loads, relative to the
+  # gem.
+  def library_dir
+    File.join(File.dirname(@bundle), @format.directory)
   end
 
   # The paths the gem builds for itself rather than copying from the
@@ -106,7 +126,7 @@ class NativeGem
   # Builds the gem in a staging directory under +work+ and returns the
   # path of the .gem file, also under +work+.
   def build(work)
-    frameworks = framework_sources
+    libraries = library_sources
     works = bundled_works
     stage = File.join(work, "stage")
     FileUtils.rm_rf(stage)
@@ -114,9 +134,9 @@ class NativeGem
     files = spec.files.reject { |file| file.start_with?("#{LICENSES}/") }
     files.each { |file| copy(File.join(@root, file), File.join(stage, file)) }
     files += stage_bundle(stage)
-    files += frameworks.flat_map { |name, source| stage_framework(stage, name, source) }
-    files += stage_sources(stage, frameworks.keys)
-    files += stage_licensing(stage, works, frameworks.keys)
+    files += libraries.flat_map { |_, source| formatted { @format.stage_library(stage, library_dir, source) } }
+    files += stage_sources(stage, libraries.keys)
+    files += stage_licensing(stage, works, libraries.keys)
     package(native_spec(spec, files), stage, work)
   end
 
@@ -128,15 +148,21 @@ class NativeGem
     Gem::Requirement.new(*source.requirements.map { |op, version| "#{op} #{version}" }, "< #{major}.#{minor + 1}.dev")
   end
 
-  # Each framework the bundle loads, by name, with its directory in the
-  # repository. Fails on one the record lacks.
-  private def framework_sources
+  # Each library the bundle loads, frameworks on macOS, by name, with its
+  # path in the repository. Fails on one the record lacks.
+  private def library_sources
     bundle = File.join(@root, @bundle)
-    PackageCheck.rpath_dependencies(bundle).to_h do |relative|
+    formatted { @format.dependencies(bundle) }.to_h do |relative|
       name = File.basename(relative)
       recorded { @licensing.framework_for(name) }
       [name, File.expand_path(relative, File.dirname(bundle))]
     end
+  end
+
+  private def formatted
+    yield
+  rescue NativeFormat::Failure => e
+    raise PackageCheck::Failure, e.message
   end
 
   # The works the bundle carries, from the linker's map of the bundle the
@@ -155,15 +181,13 @@ class NativeGem
   end
 
   # What the bundle reads that is not code it carries, so the record need
-  # not cover it: the toolchain's and the SDK's headers and runtime, Ruby's
-  # headers, which every extension compiles against, and the frameworks'
-  # headers, whose code ships in the frameworks the bundle loads, each
-  # recorded on its own. The maintainer confirmed this scope.
+  # not cover it: the toolchain's and the SDK's headers and runtime (on
+  # Linux, the system's compiler and glibc's, under /usr), Ruby's headers,
+  # which every extension compiles against, and the libraries' headers,
+  # whose code ships in the libraries the bundle loads, each recorded on
+  # its own. The maintainer confirmed this scope.
   private def outside
-    developer, status = Open3.capture2e("xcode-select", "--print-path")
-    raise PackageCheck::Failure, "xcode-select --print-path failed:\n#{developer}" unless status.success?
-
-    [developer.strip, RbConfig::CONFIG.fetch("rubyhdrdir"), File.join(@root, "vendor/love-apple-dependencies")]
+    [*formatted { @format.toolchain }, RbConfig::CONFIG.fetch("rubyhdrdir"), File.join(@root, @dependencies)]
       .map { |dir| File.join(dir, "") }
   end
 
@@ -180,27 +204,8 @@ class NativeGem
   private def stage_bundle(stage)
     bundle = File.join(stage, @bundle)
     copy(File.join(@root, @bundle), bundle)
-    rpaths = PackageCheck.otool("-l", bundle).scan(/^\s+path (\S+) \(offset \d+\)$/).flatten
-    run!("install_name_tool", *rpaths.flat_map { |rpath| ["-delete_rpath", rpath] }, "-add_rpath",
-      "@loader_path/#{FRAMEWORKS}", bundle)
-    sign(bundle)
+    formatted { @format.stage_bundle(bundle) }
     [@bundle]
-  end
-
-  private def stage_framework(stage, name, source)
-    relative = File.join(File.dirname(@bundle), FRAMEWORKS, name, VERSION)
-    target = File.join(stage, relative)
-    FileUtils.mkdir_p(File.dirname(target))
-    FileUtils.cp_r(File.join(source, VERSION), target)
-    DEVELOPMENT.each { |path| FileUtils.rm_rf(File.join(target, path)) }
-    binary = File.join(target, File.basename(name, ".framework"))
-    run!("lipo", binary, "-thin", "arm64", "-output", binary) if run!("lipo", "-archs", binary).split.size > 1
-    sign(target)
-    Dir.glob("**/*", File::FNM_DOTMATCH, base: target).filter_map do |path|
-      raise PackageCheck::Failure, "#{name} holds a symlink, #{path}" if File.symlink?(File.join(target, path))
-
-      File.join(relative, path) if File.file?(File.join(target, path))
-    end
   end
 
   # Copies the source archive of each of +frameworks+ that records one
@@ -221,7 +226,9 @@ class NativeGem
   # the REUSE tool. Every license text goes in first, and the ones no file
   # uses come out, so what remains is exactly what REUSE asks for.
   private def stage_licensing(stage, works, frameworks)
-    annotations = @licensing.annotations(bundle: @bundle, works:, framework_dir:, frameworks:)
+    annotations = @licensing.annotations(bundle: @bundle, works:, frameworks: frameworks.to_h do |name|
+      [name, @format.annotation(File.join(library_dir, name))]
+    end)
     File.write(File.join(stage, REUSE_TOML), "#{File.read(File.join(@root, REUSE_TOML))}\n#{annotations}")
     texts = license_texts
     texts.each { |identifier, source| copy(source, File.join(stage, LICENSES, "#{identifier}.txt")) }
@@ -243,10 +250,6 @@ class NativeGem
     end
   end
 
-  private def framework_dir
-    File.join(File.dirname(@bundle), FRAMEWORKS)
-  end
-
   # The REUSE tool's report on the directory +dir+.
   private def reuse_lint(dir)
     output, = Open3.capture2("reuse", "--root", dir, "lint", "--json")
@@ -257,7 +260,7 @@ class NativeGem
 
   private def native_spec(source, files)
     source.dup.tap do |spec|
-      spec.platform = Gem::Platform.new(PLATFORM)
+      spec.platform = Gem::Platform.new(platform)
       spec.required_ruby_version = self.class.required_ruby_version(source.required_ruby_version)
       spec.extensions = []
       spec.files = files
@@ -281,22 +284,8 @@ class NativeGem
     raise PackageCheck::Failure, "#{spec.file_name} did not build: #{e.message}\n#{messages.string}"
   end
 
-  # Signs +path+ ad hoc, replacing any signature, and verifies it as
-  # Gatekeeper would.
-  private def sign(path)
-    run!("codesign", "--force", "--sign", "-", path)
-    run!("codesign", "--verify", "--strict", "--verbose=2", path)
-  end
-
   private def copy(source, target)
     FileUtils.mkdir_p(File.dirname(target))
     FileUtils.cp(source, target, preserve: true)
-  end
-
-  private def run!(*command)
-    output, status = Open3.capture2e(*command)
-    raise PackageCheck::Failure, "#{command.join(' ')} failed:\n#{output}" unless status.success?
-
-    output
   end
 end

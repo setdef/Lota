@@ -68,10 +68,12 @@ class ExtconfTest < Minitest::Test
 
       install = run!(root, "make", "-n", "install", "sitearchdir=/site", "target_prefix=/lota", "DESTDIR=/dest")
       assert_includes install, "cmake --build #{build}\n"
-      assert_includes install, "cp #{build}/lib/lota/native.bundle native.bundle\n"
+      bundle = "native.#{RbConfig::CONFIG['DLEXT']}"
+      assert_includes install, "cp #{build}/lib/lota/#{bundle} #{bundle}\n"
       assert_includes install, "mkdir -p /dest/site/lota\n"
-      assert_includes install, "cp native.bundle /dest/site/lota/native.bundle\n"
-      assert_equal "rm -f native.bundle\n", run!(root, "make", "-n", "clean")
+      assert_includes install, "cp #{bundle} /dest/site/lota/#{bundle}.new\n"
+      assert_includes install, "mv -f /dest/site/lota/#{bundle}.new /dest/site/lota/#{bundle}\n"
+      assert_equal "rm -f #{bundle}\n", run!(root, "make", "-n", "clean")
     end
   end
 
@@ -84,7 +86,7 @@ class ExtconfTest < Minitest::Test
 
       refute status.success?
       assert_includes output, "Lota builds LÖVE's engine from vendor/love, which is missing from #{root}."
-      assert_includes output, "(platform arm64-darwin) and Ruby 4.0"
+      assert_includes output, "4.0 on Apple Silicon macOS (platform arm64-darwin) and on Linux with\nglibc on x86_64 or arm64 (x86_64-linux-gnu, aarch64-linux-gnu)"
       assert_includes output, "git submodule update --init"
       refute_path_exists File.join(root, "Makefile")
     end

@@ -3,8 +3,9 @@
 
 // liblota_loopback: the parity harness's audio device (native_test/
 // CMakeLists.txt). The harness loads it into both engines' processes, the
-// reference love's and Lota's, with DYLD_INSERT_LIBRARIES, and it changes
-// one thing there: the device OpenAL Soft gives LÖVE's audio module.
+// reference love's and Lota's, with DYLD_INSERT_LIBRARIES on macOS and
+// LD_PRELOAD on Linux, and it changes one thing there: the device OpenAL
+// Soft gives LÖVE's audio module.
 //
 // LÖVE opens the system's default playback device with
 // alcOpenDevice(nullptr) and a context on it with alcCreateContext
@@ -14,16 +15,24 @@
 // wall clock says another 20 milliseconds have gone by (OpenAL Soft 1.24.3,
 // alc/backends/wave.cpp, WaveBackend::mixerProc), so where a sound starts in
 // its file depends on how fast the engine ran. This library interposes both
-// calls (dyld's __interpose section), so that LÖVE gets an OpenAL Soft
-// loopback device instead (ALC_SOFT_loopback), which mixes only when told
-// to, and lota_loopback_render tells it to once a frame, from each side of
-// the harness, for the frame's fixed dt. LÖVE's own code, and OpenAL Soft's
-// mixer (DeviceBase::renderSamples, which the wave writer's thread and
-// alcRenderSamplesSOFT both call), are the same as in any run; what changes
-// is only when the mixer runs, which is now on game time.
+// calls (dyld's __interpose section on macOS; on Linux, definitions of its
+// own, which LD_PRELOAD puts ahead of OpenAL Soft's), so that LÖVE gets an
+// OpenAL Soft loopback device instead (ALC_SOFT_loopback), which mixes only
+// when told to, and lota_loopback_render tells it to once a frame, from each
+// side of the harness, for the frame's fixed dt. LÖVE's own code, and OpenAL
+// Soft's mixer (DeviceBase::renderSamples, which the wave writer's thread
+// and alcRenderSamplesSOFT both call), are the same as in any run; what
+// changes is only when the mixer runs, which is now on game time.
 
+#ifdef __APPLE__
 #include <OpenAL-Soft/alc.h>
 #include <OpenAL-Soft/alext.h>
+#else
+#include <AL/alc.h>
+#include <AL/alext.h>
+
+#include <dlfcn.h>
+#endif
 
 #include <cmath>
 #include <cstddef>
@@ -67,6 +76,24 @@ std::FILE *output(const char *path) {
   return file;
 }
 
+#ifdef __APPLE__
+// OpenAL Soft's own alcCreateContext. dyld interposes calls from every
+// image but this one, so this library calls it by name.
+ALCcontext *real_create_context(ALCdevice *target, const ALCint *attributes) {
+  return alcCreateContext(target, attributes);
+}
+#else
+// OpenAL Soft's own alcCreateContext: the next definition after this
+// library's own (dlsym's RTLD_NEXT), since a call by name from here would
+// reach this library's definition, which comes first.
+ALCcontext *real_create_context(ALCdevice *target, const ALCint *attributes) {
+  void *const symbol = dlsym(RTLD_NEXT, "alcCreateContext");
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto *const create = reinterpret_cast<decltype(&alcCreateContext)>(symbol);
+  return create == nullptr ? nullptr : create(target, attributes);
+}
+#endif
+
 // alcOpenDevice, interposed: a loopback device, whatever device was asked
 // for, as LÖVE asks for the default one.
 ALCdevice *open_loopback(const ALCchar * /*name*/) noexcept {
@@ -91,7 +118,7 @@ std::span<const ALCint> attributes_of(const ALCint *list) {
 // alcCreateContext fails, with nullptr, if the list cannot be copied.
 ALCcontext *create_context(ALCdevice *target, const ALCint *attributes) noexcept {
   if (target == nullptr || target != device()) {
-    return alcCreateContext(target, attributes);
+    return real_create_context(target, attributes);
   }
   try {
     const std::span<const ALCint> given = attributes_of(attributes);
@@ -105,12 +132,13 @@ ALCcontext *create_context(ALCdevice *target, const ALCint *attributes) noexcept
                                 rate,
                                 0,
                             });
-    return alcCreateContext(target, list.data());
+    return real_create_context(target, list.data());
   } catch (...) {
     return nullptr;
   }
 }
 
+#ifdef __APPLE__
 // One of dyld's interpose tuples (mach-o/dyld-interposing.h): where calls
 // to the second function go instead.
 template <typename Function> struct Interpose {
@@ -128,8 +156,24 @@ template <typename Function> struct Interpose {
     .replacement = &create_context,
     .replacee = &alcCreateContext,
 };
+#endif
 
 } // namespace
+
+#ifndef __APPLE__
+// On Linux, LD_PRELOAD puts this library's definitions ahead of OpenAL
+// Soft's, so every call to alcOpenDevice and alcCreateContext from the
+// engine reaches these.
+extern "C" __attribute__((visibility("default"))) ALCdevice *
+alcOpenDevice(const ALCchar *name) noexcept {
+  return open_loopback(name);
+}
+
+extern "C" __attribute__((visibility("default"))) ALCcontext *
+alcCreateContext(ALCdevice *target, const ALCint *attributes) noexcept {
+  return create_context(target, attributes);
+}
+#endif
 
 // Mixes +dt+ more seconds of game time on the loopback device and appends
 // the samples to the file +path+, which the first call opens, as 32-bit

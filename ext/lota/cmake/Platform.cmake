@@ -4,6 +4,10 @@
 # Settings that have to reach CMake before project(), which probes the
 # compilers with them. Include this file first.
 
+if(NOT CMAKE_HOST_APPLE)
+	return()
+endif()
+
 # Every love-apple-dependencies binary is built for macOS 11.0 (LC_BUILD_VERSION
 # minos 11.0), and this SDK's libc++ warns below 11.0, although LÖVE's Xcode
 # project says 10.15 (vendor/love/platform/xcode/love.xcodeproj/project.pbxproj:584).

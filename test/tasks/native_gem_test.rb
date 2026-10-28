@@ -18,6 +18,11 @@ class NativeGemTest < Minitest::Test
   include TreeHelper
 
   BUNDLE = "lib/lota/native.#{RbConfig::CONFIG['DLEXT']}".freeze
+
+  # The platform the gem is built on, which it is built for.
+  LINUX = RUBY_PLATFORM.include?("linux")
+  FORMAT = NativeFormat.host
+
   SDL3 = "lib/lota/frameworks/SDL3.framework/Versions/A"
   FRAMEWORKS = %w[
     SDL3.framework
@@ -29,6 +34,29 @@ class NativeGemTest < Minitest::Test
     ogg.framework
 ].freeze
 
+  # On Linux, the libraries the bundle needs, then what they need: SDL3
+  # for the window and events, FreeType and HarfBuzz for text, OpenAL Soft
+  # to play sound, libmodplug and libvorbisfile to decode it, and zlib,
+  # then libvorbis and libogg, which libvorbisfile needs.
+  LIBRARIES = %w[
+    libSDL3.so.0
+    libfreetype.so.6
+    libharfbuzz.so
+    libopenal.so.1
+    libmodplug.so.1
+    libvorbisfile.so.3
+    libz.so.1
+    libvorbis.so.0
+    libogg.so.0
+].freeze
+
+  # What the gem carries the bundle's dependencies as, and OpenAL Soft's
+  # and FreeType's names among them.
+  CARRIED = LINUX ? LIBRARIES : FRAMEWORKS
+  OPENAL = LINUX ? "libopenal.so.1" : "OpenAL-Soft.framework"
+  FREETYPE = LINUX ? "libfreetype.so.6" : "freetype.framework"
+  DIRECTORY = "lib/lota/#{FORMAT.directory}".freeze
+
   # The repository's own record, read afresh, so a test may take an entry
   # out of it.
   def self.licensing
@@ -38,7 +66,8 @@ class NativeGemTest < Minitest::Test
   # A NativeGem of rake compile's bundle, as rake package:native builds it.
   def self.native_gem(gemspec: "lota.gemspec", licensing: self.licensing)
     NativeGem.new(root: ROOT, gemspec:, bundle: BUNDLE, build: "tmp/engine/build", licensing:,
-      licenses: %w[LICENSES ext/lota/licenses])
+      licenses: %w[LICENSES ext/lota/licenses],
+      dependencies: LINUX ? "tmp/dependencies/installdir" : "vendor/love-apple-dependencies")
   end
 
   # The built gem's specification and the directory it unpacked to.
@@ -60,10 +89,16 @@ class NativeGemTest < Minitest::Test
     Open3.capture2e("codesign", "--verify", "--strict", "--verbose=2", path)
   end
 
-  def test_it_is_a_platform_gem_for_apple_silicon_and_this_rubys_minor_version
-    assert_equal Gem::Platform.new("arm64-darwin"), spec.platform
-    assert_equal "lota-#{spec.version}-arm64-darwin.gem", spec.file_name
+  # Apple Silicon on macOS; on Linux, this machine's processor with glibc,
+  # which RubyGems does not match on musl.
+  def test_it_is_a_platform_gem_for_this_machine_and_this_rubys_minor_version
+    platform = LINUX ? "#{RbConfig::CONFIG['host_cpu']}-linux-gnu" : "arm64-darwin"
+
+    assert_equal Gem::Platform.new(platform), spec.platform
+    assert_equal "lota-#{spec.version}-#{platform}.gem", spec.file_name
     assert_equal Gem::Requirement.new(">= 4.0.1", "< 4.1.dev"), spec.required_ruby_version
+    assert spec.platform =~ Gem::Platform.local
+    refute spec.platform =~ Gem::Platform.new("#{RbConfig::CONFIG['host_cpu']}-linux-musl") if LINUX
   end
 
   # gem install compiles nothing, and so needs neither Rice nor CMake.
@@ -78,9 +113,13 @@ class NativeGemTest < Minitest::Test
     assert_empty source.grep_v(%r{\ALICENSES/}) - spec.files
     assert_includes spec.files, BUNDLE
     assert_includes spec.files, "REUSE.toml"
-    FRAMEWORKS.each { |name| assert_includes spec.files, "lib/lota/frameworks/#{name}/Versions/A/Resources/Info.plist" }
-    assert_includes spec.files, "#{SDL3}/SDL3"
-    assert_includes spec.files, "#{SDL3}/_CodeSignature/CodeResources"
+    if LINUX
+      assert_equal LIBRARIES.map { |name| "#{DIRECTORY}/#{name}" }.sort, spec.files.grep(%r{\A#{DIRECTORY}/}).sort
+    else
+      FRAMEWORKS.each { |name| assert_includes spec.files, "lib/lota/frameworks/#{name}/Versions/A/Resources/Info.plist" }
+      assert_includes spec.files, "#{SDL3}/SDL3"
+      assert_includes spec.files, "#{SDL3}/_CodeSignature/CodeResources"
+    end
     assert_empty spec.files.grep(%r{\ANOTICES/})
   end
 
@@ -94,7 +133,8 @@ class NativeGemTest < Minitest::Test
 
   # LICENSES holds what the gem's files use: the licenses of the
   # frameworks and bundled libraries, from ext/lota/licenses, but not the
-  # repository's CC0-1.0 or MIT-0, which only files the gem leaves out use.
+  # repository's CC0-1.0, which on macOS only files the gem leaves out use;
+  # on Linux, SDL's dlmalloc is under it too.
   def test_the_gem_ships_the_license_texts_its_files_use_and_no_other
     licenses = spec.files.grep(%r{\ALICENSES/}).map { |path| File.basename(path, ".txt") }
 
@@ -107,7 +147,11 @@ class NativeGemTest < Minitest::Test
     assert_includes licenses, "AGPL-3.0-or-later"
     assert_includes licenses, "MIT-0"
     assert_includes licenses, "LicenseRef-libmodplug-Public-Domain"
-    refute_includes licenses, "CC0-1.0"
+    if LINUX
+      %w[CC0-1.0 SunPro HPND-sell-variant bzip2-1.0.6 TU-Berlin-1.0].each { |id| assert_includes licenses, id }
+    else
+      refute_includes licenses, "CC0-1.0"
+    end
     assert_equal File.read(File.join(ROOT, "ext/lota/licenses/LICENSE-FTL.txt")),
       File.read(File.join(unpacked, "LICENSES/FTL.txt"))
     assert_equal File.read(File.join(ROOT, "LICENSES/Zlib.txt")), File.read(File.join(unpacked, "LICENSES/Zlib.txt"))
@@ -122,7 +166,7 @@ class NativeGemTest < Minitest::Test
 
     assert toml.start_with?(File.read(File.join(ROOT, "REUSE.toml")))
     assert_includes toml, %(path = "#{BUNDLE}")
-    FRAMEWORKS.each { |name| assert_includes toml, %(path = "lib/lota/frameworks/#{name}/**") }
+    CARRIED.each { |name| assert_includes toml, %(path = "#{FORMAT.annotation("#{DIRECTORY}/#{name}")}") }
     assert_includes toml, %("2005-2021 Lode Vandevenne")
     assert_includes toml, %("2006-2026 LOVE Development Team")
     assert_includes toml, %("OFL-1.1")
@@ -141,7 +185,8 @@ class NativeGemTest < Minitest::Test
     archive = File.join(unpacked, "sources/openal-soft-1.24.3.tar.bz2")
     licenses = spec.files.grep(%r{\ALICENSES/}).map { |path| File.basename(path, ".txt") }
 
-    assert_includes spec.files, "lib/lota/frameworks/OpenAL-Soft.framework/Versions/A/OpenAL-Soft"
+    assert_includes spec.files,
+      LINUX ? "#{DIRECTORY}/libopenal.so.1" : "lib/lota/frameworks/OpenAL-Soft.framework/Versions/A/OpenAL-Soft"
     assert_equal "cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892",
       Digest::SHA256.file(archive).hexdigest
     %w[LGPL-2.0-or-later GPL-2.0-or-later Python-2.0 LicenseRef-PFFFT].each { |id| assert_includes licenses, id }
@@ -175,12 +220,12 @@ class NativeGemTest < Minitest::Test
   # release recorded, or none at all, stops it.
   def test_a_source_archive_that_is_missing_or_not_the_one_recorded_stops_the_build
     licensing = self.class.licensing
-    recorded = licensing.frameworks.fetch("OpenAL-Soft.framework")
+    recorded = licensing.frameworks.fetch(OPENAL)
     in_tree do |work|
       wrong = File.join(work, "openal.tar.bz2")
       File.write(wrong, "not the release")
       relative = Pathname.new(wrong).relative_path_from(ROOT).to_s
-      licensing.frameworks["OpenAL-Soft.framework"] = recorded.with(source: recorded.source.with(path: relative))
+      licensing.frameworks[OPENAL] = recorded.with(source: recorded.source.with(path: relative))
       error = assert_raises(PackageCheck::Failure) { self.class.native_gem(licensing:).build(work) }
       assert_includes error.message, "#{relative} has SHA-256 #{Digest::SHA256.file(wrong).hexdigest}"
 
@@ -190,31 +235,55 @@ class NativeGemTest < Minitest::Test
     end
   end
 
-  # RubyGems warns on every symlink it packages, so the framework ships
-  # as the one version directory its install name names, with no headers.
-  def test_the_framework_ships_without_symlinks_headers_or_intel_code
-    framework = File.join(unpacked, "lib/lota/frameworks/SDL3.framework")
+  if LINUX
+    # RubyGems warns on every symlink it packages, so each library ships as
+    # a file named for the soname it is needed by, with its own rpath at
+    # its directory, where the others are, and, as LÖVE's AppImage ships
+    # them, without its debugging information.
+    def test_each_library_ships_as_a_file_pointing_at_the_others_without_debugging_information
+      LIBRARIES.each do |name|
+        library = File.join(unpacked, DIRECTORY, name)
 
-    assert_empty Dir.glob("**/*", File::FNM_DOTMATCH, base: framework).select { |path|
-      File.symlink?(File.join(framework, path))
-    }
-    assert_empty spec.files.grep(%r{\Alib/lota/frameworks/.*(Headers|CMake)})
-    assert_equal "arm64\n", run!(unpacked, "lipo", "-archs", "#{SDL3}/SDL3")
-  end
+        refute File.symlink?(library), name
+        assert_equal ["$ORIGIN"], FORMAT.runpath(library), name
+        refute_includes run!(unpacked, "readelf", "--section-headers", library), ".debug_info", name
+      end
+    end
 
-  def test_the_bundle_loads_its_frameworks_from_inside_the_gem
-    bundle = File.join(unpacked, BUNDLE)
-    rpaths = PackageCheck.otool("-l", bundle).scan(/^\s+path (\S+) \(offset \d+\)$/).flatten
+    def test_the_bundle_loads_its_libraries_from_inside_the_gem
+      bundle = File.join(unpacked, BUNDLE)
 
-    assert_equal ["@loader_path/frameworks"], rpaths
-    assert_equal FRAMEWORKS.map { |name| "frameworks/#{name}" }, PackageCheck.rpath_dependencies(bundle)
-  end
+      assert_equal ["$ORIGIN/libraries"], FORMAT.runpath(bundle)
+      assert_equal LIBRARIES.map { |name| "libraries/#{name}" }, FORMAT.dependencies(bundle)
+      assert_empty FORMAT.escapes(bundle, unpacked)
+    end
+  else
+    # RubyGems warns on every symlink it packages, so the framework ships
+    # as the one version directory its install name names, with no headers.
+    def test_the_framework_ships_without_symlinks_headers_or_intel_code
+      framework = File.join(unpacked, "lib/lota/frameworks/SDL3.framework")
 
-  def test_every_signature_verifies_strictly_once_unpacked
-    [BUNDLE, *FRAMEWORKS.map { |name| "lib/lota/frameworks/#{name}/Versions/A" }].each do |path|
-      output, status = codesign_verify(File.join(unpacked, path))
+      assert_empty Dir.glob("**/*", File::FNM_DOTMATCH, base: framework).select { |path|
+        File.symlink?(File.join(framework, path))
+      }
+      assert_empty spec.files.grep(%r{\Alib/lota/frameworks/.*(Headers|CMake)})
+      assert_equal "arm64\n", run!(unpacked, "lipo", "-archs", "#{SDL3}/SDL3")
+    end
 
-      assert status.success?, output
+    def test_the_bundle_loads_its_frameworks_from_inside_the_gem
+      bundle = File.join(unpacked, BUNDLE)
+      rpaths = FORMAT.otool("-l", bundle).scan(/^\s+path (\S+) \(offset \d+\)$/).flatten
+
+      assert_equal ["@loader_path/frameworks"], rpaths
+      assert_equal FRAMEWORKS.map { |name| "frameworks/#{name}" }, FORMAT.dependencies(bundle)
+    end
+
+    def test_every_signature_verifies_strictly_once_unpacked
+      [BUNDLE, *FRAMEWORKS.map { |name| "lib/lota/frameworks/#{name}/Versions/A" }].each do |path|
+        output, status = codesign_verify(File.join(unpacked, path))
+
+        assert status.success?, output
+      end
     end
   end
 
@@ -229,17 +298,17 @@ class NativeGemTest < Minitest::Test
       relative = Pathname.new(gemspec).relative_path_from(ROOT).to_s
       error = assert_raises(PackageCheck::Failure) { self.class.native_gem(gemspec: relative).build(work) }
 
-      assert_includes error.message, "arm64-darwin.gem built with warnings:\nWARNING:  no homepage specified"
+      assert_includes error.message, "#{FORMAT.platform}.gem built with warnings:\nWARNING:  no homepage specified"
     end
   end
 
   def test_a_framework_the_record_lacks_stops_the_build
     licensing = self.class.licensing
-    licensing.frameworks.delete("freetype.framework")
+    licensing.frameworks.delete(FREETYPE)
     in_tree do |work|
       error = assert_raises(PackageCheck::Failure) { self.class.native_gem(licensing:).build(work) }
 
-      assert_includes error.message, "freetype.framework has no recorded license"
+      assert_includes error.message, "#{FREETYPE} has no recorded license"
     end
   end
 

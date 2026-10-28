@@ -13,3 +13,6 @@
 [submodule "test/fixtures/klele_atoms"]
 	path = test/fixtures/klele_atoms
 	url = https://github.com/Nightwolf-47/KleleAtoms.git
+[submodule "vendor/love-appimage-source"]
+	path = vendor/love-appimage-source
+	url = https://github.com/love2d/love-appimage-source.git

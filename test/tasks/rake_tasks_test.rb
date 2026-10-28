@@ -59,8 +59,26 @@ class RakeTasksTest < Minitest::Test
   end
 
   def test_engine_checks_its_source_list_and_generated_bindings_before_building
-    assert_equal %w[engine:sources:check bindings:check engine:configure], prerequisites("engine")
+    assert_equal %w[dependencies engine:sources:check bindings:check engine:configure], prerequisites("engine")
     assert_equal %w[engine:configure], prerequisites("cpp:tidy")
+  end
+
+  # On Linux the engine links what love-appimage-source's Makefile builds
+  # (tasks/linux_build.rb), again whenever the Makefile or the recipe
+  # changes, and each configure waits for it; on macOS the dependencies
+  # come built, from vendor/love-apple-dependencies.
+  def test_on_linux_the_dependencies_build_before_the_engine_is_configured
+    stamp = File.join(ROOT, "tmp/dependencies/dependencies.stamp")
+    if ENGINE_PLATFORM == "linux"
+      assert_equal [stamp], prerequisites("dependencies")
+      assert_equal [File.join(ROOT, "vendor/love-appimage-source/Makefile"), "tasks/linux_build.rb"],
+        prerequisites(stamp)
+      assert_includes prerequisites(NATIVE_MAKEFILE), stamp
+      assert_includes prerequisites("#{SANITIZED_EXT}/Makefile"), stamp
+    else
+      assert_empty prerequisites("dependencies")
+      refute Rake::Task.task_defined?(stamp)
+    end
   end
 
   # The precompiled gem installs in seconds, so the gate installs it and
@@ -82,6 +100,7 @@ class RakeTasksTest < Minitest::Test
   def test_the_reference_love_builds_from_vendor_love_into_tmp
     assert_equal File.join(ROOT, "tmp/reference/src/love-macos/love.app/Contents/MacOS/love"),
       REFERENCE_LOVE.executable
+    assert_equal File.join(ROOT, "tmp/dependencies/installdir/bin/love"), LINUX_BUILD.executable
   end
 
   def test_default_task_compiles_before_it_tests
@@ -193,31 +212,31 @@ class RakeTasksTest < Minitest::Test
 
     assert_nil failure, "#{failure&.message}\n#{out}"
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, 0 skips$/, out)
-    assert_includes err, "DYLD_INSERT_LIBRARIES="
+    assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end
 
   def test_engine_source_list_matches_vendor_love
-    assert_includes invoke("engine:sources:check"), "✅ ext/lota/engine/sources_macos.cmake matches vendor/love"
+    assert_includes invoke("engine:sources:check"), "✅ #{ENGINE_SOURCES_FILE} matches vendor/love"
   end
 
   def test_regenerating_the_engine_source_list_changes_nothing
-    list = File.join(ROOT, "ext/lota/engine/sources_macos.cmake")
+    list = File.join(ROOT, ENGINE_SOURCES_FILE)
     committed = File.read(list)
 
-    assert_includes invoke("engine:sources"), "✅ Wrote ext/lota/engine/sources_macos.cmake"
+    assert_includes invoke("engine:sources"), "✅ Wrote #{ENGINE_SOURCES_FILE}"
     assert_equal committed, File.read(list)
   ensure
     File.write(list, committed) if committed
   end
 
   def test_engine_source_check_aborts_with_the_difference
-    list = File.join(ROOT, "ext/lota/engine/sources_macos.cmake")
+    list = File.join(ROOT, ENGINE_SOURCES_FILE)
     committed = File.read(list)
     File.write(list, committed.sub("\t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n", ""))
 
     task = Rake::Task["engine:sources:check"].tap(&:reenable)
     _, err = capture_io { assert_raises(SystemExit) { task.invoke } }
-    assert_includes err, "❌ ext/lota/engine/sources_macos.cmake does not match vendor/love:\n" \
+    assert_includes err, "❌ #{ENGINE_SOURCES_FILE} does not match vendor/love:\n" \
       "  + \t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n"
     assert_includes err, "run `bundle exec rake engine:sources` to regenerate it"
   ensure

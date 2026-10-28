@@ -9,12 +9,30 @@ require_relative "tree_helper"
 require_relative "../../tasks/package_check"
 require "stringio"
 
-# What PackageCheck reads from a compiled bundle and from dyld, checked on
-# rake compile's bundle, whose rpaths point into vendor/.
+# What PackageCheck reads from a compiled bundle and from a run's report of
+# what it loaded, checked on rake compile's bundle, whose rpaths point into
+# vendor/, or on Linux into tmp/, in this platform's format (NativeFormat).
 class PackageCheckTest < Minitest::Test
   include TreeHelper
 
   BUNDLE = File.expand_path("../../lib/lota/native.#{RbConfig::CONFIG['DLEXT']}", __dir__)
+  LINUX = RUBY_PLATFORM.include?("linux")
+  MACHO = NativeFormat::MachO.new
+  ELF = NativeFormat::ELF.new
+
+  # On Linux, the libraries the bundle needs, and what they need in turn,
+  # from the installdir rake dependencies builds.
+  LIBRARIES = %w[
+    libSDL3.so.0
+    libfreetype.so.6
+    libharfbuzz.so
+    libopenal.so.1
+    libmodplug.so.1
+    libvorbisfile.so.3
+    libz.so.1
+    libvorbis.so.0
+    libogg.so.0
+].freeze
 
   # The libraries the bundle loads through @rpath.
   FRAMEWORKS = %w[
@@ -66,44 +84,90 @@ class PackageCheckTest < Minitest::Test
     end
   end
 
-  # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
-  # Soft to play sound, and libmodplug and libvorbis to decode it, which
-  # loads libogg in turn.
-  def test_the_extension_needs_its_frameworks_and_theirs_beside_it_through_its_rpaths
-    frameworks = "../../vendor/love-apple-dependencies/macOS/Frameworks"
-
-    assert_equal [
-      "../../vendor/love-apple-dependencies/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64/" \
-        "SDL3.framework",
-      "#{frameworks}/freetype.framework",
-      "#{frameworks}/harfbuzz.framework",
-      "#{frameworks}/OpenAL-Soft.framework",
-      "#{frameworks}/libmodplug.framework",
-      "#{frameworks}/vorbis.framework",
-      "#{frameworks}/ogg.framework",
-], PackageCheck.rpath_dependencies(BUNDLE)
-  end
-
-  def test_each_dependency_is_a_framework_directory_that_exists
-    PackageCheck.rpath_dependencies(BUNDLE).each do |relative|
-      assert File.directory?(File.expand_path(relative, File.dirname(BUNDLE))), relative
+  if LINUX
+    # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
+    # Soft to play sound, libmodplug and libvorbisfile to decode it, and
+    # zlib, each needed by its soname and found through the bundle's
+    # rpath, and then libvorbis and libogg, which libvorbisfile's own rpath
+    # finds.
+    def test_the_extension_needs_its_libraries_and_theirs_through_their_rpaths
+      assert_equal LIBRARIES.map { |name| "../../tmp/dependencies/installdir/lib/#{name}" }, ELF.dependencies(BUNDLE)
     end
-  end
 
-  # From lib/, the frameworks resolve into vendor/, outside the directory
-  # a gem would be; from the repository root, they resolve inside.
-  def test_a_library_that_resolves_outside_the_gem_escapes_it
-    assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{File.join(ROOT, 'lib')}" },
-      PackageCheck.escapes(BUNDLE, File.join(ROOT, "lib"))
-    assert_empty PackageCheck.escapes(BUNDLE, ROOT)
-  end
+    def test_each_dependency_is_a_library_that_exists
+      ELF.dependencies(BUNDLE).each do |relative|
+        assert File.file?(File.expand_path(relative, File.dirname(BUNDLE))), relative
+      end
+    end
 
-  def test_a_library_no_rpath_resolves_escapes_the_gem
-    in_tree do |dir|
-      FileUtils.cp(BUNDLE, dir)
+    # From lib/, the libraries resolve into tmp/, outside the directory a
+    # gem would be; from the repository root, they resolve inside, but for
+    # an rpath a library built with its build directory in it, which the gem
+    # build replaces.
+    def test_a_library_that_resolves_outside_the_gem_escapes_it
+      escapes = ELF.escapes(BUNDLE, File.join(ROOT, "lib"))
 
-      assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{dir}" },
-        PackageCheck.escapes(File.join(dir, File.basename(BUNDLE)), dir)
+      LIBRARIES.each { |name| assert_includes escapes, "#{name} resolves outside #{File.join(ROOT, 'lib')}" }
+      assert_empty ELF.escapes(BUNDLE, ROOT).grep_v(/\Arpath /)
+    end
+
+    def test_a_library_no_rpath_resolves_escapes_the_gem
+      in_tree do |dir|
+        FileUtils.cp(BUNDLE, dir)
+        escapes = ELF.escapes(File.join(dir, File.basename(BUNDLE)), dir)
+
+        assert_equal LIBRARIES.first(7).map { |name| "#{name} resolves outside #{dir}" }, escapes
+      end
+    end
+
+    # glibc's libraries and GCC's C++ runtime come from the system, and
+    # every other library from the gem.
+    def test_only_glibc_and_the_cpp_runtime_are_the_systems
+      %w[libc.so.6 libm.so.6 libstdc++.so.6 libgcc_s.so.1 ld-linux-aarch64.so.1 ld-linux-x86-64.so.2].each do |name|
+        assert_match NativeFormat::ELF::SYSTEM, name
+      end
+      %w[libSDL3.so.0 libz.so.1 libX11.so.6 libasan.so.6].each { |name| refute_match NativeFormat::ELF::SYSTEM, name }
+    end
+  else
+    # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
+    # Soft to play sound, and libmodplug and libvorbis to decode it, which
+    # loads libogg in turn.
+    def test_the_extension_needs_its_frameworks_and_theirs_beside_it_through_its_rpaths
+      frameworks = "../../vendor/love-apple-dependencies/macOS/Frameworks"
+
+      assert_equal [
+        "../../vendor/love-apple-dependencies/shared/Frameworks/SDL3.xcframework/macos-arm64_x86_64/" \
+          "SDL3.framework",
+        "#{frameworks}/freetype.framework",
+        "#{frameworks}/harfbuzz.framework",
+        "#{frameworks}/OpenAL-Soft.framework",
+        "#{frameworks}/libmodplug.framework",
+        "#{frameworks}/vorbis.framework",
+        "#{frameworks}/ogg.framework",
+  ], MACHO.dependencies(BUNDLE)
+    end
+
+    def test_each_dependency_is_a_framework_directory_that_exists
+      MACHO.dependencies(BUNDLE).each do |relative|
+        assert File.directory?(File.expand_path(relative, File.dirname(BUNDLE))), relative
+      end
+    end
+
+    # From lib/, the frameworks resolve into vendor/, outside the directory
+    # a gem would be; from the repository root, they resolve inside.
+    def test_a_library_that_resolves_outside_the_gem_escapes_it
+      assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{File.join(ROOT, 'lib')}" },
+        MACHO.escapes(BUNDLE, File.join(ROOT, "lib"))
+      assert_empty MACHO.escapes(BUNDLE, ROOT)
+    end
+
+    def test_a_library_no_rpath_resolves_escapes_the_gem
+      in_tree do |dir|
+        FileUtils.cp(BUNDLE, dir)
+
+        assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{dir}" },
+          MACHO.escapes(File.join(dir, File.basename(BUNDLE)), dir)
+      end
     end
   end
 
@@ -111,7 +175,7 @@ class PackageCheckTest < Minitest::Test
     output = "dyld[1]: <4E21E109-7AF9-3222-97EA-BFD99EAEEC19> /usr/bin/ruby\nwindow 800x600\n" \
       "dyld[1]: <B9EBCD53-332C-3CF1-A6F2-627AD367856C> /gems/SDL3.framework/Versions/A/SDL3\n"
 
-    assert_equal ["/usr/bin/ruby", "/gems/SDL3.framework/Versions/A/SDL3"], PackageCheck.dyld_loaded(output)
+    assert_equal ["/usr/bin/ruby", "/gems/SDL3.framework/Versions/A/SDL3"], MACHO.loaded(output)
   end
 
   def test_warnings_are_the_lines_rubygems_starts_with_warning
@@ -178,9 +242,27 @@ class PackageCheckTest < Minitest::Test
     end
   end
 
+  # Runs Ruby with the guard and returns what it printed but its report of
+  # the libraries it loaded, and how it ended.
   def run_guarded(dir, *)
     guard = write(dir, "guard.rb", PackageCheck.guard(ROOT))
-    Open3.capture2e(PackageCheck::UNBUNDLED, RbConfig.ruby, "-r", guard, *, chdir: dir)
+    output, status = Open3.capture2e(PackageCheck::UNBUNDLED, RbConfig.ruby, "-r", guard, *, chdir: dir)
+    [NativeFormat.host.printed(output), status]
+  end
+
+  if LINUX
+    # On Linux, where nothing like DYLD_PRINT_LIBRARIES reports what a run
+    # loaded, the guard reports each shared object the run mapped.
+    def test_on_linux_the_guard_reports_the_libraries_the_run_mapped
+      in_tree do |dir|
+        guard = write(dir, "guard.rb", PackageCheck.guard(ROOT, format: ELF))
+        output, status = Open3.capture2e(PackageCheck::UNBUNDLED, RbConfig.ruby, "-r", guard, "-e", "require 'zlib'",
+          chdir: dir)
+
+        assert_predicate status, :success?, output
+        assert ELF.loaded(output).any? { |path| path.end_with?("/zlib.so") }, output
+      end
+    end
   end
 
   def test_the_guard_fails_a_run_that_loads_from_the_repositorys_lib
@@ -214,7 +296,7 @@ class PackageCheckTest < Minitest::Test
         "#{gem}/lota/native.bundle", "#{gem}/lota/frameworks/SDL3.framework/Versions/A/SDL3") +
         "lota-package-check: lota loaded from #{gem}/lota.rb\n"
 
-      assert_empty PackageCheck.outside(output, home)
+      assert_empty PackageCheck.outside(output, home, format: MACHO)
     end
   end
 
@@ -227,20 +309,52 @@ class PackageCheckTest < Minitest::Test
         "Lota from #{ROOT}/lib/lota.rb",
         "/vendor/SDL3.framework/Versions/A/SDL3",
         "#{ROOT}/lib/lota/native.bundle",
-], PackageCheck.outside(output, home)
+], PackageCheck.outside(output, home, format: MACHO)
     end
   end
 
   def test_a_run_the_guard_and_dyld_say_nothing_about_is_outside
     in_tree do |home|
-      assert_equal ["Lota from nowhere the guard reported", "no framework at all", "no lota/native bundle at all"],
-        PackageCheck.outside("", home)
+      assert_equal ["Lota from nowhere the guard reported", "no library of LÖVE's at all", "no lota/native bundle at all"],
+        PackageCheck.outside("", home, format: MACHO)
     end
   end
 
-  def test_otool_failures_raise
-    error = assert_raises(PackageCheck::Failure) { PackageCheck.otool("-L", "/no/such/bundle") }
+  def mapped(*paths)
+    paths.map { |path| "lota-package-check: mapped #{path}\n" }.join
+  end
 
-    assert_includes error.message, "otool -L /no/such/bundle failed"
+  # On Linux the system's libraries, and Ruby's own, may load from where
+  # they are; every other library must load from the installed gem.
+  def test_on_linux_nothing_is_outside_when_every_library_but_the_systems_and_rubys_loads_from_the_gem_home
+    in_tree do |home|
+      gem = "#{home}/gems/lota-0.0.0-aarch64-linux-gnu/lib"
+      output = mapped("/usr/lib/aarch64-linux-gnu/libc.so.6", "/lib/aarch64-linux-gnu/libz.so.1.2.11",
+        File.join(RbConfig::CONFIG["rubyarchdir"], "monitor.so"), "#{gem}/lota/native.so",
+        "#{gem}/lota/libraries/libSDL3.so.0") + "lota-package-check: lota loaded from #{gem}/lota.rb\n"
+
+      assert_empty PackageCheck.outside(output, home, format: ELF)
+    end
+  end
+
+  def test_on_linux_a_library_from_anywhere_else_is_outside
+    in_tree do |home|
+      output = mapped("#{ROOT}/lib/lota/native.so", "#{ROOT}/tmp/dependencies/installdir/lib/libSDL3.so.0.4.10") +
+        "lota-package-check: lota loaded from #{ROOT}/lib/lota.rb\n"
+
+      assert_equal [
+        "Lota from #{ROOT}/lib/lota.rb",
+        "#{ROOT}/tmp/dependencies/installdir/lib/libSDL3.so.0.4.10",
+        "#{ROOT}/lib/lota/native.so",
+], PackageCheck.outside(output, home, format: ELF)
+    end
+  end
+
+  def test_a_tool_that_fails_or_is_missing_raises
+    error = assert_raises(NativeFormat::Failure) { NativeFormat.run!("ruby", "-e", "abort 'no'") }
+    assert_includes error.message, "ruby -e abort 'no' failed:\nno"
+
+    error = assert_raises(NativeFormat::Failure) { NativeFormat.run!("lota-no-such-tool") }
+    assert_includes error.message, "lota-no-such-tool is not installed"
   end
 end

@@ -235,8 +235,14 @@ class BenchTest < Minitest::Test
   def test_the_machine_names_the_processor_the_system_and_the_commits
     lines = Bench::Machine.new.lines.join("\n")
 
-    assert_includes lines, `sysctl -n machdep.cpu.brand_string`.strip
-    assert_includes lines, "macOS #{`sw_vers -productVersion`.strip}"
+    if RUBY_PLATFORM.include?("linux")
+      assert_includes lines, `lscpu`[/^Model name:\s*(.+)$/, 1] || `uname -m`.strip
+      assert_includes lines, "#{`nproc`.strip} processors"
+      assert_includes lines, "(Linux #{`uname -r`.strip})"
+    else
+      assert_includes lines, `sysctl -n machdep.cpu.brand_string`.strip
+      assert_includes lines, "macOS #{`sw_vers -productVersion`.strip}"
+    end
     assert_includes lines, `git -C #{ROOT} rev-parse --short HEAD`.strip
   end
 end

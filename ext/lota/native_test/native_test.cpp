@@ -6,6 +6,9 @@
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 #include "native_test/dialogs.hpp"
+#ifndef __APPLE__
+#include "native_test/selections.hpp"
+#endif
 
 #include "filesystem/FileData.h"
 #include "graphics/Font.h"
@@ -36,15 +39,25 @@
 #include <SDL3/SDL_video.h>
 
 #include <spawn.h>
-#include <sys/fcntl.h>
 #include <unistd.h>
+// O_RDONLY, which macOS's SDK declares in sys/fcntl.h and glibc in fcntl.h.
+#ifdef __APPLE__
+#include <sys/fcntl.h>
+#else
+#include <fcntl.h>
+#endif
 
 // The parity harness's audio device (loopback.cpp), which the harness
-// loads with DYLD_INSERT_LIBRARIES. A Ruby extension links with
-// -undefined dynamic_lookup, so this bundle finds it in whichever image
-// has it, and the weak import makes it nullptr in a process the harness
+// loads with DYLD_INSERT_LIBRARIES on macOS and LD_PRELOAD on Linux. A Ruby
+// extension leaves undefined what it does not link (on macOS with
+// -undefined dynamic_lookup), so this bundle finds it in whichever image
+// has it, and the weak reference makes it nullptr in a process the harness
 // did not load it into.
+#ifdef __APPLE__
 extern "C" __attribute__((weak_import)) long lota_loopback_render(const char *path, double dt);
+#else
+extern "C" __attribute__((weak)) long lota_loopback_render(const char *path, double dt);
+#endif
 
 namespace {
 
@@ -323,11 +336,17 @@ ProcessId spawn(const std::vector<std::string> &command, int output,
   check(posix_spawn_file_actions_adddup2(actions.get(), output, STDERR_FILENO),
         "posix_spawn_file_actions_adddup2");
   Attributes attributes;
-#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
   // The child inherits only the three descriptors the actions above set,
-  // not a pipe another thread is spawning with at the same moment.
+  // not a pipe another thread is spawning with at the same moment: macOS
+  // closes every other one with POSIX_SPAWN_CLOEXEC_DEFAULT, and glibc
+  // (2.34 and newer) with a file action that closes every descriptor from
+  // the first after standard error (posix_spawn_file_actions_addclosefrom_np).
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
   check(posix_spawnattr_setflags(attributes.get(), POSIX_SPAWN_CLOEXEC_DEFAULT),
         "posix_spawnattr_setflags");
+#else
+  check(posix_spawn_file_actions_addclosefrom_np(actions.get(), STDERR_FILENO + 1),
+        "posix_spawn_file_actions_addclosefrom_np");
 #endif
   Words arguments(command);
   Words variables(environment);
@@ -551,7 +570,8 @@ void rotate_display() {
 // into this process, or has not been opened or cannot write its file.
 long render_loopback(const std::string &path, double dt) {
   if (lota_loopback_render == nullptr) {
-    throw std::runtime_error("liblota_loopback is not loaded (DYLD_INSERT_LIBRARIES)");
+    throw std::runtime_error(
+        "liblota_loopback is not loaded (DYLD_INSERT_LIBRARIES or LD_PRELOAD)");
   }
   const long count = lota_loopback_render(path.c_str(), dt);
   if (count < 0) {
@@ -682,6 +702,12 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("focus_window", &focus_window)
       .define_module_function("unfocus_window", &unfocus_window)
       .define_module_function("stay_in_background", &lota::native_test::stay_in_background)
+#ifndef __APPLE__
+      .define_module_function("tolerate_vanished_requestors",
+                              &lota::native_test::tolerate_vanished_requestors)
+      .define_module_function("request_clipboard_and_vanish",
+                              &lota::native_test::request_clipboard_and_vanish)
+#endif
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
       .define_module_function("rotate_display", &rotate_display)

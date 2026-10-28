@@ -67,9 +67,9 @@ module Lovetest
   # Lövetest's TestMethod:isOS (vendor/love/testing/classes/TestMethod.lua:
   # 406-416): whether any of +names+ is this system's name as
   # love.system.getOS gives it ("OS X", "Windows", "Linux", "Android", or
-  # "iOS"). Lota runs on macOS alone so far.
+  # "iOS").
   def self.os?(*names)
-    names.include?(RUBY_PLATFORM.include?("darwin") ? "OS X" : RUBY_PLATFORM)
+    names.include?(Lota::System.os)
   end
 
   # The resource file +name+, as the FileData LÖVE reads a resource into.

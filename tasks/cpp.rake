@@ -5,10 +5,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require "rbconfig"
 require_relative "cpp_gates"
+require_relative "engine_sources"
 require_relative "lint"
 
-CPP_FILES = CppGates::Files.new(root: ".")
+# clang-tidy checks the sources the host's build compiles.
+CPP_FILES = CppGates::Files.new(root: ".", platform: EngineSources.platform(RbConfig::CONFIG["host_os"]))
 
 # Prints a gate's Result, and aborts the run if it failed.
 def cpp_gate!(name, result)

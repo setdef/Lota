@@ -50,7 +50,11 @@
 #include <unordered_set>
 #include <vector>
 
+#ifdef __APPLE__
 #include <pthread.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace lota::native {
 
@@ -63,7 +67,13 @@ concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 // started the process on. macOS runs windows and graphics only there. SDL's
 // own SDL_IsMainThread cannot say: it answers for whichever thread first
 // initialized SDL, and true on any thread before that (Plan 001, spike 2).
+// macOS asks pthread_main_np; on Linux the main thread is the one whose
+// thread ID is the process's ID (gettid(2)).
+#ifdef __APPLE__
 inline bool on_main_thread() { return pthread_main_np() == 1; }
+#else
+inline bool on_main_thread() { return gettid() == getpid(); }
+#endif
 
 // Raises ThreadError unless this is the main thread. +module+ names the
 // Lota module the caller belongs to, for the message.

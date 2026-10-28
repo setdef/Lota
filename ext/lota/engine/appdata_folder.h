@@ -3,7 +3,9 @@
 
 // The folder a game that is not fused saves in, inside the system's
 // application data folder: Lota, where LÖVE adds LOVE (ADR 003, section
-// 8), since lota run is Lota's counterpart of the love program.
+// 8), since lota run is Lota's counterpart of the love program; on
+// Linux, where LÖVE's folder is love, lowercase like the program
+// (vendor/love/src/modules/filesystem/Filesystem.h:46-47), Lota's is lota.
 //
 // LÖVE names the folder LOVE_APPDATA_FOLDER, which
 // vendor/love/src/modules/filesystem/Filesystem.h:36-54 defines
@@ -24,6 +26,10 @@
 #include "filesystem/Filesystem.h"
 
 #undef LOVE_APPDATA_FOLDER
+#ifdef LOVE_LINUX
+#define LOVE_APPDATA_FOLDER "lota"
+#else
 #define LOVE_APPDATA_FOLDER "Lota"
+#endif
 
 #endif // LOTA_ENGINE_APPDATA_FOLDER_H

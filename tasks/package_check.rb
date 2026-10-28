@@ -11,6 +11,7 @@ require "rbconfig"
 require "digest"
 require "rubygems/package"
 require "tmpdir"
+require_relative "native_format"
 
 # Checks that each gem works once packaged, not just in the repository.
 #
@@ -25,8 +26,9 @@ require "tmpdir"
 # it ships no LÖVE sources, so the check installs it and expects gem
 # install to stop with the message that names the precompiled gem. The
 # precompiled gem (NativeGem) carries the compiled bundle and the
-# frameworks it loads, and the REUSE record of who wrote them under which
-# licenses.
+# libraries it loads, frameworks on macOS, and the REUSE record of who
+# wrote them under which licenses. What a binary loads, and how a run
+# reports what it loaded, are its platform's (NativeFormat).
 #
 # Fast mode unpacks the precompiled gem, checks its licensing with the
 # REUSE tool, and loads it from there. Delivery
@@ -77,8 +79,8 @@ class PackageCheck
   #   installs beside it from the .gem files this machine installed them
   #   from, with what they depend on.
   # [arguments] What lota run passes the game.
-  # [output] What the game prints, matched against everything but dyld's
-  #   lines.
+  # [output] What the game prints, matched against everything but what
+  #   the run reports of the libraries it loaded.
   # [status] The exit status it ends with.
   # [background] Whether its window stays in the background (BACKGROUND),
   #   as every game the check runs does unless it needs keyboard focus.
@@ -103,10 +105,6 @@ class PackageCheck
   # makes no sound and needs no audio device, as on a CI runner, while the
   # gem's OpenAL Soft still loads and opens. It goes to the runs alone.
   SILENT = { "ALSOFT_DRIVERS" => "null" }.freeze
-
-  # The directory a framework's signature covers, the version its @rpath
-  # install name names (NativeGem::VERSION).
-  FRAMEWORK_VERSION = "Versions/A"
 
   # Raised when a check fails; the message says what to fix.
   class Failure < StandardError; end
@@ -143,10 +141,12 @@ class PackageCheck
   # [root] The repository root.
   # [gems] The gems to check, in dependency order.
   # [out] Where progress goes.
-  def initialize(root:, gems:, out: $stdout)
+  # [format] The NativeFormat of the platform the gems are for.
+  def initialize(root:, gems:, out: $stdout, format: NativeFormat.host)
     @root = root
     @gems = gems
     @out = out
+    @format = format
   end
 
   # Checks that each source gem stops at install, then builds, unpacks,
@@ -205,64 +205,19 @@ class PackageCheck
     working_tree - contents
   end
 
-  # What the compiled +bundle+ loads through its relative rpaths
-  # (<tt>@loader_path/...</tt>), each as a path relative to the bundle's
-  # directory: the framework directory for a framework, the file itself for
-  # anything else. A copy of the bundle loads only with each of these at the
-  # same place relative to it. That includes what those load in turn through
-  # @rpath, as libvorbis loads libogg, which dyld finds through the rpaths
-  # of the bundle that loaded them. Libraries no rpath resolves, such as the
-  # sanitizer runtime that DYLD_INSERT_LIBRARIES loads, are left out.
-  def self.rpath_dependencies(bundle)
-    directory = File.dirname(bundle)
-    rpaths = relative_rpaths(bundle)
-    found = []
-    waiting = rpath_libraries(bundle)
-    until waiting.empty?
-      name = waiting.shift
-      rpath = rpaths.find { |candidate| File.exist?(File.join(directory, candidate, name)) } or next
-      relative = File.join(rpath, name[%r{\A[^/]+\.framework}] || name)
-      next if found.include?(relative)
-
-      found << relative
-      waiting.concat(rpath_libraries(File.join(directory, rpath, name)) - [name])
-    end
-    found
-  end
-
-  # Why +bundle+ would not load from inside +gem_dir+ alone: each rpath
-  # that is not relative to the bundle, and each library it loads through
-  # @rpath that no rpath resolves inside +gem_dir+.
-  def self.escapes(bundle, gem_dir)
-    rpaths = otool("-l", bundle).scan(/^\s+path (\S+) \(offset \d+\)$/).flatten
-    inside = File.join(File.realpath(gem_dir), "")
-    absolute = rpaths.reject { |rpath| rpath.start_with?("@loader_path/") }.map { |rpath| "rpath #{rpath}" }
-    unresolved = rpath_libraries(bundle).reject do |name|
-      relative_rpaths(bundle).any? do |rpath|
-        path = File.join(File.dirname(bundle), rpath, name)
-        File.exist?(path) && File.realpath(path).start_with?(inside)
-      end
-    end
-    absolute + unresolved.map { |name| "@rpath/#{name} resolves outside #{gem_dir}" }
-  end
-
-  # The files dyld reports loading, from output printed with
-  # DYLD_PRINT_LIBRARIES set.
-  def self.dyld_loaded(output)
-    output.scan(/^dyld\[\d+\]: <[\h-]+> (.+)$/).flatten
-  end
-
   # A script lota run loads first (ruby -r), which, as the game exits,
-  # prints where lota.rb loaded from, and fails the run if anything loaded
-  # from +root+'s lib/, where rake compile also puts the bundle. A game in
-  # the repository loads its own files from there, so the rest of the
+  # prints where lota.rb loaded from, and what +format+ reports of the
+  # libraries the run loaded, and fails the run if anything loaded from
+  # +root+'s lib/, where rake compile also puts the bundle. A game in the
+  # repository loads its own files from there, so the rest of the
   # repository may load.
-  def self.guard(root)
+  def self.guard(root, format: NativeFormat.host)
     libs = [root, File.realpath(root)].uniq.map { |dir| File.join(dir, "lib", "") }
     <<~RUBY
       at_exit do
         lota = $LOADED_FEATURES.find { |feature| feature.end_with?("/lota.rb") }
         puts "lota-package-check: lota loaded from \#{lota || "nowhere"}"
+        #{format.report_libraries.gsub("\n", "\n  ").rstrip}
         leaked = $LOADED_FEATURES.select { |feature| feature.start_with?(*#{libs.inspect}) }
         abort "lota run loaded files from the repository's lib/: \#{leaked.join(", ")}" if leaked.any?
       end
@@ -270,40 +225,19 @@ class PackageCheck
   end
 
   # What lota run's +output+ shows loaded from outside the GEM_HOME
-  # +home+: Lota itself, as the guard reports it, and the bundle and each
-  # framework that is not macOS's own (from /System), as dyld reports
-  # them. A run that loaded no framework at all is reported too.
-  def self.outside(output, home)
+  # +home+: Lota itself, as the guard reports it, and each library the run
+  # loaded that is not the system's own, the bundle among them, as
+  # +format+ reads the run's report of them. A run that loaded no such
+  # library, or no bundle, is reported too.
+  def self.outside(output, home, format: NativeFormat.host)
     installed = File.join(File.realpath(home), "")
     lota = output[LOADED_FROM, 1] || "nowhere the guard reported"
-    loaded = dyld_loaded(output)
-    frameworks = loaded.grep(%r{\.framework/}).reject { |path| path.start_with?("/System/") }
-    native = loaded.grep(%r{/lota/native\.bundle\z})
+    ours = format.ours(output)
+    native = ours.grep(%r{/lota/native\.(?:bundle|so)\z})
     problems = (["Lota from #{lota}"] if !lota.start_with?(installed)).to_a
-    problems << "no framework at all" if frameworks.empty?
+    problems << "no library of LÖVE's at all" if (ours - native).empty?
     problems << "no lota/native bundle at all" if native.empty?
-    problems + (frameworks + native).reject { |path| path.start_with?(installed) }
-  end
-
-  # Runs otool, which macOS's command-line tools provide.
-  def self.otool(*arguments)
-    output, status = Open3.capture2e("otool", *arguments)
-    raise Failure, "otool #{arguments.join(' ')} failed:\n#{output}" unless status.success?
-
-    output
-  end
-
-  # The names +binary+ needs through @rpath, once each, though otool
-  # lists a library once for each architecture of a universal binary. A
-  # library's own install name is among them.
-  private_class_method def self.rpath_libraries(binary)
-    lines = otool("-L", binary).lines.grep(/\A\s/)
-    libraries = lines.map { |line| line.split.first }.uniq
-    libraries.filter_map { |library| library.delete_prefix("@rpath/") if library.start_with?("@rpath/") }
-  end
-
-  private_class_method def self.relative_rpaths(bundle)
-    otool("-l", bundle).scan(%r{^\s+path @loader_path/(\S+) \(offset \d+\)$}).flatten
+    problems + ((ours - native) + native).reject { |path| path.start_with?(installed) }
   end
 
   private def build(gem, work)
@@ -421,61 +355,65 @@ class PackageCheck
     raise Failure, "reuse is not on PATH; bin/setup installs it"
   end
 
-  # Each framework the bundle in +dir+ loads whose record names a source
-  # archive (ext/lota/licenses.rb) is in the gem, with its license record,
-  # REUSE.toml's annotations of the framework and of the archive, and the
-  # archive itself, the one recorded, in sources/, as its license asks.
+  # Each library the bundle in +dir+ loads, framework on macOS, whose
+  # record names a source archive (ext/lota/licenses.rb) is in the gem,
+  # with its license record, REUSE.toml's annotations of the library and
+  # of the archive, and the archive itself, the one recorded, in sources/,
+  # as its license asks.
   private def verify_sources(gem, dir)
     bundle = File.join(dir, gem.extension_file)
-    frameworks = self.class.rpath_dependencies(bundle).map { |relative| File.basename(relative) }
+    libraries = native { @format.dependencies(bundle) }.map { |relative| File.basename(relative) }
     toml = File.read(File.join(dir, NativeGem::REUSE_TOML))
-    sources = frameworks.filter_map do |name|
+    sources = libraries.filter_map do |name|
       source = gem.native.licensing.framework_for(name).source or next
       archive = File.join(Licensing::SOURCES, source.name)
-      framework = File.join(File.dirname(gem.extension_file), NativeGem::FRAMEWORKS, name)
-      verify_source(dir, toml, framework, archive, source)
+      library = File.join(File.dirname(gem.extension_file), @format.directory, name)
+      verify_source(dir, toml, library, archive, source)
       archive
     end
-    @out.puts "✅ #{gem.name}: #{sources.empty? ? 'no framework needs' : 'carries'} its source " \
-      "#{sources.join(', ')}".rstrip
+    @out.puts "✅ #{gem.name}: #{sources.empty? ? 'no library needs' : 'carries'} its source " \
+      "#{sources.uniq.join(', ')}".rstrip
   rescue Licensing::Unrecorded => e
     raise Failure, e.message
   end
 
-  private def verify_source(dir, toml, framework, archive, source)
+  private def verify_source(dir, toml, library, archive, source)
     problems = []
-    problems << "lacks #{framework}" unless File.directory?(File.join(dir, framework))
-    [%(path = "#{framework}/**"), %(path = "#{archive}")].each do |line|
+    problems << "lacks #{library}" unless File.exist?(File.join(dir, library))
+    [%(path = "#{@format.annotation(library)}"), %(path = "#{archive}")].each do |line|
       problems << "has no annotation #{line} in its REUSE.toml" unless toml.include?(line)
     end
     path = File.join(dir, archive)
     if !File.file?(path)
-      problems << "lacks #{archive}, the source #{File.basename(framework)}'s license asks for"
+      problems << "lacks #{archive}, the source #{File.basename(library)}'s license asks for"
     elsif Digest::SHA256.file(path).hexdigest != source.sha256
       problems << "carries an #{archive} whose SHA-256 is not the #{source.sha256} recorded"
     end
     raise Failure, "#{File.basename(dir)} #{problems.join('; ')}" if problems.any?
   end
 
-  # The bundle and each framework it loads, in +dir+, load from +dir+
-  # alone and pass strict signature verification.
+  # The bundle and each library it loads, in +dir+, load from +dir+ alone,
+  # and on macOS pass strict signature verification.
   private def verify_native(gem, dir, where: "unpacked")
     bundle = File.join(dir, gem.extension_file)
     raise Failure, "#{gem.name} ships no #{gem.extension_file}" unless File.file?(bundle)
 
-    escapes = self.class.escapes(bundle, dir)
+    escapes = native { @format.escapes(bundle, dir) }
     raise Failure, "#{gem.extension_file} would load from outside the gem:\n#{list(escapes)}" if escapes.any?
 
-    signed = [bundle] + self.class.rpath_dependencies(bundle).map do |framework|
-      File.join(File.expand_path(framework, File.dirname(bundle)), FRAMEWORK_VERSION)
-    end
-    signed.each { |path| run!({}, "codesign", "--verify", "--strict", "--verbose=2", path, chdir: dir) }
-    @out.puts "✅ #{gem.name}: #{signed.size} signatures verify, every framework loads from the #{where} gem"
+    verified = native { @format.verify(bundle) }
+    @out.puts "✅ #{gem.name}: #{verified}, every library loads from the #{where} gem"
+  end
+
+  private def native
+    yield
+  rescue NativeFormat::Failure => e
+    raise Failure, e.message
   end
 
   # Runs the installed executable as a player's shell would: lota
-  # --version, then lota run on each of the target's games, with dyld
-  # reporting what it loads.
+  # --version, then lota run on each of the target's games, reporting the
+  # libraries it loads.
   private def run_executable(gem, home, env, work)
     lota = File.join(home, "bin", gem.name)
     version = run!(env, Gem.ruby, lota, "--version", chdir: work)
@@ -484,7 +422,7 @@ class PackageCheck
     guard = guard(work)
     gem.games.each do |game|
       install_dependencies(game, env, work)
-      run_env = env.merge("DYLD_PRINT_LIBRARIES" => "1", **SILENT).merge(game.background ? BACKGROUND : {})
+      run_env = env.merge(@format.report_environment, SILENT).merge(game.background ? BACKGROUND : {})
       output, status = Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
         *game.arguments, chdir: work)
       verify_game(game, home, output, status)
@@ -502,7 +440,7 @@ class PackageCheck
 
   private def guard(work)
     path = File.join(work, "guard.rb")
-    File.write(path, self.class.guard(@root))
+    File.write(path, self.class.guard(@root, format: @format))
     path
   end
 
@@ -549,17 +487,16 @@ class PackageCheck
   end
 
   private def verify_game(game, home, output, status)
-    printed = output.lines.grep_v(/^dyld\[\d+\]: /).grep_v(LOADED_FROM).join
+    printed = @format.printed(output).lines.grep_v(LOADED_FROM).join
     unless status.exitstatus == game.status && game.output.match?(printed)
       raise Failure, "lota run #{game.name} exited #{status.inspect}, expected #{game.status}, and printed:\n#{printed}"
     end
 
-    outside = self.class.outside(output, home)
+    outside = self.class.outside(output, home, format: @format)
     raise Failure, "lota run #{game.name} loaded from outside the installed gem:\n#{list(outside)}" if outside.any?
 
-    frameworks = self.class.dyld_loaded(output).grep(%r{\.framework/}).reject { |path| path.start_with?("/System/") }
     @out.puts "✅ lota run #{game.name}: exited #{status.exitstatus}, with Lota and " \
-      "#{frameworks.map { |path| File.basename(path) }.join(', ')} loaded from the installed gem"
+      "#{@format.ours(output).map { |path| File.basename(path) }.join(', ')} loaded from the installed gem"
   end
 
   # Runs each gem's smoke script in a process that sees only the packages.

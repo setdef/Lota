@@ -339,6 +339,33 @@ work "Noto Sans",
   copyright: ["2019 Google Inc. All Rights Reserved."],
   license: ["OFL-1.1"]
 
+# The Vulkan renderer LÖVE builds everywhere but on Apple's systems
+# (vendor/love/CMakeLists.txt:656-709), which the bundle carries on Linux,
+# and the libraries it compiles in:
+
+# The Khronos Group's Vulkan headers, and the video codec headers they
+# include, each under Apache-2.0
+# (vendor/love/src/libraries/vulkanheaders/vulkan_core.h:4-8 and
+# vk_video/vulkan_video_codecs_common.h:4-8, and the same in each).
+work "Vulkan-Headers",
+  sources: ["vendor/love/src/libraries/vulkanheaders/**", "vendor/love/src/libraries/vk_video/**"],
+  copyright: ["2014-2025 The Khronos Group Inc.", "2015-2025 The Khronos Group Inc."],
+  license: ["Apache-2.0"]
+
+# volk, the Vulkan loader the renderer calls through
+# (vendor/love/src/libraries/volk/volk.h:2188-2208; volk.c:1 points to it).
+work "volk",
+  sources: ["vendor/love/src/libraries/volk/**"],
+  copyright: ["2018-2025 Arseny Kapoulkine"],
+  license: ["MIT"]
+
+# The Vulkan Memory Allocator (vendor/love/src/libraries/vma/
+# vk_mem_alloc.h:1-21).
+work "Vulkan Memory Allocator",
+  sources: ["vendor/love/src/libraries/vma/**"],
+  copyright: ["2017-2025 Advanced Micro Devices, Inc. All rights reserved."],
+  license: ["MIT"]
+
 # Box2D 2.4.0 (vendor/love/src/libraries/box2d/common/b2_settings.cpp:32),
 # which the bundle links since Lota binds love.physics. Every file but one
 # carries the MIT License with "Copyright (c) 2019 Erin Catto"
@@ -459,6 +486,82 @@ framework "libmodplug.framework",
   ],
   license: ["LicenseRef-libmodplug-Public-Domain"]
 
+# The release archive of OpenAL Soft 1.24.3, which the gem carries beside
+# its library on every platform (the record's `source`, below and in the
+# Linux section).
+openal_soft_source = {
+  url: "https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2",
+  sha256: "cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892",
+  path: "vendor/sources/openal-soft-1.24.3.tar.bz2",
+  copyright: [
+    "1999-2000 by authors.",
+    "1999-2007 by authors.",
+    "1999-2010 by authors.",
+    "2005 Boris Mikhaylov",
+    "2006, Matthias Kretz, <kretz@kde.org>",
+    "2008, Alexander Neundorf, <neundorf@kde.org>",
+    "2008-2017 by Chris Robinson and Christopher Fitzgerald.",
+    "2009 Lennart Poettering",
+    "2009 by Chris Robinson.",
+    "2009 by Konstantinos Natsakis <konstantinos.natsakis@gmail.com>",
+    "2009-2011 Kitware, Inc.",
+    "2009-2011 Philip Lowman <philip@yhbt.com>",
+    "2010 David Henningsson <diwic@ubuntu.com>",
+    "2010 by Chris Robinson",
+    "2010 by Chris Robinson <chris.kcat@gmail.com>",
+    "2011 The Android Open Source Project",
+    "2011 by Chris Robinson",
+    "2011 by Chris Robinson <chris.kcat@gmail.com>",
+    "2011 by Chris Robinson.",
+    "2011 by authors.",
+    "2011, Michael Jansen, <kde@michael-jansen.biz>",
+    "2011-2019 Christopher Fitzgerald",
+    "2012 - 2016, Victor Zverovich",
+    "2012 - present, Victor Zverovich",
+    "2012 - present, Victor Zverovich and fmt contributors",
+    "2012 - present, Victor Zverovich and {fmt} contributors",
+    "2012 by Chris Robinson <chris.kcat@gmail.com>",
+    "2013 Julien Pommier ( pommier@modartt.com )",
+    "2013 Vladimir Keleshev, vladimir@keleshev.com",
+    "2013 by Anis A. Hireche",
+    "2013 by Chris Robinson <chris.kcat@gmail.com>",
+    "2013 by Mike Gorchak",
+    "2014 by Timothy Arceri <t_arceri@yahoo.com.au>.",
+    "2015 by Chris Robinson <chris.kcat@gmail.com>",
+    "2015, Archontis Politis",
+    "2017 by Chris Robinson <chris.kcat@gmail.com>",
+    "2018 - present, Victor Zverovich and fmt contributors",
+    "2018 by Chris Robinson <chris.kcat@gmail.com>",
+    "2018 by Raul Herraiz.",
+    "2018 by authors.",
+    "2018, Steffen Schümann <s.schuemann@pobox.com>",
+    "2018-2019 Christopher Fitzgerald",
+    "2019 Christopher Robinson",
+    "2019 by Anis A. Hireche",
+    "2019, Anis A. Hireche",
+    "2019, Christopher Robinson",
+    "2020 Jan Tojnar",
+    "2020 by Chris Robinson <chris.kcat@gmail.com>",
+    "2021 Chris Robinson",
+    "2023 Christopher Robinson",
+    "2024 by Chris Robinson <chris.kcat@gmail.com>",
+    "2024 by authors.",
+    "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
+    "2001-2012 Python Software Foundation",
+    "1995-2001 Corporation for National Research Initiatives",
+    "1991 - 1995, Stichting Mathematisch Centrum Amsterdam",
+  ],
+  license: [
+    "LGPL-2.0-or-later",
+    "GPL-2.0-or-later",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "MIT",
+    "LicenseRef-PFFFT",
+    "Python-2.0",
+  ],
+}.freeze
+
 # OpenAL Soft 1.24.3, which love.audio plays through
 # (src/modules/audio/openal). Its binary names the version (the string
 # "1.24.3" it reports, where Resources/Info.plist still says 1.19.1),
@@ -523,75 +626,311 @@ framework "OpenAL-Soft.framework",
     "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
   ],
   license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
-  source: {
-    url: "https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2",
-    sha256: "cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892",
-    path: "vendor/sources/openal-soft-1.24.3.tar.bz2",
-    copyright: [
-      "1999-2000 by authors.",
-      "1999-2007 by authors.",
-      "1999-2010 by authors.",
-      "2005 Boris Mikhaylov",
-      "2006, Matthias Kretz, <kretz@kde.org>",
-      "2008, Alexander Neundorf, <neundorf@kde.org>",
-      "2008-2017 by Chris Robinson and Christopher Fitzgerald.",
-      "2009 Lennart Poettering",
-      "2009 by Chris Robinson.",
-      "2009 by Konstantinos Natsakis <konstantinos.natsakis@gmail.com>",
-      "2009-2011 Kitware, Inc.",
-      "2009-2011 Philip Lowman <philip@yhbt.com>",
-      "2010 David Henningsson <diwic@ubuntu.com>",
-      "2010 by Chris Robinson",
-      "2010 by Chris Robinson <chris.kcat@gmail.com>",
-      "2011 The Android Open Source Project",
-      "2011 by Chris Robinson",
-      "2011 by Chris Robinson <chris.kcat@gmail.com>",
-      "2011 by Chris Robinson.",
-      "2011 by authors.",
-      "2011, Michael Jansen, <kde@michael-jansen.biz>",
-      "2011-2019 Christopher Fitzgerald",
-      "2012 - 2016, Victor Zverovich",
-      "2012 - present, Victor Zverovich",
-      "2012 - present, Victor Zverovich and fmt contributors",
-      "2012 - present, Victor Zverovich and {fmt} contributors",
-      "2012 by Chris Robinson <chris.kcat@gmail.com>",
-      "2013 Julien Pommier ( pommier@modartt.com )",
-      "2013 Vladimir Keleshev, vladimir@keleshev.com",
-      "2013 by Anis A. Hireche",
-      "2013 by Chris Robinson <chris.kcat@gmail.com>",
-      "2013 by Mike Gorchak",
-      "2014 by Timothy Arceri <t_arceri@yahoo.com.au>.",
-      "2015 by Chris Robinson <chris.kcat@gmail.com>",
-      "2015, Archontis Politis",
-      "2017 by Chris Robinson <chris.kcat@gmail.com>",
-      "2018 - present, Victor Zverovich and fmt contributors",
-      "2018 by Chris Robinson <chris.kcat@gmail.com>",
-      "2018 by Raul Herraiz.",
-      "2018 by authors.",
-      "2018, Steffen Schümann <s.schuemann@pobox.com>",
-      "2018-2019 Christopher Fitzgerald",
-      "2019 Christopher Robinson",
-      "2019 by Anis A. Hireche",
-      "2019, Anis A. Hireche",
-      "2019, Christopher Robinson",
-      "2020 Jan Tojnar",
-      "2020 by Chris Robinson <chris.kcat@gmail.com>",
-      "2021 Chris Robinson",
-      "2023 Christopher Robinson",
-      "2024 by Chris Robinson <chris.kcat@gmail.com>",
-      "2024 by authors.",
-      "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
-      "2001-2012 Python Software Foundation",
-      "1995-2001 Corporation for National Research Initiatives",
-      "1991 - 1995, Stichting Mathematisch Centrum Amsterdam",
-    ],
-    license: [
-      "LGPL-2.0-or-later",
-      "GPL-2.0-or-later",
-      "Apache-2.0",
-      "BSD-3-Clause",
-      "MIT",
-      "LicenseRef-PFFFT",
-      "Python-2.0",
-    ],
-  }
+  source: openal_soft_source
+
+# Linux. The libraries the gem carries in lib/lota/libraries, which
+# love-appimage-source's Makefile builds from each release's source, at
+# the versions it names (vendor/love-appimage-source/Makefile:17-30), as
+# LÖVE's own Linux CI builds them (tasks/linux_build.rb). Each one's
+# licensing comes from the files it compiles, as its build's dependency
+# files list them (the CMake builds' .o.d and the Autotools builds' .Plo),
+# read for every license and notice of copyright they state, and from the
+# license files at the root of its source.
+
+# SDL 3.4.10 (the Makefile's SDL3_BRANCH, tag release-3.4.10, commit
+# 8e37db5e797b6167f3a00d697d816a684bd259c7), under its own license,
+# LICENSE.txt:1-17, which every file of SDL's own states (src/SDL.c:1-20),
+# with the code of others that the Linux build compiles in, each under the
+# license its files state:
+#
+# - BSD-3-Clause: yuv2rgb (src/video/yuv2rgb/LICENSE), and HIDAPI, which
+#   offers GPL-3.0, a BSD-style license, or its original license, at the
+#   user's choice (src/hidapi/LICENSE.txt and src/hidapi/linux/hid.c:1-21);
+#   Lota uses it under the BSD-style one, src/hidapi/LICENSE-bsd.txt, as
+#   on macOS.
+# - MIT: the Wayland protocols, as wayland-scanner copies each protocol's
+#   notice into the code it generates from SDL's wayland-protocols/*.xml;
+#   src/events/imKStoUCS.c:1-25 (from X.Org); src/video/x11/edid-parse.c:1-21
+#   and src/filesystem/unix/SDL_sysfilesystem.c:338-364 (Red Hat's);
+#   include/SDL3/SDL_opengl.h (Mesa's); and include/SDL3/SDL_opengl_glext.h
+#   and SDL_egl.h (the Khronos Group's).
+# - MIT OR Unlicense: stb_image, src/video/stb_image.h, which offers either,
+#   recorded as LÖVE's own copy is.
+# - HPND-sell-variant: src/video/x11/xsettings-client.c:1-23, and the
+#   text-input-unstable-v3 protocol (wayland-protocols/
+#   text-input-unstable-v3.xml:4-30).
+# - SunPro: src/libm (src/libm/e_atan2.c:2-11, and the same in each).
+# - Apache-2.0: the Khronos Group's Vulkan headers, src/video/khronos/
+#   vulkan and vk_video, each of which names Apache-2.0 in its SPDX tag
+#   (vulkan/vulkan_core.h:4-8).
+# - CC0-1.0: dlmalloc, src/stdlib/SDL_malloc.c:36-40, and PDCLib's
+#   strtok, src/stdlib/SDL_strtokr.c:30-47, each dedicated to the public
+#   domain with CC0's deed.
+# - Unlicense: miniz, src/video/miniz.h:1-3 and 5074-5099.
+# - LicenseRef-SDL-libm-Public-Domain: src/libm/s_isinf.c and s_isinff.c,
+#   whose header puts them in the public domain in a sentence no SPDX
+#   identifier names, recorded with its authors.
+#
+# Its other files without a notice of their own, such as the shaders SDL
+# generates (src/render/vulkan) and the pointer-gestures protocol, are
+# SDL's, under its license.
+library "libSDL3.so.0",
+  copyright: [
+    "1997-2026 Sam Lantinga <slouken@libsdl.org>",
+    "1998-2021 Gareth McCaughan",
+    "2001-2011 Andreas Schiffler",
+    "2017, Mark Callow",
+    "2020 Collabora Ltd.",
+    "2020 Valve Corporation",
+    "2021 Valve Corporation",
+    "Valve Corporation",
+    "2021 NVIDIA Corporation",
+    "2023 Max Maisel <max.maisel@posteo.de>",
+    "2024 Igalia S.L.",
+    "2024 Wim Taymans <wtaymans@redhat.com>",
+    "2025 Bernat Arlandis <berarma@hotmail.com>",
+    "2025 Katharine Chui <katharine.chui@gmail.com>",
+    "2025 Michal Malý <madcatxster@devoid-pointer.net>",
+    "2025 Mitchell Cairns <mitch.cairns@handheldlegend.com>",
+    "2025 Simon Wood <simon@mungewell.org>",
+    "2025 Zuiki Inc.",
+    "2016, Adrien Descamps",
+    "2010, Alan Ott, Signal 11 Software",
+    "2022-2023 Alan Ott, Signal 11 Software, and the libusb/hidapi Team",
+    "2003-2006,2008 Jamey Sharp, Josh Triplett",
+    "2009 Red Hat, Inc.",
+    "1990-1992,1999,2000,2004,2009,2010 Oracle and/or its affiliates.",
+    "2007 Red Hat, Inc.",
+    "2001, 2007 Red Hat, Inc.",
+    "1999-2006 Brian Paul",
+    "2009 VMware, Inc.",
+    "2007-2020 The Khronos Group Inc.",
+    "2008-2018 The Khronos Group Inc.",
+    "2013-2020 The Khronos Group Inc.",
+    "2014-2024 The Khronos Group Inc.",
+    "2015-2024 The Khronos Group Inc.",
+    "2017 Sean Barrett",
+    "1993 by Sun Microsystems, Inc.",
+    "2010-2013 Rich Geldreich <richgel99@gmail.com>",
+    "J.T. Conklin <jtc@netbsd.org>",
+    "Ulrich Drepper <drepper@cygnus.com>",
+    "2008-2011 Kristian Høgsberg",
+    "2008-2013 Kristian Høgsberg",
+    "2010-2011 Intel Corporation",
+    "2010-2013 Intel Corporation",
+    "2012, 2013 Intel Corporation",
+    "2012-2013 Collabora, Ltd.",
+    "2013-2016 Collabora, Ltd.",
+    "2017 Collabora, Ltd.",
+    "2020-2024 Collabora, Ltd.",
+    "2013 Jasper St. Pierre",
+    "2013 Rafael Antognolli",
+    "2014 Jonas Ådahl",
+    "2014 Stephen \"Lyude\" Chandler Paul",
+    "2015, 2016 Jan Arne Petersen",
+    "2015, 2016 Red Hat",
+    "2015 Red Hat Inc.",
+    "2015-2016 Red Hat Inc.",
+    "2015-2016 Red Hat, Inc.",
+    "2015-2017 Red Hat Inc.",
+    "2017 Red Hat Inc.",
+    "2017, 2018 Red Hat, Inc.",
+    "2022-2025 Red Hat, Inc.",
+    "2015 Samsung Electronics Co., Ltd",
+    "2015-2017 Samsung Electronics Co., Ltd",
+    "2018 Purism SPC",
+    "2018 Simon Ser",
+    "2023 Simon Ser",
+    "2018 The Chromium Authors",
+    "2019 Erwin Burema",
+    "2019 Sebastian Wick",
+    "2020 AMD",
+    "2020 Aleix Pol Gonzalez <aleixpol@kde.org>",
+    "2020 Carlos Garnacho <carlosg@gnome.org>",
+    "2023 Carlos Garnacho",
+    "2022 Kenny Levinsen",
+    "2023 Joshua Ashton for Valve Software",
+    "2023 Xaver Hugl",
+    "2024 Xaver Hugl",
+    "2023-2024 Matthias Klumpp",
+    "2024 Matthias Klumpp",
+    "2024 David Edmundson",
+    "2024 Neal Gompa",
+    "2024 Vlad Zahorodnii",
+  ],
+  license: [
+    "Zlib",
+    "BSD-3-Clause",
+    "MIT",
+    "HPND-sell-variant",
+    "SunPro",
+    "Apache-2.0",
+    "CC0-1.0",
+    "Unlicense",
+    "MIT OR Unlicense",
+    "LicenseRef-SDL-libm-Public-Domain",
+  ]
+
+# FreeType 2.13.3 (the Makefile's FT_VERSION), which offers the FreeType
+# License or GPL-2.0 (LICENSE.TXT); Lota uses it under the FreeType License
+# (docs/FTL.TXT), as on macOS, Adobe's CFF engine in src/psaux included
+# (src/psaux/psft.c:1-36, which puts it under the FreeType License). The
+# build compiles every module (its ftmodule.h): the BDF and PCF drivers
+# and src/base/fthash.c under MIT (src/bdf/README, src/pcf/README, and
+# fthash.c:9-31), src/pcf/pcfutil.c under the Open Group's license (lines
+# 1-25, MIT-open-group), and src/autofit/ft-hb.c under HarfBuzz's
+# (lines 1-25, MIT-Modern-Variant). It links the zlib the gem carries
+# (FT_CONFIG_OPTION_SYSTEM_ZLIB in its ftoption.h), and libbz2 1.0.8, the
+# Makefile's BZIP2_VERSION, which it compiles in: bzip2's LICENSE:1-42,
+# whose text is bzip2-1.0.6's.
+library "libfreetype.so.6",
+  copyright: [
+    "1996-2024 David Turner, Robert Wilhelm, and Werner Lemberg",
+    "2006-2014 Adobe Systems Incorporated",
+    "2003 Huw D M Davies for Codeweavers",
+    "2007 Dmitry Timoshkov for Codeweavers",
+    "2000 Computing Research Labs, New Mexico State University",
+    "2000 Francesco Zappa Nardelli",
+    "2001-2002, 2011 Francesco Zappa Nardelli",
+    "2001-2015 Francesco Zappa Nardelli",
+    "1990, 1994, 1998 The Open Group",
+    "2015 Google, Inc.",
+    "2009, 2023 Red Hat, Inc.",
+    "1996-2019 Julian Seward <jseward@acm.org>",
+  ],
+  license: ["FTL", "MIT", "MIT-open-group", "MIT-Modern-Variant", "bzip2-1.0.6"]
+
+# HarfBuzz 10.1.0 (the Makefile's HARFBUZZ_BRANCH, tag 10.1.0, commit
+# 9ef44a2d67ac870c1f7f671f6dc98d08a2579865), which compiles everything in
+# one file, src/harfbuzz.cc: COPYING:1-42, the "Old MIT" text
+# (MIT-Modern-Variant), which its files state (src/hb.hh:1-27, and the
+# same in each); src/ms-use/COPYING, which covers the Universal Shaping
+# Engine's data the library compiles in, MIT; the fasthash it borrows,
+# MIT (src/hb-algs.hh:261-284); src/hb-ucd.cc:1-15, under ISC; and the
+# Unicode Character Database's data its tables are generated from
+# (src/hb-unicode-emoji-table.hh:8-19), under the Unicode License v3. The
+# FreeType headers it includes are FreeType's, recorded with it.
+library "libharfbuzz.so",
+  copyright: [
+    "2010-2022 Google, Inc.",
+    "2015-2020 Ebrahim Byagowi",
+    "2019,2020 Facebook, Inc.",
+    "2012,2015 Mozilla Foundation",
+    "2011 Codethink Limited",
+    "2008,2010 Nokia Corporation and/or its subsidiary(-ies)",
+    "2009 Keith Stribley",
+    "2011 Martin Hosken and SIL International",
+    "2007 Chris Wilson",
+    "2005,2006,2020,2021,2022,2023 Behdad Esfahbod",
+    "2004,2007,2008,2009,2010,2013,2021,2022,2023 Red Hat, Inc.",
+    "1998-2005 David Turner and Werner Lemberg",
+    "2016 Igalia S.L.",
+    "2022 Matthias Clasen",
+    "2018,2021 Khaled Hosny",
+    "2018,2019,2020 Adobe, Inc",
+    "2013-2015 Alexei Podtelezhnikov",
+    "2016 Elie Roux <elie.roux@telecom-bretagne.eu>",
+    "2012 Grigori Goronzy <greg@kinoho.net>",
+    "2012 Zilong Tan (eric.zltan@gmail.com)",
+    "Microsoft Corporation",
+    "2024 Unicode, Inc.",
+  ],
+  license: ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-3.0"]
+
+# OpenAL Soft 1.24.3 (the Makefile's OPENAL_BRANCH, tag 1.24.3, commit
+# dc7d7054a5b4f3bec1dc23a42fd616a0847af948, whose files are the release
+# archive's, byte for byte), recorded as on macOS, with what the Linux
+# build compiles besides: the ALSA, OSS, PulseAudio, PipeWire, and JACK
+# backends (alc/backends/pulseaudio.cpp:1-20, the library's own license),
+# and RTKit's client, core/rtkit.cpp:1-27, under MIT. Its license, the GNU
+# Library General Public License, asks for its source with its object code,
+# so the gem carries the release's archive beside it, as on macOS, and the
+# bundle links it as LÖVE's Linux build does, a library apart, which a
+# player can replace.
+library "libopenal.so.1",
+  copyright: [
+    "1999-2000 by authors.",
+    "1999-2007 by authors.",
+    "1999-2010 by authors.",
+    "2005 Boris Mikhaylov",
+    "2008-2017 by Chris Robinson and Christopher Fitzgerald.",
+    "2009 by Chris Robinson.",
+    "2009 by Konstantinos Natsakis <konstantinos.natsakis@gmail.com>",
+    "2009 Lennart Poettering",
+    "2010 David Henningsson <diwic@ubuntu.com>",
+    "2010 by Chris Robinson",
+    "2010 by Chris Robinson <chris.kcat@gmail.com>",
+    "2011 by Chris Robinson",
+    "2011 by Chris Robinson.",
+    "2012 - present, Victor Zverovich",
+    "2012 - present, Victor Zverovich and {fmt} contributors",
+    "2013 Julien Pommier ( pommier@modartt.com )",
+    "2013 by Anis A. Hireche",
+    "2013 by Mike Gorchak",
+    "2015, Archontis Politis",
+    "2018 by Raul Herraiz.",
+    "2018, Steffen Schümann <s.schuemann@pobox.com>",
+    "2019 by Anis A. Hireche",
+    "2019, Christopher Robinson",
+    "2021 Chris Robinson",
+    "2023 Christopher Robinson",
+    "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
+  ],
+  license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
+  source: openal_soft_source
+
+# libmodplug 0.8.8.5 (the Makefile's LIBMODPLUG_VERSION): its COPYING puts
+# it in the public domain, as each of its own files does
+# (src/modplug.h:1-5), recorded as on macOS; the authors its AUTHORS file
+# lists, Tyler Montbriand among them since the macOS framework's; and the
+# ABC, MIDI, and PAT loaders it took from the MikMod Sound System
+# (src/load_abc.cpp:1-25, and the same in load_mid.cpp and load_pat.cpp),
+# whose grant of rights no SPDX identifier names, so its text is recorded
+# as LicenseRef-libmodplug-MikMod.
+library "libmodplug.so.1",
+  copyright: [
+    "Olivier Lapicque <olivierl@jps.net>",
+    "Kenton Varda <temporal@gauge3d.org>",
+    "Konstanty Bialkowski <konstanty@ieee.org>",
+    "Colin DeVilbiss <crdevilb@mtu.edu>",
+    "Markus Fick <marf@gmx.net>",
+    "Adam Goode <adam@evdebs.org>",
+    "Marco Trillo <toad@arsystel.com>",
+    "Alistair John Strachan <s0348365@sms.ed.ac.uk>",
+    "Tyler Montbriand <tsm@accesscomm.ca>",
+    "1996-2000 Jake Stine of Divine Entertainment",
+    "2006 Peter Grootswagers <pgrootswagers@planet.nl>",
+  ],
+  license: ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"]
+
+# libvorbisfile and libvorbis, from libvorbis 1.3.7 (the Makefile's
+# LIBVORBIS_VERSION): its COPYING, BSD-3-Clause, which its files point to
+# (lib/vorbisfile.c:1-11, and the same in each). libvorbis also compiles
+# lib/lpc.c, which keeps Jutta Degener's and Carsten Bormann's notice and
+# terms for the code it derives from theirs (lines 17-43), the text of
+# TU-Berlin-1.0.
+library "libvorbisfile.so.3",
+  copyright: ["2002-2020 Xiph.org Foundation", "1994-2015 by the Xiph.Org Foundation"],
+  license: ["BSD-3-Clause"]
+
+library "libvorbis.so.0",
+  copyright: [
+    "2002-2020 Xiph.org Foundation",
+    "1994-2015 by the Xiph.Org Foundation",
+    "1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin",
+  ],
+  license: ["BSD-3-Clause", "TU-Berlin-1.0"]
+
+# libogg 1.3.5 (the Makefile's LIBOGG_VERSION), which libvorbis needs: its
+# COPYING, BSD-3-Clause, which its files point to (src/framing.c:1-11).
+library "libogg.so.0",
+  copyright: ["2002, Xiph.org Foundation", "1994-2018 by the Xiph.Org Foundation"],
+  license: ["BSD-3-Clause"]
+
+# zlib 1.3 (the Makefile's ZLIB_BRANCH, tag v1.3, commit
+# 09155eaa2f9270dc4ed1fa13e2b4b2613e6e4851), which LÖVE and FreeType link:
+# the notice and license of zlib.h:1-29, which every file of it points to
+# (adler32.c:1-4, and the same in each), the zlib License's text.
+library "libz.so.1",
+  copyright: ["1995-2023 Jean-loup Gailly and Mark Adler"],
+  license: ["Zlib"]

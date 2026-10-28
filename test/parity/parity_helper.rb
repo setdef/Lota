@@ -25,20 +25,28 @@ module Parity
   ARKANOID_TRANSLATED = File.join(ROOT, "test/games/arkanoid")
 
   # How long either engine may take to run a game before it is stopped and
-  # the run fails: a dialog waiting for a click would wait for good.
-  TIMEOUT = 120
+  # the run fails: a dialog waiting for a click would wait for good. On
+  # Linux both draw through Mesa's software renderer, on CI's virtual
+  # display, which takes several times as long over the 2,520 frames of
+  # Gravity-Wars, each read back and saved.
+  TIMEOUT = TestHome::LINUX ? 600 : 120
 
   # What a run of one engine printed, and how it ended.
   Output = Data.define(:text, :status)
 
+  # The build tree the harness's own libraries are in.
+  LIB = File.join(ROOT, "tmp/engine/build/lib")
+
   # The parity harness's audio device (ext/lota/native_test/loopback.cpp),
-  # which every run, LÖVE's and Lota's, loads with DYLD_INSERT_LIBRARIES:
-  # it gives LÖVE's audio module an OpenAL Soft loopback device in place of
-  # the wave file writer test/alsoft.conf names, which each side of the
-  # harness mixes once a frame, for the frame's fixed dt, into the run's
-  # LOTA_LOOPBACK_FILE. Both engines are started directly, never through a
-  # shell, which macOS protects and would drop the variable from.
-  LOOPBACK = File.join(ROOT, "tmp/engine/build/lib/liblota_loopback.dylib")
+  # which every run, LÖVE's and Lota's, loads before anything else
+  # (NativeHelper.preload): it gives LÖVE's audio module an OpenAL Soft
+  # loopback device in place of the wave file writer test/alsoft.conf
+  # names, which each side of the harness mixes once a frame, for the
+  # frame's fixed dt, into the run's LOTA_LOOPBACK_FILE. Both engines are
+  # started directly, never through a shell, which macOS protects and would
+  # drop DYLD_INSERT_LIBRARIES from. On Linux each run also loads the
+  # library that answers dialogs (NativeHelper.dialogs).
+  LOOPBACK = File.join(LIB, "liblota_loopback.#{TestHome::LINUX ? 'so' : 'dylib'}")
 
   # The sample rate and channels the loopback device mixes at, and the
   # bytes of one sample frame: 32-bit float stereo at 48 kHz.
@@ -48,7 +56,7 @@ module Parity
   # The environment that loads the loopback device and names the file it
   # writes, +audio+.
   def self.loopback(audio)
-    { "DYLD_INSERT_LIBRARIES" => LOOPBACK, "LOTA_LOOPBACK_FILE" => audio }
+    { **NativeHelper.preload(LOOPBACK, *NativeHelper.dialogs(LIB)), "LOTA_LOOPBACK_FILE" => audio }
   end
 
   # The seconds since the epoch both engines' clocks stand at, unless a
@@ -129,10 +137,8 @@ module Parity
 
     # Runs the game in the folder +game+ under +script+, keeping its frames
     # in +directory+. LÖVE's home directory is +directory+/home
-    # (CFFIXED_USER_HOME, which Foundation reads for the user's home), so a
-    # game that saves, as LÖVE saves under the home's Application Support
-    # (src/common/apple.mm, getUserDirectory), starts each run with nothing
-    # saved and leaves nothing behind.
+    # (test/test_home.rb), so a game that saves starts each run with
+    # nothing saved and leaves nothing behind.
     def initialize(game, script, directory)
       @frames_dir = File.join(directory, "love")
       Dir.mkdir(@frames_dir)
@@ -145,7 +151,7 @@ module Parity
       @sounds_dir = File.join(directory, "love-sounds")
       Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
-        "CFFIXED_USER_HOME" => @home, "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio))
+        **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio))
       @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"))
     end
 
@@ -172,9 +178,9 @@ module Parity
       @sounds_dir = File.join(directory, "lota-sounds-#{object_id}")
       Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
-        "LOTA_PARITY_REPORT" => report, "CFFIXED_USER_HOME" => @home, "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir,
+        "LOTA_PARITY_REPORT" => report, **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir,
         **Parity.loopback(@audio))
-      native_test = File.join(ROOT, "tmp/engine/build/lib")
+      native_test = LIB
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
         "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game)
       @report = File.exist?(report) ? JSON.parse(File.read(report)) : {}

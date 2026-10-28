@@ -10,8 +10,8 @@ require_relative "native_gem"
 require_relative "package_check"
 
 # Lota's precompiled gem, built from rake compile's bundle, which CMake
-# links in ENGINE_BUILD (tasks/engine.rake), with the licensing
-# ext/lota/licenses.rb records.
+# links in ENGINE_BUILD (tasks/engine.rake), against LÖVE's dependencies,
+# with the licensing ext/lota/licenses.rb records.
 def native_gem
   NativeGem.new(
     root: Dir.pwd,
@@ -19,7 +19,8 @@ def native_gem
     bundle: "lib/lota/native.#{RbConfig::CONFIG['DLEXT']}",
     build: ENGINE_BUILD,
     licensing: Licensing.load("ext/lota/licenses.rb"),
-    licenses: %w[LICENSES ext/lota/licenses]
+    licenses: %w[LICENSES ext/lota/licenses],
+    dependencies: (ENGINE_PLATFORM == "linux") ? "tmp/dependencies/installdir" : "vendor/love-apple-dependencies"
   )
 end
 
@@ -91,7 +92,7 @@ def packages
       native_packaged: [NativeGem::REUSE_TOML, Licensing::SOURCES],
       extension: "lib/lota/native",
       native: native_gem,
-      refusal: "Install Lota's precompiled gem instead, for Apple Silicon macOS",
+      refusal: "Install Lota's precompiled gem instead, which RubyGems chooses",
       smoke: <<~RUBY,
         require "lota"
         puts "lota \#{Lota::VERSION} loads, with \#{Lota::Native::RandomGenerator.cpp_class}"
@@ -138,7 +139,7 @@ namespace :package do
     deliver_packages(args.extras)
   end
 
-  desc "Build the precompiled gem for #{NativeGem::PLATFORM} into pkg/"
+  desc "Build the precompiled gem for this platform (#{NativeFormat.host.platform}) into pkg/"
   task native: :compile do
     puts "✅ Built #{build_native_package}"
   end

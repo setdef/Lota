@@ -14,14 +14,15 @@ require "open3"
 # The repository is a REUSE project, and so is the precompiled gem, but
 # the gem carries more: the compiled bundle, which holds LÖVE's engine,
 # the libraries LÖVE bundles, and Rice's headers, and the frameworks the
-# bundle loads. NativeGem gives the gem the repository's REUSE.toml with
-# one more annotation for the bundle and one for each framework, which
-# #annotations writes from the record.
+# bundle loads, or on Linux its shared libraries. NativeGem gives the gem
+# the repository's REUSE.toml with one more annotation for the bundle and
+# one for each framework or library, which #annotations writes from the
+# record.
 #
-# The record stays complete because the build checks it. A framework the
-# bundle loads must have an entry (#framework_for), and so must every
-# file the bundle was compiled from (#bundled), which LinkedFiles reads
-# from the linker's map and ninja's dependency log.
+# The record stays complete because the build checks it. A framework or
+# library the bundle loads must have an entry (#framework_for), and so
+# must every file the bundle was compiled from (#bundled), which
+# LinkedFiles reads from the linker's map and ninja's dependency log.
 class Licensing
   # Code the bundle compiles in, or a framework the gem ships.
   #
@@ -97,14 +98,22 @@ class Licensing
     @works << checked(Work.new(name:, sources:, gem:, copyright:, license:, pending:))
   end
 
-  # Records a framework the gem ships, by its directory's name, with the
-  # archive of its source when its license asks the gem to carry it.
+  # Records a framework the gem ships on macOS, by its directory's name,
+  # with the archive of its source when its license asks the gem to carry
+  # it.
   def framework(name, copyright:, license:, pending: nil, source: nil)
     @frameworks[name] = checked(Work.new(name:, sources: [], gem: nil, copyright:, license:, pending:,
       source: source && Source.new(**source)))
   end
 
-  # The entry for the framework +name+ (SDL3.framework).
+  # Records a shared library the gem ships on Linux, by the soname the
+  # bundle or another library needs it by, as a framework is recorded.
+  def library(name, copyright:, license:, pending: nil, source: nil)
+    framework(name, copyright:, license:, pending:, source:)
+  end
+
+  # The entry for the framework, or on Linux the library, +name+
+  # (SDL3.framework, libSDL3.so.0).
   def framework_for(name)
     @frameworks.fetch(name) do
       raise Unrecorded, "#{name} has no recorded license; record its copyright and license in #{@path}"
@@ -138,14 +147,14 @@ class Licensing
   end
 
   # REUSE.toml's annotations for a gem whose +bundle+ carries +works+, and
-  # which ships the frameworks named +frameworks+ in +framework_dir+, all
-  # paths relative to the gem.
-  # Each framework's source archive gets an annotation of its own, at
-  # its place in SOURCES.
-  def annotations(bundle:, works:, framework_dir:, frameworks:)
+  # which ships the frameworks, or libraries, +frameworks+ names, each name
+  # to the path its annotation covers (NativeFormat#annotation), all paths
+  # relative to the gem. Each one's source archive gets an annotation of
+  # its own, at its place in SOURCES.
+  def annotations(bundle:, works:, frameworks:)
     tables = [annotation(bundle, works)]
-    tables += frameworks.map { |name| annotation("#{framework_dir}/#{name}/**", [framework_for(name)]) }
-    tables += sources(frameworks).map do |source|
+    tables += frameworks.map { |name, path| annotation(path, [framework_for(name)]) }
+    tables += sources(frameworks.keys).map do |source|
       annotation("#{SOURCES}/#{source.name}", [
 Work.new(name: source.name, sources: [], gem: nil,
   copyright: source.copyright, license: source.license, pending: nil),
@@ -154,9 +163,9 @@ Work.new(name: source.name, sources: [], gem: nil,
     tables.join("\n")
   end
 
-  # The source archives of the frameworks named +frameworks+.
+  # The source archives of the frameworks named +frameworks+, each once.
   def sources(frameworks)
-    frameworks.filter_map { |name| framework_for(name).source }
+    frameworks.filter_map { |name| framework_for(name).source }.uniq
   end
 
   # A work must record its copyright and license, unless what it lacks is
@@ -196,8 +205,10 @@ Work.new(name: source.name, sources: [], gem: nil,
 end
 
 # The files a bundle was linked from: each object file the linker's map
-# (ld -map) lists, and what ninja's dependency log says each was compiled
-# from.
+# lists, and what ninja's dependency log says each was compiled from. The
+# map is Apple's linker's (ld -map) on macOS, and GNU ld's (-Map) on
+# Linux, whose "Archive member included" section names each member it
+# took from an archive and whose LOAD lines name every other input.
 #
 # An object from a static archive appears in the map by its file name
 # alone, as libengine.a(Data.cpp.o), so it is matched with the objects
@@ -250,8 +261,28 @@ class LinkedFiles < Data.define(:files, :sources, :compiled)
 
   # The map's object files, as it names them.
   private_class_method def self.linked(map)
-    section = map.b[/^# Object files:\n(.*?)^# Sections:/m, 1] or raise Failure, "the linker map lists no object files"
+    map = map.b
+    return gnu_linked(map) unless map.start_with?("# Path: ")
+
+    section = map[/^# Object files:\n(.*?)^# Sections:/m, 1] or raise Failure, "the linker map lists no object files"
     section.lines.filter_map { |line| line[/\A\[\s*\d+\]\s+(.+\.o\)?)$/, 1]&.force_encoding(Encoding::UTF_8) }
+  end
+
+  # The headings of the sections GNU ld's map has after the archive
+  # members it took (ld/ldlang.c and ldmain.c in GNU binutils).
+  GNU_SECTIONS = Regexp.union("Allocating common symbols", "Discarded input sections", "Memory Configuration",
+    "Linker script and memory map")
+
+  # The object files in GNU ld's map: each archive member it took, from
+  # the section that says why it took it, where a member starts a line,
+  # and each object it loaded whole, from the LOAD lines, which also name
+  # the archives and shared libraries it searched.
+  private_class_method def self.gnu_linked(map)
+    loaded = map.scan(/^LOAD (.+\.o)$/).flatten
+    raise Failure, "the linker map lists no object files" if loaded.empty?
+
+    members = map[/^Archive member included to satisfy reference by file \(symbol\)\n(.*?)^#{GNU_SECTIONS}$/m, 1].to_s
+    (loaded + members.scan(/^(\S+\.o\))/).flatten).map { |entry| entry.force_encoding(Encoding::UTF_8) }
   end
 
   # The objects ninja built that +entry+ names: itself, or, for an

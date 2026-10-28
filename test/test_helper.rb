@@ -13,16 +13,15 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require "fileutils"
 require "minitest"
 require "tmpdir"
+require_relative "test_home"
 
 # Every test, and every program a test starts, gets a home of its own
-# before the engine loads: Foundation reads the home directory from
-# CFFIXED_USER_HOME when it is set, and LÖVE's filesystem saves under the
-# home's Application Support (src/common/apple.mm, getUserDirectory), so a
-# test that saves never touches yours. OpenAL Soft plays into a wave file
-# in that home (test/alsoft.conf), so no test makes a sound.
+# before the engine loads (test/test_home.rb), so a test that saves never
+# touches yours. OpenAL Soft plays into a wave file in that home
+# (test/alsoft.conf), so no test makes a sound.
 unless ENV["LOTA_TEST_HOME"]
-  ENV["LOTA_TEST_HOME"] = ENV["CFFIXED_USER_HOME"] = Dir.mktmpdir("lota-test-home-")
-  home = ENV["LOTA_TEST_HOME"]
+  home = Dir.mktmpdir("lota-test-home-")
+  TestHome.enter(home)
   Minitest.after_run { FileUtils.rm_rf(home) }
 end
 ENV["ALSOFT_CONF"] = File.expand_path("alsoft.conf", __dir__)
@@ -40,6 +39,11 @@ ENV["ALSOFT_CONF"] = File.expand_path("alsoft.conf", __dir__)
 # Cocoa_RaiseWindow). A game a player runs gets none of them. Dialogs
 # activate their program regardless, so the harness that presses Return
 # on them also keeps it in the background (ext/lota/native_test/dialogs.mm).
+# On Linux, under X11, only the last does anything: SDL leaves whether a
+# window takes focus as it is shown to the window manager
+# (src/video/x11/SDL_x11window.c, X11_ShowWindow), so CI runs the tests
+# on a display of their own, Xvfb's, as LÖVE's own Linux CI runs Lövetest
+# (vendor/love/.github/workflows/main.yml).
 ENV.update("SDL_MAC_BACKGROUND_APP" => "1", "SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => "0",
   "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0")
 

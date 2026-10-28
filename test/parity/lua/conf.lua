@@ -304,12 +304,19 @@ local function use_mouse(frame)
   end
 end
 
--- AppKit's run loop mode while a dialog is up, and the Objective-C runtime
--- calls that find the dialog and press its default button
--- (objc/runtime.h, objc/message.h). objc_msgSend must be called through a
--- pointer of each method's own type, never as a variadic function, which
--- passes its arguments differently on Apple silicon.
-ffi.cdef([[
+-- Dialogs and the program's activation are each system's own: AppKit's on
+-- macOS, and on Linux the library the harness loads to answer dialogs
+-- (ext/lota/native_test/answer_dialogs_linux.cpp). Each branch defines
+-- stay_in_background, which love.update calls once love.window is open.
+local stay_in_background
+
+if jit.os == "OSX" then
+  -- AppKit's run loop mode while a dialog is up, and the Objective-C runtime
+  -- calls that find the dialog and press its default button
+  -- (objc/runtime.h, objc/message.h). objc_msgSend must be called through a
+  -- pointer of each method's own type, never as a variadic function, which
+  -- passes its arguments differently on Apple silicon.
+  ffi.cdef([[
 typedef void *LotaParityId;
 LotaParityId objc_getClass(const char *name);
 LotaParityId sel_registerName(const char *name);
@@ -323,37 +330,75 @@ double CFAbsoluteTimeGetCurrent(void);
 void *CFStringCreateWithCString(void *allocator, const char *string, uint32_t encoding);
 ]])
 
-local send = ffi.cast("LotaParityId (*)(LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
-local send_id = ffi.cast("void (*)(LotaParityId, LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
-local kCFStringEncodingUTF8 = 0x08000100
+  local send = ffi.cast("LotaParityId (*)(LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
+  local send_id = ffi.cast("void (*)(LotaParityId, LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
+  local kCFStringEncodingUTF8 = 0x08000100
 
--- Presses Return on every dialog the game shows, as a player would, so a
--- dialog such as LÖVE's version warning (boot.lua:378-393) does not wait
--- for good. SDL shows its message box with NSAlert's runModal
--- (SDL_ShowMessageBox, vendor/love/src/modules/window/sdl/Window.cpp),
--- which runs the main run loop in AppKit's modal panel mode until a button
--- is pressed, so a timer in that mode, every tenth of a second, finds the
--- modal window and presses its default button, the one Return presses
--- (NSWindow's defaultButtonCell, which NSAlert gives its first button).
--- It does this in the game's own process, as the key events above are
--- pushed into SDL's queue, so it needs neither keyboard focus nor macOS's
--- Accessibility permission, which System Events would need to press
--- Return from another process. ext/lota/native_test does the same for
--- Lota (press_return_on_dialogs).
-local press_return = ffi.cast("LotaParityTimerCallBack", function()
-  local application = send(ffi.C.objc_getClass("NSApplication"), ffi.C.sel_registerName("sharedApplication"))
-  local dialog = send(application, ffi.C.sel_registerName("modalWindow"))
-  if dialog == nil then
-    return
+  -- Presses Return on every dialog the game shows, as a player would, so a
+  -- dialog such as LÖVE's version warning (boot.lua:378-393) does not wait
+  -- for good. SDL shows its message box with NSAlert's runModal
+  -- (SDL_ShowMessageBox, vendor/love/src/modules/window/sdl/Window.cpp),
+  -- which runs the main run loop in AppKit's modal panel mode until a button
+  -- is pressed, so a timer in that mode, every tenth of a second, finds the
+  -- modal window and presses its default button, the one Return presses
+  -- (NSWindow's defaultButtonCell, which NSAlert gives its first button).
+  -- It does this in the game's own process, as the key events above are
+  -- pushed into SDL's queue, so it needs neither keyboard focus nor macOS's
+  -- Accessibility permission, which System Events would need to press
+  -- Return from another process. ext/lota/native_test does the same for
+  -- Lota (press_return_on_dialogs).
+  local press_return = ffi.cast("LotaParityTimerCallBack", function()
+    local application = send(ffi.C.objc_getClass("NSApplication"), ffi.C.sel_registerName("sharedApplication"))
+    local dialog = send(application, ffi.C.sel_registerName("modalWindow"))
+    if dialog == nil then
+      return
+    end
+    local button = send(dialog, ffi.C.sel_registerName("defaultButtonCell"))
+    if button ~= nil then
+      send_id(button, ffi.C.sel_registerName("performClick:"), nil)
+    end
+  end)
+  ffi.C.CFRunLoopAddTimer(ffi.C.CFRunLoopGetMain(),
+    ffi.C.CFRunLoopTimerCreate(nil, ffi.C.CFAbsoluteTimeGetCurrent() + 0.1, 0.1, 0, 0, press_return, nil),
+    ffi.C.CFStringCreateWithCString(nil, "NSModalPanelRunLoopMode", kCFStringEncodingUTF8))
+
+  -- Keeps LÖVE from becoming the active program, as ext/lota/native_test
+  -- keeps Lota (stay_in_background in dialogs.mm): the harness starts both
+  -- with SDL's hints that keep a window from activating its program
+  -- (test/test_helper.rb), but AppKit activates a program that runs a modal
+  -- dialog, as SDL's message box does, which would take keyboard focus from
+  -- the person at the computer. A program whose activation policy is
+  -- prohibited (NSApplicationActivationPolicyProhibited, 2) is never
+  -- activated, and still shows its windows and dialogs. SDL has made the
+  -- application once love.window has opened, whose Window starts SDL's video
+  -- subsystem (window/sdl/Window.cpp:88-90), and boot.lua shows its version
+  -- warning only after every module has opened (boot.lua:347-393).
+  local send_long = ffi.cast("void (*)(LotaParityId, LotaParityId, long)", ffi.C.objc_msgSend)
+  function stay_in_background()
+    local application = send(ffi.C.objc_getClass("NSApplication"), ffi.C.sel_registerName("sharedApplication"))
+    send_long(application, ffi.C.sel_registerName("setActivationPolicy:"), 2)
   end
-  local button = send(dialog, ffi.C.sel_registerName("defaultButtonCell"))
-  if button ~= nil then
-    send_id(button, ffi.C.sel_registerName("performClick:"), nil)
-  end
-end)
-ffi.C.CFRunLoopAddTimer(ffi.C.CFRunLoopGetMain(),
-  ffi.C.CFRunLoopTimerCreate(nil, ffi.C.CFAbsoluteTimeGetCurrent() + 0.1, 0.1, 0, 0, press_return, nil),
-  ffi.C.CFStringCreateWithCString(nil, "NSModalPanelRunLoopMode", kCFStringEncodingUTF8))
+else
+  -- On Linux SDL shows a dialog with zenity, a program of its own, when it
+  -- is installed, and otherwise in a window of its own X11 toolkit, on a
+  -- connection of its own to the X server (SDL 3.4.10,
+  -- src/video/x11/SDL_x11messagebox.c), so nothing in this process can
+  -- press a key on it. The harness loads liblota_dialogs into this process
+  -- with LD_PRELOAD (test/parity/parity_helper.rb), whose SDL_ShowMessageBox
+  -- and SDL_ShowSimpleMessageBox come before SDL's, and which, from now on,
+  -- answers every dialog as Return answers it, with the button SDL flags
+  -- for Return, without showing it, as ext/lota/native_test does for Lota
+  -- (press_return_on_dialogs in dialogs_linux.cpp).
+  ffi.cdef([[
+void lota_press_return_on_dialogs(void);
+]])
+  ffi.C.lota_press_return_on_dialogs()
+
+  -- X11 has no program to activate, only windows, which SDL's hints keep
+  -- from activating when they are raised (test/test_helper.rb), and no
+  -- dialog shows a window, so there is nothing to keep in the background.
+  function stay_in_background() end
+end
 
 assert(love.filesystem.mountFullPath(GAME, "/", "read", false), "could not mount " .. GAME)
 
@@ -361,26 +406,9 @@ if love.filesystem.getRealDirectory("conf.lua") == GAME then
   assert(love.filesystem.load("conf.lua"))()
 end
 
--- Keeps LÖVE from becoming the active program, as ext/lota/native_test
--- keeps Lota (stay_in_background in dialogs.mm): the harness starts both
--- with SDL's hints that keep a window from activating its program
--- (test/test_helper.rb), but AppKit activates a program that runs a modal
--- dialog, as SDL's message box does, which would take keyboard focus from
--- the person at the computer. A program whose activation policy is
--- prohibited (NSApplicationActivationPolicyProhibited, 2) is never
--- activated, and still shows its windows and dialogs. SDL has made the
--- application once love.window has opened, whose Window starts SDL's video
--- subsystem (window/sdl/Window.cpp:88-90), and boot.lua shows its version
--- warning only after every module has opened (boot.lua:347-393).
-local send_long = ffi.cast("void (*)(LotaParityId, LotaParityId, long)", ffi.C.objc_msgSend)
-local function stay_in_background()
-  local application = send(ffi.C.objc_getClass("NSApplication"), ffi.C.sel_registerName("sharedApplication"))
-  send_long(application, ffi.C.sel_registerName("setActivationPolicy:"), 2)
-end
-
 -- The parity harness's audio device (ext/lota/native_test/loopback.cpp),
--- which the harness loads into this process with DYLD_INSERT_LIBRARIES
--- (test/parity/parity_helper.rb), so that love.audio opens an OpenAL Soft
+-- which the harness loads into this process with DYLD_INSERT_LIBRARIES on
+-- macOS and LD_PRELOAD on Linux (test/parity/parity_helper.rb), so that love.audio opens an OpenAL Soft
 -- loopback device, which mixes only when told to. love.update tells it to
 -- mix the frame's dt after the game's love.update, once a frame, so a
 -- sound the game played in the frame, from love.update or from an event

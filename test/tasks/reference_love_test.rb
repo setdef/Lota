@@ -27,19 +27,26 @@ class ReferenceLoveTest < Minitest::Test
     Shellwords.split(steps.find { |step| step["name"] == name }.fetch("run"))
   end
 
+  # Both read the settings, which ask xcrun for Xcode's compilers when
+  # ccache is on the PATH, so they run with the tools of fake_tools, and
+  # no ccache, on Linux too.
   def test_the_build_runs_loves_own_ci_commands_with_its_settings_added
-    reference = ReferenceLove.new(love: LOVE, dependencies: "vendor/love-apple-dependencies", root: "tmp/x")
-    build, export = reference.commands
+    in_tree do |dir|
+      fake_tools(dir, fail: false)
+      reference = ReferenceLove.new(love: LOVE, dependencies: "vendor/love-apple-dependencies", root: "tmp/x")
+      build, export = with_tools(dir) { reference.commands }
 
-    assert_equal ci_step("Build"), build.first(ci_step("Build").size)
-    assert_equal ci_step("Export Archive"), export
-    assert_includes build, "clean"
-    assert_includes build, "archive"
+      assert_equal ci_step("Build"), build.first(ci_step("Build").size)
+      assert_equal ci_step("Export Archive"), export
+      assert_includes build, "clean"
+      assert_includes build, "archive"
+    end
   end
 
   def test_intermediates_stay_under_the_root_and_the_target_is_one_xcode_27_builds_for
     in_tree do |dir|
-      settings = ReferenceLove.new(love: LOVE, dependencies: dir, root: File.join(dir, "ref")).settings
+      fake_tools(dir, fail: false)
+      settings = with_tools(dir) { ReferenceLove.new(love: LOVE, dependencies: dir, root: File.join(dir, "ref")).settings }
 
       assert_equal ["-derivedDataPath", File.join(dir, "ref/derived")], settings.first(2)
       assert_includes settings, "MACOSX_DEPLOYMENT_TARGET=12.0"

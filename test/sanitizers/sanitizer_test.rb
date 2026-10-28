@@ -22,7 +22,7 @@ class SanitizerTest < Minitest::Test
 
   # Runs +script+ in a child Ruby that loads the sanitized extensions, as
   # this process did; it inherits DYLD_INSERT_LIBRARIES (strip_env=0,
-  # tasks/sanitized_build.rb). Before the script runs, C++ holds the only
+  # tasks/sanitized_build.rb), or LD_PRELOAD on Linux. Before the script runs, C++ holds the only
   # reference to a Counted: the wrapper that made it was on a finished
   # thread's stack, and has been collected.
   def run_bug(script)
@@ -39,7 +39,8 @@ class SanitizerTest < Minitest::Test
   def test_the_extensions_are_the_sanitized_build
     assert LotaNativeTest.sanitized?, "lota_native_test was built without the sanitizers"
     assert_equal sanitized_lib, File.dirname(File.dirname(loaded("lota/native")))
-    assert_includes ENV.fetch("DYLD_INSERT_LIBRARIES", ""), "libclang_rt.asan"
+    variable, runtime = TestHome::LINUX ? %w[LD_PRELOAD libasan] : %w[DYLD_INSERT_LIBRARIES libclang_rt.asan]
+    assert_includes ENV.fetch(variable, ""), runtime
   end
 
   def test_asan_reports_a_read_after_free

@@ -52,6 +52,47 @@ class LicensingTest < Minitest::Test
 
   def test_a_map_without_object_files_fails
     assert_raises(LinkedFiles::Failure) { LinkedFiles.parse("# Path: x\n", "", build: "/build") }
+    assert_raises(LinkedFiles::Failure) { LinkedFiles.parse("Memory Configuration\n", "", build: "/build") }
+  end
+
+  # GNU ld's map (-Map), on Linux: each archive member it took starts a
+  # line of the section that says why, its reason on the next line when
+  # the member's name is long, and each object it loaded whole is a LOAD
+  # line, among the archives and shared libraries it searched.
+  def test_gnu_lds_map_lists_the_members_it_took_and_the_objects_it_loaded
+    map = <<~MAP
+      Archive member included to satisfy reference by file (symbol)
+
+      engine/libengine.a(Font.cpp.o)
+                                    native/CMakeFiles/native.dir/font.cpp.o (love::font::Font::Font())
+      /usr/lib/gcc/aarch64-linux-gnu/11/libgcc.a(lse-init.o)  native/CMakeFiles/native.dir/font.cpp.o (__aarch64_have_lse_atomics)
+
+      Discarded input sections
+
+       .text          0x0000000000000000        0x0 /usr/lib/gcc/aarch64-linux-gnu/11/crtbeginS.o
+
+      Memory Configuration
+
+      Linker script and memory map
+
+      LOAD /usr/lib/gcc/aarch64-linux-gnu/11/crtbeginS.o
+      LOAD native/CMakeFiles/native.dir/font.cpp.o
+      LOAD engine/libengine.a
+      LOAD /usr/lib/gcc/aarch64-linux-gnu/11/libstdc++.so
+    MAP
+    linked = LinkedFiles.parse(map, deps(
+      "native/CMakeFiles/native.dir/font.cpp.o" => ["/src/native/font.cpp"],
+      "engine/CMakeFiles/engine.dir/src/font/Font.cpp.o" => ["/src/font/Font.cpp"]
+    ), build: "/build")
+
+    assert_equal [
+      "/src/font/Font.cpp",
+      "/src/native/font.cpp",
+      "/usr/lib/gcc/aarch64-linux-gnu/11/crtbeginS.o",
+      "/usr/lib/gcc/aarch64-linux-gnu/11/libgcc.a",
+],
+      linked.files.sort
+    assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
   end
 
   def test_a_work_covers_the_files_under_its_globs
@@ -105,15 +146,42 @@ class LicensingTest < Minitest::Test
     assert_empty record.bundled(linked, root: ROOT, outside: ["#{LIBRARIES}/"])
   end
 
+  # A shared library on Linux is recorded under its soname, as a framework
+  # is under its name.
+  def test_a_library_is_recorded_as_a_framework_is
+    licensing = Licensing.new("record.rb")
+    licensing.library("libx.so.1", copyright: ["2026 X"], license: ["Zlib"])
+
+    assert_equal ["Zlib"], licensing.framework_for("libx.so.1").license
+  end
+
+  # Two libraries built from one source, as libvorbis and libvorbisfile
+  # are, carry its archive once.
+  def test_an_archive_two_libraries_share_is_carried_once
+    licensing = Licensing.new("record.rb")
+    source = {
+url: "https://example.com/x.tar.gz",
+sha256: "ab",
+path: "vendor/sources/x.tar.gz",
+copyright: ["2026 X"],
+license: ["LGPL-2.0-or-later"],
+}
+    licensing.library("libx.so.1", copyright: ["2026 X"], license: ["LGPL-2.0-or-later"], source:)
+    licensing.library("libxfile.so.1", copyright: ["2026 X"], license: ["LGPL-2.0-or-later"], source:)
+
+    assert_equal 1, licensing.sources(["libx.so.1", "libxfile.so.1"]).size
+  end
+
   # rake compile's bundle, as the linker and ninja report it: the
   # libraries its graphics, images, and filesystem need, and none it only
   # declares.
   def test_the_real_bundle_carries_what_its_objects_were_compiled_from
     linked = LinkedFiles.read(map: File.join(BUILD, "lib/lota/native.map"), build: BUILD)
+    linux = RUBY_PLATFORM.include?("linux")
     outside = [
-      `xcode-select --print-path`.strip,
+      linux ? "/usr" : `xcode-select --print-path`.strip,
       RbConfig::CONFIG["rubyhdrdir"],
-      File.join(ROOT, "vendor/love-apple-dependencies"),
+      File.join(ROOT, linux ? "tmp/dependencies/installdir" : "vendor/love-apple-dependencies"),
 ].map { |dir| File.join(dir, "") }
     names = record.bundled(linked, root: ROOT, outside:).map(&:name)
 
@@ -137,8 +205,8 @@ class LicensingTest < Minitest::Test
     licensing.work("Quoted", sources: ["q/**"], copyright: [%(2026 "Q" \\ Co)], license: ["MIT"])
     licensing.work("Font", sources: ["f/**"], copyright: ["2019 F"], pending: "OFL-1.1")
     licensing.framework("X.framework", copyright: ["2026 X"], license: ["Zlib"])
-    toml = licensing.annotations(bundle: "lib/x.bundle", works: licensing.works, framework_dir: "lib/frameworks",
-      frameworks: ["X.framework"])
+    toml = licensing.annotations(bundle: "lib/x.bundle", works: licensing.works,
+      frameworks: { "X.framework" => "lib/frameworks/X.framework/**" })
 
     assert_equal <<~TOML, toml
       # Licenses the maintainer has yet to decide, left out below (record.rb):
@@ -176,8 +244,8 @@ path: "vendor/sources/x-1.0.tar.bz2",
 copyright: ["2026 X", "2025 Y"],
 license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
 })
-    toml = licensing.annotations(bundle: "lib/x.bundle", works: [], framework_dir: "lib/frameworks",
-      frameworks: ["X.framework"])
+    toml = licensing.annotations(bundle: "lib/x.bundle", works: [],
+      frameworks: { "X.framework" => "lib/frameworks/X.framework/**" })
 
     assert_equal "x-1.0.tar.bz2", licensing.sources(["X.framework"]).first.name
     assert toml.end_with?(<<~TOML), toml

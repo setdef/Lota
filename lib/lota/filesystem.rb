@@ -21,11 +21,13 @@ module Lota
   #
   # Lota::Filesystem is that filesystem. The save directory is the
   # system's application data folder (on macOS, Library/Application
-  # Support in your home), then a folder named +Lota+, then the game's
-  # identity, which is its folder's name until its conf.rb names another
+  # Support in your home; on Linux, +XDG_DATA_HOME+, or .local/share in
+  # your home without it), then a folder named +Lota+, or on Linux +lota+,
+  # as LÖVE names its own +LOVE+ and +love+, then the game's identity,
+  # which is its folder's name until its conf.rb names another
   # (<tt>t.identity</tt>). A shipped game, which ADR 002's launcher fuses,
-  # saves without the +Lota+ folder, where LÖVE's fused games save (ADR
-  # 003, section 8). FileData carries bytes and a name into the engine.
+  # saves without Lota's folder, where LÖVE's fused games save (ADR 003,
+  # section 8). FileData carries bytes and a name into the engine.
   #
   # === Example
   #
@@ -116,7 +118,8 @@ module Lota
     # === Example
     #
     #   Lota::Filesystem.save_directory
-    #   # => "/Users/you/Library/Application Support/Lota/asteroids"
+    #   # => "/Users/you/Library/Application Support/Lota/asteroids" on macOS
+    #   # => "/home/you/.local/share/lota/asteroids" on Linux
     def self.save_directory
       Native::Filesystem.save_directory
     end

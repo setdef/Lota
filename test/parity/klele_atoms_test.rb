@@ -102,13 +102,13 @@ class KleleAtomsTest < Minitest::Test
   # identity (conf.lua: t.identity), in LÖVE's folder (Filesystem.cpp:
   # 608-612).
   def saved(name)
-    File.binread(File.join(love.home, "Library/Application Support/LOVE/kleleatoms", name))
+    File.binread(File.join(TestHome.application_data(love.home), TestHome::LOVE_FOLDER, "kleleatoms", name))
   end
 
   # The file +name+ Lota saved for the translation, in Lota's folder where
   # LÖVE's is LOVE (ADR 003, section 8).
   def saved_by_lota(name)
-    File.binread(File.join(lota.home, "Library/Application Support/Lota/kleleatoms", name))
+    File.binread(File.join(TestHome.application_data(lota.home), TestHome::LOTA_FOLDER, "kleleatoms", name))
   end
 
   def test_love_warns_of_the_version_in_a_dialog_then_plays_until_escape

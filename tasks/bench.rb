@@ -235,19 +235,39 @@ module Bench
   class Machine
     # [capture] Runs a command and returns its output, stripped, or +nil+
     #   when it fails.
-    def initialize(capture: method(:capture))
+    # [linux] Whether the machine runs Linux rather than macOS, whose
+    #   tools describe it.
+    def initialize(capture: method(:capture), linux: RbConfig::CONFIG["host_os"].include?("linux"))
       @capture = capture
+      @linux = linux
     end
 
     # Lines naming the machine, its system, its power, and the commits.
     def lines
+      [*(@linux ? linux : macos), "Lota: #{commit(ROOT)}; LÖVE: #{commit(File.join(ROOT, 'vendor/love'))}"]
+    end
+
+    private def macos
       [
         "Machine: #{@capture.call('sysctl', '-n', 'hw.model')}, #{@capture.call('sysctl', '-n',
           'machdep.cpu.brand_string')}, #{memory} GB",
         "System: macOS #{@capture.call('sw_vers', '-productVersion')} " \
           "(#{@capture.call('sw_vers', '-buildVersion')})",
         "Power: #{power}",
-        "Lota: #{commit(ROOT)}; LÖVE: #{commit(File.join(ROOT, 'vendor/love'))}",
+      ]
+    end
+
+    # Linux names the processor in lscpu's report, or where that names no
+    # model, as in a virtual machine, by its architecture; its memory in
+    # /proc/meminfo; and the distribution in /etc/os-release; and keeps no
+    # one place that says what powers the machine.
+    private def linux
+      processor = @capture.call("lscpu").to_s[/^Model name:\s*(.+)$/, 1] || @capture.call("uname", "-m")
+      kibibytes = File.read("/proc/meminfo")[/^MemTotal:\s*(\d+)/, 1].to_i
+      release = File.read("/etc/os-release")[/^PRETTY_NAME="?([^"\n]+)/, 1]
+      [
+        "Machine: #{processor}, #{@capture.call('nproc')} processors, #{kibibytes / (1024 ** 2)} GB",
+        "System: #{release} (Linux #{@capture.call('uname', '-r')})",
       ]
     end
 

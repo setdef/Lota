@@ -27,20 +27,22 @@ RICE_VERSION = "4.12.0"
 
 # The repository, or the installed gem: the directory that holds ext/.
 #
-# Only a clone can build: the build needs LÖVE's sources and
-# love-apple-dependencies' frameworks from vendor/, and the source gem
-# ships neither. RubyGems installs the source gem only where no
-# precompiled gem fits (tasks/native_gem.rb), so stopping here, before
-# CMake and Rice, names the gem that does.
+# Only a clone can build: the build needs LÖVE's sources from vendor/, and
+# its dependencies, love-apple-dependencies' frameworks from vendor/ or on
+# Linux the libraries `rake dependencies` builds, and the source gem ships
+# none of them. RubyGems installs the source gem only where no precompiled
+# gem fits (tasks/native_gem.rb), so stopping here, before CMake and Rice,
+# names the gems that do.
 ROOT = File.expand_path("../..", __dir__)
 unless File.exist?(File.join(ROOT, "vendor/love/src/common/Object.h"))
   abort <<~MESSAGE
     Lota builds LÖVE's engine from vendor/love, which is missing from #{ROOT}.
 
     Lota's source gem does not ship LÖVE's sources, so it cannot build here.
-    Install Lota's precompiled gem instead, for Apple Silicon macOS
-    (platform arm64-darwin) and Ruby 4.0, which RubyGems chooses on such a
-    machine. Lota has no build for other platforms or Rubies yet.
+    Install Lota's precompiled gem instead, which RubyGems chooses for Ruby
+    4.0 on Apple Silicon macOS (platform arm64-darwin) and on Linux with
+    glibc on x86_64 or arm64 (x86_64-linux-gnu, aarch64-linux-gnu). Lota
+    has no build for other platforms or Rubies yet.
 
     In a clone of Lota's repository, run `git submodule update --init`.
   MESSAGE
@@ -69,7 +71,11 @@ system(*configure, chdir: __dir__) or abort "CMake could not configure #{__dir__
 cmake = File.read(File.join(build, "CMakeCache.txt"))[/^CMAKE_COMMAND:INTERNAL=(.+)$/, 1]
 
 # rake-compiler and RubyGems run make install with sitearchdir set to where
-# the bundle belongs, and target_prefix to its directory under it.
+# the bundle belongs, and target_prefix to its directory under it. The
+# bundle replaces the one there, rather than being written over it, since
+# a process may have the old one loaded, as rake test's has when it builds
+# the sanitized tree: Linux maps a library from its file, and a process
+# that reads a page of one written over while it runs dies with SIGBUS.
 bundle = "native.#{RbConfig::CONFIG['DLEXT']}"
 File.write("Makefile", <<~MAKEFILE)
   # Written by ext/lota/extconf.rb. Do not edit.
@@ -86,7 +92,8 @@ File.write("Makefile", <<~MAKEFILE)
 
   install: all
   \tmkdir -p $(DESTDIR)$(sitearchdir)$(target_prefix)
-  \tcp $(BUNDLE) $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE)
+  \tcp $(BUNDLE) $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE).new
+  \tmv -f $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE).new $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE)
 
   clean:
   \trm -f $(BUNDLE)

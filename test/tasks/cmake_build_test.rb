@@ -56,7 +56,9 @@ class CMakeBuildTest < Minitest::Test
 
       error = assert_raises(CMakeBuild::Failure) { cmake.build }
       assert_match(/\Acmake --build .*build failed \(its output is above\)\z/, error.message)
-      assert_includes out.string, "use of undeclared identifier 'undeclared'"
+      # Clang's words, and GCC's, which quotes with ‘ and ’ in a UTF-8 locale.
+      assert_match(/use of undeclared identifier 'undeclared'|[‘']undeclared[’'] was not declared in this scope/,
+        out.string)
     end
   end
 

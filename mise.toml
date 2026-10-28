@@ -41,3 +41,7 @@ uv = "0.13.4"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
 ccache = "4.14.2"
+# patchelf points the Linux gem's libraries at each other
+# (tasks/native_format.rb), as LÖVE's AppImage build does; macOS's
+# install_name_tool comes with Xcode.
+"github:NixOS/patchelf" = { version = "0.18.0", os = ["linux"] }

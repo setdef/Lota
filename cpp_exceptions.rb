@@ -23,10 +23,10 @@
 # ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
 # header, ruby.h, does not export them, so misc-include-cleaner cannot be
 # satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 170,
+allow "ext/lota/native_test/native_test.cpp", line: 183,
   reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
     "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 188,
+allow "ext/lota/native_test/native_test.cpp", line: 201,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
     "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."
@@ -40,7 +40,7 @@ allow "ext/lota/native_test/native_test.cpp", line: 188,
 # Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
 # (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
 # through the cast is defined; only the cast can reach it.
-allow "ext/lota/native_test/native_test.cpp", line: 359,
+allow "ext/lota/native_test/native_test.cpp", line: 378,
   reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
     "the test-only key hold must write it, which only a const_cast can do."
 
@@ -58,6 +58,31 @@ allow "ext/lota/native/event.cpp", lines: [66, 89],
 # attributes as a const ALCint * ending in a zero, with no length (alc.h).
 # Finding the zero means indexing the pointer, once; the list is a
 # std::span from then on.
-allow "ext/lota/native_test/loopback.cpp", line: 81,
+allow "ext/lota/native_test/loopback.cpp", line: 108,
   reason: "alcCreateContext's attribute list is a zero-terminated C array with no length (alc.h), which only " \
     "pointer arithmetic can measure before it is a std::span."
+
+# The tests' X error handler (ext/lota/native_test/selections_linux.cpp)
+# has the type Xlib's XSetErrorHandler takes, XErrorHandler, whose
+# parameters are a Display * and an XErrorEvent *, neither to const
+# (Xlib.h). It only reads both and hands both on to the handler before
+# it, through that same type, so the pointees cannot be const.
+allow "ext/lota/native_test/selections_linux.cpp", line: 35,
+  reason: "Xlib's XErrorHandler type fixes the handler's parameters as Display * and XErrorEvent *, not to const; " \
+    "the handler passes both on to the previous XErrorHandler."
+
+# The harness's libraries on Linux reach the definitions theirs come
+# before, OpenAL Soft's alcCreateContext (loopback.cpp) and SDL's
+# SDL_ShowMessageBox and SDL_ShowSimpleMessageBox
+# (answer_dialogs_linux.cpp), through dlsym's RTLD_NEXT, which returns
+# each as a void *. C++ converts an object pointer to a function pointer
+# only through reinterpret_cast, a conversion POSIX requires to work for
+# what dlsym returns (POSIX.1-2017, dlsym, "Rationale"); std::bit_cast,
+# which would avoid it, bugprone-bitwise-pointer-cast forbids between
+# pointers.
+allow "ext/lota/native_test/loopback.cpp", line: 91,
+  reason: "dlsym returns OpenAL Soft's alcCreateContext as a void *, which C++ makes a function pointer only " \
+    "through reinterpret_cast; bugprone-bitwise-pointer-cast forbids std::bit_cast instead."
+allow "ext/lota/native_test/answer_dialogs_linux.cpp", line: 52,
+  reason: "dlsym returns SDL's message box functions as a void *, which C++ makes a function pointer only " \
+    "through reinterpret_cast; bugprone-bitwise-pointer-cast forbids std::bit_cast instead."

@@ -31,7 +31,7 @@ class SaveDirectoryTest < Minitest::Test
   # is not fused (physfs/Filesystem.cpp:608-616), with Lota's folder in
   # place of LÖVE's (ADR 003, section 8).
   def save_directory
-    File.join(File.realpath(ENV.fetch("CFFIXED_USER_HOME")), "Library/Application Support/Lota", IDENTITY)
+    File.join(TestHome.application_data(ENV.fetch("LOTA_TEST_HOME")), TestHome::LOTA_FOLDER, IDENTITY)
   end
 
   # Writes +contents+ to +name+ in the save directory, as an earlier run
@@ -57,7 +57,7 @@ class SaveDirectoryTest < Minitest::Test
     Lota::Filesystem.identity = "#{IDENTITY}-appended", true
 
     assert_equal "#{IDENTITY}-appended", Lota::Filesystem.identity
-    assert Lota::Filesystem.save_directory.end_with?("/Lota/#{IDENTITY}-appended")
+    assert Lota::Filesystem.save_directory.end_with?("/#{TestHome::LOTA_FOLDER}/#{IDENTITY}-appended")
   end
 
   # w_setIdentity raises when Filesystem::setIdentity refuses an empty name

@@ -58,11 +58,23 @@ class EngineSources
   class Failure < StandardError; end
 
   # The platform name a source list is generated for, from Ruby's
-  # <tt>host_os</tt>. Only macOS has a list so far.
+  # <tt>host_os</tt>: macOS or Linux, the platforms Lota builds on.
   def self.platform(host_os)
     return "macos" if host_os.include?("darwin")
+    return "linux" if host_os.include?("linux")
 
-    raise Failure, "only macOS has an engine source list so far, not #{host_os}"
+    raise Failure, "Lota builds its engine on macOS and Linux only, not #{host_os}"
+  end
+
+  # What CMake is told when it evaluates LÖVE's tree for +platform+.
+  # MEGA=ON takes LÖVE's dependencies as given rather than looking for
+  # them (vendor/love/CMakeLists.txt:115-166), since the evaluation builds
+  # nothing. On Linux, where LÖVE defaults to LuaJIT (lines 85-91), MEGA
+  # expects megasource's luajit target, which does not exist here, so
+  # LuaJIT is turned off; it chooses only which Lua LÖVE links, never which
+  # of LÖVE's sources compile, and the engine leaves Lua out anyway.
+  def self.cmake_args(platform)
+    (platform == "linux") ? %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF] : %w[-G Ninja -DMEGA=ON]
   end
 
   # [source] The CMake source tree to evaluate (vendor/love).
