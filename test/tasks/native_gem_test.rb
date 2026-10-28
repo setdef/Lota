@@ -134,7 +134,9 @@ class NativeGemTest < Minitest::Test
   # LICENSES holds what the gem's files use: the licenses of the
   # frameworks and bundled libraries, from ext/lota/licenses, but not the
   # repository's CC0-1.0, which on macOS only files the gem leaves out use;
-  # on Linux, SDL's dlmalloc is under it too.
+  # on Linux, SDL's dlmalloc is under it too. Each platform's libraries
+  # bring their own: libm's SunPro and bzip2's on Linux, and on macOS the
+  # Unicode license HarfBuzz 6.0.0's data was under.
   def test_the_gem_ships_the_license_texts_its_files_use_and_no_other
     licenses = spec.files.grep(%r{\ALICENSES/}).map { |path| File.basename(path, ".txt") }
 
@@ -147,10 +149,12 @@ class NativeGemTest < Minitest::Test
     assert_includes licenses, "AGPL-3.0-or-later"
     assert_includes licenses, "MIT-0"
     assert_includes licenses, "LicenseRef-libmodplug-Public-Domain"
+    %w[TU-Berlin-1.0 MIT-open-group ISC LicenseRef-libmodplug-MikMod].each { |id| assert_includes licenses, id }
     if LINUX
-      %w[CC0-1.0 SunPro HPND-sell-variant bzip2-1.0.6 TU-Berlin-1.0].each { |id| assert_includes licenses, id }
+      %w[CC0-1.0 SunPro HPND-sell-variant bzip2-1.0.6 Unicode-3.0].each { |id| assert_includes licenses, id }
     else
-      refute_includes licenses, "CC0-1.0"
+      assert_includes licenses, "Unicode-DFS-2016"
+      %w[CC0-1.0 SunPro bzip2-1.0.6].each { |id| refute_includes licenses, id }
     end
     assert_equal File.read(File.join(ROOT, "ext/lota/licenses/LICENSE-FTL.txt")),
       File.read(File.join(unpacked, "LICENSES/FTL.txt"))

@@ -262,6 +262,34 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
     TOML
   end
 
+  # Every identifier the record's expressions name, a license or an
+  # exception, has its text in LICENSES or ext/lota/licenses, from which
+  # NativeGem fills the gem's LICENSES.
+  def test_every_license_the_record_names_has_its_text
+    texts = Dir[File.join(ROOT, "{LICENSES,ext/lota/licenses}/*.txt")].map do |path|
+      File.basename(path, ".txt").delete_prefix("LICENSE-")
+    end
+    entries = record.works + record.frameworks.values
+    expressions = entries.flat_map(&:license) + entries.filter_map(&:source).flat_map(&:license)
+    named = expressions.flat_map { |expression| expression.split(/ (?:OR|AND|WITH) /) }.uniq
+
+    assert_empty named - texts
+  end
+
+  # The macOS frameworks are recorded from the files each was compiled
+  # from, which state licenses their projects' own license files leave
+  # out (ext/lota/licenses.rb).
+  def test_each_macos_framework_records_the_licenses_its_compiled_files_state
+    {
+      "SDL3.framework" => ["Zlib", "BSD-3-Clause", "MIT", "Apache-2.0", "MIT OR Unlicense", "Unlicense"],
+      "freetype.framework" => ["FTL", "MIT", "MIT-open-group"],
+      "harfbuzz.framework" => ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-DFS-2016"],
+      "vorbis.framework" => ["BSD-3-Clause", "TU-Berlin-1.0"],
+      "ogg.framework" => ["BSD-3-Clause"],
+      "libmodplug.framework" => ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"],
+    }.each { |name, licenses| assert_equal licenses, record.framework_for(name).license, name }
+  end
+
   def test_a_framework_the_record_lacks_is_unrecorded
     error = assert_raises(Licensing::Unrecorded) { Licensing.new("record.rb").framework_for("Y.framework") }
 

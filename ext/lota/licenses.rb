@@ -396,83 +396,246 @@ work "LÖVE",
   copyright: ["2006-2026 LOVE Development Team"],
   license: ["Zlib"]
 
-# SDL 3.4.10 (the framework's Resources/Info.plist): its own license,
-# Resources/License.txt:1-17, and the only others SDL's source tree at
-# release-3.4.10 carries: yuv2rgb's (src/video/yuv2rgb/LICENSE), and
-# HIDAPI's, which offers GPL-3.0, a BSD-style license, or its original
-# license, at the user's choice (src/hidapi/LICENSE.txt). Lota uses
-# HIDAPI under the BSD-style one, src/hidapi/LICENSE-bsd.txt, whose text
-# is BSD-3-Clause.
+# macOS. The frameworks the gem carries in lib/lota/frameworks come
+# prebuilt from love-apple-dependencies, whose history holds the binaries
+# and no build scripts but LuaJIT's. Each one's licensing comes from the
+# files it was compiled from, found without a build log: its exact
+# upstream release, from its headers (byte for byte a tag's) and version
+# strings; how it was built, from its Info.plist and what it links; the
+# sources that build compiles, from the build files of that release; the
+# files those sources include, followed from each #include; and, where a
+# file's inclusion was uncertain, the symbols and strings in the binary.
+# Every license and notice of copyright those files state is recorded.
+
+# SDL 3.4.10 (Resources/Info.plist; its 75 headers are byte for byte
+# include/SDL3 at release-3.4.10, commit
+# 8e37db5e797b6167f3a00d697d816a684bd259c7), built by the SDL3 framework
+# target of SDL's own Xcode project, Xcode/SDL/SDL.xcodeproj, whose
+# Info-Framework.plist the framework's is (its CFBundleSignature SDLX and
+# CFBundleGetInfoString). The target's Sources phase compiles 233 files,
+# which with what they include are 599, read for their licenses with
+# include/build_config/SDL_build_config_macos.h's configuration. Under its
+# own license, LICENSE.txt:1-17, which every file of SDL's own states
+# (src/SDL.c:1-20), with the code of others it compiles in, each under the
+# license its files state:
+#
+# - BSD-3-Clause: yuv2rgb (src/video/yuv2rgb/LICENSE), and HIDAPI, whose
+#   macOS backend, src/hidapi/mac/hid.c (lines 1-18; its IOHIDDevice
+#   strings are in the binary), offers GPL-3.0, a BSD-style license, or
+#   its original license, at the user's choice (src/hidapi/LICENSE.txt);
+#   Lota uses it under the BSD-style one, src/hidapi/LICENSE-bsd.txt.
+#   include/SDL3/SDL_hidapi.h:29-42 quotes HIDAPI's original notice for
+#   the interface it adapts, which the same choice covers.
+# - MIT: include/SDL3/SDL_opengl.h (Mesa's, lines 36-58),
+#   SDL_opengl_glext.h, SDL_egl.h, SDL_opengles2_khrplatform.h,
+#   SDL_opengles2_gl2.h, and SDL_opengles2_gl2ext.h (the Khronos Group's),
+#   which the OpenGL, OpenGL ES 2, and EGL code compiles in.
+# - Apache-2.0: the Khronos Group's Vulkan headers, src/video/khronos/
+#   vulkan and vk_video (vulkan/vulkan_core.h:4-8), which SDL_VIDEO_VULKAN
+#   and SDL_GPU_VULKAN (SDL_build_config_macos.h:236-237) compile in for
+#   MoltenVK; SDL_opengles2_gl2platform.h:5-6; and the EGL sections of
+#   SDL_egl.h (lines 360-361, 535-536, and 879-880).
+# - MIT OR Unlicense: stb_image, src/video/stb_image.h, which offers
+#   either, recorded as LÖVE's own copy is, and which src/video/SDL_stb.c:65
+#   compiles in for PNG and JPEG (its "Corrupt PNG" and "Corrupt JPEG" are
+#   in the binary).
+# - Unlicense: miniz, src/video/miniz.h:1-3 and 5074-5099, which
+#   SDL_stb.c:80 compiles in.
+#
+# What the Linux build adds is not compiled here: SDL's libm (macOS's is
+# used, and the Xcode project compiles none of src/libm), X11 and
+# Wayland. src/stdlib/SDL_malloc.c and SDL_strtokr.c are compiled, but
+# the dlmalloc and PDCLib code they hold under CC0 is not, since
+# SDL_build_config_macos.h:52 and 71 define HAVE_MALLOC and
+# HAVE_STRTOK_R. Its other files without a notice of their own, such as
+# the Metal shaders SDL generates (src/render/metal, src/gpu/metal), are
+# SDL's, under its license.
 framework "SDL3.framework",
   copyright: [
     "1997-2026 Sam Lantinga <slouken@libsdl.org>",
+    "1998-2021 Gareth McCaughan",
+    "2001-2011 Andreas Schiffler",
+    "2017, Mark Callow",
+    "2023 Collabora Ltd.",
+    "2020 Valve Corporation",
+    "2021 Valve Corporation",
+    "Valve Corporation",
+    "2023 Max Maisel <max.maisel@posteo.de>",
+    "2025 Bernat Arlandis <berarma@hotmail.com>",
+    "2025 Katharine Chui <katharine.chui@gmail.com>",
+    "2025 Michal Malý <madcatxster@devoid-pointer.net>",
+    "2025 Mitchell Cairns <mitch.cairns@handheldlegend.com>",
+    "2025 Simon Wood <simon@mungewell.org>",
+    "2025 Zuiki Inc.",
     "2016, Adrien Descamps",
+    "2009, Alan Ott, Signal 11 Software",
     "2010, Alan Ott, Signal 11 Software",
+    "2022-2023 Alan Ott, Signal 11 Software, and the libusb/hidapi Team",
+    "1999-2006 Brian Paul",
+    "2009 VMware, Inc.",
+    "2007-2020 The Khronos Group Inc.",
+    "2008-2018 The Khronos Group Inc.",
+    "2013-2020 The Khronos Group Inc.",
+    "2017-2020 The Khronos Group Inc.",
+    "2014-2024 The Khronos Group Inc.",
+    "2015-2024 The Khronos Group Inc.",
+    "2017 Sean Barrett",
+    "2010-2013 Rich Geldreich <richgel99@gmail.com>",
   ],
-  license: ["Zlib", "BSD-3-Clause"]
+  license: ["Zlib", "BSD-3-Clause", "MIT", "Apache-2.0", "MIT OR Unlicense", "Unlicense"]
 
-# FreeType 2.11.1 (Headers/freetype.h:4741-4743), which offers the FreeType
-# License or GPL-2.0; Lota uses it under the FreeType License (FreeType's
-# LICENSE.TXT and docs/FTL.TXT at VER-2-11-1). The framework builds the
-# BDF and PCF drivers, under MIT (src/bdf/README, src/pcf/README, and
-# src/base/fthash.c), and links the system's zlib rather than the copy in
-# src/gzip.
+# FreeType 2.11.1 (Headers/freetype.h:4741-4743; every header is byte for
+# byte the VER-2-11-1 tag's), built by its CMakeLists.txt with
+# BUILD_FRAMEWORK, whose builds/mac/freetype-Info.plist gives the
+# framework's "FreeType " (the version it leaves empty). That build
+# compiles CMakeLists.txt:367-429's sources, every module its ftmodule.h
+# registers, with builds/unix/ftsystem.c and src/base/ftdebug.c, and the
+# files each includes. It offers the FreeType License or GPL-2.0
+# (LICENSE.TXT); Lota uses it under the FreeType License (docs/FTL.TXT),
+# Adobe's CFF engine in src/psaux included (src/psaux/psft.c:1-36, which
+# puts it under the FreeType License). The BDF and PCF drivers and
+# src/base/fthash.c are under MIT (src/bdf/README:96-117,
+# src/pcf/README:67-88, and fthash.c:9-31), and src/pcf/pcfutil.c, which
+# src/pcf/pcf.c includes, under the Open Group's license (lines 1-25,
+# MIT-open-group). It links the system's zlib and libbzip2, whose inflate
+# and BZ2_ functions it imports, so neither the zlib in src/gzip nor any
+# bzip2 is compiled in, and the gem carries neither. src/base/ftobjs.c
+# includes src/base/md5.c, but its only caller is under
+# FT_DEBUG_LEVEL_TRACE (ftobjs.c:4730), and none of its functions is in
+# the binary. The notices are each one these files hold.
 framework "freetype.framework",
   copyright: [
     "1996-2021 David Turner, Robert Wilhelm, and Werner Lemberg",
+    "1996-2021 Just van Rossum, David Turner, Robert Wilhelm, and Werner Lemberg",
+    "2004-2021 David Turner, Robert Wilhelm, Werner Lemberg, and George Williams",
+    "2008-2021 David Turner, Robert Wilhelm, Werner Lemberg, and suzuki toshiya",
+    "2018-2021 Armin Hasitzka, David Turner, Robert Wilhelm, and Werner Lemberg",
+    "2018-2021 David Turner, Robert Wilhelm, Dominik Röttsches, and Werner Lemberg",
+    "2019-2021 Nikhil Ramakrishnan, David Turner, Robert Wilhelm, and Werner Lemberg",
+    "2005-2021 David Turner",
+    "2007-2021 David Turner",
+    "2002-2021 Roberto Alameda",
+    "2003-2021 Masatake YAMATO, Red Hat K.K., David Turner, Robert Wilhelm, and Werner Lemberg",
+    "2004-2021 Masatake YAMATO and Redhat K.K.",
+    "2004-2021 Masatake YAMATO, Redhat K.K., David Turner, Robert Wilhelm, and Werner Lemberg",
+    "2004-2021 Albert Chin-A-Young",
+    "2007-2021 Derek Clegg and Michael Toftdal",
+    "2007-2021 Rahul Bhalerao <rahul.bhalerao@redhat.com>, <b.rahul.pm@gmail.com>",
+    "2009-2021 Oran Agra and Mickey Gabel",
+    "2010-2021 Joel Klinghed",
+    "2013 Google, Inc.",
+    "2013-2021 Google, Inc.",
+    "2006-2014 Adobe Systems Incorporated",
+    "2003 Huw D M Davies for Codeweavers",
+    "2007 Dmitry Timoshkov for Codeweavers",
     "2000 Computing Research Labs, New Mexico State University",
-    "2000 Francesco Zappa Nardelli",
-    "2001-2002, 2011 Francesco Zappa Nardelli",
+    "2000-2014 Francesco Zappa Nardelli",
     "2001-2015 Francesco Zappa Nardelli",
+    "1990, 1994, 1998 The Open Group",
   ],
-  license: ["FTL", "MIT"]
+  license: ["FTL", "MIT", "MIT-open-group"]
 
-# HarfBuzz 6.0.0 (Resources/Info.plist), COPYING:1-34 at its 6.0.0 tag, and
-# src/ms-use/COPYING, which covers the Universal Shaping Engine's data the
-# library compiles in.
+# HarfBuzz 6.0.0 (Resources/Info.plist; its headers are byte for byte the
+# 6.0.0 tag's, commit afcae83a064843d71d47624bc162e121cc56c08b), built by
+# its CMakeLists.txt with BUILD_FRAMEWORK (lines 670-680 give the
+# Info.plist's versions), with the FreeType and CoreText backends it
+# links. That build compiles one file, src/harfbuzz.cc (CMakeLists.txt:190),
+# which includes every other, 301 files in all with what they include:
+# COPYING:1-38, the "Old MIT" text (MIT-Modern-Variant), which its files
+# state (src/hb.hh:1-27, and the same in each); src/ms-use/COPYING, which
+# covers the Universal Shaping Engine's data the library compiles in
+# (src/hb-ot-shaper-use-table.hh and hb-ot-shaper-vowel-constraints.cc),
+# MIT; src/hb-ucd.cc:1-15, whose Unicode functions the binary carries,
+# under ISC; and the Unicode Character Database's data, Unicode 15.0.0,
+# its tables are generated from (src/hb-ucd-table.hh:1-8 and
+# hb-unicode-emoji-table.hh:1-19), under the terms of use that table
+# points to, which in 2022 were Unicode's Data Files and Software license
+# (https://www.unicode.org/license.txt, as the Internet Archive kept it on
+# 2022-11-04), Unicode-DFS-2016. Its FreeType headers are FreeType's,
+# recorded with it, and its other backends (DirectWrite, GDI, GLib,
+# Graphite2, Uniscribe) compile to nothing on macOS.
 framework "harfbuzz.framework",
   copyright: [
-    "2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020 Google, Inc.",
-    "2018,2019,2020 Ebrahim Byagowi",
+    "2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022 Google, Inc.",
+    "2015-2020 Ebrahim Byagowi",
     "2019,2020 Facebook, Inc.",
-    "2012 Mozilla Foundation",
+    "2012,2013,2015 Mozilla Foundation",
     "2011 Codethink Limited",
     "2008,2010 Nokia Corporation and/or its subsidiary(-ies)",
     "2009 Keith Stribley",
     "2009 Martin Hosken and SIL International",
+    "2011 Martin Hosken",
+    "2011 SIL International",
     "2007 Chris Wilson",
-    "2005,2006,2020,2021 Behdad Esfahbod",
+    "2005,2006,2020,2021,2022 Behdad Esfahbod",
     "2005 David Turner",
-    "2004,2007,2008,2009,2010 Red Hat, Inc.",
+    "2004,2007,2008,2009,2010,2013 Red Hat, Inc.",
     "1998-2004 David Turner and Werner Lemberg",
+    "2016 Igalia S.L.",
+    "2016 Elie Roux <elie.roux@telecom-bretagne.eu>",
+    "2018,2019 Adobe Inc.",
+    "2018,2021 Khaled Hosny",
+    "2012 Grigori Goronzy <greg@kinoho.net>",
     "Microsoft Corporation",
+    "2022 Unicode, Inc.",
   ],
-  license: ["MIT-Modern-Variant", "MIT"]
+  license: ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-DFS-2016"]
 
-# libvorbis 1.3.7 (Resources/Info.plist), which love.sound's Ogg Vorbis
-# decoder links (src/modules/sound/lullaby/VorbisDecoder.h): its COPYING at
-# the v1.3.7 tag (https://github.com/xiph/vorbis), the BSD-3-Clause text
-# its headers point to (Headers/codec.h:1-10).
+# libvorbis 1.3.7 (Resources/Info.plist; its headers are byte for byte
+# the v1.3.7 tag's, https://github.com/xiph/vorbis), which love.sound's Ogg
+# Vorbis decoder links (src/modules/sound/lullaby/VorbisDecoder.h), built
+# by its own Xcode project, macosx/Vorbis.xcodeproj, whose framework target
+# compiles every file of lib but the tools barkmel.c, misc.c, psytune.c,
+# and tone.c: libvorbis, libvorbisenc, and libvorbisfile in one, from the
+# files the Linux libraries are built from, so it is recorded as they
+# are. Each file points to COPYING, BSD-3-Clause (lib/vorbisfile.c:1-11,
+# and the same in each), and lib/lpc.c, whose vorbis_lpc_from_data the
+# binary exports, keeps Jutta Degener's and Carsten Bormann's notice and
+# terms for the code it derives from theirs (lines 17-43), the text of
+# TU-Berlin-1.0.
 framework "vorbis.framework",
-  copyright: ["2002-2020 Xiph.org Foundation"],
-  license: ["BSD-3-Clause"]
+  copyright: [
+    "2002-2020 Xiph.org Foundation",
+    "1994-2015 by the Xiph.Org Foundation",
+    "1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin",
+  ],
+  license: ["BSD-3-Clause", "TU-Berlin-1.0"]
 
-# libogg 1.1.4 (Resources/Info.plist, whose NSHumanReadableCopyright gives
-# its notice), which libvorbis loads: its COPYING at the v1.1.4 tag
-# (https://github.com/xiph/ogg), the BSD-3-Clause text its headers point
-# to (Headers/ogg.h:1-10).
+# libogg 1.3.4, which libvorbis loads. Its Resources/Info.plist says 1.1.4,
+# as the macosx/Info.plist of libogg's own Xcode project said in every
+# release from 1.1.4 to 1.3.4, the last that had it (commit b661e50
+# removed it before 1.3.5). The library is no older: its slicing-by-8 CRC
+# table (crc_lookup, 8 by 256 entries, and _os_update_crc), which commit
+# bc82844 brought in 1.3.4, is in the binary, and Headers/ogg.h is byte
+# for byte v1.3.4's; Headers/os_types.h is v1.3.4's but for including
+# <stdint.h> where it included <sys/types.h> (line 73). That project's
+# framework target compiles src/bitwise.c and src/framing.c, which with
+# src/crctable.h and include/ogg point to the BSD-3-Clause text of COPYING
+# (src/framing.c:1-11, and the same in each). framing.c:16-18 says its CRC
+# code comes from Ross Williams's, in the public domain. The notice its
+# Info.plist gives, which the gem carries, is recorded too.
 framework "ogg.framework",
-  copyright: ["1994-2009 Xiph.Org Foundation", "2002, Xiph.org Foundation"],
+  copyright: ["2002, Xiph.org Foundation", "1994-2018 by the Xiph.Org Foundation", "1994-2009 Xiph.Org Foundation"],
   license: ["BSD-3-Clause"]
 
 # libmodplug, which love.sound's tracker module decoder links
-# (src/modules/sound/lullaby/ModPlugDecoder.h). The framework names no
-# version (Resources/Info.plist gives 1.0); its header dedicates it to the
-# public domain (Headers/modplug.h:1-5), as libmodplug's COPYING does
-# (https://github.com/Konstanty/libmodplug, master), which no SPDX
-# identifier names, so the two sentences are recorded as
-# LicenseRef-libmodplug-Public-Domain. Its files hold no notice of
-# copyright; the record names its authors as its AUTHORS file lists them.
+# (src/modules/sound/lullaby/ModPlugDecoder.h), from no release: its
+# Resources/Info.plist gives 1.0, an Xcode project's from 2011, but its
+# Headers/modplug.h is byte for byte src/modplug.h as it was in
+# https://github.com/Konstanty/libmodplug from commit d38e532 (2017-10-23)
+# to commit e0ffc77 (2022-01-29), after 0.8.9.0, and love-apple-dependencies
+# added the framework on 2021-05-30 (commit 687b788). Through those years
+# no file's license or authors changed (the last commit before that day,
+# e451f94, read for them), so it is recorded from them: its COPYING and
+# each of its own files put it in the public domain (src/modplug.h:1-5),
+# which no SPDX identifier names, so the two sentences are recorded as
+# LicenseRef-libmodplug-Public-Domain; the authors its AUTHORS file lists
+# and its files name (src/libmodplug/stdafx.h:1-7, and the UMX loader,
+# src/load_umx.cpp:1-10, rewritten after 0.8.8.5); and the ABC, MIDI, and
+# PAT loaders it took from the MikMod Sound System (src/load_abc.cpp:1-25,
+# and the same in load_mid.cpp and load_pat.cpp; the binary carries
+# their code, its "abc-include" strings and PAT_Load_Instruments), recorded
+# as LicenseRef-libmodplug-MikMod, as on Linux.
 framework "libmodplug.framework",
   copyright: [
     "Olivier Lapicque <olivierl@jps.net>",
@@ -483,8 +646,14 @@ framework "libmodplug.framework",
     "Adam Goode <adam@evdebs.org>",
     "Marco Trillo <toad@arsystel.com>",
     "Alistair John Strachan <s0348365@sms.ed.ac.uk>",
+    "Tyler Montbriand <tsm@accesscomm.ca>",
+    "Rani Assaf <rani@magic.metawire.com>",
+    "O. Sezer <sezero@users.sourceforge.net>",
+    "Andy Ward <wardwh@swbell.net>",
+    "1996-2000 Jake Stine of Divine Entertainment",
+    "2006 Peter Grootswagers <pgrootswagers@planet.nl>",
   ],
-  license: ["LicenseRef-libmodplug-Public-Domain"]
+  license: ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"]
 
 # The release archive of OpenAL Soft 1.24.3, which the gem carries beside
 # its library on every platform (the record's `source`, below and in the
@@ -579,9 +748,13 @@ openal_soft_source = {
 # identifier names, so its text is recorded as LicenseRef-PFFFT. The
 # backends for other systems (alc/backends/opensl.cpp, under Apache-2.0)
 # and RTKit (core/rtkit.cpp, which needs D-Bus) are not compiled on macOS.
-# LÖVE's license.txt:124-157 lists this mixed licensing for an older
-# release, from Debian's record. The notices are each one these files
-# hold.
+# What is compiled is CMakeLists.txt:609-916's sources, but for RTKit's
+# and EAX's (ALSOFT_EAX is on only for Windows, line 122), with the only
+# backends the binary names, CoreAudio and the wave writer, and {fmt}'s
+# src/format.cc and os.cc; core/helpers.cpp includes core/rtkit.h only
+# where HAVE_RTKIT (line 221), which macOS lacks. LÖVE's
+# license.txt:124-157 lists this mixed licensing for an older release,
+# from Debian's record. The notices are each one these files hold.
 #
 # Its license lets object code of the library be copied only with its
 # complete corresponding source code (section 4), so the precompiled gem
