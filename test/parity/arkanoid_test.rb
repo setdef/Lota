@@ -88,7 +88,7 @@ class ArkanoidTest < Minitest::Test
   def self.love(snapshot)
     @love ||= {}
     @love[snapshot] ||= Parity::LoveRun.new(File.join(Parity::ARKANOID, snapshot), SCRIPTS.fetch(snapshot),
-      Dir.mktmpdir("lota-parity-"))
+      Parity.directory)
   end
 
   def love(snapshot = SCRIPTS.keys.first)

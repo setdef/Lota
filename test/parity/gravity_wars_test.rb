@@ -52,7 +52,7 @@ class GravityWarsTest < Minitest::Test
 
   # LÖVE runs the game once for every test here.
   def self.love
-    @love ||= Parity::LoveRun.new(GAME, SCRIPT, Dir.mktmpdir("lota-parity-"))
+    @love ||= Parity::LoveRun.new(GAME, SCRIPT, Parity.directory)
   end
 
   def love

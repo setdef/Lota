@@ -139,6 +139,19 @@ module Parity
     end
   end
 
+  # A new folder in the system's temporary directory for a LoveRun, and
+  # every LotaRun compared with it, to keep frames, homes, and sounds in.
+  # A test class runs LÖVE once for all its tests, so the folder outlives
+  # each test, and Minitest has no hook for the end of a class: it is
+  # removed when the test run ends, whether its tests passed or failed.
+  # What a run that differs from LÖVE's keeps for CI is in MISMATCHES,
+  # not here.
+  def self.directory
+    directory = Dir.mktmpdir("lota-parity-")
+    Minitest.after_run { FileUtils.rm_rf(directory) }
+    directory
+  end
+
   # +keys+, each an SDL scancode and a Range of frames, as the two sides
   # read them: scancode:first-last, separated by commas.
   def self.keys(keys)
