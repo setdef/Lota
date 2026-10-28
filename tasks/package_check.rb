@@ -100,11 +100,14 @@ class PackageCheck
     "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0",
   }.freeze
 
-  # OpenAL Soft's setting that plays every Source through its null
-  # backend, which opens a device that plays nothing, so a check's run
-  # makes no sound and needs no audio device, as on a CI runner, while the
-  # gem's OpenAL Soft still loads and opens. It goes to the runs alone.
-  SILENT = { "ALSOFT_DRIVERS" => "null" }.freeze
+  # OpenAL Soft's settings for a check's runs (tasks/alsoft.conf): every
+  # Source plays through its null backend, which opens a device that plays
+  # nothing, so a run makes no sound and needs no audio device, as on a CI
+  # runner, while the gem's OpenAL Soft still loads and opens; and its
+  # mixer asks for no real-time priority, which on a Linux without RTKit
+  # it reports as an error, so a run prints only what its game prints. It
+  # goes to the runs alone.
+  SILENT = { "ALSOFT_CONF" => File.expand_path("alsoft.conf", __dir__) }.freeze
 
   # Raised when a check fails; the message says what to fix.
   class Failure < StandardError; end

@@ -8,6 +8,7 @@
 require_relative "native_helper"
 require "rbconfig"
 require "tmpdir"
+require_relative "../../tasks/package_check"
 
 # lota run, end to end: each test runs the lota executable on a game
 # folder in a Ruby of its own, which opens a real window, as a player's
@@ -237,6 +238,22 @@ class LotaRunTest < Minitest::Test
         assert_includes printer_output, "#{srgba8} (RuntimeError)\n"
         refute_includes printer_output, "ImageData:getPixel"
       end
+    end
+  end
+
+  # rake package:install and package:deliver run their games with
+  # OpenAL Soft's settings in tasks/alsoft.conf (PackageCheck::SILENT) and
+  # match all they print. On a Linux whose system bus has no RTKit, as a
+  # bare CI runner's has none, OpenAL Soft's mixer would report that it
+  # could not ask RTKit for real-time priority ("Could not query RTKit",
+  # OpenAL Soft 1.24.3, core/helpers.cpp:423) unless the settings ask for
+  # none, so a run prints only what its game prints.
+  def test_a_run_with_the_package_checks_audio_settings_prints_only_what_its_game_prints
+    in_game("main.rb" => "def Lota.load = puts('loaded')\ndef Lota.draw = Lota::Event.quit(3)\n") do |directory|
+      output, status = lota_run(directory, environment: PackageCheck::SILENT)
+
+      assert_equal 3, status.exitstatus, output
+      assert_equal "loaded\n", output
     end
   end
 

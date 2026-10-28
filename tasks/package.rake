@@ -27,8 +27,9 @@ end
 # A game that opens LÖVE's default window, clears it to yellow, and quits
 # with a status of its own, so an exit status of 0 cannot pass by
 # accident. It opens the audio module through the gem's OpenAL Soft, which
-# plays through its null backend in the check (PackageCheck::SILENT), so
-# it prints nothing about it.
+# plays through its null backend and asks for no real-time priority in the
+# check (PackageCheck::SILENT, tasks/alsoft.conf), so it prints nothing
+# about it.
 PACKAGE_GAME = PackageCheck::Game.new(
   name: "a window",
   folder: nil,
