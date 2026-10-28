@@ -170,6 +170,16 @@ jobs:
             exit 1
           fi
 
+      # The first frame that differed in each parity run that failed, as
+      # LÖVE and Lota showed it (test/parity/probe.rb).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: parity-mismatches-arm64-darwin
+          path: tmp/parity-mismatches
+          if-no-files-found: ignore
+          retention-days: 14
+
       # xcodebuild's log of the reference love, for a build that failed.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
@@ -404,6 +414,16 @@ jobs:
             echo "::error::bundle exec rake changed files; run it locally and commit what it changes"
             exit 1
           fi
+
+      # The first frame that differed in each parity run that failed, as
+      # LÖVE and Lota showed it (test/parity/probe.rb).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: parity-mismatches-${{ matrix.platform }}
+          path: tmp/parity-mismatches
+          if-no-files-found: ignore
+          retention-days: 14
 
       # The log of the dependencies' and the reference love's build, for a
       # build that failed.

@@ -6,6 +6,7 @@
 #++
 
 require_relative "parity_helper"
+require_relative "frame_comparison"
 
 # The arkanoid tutorial's snapshots, unchanged, in the reference love, and
 # their Ruby translations in Lota, frame by frame (Plan 001, "Shapes and
@@ -146,7 +147,8 @@ class ArkanoidTest < Minitest::Test
 
   # The harness itself: with the keys left alone in Lota, the first frame
   # that differs from LÖVE's is the first one LÖVE drew with the right
-  # arrow held, and comparing stops there.
+  # arrow held, and comparing stops there. That frame is kept as both
+  # engines showed it, and the two differ as the report says.
   def test_a_frame_that_differs_is_reported_with_its_first_differing_pixel
     run = lota(SCRIPTS.keys.first, Parity::Script.new(frames: SCRIPT.frames, fps: SCRIPT.fps, holds: []))
 
@@ -155,5 +157,19 @@ class ArkanoidTest < Minitest::Test
     assert_match(/\Acompare image pixel \(.+\) at \d+,\d+, matching = .*, not matching = .+ \(frame 31\)\z/,
       run.mismatch.fetch("message"))
     assert_equal 31, run.compared
+
+    assert_equal %w[lota-0031.png love-0031.png], Dir.children(run.mismatch_dir).sort
+    kept = File.binread(File.join(run.mismatch_dir, "love-0031.png"))
+    assert_equal File.binread(File.join(love.frames_dir, "0031.png")), kept
+    expected, actual = %w[love lota].map { |engine| frame(File.join(run.mismatch_dir, "#{engine}-0031.png")) }
+    assert_equal run.mismatch.fetch("message"), Parity::FrameComparison.new(expected, actual, "frame 31").message
+    # Only a test that failed leaves its frames for CI to upload.
+    FileUtils.rm_rf(run.mismatch_dir)
+  end
+
+  # The PNG file at +path+, decoded by LÖVE's image module.
+  def frame(path)
+    Lota::Native::Image.open
+    Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
   end
 end

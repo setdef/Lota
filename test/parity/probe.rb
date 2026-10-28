@@ -6,7 +6,9 @@
 #++
 
 require "json"
+require "fileutils"
 require_relative "frame_comparison"
+require_relative "png"
 
 module Parity
   # The parity harness's Ruby side, which test/parity/lua/conf.lua mirrors
@@ -31,8 +33,9 @@ module Parity
   # comes up after it, which leaves quitting to the game; a game still
   # running a frame later did not quit, and the probe quits with status 1.
   # At exit it writes LOTA_PARITY_REPORT: how many frames it compared, and
-  # the first that differed, whose pixels it also saves beside the report
-  # as raw RGBA.
+  # the first that differed, which it also saves in
+  # LOTA_PARITY_MISMATCH_DIR, as LÖVE showed it, love-NNNN.png, and as Lota
+  # showed it, lota-NNNN.png.
   #
   # Every dialog the game shows, such as LÖVE's version warning, which
   # boot.lua shows before the window opens, has Return pressed on it, as
@@ -66,6 +69,7 @@ module Parity
   module Probe
     FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
     REPORT = ENV.fetch("LOTA_PARITY_REPORT")
+    MISMATCH_DIR = ENV.fetch("LOTA_PARITY_MISMATCH_DIR")
     FRAMES = Integer(ENV.fetch("LOTA_PARITY_FRAMES"))
     # 1 / 60 in Lua divides as Floats; 1 / 60 in Ruby would not.
     DT = 1 / Float(ENV.fetch("LOTA_PARITY_FPS"))
@@ -162,8 +166,21 @@ module Parity
         return unless message
 
         @mismatch = { "frame" => number, "message" => message }
-        File.binwrite(File.join(File.dirname(REPORT), format("lota-%04d.rgba", number)),
-          LotaNativeTest.image_data_bytes(native))
+        keep_mismatch(number, actual)
+      end
+
+      # Saves frame +number+ as LÖVE showed it, if it did, and as Lota
+      # showed it, +actual+, in MISMATCH_DIR.
+      private def keep_mismatch(number, actual)
+        FileUtils.mkdir_p(MISMATCH_DIR)
+        love = love_frame(number)
+        FileUtils.cp(love, File.join(MISMATCH_DIR, format("love-%04d.png", number))) if File.exist?(love)
+        PNG.write(File.join(MISMATCH_DIR, format("lota-%04d.png", number)), actual.width, actual.height,
+          LotaNativeTest.image_data_bytes(actual.native))
+      end
+
+      private def love_frame(number)
+        File.join(FRAMES_DIR, format("%04d.png", number))
       end
 
       # Decodes each sound file LOTA_PARITY_SOUNDS lists into
@@ -200,7 +217,7 @@ module Parity
       end
 
       private def mismatch_with_love(number, actual)
-        path = File.join(FRAMES_DIR, format("%04d.png", number))
+        path = love_frame(number)
         return "LÖVE showed no frame #{number}" unless File.exist?(path)
 
         expected = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))

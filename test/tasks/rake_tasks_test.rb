@@ -34,10 +34,19 @@ class RakeTasksTest < Minitest::Test
     Rake.application = @previous
   end
 
-  # Runs a task again, even if it ran before, and returns its stdout.
+  # Runs a task again, even if it ran before, and returns its stdout. A
+  # task that aborts, as a failed gate does, fails the test with what it
+  # printed: abort raises SystemExit, which Minitest lets through to end
+  # the whole run, and capture_io would keep the message it printed.
   def invoke(name)
     task = Rake::Task[name].tap(&:reenable)
-    out, = capture_io { task.invoke }
+    exited = nil
+    out, err = capture_io do
+      task.invoke
+    rescue SystemExit => e
+      exited = e
+    end
+    flunk "rake #{name} exited with status #{exited.status}:\n#{out}#{err}" if exited
     out
   end
 
@@ -247,6 +256,17 @@ class RakeTasksTest < Minitest::Test
     assert_match(/✅ cpp:format: \d+ files, no problems/, invoke("cpp:format"))
     assert_includes invoke("cpp:no_nolint"), "✅ No unapproved NOLINT in C++ files found"
     assert_match(/✅ cpp:tidy: \d+ files, no problems/, invoke("cpp:tidy"))
+  end
+
+  def test_a_task_that_aborts_fails_the_test_with_what_it_printed
+    Rake::Task.define_task("rake_tasks_test:abort") do
+      puts "checked 1 file"
+      abort "❌ rake_tasks_test:abort failed:\next/bad.cpp:1: error"
+    end
+
+    failure = assert_raises(Minitest::Assertion) { invoke("rake_tasks_test:abort") }
+    assert_includes failure.message, "rake rake_tasks_test:abort exited with status 1:\nchecked 1 file\n"
+    assert_includes failure.message, "❌ rake_tasks_test:abort failed:\next/bad.cpp:1: error"
   end
 
   def test_format_fix_leaves_the_repository_formatted

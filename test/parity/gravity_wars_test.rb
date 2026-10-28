@@ -67,6 +67,22 @@ class GravityWarsTest < Minitest::Test
     assert love.output.text.end_with?("escape\n"), love.output.text
   end
 
+  # On Linux, the game's love.load makes its window 1000 by 800, but Mesa
+  # draws frame 1 into the 800 by 600 drawable the window opened with, so
+  # LÖVE's screenshot of it holds, in its top 200 rows and right 200
+  # columns, only what malloc gave it: the byte the harness has glibc fill
+  # every block with (Parity::MEMORY), not memory another run left there.
+  if TestHome::LINUX
+    def test_what_love_never_drew_in_frame_1_holds_the_harness_byte
+      path = File.join(love.frames_dir, "0001.png")
+      Lota::Native::Image.open
+      frame = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
+      bytes = LotaNativeTest.image_data_bytes(frame.native).b
+
+      assert_equal "\xFE\xFE\xFE\xFF".b * 1000, bytes.byteslice(0, 1000 * 4)
+    end
+  end
+
   def test_the_translation_matches_love_frame_by_frame
     run = Parity::LotaRun.new(TRANSLATED, SCRIPT, love, File.dirname(love.frames_dir))
 

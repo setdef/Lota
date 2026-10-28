@@ -59,6 +59,21 @@ module Parity
     { **NativeHelper.preload(LOOPBACK, *NativeHelper.dialogs(LIB)), "LOTA_LOOPBACK_FILE" => audio }
   end
 
+  # What either engine reads of memory it never wrote is the same in both,
+  # on Linux. Mesa's software renderer, on CI's Xvfb, gives a window's
+  # OpenGL drawable a new size only when it shows a frame, so the first
+  # frame after a game's setMode resizes its window, as Gravity-Wars's
+  # love.load does, is drawn into a drawable the window's old size.
+  # love.graphics.captureScreenshot reads the frame with glReadPixels into
+  # a buffer from new[] (graphics/opengl/Graphics.cpp:1250-1280), and
+  # glReadPixels writes only the part inside the drawable, so the rest is
+  # whatever malloc left there, which differs between two programs, and
+  # between two runs of one. glibc fills each block malloc hands out with
+  # the complement of MALLOC_PERTURB_'s byte, so that part is 0xFE in both
+  # engines, every run. macOS's malloc has no such setting, and LÖVE draws
+  # there with Metal, whose frames the harness compares as they are.
+  MEMORY = TestHome::LINUX ? { "MALLOC_PERTURB_" => "1" } : {}
+
   # The seconds since the epoch both engines' clocks stand at, unless a
   # script names its own: 2020-09-13, 12:26:40 UTC.
   CLOCK = 1_600_000_000
@@ -151,7 +166,7 @@ module Parity
       @sounds_dir = File.join(directory, "love-sounds")
       Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
-        **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio))
+        **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio), **MEMORY)
       @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"))
     end
 
@@ -161,17 +176,25 @@ module Parity
     end
   end
 
+  # Where each run that differs from LÖVE's keeps the first frame that
+  # differs, as both engines showed it, so a failure on CI, which uploads
+  # this folder, can be seen.
+  MISMATCHES = File.join(ROOT, "tmp/parity-mismatches")
+
   # A translated game run in Lota, each frame compared with a LoveRun's.
   class LotaRun
-    attr_reader :output, :report, :home, :audio, :sounds_dir
+    attr_reader :output, :report, :home, :audio, :sounds_dir, :mismatch_dir
 
     # Runs the game in the folder +game+ under +script+ with
     # test/parity/probe.rb, comparing its frames with +love+'s, and keeps
     # its report in +directory+. Lota's home directory is a new folder in
     # +directory+, as LÖVE's is, so a game that saves starts each run with
-    # nothing saved and leaves nothing behind.
+    # nothing saved and leaves nothing behind. The first frame that differs
+    # goes to a folder of the run's own in MISMATCHES, as LÖVE's and Lota's
+    # PNG files.
     def initialize(game, script, love, directory)
       report = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.json")
+      @mismatch_dir = File.join(MISMATCHES, "#{File.basename(game)}-#{Process.pid}-#{object_id}")
       @home = File.join(directory, "lota-home-#{object_id}")
       Dir.mkdir(@home)
       @audio = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.f32")
@@ -179,7 +202,7 @@ module Parity
       Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
         "LOTA_PARITY_REPORT" => report, **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir,
-        **Parity.loopback(@audio))
+        "LOTA_PARITY_MISMATCH_DIR" => @mismatch_dir, **Parity.loopback(@audio), **MEMORY)
       native_test = LIB
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
         "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game)
