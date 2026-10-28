@@ -101,4 +101,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
 
   native.define_singleton_function("drain_release_queue", &drain_release_queue)
       .define_singleton_function("queued_releases", &queued_releases);
+
+  // Last, once every function is bound.
+  lota::native::pin_singleton_classes(native);
 }

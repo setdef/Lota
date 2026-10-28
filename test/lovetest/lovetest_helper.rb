@@ -89,19 +89,23 @@ module Lovetest
   # first failing pixel itself, where Lövetest records every one, and the
   # test fails in both on the same images.
   class TestMethod < Minitest::Test
-    # Run in the main thread, where Lota::Graphics runs. Lövetest runs
-    # each test in a frame of its own, from love.update
-    # (vendor/love/testing/main.lua:172-182), after love.run has reset the
-    # transformation for the frame before's draw (callbacks.lua:196), so a
-    # test starts at the origin whatever the one before it translated or
-    # scaled.
+    # Run in the main thread, where Lota::Graphics runs.
     def setup
       EngineHelper.open_window
       Lovetest.load
-      Lota::Graphics.origin if Lota.graphics
       @rgba_tolerance = 0
       @pixel_tolerance = 0
       @imgs = 1
+    end
+
+    # Lövetest runs each test in a frame of its own, from love.update
+    # (vendor/love/testing/main.lua:172-182), and love.run resets the
+    # transformation as soon as love.update returns, to draw the frame
+    # (vendor/love/src/modules/love/callbacks.lua:192-196). So what a test
+    # translated or scaled ends with it, here as in Lövetest, and the next
+    # test starts at the origin, whether it is Lövetest's or not.
+    def teardown
+      Lota::Graphics.origin if Lota.graphics
     end
 
     # The types whose tests Lövetest names by the type, capitalized as it

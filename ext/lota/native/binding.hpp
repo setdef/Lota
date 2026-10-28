@@ -47,6 +47,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <vector>
 
 #include <pthread.h>
@@ -207,6 +208,46 @@ Base *open_module(love::Module::ModuleType type) {
   return std::make_unique<Opened>().release();
 }
 
+// A wrapper that keeps its entry in Rice's instance registry at its
+// current address. The registry finds the wrapper of an engine object by
+// the wrapper's VALUE, which is its address (rice/detail/InstanceRegistry.hpp),
+// and Lota has it track every wrapper (Init_native, native.cpp).
+// GC.compact moves objects, then calls each typed object's dcompact so
+// that it can update the addresses it holds with rb_gc_location (Ruby
+// 4.0, include/ruby/internal/gc.h:202-210), but Rice's types have no
+// dcompact (Rice 4.12.0, rice/Data_Type.ipp:55-61): once a wrapper moved,
+// reading its engine object back returned whatever then lay at the old
+// address. So each wrapper gives the type it is wrapped as a dcompact
+// that moves its entry along with it, before any compaction can move it.
+class RegisteredWrapper : public Rice::detail::WrapperBase {
+public:
+  explicit RegisteredWrapper(rb_data_type_t *rb_data_type) : WrapperBase(rb_data_type) {
+    rb_data_type->function.dcompact = &relocate;
+  }
+
+protected:
+  // What the registry holds this wrapper under: the engine object, as
+  // Rice's wrap gave it (rice/detail/Wrapper.ipp:267-280).
+  [[nodiscard]] virtual void *registered_object() const noexcept = 0;
+
+private:
+  // The typed data is the WrapperBase Rice wrapped (Wrapper.ipp:274-275),
+  // and every wrapper of a type whose dcompact this is, is one of these.
+  static void relocate(void *data) {
+    const auto *wrapper =
+        dynamic_cast<const RegisteredWrapper *>(static_cast<Rice::detail::WrapperBase *>(data));
+    if (wrapper == nullptr) {
+      return;
+    }
+    void *object = wrapper->registered_object();
+    auto &instances = Rice::detail::Registries::instance.instances;
+    const VALUE registered = instances.lookup(object, true);
+    if (registered != Qnil) {
+      instances.add(object, rb_gc_location(registered), true);
+    }
+  }
+};
+
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
 // engine object, from the moment Ruby wraps it until Ruby's garbage
 // collector frees the wrapper.
@@ -216,15 +257,15 @@ Base *open_module(love::Module::ModuleType type) {
 // :58), so this destructor runs when Ruby collects the object. The reference is LÖVE's
 // own love::StrongRef, which retains or adopts as it is told and releases
 // when destroyed, exactly as LÖVE's C++ holds objects.
-template <EngineObject T> class ObjectWrapper : public Rice::detail::WrapperBase {
+template <EngineObject T> class ObjectWrapper : public RegisteredWrapper {
   static_assert(!std::is_const_v<T>,
                 "love::Object counts references in non-const retain() and release(), so "
                 "bind functions that return engine objects as non-const pointers");
 
 public:
   ObjectWrapper(rb_data_type_t *rb_data_type, T *object, love::Acquire acquire)
-      : WrapperBase(rb_data_type), companion_(Companion<T>::of(*object), love::Acquire::RETAIN),
-        reference_(object, acquire) {}
+      : RegisteredWrapper(rb_data_type),
+        companion_(Companion<T>::of(*object), love::Acquire::RETAIN), reference_(object, acquire) {}
 
   ObjectWrapper(const ObjectWrapper &) = delete;
   ObjectWrapper(ObjectWrapper &&) = delete;
@@ -253,6 +294,9 @@ public:
     }
     return reference_.get();
   }
+
+protected:
+  [[nodiscard]] void *registered_object() const noexcept override { return reference_.get(); }
 
 private:
   // Declared first, so it is released after reference_.
@@ -300,6 +344,33 @@ Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *n
 }
 
 // SPDX-SnippetEnd
+
+// Pins the singleton class of +module+, and of every module and class
+// among its constants and theirs, so that GC.compact never moves one. Rice
+// keys each function it binds by the address of the class it defines the
+// function on (rice/detail/NativeRegistry.ipp:66-78), and finds it again
+// by the class Ruby says the method was called in (Native::resolve,
+// rice/detail/Native.ipp:43-63). Ruby pins a named class or module, but
+// not the singleton class that holds a module's functions and a class's
+// singleton methods: once a compaction moved one, every function on it
+// raised "Could not find method call". Call it once everything under
+// +module+ is defined.
+inline void pin_singleton_classes(const Rice::Module &module) {
+  std::vector<Rice::Module> pending{module};
+  std::unordered_set<VALUE> seen{module.value()};
+  while (!pending.empty()) {
+    const Rice::Module current = pending.back();
+    pending.pop_back();
+    rb_gc_register_mark_object(Rice::detail::protect(rb_singleton_class, current.value()));
+    const Rice::Array names(current.call("constants", false));
+    for (const auto name : names) {
+      const Rice::Object value = current.call("const_get", Rice::Object(name.value()), false);
+      if (value.is_a(rb_cModule) && seen.insert(value.value()).second) {
+        pending.emplace_back(value.value());
+      }
+    }
+  }
+}
 
 } // namespace lota::native
 

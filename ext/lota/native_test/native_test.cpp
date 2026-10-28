@@ -689,4 +689,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
                               Rice::Arg("image_data").setValue())
       .define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),
                               Rice::Arg("environment"));
+
+  // Its functions stay found after a test compacts the heap, as
+  // Lota::Native's do (Init_native).
+  lota::native::pin_singleton_classes(test);
 }
