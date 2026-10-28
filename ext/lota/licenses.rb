@@ -836,17 +836,22 @@ framework "OpenAL-Soft.framework",
 # - Apache-2.0: the Khronos Group's Vulkan headers, src/video/khronos/
 #   vulkan and vk_video, each of which names Apache-2.0 in its SPDX tag
 #   (vulkan/vulkan_core.h:4-8).
-# - CC0-1.0: dlmalloc, src/stdlib/SDL_malloc.c:36-40, and PDCLib's
-#   strtok, src/stdlib/SDL_strtokr.c:30-47, each dedicated to the public
-#   domain with CC0's deed.
 # - Unlicense: miniz, src/video/miniz.h:1-3 and 5074-5099.
 # - LicenseRef-SDL-libm-Public-Domain: src/libm/s_isinf.c and s_isinff.c,
 #   whose header puts them in the public domain in a sentence no SPDX
 #   identifier names, recorded with its authors.
 #
-# Its other files without a notice of their own, such as the shaders SDL
+# src/stdlib/SDL_malloc.c and SDL_strtokr.c are compiled, but the dlmalloc
+# and PDCLib code they hold under CC0 is not, since the build's
+# SDL_build_config.h defines HAVE_MALLOC and HAVE_STRTOK_R (lines 74 and
+# 107), as on macOS. Nor are SDL's own OpenGL ES headers:
+# include/SDL3/SDL_opengles2.h:34-36 includes the system's instead. Its
+# other files without a notice of their own, such as the shaders SDL
 # generates (src/render/vulkan) and the pointer-gestures protocol, are
-# SDL's, under its license.
+# SDL's, under its license, as Collabora's are: the function
+# src/video/SDL_surface.c:2759 contributes under it, and
+# src/core/linux/SDL_evdev_capabilities.c, whose header (lines 1-21) is
+# SDL's with Collabora's notice added.
 library "libSDL3.so.0",
   copyright: [
     "1997-2026 Sam Lantinga <slouken@libsdl.org>",
@@ -854,6 +859,7 @@ library "libSDL3.so.0",
     "2001-2011 Andreas Schiffler",
     "2017, Mark Callow",
     "2020 Collabora Ltd.",
+    "2023 Collabora Ltd.",
     "2020 Valve Corporation",
     "2021 Valve Corporation",
     "Valve Corporation",
@@ -868,6 +874,7 @@ library "libSDL3.so.0",
     "2025 Simon Wood <simon@mungewell.org>",
     "2025 Zuiki Inc.",
     "2016, Adrien Descamps",
+    "2009, Alan Ott, Signal 11 Software",
     "2010, Alan Ott, Signal 11 Software",
     "2022-2023 Alan Ott, Signal 11 Software, and the libusb/hidapi Team",
     "2003-2006,2008 Jamey Sharp, Josh Triplett",
@@ -938,7 +945,6 @@ library "libSDL3.so.0",
     "HPND-sell-variant",
     "SunPro",
     "Apache-2.0",
-    "CC0-1.0",
     "Unlicense",
     "MIT OR Unlicense",
     "LicenseRef-SDL-libm-Public-Domain",
@@ -955,7 +961,11 @@ library "libSDL3.so.0",
 # (lines 1-25, MIT-Modern-Variant). It links the zlib the gem carries
 # (FT_CONFIG_OPTION_SYSTEM_ZLIB in its ftoption.h), and libbz2 1.0.8, the
 # Makefile's BZIP2_VERSION, which it compiles in: bzip2's LICENSE:1-42,
-# whose text is bzip2-1.0.6's.
+# whose text is bzip2-1.0.6's. src/base/ftobjs.c includes src/base/md5.c
+# only under FT_DEBUG_LEVEL_TRACE (lines 50-77), and src/dlg/dlgwrap.c
+# includes dlg.c only under FT_DEBUG_LOGGING (lines 23-27), neither of
+# which the build's ftoption.h defines (lines 434 and 451), so neither
+# file is compiled in.
 library "libfreetype.so.6",
   copyright: [
     "1996-2024 David Turner, Robert Wilhelm, and Werner Lemberg",
@@ -1095,9 +1105,17 @@ library "libvorbis.so.0",
   license: ["BSD-3-Clause", "TU-Berlin-1.0"]
 
 # libogg 1.3.5 (the Makefile's LIBOGG_VERSION), which libvorbis needs: its
-# COPYING, BSD-3-Clause, which its files point to (src/framing.c:1-11).
+# COPYING, BSD-3-Clause, which the files it compiles point to
+# (src/framing.c:1-11, and the same in src/bitwise.c, src/crctable.h,
+# include/ogg/ogg.h, and include/ogg/os_types.h), each with its notice.
 library "libogg.so.0",
-  copyright: ["2002, Xiph.org Foundation", "1994-2018 by the Xiph.Org Foundation"],
+  copyright: [
+    "2002, Xiph.org Foundation",
+    "1994-2018 by the Xiph.Org Foundation",
+    "1994-2014 by the Xiph.Org Foundation",
+    "1994-2007 by the Xiph.Org Foundation",
+    "1994-2002 by the Xiph.Org Foundation",
+  ],
   license: ["BSD-3-Clause"]
 
 # zlib 1.3 (the Makefile's ZLIB_BRANCH, tag v1.3, commit

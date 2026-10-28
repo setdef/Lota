@@ -127,12 +127,13 @@ class LotaRunTest < Minitest::Test
   # love.audio, love.sound, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.window, love.filesystem, and love.physics tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
-  # conf.lua. On a GitHub Actions runner, Lövetest's arc test compares none
-  # of its three 32 by 32 images, and asserts once instead
-  # (test/lovetest/tests/graphics.rb, test_arc).
+  # conf.lua. On a GitHub Actions macOS runner, Lövetest's arc test
+  # compares none of its three 32 by 32 images, and asserts once instead
+  # (test/lovetest/tests/graphics.rb, test_arc, which skips only on "OS X").
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
-    assertions = (ENV["GITHUB_ACTIONS"] == "true") ? 30263 - (3 * 32 * 32) + 1 : 30263
+    skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
+    assertions = skipped ? 30263 - (3 * 32 * 32) + 1 : 30263
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)

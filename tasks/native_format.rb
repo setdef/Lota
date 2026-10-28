@@ -252,10 +252,11 @@ module NativeFormat
     RELATIVE = "$ORIGIN"
 
     # The libraries every glibc system has, which the gem relies on rather
-    # than carries: glibc's own and GCC's C++ runtime, which LÖVE's AppImage
-    # relies on too (its appimage-prepare step copies only what its
+    # than carries: glibc's own, libmvec among them, the vector math GCC's
+    # vectorized loops call on x86_64, and GCC's C++ runtime, which LÖVE's
+    # AppImage relies on too (its appimage-prepare step copies only what its
     # installdir built).
-    SYSTEM = /\A(?:(?:libc|libm|libdl|libpthread|librt|libutil|libstdc\+\+|libgcc_s)\.so\.\d+|ld-linux-[\w-]+\.so\.\d+)\z/
+    SYSTEM = /\A(?:(?:libc|libm|libmvec|libdl|libpthread|librt|libutil|libstdc\+\+|libgcc_s)\.so\.\d+|ld-linux-[\w-]+\.so\.\d+)\z/
 
     # Where the system's libraries are, which a run may load from.
     SYSTEM_DIRECTORIES = %w[/lib/ /lib64/ /usr/lib/ /usr/lib64/ /usr/local/lib/].freeze

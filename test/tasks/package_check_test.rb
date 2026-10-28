@@ -123,7 +123,7 @@ class PackageCheckTest < Minitest::Test
     # glibc's libraries and GCC's C++ runtime come from the system, and
     # every other library from the gem.
     def test_only_glibc_and_the_cpp_runtime_are_the_systems
-      %w[libc.so.6 libm.so.6 libstdc++.so.6 libgcc_s.so.1 ld-linux-aarch64.so.1 ld-linux-x86-64.so.2].each do |name|
+      %w[libc.so.6 libm.so.6 libmvec.so.1 libstdc++.so.6 libgcc_s.so.1 ld-linux-aarch64.so.1 ld-linux-x86-64.so.2].each do |name|
         assert_match NativeFormat::ELF::SYSTEM, name
       end
       %w[libSDL3.so.0 libz.so.1 libX11.so.6 libasan.so.6].each { |name| refute_match NativeFormat::ELF::SYSTEM, name }
