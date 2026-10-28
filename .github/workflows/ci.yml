@@ -362,11 +362,12 @@ jobs:
       # dependencies builds from it in tmp/dependencies, each keyed by what
       # makes it: the Makefile, and for the libraries the recipe too. The
       # recipe checks the compiler itself, and builds again if the runner's
-      # has changed.
+      # has changed. The downloads are keyed by the runner's processor too,
+      # because the Makefile downloads the CMake for the machine it runs on.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: vendor/sources/linux
-          key: linux-sources-${{ hashFiles('vendor/love-appimage-source/Makefile') }}
+          key: linux-sources-${{ runner.arch }}-${{ hashFiles('vendor/love-appimage-source/Makefile') }}
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tmp/dependencies
