@@ -474,6 +474,41 @@ class GeneratorTest < Minitest::Test
     assert_includes port("ImageData:paste").definition, "t.paste(src, dx, dy, sx, sy,"
   end
 
+  # w_Texture_setWrap fills the sampler state's fields through
+  # getConstant, and w_Texture_setDepthSampleMode assigns a field of one
+  # of them, so neither may declare the state const.
+  def test_a_local_whose_nested_fields_change_is_not_const
+    assert_includes port("Texture:setWrap").definition, "\nSamplerState s = t.getSamplerState();"
+    assert_includes port("Texture:setDepthSampleMode").definition, "\nSamplerState s = t.getSamplerState();"
+    assert_includes port("Texture:getFilter").definition, "const SamplerState &s = t.getSamplerState();"
+  end
+
+  # w_Texture_getDebugName pushes a string, or nil for a texture with no
+  # name, so its one result is a std::optional that is empty for nil.
+  def test_a_value_pushed_or_nil_returns_an_optional
+    port = port("Texture:getDebugName")
+
+    assert_includes port.definition, "std::optional<std::string> w_Texture_getDebugName(const Texture &t)"
+    assert_includes port.definition, "return std::nullopt;"
+    assert_includes port.rbs, "-> String?"
+  end
+
+  # w_Texture_getFormat names a PixelFormat, which common/pixelformat.h
+  # declares with its getConstant, as clang-tidy's misc-include-cleaner
+  # asks.
+  def test_a_pixel_format_includes_its_header
+    list = Bindings::BindingList.new
+    list.generate("Texture:getFormat")
+
+    assert_includes BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/graphics.cpp"),
+      %(#include "common/pixelformat.h")
+  end
+
+  # w_Texture_getMipmapFilter pushes the negated lodBias, a float.
+  def test_a_negated_field_has_the_fields_type
+    assert_includes port("Texture:getMipmapFilter").definition, "results.push(static_cast<double>(-s.lodBias), false);"
+  end
+
   def test_a_pointer_to_what_new_makes_is_declared_auto
     assert_includes port("Transform:__mul").definition, "auto *t3 = new Transform(t1.getMatrix() * t2->getMatrix());"
   end

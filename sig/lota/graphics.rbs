@@ -3,11 +3,17 @@
 
 module Lota
   module Graphics
-    def self.canvas=: (Texture? canvas) -> void
+    def self.canvas=: (Texture | Array[Texture | Integer | Float] | nil canvas) -> void
+
+    def self.set_canvas: (*(Texture | Integer | Float | Array[Texture | Array[Texture | Hash[Symbol, Integer]]] | nil) canvases, ?depthstencil: (Texture | bool | Array[Texture | Hash[Symbol, Integer]])?, ?depth: ::Object?, ?stencil: ::Object?) -> nil
+
+    private def self.native_target: (::Object? target) -> ::Object?
+
+    private def self.render_target: (::Object? target) -> Array[::Object?]
 
     def self.clear: (*(Float | Integer) color) -> nil
 
-    def self.readback_texture: (Texture texture) -> Lota::Image::ImageData
+    def self.readback_texture: (Texture texture, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height, ?Lota::Image::ImageData? dest, ?Integer? destx, ?Integer? desty) -> Lota::Image::ImageData
 
     def self.active?: () -> bool
 
@@ -105,7 +111,13 @@ module Lota
 
     def self.line: (*(Float | Integer | Array[Float | Integer]) points) -> nil
 
-    def self.draw: (Texture | SpriteBatch drawable, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.draw: (Texture | SpriteBatch drawable, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+
+    private def self.transform_quad: ((Quad | Float | Integer)? quad) -> Quad
+
+    private def self.draw_with_transform: (Texture | SpriteBatch drawable, Quad? quad, Math::Transform transform) -> nil
+
+    def self.draw_layer: (Texture texture, Integer | Float layer, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
     type text = String | Array[String | Array[Float | Integer]]
 
@@ -141,7 +153,11 @@ module Lota
 
     def self.blend_mode: () -> Array[Symbol]
 
-    def self.canvas: () -> Texture?
+    type render_target = [Texture, Hash[Symbol, Integer]]
+
+    def self.canvas: () -> Array[Texture | Array[render_target | Hash[Symbol, render_target]]]
+
+    private def self.target_of: (Native::Graphics::render_target_fields fields) -> render_target
 
     def self.color_mask=: (bool | Array[bool] | nil mask) -> void
 

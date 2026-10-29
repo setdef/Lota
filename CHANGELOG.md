@@ -10,12 +10,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `Lota::Graphics.canvas` returns an Array, as every function that can return several values does: `[]` while drawing goes to the window, the canvases set, or one Array of the targets and their options where LÖVE returns its table; take `.first` for the one canvas.
+
 ### Added
 
 - `Lota::Native`, the compiled extension that binds LÖVE's engine, with `Lota::Native::RandomGenerator`.
-- `Lota::Graphics::Canvas.new`, `Lota::Graphics.canvas=`, `Lota::Graphics.clear`, and `Lota::Graphics.readback_texture`, translating `love.graphics.newCanvas` (with its `msaa:` setting), `setCanvas`, `clear`, and `readbackTexture`.
+- `Lota::Graphics::Canvas.new`, `Lota::Graphics.canvas=`, `Lota::Graphics.clear`, and `Lota::Graphics.readback_texture`, translating `love.graphics.newCanvas`, `setCanvas`, `clear`, and `readbackTexture`.
 - `Lota::Graphics::Texture`, with `canvas?`; `Canvas.new` returns a `Texture`, as LÖVE 12's `newCanvas` does, and `Canvas === texture` asks `texture.canvas?`.
-- `Lota::Graphics::Texture.new`, translating `love.graphics.newTexture` for one image from a file name, a `FileData`, or an `ImageData`, with its `canvas:` setting.
+- `Lota::Graphics::Texture.new`, translating `love.graphics.newTexture` for an image from a file name, a `FileData`, or an `ImageData`, an Array of mipmaps, or a size with no pixels.
 - `Lota::Graphics::Image.new`, translating `love.graphics.newImage`, which in LÖVE 12 is `newTexture`; `Image === x` is true for any `Texture`, canvases included.
 - LÖVE's error messages name Lota's modules and methods (`Lota::Image`, `Lota::Window.set_mode`, `Lota::Image::ImageData#pixel`) where LÖVE's name Lua's (`love.image`, `love.window.setMode`, `ImageData:getPixel`), each method by the exact name ADR 001's rules give it.
 - `Lota::Image::ImageData`, decoded from a `Lota::Filesystem::FileData` or a file name, with `width`, `height`, and `pixel`.
@@ -76,6 +80,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Image::ImageData#encode`, translating `ImageData:encode`, which returns a `Lota::Filesystem::FileData` in `:png`, `:tga`, `:exr`, or another format LÖVE encodes, and with a file name also writes it to the save directory; with `Lota::Graphics.capture_screenshot`, a game saves a frame without Ruby touching its pixels.
 - `Lota::Image::ImageData#dimensions`, `format`, `paste`, `linear?`, and `linear=`, and `Lota::Filesystem::FileData#filename`.
 - `Lota::Filesystem.open_file`, translating `love.filesystem.openFile`, which returns `[file]` or `[nil, message]`, and `Lota::Filesystem::File`, with `close`.
+- LÖVE's texture settings as keywords on `Texture.new`, `Image.new`, and `Canvas.new` (`mipmaps:`, `mipmapcount:`, `format:`, `linear:`, `msaa:`, `dpiscale:`, `readable:`, `canvas:`, `computewrite:`, `viewformats:`, `debugname:`, and, given a size, `type:`, `width:`, `height:`, and `layers:`), with LÖVE's errors for a setting or value it does not know; `Canvas.new` also takes a layer count, or its size as keywords alone.
+- `Lota::Graphics::ArrayImage.new`, `CubeImage.new`, and `VolumeImage.new`, translating `love.graphics.newArrayImage`, `newCubeImage`, and `newVolumeImage`, each returning a `Texture` and matching with `===` a texture of its type.
+- `Lota::Graphics::Texture#filter`, `filter=`, `mipmap_filter`, `mipmap_filter=`, `wrap`, `wrap=`, `depth_sample_mode`, `depth_sample_mode=`, `generate_mipmaps`, `replace_pixels`, `texture_type`, `format`, `mipmap_mode`, `mipmap_count`, `layer_count`, `depth`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `dpi_scale`, `msaa`, `debug_name`, `readable?`, `compressed?`, `format_linear?`, and `compute_writable?`, translating Texture's methods.
+- `Lota::Graphics.set_canvas`, translating `love.graphics.setCanvas` with several canvases, a mipmap or a layer, and its table of canvases with `depthstencil:`, `depth:`, and `stencil:` as keywords (`set_canvas(canvas, stencil: true)`), each target alone or as `[texture, layer: 2, mipmap: 1]`; `canvas=` takes what `set_canvas` takes without options.
+- `Lota::Graphics.readback_texture` reads a slice, a mipmap, a rectangle, and into an `ImageData` given, which it returns.
+- `Lota::Graphics.draw` places a drawable by a `Lota::Math::Transform`, and `Lota::Graphics.draw_layer` translates `love.graphics.drawLayer`.
+- A `Texture` the engine returns again, as `Lota::Graphics.canvas` returns the canvas set, is the same Ruby object, as LÖVE returns the same object.
 - `Lota::Window.update_mode`, `mode`, `desktop_dimensions`, and `safe_area`, translating `love.window.updateMode`, `getMode`, `getDesktopDimensions`, and `getSafeArea`; `mode` returns the width, the height, and a frozen `Lota::Window::Mode` of the settings, with LÖVE's field names.
 - `Lota::System.os`, translating `love.system.getOS`.
 - `Lota::Mouse.visible=`, `visible?`, `grabbed=`, `grabbed?`, `set_relative_mode`, `relative_mode`, and `cursor_supported?`; `Lota::Graphics.created?` and `reset`; and `Lota::Window.open?`.

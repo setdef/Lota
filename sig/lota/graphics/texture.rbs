@@ -8,7 +8,7 @@ module Lota
 
       def self.from_native: (Native::Texture native) -> Texture
 
-      def self.new: (String | Filesystem::FileData | Lota::Image::ImageData image, ?canvas: ::Object?) -> Texture
+      def self.new: (*::Object? arguments, **TextureSettings::value settings) -> Texture
 
       def canvas?: () -> bool
 
@@ -17,6 +17,58 @@ module Lota
       def height: (?Integer? mipmap) -> Integer
 
       def dimensions: (?Integer? mipmap) -> [Integer, Integer]
+
+      def depth: (?Integer? mipmap) -> Integer
+
+      def layer_count: () -> Integer
+
+      def mipmap_count: () -> Integer
+
+      def pixel_width: (?Integer? mipmap) -> Integer
+
+      def pixel_height: (?Integer? mipmap) -> Integer
+
+      def pixel_dimensions: (?Integer? mipmap) -> [Integer, Integer]
+
+      def dpi_scale: () -> Float
+
+      def texture_type: () -> Symbol
+
+      def format: () -> Symbol
+
+      def format_linear?: () -> bool
+
+      def compressed?: () -> bool
+
+      def compute_writable?: () -> bool
+
+      def readable?: () -> bool
+
+      def msaa: () -> Integer
+
+      def mipmap_mode: () -> Symbol
+
+      def debug_name: () -> String?
+
+      def filter=: (Symbol | String | Array[Symbol | String | Integer | Float | nil] filter) -> void
+
+      def filter: () -> [Symbol, Symbol, Integer]
+
+      def mipmap_filter=: (Symbol | String | Array[Symbol | String | Integer | Float | nil] | nil filter) -> void
+
+      def mipmap_filter: () -> [Symbol?, Float]
+
+      def wrap=: (Symbol | String | Array[Symbol | String | nil] wrap) -> void
+
+      def wrap: () -> Array[Symbol]
+
+      def depth_sample_mode=: ((Symbol | String)? mode) -> void
+
+      def depth_sample_mode: () -> Symbol?
+
+      def generate_mipmaps: () -> nil
+
+      def replace_pixels: (::Object imagedata, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?bool? reloadmipmaps) -> nil
 
       def render_to: (?Integer? slice) { () -> void } -> nil
     end

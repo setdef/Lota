@@ -5,8 +5,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "graphics/texture_settings"
 require_relative "graphics/texture"
+require_relative "graphics/array_image"
 require_relative "graphics/canvas"
+require_relative "graphics/cube_image"
 require_relative "graphics/font"
 require_relative "graphics/image"
 require_relative "graphics/quad"
@@ -16,6 +19,7 @@ require_relative "graphics/supported"
 require_relative "graphics/system_limits"
 require_relative "graphics/texture_formats"
 require_relative "graphics/texture_types"
+require_relative "graphics/volume_image"
 
 module Lota
   # Drawing, translated from love.graphics.
@@ -50,15 +54,17 @@ module Lota
     # (src/modules/graphics/wrap_Graphics.cpp, w_setCanvas).
     #
     # [canvas] Lota::Graphics::Texture to draw into, made by
-    #   Lota::Graphics::Canvas.new, or +nil+ for the window.
+    #   Lota::Graphics::Canvas.new, or +nil+ for the window; or, as rule 6
+    #   writes several values, an Array of what set_canvas takes without
+    #   options.
     #
     # Everything drawn or cleared afterward lands on the canvas until you
     # set another target. The engine holds on to the active canvas, so it
     # survives even if you drop every reference to it. A canvas cannot be
     # drawn while it is the target. <tt>canvas = nil</tt> is LÖVE's
-    # setCanvas() with no arguments. LÖVE also takes several canvases at
-    # once, a mipmap level, and a table of options; Lota binds those forms
-    # later.
+    # setCanvas() with no arguments. set_canvas takes the other forms:
+    # several canvases, a mipmap or a layer, and a depth or stencil
+    # buffer.
     #
     # Raises RuntimeError with LÖVE's message when the engine refuses the
     # target, and ThreadError off the main thread.
@@ -69,11 +75,92 @@ module Lota
     #   draw_shadows
     #   Lota::Graphics.canvas = nil
     def self.canvas=(canvas)
-      if canvas
-        Native::Graphics.set_canvas(canvas.native)
-      else
-        Native::Graphics.reset_canvas
+      canvas.is_a?(Array) ? set_canvas(*canvas) : set_canvas(canvas)
+    end
+
+    # Sends drawing to one or several canvases, with a depth or stencil
+    # buffer if asked for, or back to the window, matching
+    # love.graphics.setCanvas (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setCanvas).
+    #
+    # [canvases] Lota::Graphics::Texture targets, each made by
+    #   Lota::Graphics::Canvas.new, which a shader writes to in order; a 2D
+    #   texture may be followed by the Integer mipmap to draw to, counting
+    #   from 1, and one texture that is not 2D by its Integer slice and
+    #   optionally its mipmap. With options, the 2D textures alone, or in
+    #   one Array, as in LÖVE's table form. None, or +nil+, draws to the
+    #   window again.
+    # [depthstencil] A Lota::Graphics::Texture with a depth or stencil
+    #   format to use as the depth and stencil buffer, or such a target
+    #   with its options, or +true+ for a
+    #   temporary one of each, which lasts until the canvases change.
+    # [depth] Whether to draw with a temporary depth buffer, when
+    #   +depthstencil+ gives none.
+    # [stencil] Whether to draw with a temporary stencil buffer, when
+    #   +depthstencil+ gives none, as Lota::Graphics.stencil_state= needs to
+    #   mask drawing into a canvas.
+    #
+    # The options are LÖVE's table of targets and options as keywords
+    # (ADR 001, rule 10). A target can also be an Array of its texture and
+    # a Hash of its options, +layer+ or +face+ and +mipmap+, each counting
+    # from 1, as LÖVE's table of tables gives each target a table of its
+    # own: the layer a texture that is not 2D needs, and the mipmap to draw
+    # to; +depthstencil+ takes one too. Returns +nil+. Raises TypeError for a target that is not a
+    # Texture, RuntimeError with LÖVE's message when the engine refuses the
+    # targets, as for a texture that is not a canvas, and ThreadError off
+    # the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.set_canvas(mask, stencil: true)
+    #   Lota::Graphics.set_canvas([albedo, normals], depth: true)
+    #   Lota::Graphics.set_canvas(table_canvas, 2) # its second mipmap
+    #   Lota::Graphics.set_canvas([[frames, layer: 3], [glow, mipmap: 2]])
+    #   Lota::Graphics.set_canvas                  # the window again
+    #
+    # :call-seq:
+    #   set_canvas(*canvases)
+    #   set_canvas(*canvases, depthstencil: nil, depth: nil, stencil: nil)
+    #   set_canvas(canvases, depthstencil: nil, depth: nil, stencil: nil)
+    def self.set_canvas(*canvases, depthstencil: nil, depth: nil, stencil: nil)
+      first = canvases.first
+      return Native::Graphics.reset_canvas if first.nil?
+
+      if !first.is_a?(Array) && depthstencil.nil? && depth.nil? && stencil.nil?
+        return Native::Graphics.set_canvas(canvases.map { |target| native_target(target) })
       end
+
+      targets = first.is_a?(Array) ? first : canvases
+      tables = targets.first.is_a?(Array)
+      Native::Graphics.set_canvas_with_options([
+        targets.map { |target| tables ? render_target(target) : native_target(target) },
+        depthstencil.is_a?(Array) ? render_target(depthstencil) : native_target(depthstencil),
+        depth,
+        stencil,
+      ])
+    end
+
+    # A target of setCanvas's table of tables, as the engine reads it:
+    # the texture's engine object, then the layer, face, and mipmap its
+    # trailing Hash names, each nil when it names none. :nodoc:
+    private_class_method def self.render_target(target)
+      texture, options = target.is_a?(Array) ? target : [target]
+      return [native_target(texture), nil, nil, nil] unless options.is_a?(Hash)
+
+      [native_target(texture), options[:layer], options[:face], options[:mipmap]]
+    end
+
+    # A target LÖVE returns in getCanvas's table, as set_canvas takes one:
+    # its Texture and a Hash of its layer or face and its mipmap. :nodoc:
+    private_class_method def self.target_of(fields)
+      native, layer, face, mipmap = fields
+      [Texture.from_native(native), { layer:, face:, mipmap: }.compact]
+    end
+
+    # A target's engine object, or the target as it is, which the engine
+    # reads as LÖVE reads its arguments. :nodoc:
+    private_class_method def self.native_target(target)
+      target.is_a?(Texture) ? target.native : target
     end
 
     # Fills the active canvas, or the window, with one color, matching
@@ -107,25 +194,49 @@ module Lota
       end
     end
 
-    # Copies every pixel of +texture+ back from the graphics card into a
-    # new Lota::Image::ImageData, matching love.graphics.readbackTexture
+    # Copies pixels of +texture+ back from the graphics card into a
+    # Lota::Image::ImageData, matching love.graphics.readbackTexture
     # (src/modules/graphics/wrap_Graphics.cpp, w_readbackTexture).
     #
     # [texture] Lota::Graphics::Texture to read, such as a canvas.
+    # [slice] Integer slice to read, counting from 1, which a texture that
+    #   is not 2D needs; a 2D texture takes +nil+.
+    # [mipmap] Integer mipmap to read, counting from 1; the first, the
+    #   full-size image, by default.
+    # [x] Integer left edge of the rectangle to read, in pixels, given
+    #   with +y+, +width+, and +height+; the whole mipmap by default.
+    # [y] Integer top edge of the rectangle.
+    # [width] Integer width of the rectangle.
+    # [height] Integer height of the rectangle.
+    # [dest] Lota::Image::ImageData to read into, which comes back,
+    #   instead of a new one.
+    # [destx] Integer left edge in +dest+ to read to; 0 by default.
+    # [desty] Integer top edge in +dest+ to read to; 0 by default.
     #
     # The copy waits for the graphics card to finish drawing, so it is
     # slow; read back for tests, screenshots, and tools, not every frame.
-    # LÖVE also reads one slice, mipmap, or rectangle, and into an
-    # ImageData you already have; Lota binds those forms later.
     #
-    # Raises ThreadError off the main thread.
+    # Raises TypeError for a slice of a 2D texture that is not a number,
+    # RuntimeError with LÖVE's message for a mipmap, slice, or rectangle
+    # the texture does not have or a texture that is not readable, and
+    # ThreadError off the main thread.
     #
-    # === Example
+    # === Examples
     #
     #   pixels = Lota::Graphics.readback_texture(canvas)
     #   pixels.pixel(0, 0) # => [1.0, 1.0, 0.0, 1.0]
-    def self.readback_texture(texture)
-      Lota::Image::ImageData.from_native(Native::Graphics.readback_texture(texture.native))
+    #
+    #   small = Lota::Graphics.readback_texture(canvas, nil, 2) # its second mipmap
+    def self.readback_texture(texture, slice = nil, mipmap = nil, x = nil, y = nil, width = nil, height = nil,
+      dest = nil, destx = nil, desty = nil
+    )
+      unless dest.nil? || dest.is_a?(Lota::Image::ImageData)
+        raise TypeError, "wrong argument type #{dest.class} for dest (expected Lota::Image::ImageData)"
+      end
+
+      native = Native::Graphics.readback_texture(texture.native,
+        [slice, mipmap, x, y, width, height, dest&.native, destx, desty])
+      dest || Lota::Image::ImageData.from_native(native)
     end
 
     # Whether drawing reaches the screen, matching love.graphics.isActive
@@ -735,10 +846,13 @@ module Lota
     # [kx] Float or Integer horizontal shearing factor; 0 likewise.
     # [ky] Float or Integer vertical shearing factor; 0 likewise.
     #
+    # [transform] Lota::Math::Transform that places it, in place of the
+    #   numbers.
+    #
     # The current color tints what is drawn, so white draws it as it is.
     # LÖVE reads each number as a single-precision float, and so does
-    # Lota. LÖVE also places a drawable with a Transform, and draws meshes,
-    # text, and its other drawables; Lota binds those forms later.
+    # Lota. LÖVE also draws meshes, text, and its other drawables; Lota
+    # binds those forms with them.
     #
     # Raises TypeError for a drawable Lota cannot draw, for a quad with a
     # drawable that is not a Texture, for +nil+ in place of a quad with
@@ -756,7 +870,12 @@ module Lota
     # :call-seq:
     #   draw(drawable, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
     #   draw(texture, quad, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   draw(drawable, transform)
+    #   draw(texture, quad, transform)
     def self.draw(drawable, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
+      return draw_with_transform(drawable, nil, quad) if quad.is_a?(Math::Transform)
+      return draw_with_transform(drawable, transform_quad(quad), x) if x.is_a?(Math::Transform)
+
       placement = placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
       if quad.is_a?(Quad)
         raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)" unless drawable.is_a?(Texture)
@@ -771,6 +890,80 @@ module Lota
         raise TypeError,
           "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture or Lota::Graphics::SpriteBatch)"
       end
+    end
+
+    # The Quad a Transform follows, where luax_checkstandardtransform
+    # reads the Transform after a Quad; after anything else, LÖVE reads a
+    # number where the Transform is, and raises.
+    private_class_method def self.transform_quad(quad)
+      return quad if quad.is_a?(Quad)
+
+      raise TypeError, "wrong argument type Lota::Math::Transform (expected Float or Integer)"
+    end
+
+    # w_draw placed by a Transform (wrap_Graphics.cpp:3245-3279 and
+    # wrap_SpriteBatch.h:33-64), which luax_checkstandardtransform reads
+    # in place of the numbers.
+    private_class_method def self.draw_with_transform(drawable, quad, transform)
+      if quad.is_a?(Quad)
+        raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)" unless drawable.is_a?(Texture)
+
+        return Native::Graphics.draw_quad_with_transform(drawable.native, quad.native, transform.native)
+      end
+
+      case drawable
+      when Texture then Native::Graphics.draw_with_transform(drawable.native, transform.native)
+      when SpriteBatch then Native::Graphics.draw_sprite_batch_with_transform(drawable.native, transform.native)
+      else
+        raise TypeError,
+          "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture or Lota::Graphics::SpriteBatch)"
+      end
+    end
+
+    # Draws one layer of an array texture in the current color, matching
+    # love.graphics.drawLayer (src/modules/graphics/wrap_Graphics.cpp,
+    # w_drawLayer).
+    #
+    # [texture] Lota::Graphics::Texture of type +:array+, such as one
+    #   Lota::Graphics::ArrayImage.new makes.
+    # [layer] Integer layer to draw, counting from 1.
+    # [quad] Lota::Graphics::Quad of the part of the layer to draw; the
+    #   whole layer when left out.
+    # [x] Placement as for draw: up to nine numbers, or a
+    #   Lota::Math::Transform.
+    #
+    # Returns +nil+. Raises TypeError for a texture that is not a Texture,
+    # a layer that is not a number, or +nil+ in place of a quad with
+    # numbers after it, as LÖVE raises; RuntimeError with LÖVE's message
+    # for a texture that is not an array texture or a layer it does not
+    # have; and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.draw_layer(frames, 2, 100, 100)
+    #   Lota::Graphics.draw_layer(frames, 3, 100, 100, 0, 2, 2, 16, 16)
+    #
+    # :call-seq:
+    #   draw_layer(texture, layer, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   draw_layer(texture, layer, quad, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   draw_layer(texture, layer, transform)
+    #   draw_layer(texture, layer, quad, transform)
+    def self.draw_layer(texture, layer, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil,
+      kx = nil, ky = nil
+    )
+      raise TypeError, "wrong argument type #{texture.class} (expected Lota::Graphics::Texture)" unless texture.is_a?(Texture)
+      raise TypeError, "wrong argument type #{layer.class} for layer (expected Integer)" unless layer.is_a?(Integer) || layer.is_a?(Float)
+
+      if quad.is_a?(Math::Transform)
+        return Native::Graphics.draw_layer_with_transform(texture.native, layer.to_i, nil, quad.native)
+      end
+      if x.is_a?(Math::Transform)
+        return Native::Graphics.draw_layer_with_transform(texture.native, layer.to_i, transform_quad(quad).native,
+          x.native)
+      end
+
+      Native::Graphics.draw_layer(texture.native, layer.to_i, quad.is_a?(Quad) ? quad.native : nil,
+        placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky))
     end
 
     # The window's width, in units of the screen's DPI scale, matching
@@ -1191,23 +1384,38 @@ module Lota
       Native::Graphics.blend_mode.map(&:to_sym)
     end
 
-    # The canvas drawing goes to, or +nil+ while it goes to the window,
-    # matching love.graphics.getCanvas
-    # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvas).
+    # Where drawing goes, as an Array (ADR 001, rule 4), matching
+    # love.graphics.getCanvas (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getCanvas): empty while it goes to the window; the canvases
+    # Lota::Graphics.canvas= or set_canvas set, each a
+    # Lota::Graphics::Texture, in order; or, where LÖVE returns its table
+    # of tables, for a depth and stencil texture, a mipmap but the first,
+    # or a texture that is not 2D, one Array of the targets, each its
+    # Texture and a Hash of its +layer+ or +face+ and its +mipmap+, as
+    # set_canvas takes them, ending in a Hash of the +depthstencil+ target
+    # when there is one.
     #
-    # It is the Lota::Graphics::Texture that Lota::Graphics.canvas= set.
-    # LÖVE also returns several canvases, or a table describing them, for
-    # the forms of setCanvas that set those; Lota binds them later.
+    # Where Lua keeps one result, Ruby takes +.first+, the canvas or +nil+.
+    # Each Texture is the same Ruby object that was set. Raises ThreadError
+    # off the main thread.
     #
-    # Raises ThreadError off the main thread.
-    #
-    # === Example
+    # === Examples
     #
     #   Lota::Graphics.canvas = shadow_map
-    #   Lota::Graphics.canvas # => #<Lota::Graphics::Texture ...>
+    #   Lota::Graphics.canvas       # => [#<Lota::Graphics::Texture ...>]
+    #   Lota::Graphics.canvas.first # => #<Lota::Graphics::Texture ...>
+    #
+    #   Lota::Graphics.canvas = nil
+    #   Lota::Graphics.canvas # => []
+    #
+    #   Lota::Graphics.set_canvas(table_canvas, 2)
+    #   Lota::Graphics.canvas # => [[[#<Lota::Graphics::Texture ...>, {mipmap: 2}]]]
     def self.canvas
-      native = Native::Graphics.canvas
-      native && Texture.from_native(native)
+      tables, colors, depthstencil = Native::Graphics.canvas
+      return colors.map { |fields| Texture.from_native(fields.first) } unless tables
+
+      table = colors.map { |fields| target_of(fields) }
+      [depthstencil ? table + [{ depthstencil: target_of(depthstencil) }] : table]
     end
 
     # Sets which color channels drawing writes, matching

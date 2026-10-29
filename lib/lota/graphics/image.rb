@@ -37,23 +37,31 @@ module Lota
     #   when Lota::Graphics::Image then Lota::Graphics.draw(texture)
     #   end
     module Image
-      # Creates a Lota::Graphics::Texture from +image+, matching
-      # love.graphics.newImage (src/modules/graphics/wrap_Graphics.cpp,
-      # w_newImage), which LÖVE 12 makes with w_newTexture.
+      # Creates a Lota::Graphics::Texture from +image+, or of a size,
+      # matching love.graphics.newImage
+      # (src/modules/graphics/wrap_Graphics.cpp, w_newImage), which LÖVE 12
+      # makes with w_newTexture.
       #
       # [image] String name of an image file in the game's folder, a
-      #   Lota::Filesystem::FileData holding an encoded image, or a
-      #   Lota::Image::ImageData, as for Lota::Graphics::Texture.new.
-      # [canvas] Whether you can also draw into the texture; +false+ by
-      #   default, as for Lota::Graphics::Texture.new.
+      #   Lota::Filesystem::FileData holding an encoded image, a
+      #   Lota::Image::ImageData, or an Array of them, its mipmaps; or a
+      #   width, a height, and a layer count, as for
+      #   Lota::Graphics::Texture.new.
+      # [settings] LÖVE's settings table, as keywords, as for
+      #   Lota::Graphics::Texture.new.
       #
       # Raises what Lota::Graphics::Texture.new raises.
       #
-      # === Example
+      # === Examples
       #
       #   Lota::Graphics::Image.new("assets/ship.png").canvas? # => false
-      def self.new(image, canvas: nil)
-        Texture.new(image, canvas:)
+      #   card = Lota::Graphics::Image.new("assets/card.png", mipmaps: true)
+      #
+      # :call-seq:
+      #   new(image, **settings)
+      #   new(width, height, layers = nil, **settings)
+      def self.new(*, **settings)
+        Texture.new(*, **settings)
       end
 
       # Whether +object+ is a Lota::Graphics::Texture: newImage makes

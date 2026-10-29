@@ -262,9 +262,18 @@ object:,
     private def return_type
       case @result_mode
       when :none then "void"
-      when :one then results.filter_map(&:first).first
+      when :one then optional_result? ? "std::optional<#{results.filter_map(&:first).first}>" : results.filter_map(&:first).first
       else "Rice::Array"
       end
+    end
+
+    # Whether the one value a form returns is a value, not an object, that
+    # it pushes as nil on another path, as w_Texture_getDebugName pushes
+    # nil for a texture with no name: a std::optional, which Rice returns
+    # as nil when it is empty.
+    private def optional_result?
+      types = results.map(&:first)
+      types.include?(nil) && types.compact.any? && types.compact.none? { |type| type.end_with?("*") }
     end
 
     private def rbs_result
@@ -660,12 +669,18 @@ line: node.line,
       return [] if own_object?(call)
 
       type, = result_type(call)
-      value = type ? convert(rewrite(whole_result(call.arguments[1], type)), call, type) : "nullptr"
+      value = type ? convert(rewrite(whole_result(call.arguments[1], type)), call, type) : nil_value
       case @result_mode
       when :one then ["return #{value};"]
       when :many then ["results.push(#{many_value(value, call, type)}, false);"]
       else raise Unsupported, "#{@function.love_name} pushes a result it does not return"
       end
+    end
+
+    # What a form returns where LÖVE pushes nil: an empty std::optional
+    # for a value, and a null pointer for an object.
+    private def nil_value
+      (@result_mode == :one && optional_result?) ? "std::nullopt" : "nullptr"
     end
 
     # +text+ without a C-style cast of a parameter to the pointer type it
@@ -737,8 +752,8 @@ line: node.line,
       walk_texts(@body) do |text, _node|
         next if rewrite(text) == declaration
 
-        return true if text.match?(%r{(?<![\w.>])#{Regexp.escape(name)}(?:\.\w+)?\s*(?:[-+*/]?=(?!=)|\+\+|--)})
-        return true if text.match?(/getConstant\s*\([^,]+,\s*#{Regexp.escape(name)}\s*\)/)
+        return true if text.match?(%r{(?<![\w.>])#{Regexp.escape(name)}(?:\.\w+)*\s*(?:[-+*/]?=(?!=)|\+\+|--)})
+        return true if text.match?(/getConstant\s*\([^,]+,\s*#{Regexp.escape(name)}(?:\.\w+)*\s*\)/)
         return true if Calls.in(text).any? { |call| fills?(call, name) }
       end
       false
@@ -1030,6 +1045,7 @@ line: node.line,
 
         return expression_type(match[:rest])
       end
+      return expression_type(Regexp.last_match(1)) if text =~ /\A-\s*(\w.*)\z/m
       return expression_type(Regexp.last_match(1)) if text =~ %r{\A(\w+)\s*(?:\+|-(?!>)|\*|/)\s*\S.*\z}
       return expression_type(Regexp.last_match(1)) if text =~ %r{\A(.+\))\s*(?:\+|-(?!>)|\*|/)\s*\d+\z}
       return method_type(Regexp.last_match(1), Regexp.last_match(2), Regexp.last_match(3)) if text =~ /\A(\w+)::(\w+)\s*\((.*)\)\z/m

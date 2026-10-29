@@ -110,6 +110,27 @@ generate "love.graphics.rectangle"
 generate "love.graphics.ellipse"
 generate "love.graphics.circle"
 generate "Texture:isCanvas"
+generate "Texture:getTextureType"
+generate "Texture:getLayerCount"
+generate "Texture:getMipmapCount"
+generate "Texture:getDPIScale"
+generate "Texture:isFormatLinear"
+generate "Texture:isCompressed"
+generate "Texture:getMSAA"
+generate "Texture:setFilter"
+generate "Texture:getFilter"
+generate "Texture:setMipmapFilter"
+generate "Texture:getMipmapFilter"
+generate "Texture:setWrap"
+generate "Texture:getWrap"
+generate "Texture:getFormat"
+generate "Texture:isComputeWritable"
+generate "Texture:isReadable"
+generate "Texture:getMipmapMode"
+generate "Texture:getDepthSampleMode"
+generate "Texture:setDepthSampleMode"
+generate "Texture:generateMipmaps"
+generate "Texture:getDebugName"
 generate "love.graphics.setFont"
 generate "love.graphics.setDefaultFilter"
 generate "SpriteBatch:clear"
@@ -148,6 +169,21 @@ bound_by_hand "Texture:getWidth",
   reason: "reads its mipmap through w__optMipmap, which the generator does not port"
 bound_by_hand "Texture:getHeight",
   reason: "reads its mipmap through w__optMipmap, as Texture:getWidth"
+bound_by_hand "Texture:getDimensions",
+  reason: "reads its mipmap through w__optMipmap, as Texture:getWidth; Lota::Graphics::Texture#dimensions " \
+    "calls the bound width and height"
+bound_by_hand "Texture:getDepth",
+  reason: "reads its mipmap through w__optMipmap, as Texture:getWidth"
+bound_by_hand "Texture:getPixelWidth",
+  reason: "reads its mipmap through w__optMipmap, as Texture:getWidth"
+bound_by_hand "Texture:getPixelHeight",
+  reason: "reads its mipmap through w__optMipmap, as Texture:getWidth"
+bound_by_hand "Texture:getPixelDimensions",
+  reason: "reads its mipmap through w__optMipmap, as Texture:getWidth; Lota::Graphics::Texture#pixel_dimensions " \
+    "calls the bound pixel_width and pixel_height"
+bound_by_hand "Texture:replacePixels",
+  reason: "reads an ImageData or a CompressedImageData by its type (luax_istype), and its slice only for a " \
+    "texture that is not 2D; Lota binds the ImageData, and the arguments after it as an Array"
 bound_by_hand "love.graphics.setColor",
   reason: "LÖVE assigns each component in a statement of its own, so the port's four numbers fail clang-tidy's " \
     "bugprone-easily-swappable-parameters; Lota binds the form with separate numbers in one constructor call"
@@ -155,21 +191,31 @@ bound_by_hand "love.graphics.present",
   reason: "passes LÖVE's lua_State to Graphics::present for its screenshot callbacks, which Lota replaces " \
     "with deliver_screenshot"
 bound_by_hand "love.graphics.newCanvas",
-  reason: "reads its settings table through luax_checktexturesettings, at a position it computes; Lota binds a " \
-    "width, a height, and the msaa setting"
+  reason: "reads its settings table through luax_checktexturesettings, at a position it computes; " \
+    "Lota::Graphics::TextureSettings reads the keywords into a bound Texture::Settings, and Lota binds the rest"
 bound_by_hand "love.graphics.newImage",
   reason: "LÖVE 12 makes it with w_newTexture (wrap_Graphics.cpp:1251-1255); Lota::Graphics::Image.new calls " \
     "Lota::Graphics::Texture.new, bound with newTexture"
 bound_by_hand "love.graphics.newTexture",
-  reason: "chooses among its forms by its arguments' kinds, and reads its image through getImageData and " \
-    "luax_getdata, which the generator does not port; Lota binds one image, from Data or an ImageData"
+  reason: "chooses among its forms by its arguments' kinds, and reads its images through getImageData and " \
+    "luax_getdata, which the generator does not port; Lota binds every form, its settings as newCanvas's"
+bound_by_hand "love.graphics.newArrayImage",
+  reason: "LÖVE 12 makes it with w_newArrayTexture, which chooses among its forms as newTexture does; " \
+    "Lota::Graphics::ArrayImage.new binds every form"
+bound_by_hand "love.graphics.newCubeImage",
+  reason: "LÖVE 12 makes it with w_newCubeTexture, which chooses among its forms as newTexture does; " \
+    "Lota::Graphics::CubeImage.new binds every form"
+bound_by_hand "love.graphics.newVolumeImage",
+  reason: "LÖVE 12 makes it with w_newVolumeTexture, which chooses among its forms as newTexture does; " \
+    "Lota::Graphics::VolumeImage.new binds every form"
 bound_by_hand "love.graphics.setCanvas",
-  reason: "chooses among its forms by its arguments' kinds and count; Lota binds one texture (set_canvas) and " \
-    "none (reset_canvas)"
+  reason: "chooses among its forms by its arguments' kinds and count, and reads a table of targets and options; " \
+    "Lota binds its arguments as an Array, and the table of targets with its options as keywords"
 bound_by_hand "love.graphics.clear",
   reason: "reads its stencil and depth at a position it computes (startidx)"
 bound_by_hand "love.graphics.readbackTexture",
-  reason: "reads its slice, mipmap, and rectangle at positions it computes; Lota binds the whole texture"
+  reason: "reads its slice only for a texture that is not 2D, and its rectangle and destination only when " \
+    "given; Lota binds the arguments after the texture as an Array"
 bound_by_hand "love.graphics.newFont",
   reason: "chooses among its forms by its arguments' kinds, and makes its Rasterizer through love.font's " \
     "wrap functions (w_newRasterizer, w_newTrueTypeRasterizer), which read a settings table; Lota binds the " \
@@ -185,7 +231,11 @@ bound_by_hand "love.graphics.printf",
     "without a Font, as print"
 bound_by_hand "love.graphics.draw",
   reason: "reads its placement at a position that depends on whether a Quad comes second; Lota binds a " \
-    "Texture, a SpriteBatch, and a Texture through a Quad, each with its nine numbers as an Array, as print"
+    "Texture, a SpriteBatch, and a Texture through a Quad, each with its nine numbers as an Array, as print, " \
+    "or with a Transform"
+bound_by_hand "love.graphics.drawLayer",
+  reason: "reads its placement at a position that depends on whether a Quad comes third, as draw; Lota binds " \
+    "the Quad or nil, and the nine numbers as an Array or a Transform"
 bound_by_hand "love.graphics.line",
   reason: "reads its coordinates in a loop over every argument, or from a table; Lota::Graphics.line passes " \
     "them as one Array"
@@ -227,7 +277,8 @@ bound_by_hand "love.graphics.setScissor",
     "rectangle (set_scissor) and none (reset_scissor)"
 bound_by_hand "love.graphics.getCanvas",
   reason: "returns as many values as it has targets, or a table it builds with pushRenderTarget, which the " \
-    "generator does not port; Lota binds the targets love.graphics.setCanvas's bound form sets: none or one"
+    "generator does not port; Lota binds whether it returns a table, and each target's fields, which " \
+    "Lota::Graphics.canvas returns as an Array"
 bound_by_hand "love.graphics.points",
   reason: "reads its coordinates in a loop over every argument, from a table, or from a table of tables with " \
     "colors; Lota::Graphics.points passes the numbers as one Array, as line, and the form with colors waits " \

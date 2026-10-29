@@ -290,7 +290,7 @@ class ErrorTranslationTest < Minitest::Test
   # Rice's own errors are not LÖVE's, and pass through with their class
   # and message.
   def test_other_errors_keep_their_class_and_message
-    error = assert_raises(TypeError) { Lota::Native::Graphics.set_canvas(Object.new) }
+    error = assert_raises(TypeError) { Lota::Native::Graphics.draw(Object.new, []) }
 
     assert_instance_of TypeError, error
     assert_equal "Wrong argument type. Expected Lota::Native::Texture. Received Object.", error.message

@@ -124,7 +124,7 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics (its Font, Quad, and SpriteBatch tests among them),
+  # love.graphics (its Canvas, Font, Image, Quad, and SpriteBatch tests among them),
   # love.audio, love.sound, love.image, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.window, love.filesystem, and love.physics tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
@@ -135,11 +135,11 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 34891 - (3 * 32 * 32) + 1 : 34891
+    assertions = skipped ? 64786 - (3 * 32 * 32) + 1 : 64786
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^155 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
+    assert_match(/^166 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

@@ -27,7 +27,16 @@ module Lovetest
     # The font Lövetest's love.load makes, which its text tests draw in:
     # its Lua global Font.
     attr_reader :font
+
+    # The logo Lövetest's love.load makes, which its draw test draws: its
+    # Lua global Logo, a texture and a quad of all of it.
+    attr_reader :logo
   end
+
+  # Lövetest's Logo table (vendor/love/testing/main.lua:50-54): its
+  # texture and img fields, a record of two, as rule 10 makes a table
+  # with named fields.
+  Logo = Data.define(:texture, :img)
 
   # Translated to Ruby from the graphics settings Lövetest's love.load
   # makes before any test runs (vendor/love/testing/main.lua:46-57), once
@@ -39,8 +48,8 @@ module Lovetest
   # test/lovetest/game, has a resources/ beside its conf.rb that links to
   # Lövetest's. updateMode (lines 39-43) has no translation
   # yet: it asks for the 360 by 240 resizable, centered window that
-  # test/lovetest/conf.rb already opens. The logo and quad it loads
-  # (lines 50-54) are for Lövetest's own screen.
+  # test/lovetest/conf.rb already opens. newImage and newQuad, for the
+  # logo, become Image.new and Quad.new (rule 2).
   def self.load
     return if @loaded
 
@@ -48,6 +57,8 @@ module Lovetest
       Lota::Graphics.default_filter = :nearest, :nearest
       Lota::Graphics.line_style = :rough
       Lota::Graphics.line_width = 1
+      texture = Lota::Graphics::Image.new("resources/love.png")
+      @logo = Logo.new(texture, Lota::Graphics::Quad.new(0, 0, 64, 64, texture))
       @font = Lota::Graphics::Font.new("resources/font.ttf", 8, :normal)
     end
     @loaded = true

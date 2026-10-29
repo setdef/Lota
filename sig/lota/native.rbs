@@ -130,6 +130,14 @@ module Lota
 
       def height: (?Integer? mipmap) -> Integer
 
+      def depth: (?Integer? mipmap) -> Integer
+
+      def pixel_width: (?Integer? mipmap) -> Integer
+
+      def pixel_height: (?Integer? mipmap) -> Integer
+
+      def replace_pixels: (ImageData imagedata, Array[(Float | Integer | bool)?] arguments) -> nil
+
       def render_to: (Integer? slice, ^() -> void block) -> nil
     end
 
@@ -155,6 +163,48 @@ module Lota
       def set: (Integer index, Quad? quad, Array[Float | Integer] placement) -> nil
 
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
+    end
+
+    class TextureSettings
+      def self.cpp_class: () -> String
+
+      def self.check_name: (String name) -> nil
+
+      def initialize: () -> void
+
+      attr_accessor width: Integer
+
+      attr_accessor height: Integer
+
+      attr_accessor layers: Integer
+
+      attr_accessor mipmapcount: Integer
+
+      attr_accessor linear: bool
+
+      attr_accessor msaa: Integer
+
+      attr_accessor canvas: bool
+
+      attr_accessor computewrite: bool
+
+      attr_accessor debugname: String
+
+      def dpiscale: () -> Float
+
+      def dpiscale=: (Float | Integer dpiscale) -> void
+
+      def readable=: (bool readable) -> void
+
+      def set_format: (String str) -> nil
+
+      def set_type: (String str) -> nil
+
+      def type: () -> String
+
+      def set_mipmaps: (String str) -> nil
+
+      def add_view_format: (String str) -> nil
     end
 
     class WindowSettings
@@ -416,19 +466,31 @@ module Lota
 
       def self.present: () -> nil
 
-      def self.new_canvas: (Integer? width, Integer? height, Integer? msaa) -> Texture
+      type image = Data | Array[Data | Array[Data]]
 
-      def self.new_texture_from_data: (Data data, bool canvas) -> Texture
+      def self.canvas_size: () -> [Integer, Integer]
 
-      def self.new_texture_from_image_data: (ImageData data, bool canvas) -> Texture
+      def self.new_canvas: (TextureSettings settings, bool dpiscaleset) -> Texture
 
-      def self.set_canvas: (Texture texture) -> nil
+      def self.new_empty_texture: (TextureSettings settings) -> Texture
+
+      def self.new_texture: (TextureSettings settings, bool dpiscaleset, image images) -> Texture
+
+      def self.new_cube_texture: (TextureSettings settings, bool dpiscaleset, image images) -> Texture
+
+      def self.new_array_texture: (TextureSettings settings, bool dpiscaleset, image images) -> Texture
+
+      def self.new_volume_texture: (TextureSettings settings, bool dpiscaleset, image images) -> Texture
+
+      def self.set_canvas: (Array[::Object?] arguments) -> nil
+
+      def self.set_canvas_with_options: (Array[::Object?] arguments) -> nil
 
       def self.reset_canvas: () -> nil
 
       def self.clear: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
-      def self.readback_texture: (Texture texture) -> ImageData
+      def self.readback_texture: (Texture texture, Array[(Float | Integer | ImageData)?] arguments) -> ImageData
 
       def self.set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
@@ -462,6 +524,16 @@ module Lota
 
       def self.draw_quad: (Texture texture, Quad quad, Array[Float | Integer] placement) -> nil
 
+      def self.draw_with_transform: (Texture texture, Transform transform) -> nil
+
+      def self.draw_sprite_batch_with_transform: (SpriteBatch batch, Transform transform) -> nil
+
+      def self.draw_quad_with_transform: (Texture texture, Quad quad, Transform transform) -> nil
+
+      def self.draw_layer: (Texture texture, Integer layer, Quad? quad, Array[Float | Integer] placement) -> nil
+
+      def self.draw_layer_with_transform: (Texture texture, Integer layer, Quad? quad, Transform transform) -> nil
+
       def self.new_quad: (Float | Integer layer, Array[Float | Integer] viewport, Float | Integer sw, Float | Integer sh) -> Quad
 
       def self.new_quad_of_texture: (Float | Integer layer, Array[Float | Integer] viewport, Texture texture) -> Quad
@@ -484,7 +556,9 @@ module Lota
 
       def self.intersect_scissor: (Float | Integer x, Float | Integer y, Float | Integer width, Float | Integer height) -> nil
 
-      def self.canvas: () -> Texture?
+      type render_target_fields = [Texture, Integer?, Integer?, Integer]
+
+      def self.canvas: () -> [bool, Array[render_target_fields], render_target_fields?]
 
       class Font
         def self.cpp_class: () -> String

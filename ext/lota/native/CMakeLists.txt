@@ -26,6 +26,7 @@ add_library(lota_native MODULE
 	random_generator.cpp
 	sound.cpp
 	system.cpp
+	texture.cpp
 	timer.cpp
 	touch.cpp
 	window.cpp

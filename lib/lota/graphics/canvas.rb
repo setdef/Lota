@@ -41,30 +41,38 @@ module Lota
     #   end
     module Canvas
       # Creates a Lota::Graphics::Texture to draw into, matching
-      # love.graphics.newCanvas(width, height, settings)
-      # (src/modules/graphics/wrap_Graphics.cpp, w_newCanvas and
-      # luax_checktexturesettings).
+      # love.graphics.newCanvas (src/modules/graphics/wrap_Graphics.cpp,
+      # w_newCanvas and luax_checktexturesettings).
       #
       # [width] Integer width, in units of the screen's DPI scale; the
       #   window's width when +nil+ or left out.
       # [height] Integer height, likewise; the window's height when +nil+
       #   or left out.
-      # [msaa] Integer count of antialiasing samples drawing into it takes
-      #   per pixel, which smooths the edges of shapes; 1, which does not,
-      #   by default. Like the rest of LÖVE's settings, it is a keyword,
-      #   which translates LÖVE's table of settings (ADR 001, rule 10).
+      # [layers] Integer layer count, which makes an array texture; a 2D
+      #   texture when left out.
+      # [settings] LÖVE's settings table, as keywords (ADR 001, rule 10),
+      #   as Lota::Graphics::Texture.new takes them, with +type+, +width+,
+      #   +height+, and +layers+ among them: +msaa+, the antialiasing
+      #   samples per pixel, which smooth the edges of shapes; +mipmaps+,
+      #   +:auto+ to make the mipmaps a canvas drawn smaller needs each
+      #   time it is drawn into, or +:manual+; +format+, such as +:depth24+
+      #   for a depth buffer; +readable+; +dpiscale+; and +debugname+.
+      #   Given settings and no size, the settings must hold the +width+
+      #   and +height+, as LÖVE's table form does.
       #
-      # The texture takes the screen's DPI scale, so on a high-density
-      # display it has more pixels than its width and height say. It starts
-      # out transparent black (src/modules/graphics/metal/Texture.mm and
-      # opengl/Texture.cpp clear every new canvas). LÖVE reads +msaa+ as it
-      # reads a number in its table, so a value that is not a number leaves
-      # the default, and the graphics card may use fewer samples than asked
-      # for. LÖVE also takes a layer count and its other settings, such as
-      # the pixel format; Lota binds those later.
+      # The texture takes the screen's DPI scale unless +dpiscale+ says
+      # otherwise, so on a high-density display it has more pixels than its
+      # width and height say. It starts out transparent black
+      # (src/modules/graphics/metal/Texture.mm and opengl/Texture.cpp clear
+      # every new canvas). LÖVE reads a number setting, such as +msaa+, as
+      # it reads a number in its table, so a value that is not a number
+      # leaves the default, and the graphics card may use fewer samples
+      # than asked for. The +canvas+ setting is always true.
       #
-      # Raises RuntimeError when no window is open, and ThreadError off the
-      # main thread.
+      # Raises ArgumentError for a setting or a value LÖVE does not know,
+      # TypeError for a size that is not a number, RuntimeError when no
+      # window is open or the settings cannot make a canvas, and
+      # ThreadError off the main thread.
       #
       # === Examples
       #
@@ -72,9 +80,39 @@ module Lota
       #   minimap.class # => Lota::Graphics::Texture
       #
       #   smooth = Lota::Graphics::Canvas.new(800, 600, msaa: 4)
-      def self.new(width = nil, height = nil, msaa: nil)
-        msaa = (msaa.is_a?(Integer) || msaa.is_a?(Float)) ? msaa.to_i : nil
-        Texture.from_native(Native::Graphics.new_canvas(width, height, msaa))
+      #   table = Lota::Graphics::Canvas.new(2048, 2048, mipmaps: :auto)
+      #   layers = Lota::Graphics::Canvas.new(type: :array, width: 64, height: 64, layers: 4)
+      #
+      # :call-seq:
+      #   new(width = nil, height = nil, layers = nil, **settings)
+      #   new(width:, height:, **settings)
+      def self.new(*arguments, **settings)
+        native = Native::TextureSettings.new
+        if arguments.empty? && !settings.empty?
+          dpiscaleset = TextureSettings.read(native, settings, opt: false, check_type: true, check_dimensions: true,
+            canvas: true)
+          return Texture.from_native(Native::Graphics.new_canvas(native, dpiscaleset))
+        end
+
+        TextureSettings.check_count(arguments, 0..3)
+        width, height, layers = arguments
+        size = Native::Graphics.canvas_size if width.nil? || height.nil?
+        native.width = optional_integer(width, size&.first, "width")
+        native.height = optional_integer(height, size&.last, "height")
+        unless layers.nil?
+          native.layers = TextureSettings.size(layers, "layers")
+          native.set_type("array")
+        end
+        dpiscaleset = TextureSettings.read(native, settings, opt: true, check_type: true, check_dimensions: false,
+          canvas: true)
+        Texture.from_native(Native::Graphics.new_canvas(native, dpiscaleset))
+      end
+
+      # luaL_optinteger: +default+ when nil, the number otherwise.
+      private_class_method def self.optional_integer(value, default, name)
+        return default.to_i if value.nil?
+
+        TextureSettings.size(value, name)
       end
 
       # Whether +object+ is a Lota::Graphics::Texture you can draw into,

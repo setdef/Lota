@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    module TextureSettings
+      type source = String | Filesystem::FileData | Lota::Image::ImageData | Lota::Data
+
+      type images = source | Array[source | Array[source]]
+
+      type value = ::Object?
+
+      def self.read: (Native::TextureSettings settings, Hash[Symbol, value] options, opt: bool, check_type: bool, check_dimensions: bool, ?canvas: bool?) -> bool
+
+      private def self.read_dimensions: (Native::TextureSettings settings, Hash[Symbol, value] options, bool check) -> void
+
+      private def self.read_mipmaps: (Native::TextureSettings settings, Hash[Symbol, value] options) -> void
+
+      private def self.read_view_formats: (Native::TextureSettings settings, value formats) -> void
+
+      private def self.read_dpi_scale: (Native::TextureSettings settings, value dpiscale) -> bool
+
+      private def self.flag: (value value, bool default) -> bool
+
+      private def self.integer: (value value, Integer default) -> Integer
+
+      private def self.check_integer: (value value, String name) -> Integer
+
+      private def self.string: (value value, String name) -> String
+
+      private def self.boolean: (value value, String name) -> bool
+
+      def self.images: (::Object? source) -> Native::Graphics::image
+
+      private def self.image: (::Object? source) -> Native::Data
+
+      def self.read_size: (Native::TextureSettings settings, Array[::Object?] arguments, Range[Integer] count, String? layered) -> void
+
+      def self.check_count: (Array[::Object?] arguments, Range[Integer] count) -> void
+
+      def self.size: (::Object? value, String name) -> Integer
+
+      def self.number?: (::Object? value) -> bool
+    end
+  end
+end

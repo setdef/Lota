@@ -32,6 +32,15 @@ inline bool is_boolean(const Rice::Object &value) {
 
 inline bool is_true(const Rice::Object &value) { return value.value() == Qtrue; }
 
+// Whether +value+ is a +klass+, or of a class under it, as Ruby's is_a?
+// asks; nil is a NilClass, where Rice's own is_a refuses nil.
+inline bool is_kind_of(const Rice::Object &value, const Rice::Class &klass) {
+  return rb_obj_is_kind_of(value.value(), klass.value()) == Qtrue;
+}
+
+// The name of +value+'s class, for a TypeError's message.
+inline std::string class_name(const Rice::Object &value) { return rb_obj_classname(value.value()); }
+
 // Ruby's truth, which is Lua's: everything but nil and false.
 inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 

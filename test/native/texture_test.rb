@@ -70,9 +70,9 @@ class TextureTest < Minitest::Test
   end
 
   def test_a_texture_needs_an_image
-    error = assert_raises(TypeError) { Lota::Graphics::Texture.new(64) }
+    error = assert_raises(TypeError) { Lota::Graphics::Texture.new(:ship) }
 
-    assert_equal "wrong argument type Integer (expected String, Lota::Filesystem::FileData, or " \
+    assert_equal "wrong argument type Symbol (expected String, Lota::Filesystem::FileData, or " \
       "Lota::Image::ImageData)", error.message
   end
 

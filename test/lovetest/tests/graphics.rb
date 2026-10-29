@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
-  TYPES = %w[Font Quad SpriteBatch].freeze
+  TYPES = %w[Canvas Font Image Quad SpriteBatch].freeze
 
   # Lövetest runs its modules in a fixed order, graphics before window
   # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
@@ -800,15 +800,16 @@ class GraphicsTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.graphics.getCanvas
   # (vendor/love/testing/tests/graphics.lua:1886-1894): getCanvas becomes
-  # canvas (rule 3), and assertEquals(nil, ...) assert_nil, by the rules
-  # test_circle names.
+  # canvas (rule 3), whose results come back as an Array (rule 4), of
+  # which Lua keeps the first, and assertEquals(nil, ...) assert_nil, by
+  # the rules test_circle names.
   def test_get_canvas
     # by default should be nil if drawing to real screen
-    assert_nil(Lota::Graphics.canvas, "check no canvas set")
+    assert_nil(Lota::Graphics.canvas.first, "check no canvas set")
     # should return not nil when we target a canvas
     canvas = Lota::Graphics::Canvas.new(16, 16)
     Lota::Graphics.canvas = canvas
-    assert_object(Lota::Graphics.canvas)
+    assert_object(Lota::Graphics.canvas.first)
     Lota::Graphics.canvas = nil
   end
 
@@ -1040,7 +1041,7 @@ class GraphicsTest < Lovetest::TestMethod
     assert_equal(1, r + g + b + a, "check background reset")
     r, g, b, a = Lota::Graphics.color
     assert_equal(4, r + g + b + a, "check color reset")
-    assert_nil(Lota::Graphics.canvas, "check canvas reset")
+    assert_nil(Lota::Graphics.canvas.first, "check canvas reset")
     Lota::Graphics.default_filter = :nearest, :nearest
     Lota::Graphics.line_style = :rough
     Lota::Graphics.point_size = 1
@@ -1716,6 +1717,398 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.flush_batch
     after = Lota::Graphics.stats["drawcalls"]
     assert_equal(initial + 1, after, "check drawcalls increased")
+  end
+
+  # Translated to Ruby from love.test.graphics.Canvas
+  # (vendor/love/testing/tests/graphics.lua:102-256), all but its checks of
+  # y-down drawing with a shader (lines 206-236), whose newShader and
+  # setShader wait for slice 5's shaders: newCanvas becomes Canvas.new
+  # (rule 2), with its settings table keywords (rule 10) whose names are
+  # symbols (rule 9), :"2d" among them; the getters drop get (rule 3), and
+  # getDPIScale and getMSAA are dpi_scale and msaa (rule 13); the
+  # predicates isCanvas, isComputeWritable, and isReadable canvas?,
+  # compute_writable?, and readable? (rule 8); getFilter, getWrap,
+  # getMipmapFilter, getDimensions, and getPixelDimensions return Arrays
+  # (rule 4); setFilter, setWrap, setMipmapFilter, and setDepthSampleMode
+  # become writers (rules 5 and 6); renderTo's function a block (rule 12);
+  # and setCanvas the writer canvas= (rule 5). assertGreaterEqual(2, n)
+  # is assert_operator(n, :>=, 2), as Lövetest's checks n >= 2.
+  def test_canvas
+    # create canvas with defaults
+    canvas = Lota::Graphics::Canvas.new(100, 100,
+      type: :"2d",
+      format: :normal,
+      readable: true,
+      msaa: 0,
+      dpiscale: Lota::Graphics.dpi_scale,
+      mipmaps: :auto,
+      debugname: "testcanvas")
+    assert_object(canvas)
+    assert_true(canvas.canvas?, "check is canvas")
+    assert_false(canvas.compute_writable?, "check not compute writable")
+
+    # check dpi
+    assert_equal(Lota::Graphics.dpi_scale, canvas.dpi_scale, "check dpi scale")
+
+    # check depth
+    assert_equal(1, canvas.depth, "check depth is 2d")
+    assert_nil(canvas.depth_sample_mode, "check depth sample nil")
+
+    maxanisotropy = Lota::Graphics.system_limits.anisotropy
+
+    # check fliter
+    min1, mag1, ani1 = canvas.filter
+    assert_equal(:nearest, min1, "check filter def min")
+    assert_equal(:nearest, mag1, "check filter def mag")
+    assert_equal(1, ani1, "check filter def ani")
+    canvas.filter = :linear, :linear, 2
+    min2, mag2, ani2 = canvas.filter
+    assert_equal(:linear, min2, "check filter changed min")
+    assert_equal(:linear, mag2, "check filter changed mag")
+    assert_equal([maxanisotropy, 2].min, ani2, "check filter changed ani")
+
+    # check layer
+    assert_equal(1, canvas.layer_count, "check 1 layer for 2d")
+
+    # check texture type
+    assert_equal(:"2d", canvas.texture_type, "check 2d")
+
+    # check texture wrap
+    horiz1, vert1 = canvas.wrap
+    assert_equal(:clamp, horiz1, "check def wrap h")
+    assert_equal(:clamp, vert1, "check def wrap v")
+    canvas.wrap = :repeat, :repeat
+    horiz2, vert2 = canvas.wrap
+    assert_equal(:repeat, horiz2, "check changed wrap h")
+    assert_equal(:repeat, vert2, "check changed wrap v")
+
+    # check readable
+    assert_true(canvas.readable?, "check canvas readable")
+
+    # check msaa
+    assert_equal(1, canvas.msaa, "check samples match")
+
+    # check dimensions
+    cw, ch = canvas.dimensions
+    assert_equal(100, cw, "check canvas dim w")
+    assert_equal(100, ch, "check canvas dim h")
+    assert_equal(cw, canvas.width, "check canvas w matches dim")
+    assert_equal(ch, canvas.height, "check canvas h matches dim")
+    pw, ph = canvas.pixel_dimensions
+    assert_equal(100 * Lota::Graphics.dpi_scale, pw, "check pixel dim w")
+    assert_equal(100 * Lota::Graphics.dpi_scale, ph, "check pixel dim h")
+    assert_equal(pw, canvas.pixel_width, "check pixel w matches dim")
+    assert_equal(ph, canvas.pixel_height, "check pixel h matches dim")
+
+    # check mipmaps
+    mode, sharpness = canvas.mipmap_filter
+    assert_equal(:linear, mode, "check def minmap filter  mode")
+    assert_equal(0, sharpness, "check def minmap filter sharpness")
+    name, _version, _vendor, _device = Lota::Graphics.renderer_info
+    canvas.mipmap_filter = :nearest, 1
+    mode, sharpness = canvas.mipmap_filter
+    assert_equal(:nearest, mode, "check changed minmap filter  mode")
+    # @NOTE mipmap sharpness wont work on opengl/metal
+    if !name.include?("OpenGL ES") && !name.include?("Metal")
+      assert_equal(1, sharpness, "check changed minmap filter sharpness")
+    end
+    assert_operator(canvas.mipmap_count, :>=, 2) # docs say no mipmaps should return 1
+    assert_equal(:auto, canvas.mipmap_mode)
+
+    # check debug name
+    assert_equal("testcanvas", canvas.debug_name)
+
+    # check basic rendering
+    canvas.render_to do
+      Lota::Graphics.color = 1, 0, 0
+      Lota::Graphics.rectangle(:fill, 0, 0, 200, 200)
+      Lota::Graphics.color = 1, 1, 1, 1
+    end
+    imgdata1 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata1)
+
+    # check using canvas in love.graphics.draw()
+    xcanvas = Lota::Graphics::Canvas.new
+    Lota::Graphics.canvas = xcanvas
+    Lota::Graphics.draw(canvas, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata2 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata2)
+
+    # check depth samples
+    dcanvas = Lota::Graphics::Canvas.new(100, 100,
+      type: :"2d",
+      format: :depth16,
+      readable: true)
+    assert_nil(dcanvas.depth_sample_mode, "check depth sample mode nil by def")
+    dcanvas.depth_sample_mode = :equal
+    assert_equal(:equal, dcanvas.depth_sample_mode, "check depth sample mode set")
+
+    # check compute writeable (wont work on opengl mac)
+    if Lota::Graphics.supported.glsl4
+      ccanvas = Lota::Graphics::Canvas.new(100, 100,
+        type: :"2d",
+        format: :rgba8,
+        computewrite: true)
+      assert_true(ccanvas.compute_writable?)
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.Image
+  # (vendor/love/testing/tests/graphics.lua:332-430): newImage becomes
+  # Image.new (rule 2), with its settings keywords (rule 10);
+  # newImageData ImageData.new; replacePixels replace_pixels and getPixel
+  # pixel (rules 3 and 13), whose components come back as an Array
+  # (rule 4); and the rules test_canvas names.
+  def test_image
+    # create object
+    image = Lota::Graphics::Image.new("resources/love.png",
+      dpiscale: 1,
+      mipmaps: true)
+    assert_object(image)
+    assert_false(image.canvas?, "check not canvas")
+    assert_false(image.compute_writable?, "check not compute writable")
+
+    # check dpi
+    assert_equal(Lota::Graphics.dpi_scale, image.dpi_scale, "check dpi scale")
+
+    # check depth
+    assert_equal(1, image.depth, "check depth is 2d")
+    assert_nil(image.depth_sample_mode, "check depth sample nil")
+
+    maxanisotropy = Lota::Graphics.system_limits.anisotropy
+
+    # check filter
+    min1, mag1, ani1 = image.filter
+    assert_equal(:nearest, min1, "check filter def min")
+    assert_equal(:nearest, mag1, "check filter def mag")
+    assert_equal(1, ani1, "check filter def ani")
+    image.filter = :linear, :linear, 2
+    min2, mag2, ani2 = image.filter
+    assert_equal(:linear, min2, "check filter changed min")
+    assert_equal(:linear, mag2, "check filter changed mag")
+    assert_equal([maxanisotropy, 2].min, ani2, "check filter changed ani")
+    image.filter = :nearest, :nearest, 1
+
+    # check layers
+    assert_equal(1, image.layer_count, "check 1 layer for 2d")
+
+    # check texture type
+    assert_equal(:"2d", image.texture_type, "check 2d")
+
+    # check texture wrapping
+    horiz1, vert1 = image.wrap
+    assert_equal(:clamp, horiz1, "check def wrap h")
+    assert_equal(:clamp, vert1, "check def wrap v")
+    image.wrap = :repeat, :repeat
+    horiz2, vert2 = image.wrap
+    assert_equal(:repeat, horiz2, "check changed wrap h")
+    assert_equal(:repeat, vert2, "check changed wrap v")
+
+    # check readable
+    assert_true(image.readable?, "check canvas readable")
+
+    # check msaa
+    assert_equal(1, image.msaa, "check samples match")
+
+    # check dimensions
+    cw, ch = image.dimensions
+    assert_equal(64, cw, "check canvas dim w")
+    assert_equal(64, ch, "check canvas dim h")
+    assert_equal(cw, image.width, "check canvas w matches dim")
+    assert_equal(ch, image.height, "check canvas h matches dim")
+    pw, ph = image.pixel_dimensions
+    assert_equal(64 * Lota::Graphics.dpi_scale, pw, "check pixel dim w")
+    assert_equal(64 * Lota::Graphics.dpi_scale, ph, "check pixel dim h")
+    assert_equal(pw, image.pixel_width, "check pixel w matches dim")
+    assert_equal(ph, image.pixel_height, "check pixel h matches dim")
+
+    # check mipmaps
+    mode, sharpness = image.mipmap_filter
+    assert_equal(:linear, mode, "check def minmap filter  mode")
+    assert_equal(0, sharpness, "check def minmap filter sharpness")
+    name, _version, _vendor, _device = Lota::Graphics.renderer_info
+    # @note mipmap sharpness wont work on opengl/metal
+    image.mipmap_filter = :nearest, 1
+    mode, sharpness = image.mipmap_filter
+    assert_equal(:nearest, mode, "check changed minmap filter  mode")
+    if !name.include?("OpenGL ES") && !name.include?("Metal")
+      assert_equal(1, sharpness, "check changed minmap filter sharpness")
+    end
+    assert_operator(image.mipmap_count, :>=, 2) # docs say no mipmaps should return 1?
+
+    # check image properties
+    assert_false(image.compressed?, "check not compressed")
+    assert_false(image.format_linear?, "check not linear")
+    cimage = Lota::Graphics::Image.new("resources/love.dxt1")
+    assert_object(cimage)
+    assert_true(cimage.compressed?, "check is compressed")
+
+    # check pixel replacement
+    rimage = Lota::Image::ImageData.new("resources/loveinv.png")
+    image.replace_pixels(rimage)
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.draw(image, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    r1, g1, b1 = imgdata.pixel(25, 25)
+    assert_equal(3, r1 + g1 + b1, "check back to white")
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.draw
+  # (vendor/love/testing/tests/graphics.lua:1424-1445): newTransform
+  # becomes Transform.new (rule 2), draw takes the Transform in place of
+  # its numbers, and Lövetest's global Logo is Lovetest.logo, with its
+  # texture and img; and the rules test_canvas names.
+  def test_draw
+    canvas1 = Lota::Graphics::Canvas.new(32, 32)
+    canvas2 = Lota::Graphics::Canvas.new(32, 32)
+    transform = Lota::Math::Transform.new
+    transform.translate(16, 0)
+    transform.scale(0.5, 0.5)
+    Lota::Graphics.canvas = canvas1
+    Lota::Graphics.clear(0, 0, 0, 1)
+    # img, offset
+    Lota::Graphics.draw(Lovetest.logo.texture, Lovetest.logo.img, 0, 0, 0, 1, 1, 16, 16)
+    Lota::Graphics.canvas = nil
+    Lota::Graphics.canvas = canvas2
+    Lota::Graphics.clear(1, 0, 0, 1)
+    # canvas, scale, shear, transform obj
+    Lota::Graphics.draw(canvas1, 0, 0, 0, 1, 1, 0, 0, 2, 2)
+    Lota::Graphics.draw(canvas1, 0, 16, 0, 0.5, 0.5)
+    Lota::Graphics.draw(canvas1, 16, 16, 0, 0.5, 0.5)
+    Lota::Graphics.draw(canvas1, transform)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas2)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.drawLayer
+  # (vendor/love/testing/tests/graphics.lua:1471-1486): newArrayImage
+  # becomes ArrayImage.new (rule 2), its table of file names an Array,
+  # and drawLayer draw_layer (rule 13), with its layers counted from 1 as
+  # in Lua; and the rules test_canvas names.
+  def test_draw_layer
+    image = Lota::Graphics::ArrayImage.new([
+      "resources/love.png",
+      "resources/loveinv.png",
+      "resources/love.png",
+      "resources/loveinv.png",
+    ])
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw_layer(image, 1, 0, 0, 0, 1, 1)
+    Lota::Graphics.draw_layer(image, 2, 32, 0, 0, 0.5, 0.5)
+    Lota::Graphics.draw_layer(image, 4, 0, 32, 0, 0.5, 0.5)
+    Lota::Graphics.draw_layer(image, 3, 32, 32, 0, 2, 2, 16, 16)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.newArrayImage
+  # (vendor/love/testing/tests/graphics.lua:1678-1682), by the rules
+  # test_draw_layer names.
+  def test_new_array_image
+    assert_object(Lota::Graphics::ArrayImage.new([
+      "resources/love.png", "resources/love2.png", "resources/love3.png"
+    ]))
+  end
+
+  # Translated to Ruby from love.test.graphics.newCanvas
+  # (vendor/love/testing/tests/graphics.lua:1686-1696), by the rules
+  # test_canvas names.
+  def test_new_canvas
+    assert_object(Lota::Graphics::Canvas.new(16, 16,
+      type: :"2d",
+      format: :normal,
+      readable: true,
+      msaa: 0,
+      dpiscale: 1,
+      mipmaps: :none))
+    assert_object(Lota::Graphics::Canvas.new(1000, 1000))
+  end
+
+  # Translated to Ruby from love.test.graphics.newCubeImage
+  # (vendor/love/testing/tests/graphics.lua:1701-1706): newCubeImage
+  # becomes CubeImage.new (rule 2), with its settings keywords (rule 10).
+  def test_new_cube_image
+    assert_object(Lota::Graphics::CubeImage.new("resources/cubemap.png",
+      mipmaps: false,
+      linear: false))
+  end
+
+  # Translated to Ruby from love.test.graphics.newImage
+  # (vendor/love/testing/tests/graphics.lua:1719-1725), by the rules
+  # test_image names.
+  def test_new_image
+    assert_object(Lota::Graphics::Image.new("resources/love.png",
+      mipmaps: false,
+      linear: false,
+      dpiscale: 1))
+  end
+
+  # Translated to Ruby from love.test.graphics.newVolumeImage
+  # (vendor/love/testing/tests/graphics.lua:1812-1819): newVolumeImage
+  # becomes VolumeImage.new (rule 2), its table of file names an Array,
+  # with its settings keywords (rule 10).
+  def test_new_volume_image
+    assert_object(Lota::Graphics::VolumeImage.new([
+      "resources/love.png", "resources/love2.png", "resources/love3.png"
+    ],
+      mipmaps: false,
+      linear: false))
+  end
+
+  # Translated to Ruby from love.test.graphics.setCanvas
+  # (vendor/love/testing/tests/graphics.lua:2199-2216): setCanvas becomes
+  # the writer canvas= (rule 5) and getCanvas canvas (rule 3), whose
+  # results come back as an Array (rule 4), of which Lua keeps the first;
+  # readbackTexture's slice and mipmap stay its second and third
+  # arguments; and the rules test_canvas names.
+  def test_set_canvas
+    # make 2 canvas, set to each, draw one to the other, check output
+    canvas1 = Lota::Graphics::Canvas.new(16, 16)
+    canvas2 = Lota::Graphics::Canvas.new(16, 16, mipmaps: :auto)
+    Lota::Graphics.canvas = canvas1
+    assert_equal(canvas1, Lota::Graphics.canvas.first, "check canvas 1 set")
+    Lota::Graphics.clear(1, 0, 0, 1)
+    Lota::Graphics.canvas = canvas2
+    assert_equal(canvas2, Lota::Graphics.canvas.first, "check canvas 2 set")
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(canvas1, 0, 0)
+    Lota::Graphics.canvas = nil
+    assert_nil(Lota::Graphics.canvas.first, "check no canvas set")
+    imgdata = Lota::Graphics.readback_texture(canvas2)
+    compare_img(imgdata)
+    imgdata2 = Lota::Graphics.readback_texture(canvas2, 1, 2) # readback mipmap
+    compare_img(imgdata2)
+  end
+
+  # Translated to Ruby from love.test.graphics.setStencilState
+  # (vendor/love/testing/tests/graphics.lua:2490-2504): setCanvas's table
+  # of a canvas and its stencil option becomes set_canvas with the canvas
+  # and the option as a keyword (rule 10), setStencilState the writer
+  # stencil_state= of several values (rule 6), and with no arguments
+  # stencil_state = nil, as test_get_stencil_state has it; and the rules
+  # test_canvas names.
+  def test_set_stencil_state
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.set_canvas(canvas, stencil: true)
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.stencil_state = :replace, :always, 1
+    Lota::Graphics.circle(:fill, 8, 8, 6)
+    Lota::Graphics.stencil_state = :keep, :greater, 0
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.stencil_state = nil
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
   end
   # SPDX-SnippetEnd
 end

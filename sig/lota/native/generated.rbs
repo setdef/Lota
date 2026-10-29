@@ -243,6 +243,48 @@ module Lota
 
     class Texture
       def canvas?: () -> bool
+
+      def texture_type: () -> String
+
+      def layer_count: () -> Integer
+
+      def mipmap_count: () -> Integer
+
+      def dpi_scale: () -> Float
+
+      def format_linear?: () -> bool
+
+      def compressed?: () -> bool
+
+      def msaa: () -> Integer
+
+      def set_filter: (String minstr, ?String? magstr, ?(Float | Integer) max_anisotropy) -> nil
+
+      def filter: () -> [String, String, Integer]
+
+      def set_mipmap_filter: (?String? mipmapstr, ?(Float | Integer) lod_bias) -> nil
+
+      def mipmap_filter: () -> Array[String | nil | Float]
+
+      def set_wrap: (String sstr, ?String? tstr, ?String? rstr) -> nil
+
+      def wrap: () -> [String, String, String]
+
+      def format: () -> String
+
+      def compute_writable?: () -> bool
+
+      def readable?: () -> bool
+
+      def mipmap_mode: () -> String
+
+      def depth_sample_mode: () -> String?
+
+      def set_depth_sample_mode: (?String? str) -> nil
+
+      def generate_mipmaps: () -> nil
+
+      def debug_name: () -> String?
     end
 
     class ImageData

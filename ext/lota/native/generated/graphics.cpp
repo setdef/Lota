@@ -15,6 +15,7 @@
 #include "common/Module.h"
 #include "common/int.h"
 #include "common/math.h"
+#include "common/pixelformat.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
 #include "graphics/Quad.h"
@@ -689,10 +690,240 @@ Rice::Array w_SpriteBatch_getDrawRange(const SpriteBatch &t) {
   return results;
 }
 
+// Texture:getTextureType: w_Texture_getTextureType (wrap_Texture.cpp:34-42).
+std::string w_Texture_getTextureType(const Texture &t) {
+  require_main_thread(MODULE);
+  const char *tstr = nullptr;
+  if (!Texture::getConstant(t.getTextureType(), tstr)) {
+    raise_enum_error("texture type", Texture::getConstants(TEXTURE_MAX_ENUM), tstr);
+  }
+  return tstr;
+}
+
+// Texture:getLayerCount: w_Texture_getLayerCount (wrap_Texture.cpp:89-94).
+int w_Texture_getLayerCount(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.getLayerCount();
+}
+
+// Texture:getMipmapCount: w_Texture_getMipmapCount (wrap_Texture.cpp:96-101).
+int w_Texture_getMipmapCount(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.getMipmapCount();
+}
+
+// Texture:getDPIScale: w_Texture_getDPIScale (wrap_Texture.cpp:126-131).
+double w_Texture_getDPIScale(const Texture &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getDPIScale());
+}
+
+// Texture:isFormatLinear: w_Texture_isFormatLinear (wrap_Texture.cpp:133-138).
+bool w_Texture_isFormatLinear(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.isFormatLinear();
+}
+
+// Texture:isCompressed: w_Texture_isCompressed (wrap_Texture.cpp:140-145).
+bool w_Texture_isCompressed(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.isCompressed();
+}
+
+// Texture:getMSAA: w_Texture_getMSAA (wrap_Texture.cpp:147-152).
+int w_Texture_getMSAA(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.getMSAA();
+}
+
+// Texture:setFilter: w_Texture_setFilter (wrap_Texture.cpp:154-171).
+void w_Texture_setFilter(Texture &t, const std::string &minstr,
+                         const std::optional<std::string> &magstr, double max_anisotropy) {
+  require_main_thread(MODULE);
+  SamplerState s = t.getSamplerState();
+  if (!SamplerState::getConstant(minstr.c_str(), s.minFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.minFilter), minstr);
+  }
+  if (!SamplerState::getConstant(magstr.value_or(minstr.c_str()).c_str(), s.magFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.magFilter),
+                     magstr.value_or(minstr.c_str()));
+  }
+  s.maxAnisotropy = std::min(std::max(1, static_cast<int>(max_anisotropy)), LOVE_UINT8_MAX);
+  t.setSamplerState(s);
+}
+
+// Texture:getFilter: w_Texture_getFilter (wrap_Texture.cpp:173-190).
+Rice::Array w_Texture_getFilter(const Texture &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  const SamplerState &s = t.getSamplerState();
+  const char *minstr = nullptr;
+  const char *magstr = nullptr;
+  if (!SamplerState::getConstant(s.minFilter, minstr)) {
+    throw love::Exception("Unknown filter mode.");
+  }
+  if (!SamplerState::getConstant(s.magFilter, magstr)) {
+    throw love::Exception("Unknown filter mode.");
+  }
+  results.push(std::string(minstr), false);
+  results.push(std::string(magstr), false);
+  results.push(static_cast<int>(s.maxAnisotropy), false);
+  return results;
+}
+
+// Texture:setMipmapFilter: w_Texture_setMipmapFilter (wrap_Texture.cpp:192-211).
+void w_Texture_setMipmapFilter(Texture &t, const std::optional<std::string> &mipmapstr,
+                               double lod_bias) {
+  require_main_thread(MODULE);
+  SamplerState s = t.getSamplerState();
+  if (!mipmapstr.has_value()) {
+    s.mipmapFilter = SamplerState::MIPMAP_FILTER_NONE;
+  } else {
+    if (!SamplerState::getConstant(required(mipmapstr, "mipmapstr").c_str(), s.mipmapFilter)) {
+      raise_enum_error("filter mode", SamplerState::getConstants(s.mipmapFilter),
+                       required(mipmapstr, "mipmapstr"));
+    }
+  }
+  s.lodBias = -(static_cast<float>(lod_bias));
+  t.setSamplerState(s);
+}
+
+// Texture:getMipmapFilter: w_Texture_getMipmapFilter (wrap_Texture.cpp:213-226).
+Rice::Array w_Texture_getMipmapFilter(const Texture &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  const SamplerState &s = t.getSamplerState();
+  const char *mipmapstr = nullptr;
+  if (SamplerState::getConstant(s.mipmapFilter, mipmapstr)) {
+    results.push(std::string(mipmapstr), false);
+  } else {
+    results.push(nullptr, false);
+  }
+  results.push(static_cast<double>(-s.lodBias), false);
+  return results;
+}
+
+// Texture:setWrap: w_Texture_setWrap (wrap_Texture.cpp:228-246).
+void w_Texture_setWrap(Texture &t, const std::string &sstr, const std::optional<std::string> &tstr,
+                       const std::optional<std::string> &rstr) {
+  require_main_thread(MODULE);
+  SamplerState s = t.getSamplerState();
+  if (!SamplerState::getConstant(sstr.c_str(), s.wrapU)) {
+    raise_enum_error("wrap mode", SamplerState::getConstants(s.wrapU), sstr);
+  }
+  if (!SamplerState::getConstant(tstr.value_or(sstr.c_str()).c_str(), s.wrapV)) {
+    raise_enum_error("wrap mode", SamplerState::getConstants(s.wrapV), tstr.value_or(sstr.c_str()));
+  }
+  if (!SamplerState::getConstant(rstr.value_or(sstr.c_str()).c_str(), s.wrapW)) {
+    raise_enum_error("wrap mode", SamplerState::getConstants(s.wrapW), rstr.value_or(sstr.c_str()));
+  }
+  t.setSamplerState(s);
+}
+
+// Texture:getWrap: w_Texture_getWrap (wrap_Texture.cpp:248-268).
+Rice::Array w_Texture_getWrap(const Texture &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  const SamplerState &s = t.getSamplerState();
+  const char *sstr = nullptr;
+  const char *tstr = nullptr;
+  const char *rstr = nullptr;
+  if (!SamplerState::getConstant(s.wrapU, sstr)) {
+    throw love::Exception("Unknown wrap mode.");
+  }
+  if (!SamplerState::getConstant(s.wrapV, tstr)) {
+    throw love::Exception("Unknown wrap mode.");
+  }
+  if (!SamplerState::getConstant(s.wrapW, rstr)) {
+    throw love::Exception("Unknown wrap mode.");
+  }
+  results.push(std::string(sstr), false);
+  results.push(std::string(tstr), false);
+  results.push(std::string(rstr), false);
+  return results;
+}
+
+// Texture:getFormat: w_Texture_getFormat (wrap_Texture.cpp:270-280).
+std::string w_Texture_getFormat(const Texture &t) {
+  require_main_thread(MODULE);
+  const PixelFormat format = t.getPixelFormat();
+  const char *str = nullptr;
+  if (!getConstant(format, str)) {
+    throw love::Exception("Unknown pixel format.");
+  }
+  return str;
+}
+
 // Texture:isCanvas: w_Texture_isCanvas (wrap_Texture.cpp:282-287).
 bool w_Texture_isCanvas(const Texture &t) {
   require_main_thread(MODULE);
   return t.isRenderTarget();
+}
+
+// Texture:isComputeWritable: w_Texture_isComputeWritable (wrap_Texture.cpp:289-294).
+bool w_Texture_isComputeWritable(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.isComputeWritable();
+}
+
+// Texture:isReadable: w_Texture_isReadable (wrap_Texture.cpp:296-301).
+bool w_Texture_isReadable(const Texture &t) {
+  require_main_thread(MODULE);
+  return t.isReadable();
+}
+
+// Texture:setDepthSampleMode: w_Texture_setDepthSampleMode (wrap_Texture.cpp:321-338).
+void w_Texture_setDepthSampleMode(Texture &t, const std::optional<std::string> &str) {
+  require_main_thread(MODULE);
+  SamplerState s = t.getSamplerState();
+  s.depthSampleMode.hasValue = false;
+  if (str.has_value()) {
+    s.depthSampleMode.hasValue = true;
+    if (!getConstant(required(str, "str").c_str(), s.depthSampleMode.value)) {
+      raise_enum_error("compare mode", getConstants(s.depthSampleMode.value), required(str, "str"));
+    }
+  }
+  t.setSamplerState(s);
+}
+
+// Texture:getDepthSampleMode: w_Texture_getDepthSampleMode (wrap_Texture.cpp:340-356).
+std::optional<std::string> w_Texture_getDepthSampleMode(const Texture &t) {
+  require_main_thread(MODULE);
+  const SamplerState &s = t.getSamplerState();
+  if (s.depthSampleMode.hasValue) {
+    const char *str = nullptr;
+    if (!getConstant(s.depthSampleMode.value, str)) {
+      throw love::Exception("Unknown compare mode.");
+    }
+    return str;
+  }
+  return std::nullopt;
+}
+
+// Texture:getMipmapMode: w_Texture_getMipmapMode (wrap_Texture.cpp:358-366).
+std::string w_Texture_getMipmapMode(const Texture &t) {
+  require_main_thread(MODULE);
+  const char *str = nullptr;
+  if (!Texture::getConstant(t.getMipmapsMode(), str)) {
+    raise_enum_error("mipmap mode", Texture::getConstants(Texture::MIPMAPS_MAX_ENUM), str);
+  }
+  return str;
+}
+
+// Texture:generateMipmaps: w_Texture_generateMipmaps (wrap_Texture.cpp:368-373).
+void w_Texture_generateMipmaps(Texture &t) {
+  require_main_thread(MODULE);
+  t.generateMipmaps();
+}
+
+// Texture:getDebugName: w_Texture_getDebugName (wrap_Texture.cpp:517-526).
+std::optional<std::string> w_Texture_getDebugName(const Texture &t) {
+  require_main_thread(MODULE);
+  const std::string &debugName = t.getDebugName();
+  if (debugName.empty()) {
+    return std::nullopt;
+  }
+  return debugName;
 }
 
 // SPDX-SnippetEnd
@@ -805,7 +1036,35 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_method("texture", &w_SpriteBatch_getTexture)
       .define_method("draw_range", &w_SpriteBatch_getDrawRange);
   Rice::define_class_under<Texture>(native, "Texture")
-      .define_method("canvas?", &w_Texture_isCanvas);
+      .define_method("canvas?", &w_Texture_isCanvas)
+      .define_method("texture_type", &w_Texture_getTextureType)
+      .define_method("layer_count", &w_Texture_getLayerCount)
+      .define_method("mipmap_count", &w_Texture_getMipmapCount)
+      .define_method("dpi_scale", &w_Texture_getDPIScale)
+      .define_method("format_linear?", &w_Texture_isFormatLinear)
+      .define_method("compressed?", &w_Texture_isCompressed)
+      .define_method("msaa", &w_Texture_getMSAA)
+      .define_method("set_filter", &w_Texture_setFilter, Rice::Arg("minstr"),
+                     Rice::Arg("magstr") = std::optional<std::string>(),
+                     Rice::Arg("max_anisotropy") = 1.0)
+      .define_method("filter", &w_Texture_getFilter)
+      .define_method("set_mipmap_filter", &w_Texture_setMipmapFilter,
+                     Rice::Arg("mipmapstr") = std::optional<std::string>(),
+                     Rice::Arg("lod_bias") = 0.0)
+      .define_method("mipmap_filter", &w_Texture_getMipmapFilter)
+      .define_method("set_wrap", &w_Texture_setWrap, Rice::Arg("sstr"),
+                     Rice::Arg("tstr") = std::optional<std::string>(),
+                     Rice::Arg("rstr") = std::optional<std::string>())
+      .define_method("wrap", &w_Texture_getWrap)
+      .define_method("format", &w_Texture_getFormat)
+      .define_method("compute_writable?", &w_Texture_isComputeWritable)
+      .define_method("readable?", &w_Texture_isReadable)
+      .define_method("mipmap_mode", &w_Texture_getMipmapMode)
+      .define_method("depth_sample_mode", &w_Texture_getDepthSampleMode)
+      .define_method("set_depth_sample_mode", &w_Texture_setDepthSampleMode,
+                     Rice::Arg("str") = std::optional<std::string>())
+      .define_method("generate_mipmaps", &w_Texture_generateMipmaps)
+      .define_method("debug_name", &w_Texture_getDebugName);
 }
 
 } // namespace lota::native

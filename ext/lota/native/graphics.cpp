@@ -29,9 +29,7 @@
 #include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
 #include "graphics/vertex.h"
-#include "image/CompressedImageData.h"
 #include "image/FormatHandler.h"
-#include "image/Image.h"
 #include "image/ImageData.h"
 #include "math/Transform.h"
 
@@ -39,7 +37,6 @@
 #include <array>
 #include <cctype>
 #include <cstddef>
-#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -356,47 +353,6 @@ void present() {
   }
 }
 
-// w_newCanvas with a width and a height (wrap_Graphics.cpp:873-913): a 2D
-// render target, as large as the window unless told otherwise, at the
-// screen's DPI scale, with +msaa+ antialiasing samples unless it is nil, the
-// one setting of luax_checktexturesettings (lines 759-871) Lota binds so
-// far, which Lota::Graphics::Canvas.new reads as luax_intflag does;
-// otherwise Texture::Settings' one sample (graphics/Texture.h:186-203). It
-// arrives as a Ruby object, as an entry of LÖVE's settings table does, by
-// value, as Rice converts it, and is moved, as capture_screenshot moves its
-// callable. Its one reference goes to the Ruby wrapper.
-Texture *new_canvas(std::optional<int> width, std::optional<int> height, Rice::Object msaa) {
-  const Rice::Object samples = std::move(msaa);
-  Graphics &instance = graphics();
-  // luax_checkgraphicscreated (wrap_Graphics.cpp:56-61).
-  if (!instance.isCreated()) {
-    throw love::Exception("%s cannot function without a window.", MODULE);
-  }
-  Texture::Settings settings;
-  settings.width = width.value_or(instance.getWidth());
-  settings.height = height.value_or(instance.getHeight());
-  // luax_checktexturesettings forces renderTarget (wrap_Graphics.cpp:762-763).
-  settings.renderTarget = true;
-  if (!samples.is_nil()) {
-    settings.msaa = Rice::detail::From_Ruby<int>().convert(samples.value());
-  }
-  settings.dpiScale = static_cast<float>(instance.getScreenDPIScale());
-  return instance.newTexture(settings);
-}
-
-// w_setCanvas with one 2D texture (wrap_Graphics.cpp:274-378): the texture,
-// at its first mipmap, becomes the only render target.
-void set_canvas(Texture *texture) {
-  Graphics &instance = graphics();
-  Graphics::RenderTargets targets;
-  targets.colors.emplace_back(texture, 0);
-  instance.setRenderTargets(targets);
-}
-
-// w_setCanvas with no argument or nil (wrap_Graphics.cpp:276-281): draw to
-// the window again.
-void reset_canvas() { graphics().setRenderTarget(); }
-
 // w_clear with a color (wrap_Graphics.cpp:117-125 and 144-145): LÖVE reads
 // each component as a float, and clears the stencil to 0 and the depth to
 // 1.
@@ -405,21 +361,6 @@ void clear(double red, double green, double blue, double alpha) {
                            static_cast<float>(blue), static_cast<float>(alpha));
   graphics().clear(love::graphics::OptionalColorD(color), love::OptionalInt(0),
                    love::OptionalDouble(1.0));
-}
-
-// w_readbackTexture of a whole 2D texture (wrap_Graphics.cpp:2411-2449):
-// slice 0, mipmap 0, every pixel, into a new ImageData whose one reference
-// goes to the Ruby wrapper.
-love::image::ImageData *readback_texture(Texture *texture) {
-  Graphics &instance = graphics();
-  const int mipmap = 0;
-  const love::Rect rect = {
-      .x = 0,
-      .y = 0,
-      .w = texture->getPixelWidth(mipmap),
-      .h = texture->getPixelHeight(mipmap),
-  };
-  return instance.readbackTexture(texture, 0, mipmap, rect, nullptr, 0, 0);
 }
 
 // w_setColor with three or four numbers (wrap_Graphics.cpp:2491-2515):
@@ -468,24 +409,6 @@ void intersect_scissor(double x, double y, double width, double height) {
 // clipping.
 void reset_scissor() { graphics().setScissor(); }
 
-// w_getCanvas (wrap_Graphics.cpp:389-437) of the targets set_canvas sets:
-// none, which LÖVE returns as nil, or one 2D texture at its first mipmap,
-// which it returns alone. LÖVE returns its other targets as a table, or
-// as several values, which Lota binds with the forms of setCanvas that
-// set them.
-Texture *canvas() {
-  const Graphics::RenderTargets targets = graphics().getRenderTargets();
-  if (targets.colors.empty()) {
-    return nullptr;
-  }
-  const Graphics::RenderTarget &target = targets.colors.front();
-  if (targets.colors.size() > 1 || targets.depthStencil.texture != nullptr || target.mipmap != 0 ||
-      target.texture->getTextureType() != love::graphics::TEXTURE_2D) {
-    throw love::Exception("%s.canvas returns only a canvas %s.canvas= set.", MODULE, MODULE);
-  }
-  return target.texture;
-}
-
 // luax_checkgraphicscreated (wrap_Graphics.cpp:56-61): the module, once
 // it has a window to draw in.
 Graphics &created_graphics() {
@@ -494,72 +417,6 @@ Graphics &created_graphics() {
     throw love::Exception("%s cannot function without a window.", MODULE);
   }
   return instance;
-}
-
-// parseDPIScale (wrap_Graphics.cpp:692-712): a file named like
-// "image@2x.png" holds pixels at twice the density, so the texture made
-// from it takes a DPI scale of 2. Data that is not a file has no name to
-// parse.
-void parse_dpi_scale(love::Data *data, float &dpiscale) {
-  const auto *file = dynamic_cast<love::filesystem::FileData *>(data);
-  if (file == nullptr) {
-    return;
-  }
-  const std::string &fname = file->getName();
-  const std::size_t namelen = fname.length();
-  const std::size_t atpos = fname.rfind('@');
-  if (atpos != std::string::npos && atpos + 2 < namelen &&
-      (fname.back() == 'x' || fname.back() == 'X')) {
-    char *end = nullptr;
-    constexpr int base = 10;
-    const long density = std::strtol(&fname.at(atpos + 1), &end, base);
-    if (end != nullptr && density > 0) {
-      dpiscale = static_cast<float>(density);
-    }
-  }
-}
-
-// w_newTexture of one 2D image (wrap_Graphics.cpp:916-975), its pixels
-// from +data+ as getImageData decodes them (lines 714-745): compressed
-// formats the image module recognizes stay compressed, and everything else
-// is decoded to an ImageData. Of luax_checktexturesettings's settings
-// (lines 759-871), Lota binds the canvas setting so far, which makes the
-// texture one you can draw into (lines 770-771). The texture's one
-// reference goes to the Ruby wrapper.
-Texture *new_texture_from_data(love::Data *data, bool canvas) {
-  Graphics &instance = created_graphics();
-  auto *imagemodule = love::Module::getInstance<love::image::Image>(love::Module::M_IMAGE);
-  if (imagemodule == nullptr) {
-    throw love::Exception("Cannot load images without the love.image module.");
-  }
-  Texture::Settings settings;
-  settings.type = love::graphics::TEXTURE_2D;
-  settings.renderTarget = canvas;
-  parse_dpi_scale(data, settings.dpiScale);
-  Texture::Slices slices(love::graphics::TEXTURE_2D);
-  if (imagemodule->isCompressed(data)) {
-    const love::StrongRef<love::image::CompressedImageData> cdata(
-        imagemodule->newCompressedData(data), love::Acquire::NORETAIN);
-    slices.add(cdata.get(), 0, 0, false, settings.mipmaps != Texture::MIPMAPS_NONE);
-  } else {
-    const love::StrongRef<love::image::ImageData> idata(imagemodule->newImageData(data),
-                                                        love::Acquire::NORETAIN);
-    slices.set(0, 0, idata.get());
-  }
-  return instance.newTexture(settings, &slices);
-}
-
-// w_newTexture of an ImageData (wrap_Graphics.cpp:916-975 and 714-722):
-// the texture takes the ImageData's pixels as they are, at a DPI scale of
-// 1, with the canvas setting as new_texture_from_data takes it.
-Texture *new_texture_from_image_data(love::image::ImageData *data, bool canvas) {
-  Graphics &instance = created_graphics();
-  Texture::Settings settings;
-  settings.type = love::graphics::TEXTURE_2D;
-  settings.renderTarget = canvas;
-  Texture::Slices slices(love::graphics::TEXTURE_2D);
-  slices.set(0, 0, data);
-  return instance.newTexture(settings, &slices);
 }
 
 // The font module, which rasterizes the glyphs of every font the graphics
@@ -810,6 +667,48 @@ void draw_quad(Texture *texture, love::graphics::Quad *quad, Rice::Array placeme
   graphics().draw(texture, quad, placement_of(numbers));
 }
 
+// w_draw placed by a Transform (wrap_Graphics.cpp:3245-3279 and
+// wrap_SpriteBatch.h:33-64): a texture, a sprite batch, or the part of a
+// texture a quad shows, placed by the transform's matrix.
+void draw_with_transform(Texture *texture, const love::math::Transform *transform) {
+  graphics().draw(texture, transform->getMatrix());
+}
+
+void draw_sprite_batch_with_transform(love::graphics::SpriteBatch *batch,
+                                      const love::math::Transform *transform) {
+  graphics().draw(batch, transform->getMatrix());
+}
+
+void draw_quad_with_transform(Texture *texture, love::graphics::Quad *quad,
+                              const love::math::Transform *transform) {
+  graphics().draw(texture, quad, transform->getMatrix());
+}
+
+// w_drawLayer (wrap_Graphics.cpp:3281-3313): the layer of an array
+// texture +layer+ names, counting from 1 as Lua does, or the part of it
+// +quad+ shows unless it is nil, placed by the nine numbers or by a
+// Transform.
+void draw_layer(Texture *texture, int layer, love::graphics::Quad *quad, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  Graphics &instance = graphics();
+  const love::Matrix4 m = placement_of(numbers);
+  if (quad != nullptr) {
+    instance.drawLayer(texture, layer - 1, quad, m);
+  } else {
+    instance.drawLayer(texture, layer - 1, m);
+  }
+}
+
+void draw_layer_with_transform(Texture *texture, int layer, love::graphics::Quad *quad,
+                               const love::math::Transform *transform) {
+  Graphics &instance = graphics();
+  if (quad != nullptr) {
+    instance.drawLayer(texture, layer - 1, quad, transform->getMatrix());
+  } else {
+    instance.drawLayer(texture, layer - 1, transform->getMatrix());
+  }
+}
+
 // The viewport a Quad shows, from an Array of its left edge, top edge,
 // width, and height, each read as LÖVE reads them, as doubles
 // (wrap_Graphics.cpp:1339-1343 and wrap_Quad.cpp:38-42).
@@ -911,31 +810,6 @@ void sprite_batch_set_color(love::graphics::SpriteBatch &batch, double red, doub
   require_main_thread(MODULE);
   batch.setColor(love::Colorf(static_cast<float>(red), static_cast<float>(green),
                               static_cast<float>(blue), static_cast<float>(alpha)));
-}
-
-// w__optMipmap (wrap_Texture.cpp:38-51): the mipmap +mipmap+ names,
-// counting from 1 as Lua does, or the first when nil.
-int mipmap_of(const Texture &texture, std::optional<int> mipmap) {
-  if (!mipmap.has_value()) {
-    return 0;
-  }
-  const int index = *mipmap - 1;
-  if (index < 0 || index >= texture.getMipmapCount()) {
-    throw love::Exception("Invalid mipmap index: %d", index + 1);
-  }
-  return index;
-}
-
-// Texture:getWidth and getHeight (wrap_Texture.cpp:53-65), of the first
-// mipmap or the one given.
-int texture_width(const Texture &texture, std::optional<int> mipmap) {
-  require_main_thread(MODULE);
-  return texture.getWidth(mipmap_of(texture, mipmap));
-}
-
-int texture_height(const Texture &texture, std::optional<int> mipmap) {
-  require_main_thread(MODULE);
-  return texture.getHeight(mipmap_of(texture, mipmap));
 }
 
 // Texture:renderTo (wrap_Texture.cpp:459-514): draws to the texture, or
@@ -1194,8 +1068,6 @@ void polygon(const std::string &str, Rice::Array coordinates) {
 void define_graphics(const Rice::Module &native) {
   // Its methods are generated (ext/lota/native/generated/graphics.cpp).
   define_engine_class<Texture>(native, "Texture")
-      .define_method("width", &texture_width, Rice::Arg("mipmap") = std::optional<int>())
-      .define_method("height", &texture_height, Rice::Arg("mipmap") = std::optional<int>())
       .define_method("render_to", &texture_render_to, Rice::Arg("slice"), Rice::Arg("block"));
   // Their other methods are generated too.
   define_engine_class<love::graphics::Quad>(native, "Quad")
@@ -1245,19 +1117,8 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("set_projection", &set_projection, Rice::Arg("transform"))
       .define_singleton_function("set_projection_matrix", &set_projection_matrix,
                                  Rice::Arg("layout"), Rice::Arg("elements"))
-      .define_singleton_function("new_canvas", &new_canvas, Rice::Arg("width"), Rice::Arg("height"),
-                                 Rice::Arg("msaa"), Rice::Return().takeOwnership())
-      .define_singleton_function("new_texture_from_data", &new_texture_from_data, Rice::Arg("data"),
-                                 Rice::Arg("canvas"), Rice::Return().takeOwnership())
-      .define_singleton_function("new_texture_from_image_data", &new_texture_from_image_data,
-                                 Rice::Arg("data"), Rice::Arg("canvas"),
-                                 Rice::Return().takeOwnership())
-      .define_singleton_function("set_canvas", &set_canvas, Rice::Arg("texture"))
-      .define_singleton_function("reset_canvas", &reset_canvas)
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
-      .define_singleton_function("readback_texture", &readback_texture, Rice::Arg("texture"),
-                                 Rice::Return().takeOwnership())
       .define_singleton_function("set_color", &set_color, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
       .define_singleton_function("capture_screenshot", &capture_screenshot, Rice::Arg("callable"))
@@ -1287,6 +1148,18 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("placement"))
       .define_singleton_function("draw_quad", &draw_quad, Rice::Arg("texture"), Rice::Arg("quad"),
                                  Rice::Arg("placement"))
+      .define_singleton_function("draw_with_transform", &draw_with_transform, Rice::Arg("texture"),
+                                 Rice::Arg("transform"))
+      .define_singleton_function("draw_sprite_batch_with_transform",
+                                 &draw_sprite_batch_with_transform, Rice::Arg("batch"),
+                                 Rice::Arg("transform"))
+      .define_singleton_function("draw_quad_with_transform", &draw_quad_with_transform,
+                                 Rice::Arg("texture"), Rice::Arg("quad"), Rice::Arg("transform"))
+      .define_singleton_function("draw_layer", &draw_layer, Rice::Arg("texture"),
+                                 Rice::Arg("layer"), Rice::Arg("quad"), Rice::Arg("placement"))
+      .define_singleton_function("draw_layer_with_transform", &draw_layer_with_transform,
+                                 Rice::Arg("texture"), Rice::Arg("layer"), Rice::Arg("quad"),
+                                 Rice::Arg("transform"))
       .define_singleton_function("new_quad", &new_quad, Rice::Arg("layer"), Rice::Arg("viewport"),
                                  Rice::Arg("sw"), Rice::Arg("sh"), Rice::Return().takeOwnership())
       .define_singleton_function("new_quad_of_texture", &new_quad_of_texture, Rice::Arg("layer"),
@@ -1305,7 +1178,6 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("reset_scissor", &reset_scissor)
       .define_singleton_function("intersect_scissor", &intersect_scissor, Rice::Arg("x"),
                                  Rice::Arg("y"), Rice::Arg("width"), Rice::Arg("height"))
-      .define_singleton_function("canvas", &canvas)
       .define_singleton_function("arc", &arc, Rice::Arg("drawstr"), Rice::Arg("arcstr"),
                                  Rice::Arg("arguments"));
 }
