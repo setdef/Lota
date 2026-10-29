@@ -91,8 +91,8 @@ module Lota
     #
     # Translated from love.init's default settings
     # (vendor/love/src/modules/love/boot.lua:178-238), with the window
-    # settings boot.lua reads but does not default (title, stencil, and
-    # depth, lines 405-413), which stay nil until set.
+    # settings boot.lua reads but does not default (title, stencil, depth,
+    # display, and highdpi, lines 405-421), which stay nil until set.
 
     # How the window opens: <tt>t.window</tt>.
     class Window
@@ -157,6 +157,14 @@ module Lota
       # Lota::Window.set_mode's default, +false+.
       attr_accessor :depth
 
+      # Deprecated, as in LÖVE 12, for +displayindex+: the display to open
+      # on, counting from 1, or +nil+ (the default) for +displayindex+.
+      attr_accessor :display
+
+      # Deprecated, as in LÖVE 12, for <tt>t.highdpi</tt>: whether high
+      # DPI is allowed, or +nil+ (the default) for <tt>t.highdpi</tt>.
+      attr_accessor :highdpi
+
       # LÖVE's defaults for <tt>t.window</tt>.
       #
       # === Example
@@ -181,6 +189,8 @@ module Lota
         @title = nil
         @stencil = nil
         @depth = nil
+        @display = nil
+        @highdpi = nil
       end
     end
 

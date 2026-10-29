@@ -46,9 +46,9 @@ class LotaTest < Minitest::Test
 
   # Every module Lota translates from LÖVE has an accessor; its native
   # extension, its callbacks, its command line, the methods every engine
-  # object has, what every record answers, the enum names it passes the
-  # engine, and the translator of the engine's error messages are not
-  # LÖVE modules. Lota::Data is both LÖVE's root type Data and love.data's
+  # object has, what every record answers, its record of deprecated
+  # names, the enum names it passes the engine, and the translator of the
+  # engine's error messages are not LÖVE modules. Lota::Data is both LÖVE's root type Data and love.data's
   # module (ADR 001, section 7), so it has one.
   def test_no_module_lacks_an_accessor
     EngineHelper.open_window
@@ -59,9 +59,10 @@ class LotaTest < Minitest::Test
       Lota::CLI
       Lota::Object
       Lota::Record
+      Lota::Deprecation
       Lota::EnumName
       Lota::ErrorMessage
-]
+    ]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }
 

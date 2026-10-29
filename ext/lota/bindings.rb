@@ -665,8 +665,32 @@ bound_by_hand "love.window.updateMode",
 generate "love.window.setTitle"
 generate "love.window.getTitle"
 generate "love.window.isOpen"
+generate "love.window.isHighDPIAllowed"
 bound_by_hand "love.window.showMessageBox",
   reason: "chooses between its forms by whether its third argument is a table, which also holds the " \
     "enterbutton and escapebutton settings; Lota binds each form as a function of its own"
 bound_by_hand "love.window.setMode",
   reason: "reads its settings table through readWindowSettings, which Lota::Window.set_mode ports to Ruby"
+generate "Font:getHeight"
+generate "Font:getLineHeight"
+generate "Font:setLineHeight"
+generate "Font:getAscent"
+generate "Font:getDescent"
+generate "Font:getBaseline"
+generate "Font:getDPIScale"
+generate "Font:setFilter"
+generate "Font:getFilter"
+bound_by_hand "Font:getWidth",
+  reason: "reads its second argument as a string or a number by its Lua type; Lota binds each form as a " \
+    "method of its own, which Lota::Graphics::Font#width chooses between"
+bound_by_hand "Font:getKerning",
+  reason: "reads its arguments as strings or numbers by their Lua type, as Font:getWidth does"
+bound_by_hand "Font:hasGlyphs",
+  reason: "reads each of its arguments as a string or a number, at positions it computes; Lota binds each " \
+    "form, which Lota::Graphics::Font#glyphs? calls for each argument"
+bound_by_hand "Font:getWrap",
+  reason: "reads colored text through luax_checkcoloredstring and returns its lines as a table it fills in " \
+    "a loop"
+bound_by_hand "Font:setFallbacks",
+  reason: "reads every argument after the first as a Font, at positions it computes; Lota binds an Array " \
+    "of them"

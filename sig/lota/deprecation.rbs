@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Deprecation
+    API_TYPES: Hash[Symbol, String]
+
+    DEPRECATION_TYPES: Array[Symbol]
+
+    class Info < Struct[Symbol | Integer | String]
+      attr_accessor type: Symbol
+
+      attr_accessor api_type: Symbol
+
+      attr_accessor uses: Integer
+
+      attr_accessor name: String
+
+      attr_accessor replacement: String
+
+      attr_accessor where: String
+
+      def self.new: (Symbol type, Symbol api_type, Integer uses, String name, String replacement, String where) -> Info
+    end
+
+    self.@deprecated: Hash[String, Info]
+
+    self.@output: bool
+
+    def self.mark: (String name, Symbol api, ?Symbol type, ?String? replacement, ?where: String) -> nil
+
+    def self.output=: (bool enable) -> void
+
+    def self.output?: () -> bool
+
+    def self.notice: (Info info) -> String
+
+    private def self.print_notice: (Info info) -> void
+  end
+end

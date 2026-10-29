@@ -41,6 +41,7 @@ at_exit { Lota::Native.drain_release_queue }
 require_relative "lota/enum_name"
 require_relative "lota/object"
 require_relative "lota/record"
+require_relative "lota/deprecation"
 require_relative "lota/data"
 require_relative "lota/filesystem"
 require_relative "lota/image"

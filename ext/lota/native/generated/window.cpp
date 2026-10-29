@@ -47,6 +47,9 @@ Window *instance() {
 // (vendor/love/src/modules/window), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// love.window.isHighDPIAllowed: w_isHighDPIAllowed (wrap_Window.cpp:247-251).
+bool w_isHighDPIAllowed() { return isHighDPIAllowed(); }
+
 // love.window.isOpen: w_isOpen (wrap_Window.cpp:347-351).
 bool w_isOpen() { return instance()->isOpen(); }
 
@@ -97,7 +100,8 @@ void define_generated_window(const Rice::Module &native) {
                                  Rice::Arg("argument1") = std::optional<int>())
       .define_singleton_function("set_title", &w_setTitle, Rice::Arg("title"))
       .define_singleton_function("title", &w_getTitle)
-      .define_singleton_function("window_open?", &w_isOpen);
+      .define_singleton_function("window_open?", &w_isOpen)
+      .define_singleton_function("high_dpi_allowed?", &w_isHighDPIAllowed);
 }
 
 } // namespace lota::native

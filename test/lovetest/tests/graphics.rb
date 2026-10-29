@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
-  TYPES = %w[Quad SpriteBatch].freeze
+  TYPES = %w[Font Quad SpriteBatch].freeze
 
   # Lövetest runs its modules in a fixed order, graphics before window
   # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
@@ -168,6 +168,66 @@ class GraphicsTest < Lovetest::TestMethod
   def test_new_font
     assert_object(Lota::Graphics::Font.new("resources/font.ttf"))
     assert_object(Lota::Graphics::Font.new("resources/font.ttf", 8, :normal, 1))
+  end
+
+  # Translated to Ruby from love.test.graphics.Font
+  # (vendor/love/testing/tests/graphics.lua:264-308), all but its check of
+  # font substitution (lines 310-321), whose newImageFont waits for
+  # slice 4's image fonts: newFont becomes Font.new (rule 2), the getters
+  # drop get (rule 3), getDPIScale is dpi_scale (rule 13), getFilter's
+  # results an Array whose first Lua keeps (rule 4), setFilter and
+  # setLineHeight writers (rules 5 and 6), hasGlyphs glyphs? (rule 8), and
+  # getWrap's two results an Array, its lines an Array counted from 0;
+  # setFont, setCanvas, and newCanvas as test_set_font has them.
+  def test_font
+    # create obj
+    font = Lota::Graphics::Font.new("resources/font.ttf", 8)
+    assert_object(font)
+
+    # check ascent/descent
+    assert_equal(6, font.ascent, "check ascent")
+    assert_equal(-2, font.descent, "check descent")
+
+    # check baseline
+    assert_equal(6, font.baseline, "check baseline")
+
+    # check dpi
+    assert_equal(1, font.dpi_scale, "check dpi")
+
+    # check filter
+    assert_equal(:nearest, font.filter.first, "check filter def")
+    font.filter = :linear, :linear
+    assert_equal(:linear, font.filter.first, "check filter change")
+    font.filter = :nearest, :nearest
+
+    # check height + lineheight
+    assert_equal(8, font.height, "check height")
+    assert_equal(1, font.line_height, "check line height")
+    font.line_height = 2
+    assert_equal(2, font.line_height, "check changed line height")
+    font.line_height = 1 # reset for drawing + wrap later
+
+    # check width + kerning
+    assert_equal(0, font.kerning("a", "b"), "check kerning")
+    assert_equal(24, font.width("test"), "check data size")
+
+    # check specific glyphs
+    assert_true(font.glyphs?("test"), "check data size")
+
+    # check font wrapping
+    width, wrappedtext = font.wrap("LÖVE is an *awesome* framework you can use to make 2D games in Lua.", 50)
+    assert_equal(48, width, "check actual wrap width")
+    assert_equal(8, wrappedtext.size, "check wrapped lines")
+    assert_equal("LÖVE is an ", wrappedtext[0], "check wrapped line")
+
+    # check drawing font
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.font = font
+    Lota::Graphics.print("Aa", 0, 5)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
   end
 
   # Translated to Ruby from love.test.graphics.newTexture

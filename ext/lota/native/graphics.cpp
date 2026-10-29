@@ -662,6 +662,84 @@ std::vector<love::font::ColoredString> colored_strings(const Rice::Array &text) 
   return strings;
 }
 
+// w_Font_getWidth with a string (wrap_Font.cpp:90-104): the width of
+// +text+'s widest line.
+double font_text_width(Font &font, const std::string &text) {
+  require_main_thread(MODULE);
+  return font.getWidth(text);
+}
+
+// w_Font_getWidth with a number: the width of one glyph, by its code
+// point, read as LÖVE reads it (uint32 of a number).
+double font_glyph_width(Font &font, double glyph) {
+  require_main_thread(MODULE);
+  return font.getWidth(static_cast<love::uint32>(glyph));
+}
+
+// w_Font_getWrap (wrap_Font.cpp:106-133): +text+, as colored_strings
+// reads it, wrapped at +wraplimit+, as the width of its widest line and
+// its lines.
+Rice::Array font_wrap(Font &font, Rice::Array text, double wraplimit) {
+  require_main_thread(MODULE);
+  const Rice::Array parts = std::move(text);
+  const std::vector<love::font::ColoredString> strings = colored_strings(parts);
+  std::vector<std::string> lines;
+  std::vector<float> widths;
+  font.getWrap(strings, static_cast<float>(wraplimit), lines, &widths);
+  float max_width = 0;
+  for (const float width : widths) {
+    max_width = std::max(max_width, width);
+  }
+  Rice::Array wrapped;
+  for (const std::string &line : lines) {
+    wrapped.push(line, false);
+  }
+  Rice::Array results;
+  results.push(static_cast<double>(max_width), false);
+  results.push(wrapped, false);
+  return results;
+}
+
+// w_Font_hasGlyphs with a string (wrap_Font.cpp:204-226): whether the
+// font has every glyph of +text+.
+bool font_has_text_glyphs(const Font &font, const std::string &text) {
+  require_main_thread(MODULE);
+  return font.hasGlyphs(text);
+}
+
+// w_Font_hasGlyphs with a number: whether the font has the glyph of one
+// code point.
+bool font_has_glyph(const Font &font, double glyph) {
+  require_main_thread(MODULE);
+  return font.hasGlyph(static_cast<love::uint32>(glyph));
+}
+
+// w_Font_getKerning with strings (wrap_Font.cpp:228-251): the kerning
+// between the first characters of +left+ and +right+.
+double font_text_kerning(Font &font, const std::string &left, const std::string &right) {
+  require_main_thread(MODULE);
+  return font.getKerning(left, right);
+}
+
+// w_Font_getKerning with numbers: the kerning between two glyphs, by
+// their code points.
+double font_glyph_kerning(Font &font, double left, double right) {
+  require_main_thread(MODULE);
+  return font.getKerning(static_cast<love::uint32>(left), static_cast<love::uint32>(right));
+}
+
+// w_Font_setFallbacks (wrap_Font.cpp:253-262): the fonts whose glyphs
+// stand in, in order, for those +font+ lacks; none clears them.
+void font_set_fallbacks(Font &font, Rice::Array fallbacks) {
+  require_main_thread(MODULE);
+  const Rice::Array given = std::move(fallbacks);
+  std::vector<Font *> fonts;
+  for (const auto item : given) {
+    fonts.push_back(Rice::detail::From_Ruby<Font *>().convert(item.value()));
+  }
+  font.setFallbacks(fonts);
+}
+
 // The placement LÖVE builds from a position, an angle, scale factors,
 // origin offsets, and shearing factors, each read as a float
 // (luax_checkstandardtransform, wrap_SpriteBatch.h:33-64, and w_printf),
@@ -1133,7 +1211,16 @@ void define_graphics(const Rice::Module &native) {
   // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
   // love.font, the module that rasterizes its glyphs (native/font.cpp).
   Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
-  define_engine_class<Font>(graphics_module, "Font");
+  // Font's other methods are generated.
+  define_engine_class<Font>(graphics_module, "Font")
+      .define_method("text_width", &font_text_width, Rice::Arg("text"))
+      .define_method("glyph_width", &font_glyph_width, Rice::Arg("glyph"))
+      .define_method("wrap", &font_wrap, Rice::Arg("text"), Rice::Arg("wraplimit"))
+      .define_method("text_glyphs?", &font_has_text_glyphs, Rice::Arg("text"))
+      .define_method("glyph?", &font_has_glyph, Rice::Arg("glyph"))
+      .define_method("text_kerning", &font_text_kerning, Rice::Arg("left"), Rice::Arg("right"))
+      .define_method("glyph_kerning", &font_glyph_kerning, Rice::Arg("left"), Rice::Arg("right"))
+      .define_method("set_fallbacks", &font_set_fallbacks, Rice::Arg("fallbacks"));
 
   graphics_module.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)

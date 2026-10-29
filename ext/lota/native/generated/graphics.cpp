@@ -58,6 +58,79 @@ Graphics *instance() {
 // (vendor/love/src/modules/graphics), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// Font:getHeight: w_Font_getHeight (wrap_Font.cpp:83-88).
+double w_Font_getHeight(const Font &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getHeight());
+}
+
+// Font:setLineHeight: w_Font_setLineHeight (wrap_Font.cpp:135-141).
+void w_Font_setLineHeight(Font &t, double h) {
+  require_main_thread(MODULE);
+  t.setLineHeight(static_cast<float>(h));
+}
+
+// Font:getLineHeight: w_Font_getLineHeight (wrap_Font.cpp:143-148).
+double w_Font_getLineHeight(const Font &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getLineHeight());
+}
+
+// Font:setFilter: w_Font_setFilter (wrap_Font.cpp:150-167).
+void w_Font_setFilter(Font &t, const std::string &minstr, const std::optional<std::string> &magstr,
+                      double max_anisotropy) {
+  require_main_thread(MODULE);
+  SamplerState s = t.getSamplerState();
+  if (!SamplerState::getConstant(minstr.c_str(), s.minFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.minFilter), minstr);
+  }
+  if (!SamplerState::getConstant(magstr.value_or(minstr.c_str()).c_str(), s.magFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.magFilter),
+                     magstr.value_or(minstr.c_str()));
+  }
+  s.maxAnisotropy = std::min(std::max(1, static_cast<int>(max_anisotropy)), LOVE_UINT8_MAX);
+  t.setSamplerState(s);
+}
+
+// Font:getFilter: w_Font_getFilter (wrap_Font.cpp:169-181).
+Rice::Array w_Font_getFilter(const Font &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  const SamplerState &s = t.getSamplerState();
+  const char *minstr = nullptr;
+  const char *magstr = nullptr;
+  SamplerState::getConstant(s.minFilter, minstr);
+  SamplerState::getConstant(s.magFilter, magstr);
+  results.push(std::string(minstr), false);
+  results.push(std::string(magstr), false);
+  results.push(static_cast<int>(s.maxAnisotropy), false);
+  return results;
+}
+
+// Font:getAscent: w_Font_getAscent (wrap_Font.cpp:183-188).
+int w_Font_getAscent(const Font &t) {
+  require_main_thread(MODULE);
+  return t.getAscent();
+}
+
+// Font:getDescent: w_Font_getDescent (wrap_Font.cpp:190-195).
+int w_Font_getDescent(const Font &t) {
+  require_main_thread(MODULE);
+  return t.getDescent();
+}
+
+// Font:getBaseline: w_Font_getBaseline (wrap_Font.cpp:197-202).
+double w_Font_getBaseline(const Font &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getBaseline());
+}
+
+// Font:getDPIScale: w_Font_getDPIScale (wrap_Font.cpp:264-269).
+double w_Font_getDPIScale(const Font &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getDPIScale());
+}
+
 // love.graphics.reset: w_reset (wrap_Graphics.cpp:63-67).
 void w_reset() { instance()->reset(); }
 
@@ -702,6 +775,18 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("pixel_height", &w_getPixelHeight)
       .define_singleton_function("pixel_dimensions", &w_getPixelDimensions)
       .define_singleton_function("flush_batch", &w_flushBatch);
+  Rice::define_class_under<Font>(Rice::define_module_under(native, "Graphics"), "Font")
+      .define_method("height", &w_Font_getHeight)
+      .define_method("line_height", &w_Font_getLineHeight)
+      .define_method("set_line_height", &w_Font_setLineHeight, Rice::Arg("h"))
+      .define_method("ascent", &w_Font_getAscent)
+      .define_method("descent", &w_Font_getDescent)
+      .define_method("baseline", &w_Font_getBaseline)
+      .define_method("dpi_scale", &w_Font_getDPIScale)
+      .define_method("set_filter", &w_Font_setFilter, Rice::Arg("minstr"),
+                     Rice::Arg("magstr") = std::optional<std::string>(),
+                     Rice::Arg("max_anisotropy") = 1.0)
+      .define_method("filter", &w_Font_getFilter);
   Rice::define_class_under<Quad>(native, "Quad")
       .define_method("viewport", &w_Quad_getViewport)
       .define_method("texture_dimensions", &w_Quad_getTextureDimensions)

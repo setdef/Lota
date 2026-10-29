@@ -13,6 +13,35 @@ module Lota
       type argument = Filesystem::FileData | Integer | Float | Symbol | String
 
       private def native_font: ((Filesystem::FileData | String)? data, argument? size, argument? hinting, argument? dpiscale, bool sdf) -> Native::Graphics::Font
+
+      def height: () -> Float
+
+      def width: (String | Integer | Float text) -> Float
+
+      def wrap: (Graphics::text text, Float | Integer wraplimit) -> [Float, Array[String]]
+
+      def line_height=: (Float | Integer height) -> void
+
+      def line_height: () -> Float
+
+      def filter=: (Symbol | String | Array[Symbol | String | Integer | Float | nil] filter) -> void
+
+      def filter: () -> [Symbol, Symbol, Integer]
+
+      def ascent: () -> Integer
+
+      def descent: () -> Integer
+
+      def baseline: () -> Float
+
+      def glyphs?: (*(String | Integer | Float) glyphs) -> bool
+
+      def kerning: (String left, String right) -> Float
+                 | (Integer | Float left, Integer | Float right) -> Float
+
+      def fallbacks=: (Font | Array[Font] fonts) -> void
+
+      def dpi_scale: () -> Float
     end
   end
 end

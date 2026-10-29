@@ -1025,7 +1025,8 @@ module Lota
     # luax_checkcoloredstring (src/modules/font/wrap_Font.cpp:33-76): text
     # as parts, each a String and the color it is drawn in, white until a
     # color comes before it, with alpha 1 when left out.
-    private_class_method def self.colored_text(text)
+    # Lota::Graphics::Font#wrap reads text as print does. :nodoc:
+    def self.colored_text(text)
       return [[text, 1.0, 1.0, 1.0, 1.0]] if text.is_a?(String)
 
       color = [1.0, 1.0, 1.0, 1.0] #: [Float | Integer, Float | Integer, Float | Integer, Float | Integer]

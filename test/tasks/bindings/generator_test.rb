@@ -437,6 +437,24 @@ class GeneratorTest < Minitest::Test
     assert_match(/\Alove\.graphics\.print still reaches Lua after its port: /, error.message)
   end
 
+  # A class named as another of LÖVE's modules, as Font is named as
+  # love.font, lives under the module that registers it, as
+  # Lota::Native::Graphics::Font, since Lota::Native::Font is love.font's.
+  # Data, registered by love.data itself, stays where it is.
+  def test_a_class_named_as_another_module_lives_under_its_own
+    list = Bindings::BindingList.new
+    list.generate("Font:getHeight")
+    list.generate("Data:getSize")
+    files = BindingsHelper.generator(list:).files
+
+    assert_includes files.fetch("ext/lota/native/generated/graphics.cpp"),
+      %(Rice::define_class_under<Font>(Rice::define_module_under(native, "Graphics"), "Font"))
+    assert_includes files.fetch("ext/lota/native/generated/data.cpp"), %(Rice::define_class_under<Data>(native, "Data"))
+    rbs = files.fetch("sig/lota/native/generated.rbs")
+    assert_match(/^    module Graphics\n      class Font\n        def height: \(\) -> Float\n      end\n    end$/, rbs)
+    assert_match(/^    class Data\n/, rbs)
+  end
+
   def test_a_pointer_to_what_new_makes_is_declared_auto
     assert_includes port("Transform:__mul").definition, "auto *t3 = new Transform(t1.getMatrix() * t2->getMatrix());"
   end

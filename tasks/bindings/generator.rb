@@ -270,9 +270,27 @@ module Bindings
         lines << %(Rice::define_module_under(native, "#{name.capitalize}")#{singleton.map(&:registration).join}; )
       end
       methods.group_by { |port| port.function.type_name }.sort.each do |type, list|
-        lines << %(Rice::define_class_under<#{type}>(native, "#{type}")#{list.map(&:registration).join};)
+        parent = home(type, list) ? %(Rice::define_module_under(native, "#{home(type, list)}")) : "native"
+        lines << %(Rice::define_class_under<#{type}>(#{parent}, "#{type}")#{list.map(&:registration).join};)
       end
       lines.join("\n")
+    end
+
+    # The module a class lives under when its name is another of LÖVE's
+    # modules' names, as Font, which love.graphics registers, is love.font's
+    # name: Lota::Native::Font is love.font's module, so Font is
+    # Lota::Native::Graphics::Font. nil for every other class, Data among
+    # them, which love.data both names and registers.
+    private def home(type, ports)
+      module_name = ports.first.function.module_name
+      return nil if type.downcase == module_name || !love_modules.include?(type.downcase)
+
+      module_name.capitalize
+    end
+
+    # The names of LÖVE's modules, as love.font's is "font".
+    private def love_modules
+      @love_modules ||= survey.entries.map { |entry| entry.function.module_name }.uniq
     end
 
     # The headers a module's file includes: Lota's, then LÖVE's, then the
@@ -485,7 +503,8 @@ module Bindings
         blocks = []
         blocks << rbs_block("module #{name.capitalize}", singleton) if singleton.any?
         methods.group_by { |port| port.function.type_name }.sort.each do |type, list|
-          blocks << rbs_block("class #{type}", list)
+          home = home(type, list)
+          blocks << (home ? nested_rbs_block(home, type, list) : rbs_block("class #{type}", list))
         end
         blocks
       end.flatten
@@ -494,6 +513,11 @@ module Bindings
 
     private def rbs_block(opening, ports)
       "    #{opening}\n#{ports.map { |port| "      #{port.rbs}" }.join("\n\n")}\n    end"
+    end
+
+    # The class +type+ inside its module +home+, as home places it.
+    private def nested_rbs_block(home, type, ports)
+      "    module #{home}\n      class #{type}\n#{ports.map { |port| "        #{port.rbs}" }.join("\n\n")}\n      end\n    end"
     end
 
     private def format(code)

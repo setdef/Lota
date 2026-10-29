@@ -3,9 +3,9 @@
 
 module Lota
   module Window
-    def self.set_mode: (Integer width, Integer height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: bool?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
+    def self.set_mode: (Integer width, Integer height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: (bool | Integer | Float)?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?display: (Integer | Float)?, ?highdpi: bool?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
 
-    def self.update_mode: (?(Integer | Float)? width, ?(Integer | Float)? height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: bool?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
+    def self.update_mode: (?(Integer | Float)? width, ?(Integer | Float)? height, ?fullscreen: bool?, ?fullscreentype: (Symbol | String)?, ?vsync: (Integer | bool)?, ?msaa: Integer?, ?stencil: bool?, ?depth: (bool | Integer | Float)?, ?resizable: bool?, ?minwidth: Integer?, ?minheight: Integer?, ?borderless: bool?, ?centered: bool?, ?displayindex: Integer?, ?display: (Integer | Float)?, ?highdpi: bool?, ?usedpiscale: bool?, ?refreshrate: (Integer | Float)?, ?x: Integer?, ?y: Integer?) -> bool
 
     def self.mode: () -> [Integer, Integer, Mode]
 
@@ -13,7 +13,15 @@ module Lota
 
     def self.safe_area: () -> Array[Integer]
 
-    private def self.read_window_settings: (Native::WindowSettings settings, fullscreen: bool?, fullscreentype: (Symbol | String)?, vsync: (Integer | bool)?, msaa: Integer?, stencil: bool?, depth: bool?, resizable: bool?, minwidth: Integer?, minheight: Integer?, borderless: bool?, centered: bool?, displayindex: Integer?, usedpiscale: bool?, x: Integer?, y: Integer?) -> Native::WindowSettings
+    private def self.read_window_settings: (Native::WindowSettings settings, fullscreen: bool?, fullscreentype: (Symbol | String)?, vsync: (Integer | bool)?, msaa: Integer?, stencil: bool?, depth: (bool | Integer | Float)?, resizable: bool?, minwidth: Integer?, minheight: Integer?, borderless: bool?, centered: bool?, displayindex: Integer?, display: (Integer | Float)?, highdpi: bool?, usedpiscale: bool?, x: Integer?, y: Integer?, where: String) -> Native::WindowSettings
+
+    private def self.depth_of: (::Object? value, bool default, String where) -> bool
+
+    private def self.deprecated_display: (::Object value, String where) -> Integer
+
+    private def self.deprecated_highdpi: (::Object value, String where) -> void
+
+    private def self.where: (Array[Thread::Backtrace::Location]? locations) -> String
 
     private def self.flag: (::Object? value, bool default) -> bool
 
@@ -24,6 +32,8 @@ module Lota
     def self.title=: (String title) -> void
 
     def self.title: () -> String
+
+    def self.high_dpi_allowed?: () -> bool
 
     def self.open?: () -> bool
   end

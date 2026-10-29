@@ -339,8 +339,8 @@ module Lota
     # name for LÖVE's argv[0], and is marked fused or not then
     # (love.filesystem.setFused, boot.lua:90-92). A source already set
     # stays, as love.filesystem.setSource refuses a second, and boot.lua
-    # calls it with pcall. LÖVE also stops printing deprecation warnings
-    # in a fused game (line 94); Lota prints none yet.
+    # calls it with pcall. Notices of deprecated names are printed unless
+    # the game is fused (line 96), as Lota::Deprecation prints them.
     #
     # Then it names the game's save directory after its folder, as
     # boot.lua does for a game folder (lines 136-150), with pcall, so that
@@ -352,6 +352,7 @@ module Lota
         Native::Filesystem.init($PROGRAM_NAME)
         Filesystem.fused = @fused
       end
+      Deprecation.output = !Filesystem.fused?
       begin
         Native::Filesystem.set_source(@directory)
       rescue RuntimeError
@@ -464,6 +465,8 @@ module Lota
         borderless: window.borderless,
         centered: window.centered,
         displayindex: window.displayindex,
+        display: window.display,
+        highdpi: window.highdpi,
         usedpiscale: window.usedpiscale,
         x: window.x,
         y: window.y)

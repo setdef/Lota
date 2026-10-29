@@ -480,6 +480,22 @@ module Lota
         def object_type: () -> String
 
         def type_of?: (String name) -> bool
+
+        def text_width: (String text) -> Float
+
+        def glyph_width: (Integer | Float glyph) -> Float
+
+        def wrap: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Float | Integer wraplimit) -> [Float, Array[String]]
+
+        def text_glyphs?: (String text) -> bool
+
+        def glyph?: (Integer | Float glyph) -> bool
+
+        def text_kerning: (String left, String right) -> Float
+
+        def glyph_kerning: (Integer | Float left, Integer | Float right) -> Float
+
+        def set_fallbacks: (Array[Font] fallbacks) -> nil
       end
     end
 

@@ -61,6 +61,11 @@ module Lota
     #   by default.
     # [displayindex] Integer display to open on, counting from 1; 1 by
     #   default.
+    # [display] Deprecated, as in LÖVE, for +displayindex+, which it
+    #   replaces when given: an Integer display, counting from 1.
+    # [highdpi] Deprecated, as in LÖVE, for +t.highdpi+ in Lota.conf:
+    #   +true+ or +false+, whether high DPI is allowed, which changes only
+    #   while no window is open.
     # [usedpiscale] Whether sizes count in units of the DPI scale rather
     #   than in pixels; +true+ by default.
     # [refreshrate] Ignored, as LÖVE ignores it: the refresh rate is
@@ -72,22 +77,26 @@ module Lota
     # Each setting left out, or +nil+, takes its default, which is not the
     # window's current value. Integer settings ignore a value that is not
     # a number, and true-or-false settings take any value's truthiness, as
-    # LÖVE reads its table. Returns +false+ when the system refuses the
-    # mode, so the game can fall back (ADR 001, rule 7). Raises
-    # ArgumentError for an unknown +fullscreentype+, RuntimeError with
-    # LÖVE's message while a canvas is the target, and ThreadError off the
-    # main thread.
+    # LÖVE reads its table; a number for +depth+, LÖVE 11's form, is
+    # whether it is not zero. The first use of each deprecated form prints
+    # LÖVE's notice (Lota::Deprecation). Returns +false+ when the system
+    # refuses the mode, so the game can fall back (ADR 001, rule 7).
+    # Raises ArgumentError for an unknown +fullscreentype+, TypeError for a
+    # +display+ that is not a number or a +highdpi+ that is not +true+ or
+    # +false+, RuntimeError with LÖVE's message while a canvas is the
+    # target, and ThreadError off the main thread.
     #
     # === Example
     #
     #   Lota::Window.set_mode(800, 600, resizable: true, minwidth: 400, minheight: 300)
     def self.set_mode(width, height, fullscreen: nil, fullscreentype: nil, vsync: nil, msaa: nil, stencil: nil,
       depth: nil, resizable: nil, minwidth: nil, minheight: nil, borderless: nil, centered: nil, displayindex: nil,
-      usedpiscale: nil, refreshrate: nil, x: nil, y: nil
+      display: nil, highdpi: nil, usedpiscale: nil, refreshrate: nil, x: nil, y: nil
     )
       _ = refreshrate
       settings = read_window_settings(Native::WindowSettings.new, fullscreen:, fullscreentype:, vsync:, msaa:,
-        stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, usedpiscale:, x:, y:)
+        stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, display:, highdpi:,
+        usedpiscale:, x:, y:, where: where(caller_locations(1, 1)))
       Native::Window.set_mode(width, height, settings)
     end
 
@@ -115,7 +124,7 @@ module Lota
     #   Lota::Window.update_mode(resizable: true)
     def self.update_mode(width = nil, height = nil, fullscreen: nil, fullscreentype: nil, vsync: nil, msaa: nil,
       stencil: nil, depth: nil, resizable: nil, minwidth: nil, minheight: nil, borderless: nil, centered: nil,
-      displayindex: nil, usedpiscale: nil, refreshrate: nil, x: nil, y: nil
+      displayindex: nil, display: nil, highdpi: nil, usedpiscale: nil, refreshrate: nil, x: nil, y: nil
     )
       settings = Native::WindowSettings.new
       w, h = Native::Window.get_window(settings)
@@ -132,6 +141,8 @@ module Lota
         borderless,
         centered,
         displayindex,
+        display,
+        highdpi,
         usedpiscale,
         refreshrate,
         x,
@@ -145,7 +156,8 @@ module Lota
       end
       unless given.all?(&:nil?)
         read_window_settings(settings, fullscreen:, fullscreentype:, vsync:, msaa:, stencil:, depth:, resizable:,
-          minwidth:, minheight:, borderless:, centered:, displayindex:, usedpiscale:, x:, y:)
+          minwidth:, minheight:, borderless:, centered:, displayindex:, display:, highdpi:, usedpiscale:, x:, y:,
+          where: where(caller_locations(1, 1)))
       end
       Native::Window.set_mode(w, h, settings)
     end
@@ -213,7 +225,8 @@ module Lota
     # replaces the one +settings+ holds, which is the default for set_mode
     # and the window's own for update_mode.
     private_class_method def self.read_window_settings(settings, fullscreen:, fullscreentype:, vsync:, msaa:,
-      stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, usedpiscale:, x:, y:
+      stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, display:, highdpi:,
+      usedpiscale:, x:, y:, where:
     )
       unless fullscreentype.nil? || settings.set_fullscreentype(fullscreentype.to_s)
         expected = Native::Window.fullscreen_types.map { |name| "'#{name}'" }.join(", ")
@@ -228,8 +241,10 @@ module Lota
       settings.borderless = flag(borderless, settings.borderless)
       settings.centered = flag(centered, settings.centered)
       settings.usedpiscale = flag(usedpiscale, settings.usedpiscale)
-      settings.depth = flag(depth, settings.depth)
+      settings.depth = depth_of(depth, settings.depth, where)
       settings.displayindex = integer(displayindex, settings.displayindex + 1) - 1
+      settings.displayindex = deprecated_display(display, where) - 1 unless display.nil?
+      deprecated_highdpi(highdpi, where) unless highdpi.nil?
       settings.vsync = vsync_of(vsync, settings.vsync)
       settings.useposition = !(x.nil? && y.nil?)
       if settings.useposition
@@ -237,6 +252,44 @@ module Lota
         settings.y = y.to_i
       end
       settings
+    end
+
+    # depth (wrap_Window.cpp:78-86): a number, LÖVE 11's form, marked
+    # deprecated, is whether it is not zero; anything else but nil is its
+    # truthiness.
+    private_class_method def self.depth_of(value, default, where)
+      return flag(value, default) unless value.is_a?(Integer) || value.is_a?(Float)
+
+      Deprecation.mark("window.depth number", :field, :replaced, "window.depth boolean field", where:)
+      value.to_i != 0
+    end
+
+    # display (wrap_Window.cpp:89-96), marked deprecated: the display,
+    # counting from 1, which must be a number (luaL_checkinteger).
+    private_class_method def self.deprecated_display(value, where)
+      Deprecation.mark("window.display", :field, :replaced, "displayindex field", where:)
+      case value
+      when Integer, Float then value.to_i
+      else raise TypeError, "wrong argument type #{value.class} for display (expected Integer)"
+      end
+    end
+
+    # highdpi (wrap_Window.cpp:98-107), marked deprecated: whether high DPI
+    # is allowed, which must be true or false (luax_checkboolean), and which
+    # changes only while no window is open, as setHighDPIAllowed does.
+    private_class_method def self.deprecated_highdpi(value, where)
+      Deprecation.mark("window.highdpi", :field, :replaced, "t.highdpi in Lota.conf", where:)
+      case value
+      when true, false then Native::Window.set_high_dpi_allowed(value) unless Native::Window.window_open?
+      else raise TypeError, "wrong argument type #{value.class} for highdpi (expected true or false)"
+      end
+    end
+
+    # Where a caller called from, as luaL_where gives it for level 1: its
+    # file and line and a colon and space, or nothing when unknown.
+    private_class_method def self.where(locations)
+      location = locations&.first
+      location ? "#{location.path}:#{location.lineno}: " : ""
     end
 
     # luax_boolflag (src/common/runtime.cpp): the default when nil, else
@@ -289,6 +342,19 @@ module Lota
     #   Lota::Window.title # => "Untitled"
     def self.title
       Native::Window.title.force_encoding(Encoding::UTF_8)
+    end
+
+    # Whether the window may use the screen's full resolution where the
+    # system scales it, as on a Retina display, matching
+    # love.window.isHighDPIAllowed (src/modules/window/wrap_Window.cpp,
+    # w_isHighDPIAllowed). +t.highdpi+ in Lota.conf sets it, and so does
+    # the deprecated +t.window.highdpi+, as in LÖVE.
+    #
+    # === Example
+    #
+    #   Lota::Window.high_dpi_allowed? # => false
+    def self.high_dpi_allowed?
+      Native::Window.high_dpi_allowed?
     end
 
     # Whether the window is open, matching love.window.isOpen

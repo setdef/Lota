@@ -54,6 +54,8 @@ class SettingsTest < Minitest::Test
     assert_nil window.title
     assert_nil window.stencil
     assert_nil window.depth
+    assert_nil window.display
+    assert_nil window.highdpi
   end
 
   def test_the_graphics_defaults_are_loves

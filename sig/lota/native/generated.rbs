@@ -183,6 +183,28 @@ module Lota
       def self.flush_batch: () -> nil
     end
 
+    module Graphics
+      class Font
+        def height: () -> Float
+
+        def line_height: () -> Float
+
+        def set_line_height: (Float | Integer h) -> nil
+
+        def ascent: () -> Integer
+
+        def descent: () -> Integer
+
+        def baseline: () -> Float
+
+        def dpi_scale: () -> Float
+
+        def set_filter: (String minstr, ?String? magstr, ?(Float | Integer) max_anisotropy) -> nil
+
+        def filter: () -> [String, String, Integer]
+      end
+    end
+
     class Quad
       def viewport: () -> [Float, Float, Float, Float]
 
@@ -545,6 +567,8 @@ module Lota
       def self.title: () -> String
 
       def self.window_open?: () -> bool
+
+      def self.high_dpi_allowed?: () -> bool
     end
   end
 end

@@ -124,7 +124,7 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics (its Quad and SpriteBatch tests among them),
+  # love.graphics (its Font, Quad, and SpriteBatch tests among them),
   # love.audio, love.sound, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.window, love.filesystem, and love.physics tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
@@ -135,11 +135,11 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 34600 - (3 * 32 * 32) + 1 : 34600
+    assertions = skipped ? 34874 - (3 * 32 * 32) + 1 : 34874
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^153 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
+    assert_match(/^154 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -522,6 +522,36 @@ class LotaRunTest < Minitest::Test
 
       assert_predicate status, :success?, output
       assert_equal "#{[self.class.save_directory('kleleatoms', fused: true), true].inspect}\n", output
+    end
+  end
+
+  # LÖVE 12 still honors the deprecated t.window.highdpi: boot.lua passes
+  # it to setMode (boot.lua:421), which, before the window opens, allows
+  # high DPI as t.highdpi does, and prints its notice, unless the game is
+  # fused (boot.lua:96, wrap_Window.cpp:98-107).
+  def test_the_deprecated_window_highdpi_still_allows_high_dpi
+    conf = "def Lota.conf(t) = (t.window.highdpi = true)\n"
+    main = "def Lota.load = (p Lota::Window.high_dpi_allowed?; Lota::Event.quit)\n"
+    in_game("conf.rb" => conf, "main.rb" => main) do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      notice = "Using deprecated field window.highdpi (replaced by t.highdpi in Lota.conf)"
+      assert_match(%r{\ALota - Warning: \S+/lib/lota/boot\.rb:\d+: #{Regexp.escape(notice)}\ntrue\n\z}, output)
+    end
+    in_game("main.rb" => main) do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "false\n", output
+    end
+    in_game("conf.rb" => conf, "main.rb" => main) do |directory|
+      native = File.dirname(File.dirname(loaded("lota/native")))
+      output, status = capture2e({}, RbConfig.ruby, "-w", "-I#{native}#{File::PATH_SEPARATOR}#{File.join(ROOT, 'lib')}",
+        "-rlota", "-e", "exit Lota::Boot.new(ARGV.first, fused: true).call", directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "true\n", output, "a fused game prints no notices"
     end
   end
 

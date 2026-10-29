@@ -56,7 +56,11 @@ module Lota
 
       attr_accessor stencil: bool?
 
-      attr_accessor depth: bool?
+      attr_accessor depth: (bool | Integer | Float)?
+
+      attr_accessor display: (Integer | Float)?
+
+      attr_accessor highdpi: bool?
 
       def initialize: () -> void
     end
