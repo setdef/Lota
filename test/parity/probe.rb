@@ -70,6 +70,10 @@ module Parity
     FRAMES_DIR = ENV.fetch("LOTA_PARITY_FRAMES_DIR")
     REPORT = ENV.fetch("LOTA_PARITY_REPORT")
     MISMATCH_DIR = ENV.fetch("LOTA_PARITY_MISMATCH_DIR")
+    # The file the number of the last frame shown goes to, for the harness
+    # to tell a slow run from a stuck one (Parity.run). LÖVE's run needs no
+    # such file: the frames it saves are its progress.
+    PROGRESS = ENV.fetch("LOTA_PARITY_PROGRESS")
     FRAMES = Integer(ENV.fetch("LOTA_PARITY_FRAMES"))
     # 1 / 60 in Lua divides as Floats; 1 / 60 in Ruby would not.
     DT = 1 / Float(ENV.fetch("LOTA_PARITY_FPS"))
@@ -258,6 +262,7 @@ module Parity
 
         Lota::Native::Graphics.capture_screenshot(lambda do |native|
           Probe.compare(number, native)
+          File.write(PROGRESS, number.to_s)
           Lota::Event.quit if Probe.last_frame?(number)
         end)
       end

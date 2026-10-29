@@ -24,12 +24,19 @@ module Parity
   ARKANOID = File.join(ROOT, "test/fixtures/love2d_arkanoid_tutorial")
   ARKANOID_TRANSLATED = File.join(ROOT, "test/games/arkanoid")
 
-  # How long either engine may take to run a game before it is stopped and
-  # the run fails: a dialog waiting for a click would wait for good. On
-  # Linux both draw through Mesa's software renderer, on CI's virtual
-  # display, which takes several times as long over the 2,520 frames of
-  # Gravity-Wars, each read back and saved.
-  TIMEOUT = TestHome::LINUX ? 600 : 120
+  # How long either engine may go without showing a new frame before the
+  # run is taken to be stuck, stopped, and failed: a dialog waiting for a
+  # click, or a hang, would wait for good. A run is never stopped for being
+  # slow, only for standing still, so a loaded machine, or Mesa's software
+  # renderer on CI's virtual display, makes a run longer but never fails
+  # it. The longest wait between two frames of a healthy run is before the
+  # first, while the engine starts, opens its window, and loads the game,
+  # which takes a few seconds on an idle machine; a minute leaves room for
+  # that start to run many times slower, on a machine loaded several
+  # hundred processes deep, and still stops a stuck run within one. No cap
+  # on the whole run is needed: both sides quit after the script's last
+  # frame, so a run that keeps showing frames ends.
+  STALL = 60
 
   # What a run of one engine printed, and how it ended.
   Output = Data.define(:text, :status)
@@ -180,7 +187,11 @@ module Parity
       Dir.mkdir(@sounds_dir)
       environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
         **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio), **MEMORY)
-      @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"))
+      shown = 0
+      @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"), side: "The reference love") do
+        shown += 1 while File.exist?(File.join(@frames_dir, format("%04d.png", shown + 1)))
+        shown
+      end
     end
 
     # The frames LÖVE showed, as PNG files, in order.
@@ -213,12 +224,16 @@ module Parity
       @audio = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.f32")
       @sounds_dir = File.join(directory, "lota-sounds-#{object_id}")
       Dir.mkdir(@sounds_dir)
+      progress = File.join(directory, "lota-progress-#{object_id}")
       environment = script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
         "LOTA_PARITY_REPORT" => report, **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir,
-        "LOTA_PARITY_MISMATCH_DIR" => @mismatch_dir, **Parity.loopback(@audio), **MEMORY)
+        "LOTA_PARITY_MISMATCH_DIR" => @mismatch_dir, "LOTA_PARITY_PROGRESS" => progress, **Parity.loopback(@audio),
+        **MEMORY)
       native_test = LIB
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
-        "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game)
+        "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game, side: "Lota") do
+        File.exist?(progress) ? File.read(progress).to_i : 0
+      end
       @report = File.exist?(report) ? JSON.parse(File.read(report)) : {}
     end
 
@@ -234,17 +249,45 @@ module Parity
   end
 
   # Runs +command+ with +environment+ added to this process's, and returns
-  # its Output, its standard output and error interleaved. A command still
-  # running after TIMEOUT seconds is killed.
-  def self.run(environment, *command)
+  # its Output, its standard output and error interleaved. The block
+  # answers the last frame the command has shown, counting from 1, or 0
+  # before the first. A command that shows no new frame for +stall+
+  # seconds is stuck: it is killed, and its Output ends with a line that
+  # says so, naming it as +side+.
+  def self.run(environment, *command, side:, stall: STALL, &shown)
     Open3.popen2e(environment, *command) do |stdin, output, wait|
       stdin.close
       reader = Thread.new { output.read }
-      unless wait.join(TIMEOUT)
-        Process.kill(:KILL, wait.pid)
-        wait.join
-      end
-      Output.new(reader.value, wait.value)
+      stuck = Parity.stuck(wait, stall, &shown)
+      Process.kill(:KILL, wait.pid) if stuck
+      wait.join
+      Output.new(stuck ? reader.value + Parity.stopped(side, stall, stuck) : reader.value, wait.value)
     end
+  end
+
+  # The line a run's Output ends with when +side+ showed no frame after
+  # +frame+, 0 before its first, for +stall+ seconds and was stopped.
+  def self.stopped(side, stall, frame)
+    "#{side} showed no new frame for #{stall} seconds, after #{frame.zero? ? 'starting' : "frame #{frame}"}, " \
+      "and was stopped.\n"
+  end
+
+  # Waits for the process +wait+ waits on to end, and returns +nil+; or,
+  # if the block, which answers the last frame it has shown, answers no
+  # later frame for +stall+ seconds, returns the last one it did answer.
+  def self.stuck(wait, stall)
+    last = yield
+    since = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    until wait.join([stall / 4.0, 1].min)
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      frame = yield
+      if frame > last
+        last = frame
+        since = now
+      elsif now - since >= stall
+        return last
+      end
+    end
+    nil
   end
 end
