@@ -11,6 +11,7 @@
 
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "filesystem/File.h"
 #include "filesystem/FileData.h"
 #include "filesystem/Filesystem.h"
 
@@ -45,12 +46,18 @@ Filesystem *instance() {
 // (vendor/love/src/modules/filesystem), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// File:close: w_File_close (wrap_File.cpp:96-101).
+bool w_File_close(File &file) { return file.close(); }
+
 // FileData:clone: w_FileData_clone (wrap_FileData.cpp:35-42).
 FileData *w_FileData_clone(const FileData &t) {
   FileData *c = nullptr;
   c = t.clone();
   return c;
 }
+
+// FileData:getFilename: w_FileData_getFilename (wrap_FileData.cpp:44-49).
+std::string w_FileData_getFilename(const FileData &t) { return t.getFilename(); }
 
 // love.filesystem.init: w_init (wrap_Filesystem.cpp:52-57).
 void w_init(const std::string &arg0) { instance()->init(arg0.c_str()); }
@@ -103,8 +110,10 @@ void define_generated_filesystem(const Rice::Module &native) {
       .define_singleton_function("save_directory", &w_getSaveDirectory)
       .define_singleton_function("create_directory", &w_createDirectory, Rice::Arg("arg"))
       .define_singleton_function("remove", &w_remove, Rice::Arg("arg"));
+  Rice::define_class_under<File>(native, "File").define_method("close", &w_File_close);
   Rice::define_class_under<FileData>(native, "FileData")
-      .define_method("clone", &w_FileData_clone, Rice::Return().takeOwnership());
+      .define_method("clone", &w_FileData_clone, Rice::Return().takeOwnership())
+      .define_method("filename", &w_FileData_getFilename);
 }
 
 } // namespace lota::native

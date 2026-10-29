@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "filesystem/file"
 require_relative "filesystem/file_data"
 require_relative "filesystem/info"
 
@@ -205,6 +206,26 @@ module Lota
     #   Lota::Filesystem.read("missing.txt") # => [nil, "Could not open file missing.txt. Does not exist."]
     def self.read(filename, size = nil)
       Native::Filesystem.read(filename, size || -1)
+    end
+
+    # Opens +filename+ in +mode+, matching love.filesystem.openFile
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_openFile), and
+    # returns an Array of the Lota::Filesystem::File (ADR 001, rule 4), or
+    # of +nil+ and LÖVE's message when it cannot be opened.
+    #
+    # [filename] The file's name, in the game's folder or its save
+    #   directory, which a file opened to write or append is in.
+    # [mode] +:r+ to read, +:w+ to write, +:a+ to append, or +:c+ to leave
+    #   it closed (ADR 001, rule 9).
+    #
+    # Raises ArgumentError for a mode LÖVE does not know.
+    #
+    # === Example
+    #
+    #   file, message = Lota::Filesystem.open_file("save.dat", :r)
+    def self.open_file(filename, mode)
+      native, message = Native::Filesystem.open_file(filename, EnumName.of(mode))
+      native ? [File.from_native(native)] : [nil, message.to_s]
     end
 
     # Writes a file in the save directory, replacing any file of the

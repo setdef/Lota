@@ -285,7 +285,13 @@ bound_from_lua "ImageData:getHeight"
 bound_from_lua "ImageData:getPixel"
 bound_from_lua "ImageData:setPixel"
 bound_from_lua "ImageData:mapPixel"
+bound_from_lua "ImageData:getDimensions"
+bound_from_lua "ImageData:getFormat"
 generate "ImageData:clone"
+generate "ImageData:encode"
+generate "ImageData:paste"
+generate "ImageData:isLinear"
+generate "ImageData:setLinear"
 bound_by_hand "love.image.newImageData",
   reason: "chooses among its forms by its arguments' kinds, and reads raw bytes from a string or any Data " \
     "(luax_istype); Lota binds the form that decodes Data and the form with a size, a pixel format, and bytes"
@@ -694,3 +700,8 @@ bound_by_hand "Font:getWrap",
 bound_by_hand "Font:setFallbacks",
   reason: "reads every argument after the first as a Font, at positions it computes; Lota binds an Array " \
     "of them"
+bound_by_hand "love.filesystem.openFile",
+  reason: "returns luax_ioError's nil and message from a catch block, which the generator does not port; " \
+    "Lota returns the File, or the nil and message, as one Array (rule 4)"
+generate "File:close"
+generate "FileData:getFilename"

@@ -21,6 +21,8 @@ module Lota
 
     def self.read: (String filename, ?Integer? size) -> ([String, Integer] | [nil, String])
 
+    def self.open_file: (String filename, Symbol | String mode) -> ([File] | [nil, String])
+
     def self.write: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])
 
     def self.lines: (String filename) -> Enumerator[String, void]

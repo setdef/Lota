@@ -8,8 +8,14 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
+#include "filesystem/FileData.h"
+#include "image/FormatHandler.h"
 #include "image/ImageData.h"
+
+#include <optional>
+#include <string>
 
 namespace lota::native {
 
@@ -35,13 +41,51 @@ ImageData *w_ImageData_clone(const ImageData &t) {
   return c;
 }
 
+// ImageData:setLinear: w_ImageData_setLinear (wrap_ImageData.cpp:69-74).
+void w_ImageData_setLinear(ImageData &t, bool linear) { t.setLinear(linear); }
+
+// ImageData:isLinear: w_ImageData_isLinear (wrap_ImageData.cpp:76-81).
+bool w_ImageData_isLinear(const ImageData &t) { return t.isLinear(); }
+
+// ImageData:paste: w_ImageData_paste (wrap_ImageData.cpp:223-235).
+void w_ImageData_paste(ImageData &t, ImageData *src, int dx, int dy, int sx, int sy,
+                       std::optional<int> sw, std::optional<int> sh) {
+  t.paste(src, dx, dy, sx, sy, sw.value_or(src->getWidth()), sh.value_or(src->getHeight()));
+}
+
+// ImageData:encode: w_ImageData_encode (wrap_ImageData.cpp:237-262).
+love::filesystem::FileData *w_ImageData_encode(const ImageData &t, const std::string &format,
+                                               const std::optional<std::string> &argument2) {
+  FormatHandler::EncodedFormat format_value{};
+  if (!ImageData::getConstant(format.c_str(), format_value)) {
+    raise_enum_error("encoded image format", ImageData::getConstants(format_value), format);
+  }
+  bool hasfilename = false;
+  std::string filename = "Image." + format;
+  if (argument2.has_value()) {
+    hasfilename = true;
+    filename = required(argument2, "argument2");
+  }
+  love::filesystem::FileData *filedata = nullptr;
+  filedata = t.encode(format_value, filename.c_str(), hasfilename);
+  return filedata;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_generated_image(const Rice::Module &native) {
   Rice::define_class_under<ImageData>(native, "ImageData")
-      .define_method("clone", &w_ImageData_clone, Rice::Return().takeOwnership());
+      .define_method("clone", &w_ImageData_clone, Rice::Return().takeOwnership())
+      .define_method("encode", &w_ImageData_encode, Rice::Arg("format"),
+                     Rice::Arg("argument2") = std::optional<std::string>(),
+                     Rice::Return().takeOwnership())
+      .define_method("paste", &w_ImageData_paste, Rice::Arg("src"), Rice::Arg("dx"),
+                     Rice::Arg("dy"), Rice::Arg("sx") = 0, Rice::Arg("sy") = 0,
+                     Rice::Arg("sw") = std::optional<int>(), Rice::Arg("sh") = std::optional<int>())
+      .define_method("linear?", &w_ImageData_isLinear)
+      .define_method("set_linear", &w_ImageData_setLinear, Rice::Arg("linear"));
 }
 
 } // namespace lota::native

@@ -91,6 +91,14 @@ module Lota
       def type_of?: (String name) -> bool
     end
 
+    class File
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
     class ImageData < Data
       def self.cpp_class: () -> String
 
@@ -101,6 +109,8 @@ module Lota
       def width: () -> Integer
 
       def height: () -> Integer
+
+      def format: () -> String
 
       def pixel: (Float | Integer x, Float | Integer y) -> Array[Float]
 
@@ -201,6 +211,8 @@ module Lota
       def self.info: (String filepath, ?String? filtertype) -> [String, bool, Integer?, Integer?]?
 
       def self.read: (String filename, ?Integer size) -> ([String, Integer] | [nil, String])
+
+      def self.open_file: (String filename, String mode) -> ([File] | [nil, String])
 
       def self.write_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
 

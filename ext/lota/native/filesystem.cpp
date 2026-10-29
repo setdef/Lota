@@ -173,6 +173,27 @@ Rice::Array read(const std::string &filename, long long size) {
   return results;
 }
 
+// w_openFile (wrap_Filesystem.cpp:230-252): +filename+ opened in the
+// mode +modestr+ names, as a File, or luax_ioError's nil and message, as
+// one Array either way (ADR 001, rule 4). Ruby's wrapper keeps its own
+// reference to the File, so this one is released.
+Rice::Array open_file(const std::string &filename, const std::string &modestr) {
+  File::Mode mode = File::MODE_CLOSED;
+  if (!File::getConstant(modestr.c_str(), mode)) {
+    raise_enum_error("file open mode", File::getConstants(mode), modestr);
+  }
+  File *file = nullptr;
+  try {
+    file = filesystem()->openFile(filename.c_str(), mode);
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  const love::StrongRef<File> held(file, love::Acquire::NORETAIN);
+  Rice::Array results;
+  results.push(file, false);
+  return results;
+}
+
 // w_write_or_append with File::MODE_WRITE (wrap_Filesystem.cpp:661-701):
 // writes +size+ bytes of +input+, which holds +length+, to +filename+ in
 // the save directory, and returns true, or luax_ioError's nil and message,
@@ -286,6 +307,7 @@ private:
 
 void define_filesystem(const Rice::Module &native) {
   define_engine_class<FileData, love::Data>(native, "FileData");
+  define_engine_class<File>(native, "File");
 
   Rice::define_module_under(native, "Filesystem")
       .define_singleton_function("open", &open)
@@ -297,6 +319,7 @@ void define_filesystem(const Rice::Module &native) {
       .define_singleton_function("info", &info, Rice::Arg("filepath"),
                                  Rice::Arg("filtertype") = std::optional<std::string>())
       .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL)
+      .define_singleton_function("open_file", &open_file, Rice::Arg("filename"), Rice::Arg("mode"))
       .define_singleton_function("write_string", &write_string, Rice::Arg("filename"),
                                  Rice::Arg("contents"),
                                  Rice::Arg("size") = std::optional<long long>())

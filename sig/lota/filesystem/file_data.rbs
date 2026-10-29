@@ -9,9 +9,13 @@ module Lota
 
       attr_reader native: Native::FileData
 
+      def self.from_native: (Native::FileData native) -> FileData
+
       def initialize: (String contents, String name) -> void
 
       def initialize_copy: (FileData source) -> void
+
+      def filename: () -> String
     end
   end
 end

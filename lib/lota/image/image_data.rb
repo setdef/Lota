@@ -132,6 +132,101 @@ module Lota
         @native.height
       end
 
+      # The width and height in pixels, as an Array of two Integers (ADR
+      # 001, rule 4), matching ImageData:getDimensions as LÖVE runs it, in
+      # its LuaJIT code (src/modules/image/wrap_ImageData.lua).
+      #
+      # === Example
+      #
+      #   width, height = image_data.dimensions
+      def dimensions
+        [@native.width, @native.height]
+      end
+
+      # The pixel format, as a Symbol (ADR 001, rule 9), matching
+      # ImageData:getFormat as LÖVE runs it, in its LuaJIT code
+      # (src/modules/image/wrap_ImageData.lua).
+      #
+      # === Example
+      #
+      #   Lota::Image::ImageData.new(4, 4).format # => :rgba8
+      def format
+        @native.format.to_sym
+      end
+
+      # Sets whether the pixels hold linear rather than sRGB color, matching
+      # ImageData:setLinear (src/modules/image/wrap_ImageData.cpp,
+      # w_ImageData_setLinear). It must be +true+ or +false+.
+      #
+      # === Example
+      #
+      #   image_data.linear = true
+      def linear=(linear)
+        raise TypeError, "wrong argument type #{linear.class} (expected true or false)" unless [true, false].include?(linear)
+
+        @native.set_linear(linear == true)
+      end
+
+      # Whether the pixels hold linear rather than sRGB color, matching
+      # ImageData:isLinear (src/modules/image/wrap_ImageData.cpp,
+      # w_ImageData_isLinear).
+      #
+      # === Example
+      #
+      #   image_data.linear? # => false
+      def linear?
+        @native.linear?
+      end
+
+      # Copies a rectangle of +source+'s pixels into this ImageData at
+      # +dx+, +dy+, matching ImageData:paste
+      # (src/modules/image/wrap_ImageData.cpp, w_ImageData_paste), which
+      # converts between pixel formats and leaves out what falls outside
+      # either image.
+      #
+      # [source] The Lota::Image::ImageData to copy from.
+      # [dx] Integer column to copy to.
+      # [dy] Integer row to copy to.
+      # [sx] Integer left column of the rectangle in +source+, 0 by default.
+      # [sy] Integer top row, 0 by default.
+      # [sw] Integer width of the rectangle, +source+'s by default.
+      # [sh] Integer height, +source+'s by default.
+      #
+      # Raises TypeError when +source+ is not an ImageData.
+      #
+      # === Example
+      #
+      #   canvas_data.paste(sprite_data, 10, 20)
+      def paste(source, dx, dy, sx = 0, sy = 0, sw = nil, sh = nil)
+        raise TypeError, "wrong argument type #{source.class} (expected Lota::Image::ImageData)" unless source.is_a?(ImageData)
+
+        @native.paste(source.native, Integer(dx), Integer(dy), Integer(sx), Integer(sy), sw && Integer(sw), sh && Integer(sh))
+      end
+
+      # The image encoded as a file in +format+, as a
+      # Lota::Filesystem::FileData, matching ImageData:encode
+      # (src/modules/image/wrap_ImageData.cpp, w_ImageData_encode). The
+      # whole image is encoded by LÖVE's C++, so it takes no Ruby per
+      # pixel.
+      #
+      # [format] +:png+, +:tga+, +:exr+, or another encoded image format
+      #   LÖVE knows (ADR 001, rule 9).
+      # [filename] When given, the name the file is also written to in the
+      #   save directory, as LÖVE writes it; +Image.+ and the format's name
+      #   otherwise, as the FileData's name.
+      #
+      # Raises ArgumentError for a format LÖVE does not know, and
+      # RuntimeError, with LÖVE's message, when LÖVE cannot encode the
+      # pixel format in +format+, or cannot write the file.
+      #
+      # === Examples
+      #
+      #   png = image_data.encode(:png)
+      #   image_data.encode(:png, "screenshot.png")
+      def encode(format, filename = nil)
+        Filesystem::FileData.from_native(@native.encode(EnumName.of(format), filename))
+      end
+
       # The color of the pixel at +x+, +y+, as an Array of red, green,
       # blue, and alpha Floats, matching ImageData:getPixel as LÖVE runs
       # it, in its LuaJIT code (src/modules/image/wrap_ImageData.lua).

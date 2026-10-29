@@ -73,8 +73,14 @@ module Lota
       def self.remove: (String arg) -> bool
     end
 
+    class File
+      def close: () -> bool
+    end
+
     class FileData
       def clone: () -> FileData
+
+      def filename: () -> String
     end
 
     module Graphics
@@ -241,6 +247,14 @@ module Lota
 
     class ImageData
       def clone: () -> ImageData
+
+      def encode: (String format, ?String? argument2) -> FileData
+
+      def paste: (ImageData src, Integer dx, Integer dy, ?Integer sx, ?Integer sy, ?Integer? sw, ?Integer? sh) -> nil
+
+      def linear?: () -> bool
+
+      def set_linear: (bool linear) -> nil
     end
 
     module Math

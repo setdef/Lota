@@ -20,6 +20,18 @@ module Lota
 
       def height: () -> Integer
 
+      def dimensions: () -> [Integer, Integer]
+
+      def format: () -> Symbol
+
+      def linear=: (bool linear) -> void
+
+      def linear?: () -> bool
+
+      def paste: (ImageData source, Integer | Float dx, Integer | Float dy, ?(Integer | Float) sx, ?(Integer | Float) sy, ?(Integer | Float)? sw, ?(Integer | Float)? sh) -> nil
+
+      def encode: (Symbol | String format, ?String? filename) -> Filesystem::FileData
+
       def pixel: (Float | Integer x, Float | Integer y) -> Array[Float]
 
       def pixel=: (Array[Float | Integer | Array[Float | Integer]] arguments) -> void

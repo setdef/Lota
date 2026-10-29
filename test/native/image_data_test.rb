@@ -196,4 +196,82 @@ class ImageDataTest < Minitest::Test
       refute_same image.native, copy.native
     end
   end
+
+  # w_ImageData_encode (wrap_ImageData.cpp:237-262): a FileData named
+  # Image and the format's name, unless given a name, which it also writes
+  # to the save directory.
+  def test_encode_makes_a_file_and_writes_it_only_when_named
+    image = ImageData.new(3, 2)
+    image.pixel = 0, 0, 1, 0, 0, 1
+    png = image.encode(:png)
+
+    assert_instance_of Lota::Filesystem::FileData, png
+    assert_equal "\x89PNG".b, png.string.b.byteslice(0, 4)
+    assert_equal [1.0, 0.0, 0.0, 1.0], ImageData.new(png).pixel(0, 0)
+    assert_equal "Image.tga", image.encode(:tga).filename
+    in_identity("lota-encode-test") do
+      image.encode(:png, "encoded.png")
+      contents, = Lota::Filesystem.read("encoded.png")
+
+      assert_equal png.string, contents
+      Lota::Filesystem.remove("encoded.png")
+    end
+  end
+
+  def test_encode_refuses_an_unknown_format
+    error = assert_raises(ArgumentError) { ImageData.new(1, 1).encode(:jpg) }
+
+    assert_match(/\AInvalid encoded image format 'jpg', expected one of: /, error.message)
+  end
+
+  # w_openFile (wrap_Filesystem.cpp:230-252): a File, or nil and LÖVE's
+  # message, each as an Array (ADR 001, rule 4); File:close says whether
+  # the file was open (wrap_File.cpp:96-101).
+  def test_open_file_returns_a_file_or_nil_and_why
+    in_identity("lota-encode-test") do
+      Lota::Filesystem.write("opened.txt", "hi")
+      file, = Lota::Filesystem.open_file("opened.txt", :r)
+      missing = Lota::Filesystem.open_file("missing.txt", :r)
+
+      assert_equal "File", file.object_type
+      assert_nil missing.first
+      assert_kind_of String, missing.last
+      assert_raises(ArgumentError) { Lota::Filesystem.open_file("opened.txt", :x) }
+      assert file.close
+      refute file.close
+      Lota::Filesystem.remove("opened.txt")
+    end
+  end
+
+  # w_ImageData_paste: the rest of the source by default, from its
+  # corner.
+  def test_paste_copies_a_rectangle_of_another_image_data
+    target = ImageData.new(2, 2)
+    source = ImageData.new(2, 2)
+    source.map_pixel { [0, 0, 1, 1] }
+    target.paste(source, 1, 1)
+
+    assert_equal [0.0, 0.0, 0.0, 0.0], target.pixel(0, 0)
+    assert_equal [0.0, 0.0, 1.0, 1.0], target.pixel(1, 1)
+    assert_raises(TypeError) { target.paste(nil, 0, 0) }
+  end
+
+  def test_format_dimensions_and_linear
+    image = ImageData.new(3, 2, :r16f)
+
+    assert_equal :r16f, image.format
+    assert_equal [3, 2], image.dimensions
+    refute_predicate image, :linear?
+    image.linear = true
+    assert_predicate image, :linear?
+    assert_raises(TypeError) { image.linear = 1 }
+  end
+
+  private def in_identity(identity)
+    previous = Lota::Filesystem.identity
+    Lota::Filesystem.identity = identity
+    yield
+  ensure
+    Lota::Filesystem.identity = previous
+  end
 end

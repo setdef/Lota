@@ -12,6 +12,7 @@
 # Lövetest's.
 require_relative "../tests/audio"
 require_relative "../tests/sound"
+require_relative "../tests/image"
 require_relative "../tests/graphics"
 require_relative "../tests/keyboard"
 require_relative "../tests/mouse"

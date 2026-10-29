@@ -455,6 +455,25 @@ class GeneratorTest < Minitest::Test
     assert_match(/^    class Data\n/, rbs)
   end
 
+  # ImageData:encode returns love.filesystem's FileData, whose header is
+  # neither love.image's nor common's, but the one another module has.
+  def test_a_type_of_another_module_includes_that_modules_header
+    list = Bindings::BindingList.new
+    list.generate("ImageData:encode")
+
+    assert_includes BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/image.cpp"),
+      %(#include "filesystem/FileData.h")
+  end
+
+  # What clang-tidy refuses as redundant: a string copied through
+  # c_str() into a std::string again, and a cast of a parameter to the
+  # pointer type it has.
+  def test_redundant_copies_and_casts_are_left_out
+    assert_includes port("ImageData:encode").definition, %(std::string filename = "Image." + format;)
+    assert_includes port("FileData:getFilename").definition, "return t.getFilename();"
+    assert_includes port("ImageData:paste").definition, "t.paste(src, dx, dy, sx, sy,"
+  end
+
   def test_a_pointer_to_what_new_makes_is_declared_auto
     assert_includes port("Transform:__mul").definition, "auto *t3 = new Transform(t1.getMatrix() * t2->getMatrix());"
   end

@@ -36,6 +36,14 @@ module Lota
       # The engine's FileData, for Lota's own modules. :nodoc:
       attr_reader :native
 
+      # Wraps a FileData the engine made, such as one
+      # Lota::Image::ImageData#encode returns. :nodoc:
+      def self.from_native(native)
+        file_data = allocate
+        file_data.instance_variable_set(:@native, native)
+        file_data
+      end
+
       # Copies +contents+ into a new FileData named +name+, matching
       # love.filesystem.newFileData(contents, name)
       # (src/modules/filesystem/wrap_Filesystem.cpp, w_newFileData).
@@ -66,6 +74,16 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+      end
+
+      # The file's name, matching FileData:getFilename
+      # (src/modules/filesystem/wrap_FileData.cpp, w_FileData_getFilename).
+      #
+      # === Example
+      #
+      #   Lota::Filesystem::FileData.new("hi", "note.txt").filename # => "note.txt"
+      def filename
+        @native.filename
       end
     end
   end

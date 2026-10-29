@@ -43,6 +43,19 @@ Run it with `lota run path/to/game`, or `lota run` from inside the folder. Argum
 
 An error in your game shows LÖVE's error screen in its window, as LÖVE's `love.errorhandler` does ([ADR 003](doc/contributors/adr/003.md), section 7): the error and its Ruby backtrace, where LÖVE shows a Lua traceback, in white on LÖVE's blue, until you press Escape or close the window, which exits with 1. Ctrl+C copies the error. The error and its backtrace are printed too. Define `Lota.errorhandler(error)` to replace the screen, as a LÖVE game defines `love.errorhandler`: it receives what your game raised, and returns a frame for Lota to call until the frame returns an exit status, or `nil` to exit with 1.
 
+### Using a checkout from your game
+
+Until there is a gem to install, a game can use a checkout of Lota through Bundler. Clone Lota and build its extension as contributors do (see Development, below: `bin/setup`, then `bundle exec rake compile`, which puts the compiled extension in the checkout's `lib/lota`), then point your game's `Gemfile` at the checkout:
+
+```ruby
+# Gemfile
+source "https://rubygems.org"
+
+gem "lota", path: "../lota"
+```
+
+Run `bundle install` in the game's folder, then `bundle exec lota run .`. Run `bundle exec rake compile` in the checkout again after each pull, since Bundler loads the checkout's `lib` as it is and builds nothing itself.
+
 ## Development
 
 Clone with submodules. `vendor/love` holds the LÖVE source Lota builds against, `vendor/love-apple-dependencies` holds the prebuilt libraries LÖVE links on macOS (SDL3, FreeType, HarfBuzz, OpenAL Soft, and the rest), and `vendor/love-appimage-source` holds the Makefile LÖVE's own Linux CI builds those libraries from source with. `bin/setup` also runs `bundle exec rake sources:fetch`, which downloads the source archive of each framework or library whose license asks the gem to carry its source, so far OpenAL Soft's 1.24.3 release (about 1 MB), into `vendor/sources`, which git ignores, and keeps it only when its SHA-256 is the one `ext/lota/licenses.rb` records; on Linux it also runs the Makefile's downloads, the release of each library it builds, into `vendor/sources/linux`. The gate never downloads anything:

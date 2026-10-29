@@ -507,6 +507,17 @@ int width(const ImageData &data) { return data.getWidth(); }
 
 int height(const ImageData &data) { return data.getHeight(); }
 
+// ImageData:getFormat (lines 449-451): the object cache's, which it read
+// from the C++ getFormat (wrap_ImageData.cpp:56-67), its pixel format's
+// name.
+std::string format(const ImageData &data) {
+  const char *name = nullptr;
+  if (!love::getConstant(data.getFormat(), name)) {
+    throw love::Exception("Unknown pixel format.");
+  }
+  return name;
+}
+
 // ImageData:getPixel (lines 395-409): +x+ and +y+ rounded down, then the
 // pixel's components as the format's tolua reads them.
 Rice::Array get_pixel(const ImageData &data, double x, double y) {
@@ -671,6 +682,7 @@ void define_image(const Rice::Module &native) {
   define_engine_class<ImageData, love::Data>(native, "ImageData")
       .define_method("width", &width)
       .define_method("height", &height)
+      .define_method("format", &format)
       .define_method("pixel", &get_pixel, Rice::Arg("x"), Rice::Arg("y"))
       .define_method("set_pixel", &set_pixel, Rice::Arg("arguments"))
       .define_method("map_pixel", &map_pixel, Rice::Arg("call"));

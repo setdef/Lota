@@ -316,6 +316,7 @@ module Bindings
         ports.flat_map(&:result_classes)
       wrap_dir = File.dirname(ports.first.function.wrap.path)
       classes.uniq.each { |type| love << %("#{header_of(name, type, wrap_dir)}") }
+      love.concat(qualifying_headers(name, code, wrap_dir))
       std = []
       std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
       std << "<array>" if code.include?("std::array")
@@ -338,6 +339,17 @@ module Bindings
       Dir.glob("src/modules/#{name}/*.h", base: @love).sort.filter_map do |path|
         declared = top_level_declarations(path)
         %("#{path.delete_prefix('src/modules/')}") if names.intersect?(declared)
+      end
+    end
+
+    # The headers of the module's classes that +code+ names only to reach
+    # what they declare, as FormatHandler::EncodedFormat names
+    # image/FormatHandler.h, each the header named for the class beside the
+    # wrap files, as header_of prefers it, or else the module's.
+    private def qualifying_headers(name, code, wrap_dir)
+      code.scan(/(?<![\w:])([A-Z]\w*)::/).flatten.uniq.filter_map do |type|
+        path = [File.join(wrap_dir, "#{type}.h"), "src/modules/#{name}/#{type}.h"].find { |file| named?(file, "#{type}.h") }
+        %("#{path.delete_prefix('src/modules/')}") if path
       end
     end
 
@@ -382,16 +394,25 @@ module Bindings
     # class's physics/Body.h), one of the module's own, or, for a class
     # every module shares, as
     # love::Data is, one in src/common, which LÖVE's sources include as
-    # common/ (common/Data.h).
+    # common/ (common/Data.h), or the one another module has.
     private def header_of(name, type, wrap_dir)
       own = File.join(wrap_dir, "#{type}.h")
       header = "#{type}.h"
       path = (named?(own, header) ? own : nil) ||
         Dir.glob("src/modules/#{name}/**/#{header}", base: @love).select { |file| named?(file, header) }.min_by(&:length) ||
         Dir.glob("src/common/#{header}", base: @love).find { |file| named?(file, header) } ||
-        declaring_header(name, type) or
+        declaring_header(name, type) ||
+        other_module_header(header) or
         raise Failure, "no header declares #{type} in love.#{name}"
       path.delete_prefix("src/modules/").delete_prefix("src/")
+    end
+
+    # The one header named +header+ at the top of another module, as
+    # filesystem/FileData.h declares the FileData that ImageData:encode
+    # returns; nil when no module, or more than one, has one.
+    private def other_module_header(header)
+      found = Dir.glob("src/modules/*/#{header}", base: @love).select { |file| named?(file, header) }
+      found.first if found.one?
     end
 
     # Whether +path+ exists and is named exactly +header+, which a file

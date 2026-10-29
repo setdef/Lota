@@ -660,12 +660,36 @@ line: node.line,
       return [] if own_object?(call)
 
       type, = result_type(call)
-      value = type ? convert(rewrite(call.arguments[1]), call, type) : "nullptr"
+      value = type ? convert(rewrite(whole_result(call.arguments[1], type)), call, type) : "nullptr"
       case @result_mode
       when :one then ["return #{value};"]
       when :many then ["results.push(#{many_value(value, call, type)}, false);"]
       else raise Unsupported, "#{@function.love_name} pushes a result it does not return"
       end
+    end
+
+    # +text+ without a C-style cast of a parameter to the pointer type it
+    # already has, as w_ImageData_paste's (love::image::ImageData *)src,
+    # which clang-tidy's modernize-avoid-c-style-cast refuses as redundant.
+    private def uncast(text)
+      text.gsub(/\(\s*(?<type>[\w:]+)\s*\*\s*\)\s*(?<name>\w+)\b(?!\s*[(\[.]|\s*->)/) do
+        match = Regexp.last_match
+        same = parameters.compact.any? do |parameter|
+          parameter.name == match[:name] && parameter.cpp.delete(" ") == "#{match[:type].split('::').last}*"
+        end
+        same ? match[:name] : match[0]
+      end
+    end
+
+    # The pushed +argument+ without its c_str() where it is a std::string
+    # already and the result is one, as FileData::getFilename's is: the
+    # copy through a const char * is what clang-tidy's
+    # readability-redundant-string-cstr refuses.
+    private def whole_result(argument, type)
+      match = argument.strip.match(/\A(?<string>.+)\.c_str\(\)\z/m)
+      return argument unless type == "std::string" && match && expression_type(match[:string]).to_s.include?("std::string")
+
+      match[:string]
     end
 
     # +condition+ with each pointer it tests for truth compared with
@@ -756,6 +780,8 @@ line: node.line,
       text = text.gsub(/\b(\d+\.\d*|\d*\.\d+)f\b/, '\1F')
       text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
       text = keep_strings(text)
+      text = whole_strings(text)
+      text = uncast(text)
       text = array_arguments(text)
       text = text.gsub(COUNT_TEST) do
         index = counted(Regexp.last_match(1), Regexp.last_match(2))
@@ -810,6 +836,17 @@ line: node.line,
         text = "#{text[0..start]}#{arguments.join(', ')}#{text[finish..]}"
       end
       text
+    end
+
+    # A std::string a read made of a const char * that LÖVE copies into a
+    # std::string again, as w_ImageData_encode's std::string(fmt), is
+    # the parameter itself, which clang-tidy's
+    # readability-redundant-string-cstr asks for.
+    private def whole_strings(text)
+      text.gsub(/std::string\(\s*(\w+)\.c_str\(\)\s*\)/) do
+        name = Regexp.last_match(1)
+        (parameters.compact.any? { |parameter| parameter.name == name && !parameter.optional && parameter.cpp.include?("std::string") }) ? name : Regexp.last_match(0)
+      end
     end
 
     private def replace_reads(text)
