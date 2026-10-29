@@ -94,5 +94,137 @@ module Lota
     def self.active_source_count
       Native::Audio.active_source_count
     end
+
+    # Sets the listener's position, matching love.audio.setPosition
+    # (src/modules/audio/wrap_Audio.cpp, w_setPosition): x, y, and
+    # optionally z, 0 by default, as an Array (ADR 001, rule 6).
+    #
+    # A mono Source plays louder and from its side the nearer and the more
+    # to that side of the listener it is. Raises TypeError for a value that
+    # is not a number.
+    #
+    # === Example
+    #
+    #   Lota::Audio.position = player.x, player.y
+    def self.position=(position)
+      x, y, z = Audio::Source.numbers(position)
+      Native::Audio.set_position(Source.number(x), Source.number(y), Source.number(z, 0))
+    end
+
+    # The listener's position, as an Array of three Floats (ADR 001, rule
+    # 4), matching love.audio.getPosition
+    # (src/modules/audio/wrap_Audio.cpp, w_getPosition).
+    #
+    # === Example
+    #
+    #   x, y, z = Lota::Audio.position # => [0.0, 0.0, 0.0]
+    def self.position
+      Native::Audio.position
+    end
+
+    # Sets the listener's orientation, matching love.audio.setOrientation
+    # (src/modules/audio/wrap_Audio.cpp, w_setOrientation): the forward
+    # vector's x, y, and z, then the up vector's, six numbers in an Array
+    # (ADR 001, rule 6).
+    #
+    # Raises TypeError for fewer than six numbers, or one that is not a
+    # number.
+    #
+    # === Example
+    #
+    #   Lota::Audio.orientation = 0, 0, -1, 0, 1, 0
+    def self.orientation=(orientation)
+      fx, fy, fz, ux, uy, uz = Source.numbers(orientation)
+      Native::Audio.set_orientation([
+        Source.number(fx),
+        Source.number(fy),
+        Source.number(fz),
+        Source.number(ux),
+        Source.number(uy),
+        Source.number(uz),
+])
+    end
+
+    # The listener's forward and up vectors, as an Array of six Floats (ADR
+    # 001, rule 4), matching love.audio.getOrientation
+    # (src/modules/audio/wrap_Audio.cpp, w_getOrientation).
+    #
+    # === Example
+    #
+    #   fx, fy, fz, ux, uy, uz = Lota::Audio.orientation
+    def self.orientation
+      Native::Audio.orientation
+    end
+
+    # Sets the listener's velocity, which the Doppler effect reads,
+    # matching love.audio.setVelocity (src/modules/audio/wrap_Audio.cpp,
+    # w_setVelocity), as position= takes a position.
+    #
+    # === Example
+    #
+    #   Lota::Audio.velocity = 0, 0, 0
+    def self.velocity=(velocity)
+      x, y, z = Audio::Source.numbers(velocity)
+      Native::Audio.set_velocity(Source.number(x), Source.number(y), Source.number(z, 0))
+    end
+
+    # The listener's velocity, as an Array of three Floats (ADR 001, rule
+    # 4), matching love.audio.getVelocity
+    # (src/modules/audio/wrap_Audio.cpp, w_getVelocity).
+    #
+    # === Example
+    #
+    #   x, y, z = Lota::Audio.velocity
+    def self.velocity
+      Native::Audio.velocity
+    end
+
+    # Sets how strong the Doppler effect is, matching
+    # love.audio.setDopplerScale (src/modules/audio/wrap_Audio.cpp,
+    # w_setDopplerScale): 1 by default, 0 for none.
+    #
+    # === Example
+    #
+    #   Lota::Audio.doppler_scale = 0
+    def self.doppler_scale=(scale)
+      Native::Audio.set_doppler_scale(scale)
+    end
+
+    # The Float Doppler scale, matching love.audio.getDopplerScale
+    # (src/modules/audio/wrap_Audio.cpp, w_getDopplerScale).
+    #
+    # === Example
+    #
+    #   Lota::Audio.doppler_scale # => 1.0
+    def self.doppler_scale
+      Native::Audio.doppler_scale
+    end
+
+    # Sets how a Source's volume falls with its distance from the listener,
+    # matching love.audio.setDistanceModel
+    # (src/modules/audio/wrap_Audio.cpp, w_setDistanceModel): +:none+,
+    # +:inverse+, +:inverseclamped+ (the default), +:linear+,
+    # +:linearclamped+, +:exponent+, or +:exponentclamped+ (ADR 001, rule
+    # 9).
+    #
+    # Raises ArgumentError, with LÖVE's message, for a model it does not
+    # know.
+    #
+    # === Example
+    #
+    #   Lota::Audio.distance_model = :linearclamped
+    def self.distance_model=(model)
+      Native::Audio.set_distance_model(EnumName.of(model))
+    end
+
+    # The distance model, as a Symbol, matching love.audio.getDistanceModel
+    # (src/modules/audio/wrap_Audio.cpp, w_getDistanceModel).
+    #
+    # === Example
+    #
+    #   Lota::Audio.distance_model # => :inverseclamped
+    def self.distance_model
+      Native::Audio.distance_model.to_sym
+    end
   end
 end

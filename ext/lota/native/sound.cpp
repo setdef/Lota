@@ -62,6 +62,8 @@ Sound *sound() {
 // Ported from LÖVE's C++ and Lua, as cited below, and changed to take its
 // arguments from Rice instead of a lua_State.
 
+namespace {
+
 // w_newDecoder with a filename (vendor/love/src/modules/sound/
 // wrap_Sound.cpp:35-83): "file" decodes from the open file, and "memory"
 // reads the whole file into a DataStream first. The Stream's reference is
@@ -87,8 +89,6 @@ love::sound::Decoder *new_decoder(const std::string &filename, int buffer_size,
   }
   return sound()->newDecoder(stream.get(), buffer_size);
 }
-
-namespace {
 
 // w_newDecoder with a filename and the stream type as a String, which
 // names one of Decoder's StreamSource constants ("memory" or "file"), or

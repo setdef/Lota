@@ -12,5 +12,27 @@ module Lota
     def self.volume=: (Float | Integer volume) -> void
 
     def self.active_source_count: () -> Integer
+
+    type numbers = Float | Integer | Array[Float | Integer]
+
+    def self.position=: (numbers position) -> void
+
+    def self.position: () -> [Float, Float, Float]
+
+    def self.orientation=: (numbers orientation) -> void
+
+    def self.orientation: () -> [Float, Float, Float, Float, Float, Float]
+
+    def self.velocity=: (numbers velocity) -> void
+
+    def self.velocity: () -> [Float, Float, Float]
+
+    def self.doppler_scale=: (Float | Integer scale) -> void
+
+    def self.doppler_scale: () -> Float
+
+    def self.distance_model=: (Symbol | String model) -> void
+
+    def self.distance_model: () -> Symbol
   end
 end

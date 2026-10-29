@@ -283,6 +283,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def seek: (Float | Integer offset, ?String? unit) -> nil
+
+      def tell: (?String? unit) -> Float
+
+      def duration: (?String? unit) -> Float
     end
 
     class Decoder
@@ -336,7 +342,17 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.new_source: (String filename, String source_type) -> Source
+      def self.source_type: (String type) -> String
+
+      def self.new_source_from_sound_data: (SoundData data) -> Source
+
+      def self.new_source_from_decoder: (Decoder decoder) -> Source
+
+      def self.distance_model: () -> String
+
+      def self.set_orientation: (Array[Float | Integer] orientation) -> nil
+
+      def self.orientation: () -> [Float, Float, Float, Float, Float, Float]
 
       def self.play: (Source source) -> bool
 

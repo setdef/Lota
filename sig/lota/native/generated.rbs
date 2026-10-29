@@ -13,6 +13,20 @@ module Lota
       def self.set_volume: (Float | Integer v) -> nil
 
       def self.volume: () -> Float
+
+      def self.set_position: (Float | Integer argument1, Float | Integer argument2, ?(Float | Integer) argument3) -> nil
+
+      def self.position: () -> [Float, Float, Float]
+
+      def self.set_velocity: (Float | Integer argument1, Float | Integer argument2, ?(Float | Integer) argument3) -> nil
+
+      def self.velocity: () -> [Float, Float, Float]
+
+      def self.set_doppler_scale: (Float | Integer scale) -> nil
+
+      def self.doppler_scale: () -> Float
+
+      def self.set_distance_model: (String distance_model) -> nil
     end
 
     class Source
@@ -41,6 +55,44 @@ module Lota
       def get_type: () -> String
 
       def clone: () -> Source
+
+      def set_position: (Float | Integer argument1, Float | Integer argument2, ?(Float | Integer) argument3) -> nil
+
+      def position: () -> [Float, Float, Float]
+
+      def set_velocity: (Float | Integer argument1, Float | Integer argument2, ?(Float | Integer) argument3) -> nil
+
+      def velocity: () -> [Float, Float, Float]
+
+      def set_direction: (Float | Integer argument1, Float | Integer argument2, ?(Float | Integer) argument3) -> nil
+
+      def direction: () -> [Float, Float, Float]
+
+      def set_cone: (Float | Integer inner_angle, Float | Integer outer_angle, ?(Float | Integer) outer_volume, ?(Float | Integer) outer_high_gain) -> nil
+
+      def cone: () -> [Float, Float, Float, Float]
+
+      def set_relative: (bool enable) -> nil
+
+      def relative?: () -> bool
+
+      def set_volume_limits: (Float | Integer vmin, Float | Integer vmax) -> nil
+
+      def volume_limits: () -> [Float, Float]
+
+      def set_attenuation_distances: (Float | Integer dref, Float | Integer dmax) -> nil
+
+      def attenuation_distances: () -> [Float, Float]
+
+      def set_rolloff: (Float | Integer rolloff) -> nil
+
+      def rolloff: () -> Float
+
+      def set_air_absorption: (Float | Integer factor) -> nil
+
+      def air_absorption: () -> Float
+
+      def free_buffer_count: () -> Integer
     end
 
     class Data

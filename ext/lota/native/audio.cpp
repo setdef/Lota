@@ -5,7 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
-#include "native/sound.hpp"
+#include "native/ruby.hpp"
 
 #include "audio/Audio.h"
 #include "audio/Source.h"
@@ -14,10 +14,12 @@
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "sound/Decoder.h"
-#include "sound/Sound.h"
 #include "sound/SoundData.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdlib>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -100,13 +102,10 @@ Rice::Array open() {
 
 bool is_open() { return love::Module::getInstance<Audio>(love::Module::M_AUDIO) != nullptr; }
 
-// w_newSource with a filename and a source type (wrap_Audio.cpp:47-102): a
-// static Source decodes the whole file into SoundData first, and a
-// streaming one decodes from the file as it plays. The Source's one
-// reference goes to the Ruby wrapper. The type comes as a Ruby String, so
-// the two arguments cannot be passed in each other's place.
-Source *new_source(const std::string &filename, Rice::Object source_type) {
-  const std::string type = Rice::String(std::move(source_type)).str();
+// w_newSource's source type (wrap_Audio.cpp:53-60), which it reads for
+// anything but a SoundData or a Decoder: a type's name, as LÖVE names it,
+// or LÖVE's error for one it does not know or for a queueable source.
+std::string source_type(const std::string &type) {
   Source::Type stype = Source::TYPE_STREAM;
   if (!Source::getConstant(type.c_str(), stype)) {
     raise_enum_error("source type", Source::getConstants(stype), type);
@@ -115,24 +114,92 @@ Source *new_source(const std::string &filename, Rice::Object source_type) {
     throw love::Exception("Cannot create queueable sources using love.audio.newSource. Use "
                           "love.audio.newQueueableSource instead.");
   }
+  return type;
+}
 
-  auto *audio = module<Audio>(love::Module::M_AUDIO, "Lota::Audio");
-  if (love::Module::getInstance<love::sound::Sound>(love::Module::M_SOUND) == nullptr) {
-    throw love::Exception("Could not find love.sound!");
+// w_newSource of a SoundData or a Decoder (wrap_Audio.cpp:83-101): a
+// static Source of the SoundData's samples, or a streaming one that
+// decodes as it plays. Lota::Audio::Source.new makes a filename or a
+// FileData into one of them first, as luax_convobj does with love.sound's
+// newDecoder and newSoundData. The Source's one reference goes to the Ruby
+// wrapper.
+Source *new_source_from_sound_data(SoundData *data) {
+  return module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->newSource(data);
+}
+
+Source *new_source_from_decoder(Decoder *decoder) {
+  return module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->newSource(decoder);
+}
+
+// Source:seek (wrap_Source.cpp:106-119): to +offset+ in seconds, or in the
+// unit named, which may not be negative.
+void source_seek(Source &t, double offset, const std::optional<std::string> &unit) {
+  if (offset < 0) {
+    raise_argument_error("can't seek to a negative position");
   }
-  // luax_convobj calls w_newDecoder with the filename, the default buffer
-  // size, and a stream type (wrap_Audio.cpp:63-78).
-  const love::StrongRef<Decoder> decoder(
-      new_decoder(filename, Decoder::DEFAULT_BUFFER_SIZE,
-                  (stype == Source::TYPE_STATIC) ? Decoder::STREAM_MEMORY : Decoder::STREAM_FILE),
-      love::Acquire::NORETAIN);
-  if (stype == Source::TYPE_STATIC) {
-    auto *sound = module<love::sound::Sound>(love::Module::M_SOUND, "Lota::Sound");
-    const love::StrongRef<SoundData> data(sound->newSoundData(decoder.get()),
-                                          love::Acquire::NORETAIN);
-    return audio->newSource(data.get());
+  Source::Unit u = Source::UNIT_SECONDS;
+  if (unit.has_value() && !Source::getConstant(unit->c_str(), u)) {
+    raise_enum_error("time unit", Source::getConstants(u), *unit);
   }
-  return audio->newSource(decoder.get());
+  t.seek(offset, u);
+}
+
+// Source:tell and Source:getDuration (wrap_Source.cpp:121-145): where
+// the Source plays, and how long its sound is, in seconds or in the unit
+// named.
+Source::Unit unit_of(const std::optional<std::string> &unit) {
+  Source::Unit u = Source::UNIT_SECONDS;
+  if (unit.has_value() && !Source::getConstant(unit->c_str(), u)) {
+    raise_enum_error("time unit", Source::getConstants(u), *unit);
+  }
+  return u;
+}
+
+double source_tell(Source &t, const std::optional<std::string> &unit) {
+  return t.tell(unit_of(unit));
+}
+
+double source_duration(Source &t, const std::optional<std::string> &unit) {
+  return t.getDuration(unit_of(unit));
+}
+
+// The listener's orientation (wrap_Audio.cpp:244-268): the forward
+// vector's x, y, and z, then the up vector's, six numbers each read as a
+// float.
+constexpr std::size_t orientation_size = 6;
+
+void set_orientation(Rice::Array orientation) {
+  const Rice::Array given = std::move(orientation);
+  if (given.size() != static_cast<long>(orientation_size)) {
+    ruby::raise_argument_error("wrong number of arguments (given " + std::to_string(given.size()) +
+                               ", expected 6)");
+  }
+  std::array<float, orientation_size> v{};
+  std::size_t index = 0;
+  for (const auto item : given) {
+    v.at(index++) = static_cast<float>(Rice::detail::From_Ruby<double>().convert(item.value()));
+  }
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->setOrientation(v.data());
+}
+
+Rice::Array orientation() {
+  std::array<float, orientation_size> v{};
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getOrientation(v.data());
+  Rice::Array results;
+  for (const float component : v) {
+    results.push(static_cast<double>(component), false);
+  }
+  return results;
+}
+
+// w_getDistanceModel (wrap_Audio.cpp:324-331): the model's name, which
+// every model LÖVE sets has.
+std::string distance_model() {
+  const Audio::DistanceModel model =
+      module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getDistanceModel();
+  const char *name = nullptr;
+  Audio::getConstant(model, name);
+  return name;
 }
 
 // w_play with one Source (wrap_Audio.cpp:153-166): whether it started.
@@ -151,13 +218,24 @@ void stop_source(Source &source) { source.stop(); }
 } // namespace
 
 void define_audio(const Rice::Module &native) {
-  define_engine_class<Source>(native, "Source");
+  define_engine_class<Source>(native, "Source")
+      .define_method("seek", &source_seek, Rice::Arg("offset"),
+                     Rice::Arg("unit") = std::optional<std::string>())
+      .define_method("tell", &source_tell, Rice::Arg("unit") = std::optional<std::string>())
+      .define_method("duration", &source_duration,
+                     Rice::Arg("unit") = std::optional<std::string>());
 
   Rice::define_module_under(native, "Audio")
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("new_source", &new_source, Rice::Arg("filename"),
-                                 Rice::Arg("type"), Rice::Return().takeOwnership())
+      .define_singleton_function("source_type", &source_type, Rice::Arg("type"))
+      .define_singleton_function("new_source_from_sound_data", &new_source_from_sound_data,
+                                 Rice::Arg("data"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_source_from_decoder", &new_source_from_decoder,
+                                 Rice::Arg("decoder"), Rice::Return().takeOwnership())
+      .define_singleton_function("distance_model", &distance_model)
+      .define_singleton_function("set_orientation", &set_orientation, Rice::Arg("orientation"))
+      .define_singleton_function("orientation", &orientation)
       .define_singleton_function("play", &play, Rice::Arg("source"))
       .define_singleton_function("stop", &stop)
       .define_singleton_function("stop_source", &stop_source, Rice::Arg("source"));

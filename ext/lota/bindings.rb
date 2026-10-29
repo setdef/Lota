@@ -24,8 +24,9 @@
 # love.audio
 generate "love.audio.getActiveSourceCount"
 bound_by_hand "love.audio.newSource",
-  reason: "converts a filename into a Decoder, and a Decoder into SoundData, through love.sound's wrap " \
-    "functions (luax_convobj); Lota binds the forms with a filename and a source type"
+  reason: "converts a filename or Data into a Decoder, and a Decoder into SoundData, through love.sound's wrap " \
+    "functions (luax_convobj); Lota::Audio::Source.new calls Lota::Sound's, and Lota binds the source type " \
+    "check and the forms with a SoundData and a Decoder"
 bound_by_hand "love.audio.play",
   reason: "reads a list of Sources from a table or from every argument (readSourceList, readSourceVararg), " \
     "which the parser does not read; Lota binds the form with one Source"
@@ -47,6 +48,46 @@ generate "Source:isPlaying"
 generate "Source:getChannelCount"
 generate "Source:getType"
 generate "Source:clone"
+bound_by_hand "Source:seek",
+  reason: "raises luaL_argerror for a negative offset, which the port does not write; Lota raises ArgumentError"
+bound_by_hand "Source:tell",
+  reason: "calls the static getConstant through its Source, which clang-tidy's " \
+    "readability-static-accessed-through-instance refuses; Lota calls Source::getConstant"
+bound_by_hand "Source:getDuration",
+  reason: "calls the static getConstant through its Source, as Source:tell"
+bound_by_hand "love.audio.setOrientation",
+  reason: "reads six numbers into a C array, whose indices past four clang-tidy's readability-magic-numbers " \
+    "refuses; Lota binds them as an Array"
+bound_by_hand "love.audio.getOrientation",
+  reason: "pushes six numbers from a C array, as love.audio.setOrientation reads them"
+bound_by_hand "love.audio.getDistanceModel",
+  reason: "returns no value where the model has no name, which no model LÖVE sets lacks; Lota binds the name"
+generate "Source:setPosition"
+generate "Source:getPosition"
+generate "Source:setVelocity"
+generate "Source:getVelocity"
+generate "Source:setDirection"
+generate "Source:getDirection"
+generate "Source:setCone"
+generate "Source:getCone"
+generate "Source:setRelative"
+generate "Source:isRelative"
+generate "Source:setVolumeLimits"
+generate "Source:getVolumeLimits"
+generate "Source:setAttenuationDistances"
+generate "Source:getAttenuationDistances"
+generate "Source:setRolloff"
+generate "Source:getRolloff"
+generate "Source:setAirAbsorption"
+generate "Source:getAirAbsorption"
+generate "Source:getFreeBufferCount"
+generate "love.audio.setPosition"
+generate "love.audio.getPosition"
+generate "love.audio.setVelocity"
+generate "love.audio.getVelocity"
+generate "love.audio.setDopplerScale"
+generate "love.audio.getDopplerScale"
+generate "love.audio.setDistanceModel"
 
 # love.event
 generate "love.event.pump"

@@ -87,6 +87,8 @@ object:,
     # An integer of one byte, which Rice would give Ruby as a character, so
     # it is returned as the int it widens to.
     BYTE = /\A(?:u?int8(?:_t)?|(?:un)?signed char|char)\z/
+    # The readers that return a Lua number as a float.
+    FLOAT_READERS = %w[luax_checkfloat luax_tofloat].freeze
     FLOATING = /\A(?:const\s+)?(?:float|double|lua_Number)\z/
     # What only Lua's API names: the lua_State, or a function of Lua's or
     # LÖVE's Lua glue, which a statement the port does not translate still
@@ -786,13 +788,13 @@ line: node.line,
     # Lua's number, lua_Number, is a double in the LuaJIT LÖVE builds
     # with (luaconf.h, LUA_NUMBER), so a wrap function's limits on it, as
     # Source:setPitch's std::numeric_limits<lua_Number>, are a double's. A
-    # float literal's suffix is written F, as clang-tidy's
+    # float literal's suffix, as in .0f, is written F, as clang-tidy's
     # readability-uppercase-literal-suffix asks.
     private def rewrite(text)
       text = replace_reads(text)
       text = replace_identifiers(text)
       text = text.gsub(/\blua_Number\b/, "double")
-      text = text.gsub(/\b(\d+\.\d*|\d*\.\d+)f\b/, '\1F')
+      text = text.gsub(/(?<![\w.])(\d+\.\d*|\.\d+)f\b/, '\1F')
       text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
       text = keep_strings(text)
       text = whole_strings(text)
@@ -892,6 +894,9 @@ line: node.line,
         parameter.name
       end
       value = "#{value}.c_str()" if STRING_READERS[call.base_name] == :c_str
+      # luax_checkfloat and luax_tofloat return the number as a float
+      # (common/runtime.h), which the port casts to as they do.
+      cast ||= "float" if FLOAT_READERS.include?(call.base_name) && parameter.cpp == "double"
       cast_to(value, (cast == parameter.cpp) ? nil : cast)
     end
 

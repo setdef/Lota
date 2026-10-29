@@ -10,7 +10,7 @@ module Lota
 
       def self.from_native: (Native::Source native) -> Source
 
-      def self.new: (String filename, Symbol | String type) -> Source
+      def self.new: (String | Filesystem::FileData | Sound::SoundData | Sound::Decoder source, ?(Symbol | String)? type, ?(Symbol | String)? streamtype) -> Source
 
       def initialize_copy: (Source source) -> void
 
@@ -35,6 +35,56 @@ module Lota
       def looping=: (bool looping) -> void
 
       def channel_count: () -> Integer
+
+      type numbers = Float | Integer | Array[Float | Integer]
+
+      def position=: (numbers vector) -> void
+
+      def position: () -> [Float, Float, Float]
+
+      def velocity=: (numbers vector) -> void
+
+      def velocity: () -> [Float, Float, Float]
+
+      def direction=: (numbers vector) -> void
+
+      def direction: () -> [Float, Float, Float]
+
+      def cone=: (numbers cone) -> void
+
+      def cone: () -> [Float, Float, Float, Float]
+
+      def relative=: (::Object? enable) -> void
+
+      def relative?: () -> bool
+
+      def volume_limits=: (numbers limits) -> void
+
+      def volume_limits: () -> [Float, Float]
+
+      def attenuation_distances=: (numbers distances) -> void
+
+      def attenuation_distances: () -> [Float, Float]
+
+      def rolloff=: (Float | Integer rolloff) -> void
+
+      def rolloff: () -> Float
+
+      def air_absorption=: (Float | Integer factor) -> void
+
+      def air_absorption: () -> Float
+
+      def seek: (Float | Integer offset, ?(Symbol | String)? unit) -> nil
+
+      def tell: (?(Symbol | String)? unit) -> Float
+
+      def duration: (?(Symbol | String)? unit) -> Float
+
+      def free_buffer_count: () -> Integer
+
+      def self.numbers: (numbers value) -> Array[Float | Integer]
+
+      def self.number: (::Object? value, ?(Float | Integer)? default) -> (Float | Integer)
 
       def get_type: () -> Symbol
     end

@@ -8,12 +8,14 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "audio/Audio.h"
 #include "audio/Source.h"
 #include "common/Exception.h"
 #include "common/Module.h"
 
+#include <array>
 #include <limits>
 #include <string>
 
@@ -55,6 +57,61 @@ void w_setVolume(double v) { instance()->setVolume(static_cast<float>(v)); }
 // love.audio.getVolume: w_getVolume (wrap_Audio.cpp:218-222).
 double w_getVolume() { return static_cast<double>(instance()->getVolume()); }
 
+// love.audio.setPosition: w_setPosition (wrap_Audio.cpp:224-232).
+void w_setPosition(double argument1, double argument2, double argument3) {
+  std::array<float, 3> v{};
+  v.at(0) = static_cast<float>(argument1);
+  v.at(1) = static_cast<float>(argument2);
+  v.at(2) = static_cast<float>(argument3);
+  instance()->setPosition(v.data());
+}
+
+// love.audio.getPosition: w_getPosition (wrap_Audio.cpp:234-242).
+Rice::Array w_getPosition() {
+  Rice::Array results;
+  std::array<float, 3> v{};
+  instance()->getPosition(v.data());
+  results.push(static_cast<double>(v.at(0)), false);
+  results.push(static_cast<double>(v.at(1)), false);
+  results.push(static_cast<double>(v.at(2)), false);
+  return results;
+}
+
+// love.audio.setVelocity: w_setVelocity (wrap_Audio.cpp:270-278).
+void w_setVelocity(double argument1, double argument2, double argument3) {
+  std::array<float, 3> v{};
+  v.at(0) = static_cast<float>(argument1);
+  v.at(1) = static_cast<float>(argument2);
+  v.at(2) = static_cast<float>(argument3);
+  instance()->setVelocity(v.data());
+}
+
+// love.audio.getVelocity: w_getVelocity (wrap_Audio.cpp:280-288).
+Rice::Array w_getVelocity() {
+  Rice::Array results;
+  std::array<float, 3> v{};
+  instance()->getVelocity(v.data());
+  results.push(static_cast<double>(v.at(0)), false);
+  results.push(static_cast<double>(v.at(1)), false);
+  results.push(static_cast<double>(v.at(2)), false);
+  return results;
+}
+
+// love.audio.setDopplerScale: w_setDopplerScale (wrap_Audio.cpp:290-294).
+void w_setDopplerScale(double scale) { instance()->setDopplerScale(static_cast<float>(scale)); }
+
+// love.audio.getDopplerScale: w_getDopplerScale (wrap_Audio.cpp:296-300).
+double w_getDopplerScale() { return static_cast<double>(instance()->getDopplerScale()); }
+
+// love.audio.setDistanceModel: w_setDistanceModel (wrap_Audio.cpp:314-322).
+void w_setDistanceModel(const std::string &distance_model) {
+  Audio::DistanceModel distance_model_value{};
+  if (!Audio::getConstant(distance_model.c_str(), distance_model_value)) {
+    raise_enum_error("distance model", Audio::getConstants(distance_model_value), distance_model);
+  }
+  instance()->setDistanceModel(distance_model_value);
+}
+
 // Source:clone: w_Source_clone (wrap_Source.cpp:39-47).
 Source *w_Source_clone(Source &t) {
   Source *clone = nullptr;
@@ -91,6 +148,94 @@ void w_Source_setVolume(Source &t, double p) { t.setVolume(static_cast<float>(p)
 // Source:getVolume: w_Source_getVolume (wrap_Source.cpp:98-103).
 double w_Source_getVolume(const Source &t) { return static_cast<double>(t.getVolume()); }
 
+// Source:setPosition: w_Source_setPosition (wrap_Source.cpp:147-156).
+void w_Source_setPosition(Source &t, double argument1, double argument2, double argument3) {
+  std::array<float, 3> v{};
+  v.at(0) = static_cast<float>(argument1);
+  v.at(1) = static_cast<float>(argument2);
+  v.at(2) = static_cast<float>(argument3);
+  t.setPosition(v.data());
+}
+
+// Source:getPosition: w_Source_getPosition (wrap_Source.cpp:158-167).
+Rice::Array w_Source_getPosition(const Source &t) {
+  Rice::Array results;
+  std::array<float, 3> v{};
+  t.getPosition(v.data());
+  results.push(static_cast<double>(v.at(0)), false);
+  results.push(static_cast<double>(v.at(1)), false);
+  results.push(static_cast<double>(v.at(2)), false);
+  return results;
+}
+
+// Source:setVelocity: w_Source_setVelocity (wrap_Source.cpp:169-178).
+void w_Source_setVelocity(Source &t, double argument1, double argument2, double argument3) {
+  std::array<float, 3> v{};
+  v.at(0) = static_cast<float>(argument1);
+  v.at(1) = static_cast<float>(argument2);
+  v.at(2) = static_cast<float>(argument3);
+  t.setVelocity(v.data());
+}
+
+// Source:getVelocity: w_Source_getVelocity (wrap_Source.cpp:180-189).
+Rice::Array w_Source_getVelocity(const Source &t) {
+  Rice::Array results;
+  std::array<float, 3> v{};
+  t.getVelocity(v.data());
+  results.push(static_cast<double>(v.at(0)), false);
+  results.push(static_cast<double>(v.at(1)), false);
+  results.push(static_cast<double>(v.at(2)), false);
+  return results;
+}
+
+// Source:setDirection: w_Source_setDirection (wrap_Source.cpp:191-200).
+void w_Source_setDirection(Source &t, double argument1, double argument2, double argument3) {
+  std::array<float, 3> v{};
+  v.at(0) = static_cast<float>(argument1);
+  v.at(1) = static_cast<float>(argument2);
+  v.at(2) = static_cast<float>(argument3);
+  t.setDirection(v.data());
+}
+
+// Source:getDirection: w_Source_getDirection (wrap_Source.cpp:202-211).
+Rice::Array w_Source_getDirection(const Source &t) {
+  Rice::Array results;
+  std::array<float, 3> v{};
+  t.getDirection(v.data());
+  results.push(static_cast<double>(v.at(0)), false);
+  results.push(static_cast<double>(v.at(1)), false);
+  results.push(static_cast<double>(v.at(2)), false);
+  return results;
+}
+
+// Source:setCone: w_Source_setCone (wrap_Source.cpp:213-222).
+void w_Source_setCone(Source &t, double inner_angle, double outer_angle, double outer_volume,
+                      double outer_high_gain) {
+  t.setCone(static_cast<float>(inner_angle), static_cast<float>(outer_angle),
+            static_cast<float>(outer_volume), static_cast<float>(outer_high_gain));
+}
+
+// Source:getCone: w_Source_getCone (wrap_Source.cpp:224-234).
+Rice::Array w_Source_getCone(const Source &t) {
+  Rice::Array results;
+  float innerAngle{};
+  float outerAngle{};
+  float outerVolume{};
+  float outerHighGain{};
+  t.getCone(innerAngle, outerAngle, outerVolume, outerHighGain);
+  results.push(static_cast<double>(innerAngle), false);
+  results.push(static_cast<double>(outerAngle), false);
+  results.push(static_cast<double>(outerVolume), false);
+  results.push(static_cast<double>(outerHighGain), false);
+  return results;
+}
+
+// Source:setRelative: w_Source_setRelative (wrap_Source.cpp:236-241).
+void w_Source_setRelative(Source &t, bool enable) { t.setRelative(enable); }
+
+// Source:isRelative: w_Source_isRelative (wrap_Source.cpp:243-248).
+bool w_Source_isRelative(const Source &t) { return t.isRelative(); }
+
 // Source:setLooping: w_Source_setLooping (wrap_Source.cpp:250-255).
 void w_Source_setLooping(Source &t, bool looping) { t.setLooping(looping); }
 
@@ -100,8 +245,73 @@ bool w_Source_isLooping(const Source &t) { return t.isLooping(); }
 // Source:isPlaying: w_Source_isPlaying (wrap_Source.cpp:264-269).
 bool w_Source_isPlaying(const Source &t) { return t.isPlaying(); }
 
+// Source:setVolumeLimits: w_Source_setVolumeLimits (wrap_Source.cpp:271-281).
+void w_Source_setVolumeLimits(Source &t, double vmin, double vmax) {
+  if (static_cast<float>(vmin) < .0F || static_cast<float>(vmin) > 1.F ||
+      static_cast<float>(vmax) < .0F) {
+    throw love::Exception("Invalid volume limits: [%f:%f]. Must be in [0:1]",
+                          static_cast<float>(vmin), static_cast<float>(vmax));
+  }
+  t.setMinVolume(static_cast<float>(vmin));
+  t.setMaxVolume(static_cast<float>(vmax));
+}
+
+// Source:getVolumeLimits: w_Source_getVolumeLimits (wrap_Source.cpp:283-289).
+Rice::Array w_Source_getVolumeLimits(const Source &t) {
+  Rice::Array results;
+  results.push(static_cast<double>(t.getMinVolume()), false);
+  results.push(static_cast<double>(t.getMaxVolume()), false);
+  return results;
+}
+
+// Source:setAttenuationDistances: w_Source_setAttenuationDistances (wrap_Source.cpp:291-303).
+void w_Source_setAttenuationDistances(Source &t, double dref, double dmax) {
+  if (static_cast<float>(dref) < .0F || static_cast<float>(dmax) < .0F) {
+    throw love::Exception("Invalid distances: %f, %f. Must be > 0", static_cast<float>(dref),
+                          static_cast<float>(dmax));
+  }
+  t.setReferenceDistance(static_cast<float>(dref));
+  t.setMaxDistance(static_cast<float>(dmax));
+}
+
+// Source:getAttenuationDistances: w_Source_getAttenuationDistances (wrap_Source.cpp:305-313).
+Rice::Array w_Source_getAttenuationDistances(const Source &t) {
+  Rice::Array results;
+  results.push(static_cast<double>(t.getReferenceDistance()), false);
+  results.push(static_cast<double>(t.getMaxDistance()), false);
+  return results;
+}
+
+// Source:setRolloff: w_Source_setRolloff (wrap_Source.cpp:315-323).
+void w_Source_setRolloff(Source &t, double rolloff) {
+  if (static_cast<float>(rolloff) < .0F) {
+    throw love::Exception("Invalid rolloff: %f. Must be > 0.", static_cast<float>(rolloff));
+  }
+  t.setRolloffFactor(static_cast<float>(rolloff));
+}
+
+// Source:getRolloff: w_Source_getRolloff (wrap_Source.cpp:325-330).
+double w_Source_getRolloff(const Source &t) { return static_cast<double>(t.getRolloffFactor()); }
+
+// Source:setAirAbsorption: w_Source_setAirAbsorption (wrap_Source.cpp:332-340).
+void w_Source_setAirAbsorption(Source &t, double factor) {
+  if (static_cast<float>(factor) < 0.0F) {
+    throw love::Exception("Invalid air absorption factor: %f. Must be > 0.",
+                          static_cast<float>(factor));
+  }
+  t.setAirAbsorptionFactor(static_cast<float>(factor));
+}
+
+// Source:getAirAbsorption: w_Source_getAirAbsorption (wrap_Source.cpp:342-347).
+double w_Source_getAirAbsorption(const Source &t) {
+  return static_cast<double>(t.getAirAbsorptionFactor());
+}
+
 // Source:getChannelCount: w_Source_getChannelCount (wrap_Source.cpp:349-354).
 int w_Source_getChannelCount(const Source &t) { return t.getChannelCount(); }
+
+// Source:getFreeBufferCount: w_Source_getFreeBufferCount (wrap_Source.cpp:534-539).
+int w_Source_getFreeBufferCount(const Source &t) { return t.getFreeBufferCount(); }
 
 // Source:getType: w_Source_getType (wrap_Source.cpp:591-602).
 std::string w_Source_getType(const Source &t) {
@@ -121,7 +331,17 @@ void define_generated_audio(const Rice::Module &native) {
   Rice::define_module_under(native, "Audio")
       .define_singleton_function("active_source_count", &w_getActiveSourceCount)
       .define_singleton_function("set_volume", &w_setVolume, Rice::Arg("v"))
-      .define_singleton_function("volume", &w_getVolume);
+      .define_singleton_function("volume", &w_getVolume)
+      .define_singleton_function("set_position", &w_setPosition, Rice::Arg("argument1"),
+                                 Rice::Arg("argument2"), Rice::Arg("argument3") = 0.0)
+      .define_singleton_function("position", &w_getPosition)
+      .define_singleton_function("set_velocity", &w_setVelocity, Rice::Arg("argument1"),
+                                 Rice::Arg("argument2"), Rice::Arg("argument3") = 0.0)
+      .define_singleton_function("velocity", &w_getVelocity)
+      .define_singleton_function("set_doppler_scale", &w_setDopplerScale, Rice::Arg("scale"))
+      .define_singleton_function("doppler_scale", &w_getDopplerScale)
+      .define_singleton_function("set_distance_model", &w_setDistanceModel,
+                                 Rice::Arg("distance_model"));
   Rice::define_class_under<Source>(native, "Source")
       .define_method("play", &w_Source_play)
       .define_method("stop", &w_Source_stop)
@@ -135,7 +355,33 @@ void define_generated_audio(const Rice::Module &native) {
       .define_method("playing?", &w_Source_isPlaying)
       .define_method("channel_count", &w_Source_getChannelCount)
       .define_method("get_type", &w_Source_getType)
-      .define_method("clone", &w_Source_clone, Rice::Return().takeOwnership());
+      .define_method("clone", &w_Source_clone, Rice::Return().takeOwnership())
+      .define_method("set_position", &w_Source_setPosition, Rice::Arg("argument1"),
+                     Rice::Arg("argument2"), Rice::Arg("argument3") = 0.0)
+      .define_method("position", &w_Source_getPosition)
+      .define_method("set_velocity", &w_Source_setVelocity, Rice::Arg("argument1"),
+                     Rice::Arg("argument2"), Rice::Arg("argument3") = 0.0)
+      .define_method("velocity", &w_Source_getVelocity)
+      .define_method("set_direction", &w_Source_setDirection, Rice::Arg("argument1"),
+                     Rice::Arg("argument2"), Rice::Arg("argument3") = 0.0)
+      .define_method("direction", &w_Source_getDirection)
+      .define_method("set_cone", &w_Source_setCone, Rice::Arg("inner_angle"),
+                     Rice::Arg("outer_angle"), Rice::Arg("outer_volume") = 0.0,
+                     Rice::Arg("outer_high_gain") = 1.0)
+      .define_method("cone", &w_Source_getCone)
+      .define_method("set_relative", &w_Source_setRelative, Rice::Arg("enable"))
+      .define_method("relative?", &w_Source_isRelative)
+      .define_method("set_volume_limits", &w_Source_setVolumeLimits, Rice::Arg("vmin"),
+                     Rice::Arg("vmax"))
+      .define_method("volume_limits", &w_Source_getVolumeLimits)
+      .define_method("set_attenuation_distances", &w_Source_setAttenuationDistances,
+                     Rice::Arg("dref"), Rice::Arg("dmax"))
+      .define_method("attenuation_distances", &w_Source_getAttenuationDistances)
+      .define_method("set_rolloff", &w_Source_setRolloff, Rice::Arg("rolloff"))
+      .define_method("rolloff", &w_Source_getRolloff)
+      .define_method("set_air_absorption", &w_Source_setAirAbsorption, Rice::Arg("factor"))
+      .define_method("air_absorption", &w_Source_getAirAbsorption)
+      .define_method("free_buffer_count", &w_Source_getFreeBufferCount);
 }
 
 } // namespace lota::native

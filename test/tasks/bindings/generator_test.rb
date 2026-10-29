@@ -504,6 +504,22 @@ class GeneratorTest < Minitest::Test
       %(#include "common/pixelformat.h")
   end
 
+  # w_Source_setRolloff compares with .0f, a float literal clang-tidy's
+  # readability-uppercase-literal-suffix asks to write .0F.
+  def test_a_float_literal_with_no_leading_digit_gets_an_uppercase_suffix
+    code = port("Source:setRolloff").definition
+
+    assert_includes code, "< .0F"
+    refute_includes code, ".0f"
+  end
+
+  # w_setDopplerScale reads its scale with luax_checkfloat, which returns
+  # a float, so the port casts the double Rice passes to one, as clang-tidy's
+  # narrowing-conversions check asks.
+  def test_a_float_read_is_cast_to_float
+    assert_includes port("love.audio.setDopplerScale").definition, "setDopplerScale(static_cast<float>(scale))"
+  end
+
   # w_Texture_getMipmapFilter pushes the negated lodBias, a float.
   def test_a_negated_field_has_the_fields_type
     assert_includes port("Texture:getMipmapFilter").definition, "results.push(static_cast<double>(-s.lodBias), false);"
