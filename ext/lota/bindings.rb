@@ -92,8 +92,8 @@ generate "love.graphics.reset"
 generate "love.graphics.origin"
 bound_by_hand "love.graphics.push",
   reason: "tests its stack type's const char * as a bool (if (sname && ...)), which clang-tidy's " \
-    "readability-implicit-bool-conversion refuses; Lota binds the form with a stack type alone, and the form " \
-    "that applies a Transform waits for Transform"
+    "readability-implicit-bool-conversion refuses; Lota binds it with a stack type and a Transform, either " \
+    "of which may be nil"
 generate "love.graphics.pop"
 generate "love.graphics.translate"
 generate "love.graphics.scale"
@@ -235,8 +235,49 @@ bound_by_hand "love.graphics.points",
 bound_by_hand "love.graphics.polygon",
   reason: "reads its coordinates in a loop over every argument after the draw mode, or from a table; " \
     "Lota::Graphics.polygon passes them as one Array, as line"
+generate "love.graphics.rotate"
+bound_by_hand "love.graphics.applyTransform",
+  reason: "reads a Transform or nine numbers through luax_checkstandardtransform, a template that hands the " \
+    "matrix it builds to a lambda, which the parser does not read; Lota binds a Transform, and the nine " \
+    "numbers as an Array, as draw"
+bound_by_hand "love.graphics.replaceTransform",
+  reason: "reads a Transform or nine numbers through luax_checkstandardtransform, as love.graphics.applyTransform"
+bound_by_hand "love.graphics.transformPoint",
+  reason: "assigns its point's x and y in statements of their own, so its two numbers fail clang-tidy's " \
+    "bugprone-easily-swappable-parameters, as love.graphics.setColor's do; Lota makes the point from both " \
+    "at once"
+bound_by_hand "love.graphics.inverseTransformPoint",
+  reason: "assigns its point's x and y in statements of their own, as love.graphics.transformPoint"
+bound_by_hand "love.graphics.setProjection",
+  reason: "reads a Transform, or a matrix layout and its elements at a position it computes (idx) through " \
+    "luax_checkmatrix, which reads them in loops from the arguments or from tables; Lota binds a Transform, " \
+    "and the layout and the sixteen numbers as an Array"
+generate "love.graphics.resetProjection"
+generate "love.graphics.getDPIScale"
+generate "love.graphics.getPixelWidth"
+generate "love.graphics.getPixelHeight"
+generate "love.graphics.getPixelDimensions"
+generate "love.graphics.flushBatch"
 bound_by_hand "love.graphics.captureScreenshot",
-  reason: "takes a Lua function, a Channel, or a filename; Lota binds a Ruby callable for the parity harness"
+  reason: "takes a Lua function, a Channel, or a filename, and keeps the function or the file's name to use " \
+    "once the frame is presented; Lota binds a Ruby callable and a filename, and the Channel form waits for " \
+    "story 7's Ractor channels"
+bound_by_hand "love.graphics.getStats",
+  reason: "fills in a table it is given or makes, field by field (lua_setfield), which the generator does not " \
+    "port; Lota returns the fields as a Hash, which Lota::Graphics.stats makes a frozen Data (rule 10)"
+bound_by_hand "love.graphics.getSupported",
+  reason: "fills in a table with a field for each feature, in a loop over the features' names, as " \
+    "love.graphics.getStats fills its own"
+bound_by_hand "love.graphics.getSystemLimits",
+  reason: "fills in a table with a field for each limit, in a loop over the limits' names, as " \
+    "love.graphics.getStats fills its own"
+bound_by_hand "love.graphics.getTextureFormats",
+  reason: "reads its settings from the fields of a table (luax_checkboolflag, lua_getfield) and fills in a " \
+    "table with a field for each pixel format, in a loop; Lota::Graphics.texture_formats takes the settings " \
+    "as keywords (rule 10)"
+bound_by_hand "love.graphics.getTextureTypes",
+  reason: "fills in a table with a field for each texture type, in a loop over the types' names, as " \
+    "love.graphics.getStats fills its own"
 
 # love.image
 bound_from_lua "ImageData:getWidth"
@@ -284,6 +325,29 @@ bound_by_hand "RandomGenerator:_random",
 bound_from_lua "RandomGenerator:randomNormal"
 generate "RandomGenerator:getState"
 generate "RandomGenerator:setState"
+generate "love.math.newTransform"
+generate "Transform:clone"
+generate "Transform:inverse"
+generate "Transform:inverseOf"
+generate "Transform:apply"
+generate "Transform:isAffine2DTransform"
+generate "Transform:__mul"
+generate "Transform:translate"
+generate "Transform:rotate"
+generate "Transform:scale"
+generate "Transform:shear"
+generate "Transform:reset"
+generate "Transform:setTransformation"
+bound_by_hand "Transform:setMatrix",
+  reason: "reads its matrix layout and elements at a position it computes (idx) through luax_checkmatrix, as " \
+    "love.graphics.setProjection; Lota binds the layout and the sixteen numbers as an Array"
+bound_by_hand "Transform:getMatrix",
+  reason: "pushes its sixteen elements in a loop, which the generator does not port; Lota returns them as an " \
+    "Array in the same order"
+bound_by_hand "Transform:transformPoint",
+  reason: "assigns its point's x and y in statements of their own, as love.graphics.transformPoint"
+bound_by_hand "Transform:inverseTransformPoint",
+  reason: "assigns its point's x and y in statements of their own, as love.graphics.transformPoint"
 bound_by_hand "love.math.newRandomGenerator",
   reason: "reads its seed's two halves at a position it computes; Lota binds the generator's constructor"
 bound_by_hand "love.math._getRandomGenerator",

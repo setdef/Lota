@@ -99,6 +99,23 @@ module Bindings
     # Rule 13's spelling of the words LÖVE capitalizes inside: UInt is C's
     # uint (uint8_t), one word as Int is int, so getUInt8 becomes uint8.
     ONE_WORD = { "UInt" => "Uint" }.freeze
+    # Rule 13: Lua's metamethods, by the name Ruby gives the same method,
+    # its operator where it has one (Lua 5.1 reference manual, section
+    # 2.8). One with no Ruby counterpart, such as __concat, fits no rule.
+    METAMETHODS = {
+      "__add" => "+",
+      "__sub" => "-",
+      "__mul" => "*",
+      "__div" => "/",
+      "__mod" => "%",
+      "__pow" => "**",
+      "__unm" => "-@",
+      "__eq" => "==",
+      "__lt" => "<",
+      "__le" => "<=",
+      "__call" => "call",
+      "__tostring" => "to_s",
+    }.freeze
     # LÖVE's root types, which keep their names inside Lota (ADR 001,
     # section 7): Data's methods are Lota::Data's, a module every Data
     # includes, as Object's are Lota::Object's. Data is love.data's type,
@@ -166,30 +183,18 @@ module Bindings
       "Lota::#{module_name.capitalize}"
     end
 
-    # Rule 13: a camelCase name in snake_case. An acronym stays one word
-    # (getDPIScale becomes dpi_scale), as Lota's hand-written bindings
-    # spell set_high_dpi_allowed.
+    # Rule 13: a camelCase name in snake_case. An acronym is one word, and
+    # digits stay with the word they follow, as in Ruby's own use_ssl? and
+    # sha256: getDPIScale becomes dpi_scale, and isAffine2DTransform
+    # affine2d_transform?. A word starts at a capital after a lower-case
+    # letter, or at a capital followed by a lower-case letter.
     def self.snake_case(name)
-      one_word(name).gsub(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+      one_word(name).gsub(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z])([A-Z])/, '\1_\2').downcase
     end
 
     # +name+ with each of ONE_WORD's words spelled as one.
     def self.one_word(name)
       ONE_WORD.reduce(name) { |spelled, (word, one)| spelled.gsub(word, one) }
-    end
-
-    # Whether rule 13 leaves the spelling open: the name runs capitals
-    # together (DPIScale) or puts one after a digit (texture2D), where
-    # word boundaries are a judgment, not a rule.
-    def self.ambiguous_case?(name)
-      snake_case(name) != run_together(name)
-    end
-
-    # The other reading of rule 13: a capital starts a word only after a
-    # lower-case letter or a digit, so capitals run together (getDPIScale
-    # becomes get_dpiscale).
-    def self.run_together(name)
-      one_word(name).gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
     end
 
     # [types] The class names LÖVE registers, with their modules.
@@ -234,7 +239,7 @@ module Bindings
       end
 
       private def base_name
-        return no_rule("is a Lua metamethod, which no rule maps to a Ruby operator") if @name.start_with?("__")
+        return metamethod if @name.start_with?("__")
         return no_rule("starts with an underscore, which marks a hook for LÖVE's own Lua wrapper") if @name.start_with?("_")
         return own_type if OWN_TYPE.include?(@name) && @typed.include?(@function.type_name)
         return factory(Regexp.last_match(1)) if @name =~ /\Anew([A-Z]\w*)\z/
@@ -243,8 +248,15 @@ module Bindings
         return predicate(Regexp.last_match(2)) if @name =~ /\A(is|has|are)([A-Z]\w*)\z/
 
         @rules << 13
-        spelled(@name)
         Rules.snake_case(@name)
+      end
+
+      # Rule 13: a metamethod by the name Ruby gives the same method.
+      private def metamethod
+        name = METAMETHODS[@name] or return no_rule("is a Lua metamethod with no Ruby counterpart")
+
+        @rules << 13
+        name
       end
 
       # Rule 16: getType and setType on a class that has getType keep
@@ -277,13 +289,11 @@ module Bindings
       private def getter(rest)
         @rules << 3
         @rules << 4 if results > 1
-        spelled(rest)
         Rules.snake_case(rest)
       end
 
       # Rules 5, 6, and 7.
       private def setter(rest)
-        spelled(rest)
         snake = Rules.snake_case(rest)
         if returns_value?
           @rules << 7
@@ -299,7 +309,6 @@ module Bindings
       # Rule 8.
       private def predicate(rest)
         @rules << 8
-        spelled(rest)
         if @analysis && results > 1
           several([4, 8], "a predicate that returns #{results} values")
         elsif @analysis && non_boolean_result
@@ -363,15 +372,6 @@ module Bindings
         return unless @facts.reads.any? { |read| read.kind == :function }
 
         several([5, 12], "a writer cannot take a block")
-      end
-
-      # Rule 13's spelling, for the part of the name a rule keeps.
-      private def spelled(rest)
-        return unless Rules.ambiguous_case?(rest)
-
-        open_question([13], "rule 13 does not say where #{rest}'s capitals split into words: " \
-          "#{Rules.snake_case(rest)}, as set_high_dpi_allowed splits them, or #{Rules.run_together(rest)}, " \
-          "with the capitals run together")
       end
 
       private def made_type

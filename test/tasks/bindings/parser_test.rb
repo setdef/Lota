@@ -139,6 +139,12 @@ class ParserTest < Minitest::Test
     assert_equal "RandomGenerator", survey.catalog.helpers.fetch("luax_checkrandomgenerator")
   end
 
+  # luax_checktransform names its type's id, luax_checktype<Transform>(L,
+  # idx, Transform::type), where luax_checktexture leaves it to the template.
+  def test_helpers_map_a_check_that_names_its_type_id_to_its_class
+    assert_equal "Transform", survey.catalog.helpers.fetch("luax_checktransform")
+  end
+
   # wrap_RandomGenerator.lua defines random twice, with and without
   # LuaJIT's FFI; the first counts.
   def test_lua_functions_are_listed_once_with_their_parameters

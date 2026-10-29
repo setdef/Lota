@@ -5,15 +5,19 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/math.hpp"
 
 #include "common/Color.h"
 #include "common/Data.h"
 #include "common/Exception.h"
 #include "common/Matrix.h"
 #include "common/Module.h"
+#include "common/Object.h"
 #include "common/Optional.h"
 #include "common/Vector.h"
+#include "common/int.h"
 #include "common/math.h"
+#include "common/pixelformat.h"
 #include "filesystem/FileData.h"
 #include "font/Font.h"
 #include "font/Rasterizer.h"
@@ -26,13 +30,18 @@
 #include "graphics/Texture.h"
 #include "graphics/vertex.h"
 #include "image/CompressedImageData.h"
+#include "image/FormatHandler.h"
 #include "image/Image.h"
 #include "image/ImageData.h"
+#include "math/Transform.h"
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdlib>
 #include <exception>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <span>
@@ -138,20 +147,37 @@ std::exception_ptr &screenshot_error() {
   return error;
 }
 
-// A Ruby callable waiting for the next presented frame. The Pin keeps it
-// from Ruby's garbage collector until then.
+// What waits for the next presented frame: a Ruby callable, which the Pin
+// keeps from Ruby's garbage collector until then, or, with no callable,
+// the name of a file and the format its extension names, as
+// ScreenshotFileInfo holds them (wrap_Graphics.cpp:463-467).
 struct PendingScreenshot {
-  Rice::Pin callable;
+  std::optional<Rice::Pin> callable;
+  std::string filename;
+  love::image::FormatHandler::EncodedFormat format{};
 };
+
+// screenshotFileCallback (wrap_Graphics.cpp:469-490): it encodes the frame
+// into the save directory, and prints, rather than raises, an error in
+// encoding or saving it, as LÖVE does.
+void save_screenshot(const PendingScreenshot &pending, const love::image::ImageData &image) {
+  try {
+    const love::StrongRef<love::filesystem::FileData> saved(
+        image.encode(pending.format, pending.filename.c_str(), true), love::Acquire::NORETAIN);
+  } catch (const love::Exception &error) {
+    std::cout << "Screenshot encoding or saving failed: " << error.what() << std::flush;
+  }
+}
 
 // A screenshot callback (graphics/Graphics.h:338-345), after
 // screenshotFunctionCallback (wrap_Graphics.cpp:441-461): it calls the
-// callable with the frame, or forgets it when there is no frame, which is
-// how LÖVE cancels a capture. LÖVE releases the frame after the callback
-// returns (metal/Graphics.mm:1780-1781), so the wrapper Ruby gets retains
-// its own reference. An error the callable raises waits for present to
-// raise it, rather than unwinding through LÖVE's present, which would leave
-// the frame and the remaining captures unreleased.
+// callable with the frame, or saves it to the file, or forgets it when
+// there is no frame, which is how LÖVE cancels a capture. LÖVE releases
+// the frame after the callback returns (metal/Graphics.mm:1780-1781), so
+// the wrapper Ruby gets retains its own reference. An error the callable
+// raises waits for present to raise it, rather than unwinding through
+// LÖVE's present, which would leave the frame and the remaining captures
+// unreleased.
 void deliver_screenshot(const Graphics::ScreenshotInfo *info, love::image::ImageData *image,
                         void * /*data*/) {
   if (info == nullptr) {
@@ -161,8 +187,12 @@ void deliver_screenshot(const Graphics::ScreenshotInfo *info, love::image::Image
   if (image == nullptr) {
     return;
   }
+  if (!pending->callable) {
+    save_screenshot(*pending, *image);
+    return;
+  }
   try {
-    Rice::Object(pending->callable.value()).call("call", image);
+    Rice::Object(pending->callable->value()).call("call", image);
   } catch (...) {
     if (!screenshot_error()) {
       screenshot_error() = std::current_exception();
@@ -170,17 +200,12 @@ void deliver_screenshot(const Graphics::ScreenshotInfo *info, love::image::Image
   }
 }
 
-// w_captureScreenshot with a function (wrap_Graphics.cpp:508-518 and
-// 552-555): the next present calls +callable+ with the frame it shows, as
-// an ImageData. Only the parity harness uses it so far, and Lota::Graphics
-// does not translate it yet. The callable arrives by value, as Rice
-// converts it, and is moved, as set_renderers moves its Array.
-void capture_screenshot(Rice::Object callable) {
+// Asks LÖVE for the next presented frame, for +pending+, and forgets it
+// when LÖVE refuses, as w_captureScreenshot does (wrap_Graphics.cpp:552-555).
+void request_screenshot(std::unique_ptr<PendingScreenshot> pending) {
   Graphics &instance = graphics();
-  const Rice::Object held = std::move(callable);
   Graphics::ScreenshotInfo info;
-  info.data =
-      std::make_unique<PendingScreenshot>(PendingScreenshot{Rice::Pin(held.value())}).release();
+  info.data = pending.release();
   info.callback = &deliver_screenshot;
   try {
     instance.captureScreenshot(info);
@@ -188,6 +213,137 @@ void capture_screenshot(Rice::Object callable) {
     info.callback(&info, nullptr, nullptr);
     throw;
   }
+}
+
+// w_captureScreenshot with a function (wrap_Graphics.cpp:508-518): the
+// next present calls +callable+ with the frame it shows, as an ImageData.
+// The callable arrives by value, as Rice converts it, and is moved, as
+// set_renderers moves its Array.
+void capture_screenshot(Rice::Object callable) {
+  const Rice::Object held = std::move(callable);
+  auto pending = std::make_unique<PendingScreenshot>();
+  pending->callable.emplace(held.value());
+  request_screenshot(std::move(pending));
+}
+
+// w_captureScreenshot with a filename (wrap_Graphics.cpp:519-540): the
+// next present saves the frame it shows in the format the extension
+// names, which LÖVE checks first, ignoring its case.
+void capture_screenshot_to_file(const std::string &filename) {
+  std::string ext;
+  const std::size_t dotpos = filename.rfind('.');
+  if (dotpos != std::string::npos) {
+    ext = filename.substr(dotpos + 1);
+  }
+  std::ranges::transform(ext, ext.begin(),
+                         [](unsigned char letter) { return std::tolower(letter); });
+  love::image::FormatHandler::EncodedFormat format{};
+  if (!love::image::ImageData::getConstant(ext.c_str(), format)) {
+    raise_enum_error("encoded image format", love::image::ImageData::getConstants(format), ext);
+  }
+  auto pending = std::make_unique<PendingScreenshot>();
+  pending->filename = filename;
+  pending->format = format;
+  request_screenshot(std::move(pending));
+}
+
+// Sets the field +name+ of a record's Hash to +value+, as lua_setfield
+// sets a table's.
+template <typename T> void set_field(Rice::Hash &fields, const char *name, T value) {
+  fields.call("[]=", Rice::String(name), value);
+}
+
+// Sets a field of +fields+ for each of +values+, by the name LÖVE gives
+// its index, skipping an index with no name, as LÖVE's loops over an enum
+// do.
+template <typename Enum, typename T, std::size_t N>
+void set_fields(Rice::Hash &fields, const std::span<const T, N> values,
+                bool (*name_of)(Enum, const char *&)) {
+  int index = 0;
+  for (const T value : values) {
+    const char *name = nullptr;
+    if (name_of(static_cast<Enum>(index++), name)) {
+      set_field(fields, name, value);
+    }
+  }
+}
+
+// w_getStats (wrap_Graphics.cpp:3206-3243): the renderer's counts since
+// the last present, by LÖVE's field names, each an Integer as the C++
+// holds it (ADR 001, rule 14).
+Rice::Hash stats() {
+  const Graphics::Stats stats = graphics().getStats();
+  Rice::Hash fields;
+  set_field(fields, "drawcalls", stats.drawCalls);
+  set_field(fields, "drawcallsbatched", stats.drawCallsBatched);
+  set_field(fields, "canvasswitches", stats.renderTargetSwitches);
+  set_field(fields, "shaderswitches", stats.shaderSwitches);
+  set_field(fields, "textures", stats.textures);
+  set_field(fields, "fonts", stats.fonts);
+  set_field(fields, "buffers", stats.buffers);
+  set_field(fields, "texturememory", static_cast<long long>(stats.textureMemory));
+  set_field(fields, "buffermemory", static_cast<long long>(stats.bufferMemory));
+  return fields;
+}
+
+// w_getSupported (wrap_Graphics.cpp:2998-3020): whether the renderer has
+// each optional feature, by the feature's name.
+Rice::Hash supported() {
+  const Graphics::Capabilities &caps = graphics().getCapabilities();
+  Rice::Hash fields;
+  set_fields<Graphics::Feature>(fields, std::span(caps.features), &Graphics::getConstant);
+  return fields;
+}
+
+// w_getSystemLimits (wrap_Graphics.cpp:3182-3204): each of the renderer's
+// limits, by its name, as the double LÖVE holds it.
+Rice::Hash system_limits() {
+  const Graphics::Capabilities &caps = graphics().getCapabilities();
+  Rice::Hash fields;
+  set_fields<Graphics::SystemLimit>(fields, std::span(caps.limits), &Graphics::getConstant);
+  return fields;
+}
+
+// w_getTextureFormats (wrap_Graphics.cpp:3022-3064): whether a texture
+// with the given settings can have each pixel format, by the format's
+// name. A format is sampled unless +readable+ says otherwise, and by
+// default unless it is a depth or stencil format.
+Rice::Hash texture_formats(bool rt, bool computewrite, bool shaderatomics,
+                           std::optional<bool> readable) {
+  Graphics &instance = graphics();
+  Rice::Hash fields;
+  for (int i = 0; i < static_cast<int>(love::PIXELFORMAT_MAX_ENUM); i++) {
+    const auto format = static_cast<love::PixelFormat>(i);
+    const char *name = nullptr;
+    if (format == love::PIXELFORMAT_UNKNOWN || !love::getConstant(format, name)) {
+      continue;
+    }
+    love::uint32 usage = love::graphics::PIXELFORMATUSAGEFLAGS_NONE;
+    if (rt) {
+      usage |= love::graphics::PIXELFORMATUSAGEFLAGS_RENDERTARGET;
+    }
+    if (readable.value_or(!love::isPixelFormatDepthStencil(format))) {
+      usage |= love::graphics::PIXELFORMATUSAGEFLAGS_SAMPLE;
+    }
+    if (computewrite) {
+      usage |= love::graphics::PIXELFORMATUSAGEFLAGS_COMPUTEWRITE;
+    }
+    if (shaderatomics) {
+      usage |= love::graphics::PIXELFORMATUSAGEFLAGS_SHADERATOMICS;
+    }
+    set_field(fields, name, instance.isPixelFormatSupported(format, usage));
+  }
+  return fields;
+}
+
+// w_getTextureTypes (wrap_Graphics.cpp:3146-3168): whether the renderer
+// has each type of texture, by the type's name.
+Rice::Hash texture_types() {
+  const Graphics::Capabilities &caps = graphics().getCapabilities();
+  Rice::Hash fields;
+  set_fields<love::graphics::TextureType>(fields, std::span(caps.textureTypes),
+                                          &Texture::getConstant);
+  return fields;
 }
 
 // w_present (wrap_Graphics.cpp:177-181). LÖVE passes its lua_State, which
@@ -766,15 +922,79 @@ void texture_render_to(Texture &texture, std::optional<int> slice, Rice::Object 
   }
 }
 
-// w_push with a stack type alone (wrap_Graphics.cpp:3910-3926): the
-// transformation, or all the state when +stack+ names "all", which LÖVE
-// checks before it pushes.
-void push(const std::optional<std::string> &stack) {
+// w_push (wrap_Graphics.cpp:3910-3926): the transformation, or all the
+// state when +stack+ names "all", which LÖVE checks before it pushes, and
+// then +transform+ applied, when it is not nil.
+void push(const std::optional<std::string> &stack, const love::math::Transform *transform) {
   Graphics::StackType stype = Graphics::STACK_TRANSFORM;
   if (stack.has_value() && !Graphics::getConstant(stack->c_str(), stype)) {
     raise_enum_error("graphics stack type", Graphics::getConstants(stype), *stack);
   }
-  graphics().push(stype);
+  Graphics &instance = graphics();
+  instance.push(stype);
+  if (transform != nullptr) {
+    instance.applyTransform(transform->getMatrix());
+  }
+}
+
+// w_applyTransform with a Transform (wrap_Graphics.cpp:3971-3978, through
+// luax_checkstandardtransform, wrap_SpriteBatch.h:33-64).
+void apply_transform(const love::math::Transform *transform) {
+  graphics().applyTransform(transform->getMatrix());
+}
+
+// w_applyTransform with numbers: the placement luax_checkstandardtransform
+// builds from them.
+void apply_placement(Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().applyTransform(placement_of(numbers));
+}
+
+// w_replaceTransform with a Transform (wrap_Graphics.cpp:3980-3987).
+void replace_transform(const love::math::Transform *transform) {
+  graphics().replaceTransform(transform->getMatrix());
+}
+
+// w_replaceTransform with numbers, as apply_placement.
+void replace_placement(Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().replaceTransform(placement_of(numbers));
+}
+
+// w_transformPoint (wrap_Graphics.cpp:3989-3998): the point through the
+// current transformation, each coordinate read as a float and pushed as a
+// lua_Number, a double.
+Rice::Array transform_point(double x, double y) {
+  const love::Vector2 p =
+      graphics().transformPoint(love::Vector2(static_cast<float>(x), static_cast<float>(y)));
+  Rice::Array results;
+  results.push(static_cast<double>(p.x), false);
+  results.push(static_cast<double>(p.y), false);
+  return results;
+}
+
+// w_inverseTransformPoint (wrap_Graphics.cpp:4000-4009), as
+// transform_point, through the inverse.
+Rice::Array inverse_transform_point(double x, double y) {
+  const love::Vector2 p =
+      graphics().inverseTransformPoint(love::Vector2(static_cast<float>(x), static_cast<float>(y)));
+  Rice::Array results;
+  results.push(static_cast<double>(p.x), false);
+  results.push(static_cast<double>(p.y), false);
+  return results;
+}
+
+// w_setProjection with a Transform (wrap_Graphics.cpp:4011-4037).
+void set_projection(const love::math::Transform *transform) {
+  graphics().setProjection(transform->getMatrix());
+}
+
+// w_setProjection with a matrix layout's name or nil and the sixteen
+// elements in one Array, read as luax_checkmatrix reads them.
+void set_projection_matrix(const std::optional<std::string> &layout, Rice::Array elements) {
+  const Rice::Array given = std::move(elements);
+  const love::Matrix4 matrix = matrix_of(layout, given);
+  graphics().setProjection(matrix);
 }
 
 // w_line (wrap_Graphics.cpp:3542-3589) with its coordinates in one Array,
@@ -924,7 +1144,20 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("default_renderers", &default_renderers)
       .define_singleton_function("set_renderers", &set_renderers, Rice::Arg("names"))
       .define_singleton_function("present", &present)
-      .define_singleton_function("push", &push, Rice::Arg("stack") = std::optional<std::string>())
+      .define_singleton_function("push", &push, Rice::Arg("stack") = std::optional<std::string>(),
+                                 Rice::Arg("transform") =
+                                     static_cast<const love::math::Transform *>(nullptr))
+      .define_singleton_function("apply_transform", &apply_transform, Rice::Arg("transform"))
+      .define_singleton_function("apply_placement", &apply_placement, Rice::Arg("placement"))
+      .define_singleton_function("replace_transform", &replace_transform, Rice::Arg("transform"))
+      .define_singleton_function("replace_placement", &replace_placement, Rice::Arg("placement"))
+      .define_singleton_function("transform_point", &transform_point, Rice::Arg("x"),
+                                 Rice::Arg("y"))
+      .define_singleton_function("inverse_transform_point", &inverse_transform_point,
+                                 Rice::Arg("x"), Rice::Arg("y"))
+      .define_singleton_function("set_projection", &set_projection, Rice::Arg("transform"))
+      .define_singleton_function("set_projection_matrix", &set_projection_matrix,
+                                 Rice::Arg("layout"), Rice::Arg("elements"))
       .define_singleton_function("new_canvas", &new_canvas, Rice::Arg("width"), Rice::Arg("height"),
                                  Rice::Arg("msaa"), Rice::Return().takeOwnership())
       .define_singleton_function("new_texture_from_data", &new_texture_from_data, Rice::Arg("data"),
@@ -941,6 +1174,15 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("set_color", &set_color, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
       .define_singleton_function("capture_screenshot", &capture_screenshot, Rice::Arg("callable"))
+      .define_singleton_function("capture_screenshot_to_file", &capture_screenshot_to_file,
+                                 Rice::Arg("filename"))
+      .define_singleton_function("stats", &stats)
+      .define_singleton_function("supported", &supported)
+      .define_singleton_function("system_limits", &system_limits)
+      .define_singleton_function("texture_formats", &texture_formats, Rice::Arg("rt"),
+                                 Rice::Arg("computewrite"), Rice::Arg("shaderatomics"),
+                                 Rice::Arg("readable"))
+      .define_singleton_function("texture_types", &texture_types)
       .define_singleton_function("new_default_font", &new_default_font, Rice::Arg("size"),
                                  Rice::Arg("hinting"), Rice::Arg("dpiscale"), Rice::Arg("sdf"),
                                  Rice::Return().takeOwnership())

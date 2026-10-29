@@ -35,6 +35,22 @@ module Lota
       def self.random_generator: () -> RandomGenerator
     end
 
+    class Transform
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def matrix: () -> Array[Float]
+
+      def transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def inverse_transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def set_matrix: (String? layout, Array[Float | Integer] elements) -> nil
+    end
+
     class Data
       def self.cpp_class: () -> String
 
@@ -368,7 +384,23 @@ module Lota
 
       def self.set_renderers: (Array[String] names) -> nil
 
-      def self.push: (?String? stack) -> nil
+      def self.push: (?String? stack, ?Transform? transform) -> nil
+
+      def self.apply_transform: (Transform transform) -> nil
+
+      def self.apply_placement: (Array[Float | Integer] placement) -> nil
+
+      def self.replace_transform: (Transform transform) -> nil
+
+      def self.replace_placement: (Array[Float | Integer] placement) -> nil
+
+      def self.transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def self.inverse_transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def self.set_projection: (Transform transform) -> nil
+
+      def self.set_projection_matrix: (String? layout, Array[Float | Integer] elements) -> nil
 
       def self.present: () -> nil
 
@@ -389,6 +421,18 @@ module Lota
       def self.set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
       def self.capture_screenshot: (^(ImageData) -> void callable) -> nil
+
+      def self.capture_screenshot_to_file: (String filename) -> nil
+
+      def self.stats: () -> Hash[String, Integer]
+
+      def self.supported: () -> Hash[String, bool]
+
+      def self.system_limits: () -> Hash[String, Float]
+
+      def self.texture_formats: (bool rt, bool computewrite, bool shaderatomics, bool? readable) -> Hash[String, bool]
+
+      def self.texture_types: () -> Hash[String, bool]
 
       def self.new_default_font: (Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
 

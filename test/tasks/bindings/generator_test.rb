@@ -78,11 +78,32 @@ class GeneratorTest < Minitest::Test
     assert_includes data_file, "#include <cstddef>"
   end
 
+  # love.math's class, Math, is declared in MathModule.h, as no Math.h
+  # exists; a header is found by the class it declares, not by a name that
+  # matches only on a file system that ignores case (common/math.h).
+  def test_a_module_class_is_included_from_the_header_that_declares_it
+    list = Bindings::BindingList.new
+    list.generate("love.math.newTransform")
+    math = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/math.cpp")
+
+    assert_includes math, %(#include "math/MathModule.h")
+    refute_includes math, %(#include "common/math.h")
+  end
+
   # w_SoundData_copyFrom reads its source as a const SoundData *, which the
   # port takes as LÖVE declares it.
   def test_an_object_read_as_const_is_taken_const
     assert_includes port("SoundData:copyFrom").definition,
       "void w_SoundData_copyFrom(SoundData &dst, const SoundData *src, int src_start, int count, int dst_start)"
+  end
+
+  # w_Transform_inverseOf reads its source as a Transform * but calls only
+  # its const getMatrix, as clang-tidy's misc-const-correctness sees, so
+  # the port takes it const; w_Transform_apply passes its other Transform
+  # on to Transform::apply, which takes it as it is.
+  def test_an_object_only_const_methods_reach_is_taken_const
+    assert_includes port("Transform:inverseOf").definition, "const Transform *source)"
+    assert_includes port("Transform:apply").definition, "(Transform &t, Transform *other)"
   end
 
   # w_Source_setPitch limits its pitch by std::numeric_limits<lua_Number>,
@@ -265,6 +286,17 @@ class GeneratorTest < Minitest::Test
     assert_equal "def native: () -> [Shape, Shape]", port("Contact:getShapes").rbs
   end
 
+  # w_Transform_translate pushes its own Transform back for Lua's
+  # chaining (lua_pushvalue(L, 1)), which the Ruby wrapper does by
+  # returning itself, so the port returns nothing.
+  def test_a_method_that_pushes_its_own_object_returns_nothing
+    port = port("Transform:translate")
+
+    assert_includes port.definition, "void w_Transform_translate(Transform &t, double x, double y) {\n" \
+      "t.translate(static_cast<float>(x), static_cast<float>(y));\n}"
+    assert_equal "def native: (Float | Integer x, Float | Integer y) -> nil", port.rbs
+  end
+
   # w_Shape_getBody returns no value when the Shape has no Body, which a
   # Lua caller reads as nil, so the port returns nil there.
   def test_a_form_that_returns_one_object_or_none_returns_nil_for_none
@@ -405,6 +437,10 @@ class GeneratorTest < Minitest::Test
     assert_match(/\Alove\.graphics\.print still reaches Lua after its port: /, error.message)
   end
 
+  def test_a_pointer_to_what_new_makes_is_declared_auto
+    assert_includes port("Transform:__mul").definition, "auto *t3 = new Transform(t1.getMatrix() * t2->getMatrix());"
+  end
+
   def test_errors_become_engine_exceptions
     assert_includes port("love.graphics.getLineStyle").definition, %(throw love::Exception("Unknown line style");)
   end
@@ -423,7 +459,8 @@ class GeneratorTest < Minitest::Test
     assert_equal "canvas?", generator.native_name(entry("Texture:isCanvas"))
     assert_equal "new_canvas", generator.native_name(entry("love.graphics.newCanvas"))
     assert_equal "state=", generator.native_name(entry("RandomGenerator:setState"))
-    assert_raises(Bindings::Generator::Failure) { generator.native_name(entry("Transform:__mul")) }
+    assert_equal "*", generator.native_name(entry("Transform:__mul"))
+    assert_raises(Bindings::Generator::Failure) { generator.native_name(entry("RandomGenerator:_random")) }
   end
 
   def test_main_thread_modules_come_from_lovees_thread_module
@@ -481,8 +518,7 @@ class GeneratorTest < Minitest::Test
   # The rules give each bound function the Ruby name lib/ already
   # defines, so the generator and the hand-written Ruby agree. RandomGenerator
   # has no Ruby class yet, and Lota::Math draws from the math module's
-  # generator itself; capture_screenshot serves only the parity harness;
-  # love.filesystem's init and setSource only Lota::Boot, as they serve
+  # generator itself; love.filesystem's init and setSource only Lota::Boot, as they serve
   # only boot.lua; and love.window.showMessageBox only Lota's error
   # handler, until the maintainer settles how its buttons form, whose table
   # holds both the buttons and the enterbutton and escapebutton settings,
@@ -495,7 +531,6 @@ class GeneratorTest < Minitest::Test
     RandomGenerator:setState
     love.filesystem.init
     love.filesystem.setSource
-    love.graphics.captureScreenshot
     love.math._getRandomGenerator
     love.math.newRandomGenerator
     love.window.showMessageBox

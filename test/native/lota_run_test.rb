@@ -135,11 +135,11 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 32908 - (3 * 32 * 32) + 1 : 32908
+    assertions = skipped ? 34600 - (3 * 32 * 32) + 1 : 34600
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^131 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
+    assert_match(/^153 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

@@ -167,6 +167,20 @@ module Lota
       def self.wireframe?: () -> bool
 
       def self.renderer_info: () -> [String, String, String, String]
+
+      def self.rotate: (Float | Integer angle) -> nil
+
+      def self.reset_projection: () -> nil
+
+      def self.dpi_scale: () -> Float
+
+      def self.pixel_width: () -> Integer
+
+      def self.pixel_height: () -> Integer
+
+      def self.pixel_dimensions: () -> [Integer, Integer]
+
+      def self.flush_batch: () -> nil
     end
 
     class Quad
@@ -207,10 +221,40 @@ module Lota
       def clone: () -> ImageData
     end
 
+    module Math
+      def self.new_transform: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer) a, ?(Float | Integer) sx, ?(Float | Integer)? sy, ?(Float | Integer) ox, ?(Float | Integer) oy, ?(Float | Integer) kx, ?(Float | Integer) ky) -> Transform
+    end
+
     class RandomGenerator
       def state: () -> String
 
       def state=: (String statestr) -> String
+    end
+
+    class Transform
+      def clone: () -> Transform
+
+      def inverse: () -> Transform
+
+      def inverse_of: (Transform source) -> nil
+
+      def apply: (Transform other) -> nil
+
+      def affine2d_transform?: () -> bool
+
+      def *: (Transform t2) -> Transform
+
+      def translate: (Float | Integer x, Float | Integer y) -> nil
+
+      def rotate: (Float | Integer angle) -> nil
+
+      def scale: (Float | Integer sx, ?(Float | Integer)? sy) -> nil
+
+      def shear: (Float | Integer kx, Float | Integer ky) -> nil
+
+      def reset: () -> nil
+
+      def set_transformation: (?(Float | Integer) x, ?(Float | Integer) y, ?(Float | Integer) a, ?(Float | Integer) sx, ?(Float | Integer)? sy, ?(Float | Integer) ox, ?(Float | Integer) oy, ?(Float | Integer) kx, ?(Float | Integer) ky) -> nil
     end
 
     module Mouse

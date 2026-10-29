@@ -178,7 +178,7 @@ object:,
         params = ([@self_parameter && "#{self_const? ? 'const ' : ''}#{@self_parameter[:type]} &#{@self_parameter[:name]}"] +
           parameters.map(&:declaration)).compact
         <<~CPP
-          // #{@function.love_name}: #{cpp_name} (#{citation}).
+          // #{@function.love_name}: #{@function.definition.name} (#{citation}).
           #{return_type} #{cpp_name}(#{params.join(', ')}) {
           #{body.join("\n")}
           }
@@ -228,7 +228,15 @@ object:,
 
     # The types its results take, as [C++, RBS] pairs, in push order.
     def results
-      @results ||= pushes(@body).map { |push| result_type(push) }
+      @results ||= pushes(@body).reject { |push| own_object?(push) }.map { |push| result_type(push) }
+    end
+
+    # Whether +push+ pushes the method's own object back, as
+    # w_Transform_translate does for Lua's chaining (lua_pushvalue(L, 1)).
+    # The Ruby wrapper returns itself instead, so the port returns nothing
+    # for it.
+    private def own_object?(push)
+      !singleton? && push.base_name == "lua_pushvalue" && push.arguments[1].strip == "1"
     end
 
     # Whether the method's object is only read: every method the body
@@ -295,6 +303,7 @@ object:,
     # one value on some paths and none on others is not one rule 4 covers.
     private def result_mode
       counts = returns(@body)
+      return :none if counts == [1] && pushes(@body).all? { |push| own_object?(push) } && !pushes(@body).empty?
       return :many if counts.max > 1
       return :one if counts.sort == [0, 1] && results.all? { |cpp, _| cpp.to_s.end_with?("*") }
       raise Unsupported, "#{@function.love_name} returns #{counts.join(' or ')} values in the bound form" if counts.uniq.size > 1
@@ -469,8 +478,35 @@ line: node.line,
       when :integer then integral(read[:cast]) || integral(read[:declared]) || "long long"
       when :string then "const std::string &"
       when :boolean, :truthy then "bool"
-      when :object then "#{'const ' if read[:constant]}#{helper_type(read[:call])} *"
+      when :object
+        type = helper_type(read[:call])
+        "#{'const ' if read[:constant] || const_only?(read[:variable], type)}#{type} *"
       else raise Unsupported, "#{@function.love_name} reads a #{kind} argument"
+      end
+    end
+
+    # Whether the body uses the object it reads into +name+ only to call
+    # const methods on it, by LÖVE's headers, as w_Transform_inverseOf
+    # calls its source's getMatrix, so clang-tidy's misc-const-correctness
+    # asks that it be const.
+    private def const_only?(name, type)
+      return false unless name
+
+      uses = 0
+      calls = []
+      word = /(?<![\w.>])#{Regexp.escape(name)}\b/
+      walk_texts(@body) do |text, _node|
+        next if parameter_declaration?(text) || @reads.any? { |read| read[:text] == text }
+
+        uses += text.scan(word).size
+        calls.concat(text.scan(/#{word}\s*(?:->|\.)\s*(\w+)\s*\(([^()]*)\)/))
+      end
+      return false if uses.zero? || uses != calls.size
+
+      calls.all? do |method_name, arguments|
+        count = arguments.strip.empty? ? 0 : Calls.split(arguments).size
+        @types.methods(type, method_name, module_dir: @module_dir)
+          .find { |method| method.parameters.size == count }&.const
       end
     end
 
@@ -621,6 +657,8 @@ line: node.line,
 
     private def emit_push(text)
       call = Calls.in(text).first
+      return [] if own_object?(call)
+
       type, = result_type(call)
       value = type ? convert(rewrite(call.arguments[1]), call, type) : "nullptr"
       case @result_mode
@@ -652,8 +690,9 @@ line: node.line,
       "std::string(#{value})"
     end
 
-    # A declaration with no initializer gets one, and one never changed
-    # afterward becomes const.
+    # A declaration with no initializer gets one, one never changed
+    # afterward becomes const, and a pointer to what new makes is auto, as
+    # the type is already named once (clang-tidy's modernize-use-auto).
     private def declaration(text)
       match = text.match(/\A(?<type>(?:const\s+)?[\w:]+(?:\s*<[^;=]*?>)?)(?<pointer>\s*\*\s*|\s+)(?<name>\w+)(?<rest>\s*=.*)?\z/m)
       return text unless match && !text.match?(/\A(?:return|throw|delete)\b/)
@@ -662,6 +701,7 @@ line: node.line,
       pointer = match[:pointer].include?("*")
       type = "#{match[:type]}#{pointer ? ' *' : ' '}"
       return "#{type}#{name}#{pointer ? ' = nullptr' : '{}'}" unless match[:rest]
+      return "auto *#{name}#{match[:rest]}" if pointer && match[:rest].match?(/\A\s*=\s*new\s+#{Regexp.escape(match[:type])}\b/)
       return text.sub(/\?\s*0\s*:/, "? nullptr :").sub(/=\s*0\z/, "= nullptr") if pointer
       return text if modified?(@renames.key(name) || name, text) || match[:type].start_with?("const ")
 

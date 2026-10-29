@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Math
+    class Transform
+      include Object
+
+      type matrix = Array[Symbol | String | Float | Integer | Array[Float | Integer]]
+
+      attr_reader native: Native::Transform
+
+      def self.from_native: (Native::Transform native) -> Transform
+
+      def self.new: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? angle, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Transform
+
+      def initialize_copy: (Transform source) -> void
+
+      def inverse: () -> Transform
+
+      def inverse_of: (Transform source) -> self
+
+      def apply: (Transform other) -> self
+
+      def affine2d_transform?: () -> bool
+
+      def *: (Transform other) -> Transform
+
+      def translate: (Float | Integer x, Float | Integer y) -> self
+
+      def rotate: (Float | Integer angle) -> self
+
+      def scale: (Float | Integer sx, ?(Float | Integer)? sy) -> self
+
+      def shear: (Float | Integer kx, Float | Integer ky) -> self
+
+      def reset: () -> self
+
+      def transformation=: (Float | Integer | Array[(Float | Integer)?] placement) -> void
+
+      def matrix: () -> Array[Float]
+
+      def matrix=: (matrix matrix) -> void
+
+      def transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def inverse_transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def self.native_of: (Transform transform) -> Native::Transform
+
+      def self.layout_and_elements: (matrix matrix) -> [String?, Array[Float | Integer]]
+    end
+  end
+end

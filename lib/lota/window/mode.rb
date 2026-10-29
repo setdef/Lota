@@ -36,6 +36,7 @@ module Lota
     #   flags.resizable # => false
     class Mode < ::Data.define(:fullscreentype, :fullscreen, :vsync, :msaa, :stencil, :depth, :resizable, :minwidth,
       :minheight, :borderless, :centered, :displayindex, :usedpiscale, :refreshrate, :x, :y)
+      include Record
     end
   end
 end

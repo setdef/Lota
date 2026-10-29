@@ -1,0 +1,231 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class TextureFormats < ::Data
+      include Record
+
+      attr_reader normal: bool
+
+      attr_reader hdr: bool
+
+      attr_reader r8: bool
+
+      attr_reader r8i: bool
+
+      attr_reader r8ui: bool
+
+      attr_reader r16: bool
+
+      attr_reader r16f: bool
+
+      attr_reader r16i: bool
+
+      attr_reader r16ui: bool
+
+      attr_reader r32f: bool
+
+      attr_reader r32i: bool
+
+      attr_reader r32ui: bool
+
+      attr_reader rg8: bool
+
+      attr_reader rg8i: bool
+
+      attr_reader rg8ui: bool
+
+      attr_reader la8: bool
+
+      attr_reader rg16: bool
+
+      attr_reader rg16f: bool
+
+      attr_reader rg16i: bool
+
+      attr_reader rg16ui: bool
+
+      attr_reader rg32f: bool
+
+      attr_reader rg32i: bool
+
+      attr_reader rg32ui: bool
+
+      attr_reader rgba8: bool
+
+      attr_reader srgba8: bool
+
+      attr_reader bgra8: bool
+
+      attr_reader bgra8srgb: bool
+
+      attr_reader rgba8i: bool
+
+      attr_reader rgba8ui: bool
+
+      attr_reader rgba16: bool
+
+      attr_reader rgba16f: bool
+
+      attr_reader rgba16i: bool
+
+      attr_reader rgba16ui: bool
+
+      attr_reader rgba32f: bool
+
+      attr_reader rgba32i: bool
+
+      attr_reader rgba32ui: bool
+
+      attr_reader rgba4: bool
+
+      attr_reader rgb5a1: bool
+
+      attr_reader rgb565: bool
+
+      attr_reader rgb10a2: bool
+
+      attr_reader rgb10a2ui: bool
+
+      attr_reader rg11b10f: bool
+
+      attr_reader stencil8: bool
+
+      attr_reader depth16: bool
+
+      attr_reader depth24: bool
+
+      attr_reader depth32f: bool
+
+      attr_reader depth24stencil8: bool
+
+      attr_reader depth32fstencil8: bool
+
+      attr_reader DXT1: bool
+
+      attr_reader DXT1srgb: bool
+
+      attr_reader DXT3: bool
+
+      attr_reader DXT3srgb: bool
+
+      attr_reader DXT5: bool
+
+      attr_reader DXT5srgb: bool
+
+      attr_reader BC4: bool
+
+      attr_reader BC4s: bool
+
+      attr_reader BC5: bool
+
+      attr_reader BC5s: bool
+
+      attr_reader BC6h: bool
+
+      attr_reader BC6hs: bool
+
+      attr_reader BC7: bool
+
+      attr_reader BC7srgb: bool
+
+      attr_reader PVR1rgb2: bool
+
+      attr_reader PVR1rgb2srgb: bool
+
+      attr_reader PVR1rgb4: bool
+
+      attr_reader PVR1rgb4srgb: bool
+
+      attr_reader PVR1rgba2: bool
+
+      attr_reader PVR1rgba2srgb: bool
+
+      attr_reader PVR1rgba4: bool
+
+      attr_reader PVR1rgba4srgb: bool
+
+      attr_reader ETC1: bool
+
+      attr_reader ETC2rgb: bool
+
+      attr_reader ETC2srgb: bool
+
+      attr_reader ETC2rgba: bool
+
+      attr_reader ETC2srgba: bool
+
+      attr_reader ETC2rgba1: bool
+
+      attr_reader ETC2srgba1: bool
+
+      attr_reader EACr: bool
+
+      attr_reader EACrs: bool
+
+      attr_reader EACrg: bool
+
+      attr_reader EACrgs: bool
+
+      attr_reader ASTC4x4: bool
+
+      attr_reader ASTC5x4: bool
+
+      attr_reader ASTC5x5: bool
+
+      attr_reader ASTC6x5: bool
+
+      attr_reader ASTC6x6: bool
+
+      attr_reader ASTC8x5: bool
+
+      attr_reader ASTC8x6: bool
+
+      attr_reader ASTC8x8: bool
+
+      attr_reader ASTC10x5: bool
+
+      attr_reader ASTC10x6: bool
+
+      attr_reader ASTC10x8: bool
+
+      attr_reader ASTC10x10: bool
+
+      attr_reader ASTC12x10: bool
+
+      attr_reader ASTC12x12: bool
+
+      attr_reader ASTC4x4srgb: bool
+
+      attr_reader ASTC5x4srgb: bool
+
+      attr_reader ASTC5x5srgb: bool
+
+      attr_reader ASTC6x5srgb: bool
+
+      attr_reader ASTC6x6srgb: bool
+
+      attr_reader ASTC8x5srgb: bool
+
+      attr_reader ASTC8x6srgb: bool
+
+      attr_reader ASTC8x8srgb: bool
+
+      attr_reader ASTC10x5srgb: bool
+
+      attr_reader ASTC10x6srgb: bool
+
+      attr_reader ASTC10x8srgb: bool
+
+      attr_reader ASTC10x10srgb: bool
+
+      attr_reader ASTC12x10srgb: bool
+
+      attr_reader ASTC12x12srgb: bool
+
+      def self.new: (normal: bool, hdr: bool, r8: bool, r8i: bool, r8ui: bool, r16: bool, r16f: bool, r16i: bool, r16ui: bool, r32f: bool, r32i: bool, r32ui: bool, rg8: bool, rg8i: bool, rg8ui: bool, la8: bool, rg16: bool, rg16f: bool, rg16i: bool, rg16ui: bool, rg32f: bool, rg32i: bool, rg32ui: bool, rgba8: bool, srgba8: bool, bgra8: bool, bgra8srgb: bool, rgba8i: bool, rgba8ui: bool, rgba16: bool, rgba16f: bool, rgba16i: bool, rgba16ui: bool, rgba32f: bool, rgba32i: bool, rgba32ui: bool, rgba4: bool, rgb5a1: bool, rgb565: bool, rgb10a2: bool, rgb10a2ui: bool, rg11b10f: bool, stencil8: bool, depth16: bool, depth24: bool, depth32f: bool, depth24stencil8: bool, depth32fstencil8: bool, DXT1: bool, DXT1srgb: bool, DXT3: bool, DXT3srgb: bool, DXT5: bool, DXT5srgb: bool, BC4: bool, BC4s: bool, BC5: bool, BC5s: bool, BC6h: bool, BC6hs: bool, BC7: bool, BC7srgb: bool, PVR1rgb2: bool, PVR1rgb2srgb: bool, PVR1rgb4: bool, PVR1rgb4srgb: bool, PVR1rgba2: bool, PVR1rgba2srgb: bool, PVR1rgba4: bool, PVR1rgba4srgb: bool, ETC1: bool, ETC2rgb: bool, ETC2srgb: bool, ETC2rgba: bool, ETC2srgba: bool, ETC2rgba1: bool, ETC2srgba1: bool, EACr: bool, EACrs: bool, EACrg: bool, EACrgs: bool, ASTC4x4: bool, ASTC5x4: bool, ASTC5x5: bool, ASTC6x5: bool, ASTC6x6: bool, ASTC8x5: bool, ASTC8x6: bool, ASTC8x8: bool, ASTC10x5: bool, ASTC10x6: bool, ASTC10x8: bool, ASTC10x10: bool, ASTC12x10: bool, ASTC12x12: bool, ASTC4x4srgb: bool, ASTC5x4srgb: bool, ASTC5x5srgb: bool, ASTC6x5srgb: bool, ASTC6x6srgb: bool, ASTC8x5srgb: bool, ASTC8x6srgb: bool, ASTC8x8srgb: bool, ASTC10x5srgb: bool, ASTC10x6srgb: bool, ASTC10x8srgb: bool, ASTC10x10srgb: bool, ASTC12x10srgb: bool, ASTC12x12srgb: bool) -> instance
+                  | (**bool fields) -> instance
+    end
+  end
+end

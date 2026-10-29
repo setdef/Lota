@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Stats < ::Data
+      include Record
+
+      attr_reader drawcalls: Integer
+
+      attr_reader drawcallsbatched: Integer
+
+      attr_reader canvasswitches: Integer
+
+      attr_reader shaderswitches: Integer
+
+      attr_reader textures: Integer
+
+      attr_reader fonts: Integer
+
+      attr_reader buffers: Integer
+
+      attr_reader texturememory: Integer
+
+      attr_reader buffermemory: Integer
+
+      def self.new: (drawcalls: Integer, drawcallsbatched: Integer, canvasswitches: Integer, shaderswitches: Integer, textures: Integer, fonts: Integer, buffers: Integer, texturememory: Integer, buffermemory: Integer) -> instance
+                  | (**Integer fields) -> instance
+    end
+  end
+end

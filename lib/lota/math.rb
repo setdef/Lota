@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "math/transform"
+
 module Lota
   # Math for games, translated from love.math.
   #

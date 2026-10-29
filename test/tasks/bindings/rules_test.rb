@@ -108,7 +108,16 @@ class RulesTest < Minitest::Test
   def test_an_underscore_fits_no_rule
     assert_nil translation("RandomGenerator:_random").name
     assert_equal [[:no_rule, []]], collisions("RandomGenerator:_random")
-    assert_equal [[:no_rule, []]], collisions("Transform:__mul")
+  end
+
+  # Rule 13: a Lua metamethod is a method like any other, named as Ruby
+  # names the same method, by its operator.
+  def test_rule_13_names_a_metamethod_by_its_operator
+    assert_equal "Lota::Math::Transform#*", ruby_name("Transform:__mul")
+    assert_includes rules("Transform:__mul"), 13
+    assert_empty collisions("Transform:__mul")
+    assert_equal "==", Bindings::Rules::METAMETHODS.fetch("__eq")
+    assert_equal "to_s", Bindings::Rules::METAMETHODS.fetch("__tostring")
   end
 
   def test_several_values_from_a_non_getter_fit_no_rule
@@ -125,10 +134,15 @@ class RulesTest < Minitest::Test
     assert_equal "int16", Bindings::Rules.snake_case("Int16")
   end
 
-  def test_acronyms_leave_rule_13_open
-    assert_includes collisions("love.graphics.getDPIScale"), [:open, [13]]
-    assert_empty collisions("love.timer.getFPS"), "FPS splits only one way"
-    assert_equal "get_dpiscale", Bindings::Rules.run_together("getDPIScale")
+  # Rule 13: an acronym is one word, and digits stay with the word they
+  # follow, as in Ruby's use_ssl? and sha256, so nothing is left open.
+  def test_rule_13_keeps_an_acronym_and_its_digits_one_word
+    assert_equal "Lota::Graphics.dpi_scale", ruby_name("love.graphics.getDPIScale")
+    assert_empty collisions("love.graphics.getDPIScale")
+    assert_equal "Lota::Math::Transform#affine2d_transform?", ruby_name("Transform:isAffine2DTransform")
+    assert_empty collisions("Transform:isAffine2DTransform")
+    assert_equal "uint8_array", Bindings::Rules.snake_case("UInt8Array")
+    assert_equal "fps", Bindings::Rules.snake_case("FPS")
   end
 
   def test_an_option_table_before_other_arguments_fits_two_rules

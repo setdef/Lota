@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class SystemLimits < ::Data
+      include Record
+
+      attr_reader pointsize: Float
+
+      attr_reader texturesize: Float
+
+      attr_reader volumetexturesize: Float
+
+      attr_reader cubetexturesize: Float
+
+      attr_reader texturelayers: Float
+
+      attr_reader texelbuffersize: Float
+
+      attr_reader shaderstoragebuffersize: Float
+
+      attr_reader threadgroupsx: Float
+
+      attr_reader threadgroupsy: Float
+
+      attr_reader threadgroupsz: Float
+
+      attr_reader multicanvas: Float
+
+      attr_reader texturemsaa: Float
+
+      attr_reader anisotropy: Float
+
+      def self.new: (pointsize: Float, texturesize: Float, volumetexturesize: Float, cubetexturesize: Float, texturelayers: Float, texelbuffersize: Float, shaderstoragebuffersize: Float, threadgroupsx: Float, threadgroupsy: Float, threadgroupsz: Float, multicanvas: Float, texturemsaa: Float, anisotropy: Float) -> instance
+                  | (**Float fields) -> instance
+    end
+  end
+end

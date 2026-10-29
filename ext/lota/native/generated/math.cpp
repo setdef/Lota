@@ -9,8 +9,13 @@
 
 #include "native/binding.hpp"
 
+#include "common/Exception.h"
+#include "common/Module.h"
+#include "math/MathModule.h"
 #include "math/RandomGenerator.h"
+#include "math/Transform.h"
 
+#include <optional>
 #include <string>
 
 namespace lota::native {
@@ -22,6 +27,18 @@ namespace {
 using namespace love;
 using namespace love::math;
 
+constexpr const char *MODULE = "Lota::Math";
+
+// The math module, as LÖVE's instance() macro reaches it
+// (wrap_Math.cpp:43), on any thread.
+Math *instance() {
+  auto *instance = love::Module::getInstance<Math>(love::Module::M_MATH);
+  if (instance == nullptr) {
+    throw love::Exception("%s is not open.", MODULE);
+  }
+  return instance;
+}
+
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
@@ -29,6 +46,22 @@ using namespace love::math;
 // Ported by the generator from the wrap functions cited below
 // (vendor/love/src/modules/math), with each read of the Lua
 // stack made a parameter and each push the result.
+
+// love.math.newTransform: w_newTransform (wrap_Math.cpp:123-146).
+Transform *w_newTransform(std::optional<double> x, std::optional<double> y, double a, double sx,
+                          std::optional<double> sy, double ox, double oy, double kx, double ky) {
+  Transform *t = nullptr;
+  if (!x.has_value()) {
+    t = instance()->newTransform();
+  } else {
+    t = instance()->newTransform(
+        static_cast<float>(required(x, "x")), static_cast<float>(required(y, "y")),
+        static_cast<float>(a), static_cast<float>(sx),
+        static_cast<float>(sy.value_or(static_cast<float>(sx))), static_cast<float>(ox),
+        static_cast<float>(oy), static_cast<float>(kx), static_cast<float>(ky));
+  }
+  return t;
+}
 
 // RandomGenerator:setState: w_RandomGenerator_setState (wrap_RandomGenerator.cpp:104-109).
 void w_RandomGenerator_setState(RandomGenerator &rng, const std::string &statestr) {
@@ -38,14 +71,99 @@ void w_RandomGenerator_setState(RandomGenerator &rng, const std::string &statest
 // RandomGenerator:getState: w_RandomGenerator_getState (wrap_RandomGenerator.cpp:111-116).
 std::string w_RandomGenerator_getState(const RandomGenerator &rng) { return rng.getState(); }
 
+// Transform:clone: w_Transform_clone (wrap_Transform.cpp:126-133).
+Transform *w_Transform_clone(Transform &t) {
+  Transform *newtransform = t.clone();
+  return newtransform;
+}
+
+// Transform:inverse: w_Transform_inverse (wrap_Transform.cpp:135-142).
+Transform *w_Transform_inverse(Transform &t) {
+  Transform *inverse = t.inverse();
+  return inverse;
+}
+
+// Transform:inverseOf: w_Transform_inverseOf (wrap_Transform.cpp:144-151).
+void w_Transform_inverseOf(Transform &destination, const Transform *source) {
+  destination.setMatrix(source->getMatrix().inverse());
+}
+
+// Transform:apply: w_Transform_apply (wrap_Transform.cpp:153-160).
+void w_Transform_apply(Transform &t, Transform *other) { t.apply(other); }
+
+// Transform:isAffine2DTransform: w_Transform_isAffine2DTransform (wrap_Transform.cpp:162-167).
+bool w_Transform_isAffine2DTransform(const Transform &t) {
+  return t.getMatrix().isAffine2DTransform();
+}
+
+// Transform:translate: w_Transform_translate (wrap_Transform.cpp:169-177).
+void w_Transform_translate(Transform &t, double x, double y) {
+  t.translate(static_cast<float>(x), static_cast<float>(y));
+}
+
+// Transform:rotate: w_Transform_rotate (wrap_Transform.cpp:179-186).
+void w_Transform_rotate(Transform &t, double angle) { t.rotate(static_cast<float>(angle)); }
+
+// Transform:scale: w_Transform_scale (wrap_Transform.cpp:188-196).
+void w_Transform_scale(Transform &t, double sx, std::optional<double> sy) {
+  t.scale(static_cast<float>(sx), static_cast<float>(sy.value_or(static_cast<float>(sx))));
+}
+
+// Transform:shear: w_Transform_shear (wrap_Transform.cpp:198-206).
+void w_Transform_shear(Transform &t, double kx, double ky) {
+  t.shear(static_cast<float>(kx), static_cast<float>(ky));
+}
+
+// Transform:reset: w_Transform_reset (wrap_Transform.cpp:208-214).
+void w_Transform_reset(Transform &t) { t.reset(); }
+
+// Transform:setTransformation: w_Transform_setTransformation (wrap_Transform.cpp:216-231).
+void w_Transform_setTransformation(Transform &t, double x, double y, double a, double sx,
+                                   std::optional<double> sy, double ox, double oy, double kx,
+                                   double ky) {
+  t.setTransformation(
+      static_cast<float>(x), static_cast<float>(y), static_cast<float>(a), static_cast<float>(sx),
+      static_cast<float>(sy.value_or(static_cast<float>(sx))), static_cast<float>(ox),
+      static_cast<float>(oy), static_cast<float>(kx), static_cast<float>(ky));
+}
+
+// Transform:__mul: w_Transform__mul (wrap_Transform.cpp:296-304).
+Transform *w_Transform_mul(const Transform &t1, const Transform *t2) {
+  auto *t3 = new Transform(t1.getMatrix() * t2->getMatrix());
+  return t3;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_generated_math(const Rice::Module &native) {
+  Rice::define_module_under(native, "Math")
+      .define_singleton_function(
+          "new_transform", &w_newTransform, Rice::Arg("x") = std::optional<double>(),
+          Rice::Arg("y") = std::optional<double>(), Rice::Arg("a") = 0.0, Rice::Arg("sx") = 1.0,
+          Rice::Arg("sy") = std::optional<double>(), Rice::Arg("ox") = 0.0, Rice::Arg("oy") = 0.0,
+          Rice::Arg("kx") = 0.0, Rice::Arg("ky") = 0.0, Rice::Return().takeOwnership());
   Rice::define_class_under<RandomGenerator>(native, "RandomGenerator")
       .define_method("state", &w_RandomGenerator_getState)
       .define_method("state=", &w_RandomGenerator_setState, Rice::Arg("statestr"));
+  Rice::define_class_under<Transform>(native, "Transform")
+      .define_method("clone", &w_Transform_clone, Rice::Return().takeOwnership())
+      .define_method("inverse", &w_Transform_inverse, Rice::Return().takeOwnership())
+      .define_method("inverse_of", &w_Transform_inverseOf, Rice::Arg("source"))
+      .define_method("apply", &w_Transform_apply, Rice::Arg("other"))
+      .define_method("affine2d_transform?", &w_Transform_isAffine2DTransform)
+      .define_method("*", &w_Transform_mul, Rice::Arg("t2"), Rice::Return().takeOwnership())
+      .define_method("translate", &w_Transform_translate, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("rotate", &w_Transform_rotate, Rice::Arg("angle"))
+      .define_method("scale", &w_Transform_scale, Rice::Arg("sx"),
+                     Rice::Arg("sy") = std::optional<double>())
+      .define_method("shear", &w_Transform_shear, Rice::Arg("kx"), Rice::Arg("ky"))
+      .define_method("reset", &w_Transform_reset)
+      .define_method("set_transformation", &w_Transform_setTransformation, Rice::Arg("x") = 0.0,
+                     Rice::Arg("y") = 0.0, Rice::Arg("a") = 0.0, Rice::Arg("sx") = 1.0,
+                     Rice::Arg("sy") = std::optional<double>(), Rice::Arg("ox") = 0.0,
+                     Rice::Arg("oy") = 0.0, Rice::Arg("kx") = 0.0, Rice::Arg("ky") = 0.0);
 }
 
 } // namespace lota::native

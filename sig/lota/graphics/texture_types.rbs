@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class TextureTypes < ::Data
+      include Record
+
+      attr_reader `2d`: bool
+
+      attr_reader volume: bool
+
+      attr_reader array: bool
+
+      attr_reader cube: bool
+
+      def self.new: (`2d`: bool, volume: bool, array: bool, cube: bool) -> instance
+                  | (**bool fields) -> instance
+    end
+  end
+end

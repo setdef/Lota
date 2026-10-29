@@ -11,6 +11,11 @@ require_relative "graphics/font"
 require_relative "graphics/image"
 require_relative "graphics/quad"
 require_relative "graphics/sprite_batch"
+require_relative "graphics/stats"
+require_relative "graphics/supported"
+require_relative "graphics/system_limits"
+require_relative "graphics/texture_formats"
+require_relative "graphics/texture_types"
 
 module Lota
   # Drawing, translated from love.graphics.
@@ -193,12 +198,13 @@ module Lota
     # [stack] +:transform+ (the default, also when +nil+) saves the
     #   transformation alone, and +:all+ the color, font, canvas, and the
     #   rest of the state too.
+    # [transform] Lota::Math::Transform to apply once the state is saved,
+    #   as apply_transform does. LÖVE ignores anything else here, and so
+    #   does Lota.
     #
-    # LÖVE also applies a Transform given after the stack type; Lota binds
-    # that form with Transform. Raises ArgumentError for an unknown stack
-    # type, RuntimeError (<tt>"Maximum stack depth reached (more pushes
-    # than pops?)"</tt>) past LÖVE's depth of 128, and ThreadError off the
-    # main thread.
+    # Raises ArgumentError for an unknown stack type, RuntimeError
+    # (<tt>"Maximum stack depth reached (more pushes than pops?)"</tt>)
+    # past LÖVE's depth of 128, and ThreadError off the main thread.
     #
     # === Examples
     #
@@ -210,8 +216,10 @@ module Lota
     #   Lota::Graphics.push(:all)
     #   Lota::Graphics.color = 1, 0, 0
     #   Lota::Graphics.pop
-    def self.push(stack = nil)
-      Native::Graphics.push(stack && EnumName.of(stack))
+    #
+    #   Lota::Graphics.push(:transform, camera) { Lota::Graphics.draw(map) }
+    def self.push(stack = nil, transform = nil)
+      Native::Graphics.push(stack && EnumName.of(stack), transform.is_a?(Math::Transform) ? transform.native : nil)
       return nil unless block_given?
 
       begin
@@ -279,6 +287,139 @@ module Lota
     #   Lota::Graphics.shear(0.5, 0)
     def self.shear(kx, ky)
       Native::Graphics.shear(kx, ky)
+    end
+
+    # Rotates what is drawn after it by +angle+, matching
+    # love.graphics.rotate (src/modules/graphics/wrap_Graphics.cpp,
+    # w_rotate).
+    #
+    # [angle] Float or Integer rotation in radians, clockwise on screen,
+    #   around the current origin.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.rotate(Math::PI / 2)
+    def self.rotate(angle)
+      Native::Graphics.rotate(angle)
+    end
+
+    # Multiplies the current transformation by a Transform, or by a
+    # placement, so what is drawn after it goes through both, matching
+    # love.graphics.applyTransform
+    # (src/modules/graphics/wrap_Graphics.cpp, w_applyTransform).
+    #
+    # [transform] Lota::Math::Transform; or else the first of up to nine
+    #   numbers, in the order Lota::Math::Transform.new takes them, each
+    #   taking its default when +nil+ or left out.
+    #
+    # Raises TypeError for an argument that is neither, and ThreadError
+    # off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.apply_transform(camera)
+    #   Lota::Graphics.apply_transform(100, 50, Math::PI / 4)
+    def self.apply_transform(transform = nil, *placement)
+      return Native::Graphics.apply_transform(transform.native) if transform.is_a?(Math::Transform)
+
+      Native::Graphics.apply_placement(standard_placement(transform, *placement))
+    end
+
+    # Replaces the current transformation with a Transform, or with a
+    # placement, matching love.graphics.replaceTransform
+    # (src/modules/graphics/wrap_Graphics.cpp, w_replaceTransform).
+    #
+    # [transform] As apply_transform takes it.
+    #
+    # Raises TypeError for an argument that is neither, and ThreadError
+    # off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.replace_transform(camera)
+    def self.replace_transform(transform = nil, *placement)
+      return Native::Graphics.replace_transform(transform.native) if transform.is_a?(Math::Transform)
+
+      Native::Graphics.replace_placement(standard_placement(transform, *placement))
+    end
+
+    # Moves a point from where it would be drawn to where it appears on
+    # the screen, through the current transformation, matching
+    # love.graphics.transformPoint (src/modules/graphics/wrap_Graphics.cpp,
+    # w_transformPoint).
+    #
+    # [x] Float or Integer.
+    # [y] Float or Integer.
+    #
+    # Returns the point's x and y on the screen, as an Array of Floats
+    # (ADR 001, rule 4). Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.translate(1, 5)
+    #   Lota::Graphics.transform_point(0, 0) # => [1.0, 5.0]
+    def self.transform_point(x, y)
+      Native::Graphics.transform_point(x, y)
+    end
+
+    # Moves a point on the screen back to where it would be drawn, through
+    # the inverse of the current transformation, matching
+    # love.graphics.inverseTransformPoint
+    # (src/modules/graphics/wrap_Graphics.cpp, w_inverseTransformPoint).
+    # A game uses it to find what the mouse points at.
+    #
+    # [x] Float or Integer.
+    # [y] Float or Integer.
+    #
+    # Returns the point's x and y before the transformation, as an Array of
+    # Floats (ADR 001, rule 4). Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   world_x, world_y = Lota::Graphics.inverse_transform_point(*Lota::Mouse.position)
+    def self.inverse_transform_point(x, y)
+      Native::Graphics.inverse_transform_point(x, y)
+    end
+
+    # Sets the projection that maps what is drawn onto the window or the
+    # canvas, matching love.graphics.setProjection
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setProjection).
+    #
+    # [projection] Lota::Math::Transform, whose matrix becomes the
+    #   projection; or the layout and sixteen elements of a matrix, as
+    #   Lota::Math::Transform#matrix= takes them.
+    #
+    # LÖVE projects orthographically, so that a unit is a pixel, until it
+    # is set; reset_projection goes back to that. Raises ArgumentError for
+    # an unknown layout or a count of elements other than sixteen,
+    # TypeError for an element that is not a number, and ThreadError off
+    # the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.projection = :row, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+    def self.projection=(projection)
+      if projection.is_a?(Math::Transform)
+        Native::Graphics.set_projection(projection.native)
+      else
+        layout, elements = Math::Transform.layout_and_elements(projection)
+        Native::Graphics.set_projection_matrix(layout, elements)
+      end
+    end
+
+    # Goes back to LÖVE's own orthographic projection, matching
+    # love.graphics.resetProjection
+    # (src/modules/graphics/wrap_Graphics.cpp, w_resetProjection).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.reset_projection
+    def self.reset_projection
+      Native::Graphics.reset_projection
     end
 
     # The color the loop clears the window to before each draw, as an
@@ -671,6 +812,59 @@ module Lota
       [Native::Graphics.width, Native::Graphics.height]
     end
 
+    # How many pixels the screen has to a unit, as a Float, matching
+    # love.graphics.getDPIScale (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getDPIScale): 2.0 on most Retina displays, and 1.0 where the
+    # window is not high-DPI.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.dpi_scale # => 2.0
+    def self.dpi_scale
+      Native::Graphics.dpi_scale
+    end
+
+    # The window's width in pixels, as an Integer, matching
+    # love.graphics.getPixelWidth (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getPixelWidth): width times dpi_scale.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.pixel_width # => 1600
+    def self.pixel_width
+      Native::Graphics.pixel_width
+    end
+
+    # The window's height in pixels, as an Integer, matching
+    # love.graphics.getPixelHeight (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getPixelHeight): height times dpi_scale.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.pixel_height # => 1200
+    def self.pixel_height
+      Native::Graphics.pixel_height
+    end
+
+    # The window's width and height in pixels, as an Array of Integers,
+    # matching love.graphics.getPixelDimensions
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getPixelDimensions).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   width, height = Lota::Graphics.pixel_dimensions # => [1600, 1200]
+    def self.pixel_dimensions
+      Native::Graphics.pixel_dimensions
+    end
+
     # Sets the font text is drawn in, matching love.graphics.setFont
     # (src/modules/graphics/wrap_Graphics.cpp, w_setFont).
     #
@@ -853,6 +1047,16 @@ module Lota
     private_class_method def self.placement(x, y, r, sx, sy, ox, oy, kx, ky)
       sx ||= 1
       [x, y, r || 0, sx, sy || sx, ox || 0, oy || 0, kx || 0, ky || 0]
+    end
+
+    # The placement luax_checkstandardtransform reads where it finds no
+    # Transform: up to nine numbers, the position 0 when +nil+ or left
+    # out. More than nine is an ArgumentError, as for any Ruby method.
+    private_class_method def self.standard_placement(*numbers)
+      raise ArgumentError, "wrong number of arguments (given #{numbers.size}, expected 0..9)" if numbers.size > 9
+
+      x, y, r, sx, sy, ox, oy, kx, ky = numbers
+      placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky)
     end
 
     # The placement the numbers after a Quad give, or, when +quad+ is not
@@ -1382,6 +1586,149 @@ module Lota
     #   name, version, vendor, device = Lota::Graphics.renderer_info
     def self.renderer_info
       Native::Graphics.renderer_info
+    end
+
+    # The renderer's counts, as a frozen Lota::Graphics::Stats, matching
+    # love.graphics.getStats (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getStats). LÖVE also fills in a table it is given; a frozen record
+    # cannot be filled, so Lota takes none (ADR 001, rule 10).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.stats.drawcalls # => 12
+    def self.stats
+      Stats.new(**Native::Graphics.stats.transform_keys(&:to_sym))
+    end
+
+    # Which optional features the renderer has, as a frozen
+    # Lota::Graphics::Supported, matching love.graphics.getSupported
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getSupported).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.supported.instancing # => true
+    def self.supported
+      Supported.new(**Native::Graphics.supported.transform_keys(&:to_sym))
+    end
+
+    # The renderer's limits, as a frozen Lota::Graphics::SystemLimits,
+    # matching love.graphics.getSystemLimits
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getSystemLimits).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.system_limits.texturesize # => 16384.0
+    def self.system_limits
+      SystemLimits.new(**Native::Graphics.system_limits.transform_keys(&:to_sym))
+    end
+
+    # Which pixel formats a texture with these settings can have, as a
+    # frozen Lota::Graphics::TextureFormats, matching
+    # love.graphics.getTextureFormats
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getTextureFormats), whose
+    # table of settings becomes keywords (ADR 001, rule 10).
+    #
+    # [canvas] +true+ or +false+: whether the texture is to be drawn
+    #   into; required, as LÖVE requires it.
+    # [computewrite] Whether compute shaders are to write to it.
+    # [shaderatomics] Whether shaders are to use atomic operations on it.
+    # [readable] +true+, +false+, or +nil+: whether shaders are to read
+    #   it; when +nil+, true for every format but the depth and stencil
+    #   formats.
+    #
+    # Raises TypeError when +canvas+, or +readable+ when given, is not
+    # +true+ or +false+, as LÖVE raises, and ThreadError off the main
+    # thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.texture_formats(canvas: true).rgba16f # => true
+    def self.texture_formats(canvas:, computewrite: false, shaderatomics: false, readable: nil)
+      boolean!(:canvas, canvas)
+      boolean!(:readable, readable) unless readable.nil?
+      formats = Native::Graphics.texture_formats(canvas, computewrite ? true : false, shaderatomics ? true : false,
+        readable)
+      TextureFormats.new(**formats.transform_keys(&:to_sym))
+    end
+
+    # luax_checkboolflag and luax_checkboolean (src/common/runtime.cpp):
+    # +value+ must be +true+ or +false+, where luax_boolflag would take
+    # any value's truthiness. :nodoc:
+    private_class_method def self.boolean!(name, value)
+      return if [true, false].include?(value)
+
+      raise TypeError, "wrong argument type #{value.class} for #{name} (expected true or false)"
+    end
+
+    # Which types of texture the renderer has, as a frozen
+    # Lota::Graphics::TextureTypes, matching love.graphics.getTextureTypes
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getTextureTypes).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.texture_types["2d"] # => true
+    def self.texture_types
+      TextureTypes.new(**Native::Graphics.texture_types.transform_keys(&:to_sym))
+    end
+
+    # Draws what LÖVE has batched so far, matching love.graphics.flushBatch
+    # (src/modules/graphics/wrap_Graphics.cpp, w_flushBatch). LÖVE draws a
+    # batch on its own when it must; a game flushes only to measure, or to
+    # order its own rendering.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.flush_batch
+    def self.flush_batch
+      Native::Graphics.flush_batch
+    end
+
+    # Captures the next frame the window shows, matching
+    # love.graphics.captureScreenshot
+    # (src/modules/graphics/wrap_Graphics.cpp, w_captureScreenshot).
+    #
+    # [target] A String file name, to save the frame in the save
+    #   directory, in the format its extension names (+png+ or +tga+); or
+    #   any object that answers +call+, or a block, which LÖVE keeps to
+    #   call with the frame as a Lota::Image::ImageData (ADR 001, rule
+    #   12), as Signal.trap keeps its handler.
+    #
+    # The capture happens once the frame is presented, at the end of the
+    # loop's draw. LÖVE prints, rather than raises, an error in saving the
+    # file, and so does Lota; an error the callable raises comes out of
+    # Lota::Graphics.present. LÖVE also sends the frame to a Channel, a form
+    # that waits for Lota's counterpart of love.thread. Raises ArgumentError for an
+    # extension LÖVE cannot encode, or for both a target and a block,
+    # TypeError for a target that is neither, and ThreadError off the main
+    # thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.capture_screenshot("screenshot.png")
+    #   Lota::Graphics.capture_screenshot { |image_data| frames << image_data }
+    def self.capture_screenshot(target = nil, &block)
+      raise ArgumentError, "wrong number of arguments (given 1 and a block, expected 1 or a block)" if target && block
+
+      case (callable = block || target)
+      when String then Native::Graphics.capture_screenshot_to_file(callable)
+      when nil then raise TypeError, "wrong argument type NilClass (expected String or an object that answers call)"
+      else
+        unless callable.respond_to?(:call)
+          raise TypeError, "wrong argument type #{callable.class} (expected String or an object that answers call)"
+        end
+
+        Native::Graphics.capture_screenshot(-> (image) { callable.call(Lota::Image::ImageData.from_native(image)) })
+      end
     end
 
     # Draws points in the current color and point size, matching

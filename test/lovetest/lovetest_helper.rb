@@ -154,6 +154,13 @@ module Lovetest
       flunk(err) unless err.nil?
     end
 
+    # Asserts that the pair +actual+ equals the pair +expected+, as
+    # assertCoords does (lines 228-245): each number equal to its own, an
+    # Integer to a Float of the same value, as Lua's == compares them.
+    def assert_coords(expected, actual, label = nil)
+      assert_equal(expected.first(2), actual.first(2), label)
+    end
+
     # Asserts that +obj+ is one of LÖVE's objects, as assertObject does
     # (lines 211-223): not nil, an object of the engine's, which Lua calls
     # userdata and Lota wraps around its native object, and one with a

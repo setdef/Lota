@@ -76,6 +76,23 @@ int w_getWidth() { return instance()->getWidth(); }
 // love.graphics.getHeight: w_getHeight (wrap_Graphics.cpp:213-217).
 int w_getHeight() { return instance()->getHeight(); }
 
+// love.graphics.getPixelWidth: w_getPixelWidth (wrap_Graphics.cpp:226-230).
+int w_getPixelWidth() { return instance()->getPixelWidth(); }
+
+// love.graphics.getPixelHeight: w_getPixelHeight (wrap_Graphics.cpp:232-236).
+int w_getPixelHeight() { return instance()->getPixelHeight(); }
+
+// love.graphics.getPixelDimensions: w_getPixelDimensions (wrap_Graphics.cpp:238-243).
+Rice::Array w_getPixelDimensions() {
+  Rice::Array results;
+  results.push(instance()->getPixelWidth(), false);
+  results.push(instance()->getPixelHeight(), false);
+  return results;
+}
+
+// love.graphics.getDPIScale: w_getDPIScale (wrap_Graphics.cpp:245-249).
+double w_getDPIScale() { return instance()->getScreenDPIScale(); }
+
 // love.graphics.getScissor: w_getScissor (wrap_Graphics.cpp:599-611).
 Rice::Array w_getScissor() {
   Rice::Array results;
@@ -457,11 +474,17 @@ void w_ellipse(const std::string &mode, double x, double y, double a, std::optio
   }
 }
 
+// love.graphics.flushBatch: w_flushBatch (wrap_Graphics.cpp:3898-3902).
+void w_flushBatch() { instance()->flushBatchedDraws(); }
+
 // love.graphics.getStackDepth: w_getStackDepth (wrap_Graphics.cpp:3904-3908).
 size_t w_getStackDepth() { return instance()->getStackDepth(); }
 
 // love.graphics.pop: w_pop (wrap_Graphics.cpp:3928-3932).
 void w_pop() { instance()->pop(); }
+
+// love.graphics.rotate: w_rotate (wrap_Graphics.cpp:3934-3939).
+void w_rotate(double angle) { instance()->rotate(static_cast<float>(angle)); }
 
 // love.graphics.scale: w_scale (wrap_Graphics.cpp:3941-3947).
 void w_scale(double sx, std::optional<double> sy) {
@@ -481,6 +504,9 @@ void w_shear(double kx, double ky) {
 
 // love.graphics.origin: w_origin (wrap_Graphics.cpp:3965-3969).
 void w_origin() { instance()->origin(); }
+
+// love.graphics.resetProjection: w_resetProjection (wrap_Graphics.cpp:4039-4043).
+void w_resetProjection() { instance()->resetProjection(); }
 
 // Quad:getViewport: w_Quad_getViewport (wrap_Quad.cpp:56-65).
 Rice::Array w_Quad_getViewport(const Quad &quad) {
@@ -668,7 +694,14 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("gamma_correct?", &w_isGammaCorrect)
       .define_singleton_function("set_wireframe", &w_setWireframe, Rice::Arg("enable"))
       .define_singleton_function("wireframe?", &w_isWireframe)
-      .define_singleton_function("renderer_info", &w_getRendererInfo);
+      .define_singleton_function("renderer_info", &w_getRendererInfo)
+      .define_singleton_function("rotate", &w_rotate, Rice::Arg("angle"))
+      .define_singleton_function("reset_projection", &w_resetProjection)
+      .define_singleton_function("dpi_scale", &w_getDPIScale)
+      .define_singleton_function("pixel_width", &w_getPixelWidth)
+      .define_singleton_function("pixel_height", &w_getPixelHeight)
+      .define_singleton_function("pixel_dimensions", &w_getPixelDimensions)
+      .define_singleton_function("flush_batch", &w_flushBatch);
   Rice::define_class_under<Quad>(native, "Quad")
       .define_method("viewport", &w_Quad_getViewport)
       .define_method("texture_dimensions", &w_Quad_getTextureDimensions)

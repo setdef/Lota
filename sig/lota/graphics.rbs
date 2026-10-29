@@ -17,8 +17,8 @@ module Lota
 
     def self.origin: () -> nil
 
-    def self.push: (?(Symbol | String)? stack) -> nil
-                 | [T] (?(Symbol | String)? stack) { () -> T } -> T
+    def self.push: (?(Symbol | String)? stack, ?Math::Transform? transform) -> nil
+                 | [T] (?(Symbol | String)? stack, ?Math::Transform? transform) { () -> T } -> T
 
     def self.pop: () -> nil
 
@@ -27,6 +27,51 @@ module Lota
     def self.scale: (?(Float | Integer) sx, ?(Float | Integer)? sy) -> nil
 
     def self.shear: (Float | Integer kx, Float | Integer ky) -> nil
+
+    def self.dpi_scale: () -> Float
+
+    def self.pixel_width: () -> Integer
+
+    def self.pixel_height: () -> Integer
+
+    def self.pixel_dimensions: () -> [Integer, Integer]
+
+    def self.stats: () -> Stats
+
+    def self.supported: () -> Supported
+
+    def self.system_limits: () -> SystemLimits
+
+    def self.texture_formats: (canvas: bool, ?computewrite: ::Object?, ?shaderatomics: ::Object?, ?readable: bool?) -> TextureFormats
+
+    private def self.boolean!: (Symbol name, ::Object? value) -> void
+
+    def self.texture_types: () -> TextureTypes
+
+    def self.flush_batch: () -> nil
+
+    def self.capture_screenshot: (String | callable target) -> nil
+                               | () { (Lota::Image::ImageData image_data) -> void } -> nil
+
+    interface _Callable
+      def call: (Lota::Image::ImageData image_data) -> void
+    end
+
+    type callable = ::Object & _Callable
+
+    def self.rotate: (Float | Integer angle) -> nil
+
+    def self.apply_transform: (?(Math::Transform | Float | Integer)? transform, *(Float | Integer)? placement) -> nil
+
+    def self.replace_transform: (?(Math::Transform | Float | Integer)? transform, *(Float | Integer)? placement) -> nil
+
+    def self.transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+    def self.inverse_transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+    def self.projection=: (Math::Transform | Math::Transform::matrix projection) -> void
+
+    def self.reset_projection: () -> nil
 
     def self.background_color: () -> Array[Float]
 
@@ -81,6 +126,8 @@ module Lota
     private def self.colored_text: (text text) -> Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
 
     private def self.placement: (Float | Integer x, Float | Integer y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
+
+    private def self.standard_placement: (*(Float | Integer)? numbers) -> Array[Float | Integer]
 
     def self.placement_after: ((Quad | Float | Integer)? quad, (Float | Integer)? x, (Float | Integer)? y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
 

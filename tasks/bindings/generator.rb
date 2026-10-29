@@ -367,11 +367,29 @@ module Bindings
     # common/ (common/Data.h).
     private def header_of(name, type, wrap_dir)
       own = File.join(wrap_dir, "#{type}.h")
-      path = (File.exist?(File.join(@love, own)) ? own : nil) ||
-        Dir.glob("src/modules/#{name}/**/#{type}.h", base: @love).min_by(&:length) ||
-        Dir.glob("src/common/#{type}.h", base: @love).first or
+      header = "#{type}.h"
+      path = (named?(own, header) ? own : nil) ||
+        Dir.glob("src/modules/#{name}/**/#{header}", base: @love).select { |file| named?(file, header) }.min_by(&:length) ||
+        Dir.glob("src/common/#{header}", base: @love).find { |file| named?(file, header) } ||
+        declaring_header(name, type) or
         raise Failure, "no header declares #{type} in love.#{name}"
       path.delete_prefix("src/modules/").delete_prefix("src/")
+    end
+
+    # Whether +path+ exists and is named exactly +header+, which a file
+    # system that ignores case does not tell apart: there, a glob for
+    # common/Math.h finds common/math.h.
+    private def named?(path, header)
+      full = File.join(@love, path)
+      File.basename(path) == header && File.exist?(full) && Dir.children(File.dirname(full)).include?(header)
+    end
+
+    # The header of love.+name+ that declares class +type+, where no
+    # header is named for it, as MathModule.h declares Math.
+    private def declaring_header(name, type)
+      Dir.glob("src/modules/#{name}/**/*.h", base: @love).sort.find do |file|
+        File.read(File.join(@love, file)).match?(/^\s*class\s+#{type}\b(?!\s*;)/)
+      end
     end
 
     # The namespace a wrap file's code is in, by its folder: love::physics::box2d

@@ -23,8 +23,14 @@ class GraphicsTest < Lovetest::TestMethod
   # love.window.updateMode turns both buffers off (window.lua:398), so a
   # graphics test that runs after them, such as setDepthMode on the
   # window's depth buffer, gets the window back as Lövetest has it.
+  #
+  # Lövetest also runs a module's tests in the order of their names
+  # (classes/TestModule.lua:68-71), so getColor, which checks the default
+  # color, runs before resetProjection, which leaves the color blue, as
+  # its Lua does; each test here starts with the default color.
   def setup
     super
+    Lota::Graphics.color = 1, 1, 1, 1 if Lota.graphics
     return unless Lota.window
 
     _width, _height, flags = Lota::Window.mode
@@ -1220,6 +1226,436 @@ class GraphicsTest < Lovetest::TestMethod
     assert_not_nil(version)
     assert_not_nil(vendor)
     assert_not_nil(device)
+  end
+
+  # Translated to Ruby from love.test.graphics.applyTransform
+  # (vendor/love/testing/tests/graphics.lua:2541-2555): newTransform
+  # becomes Transform.new (rule 2), and applyTransform apply_transform
+  # (rule 13), with the rules test_origin names.
+  def test_apply_transform
+    # use transform object to translate the drawn rectangle
+    transform = Lota::Math::Transform.new
+    transform.translate(10, 0)
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.apply_transform(transform)
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.inverseTransformPoint
+  # (vendor/love/testing/tests/graphics.lua:2559-2570):
+  # inverseTransformPoint becomes inverse_transform_point (rule 13), whose
+  # two results are an Array (rule 4).
+  def test_inverse_transform_point
+    # start with 0, 0
+    sx, sy = Lota::Graphics.inverse_transform_point(0, 0)
+    assert_equal(0, sx, "check starting x is 0")
+    assert_equal(0, sy, "check starting y is 0")
+    # check translation effects the point
+    Lota::Graphics.translate(1, 5)
+    sx, sy = Lota::Graphics.inverse_transform_point(1, 5)
+    assert_equal(0, sx, "check transformed x is 0")
+    assert_equal(0, sy, "check transformed y is 0")
+    Lota::Graphics.origin
+  end
+
+  # Translated to Ruby from love.test.graphics.replaceTransform
+  # (vendor/love/testing/tests/graphics.lua:2639-2656), by the rules
+  # test_apply_transform names.
+  def test_replace_transform
+    # if use transform object to translate
+    # set some normal transforms first which should get overwritten
+    transform = Lota::Math::Transform.new
+    transform.translate(10, 0)
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.scale(2, 2)
+    Lota::Graphics.translate(10, 10)
+    Lota::Graphics.replace_transform(transform)
+    Lota::Graphics.rectangle(:fill, 0, 0, 1, 1)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.rotate
+  # (vendor/love/testing/tests/graphics.lua:2660-2674): rotate keeps its
+  # name (rule 13), with the rules test_origin names. Lua's math.pi is
+  # Ruby's Math::PI.
+  def test_rotate
+    # starting at 0,0, we rotate by 90deg and then draw
+    # we can then check the drawn rectangle is rotated
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.translate(4, 0)
+    Lota::Graphics.rotate(90 * (Math::PI / 180))
+    Lota::Graphics.rectangle(:fill, 0, 0, 4, 4)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.shear
+  # (vendor/love/testing/tests/graphics.lua:2695-2721), by the rules
+  # test_origin names.
+  def test_shear
+    # starting at 0,0, we shear by 2x and then draw
+    # we can then check the drawn rectangle has moved over
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.origin
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.shear(2, 0)
+    Lota::Graphics.rectangle(:fill, 0, 0, 4, 4)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata1 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata1)
+    # same again at 0,0, we shear by 2y and then draw
+    # we can then check the drawn rectangle has moved down
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.origin
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.shear(0, 2)
+    Lota::Graphics.rectangle(:fill, 0, 0, 4, 4)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata2 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata2)
+  end
+
+  # Translated to Ruby from love.test.graphics.transformPoint
+  # (vendor/love/testing/tests/graphics.lua:2725-2735), by the rules
+  # test_inverse_transform_point names.
+  def test_transform_point
+    # start with 0, 0
+    sx, sy = Lota::Graphics.transform_point(0, 0)
+    assert_equal(0, sx, "check starting x is 0")
+    assert_equal(0, sy, "check starting y is 0")
+    # check translation effects the point
+    Lota::Graphics.translate(1, 5)
+    sx, sy = Lota::Graphics.transform_point(0, 0)
+    assert_equal(1, sx, "check transformed x is 0")
+    assert_equal(5, sy, "check transformed y is 10")
+  end
+
+  # Translated to Ruby from love.test.graphics.resetProjection
+  # (vendor/love/testing/tests/graphics.lua:2762-2783): setProjection
+  # becomes the writer projection=, taking its layout and elements as one
+  # Array (rule 6), as ADR 001 makes Transform:setMatrix matrix=, with
+  # the layout a symbol (rule 9), and resetProjection reset_projection
+  # (rule 13).
+  def test_reset_projection
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.origin
+    # draw red pixel at (0, 4) using default projection
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 4, 1, 1)
+    Lota::Graphics.projection = :row, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0
+    # draw a green pixel at that should not show on screen after projection.
+    # if setProjection doesn't affect it, the green pixel will show and fail
+    # the test.
+    Lota::Graphics.color = 0, 1, 0, 1
+    Lota::Graphics.rectangle(:fill, 2, 2, 1, 1)
+    # draw a blue pixel at (8, 8) after resetting projection
+    Lota::Graphics.reset_projection
+    Lota::Graphics.color = 0, 0, 1, 1
+    Lota::Graphics.rectangle(:fill, 8, 8, 1, 1)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.getDimensions
+  # (vendor/love/testing/tests/graphics.lua:2801-2807): getDimensions
+  # becomes dimensions (rule 3), and love.window.getMode
+  # Lota::Window.mode, each of whose results are an Array (rule 4).
+  def test_get_dimensions
+    # check graphics dimensions match window dimensions
+    gwidth, gheight = Lota::Graphics.dimensions
+    wwidth, wheight, = Lota::Window.mode
+    assert_equal(wwidth, gwidth, "check graphics dimension w matches window w")
+    assert_equal(wheight, gheight, "check graphics dimension h matches window h")
+  end
+
+  # Translated to Ruby from love.test.graphics.getHeight
+  # (vendor/love/testing/tests/graphics.lua:2811-2815): getHeight becomes
+  # height (rule 3), with the rules test_get_dimensions names.
+  def test_get_height
+    # check graphics height match window height
+    _wwidth, wheight, = Lota::Window.mode
+    assert_equal(wheight, Lota::Graphics.height, "check graphics h matches window h")
+  end
+
+  # Translated to Ruby from love.test.graphics.getWidth
+  # (vendor/love/testing/tests/graphics.lua:2848-2852): getWidth becomes
+  # width (rule 3), with the rules test_get_dimensions names.
+  def test_get_width
+    # check graphics width match window width
+    wwidth, = Lota::Window.mode
+    assert_equal(wwidth, Lota::Graphics.width, "check graphics w matches window w")
+  end
+
+  # Translated to Ruby from love.test.graphics.getDPIScale
+  # (vendor/love/testing/tests/graphics.lua:2795-2797): getDPIScale
+  # becomes dpi_scale (rules 3 and 13).
+  def test_get_dpi_scale
+    assert_not_nil(Lota::Graphics.dpi_scale)
+  end
+
+  # Translated to Ruby from love.test.graphics.getPixelDimensions
+  # (vendor/love/testing/tests/graphics.lua:2819-2826): getPixelDimensions
+  # becomes pixel_dimensions (rules 3 and 13), with the rules
+  # test_get_dimensions names.
+  def test_get_pixel_dimensions
+    # check graphics dimensions match window dimensions relative to dpi
+    dpi = Lota::Graphics.dpi_scale
+    gwidth, gheight = Lota::Graphics.pixel_dimensions
+    wwidth, wheight, = Lota::Window.mode
+    assert_equal(wwidth, gwidth / dpi, "check graphics pixel dpi w matches window w")
+    assert_equal(wheight, gheight / dpi, "check graphics pixel dpi h matches window h")
+  end
+
+  # Translated to Ruby from love.test.graphics.getPixelHeight
+  # (vendor/love/testing/tests/graphics.lua:2830-2835): getPixelHeight
+  # becomes pixel_height (rules 3 and 13), with the rules
+  # test_get_dimensions names.
+  def test_get_pixel_height
+    # check graphics height match window height relative to dpi
+    dpi = Lota::Graphics.dpi_scale
+    _wwidth, wheight, = Lota::Window.mode
+    assert_equal(wheight, Lota::Graphics.pixel_height / dpi, "check graphics pixel dpi h matches window h")
+  end
+
+  # Translated to Ruby from love.test.graphics.getPixelWidth
+  # (vendor/love/testing/tests/graphics.lua:2839-2844), which divides
+  # getWidth, not getPixelWidth, by the scale, as Lövetest does: getWidth
+  # becomes width (rule 3), with the rules test_get_dimensions names.
+  def test_get_pixel_width
+    # check graphics width match window width relative to dpi
+    dpi = Lota::Graphics.dpi_scale
+    wwidth, = Lota::Window.mode
+    assert_equal(wwidth, Lota::Graphics.width / dpi, "check graphics pixel dpi w matches window w")
+  end
+
+  # Translated to Ruby from love.test.graphics.getTextureFormats
+  # (vendor/love/testing/tests/graphics.lua:2863-2885): getTextureFormats
+  # becomes texture_formats (rule 3), whose table of settings becomes
+  # keywords and whose table of results a record that answers brackets
+  # (rule 10); Lua's numeric for loop becomes each.
+  def test_get_texture_formats
+    formats = %w[
+      hdr
+      r8i
+      r8ui
+      r16i
+      r16ui
+      r32i
+      r32ui
+      rg8i
+      rg8ui
+      rg16i
+      rg16ui
+      rg32i
+      rg32ui
+      bgra8
+      r8
+      rgba8i
+      rgba8ui
+      rgba16i
+      rg8
+      rgba32i
+      rgba32ui
+      rgba8
+      DXT1
+      r16
+      DXT5
+      rg16
+      BC4s
+      rgba16
+      BC5s
+      r16f
+      BC6hs
+      BC7
+      PVR1rgb2
+      rg16f
+      PVR1rgba2
+      rgba16f
+      ETC1
+      r32f
+      ETC2rgba
+      rg32f
+      EACr
+      rgba32f
+      EACrg
+      rgba4
+      ASTC4x4
+      ASTC5x4
+      rgb5a1
+      ASTC6x5
+      rgb565
+      ASTC8x5
+      ASTC8x6
+      rgb10a2
+      ASTC10x5
+      rg11b10f
+      ASTC10x8
+      ASTC10x10
+      ASTC12x10
+      ASTC12x12
+      normal
+      srgba8
+      la8
+      ASTC10x6
+      ASTC8x8
+      ASTC6x6
+      ASTC5x5
+      EACrgs
+      EACrs
+      ETC2rgba1
+      ETC2rgb
+      PVR1rgba4
+      PVR1rgb4
+      BC6h
+      BC5
+      BC4
+      DXT3
+      rgba16ui
+      bgra8srgb
+      depth16
+      depth24
+      depth32f
+      depth24stencil8
+      depth32fstencil8
+      stencil8
+    ]
+    supported = Lota::Graphics.texture_formats(canvas: true)
+    assert_not_nil(supported)
+    formats.each do |format|
+      refute_equal(nil, supported[format], "expected a key for format: #{format}")
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.getStats
+  # (vendor/love/testing/tests/graphics.lua:2899-2908): getStats becomes
+  # stats (rule 3), a record that answers brackets (rule 10).
+  def test_get_stats
+    stattypes = %w[
+      drawcalls
+      canvasswitches
+      texturememory
+      shaderswitches
+      drawcallsbatched
+      textures
+      fonts
+    ]
+    stats = Lota::Graphics.stats
+    stattypes.each do |stattype|
+      refute_equal(nil, stats[stattype], "expected a key for stat: #{stattype}")
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.getSupported
+  # (vendor/love/testing/tests/graphics.lua:2912-2925): getSupported
+  # becomes supported (rule 3), a record that answers brackets (rule 10).
+  def test_get_supported
+    # cant check values as hardware dependent but we can check the keys in the
+    # table match what the documentation lists
+    gfs = %w[
+      clampzero
+      lighten
+      glsl3
+      instancing
+      fullnpot
+      pixelshaderhighp
+      shaderderivatives
+      indirectdraw
+      copytexturetobuffer
+      multicanvasformats
+      clampone
+      glsl4
+    ]
+    features = Lota::Graphics.supported
+    gfs.each do |gf|
+      refute_equal(nil, features[gf], "expected a key for graphic feature: #{gf}")
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.getSystemLimits
+  # (vendor/love/testing/tests/graphics.lua:2929-2941): getSystemLimits
+  # becomes system_limits (rule 3), a record that answers brackets
+  # (rule 10).
+  def test_get_system_limits
+    # cant check values as hardware dependent but we can check the keys in the
+    # table match what the documentation lists
+    glimits = %w[
+      texelbuffersize
+      shaderstoragebuffersize
+      threadgroupsx
+      threadgroupsy
+      pointsize
+      texturesize
+      texturelayers
+      volumetexturesize
+      cubetexturesize
+      anisotropy
+      texturemsaa
+      multicanvas
+      threadgroupsz
+    ]
+    limits = Lota::Graphics.system_limits
+    glimits.each do |glimit|
+      refute_equal(nil, limits[glimit], "expected a key for system limit: #{glimit}")
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.getTextureTypes
+  # (vendor/love/testing/tests/graphics.lua:2945-2955): getTextureTypes
+  # becomes texture_types (rule 3), a record whose 2d field reads with
+  # brackets, as in Lua (rule 10).
+  def test_get_texture_types
+    # cant check values as hardware dependent but we can check the keys in the
+    # table match what the documentation lists
+    ttypes = %w[2d array cube volume]
+    types = Lota::Graphics.texture_types
+    ttypes.each do |ttype|
+      refute_equal(nil, types[ttype], "expected a key for texture type: #{ttype}")
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.flushBatch
+  # (vendor/love/testing/tests/graphics.lua:1508-1520): flushBatch becomes
+  # flush_batch (rule 13), getStats stats, whose drawcalls reads with
+  # brackets as in Lua (rules 3 and 10), and setCanvas the writer canvas=
+  # (rule 5).
+  def test_flush_batch
+    Lota::Graphics.flush_batch
+    initial = Lota::Graphics.stats["drawcalls"]
+    canvas = Lota::Graphics::Canvas.new(32, 32)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.rectangle(:fill, 0, 0, 32, 32)
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    Lota::Graphics.flush_batch
+    after = Lota::Graphics.stats["drawcalls"]
+    assert_equal(initial + 1, after, "check drawcalls increased")
   end
   # SPDX-SnippetEnd
 end

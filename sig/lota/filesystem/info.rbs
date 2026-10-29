@@ -4,6 +4,8 @@
 module Lota
   module Filesystem
     class Info < ::Data
+      include Record
+
       attr_reader type: Symbol
 
       attr_reader readonly: bool

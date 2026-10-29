@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Supported < ::Data
+      include Record
+
+      attr_reader multicanvasformats: bool
+
+      attr_reader clampzero: bool
+
+      attr_reader clampone: bool
+
+      attr_reader lighten: bool
+
+      attr_reader fullnpot: bool
+
+      attr_reader pixelshaderhighp: bool
+
+      attr_reader shaderderivatives: bool
+
+      attr_reader glsl3: bool
+
+      attr_reader glsl4: bool
+
+      attr_reader instancing: bool
+
+      attr_reader texelbuffer: bool
+
+      attr_reader copytexturetobuffer: bool
+
+      attr_reader indirectdraw: bool
+
+      attr_reader vertexwrite: bool
+
+      attr_reader pixelwrite: bool
+
+      def self.new: (multicanvasformats: bool, clampzero: bool, clampone: bool, lighten: bool, fullnpot: bool, pixelshaderhighp: bool, shaderderivatives: bool, glsl3: bool, glsl4: bool, instancing: bool, texelbuffer: bool, copytexturetobuffer: bool, indirectdraw: bool, vertexwrite: bool, pixelwrite: bool) -> instance
+                  | (**bool fields) -> instance
+    end
+  end
+end

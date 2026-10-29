@@ -78,13 +78,18 @@ module Bindings
     class Check < Data.define(:variable, :condition, :message)
     end
 
-    CHECKED = /\A\s*[\w:]+\s*\*\s*(?<variable>\w+)\s*=\s*luax_checktype\s*<\s*(?<type>[\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*\)\s*;
+    # The type id a check may name after the index, as
+    # luax_checktype<Transform>(L, idx, Transform::type) does.
+    TYPE_ID = /(?:,\s*[\w:]+::type\s*)?/
+
+    CHECKED = /\A\s*[\w:]+\s*\*\s*(?<variable>\w+)\s*=\s*luax_checktype\s*<\s*(?<type>[\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*#{TYPE_ID}\)\s*;
       \s*if\s*\((?<condition>.+?)\)\s*luaL_error\s*\(\s*L\s*,\s*(?<message>"[^"]*")\s*\)\s*;
       \s*return\s+\k<variable>\s*;\s*\z/mx
 
     # LÖVE's helpers that check an argument's class, by name, to the class
     # each checks for: luax_checktexture, whose body is
-    # luax_checktype<Texture>(L, idx), to Texture, and luax_checkbody,
+    # luax_checktype<Texture>(L, idx), to Texture, luax_checktransform,
+    # which also names Transform::type, to Transform, and luax_checkbody,
     # which also checks that the Body is not destroyed (#checks), to Body.
     GUARD = /\A\s*if\s*\((?<condition>.+?)\)\s*return\s+luaL_error\s*\(\s*L\s*,\s*(?<message>"[^"]*")\s*\)\s*;
       \s*return\s+0\s*;\s*\z/mx
@@ -93,7 +98,7 @@ module Bindings
       @helpers ||= files.flat_map(&:functions).filter_map do |function|
         next unless function.name.start_with?("luax_check")
 
-        type = function.body[/\A\s*return\s+luax_checktype\s*<\s*([\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*\)\s*;\s*\z/, 1] ||
+        type = function.body[/\A\s*return\s+luax_checktype\s*<\s*([\w:]+)\s*>\s*\(\s*L\s*,\s*\w+\s*#{TYPE_ID}\)\s*;\s*\z/, 1] ||
           CHECKED.match(function.body)&.[](:type)
         [function.name, type.split("::").last] if type
       end.to_h
