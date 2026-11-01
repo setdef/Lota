@@ -11,6 +11,7 @@ require "open3"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/focus_lock"
+require_relative "reference_cache"
 
 # The parity harness (Plan 001, "What correct means"): a LÖVE game,
 # unchanged, in the reference love built from vendor/love, and its Ruby
@@ -47,7 +48,7 @@ module Parity
 
   # The parity harness's audio device (ext/lota/native_test/loopback.cpp),
   # which every run, LÖVE's and Lota's, loads before anything else
-  # (NativeHelper.preload): it gives LÖVE's audio module an OpenAL Soft
+  # (Parity.loopback): it gives LÖVE's audio module an OpenAL Soft
   # loopback device in place of the wave file writer test/alsoft.conf
   # names, which each side of the harness mixes once a frame, for the
   # frame's fixed dt, into the run's LOTA_LOOPBACK_FILE. Both engines are
@@ -62,9 +63,12 @@ module Parity
   LOOPBACK_FRAME_BYTES = 2 * 4
 
   # The environment that loads the loopback device and names the file it
-  # writes, +audio+.
+  # writes, +audio+: the preload is the harness's alone, since a run gets
+  # no variable of this process's (Parity.environment).
   def self.loopback(audio)
-    { **NativeHelper.preload(LOOPBACK, *NativeHelper.dialogs(LIB)), "LOTA_LOOPBACK_FILE" => audio }
+    libraries = [LOOPBACK, *NativeHelper.dialogs(LIB)]
+    preload = TestHome::LINUX ? { "LD_PRELOAD" => libraries.join(" ") } : { "DYLD_INSERT_LIBRARIES" => libraries.join(":") }
+    { **preload, "LOTA_LOOPBACK_FILE" => audio }
   end
 
   # What either engine reads of memory it never wrote is the same in both,
@@ -81,6 +85,42 @@ module Parity
   # engines, every run. macOS's malloc has no such setting, and LÖVE draws
   # there with Metal, whose frames the harness compares as they are.
   MEMORY = TestHome::LINUX ? { "MALLOC_PERTURB_" => "1" } : {}
+
+  # The whole environment a run of either engine gets: +variables+, the
+  # harness's for the run, and these, the same for both engines, and
+  # nothing of this process's. A shell's own variables, which differ from
+  # one terminal or session to the next, can then neither change what
+  # either engine does nor make a ReferenceCache miss. What both engines
+  # need of the computer is here: the system's PATH; the temporary folder;
+  # a UTF-8 locale, which sets the encoding Ruby reads and writes text in;
+  # OpenAL Soft's settings for the tests (test/alsoft.conf); SDL's hints
+  # that keep the windows in the background (test/test_helper.rb); and on
+  # Linux, the display to open them on, which must be set, and its
+  # authority and runtime folder, if they are, and the byte malloc fills
+  # memory with (MEMORY). Each run's home, for HOME, is in +variables+.
+  def self.environment(variables)
+    {
+      "PATH" => "/usr/bin:/bin:/usr/sbin:/sbin",
+      "TMPDIR" => Dir.tmpdir,
+      "LANG" => TestHome::LINUX ? "C.UTF-8" : "en_US.UTF-8",
+      "ALSOFT_CONF" => File.join(ROOT, "test/alsoft.conf"),
+      "SDL_MAC_BACKGROUND_APP" => "1",
+      "SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => "0",
+      "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0",
+      **display,
+      **MEMORY,
+    }.merge(variables)
+  end
+
+  # On Linux, the X display the windows open on, and what reaching it
+  # needs; nothing elsewhere. Raises when DISPLAY is not set, since no
+  # window could open.
+  def self.display
+    return {} unless TestHome::LINUX
+
+    display = ENV.fetch("DISPLAY") { raise "DISPLAY is not set; the parity harness opens its windows on an X display" }
+    { "DISPLAY" => display, **ENV.slice("XAUTHORITY", "XDG_RUNTIME_DIR") }
+  end
 
   # The seconds since the epoch both engines' clocks stand at, unless a
   # script names its own: 2020-09-13, 12:26:40 UTC.
@@ -174,30 +214,53 @@ module Parity
     # Runs the game in the folder +game+ under +script+, keeping its frames
     # in +directory+. LÖVE's home directory is +directory+/home
     # (test/test_home.rb), so a game that saves starts each run with
-    # nothing saved and leaves nothing behind.
-    def initialize(game, script, directory)
+    # nothing saved and leaves nothing behind. When +cache+ holds a run
+    # under the same inputs (ReferenceCache), what that run wrote and
+    # printed stands in for running +love+ again.
+    def initialize(game, script, directory, love: Parity.reference_love, cache: ReferenceCache.default)
       @frames_dir = File.join(directory, "love")
       Dir.mkdir(@frames_dir)
-      love = ENV.fetch("LOTA_REFERENCE_LOVE") do
-        raise "LOTA_REFERENCE_LOVE is not set; bundle exec rake test:parity builds the reference love and sets it"
-      end
       @home = File.join(directory, "home")
       Dir.mkdir(@home)
       @audio = File.join(directory, "love.f32")
       @sounds_dir = File.join(directory, "love-sounds")
       Dir.mkdir(@sounds_dir)
-      environment = script.environment.merge("LOTA_PARITY_GAME" => game, "LOTA_PARITY_FRAMES_DIR" => @frames_dir,
-        **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio), **MEMORY)
-      shown = 0
-      @output = Parity.run(environment, love, File.join(ROOT, "test/parity/lua"), side: "The reference love") do
-        shown += 1 while File.exist?(File.join(@frames_dir, format("%04d.png", shown + 1)))
-        shown
+      environment = Parity.environment(script.environment.merge("LOTA_PARITY_GAME" => game,
+        "LOTA_PARITY_FRAMES_DIR" => @frames_dir, "HOME" => @home, **TestHome.environment(@home),
+        "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio)))
+      command = [love, File.join(ROOT, "test/parity/lua")]
+      @output, @cached = if cache
+        cache.fetch(command, environment, directory) { run(environment, command) }
+      else
+        [run(environment, command), false]
       end
+    end
+
+    # Whether the run's output came from a ReferenceCache, not from
+    # running the reference love.
+    def cached?
+      @cached
     end
 
     # The frames LÖVE showed, as PNG files, in order.
     def frames
       Dir[File.join(@frames_dir, "*.png")]
+    end
+
+    private def run(environment, command)
+      shown = 0
+      Parity.run(environment, *command, side: "The reference love") do
+        shown += 1 while File.exist?(File.join(@frames_dir, format("%04d.png", shown + 1)))
+        shown
+      end
+    end
+  end
+
+  # The reference love's executable, which bundle exec rake test:parity
+  # builds and names in LOTA_REFERENCE_LOVE.
+  def self.reference_love
+    ENV.fetch("LOTA_REFERENCE_LOVE") do
+      raise "LOTA_REFERENCE_LOVE is not set; bundle exec rake test:parity builds the reference love and sets it"
     end
   end
 
@@ -226,10 +289,10 @@ module Parity
       @sounds_dir = File.join(directory, "lota-sounds-#{object_id}")
       Dir.mkdir(@sounds_dir)
       progress = File.join(directory, "lota-progress-#{object_id}")
-      environment = script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
-        "LOTA_PARITY_REPORT" => report, **TestHome.environment(@home), "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir,
-        "LOTA_PARITY_MISMATCH_DIR" => @mismatch_dir, "LOTA_PARITY_PROGRESS" => progress, **Parity.loopback(@audio),
-        **MEMORY)
+      environment = Parity.environment(script.environment.merge("LOTA_PARITY_FRAMES_DIR" => love.frames_dir,
+        "LOTA_PARITY_REPORT" => report, "HOME" => @home, **TestHome.environment(@home),
+        "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, "LOTA_PARITY_MISMATCH_DIR" => @mismatch_dir,
+        "LOTA_PARITY_PROGRESS" => progress, **Parity.loopback(@audio)))
       native_test = LIB
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
         "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game, side: "Lota") do
@@ -249,7 +312,8 @@ module Parity
     end
   end
 
-  # Runs +command+ with +environment+ added to this process's, and returns
+  # Runs +command+ with +environment+, and with the variables every run
+  # gets (Parity.environment), and with nothing else, and returns
   # its Output, its standard output and error interleaved. The block
   # answers the last frame the command has shown, counting from 1, or 0
   # before the first. A command that shows no new frame for +stall+
@@ -274,7 +338,7 @@ module Parity
   end
 
   def self.run_unlocked(environment, *command, side:, stall: STALL, &shown)
-    Open3.popen2e(environment, *command) do |stdin, output, wait|
+    Open3.popen2e(Parity.environment(environment), *command, unsetenv_others: true) do |stdin, output, wait|
       stdin.close
       reader = Thread.new { output.read }
       stuck = Parity.stuck(wait, stall, &shown)

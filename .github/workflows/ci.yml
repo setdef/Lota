@@ -61,6 +61,15 @@ env:
   MISE_DISABLE_TOOLS: ruby,rust
   # Install exactly what Gemfile.lock locks, or fail.
   BUNDLE_FROZEN: "true"
+  # Every parity test runs the reference love here, and keeps nothing
+  # (test/parity/reference_cache.rb). A cache carried from one run to the
+  # next by actions/cache would hit only when the reference love built
+  # anew is the same file byte for byte, on a runner image the same down
+  # to its packages, its displays, and its environment, which the key
+  # names; a miss would still cost uploading and downloading every frame.
+  # The gate runs once a job, so a cache kept for the job would only be
+  # written, never read.
+  LOTA_PARITY_CACHE: "0"
 
 jobs:
   gate:
