@@ -5,6 +5,9 @@
 
 #import <AppKit/AppKit.h>
 
+#include <sstream>
+#include <string>
+
 namespace lota::native_test {
 
 namespace {
@@ -20,6 +23,30 @@ id &monitor() {
 constexpr NSEventMask MOVEMENTS = NSEventMaskMouseMoved | NSEventMaskLeftMouseDragged |
                                   NSEventMaskRightMouseDragged | NSEventMaskOtherMouseDragged |
                                   NSEventMaskMouseEntered | NSEventMaskMouseExited;
+
+// How long move_mouse_as_a_person_would waits for AppKit's queue to hold
+// the movement it posted, in seconds.
+constexpr NSTimeInterval QUEUE_WAIT = 1.0;
+
+// Waits until AppKit's queue holds a movement like +event+, to the same
+// place in the same window, looking without taking it off the queue, for
+// up to QUEUE_WAIT. Each look runs the run loop for a moment, as AppKit
+// does when a program waits for its next event, so that whatever puts a
+// posted event on the queue has the chance to. Whether it came.
+bool wait_until_queued(NSEvent *event) {
+  const NSTimeInterval start = [[NSProcessInfo processInfo] systemUptime];
+  while ([[NSProcessInfo processInfo] systemUptime] - start <= QUEUE_WAIT) {
+    NSEvent *const queued = [NSApp nextEventMatchingMask:NSEventMaskMouseMoved
+                                               untilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]
+                                                  inMode:NSDefaultRunLoopMode
+                                                 dequeue:NO];
+    if (queued != nil && [queued windowNumber] == [event windowNumber] &&
+        NSEqualPoints([queued locationInWindow], [event locationInWindow])) {
+      return true;
+    }
+  }
+  return false;
+}
 
 } // namespace
 
@@ -72,7 +99,24 @@ bool move_mouse_as_a_person_would(const void *window_pointer, double x, double y
       return false;
     }
     [NSApp postEvent:event atStart:NO];
-    return true;
+    return wait_until_queued(event);
+  }
+}
+
+std::string window_state(const void *window_pointer) {
+  @autoreleasepool {
+    auto *const window = (__bridge NSWindow *)window_pointer;
+    if (window == nil) {
+      return "no window";
+    }
+    std::ostringstream state;
+    state << "application " << ([NSApp isActive] ? "active" : "inactive") << ", window "
+          << ([window isVisible] ? "visible" : "not visible") << ", "
+          << ([window isKeyWindow] ? "key" : "not key") << ", "
+          << ((([window occlusionState] & NSWindowOcclusionStateVisible) != 0) ? "unoccluded"
+                                                                               : "occluded")
+          << ", accepting mouse moves " << ([window acceptsMouseMovedEvents] ? "yes" : "no");
+    return state.str();
   }
 }
 

@@ -40,6 +40,15 @@ class StillPointerTest < Minitest::Test
       Lota::Event.clear
     end
 
+    # Queues a movement to +x+, +y+ as macOS queues a person's, and fails
+    # the test unless AppKit's queue then holds it, saying what AppKit says
+    # of the window, since a movement that never comes proves nothing of
+    # what the hold drops.
+    def move_mouse(x, y)
+      assert LotaNativeTest.move_mouse_as_a_person_would(x, y),
+        "AppKit never queued the movement to #{x}, #{y} (#{LotaNativeTest.window_state})"
+    end
+
     # Where the game heard the mouse move to since clear_messages, in
     # order: each mousemoved message's x and y.
     def moves
@@ -55,22 +64,24 @@ class StillPointerTest < Minitest::Test
     # put the pointer, after the person's, would put back.
     def test_a_movement_queued_before_a_warp_is_read_back_after_it
       clear_messages
-      assert LotaNativeTest.move_mouse_as_a_person_would(123, 45)
+      move_mouse(123, 45)
       Lota::Mouse.position = 0, 0
+      heard = moves
 
-      assert_equal [123.0, 45.0], moves.drop_while { |move| move != [0.0, 0.0] }.find { |move| move != [0.0, 0.0] }
+      assert_equal [123.0, 45.0], heard.drop_while { |move| move != [0.0, 0.0] }.find { |move| move != [0.0, 0.0] },
+        "the game heard #{heard} (#{LotaNativeTest.window_state})"
     end
 
     def test_with_the_pointer_held_a_warp_reads_back_what_it_set
       LotaNativeTest.hold_pointer
       clear_messages
-      assert LotaNativeTest.move_mouse_as_a_person_would(123, 45)
+      move_mouse(123, 45)
       Lota::Mouse.position = 0, 0
 
       assert_equal [0, 0], Lota::Mouse.position
       refute_includes moves, [123.0, 45.0]
       Lota::Mouse.x = 30
-      LotaNativeTest.move_mouse_as_a_person_would(200, 45)
+      move_mouse(200, 45)
       Lota::Event.pump
 
       assert_equal 30, Lota::Mouse.x
@@ -79,10 +90,10 @@ class StillPointerTest < Minitest::Test
     def test_released_the_pointer_follows_the_mouse_again
       LotaNativeTest.hold_pointer
       LotaNativeTest.release_pointer
-      LotaNativeTest.move_mouse_as_a_person_would(77, 33)
+      move_mouse(77, 33)
       Lota::Event.pump
 
-      assert_equal [77, 33], Lota::Mouse.position
+      assert_equal [77, 33], Lota::Mouse.position, LotaNativeTest.window_state
     end
 
     # A game that queues a person's movement, then warps the pointer to

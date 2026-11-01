@@ -7,6 +7,8 @@
 #ifndef LOTA_NATIVE_TEST_STILL_POINTER_HPP
 #define LOTA_NATIVE_TEST_STILL_POINTER_HPP
 
+#include <string>
+
 namespace lota::native_test {
 
 // From now on, drops every movement of the mouse the system reports to
@@ -19,8 +21,14 @@ void release_pointer();
 
 // Queues a movement of the mouse to +x+, +y+ in +window+, an NSWindow,
 // counting from its top left, as the system queues one when the person at
-// the computer moves the mouse. Whether there was a window to queue it for.
+// the computer moves the mouse, and waits, for up to a second, until
+// AppKit's queue holds it. Whether it does.
 bool move_mouse_as_a_person_would(const void *window, double x, double y);
+
+// What AppKit says of +window+, an NSWindow, and this program, for a test
+// whose movement did not arrive: whether the program is active, and the
+// window visible, key, unoccluded, and accepting mouse movements.
+std::string window_state(const void *window);
 
 } // namespace lota::native_test
 

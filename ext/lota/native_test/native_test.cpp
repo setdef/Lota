@@ -494,24 +494,33 @@ void press_key(int scancode, bool down) {
 }
 
 #ifdef __APPLE__
-// Queues a movement of the mouse to +x+, +y+ in the window SDL opened,
-// counting from its top left, as the system queues one when the person at
-// the computer moves the mouse (lota::native_test::move_mouse_as_a_person_would,
-// still_pointer.mm). The window is SDL's own NSWindow, which SDL names in
-// its properties, not whichever window AppKit lists first, which may be
-// one of AppKit's own. Whether a window was open to queue it for.
-bool move_mouse_as_a_person_would(double x, double y) {
+// SDL's own NSWindow for the window SDL opened, which SDL names in its
+// properties, or nullptr when none is open. AppKit lists windows of its
+// own too, so the first it lists need not be SDL's.
+const void *sdl_nswindow() {
   int count = 0;
   // SDL_GetWindows allocates the list, which SDL_free releases.
   const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
   SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
   if (window == nullptr) {
-    return false;
+    return nullptr;
   }
-  const void *const nswindow = SDL_GetPointerProperty(
-      SDL_GetWindowProperties(window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-  return lota::native_test::move_mouse_as_a_person_would(nswindow, x, y);
+  return SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+                                SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 }
+
+// Queues a movement of the mouse to +x+, +y+ in the window SDL opened,
+// counting from its top left, as the system queues one when the person at
+// the computer moves the mouse, and waits until AppKit's queue holds it
+// (lota::native_test::move_mouse_as_a_person_would, still_pointer.mm).
+// Whether it does.
+bool move_mouse_as_a_person_would(double x, double y) {
+  return lota::native_test::move_mouse_as_a_person_would(sdl_nswindow(), x, y);
+}
+
+// What AppKit says of the window SDL opened and of this program
+// (lota::native_test::window_state, still_pointer.mm).
+std::string window_state() { return lota::native_test::window_state(sdl_nswindow()); }
 #endif
 
 // Makes this program active, with its first window holding keyboard
@@ -731,6 +740,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("release_pointer", &lota::native_test::release_pointer)
       .define_module_function("move_mouse_as_a_person_would", &move_mouse_as_a_person_would,
                               Rice::Arg("x"), Rice::Arg("y"))
+      .define_module_function("window_state", &window_state)
 #else
       .define_module_function("tolerate_vanished_requestors",
                               &lota::native_test::tolerate_vanished_requestors)
