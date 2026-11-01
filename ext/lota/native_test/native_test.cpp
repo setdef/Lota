@@ -35,6 +35,7 @@
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
@@ -492,6 +493,27 @@ void press_key(int scancode, bool down) {
   push(event);
 }
 
+#ifdef __APPLE__
+// Queues a movement of the mouse to +x+, +y+ in the window SDL opened,
+// counting from its top left, as the system queues one when the person at
+// the computer moves the mouse (lota::native_test::move_mouse_as_a_person_would,
+// still_pointer.mm). The window is SDL's own NSWindow, which SDL names in
+// its properties, not whichever window AppKit lists first, which may be
+// one of AppKit's own. Whether a window was open to queue it for.
+bool move_mouse_as_a_person_would(double x, double y) {
+  int count = 0;
+  // SDL_GetWindows allocates the list, which SDL_free releases.
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  if (window == nullptr) {
+    return false;
+  }
+  const void *const nswindow = SDL_GetPointerProperty(
+      SDL_GetWindowProperties(window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+  return lota::native_test::move_mouse_as_a_person_would(nswindow, x, y);
+}
+#endif
+
 // Makes this program active, with its first window holding keyboard
 // focus (lota::native_test::activate, dialogs.mm), and pumps SDL's events,
 // leaving them queued, until SDL hears that the window has focus, for up
@@ -707,9 +729,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
 #ifdef __APPLE__
       .define_module_function("hold_pointer", &lota::native_test::hold_pointer)
       .define_module_function("release_pointer", &lota::native_test::release_pointer)
-      .define_module_function("move_mouse_as_a_person_would",
-                              &lota::native_test::move_mouse_as_a_person_would, Rice::Arg("x"),
-                              Rice::Arg("y"))
+      .define_module_function("move_mouse_as_a_person_would", &move_mouse_as_a_person_would,
+                              Rice::Arg("x"), Rice::Arg("y"))
 #else
       .define_module_function("tolerate_vanished_requestors",
                               &lota::native_test::tolerate_vanished_requestors)

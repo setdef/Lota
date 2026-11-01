@@ -115,10 +115,21 @@ module Parity
   # On Linux, the X display the windows open on, and what reaching it
   # needs; nothing elsewhere. Raises when DISPLAY is not set, since no
   # window could open.
+  #
+  # LOTA_PARITY_DISPLAY names a display of the harness's own, which it
+  # opens its windows on instead. A warp of the pointer under X11 reaches
+  # SDL only as the motion event the X server sends the window on top
+  # where the pointer lands (SDL 3.4.10, src/video/x11/SDL_x11mouse.c,
+  # X11_WarpMouseInternal), so on a display the gate's other checks share,
+  # a window of theirs that opens over the run's takes the move the script
+  # made, and the game never hears of it. CI gives the harness a display
+  # of its own (.github/workflows/ci.yml).
   def self.display
     return {} unless TestHome::LINUX
 
-    display = ENV.fetch("DISPLAY") { raise "DISPLAY is not set; the parity harness opens its windows on an X display" }
+    display = ENV.fetch("LOTA_PARITY_DISPLAY") do
+      ENV.fetch("DISPLAY") { raise "DISPLAY is not set; the parity harness opens its windows on an X display" }
+    end
     { "DISPLAY" => display, **ENV.slice("XAUTHORITY", "XDG_RUNTIME_DIR") }
   end
 

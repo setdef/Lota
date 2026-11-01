@@ -57,14 +57,25 @@ class BundleTest < Minitest::Test
 
   # Whether +library+, as a bundle names it, is the system's own, which
   # it loads from where the system keeps it: on macOS by absolute path,
-  # and on Linux by a name the dynamic linker's cache knows. The sanitizer
-  # runtime is one; DYLD_INSERT_LIBRARIES or LD_PRELOAD loads it
-  # (tasks/sanitized_build.rb).
+  # and on Linux by a name the dynamic linker's cache knows, or the
+  # dynamic linker's own. The sanitizer runtime is one; DYLD_INSERT_LIBRARIES
+  # or LD_PRELOAD loads it (tasks/sanitized_build.rb).
   def system_library?(library)
     return library.start_with?("/usr/lib/", "/System/", "@rpath/libclang_rt.") unless TestHome::LINUX
 
-    @system_libraries ||= tool("ldconfig", "-p").scan(/^\s+(\S+) \(/).flatten
+    @system_libraries ||= [*tool("ldconfig", "-p").scan(/^\s+(\S+) \(/).flatten, dynamic_linker]
     @system_libraries.include?(library)
+  end
+
+  # The soname of the dynamic linker, which the kernel maps into every
+  # program as its interpreter (ld.so(8)), here this Ruby's, so it is never
+  # looked up and its cache need not list it. A bundle needs it when it
+  # calls one of the functions only it defines, such as __tls_get_addr, by
+  # which a shared library reaches its thread-local variables: glibc's
+  # libc.so names it AS_NEEDED, and NativeFormat::ELF::SYSTEM counts it as
+  # glibc's, as the gem's check does.
+  def dynamic_linker
+    File.basename(tool("readelf", "-l", RbConfig.ruby)[/\[Requesting program interpreter: (.+)\]$/, 1])
   end
 
   # Where +library+, as +bundle+ names it, is found through the bundle's

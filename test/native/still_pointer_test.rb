@@ -34,21 +34,41 @@ class StillPointerTest < Minitest::Test
       LotaNativeTest.release_pointer
     end
 
+    # Empties the game's queue, of what SDL has heard of too.
+    def clear_messages
+      Lota::Event.pump
+      Lota::Event.clear
+    end
+
+    # Where the game heard the mouse move to since clear_messages, in
+    # order: each mousemoved message's x and y.
+    def moves
+      Lota::Event.pump
+      Lota::Event.poll.filter_map { |name, x, y| [x, y] if name == :mousemoved }
+    end
+
     # The failure the hold prevents: the person's movement, queued before
-    # the warp, is what the pointer reads back after it.
+    # the warp, reaches the game after it, and SDL takes its place as the
+    # pointer's. The test reads it as the game hears of it, a mousemoved
+    # message after the warp's own, rather than as SDL's place a moment
+    # later, which a movement the system itself reports to where the warp
+    # put the pointer, after the person's, would put back.
     def test_a_movement_queued_before_a_warp_is_read_back_after_it
+      clear_messages
       assert LotaNativeTest.move_mouse_as_a_person_would(123, 45)
       Lota::Mouse.position = 0, 0
 
-      assert_equal [123, 45], Lota::Mouse.position
+      assert_equal [123.0, 45.0], moves.drop_while { |move| move != [0.0, 0.0] }.find { |move| move != [0.0, 0.0] }
     end
 
     def test_with_the_pointer_held_a_warp_reads_back_what_it_set
       LotaNativeTest.hold_pointer
-      LotaNativeTest.move_mouse_as_a_person_would(123, 45)
+      clear_messages
+      assert LotaNativeTest.move_mouse_as_a_person_would(123, 45)
       Lota::Mouse.position = 0, 0
 
       assert_equal [0, 0], Lota::Mouse.position
+      refute_includes moves, [123.0, 45.0]
       Lota::Mouse.x = 30
       LotaNativeTest.move_mouse_as_a_person_would(200, 45)
       Lota::Event.pump

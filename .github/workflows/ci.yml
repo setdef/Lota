@@ -303,6 +303,10 @@ jobs:
     env:
       # The display Xvfb serves, as LÖVE's Linux job names it.
       DISPLAY: ":99"
+      # The parity harness's own display, where no window of the gate's
+      # other checks, which run at the same time, opens over its runs and
+      # takes the pointer moves its scripts make (Parity.display).
+      LOTA_PARITY_DISPLAY: ":98"
     steps:
       # The engine builds from vendor/love, and its dependencies with
       # vendor/love-appimage-source's Makefile.
@@ -335,12 +339,14 @@ jobs:
 
       # main.yml's "Start xvfb and openbox", with a screen that holds the
       # tests' windows: LÖVE's 360x240 is smaller than the 800x600 window
-      # a game opens by default.
+      # a game opens by default. The parity harness's display is the same.
       - name: Start Xvfb and Openbox
         run: |
           Xvfb "$DISPLAY" -screen 0 1280x1024x24 &
+          Xvfb "$LOTA_PARITY_DISPLAY" -screen 0 1280x1024x24 &
           sleep 3
           openbox &
+          DISPLAY="$LOTA_PARITY_DISPLAY" openbox &
 
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
 

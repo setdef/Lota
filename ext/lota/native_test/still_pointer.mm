@@ -52,9 +52,9 @@ void release_pointer() {
   monitor() = nil;
 }
 
-bool move_mouse_as_a_person_would(double x, double y) {
+bool move_mouse_as_a_person_would(const void *window_pointer, double x, double y) {
   @autoreleasepool {
-    NSWindow *const window = [[NSApp windows] firstObject];
+    auto *const window = (__bridge NSWindow *)window_pointer;
     if (window == nil) {
       return false;
     }

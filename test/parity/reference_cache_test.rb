@@ -16,23 +16,30 @@ class ReferenceCacheTest < Minitest::Test
   # LOTA_PARITY_FRAMES frames, saves a file in its home, mixes audio,
   # decodes a sound, prints a line, and ends with the status in the file
   # status beside its bundle, or 0, and counts its runs in the file runs
-  # there; no input names either file.
-  FAKE_LOVE = <<~SH
-    #!/bin/sh
-    runs="${0%/love.app/*}/runs"
-    echo "x$(cat "$runs" 2>/dev/null)" > "$runs"
-    i=1
-    while [ "$i" -le "$LOTA_PARITY_FRAMES" ]; do
-      printf 'frame %s at %s' "$i" "$LOTA_PARITY_CLOCK" > "$LOTA_PARITY_FRAMES_DIR/$(printf %04d "$i").png"
-      i=$((i + 1))
-    done
-    mkdir -p "$LOTA_TEST_HOME/save"
-    printf 'saved' > "$LOTA_TEST_HOME/save/settings.txt"
-    printf 'mixed' > "$LOTA_LOOPBACK_FILE"
-    printf 'decoded' > "$LOTA_PARITY_SOUNDS_DIR/1.sounddata"
-    echo "Thanks for playing $LOTA_PARITY_FRAMES frames!"
-    exit "$(cat "${0%/love.app/*}/status" 2>/dev/null || echo 0)"
-  SH
+  # there; no input names either file. It is a script of this Ruby's, not
+  # of a shell's, since every run loads the harness's libraries
+  # (Parity.loopback), built for this Ruby's architecture: macOS's own
+  # programs are arm64e, which dyld refuses to load an arm64 library into
+  # wherever System Integrity Protection is off and leaves
+  # DYLD_INSERT_LIBRARIES in place, as on GitHub's macOS runners.
+  FAKE_LOVE = <<~RUBY
+    #!#{RbConfig.ruby} --disable-gems
+    folder = __FILE__[%r{\\A(.*)/love\\.app/}, 1]
+    runs = File.join(folder, "runs")
+    File.write(runs, "x\#{File.exist?(runs) ? File.read(runs).strip : ''}")
+    frames = Integer(ENV.fetch("LOTA_PARITY_FRAMES"))
+    (1..frames).each do |i|
+      File.write(File.join(ENV.fetch("LOTA_PARITY_FRAMES_DIR"), format("%04d.png", i)),
+        "frame \#{i} at \#{ENV.fetch('LOTA_PARITY_CLOCK')}")
+    end
+    Dir.mkdir(File.join(ENV.fetch("LOTA_TEST_HOME"), "save")) unless Dir.exist?(File.join(ENV.fetch("LOTA_TEST_HOME"), "save"))
+    File.write(File.join(ENV.fetch("LOTA_TEST_HOME"), "save/settings.txt"), "saved")
+    File.write(ENV.fetch("LOTA_LOOPBACK_FILE"), "mixed")
+    File.write(File.join(ENV.fetch("LOTA_PARITY_SOUNDS_DIR"), "1.sounddata"), "decoded")
+    puts "Thanks for playing \#{frames} frames!"
+    status = File.join(folder, "status")
+    exit Integer(File.exist?(status) ? File.read(status) : "0")
+  RUBY
 
   SCRIPT = Parity::Script.new(frames: 3, fps: 60, holds: [])
 

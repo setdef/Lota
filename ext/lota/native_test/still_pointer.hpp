@@ -17,10 +17,10 @@ void hold_pointer();
 // Undoes hold_pointer.
 void release_pointer();
 
-// Queues a movement of the mouse to +x+, +y+ in the first window, counting
-// from its top left, as the system queues one when the person at the
-// computer moves the mouse. Whether there was a window to queue it for.
-bool move_mouse_as_a_person_would(double x, double y);
+// Queues a movement of the mouse to +x+, +y+ in +window+, an NSWindow,
+// counting from its top left, as the system queues one when the person at
+// the computer moves the mouse. Whether there was a window to queue it for.
+bool move_mouse_as_a_person_would(const void *window, double x, double y);
 
 } // namespace lota::native_test
 
