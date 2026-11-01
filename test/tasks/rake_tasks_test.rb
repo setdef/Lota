@@ -274,10 +274,39 @@ class RakeTasksTest < Minitest::Test
     File.write(list, committed) if committed
   end
 
-  def test_cpp_gates_pass_on_the_repository
-    assert_match(/✅ cpp:format: \d+ files, no problems/, invoke("cpp:format"))
-    assert_includes invoke("cpp:no_nolint"), "✅ No unapproved NOLINT in C++ files found"
-    assert_match(/✅ cpp:tidy: \d+ files, no problems/, invoke("cpp:tidy"))
+  # The gate's cpp check runs cpp:format, cpp:no_nolint, and cpp:tidy on
+  # the repository (test_default_task_builds_the_engine_and_runs_every_cpp_gate),
+  # so the tests do not run them on it again: they prove each task checks
+  # every C++ file under ext with Lota's own settings, and fails the gate
+  # on a file it finds a problem in. test/tasks/cpp_gates_test.rb proves
+  # each check, with those settings, finds the problems it is for.
+  def test_the_cpp_gates_check_every_file_under_ext_with_lotas_settings
+    format = cpp_format
+    tidy = cpp_tidy
+
+    assert_equal CPP_FILES.all, format.files
+    assert_includes format.files, File.join(ROOT, "ext/lota/native/binding.hpp")
+    assert_equal File.join(ROOT, "ext/.clang-format"), format.style
+    assert_equal CPP_FILES.sources, tidy.files
+    assert_includes tidy.files, File.join(ROOT, "ext/lota/native_test/native_test.cpp")
+    assert_equal File.join(ROOT, "ext/.clang-tidy"), tidy.config
+    assert_equal File.expand_path(ENGINE.compile_commands), tidy.compile_commands
+    assert_equal File.join(ROOT, "ext"), tidy.headers
+  end
+
+  def test_a_cpp_gate_task_fails_the_gate_on_a_file_with_a_problem
+    in_tree do |root|
+      system("git", "init", "--quiet", root, exception: true)
+      write(root, "ext/bad.cpp", "int  main( ){return 0;}\n")
+      system("git", "-C", root, "add", "ext/bad.cpp", exception: true)
+
+      _, err = capture_io do
+        error = assert_raises(SystemExit) { cpp_gate!("cpp:format", cpp_format(CppGates::Files.new(root:)).check) }
+        refute_predicate error, :success?
+      end
+      assert_includes err, "❌ cpp:format failed:\n"
+      assert_includes err, "bad.cpp"
+    end
   end
 
   def test_a_task_that_aborts_fails_the_test_with_what_it_printed

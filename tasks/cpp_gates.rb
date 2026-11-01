@@ -88,6 +88,10 @@ module CppGates
   # Checks layout with clang-format, which reports every file that differs
   # from what it would write.
   class Format
+    # The files it checks, and the absolute path of the style it checks
+    # them against.
+    attr_reader :files, :style
+
     # [files] The files to check.
     # [style] The .clang-format file to check against.
     def initialize(files:, style:)
@@ -125,6 +129,10 @@ module CppGates
   # found once for each source that includes it, as it was when one
   # clang-tidy checked them all.
   class Tidy
+    # The sources it checks, and the absolute paths of its settings, its
+    # compilation database, and the folder whose headers it checks too.
+    attr_reader :files, :config, :compile_commands, :headers
+
     # [files] The sources to check.
     # [config] The .clang-tidy file to check against.
     # [compile_commands] The compilation database CMake wrote.

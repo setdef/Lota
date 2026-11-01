@@ -13,6 +13,19 @@ require_relative "lint"
 # clang-tidy checks the sources the host's build compiles.
 CPP_FILES = CppGates::Files.new(root: ".", platform: EngineSources.platform(RbConfig::CONFIG["host_os"]))
 
+# The clang-format check of +files+' sources and headers, as cpp:format and
+# cpp:format:fix run it, with Lota's style.
+def cpp_format(files = CPP_FILES)
+  CppGates::Format.new(files: files.all, style: "ext/.clang-format")
+end
+
+# The clang-tidy check of +files+' sources, as cpp:tidy runs it, with
+# Lota's settings and the engine build's compilation database.
+def cpp_tidy(files = CPP_FILES)
+  CppGates::Tidy.new(files: files.sources, config: "ext/.clang-tidy", compile_commands: ENGINE.compile_commands,
+    headers: files.ext)
+end
+
 # Prints a gate's Result, and aborts the run if it failed.
 def cpp_gate!(name, result)
   abort "❌ #{name} failed:\n#{result.problems.join("\n")}" unless result.ok?
@@ -23,21 +36,19 @@ end
 namespace :cpp do
   desc "Check Lota's own C++ layout with clang-format"
   task :format do
-    cpp_gate!("cpp:format", CppGates::Format.new(files: CPP_FILES.all, style: "ext/.clang-format").check)
+    cpp_gate!("cpp:format", cpp_format.check)
   end
 
   namespace :format do
     desc "Rewrite Lota's own C++ with clang-format"
     task :fix do
-      cpp_gate!("cpp:format:fix", CppGates::Format.new(files: CPP_FILES.all, style: "ext/.clang-format").fix)
+      cpp_gate!("cpp:format:fix", cpp_format.fix)
     end
   end
 
   desc "Check Lota's own C++ with clang-tidy, every warning an error"
   task tidy: "engine:configure" do
-    tidy = CppGates::Tidy.new(files: CPP_FILES.sources, config: "ext/.clang-tidy",
-      compile_commands: ENGINE.compile_commands, headers: CPP_FILES.ext)
-    cpp_gate!("cpp:tidy", tidy.check)
+    cpp_gate!("cpp:tidy", cpp_tidy.check)
   end
 
   desc "Forbid NOLINT in Lota's own C++ except approved exceptions"
