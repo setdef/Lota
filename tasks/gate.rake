@@ -23,6 +23,10 @@ require_relative "gate"
 #
 # LOTA_GATE_JOBS=1 runs the same checks one after another, in the order of
 # the lanes below, for finding which check a problem belongs to.
+#
+# LOTA_GATE_DISPLAYS lists, separated by spaces, an X display for each lane
+# in the order below, so that on Linux no lane's windows open over
+# another's (tasks/gate.rb); CI's Linux gate starts them.
 GATE_PREPARE = %w[lint:fix engine compile].freeze
 GATE_LANES = [
   [Gate::Check.of("test:shard:rake_tasks"), Gate::Check.of("package:check"), Gate::Check.of("package:install")],
@@ -35,7 +39,8 @@ GATE_LANES = [
 desc "Run the gate's checks in lanes, after fixing, engine, and compile"
 task :gate do
   jobs = Integer(ENV.fetch("LOTA_GATE_JOBS", GATE_LANES.size))
-  Gate.new(prepared: GATE_PREPARE, lanes: GATE_LANES, jobs:).run { |name| Rake::Task[name].invoke }
+  displays = ENV.fetch("LOTA_GATE_DISPLAYS", "").split
+  Gate.new(prepared: GATE_PREPARE, lanes: GATE_LANES, jobs:, displays:).run { |name| Rake::Task[name].invoke }
 rescue Gate::Failure => e
   abort "❌ #{e.message}"
 end

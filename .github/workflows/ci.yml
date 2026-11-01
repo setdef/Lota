@@ -307,6 +307,11 @@ jobs:
       # other checks, which run at the same time, opens over its runs and
       # takes the pointer moves its scripts make (Parity.display).
       LOTA_PARITY_DISPLAY: ":98"
+      # A display for each of the gate's lanes but the last, whose checks
+      # open no window, in the order of tasks/gate.rake's lanes, so that no
+      # lane's windows open over another's and take the pointer moves its
+      # tests make (tasks/gate.rb); the parity harness's lane has its own.
+      LOTA_GATE_DISPLAYS: ":99 :97 :96 :98"
     steps:
       # The engine builds from vendor/love, and its dependencies with
       # vendor/love-appimage-source's Makefile.
@@ -339,14 +344,18 @@ jobs:
 
       # main.yml's "Start xvfb and openbox", with a screen that holds the
       # tests' windows: LÖVE's 360x240 is smaller than the 800x600 window
-      # a game opens by default. The parity harness's display is the same.
+      # a game opens by default. Every lane's display, the parity
+      # harness's and DISPLAY among them, is the same.
       - name: Start Xvfb and Openbox
         run: |
-          Xvfb "$DISPLAY" -screen 0 1280x1024x24 &
-          Xvfb "$LOTA_PARITY_DISPLAY" -screen 0 1280x1024x24 &
+          read -r -a displays <<< "$LOTA_GATE_DISPLAYS"
+          for display in "${displays[@]}"; do
+            Xvfb "$display" -screen 0 1280x1024x24 &
+          done
           sleep 3
-          openbox &
-          DISPLAY="$LOTA_PARITY_DISPLAY" openbox &
+          for display in "${displays[@]}"; do
+            DISPLAY="$display" openbox &
+          done
 
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
 

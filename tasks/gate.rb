@@ -18,6 +18,14 @@ require "rbconfig"
 # are declared, so a failure's output is never interleaved with another's.
 # A lane starts no more checks once any check has failed; checks already
 # running finish.
+#
+# On Linux the checks' windows open on an X display, and under X11 a warp
+# of the pointer reaches SDL only as the motion the X server sends to the
+# window on top where the pointer lands (SDL 3.4.10,
+# src/video/x11/SDL_x11mouse.c, X11_WarpMouseInternal), so a window of one
+# lane's tests that opens over another's takes the moves Lövetest's mouse
+# tests make, and they read back where the pointer was before. A display
+# for each lane keeps one lane's windows from opening over another's.
 class Gate
   # Raised when a check fails, after every output and the timings have been
   # printed.
@@ -40,12 +48,16 @@ class Gate
   # [prepared] The rake tasks run first, in this process, one at a time.
   # [lanes] Arrays of Checks; a lane's checks run in order.
   # [jobs] How many lanes run at once; 1 runs every check in order.
+  # [displays] The X display each lane's checks open their windows on, in
+  #            the order of +lanes+ (DISPLAY); a lane past the last keeps
+  #            this process's.
   # [root] The directory holding the Rakefile the checks run.
   # [out] Where the report goes.
-  def initialize(prepared:, lanes:, jobs: lanes.size, root: Dir.pwd, out: $stdout)
+  def initialize(prepared:, lanes:, jobs: lanes.size, displays: [], root: Dir.pwd, out: $stdout)
     @prepared = prepared
     @lanes = lanes
     @jobs = jobs
+    @displays = displays
     @root = root
     @out = out
     @failed = false
@@ -67,22 +79,24 @@ class Gate
 
   private def execute
     lanes = (@jobs > 1) ? @lanes : [@lanes.flatten]
-    outcomes = lanes.map { |lane| Thread.new { run_lane(lane) } }.flat_map(&:value)
+    outcomes = lanes.each_with_index.map { |lane, index| Thread.new { run_lane(lane, @displays[index]) } }
+      .flat_map(&:value)
     @lanes.flatten.filter_map { |check| outcomes.find { |outcome| outcome.check == check } }
   end
 
-  private def run_lane(lane)
+  private def run_lane(lane, display)
+    environment = display ? { "DISPLAY" => display } : {}
     lane.each_with_object([]) do |check, outcomes|
       break outcomes if failed?
 
-      outcomes << attempt(check)
+      outcomes << attempt(check, environment)
     end
   end
 
-  private def attempt(check)
+  private def attempt(check, environment)
     output = nil
     status = nil
-    seconds = time { output, status = Open3.capture2e(*command(check), in: File::NULL, chdir: @root) }
+    seconds = time { output, status = Open3.capture2e(environment, *command(check), in: File::NULL, chdir: @root) }
     @lock.synchronize { @failed ||= !status.success? }
     Outcome.new(check:, status: status.success?, output:, seconds:)
   end

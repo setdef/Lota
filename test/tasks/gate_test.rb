@@ -21,12 +21,13 @@ class GateTest < Minitest::Test
     task(:quick) { File.write("quick.at", Time.now.to_f.to_s); puts "quick ran" }
     task(:bad) { puts "bad output"; abort "bad failed" }
     task(:needs_built => :built) { puts "needs built" }
+    task(:display) { puts "display \#{ENV.fetch('DISPLAY', 'none')}" }
   RUBY
 
-  def gate(root, lanes, jobs: lanes.size)
+  def gate(root, lanes, jobs: lanes.size, displays: [])
     write(root, "Rakefile", RAKEFILE)
     out = StringIO.new
-    [Gate.new(prepared: %w[built], lanes:, jobs:, root:, out:), out]
+    [Gate.new(prepared: %w[built], lanes:, jobs:, displays:, root:, out:), out]
   end
 
   def check(*tasks) = Gate::Check.of(*tasks)
@@ -85,6 +86,19 @@ class GateTest < Minitest::Test
 
       assert_includes out.string, "needs built"
       assert_equal "0", File.read(File.join(root, "built.log"))
+    end
+  end
+
+  # Each lane's checks open their windows on the lane's own display, and a
+  # lane past the last display keeps the gate's.
+  def test_each_lane_runs_on_its_own_display
+    in_tree do |root|
+      gate, out = gate(root, [[check("display"), check("ok")], [check("ok", "display")], [check("quick", "display")]],
+        displays: %w[:97 :96])
+      gate.run { nil }
+
+      assert_equal ["display :97", "display :96", "display #{ENV.fetch('DISPLAY', 'none')}"],
+        out.string.scan(/^display .*$/)
     end
   end
 end
