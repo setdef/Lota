@@ -527,21 +527,28 @@ module Bindings
     end
 
     private def rbs(modules)
+      homes = modules.values.flatten.reject(&:singleton?).group_by { |port| port.function.type_name }
+        .filter_map { |type, list| [type, home(type, list)] if home(type, list) }.to_h
       body = modules.map do |name, ports|
         singleton, methods = ports.partition(&:singleton?)
         blocks = []
         blocks << rbs_block("module #{name.capitalize}", singleton) if singleton.any?
         methods.group_by { |port| port.function.type_name }.sort.each do |type, list|
           home = home(type, list)
-          blocks << (home ? nested_rbs_block(home, type, list) : rbs_block("class #{type}", list))
+          blocks << (home ? nested_rbs_block(home, type, list) : rbs_block("class #{type}", list, homes))
         end
         blocks
       end.flatten
       "#{banner('#')}\nmodule Lota\n  module Native\n#{body.join("\n\n")}\n  end\nend\n"
     end
 
-    private def rbs_block(opening, ports)
-      "    #{opening}\n#{ports.map { |port| "      #{port.rbs}" }.join("\n\n")}\n    end"
+    # A class outside the module a type lives under names that type by its
+    # module, as TextBatch names Graphics::Font, since Font alone is
+    # love.font's Lota::Native::Font there.
+    private def rbs_block(opening, ports, homes = {})
+      lines = ports.map { |port| "      #{port.rbs}" }.join("\n\n")
+      homes.each { |type, home| lines = lines.gsub(/\b#{type}\b/, "#{home}::#{type}") }
+      "    #{opening}\n#{lines}\n    end"
     end
 
     # The class +type+ inside its module +home+, as home places it.

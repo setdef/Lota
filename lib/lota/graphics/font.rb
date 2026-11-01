@@ -69,8 +69,15 @@ module Lota
       # settings, and so does Lota. A file name is a path in the game's
       # folder, as LÖVE's filesystem reads it (Lota::Boot makes the folder
       # its source, as boot.lua does), with forward slashes and no "..".
-      # LÖVE also reads a BMFont with its images; Lota binds that form
-      # later.
+      #
+      # A BMFont, a font LÖVE reads from a text definition and the images
+      # of its glyphs, takes the definition in +data+ and then the images
+      # in place of the size: an ImageData, a file name, or a FileData, or
+      # an Array of them, one for each page of the font, in order, then
+      # optionally the DPI scale. A page left out is read from the
+      # definition's folder. The images must be 32-bit RGBA. Hinting and
+      # the other settings are for TrueType fonts only, and raise
+      # ArgumentError with a BMFont.
       #
       # Raises ArgumentError for an unknown hinting mode or for settings
       # given both ways, RuntimeError with LÖVE's message when the file
@@ -84,9 +91,15 @@ module Lota
       #   Lota::Graphics::Font.new(data, 8, :normal)  # the font in data, at 8 pixels
       #   Lota::Graphics::Font.new("assets/pixel.ttf", 16) # a font file in the game's folder
       #   Lota::Graphics::Font.new(data, 8, hinting: :mono, dpiscale: 1)
+      #   Lota::Graphics::Font.new("assets/hud.fnt", "assets/hud.png") # a BMFont
       def initialize(*arguments, hinting: nil, dpiscale: nil, sdf: false)
         first = arguments.first
         data = first if first.is_a?(Filesystem::FileData) || first.is_a?(String)
+        if data && !arguments[1].nil? && !arguments[1].is_a?(Numeric)
+          initialize_bmfont(data, arguments.drop(1), !hinting.nil? || !dpiscale.nil? || sdf)
+          return
+        end
+
         size, legacy_hinting, legacy_dpiscale = data ? arguments.drop(1) : arguments
         unless legacy_hinting.nil? && legacy_dpiscale.nil?
           if hinting || dpiscale
@@ -97,6 +110,34 @@ module Lota
           dpiscale = legacy_dpiscale
         end
         @native = native_font(data, size, hinting, dpiscale, sdf)
+      end
+
+      # w_newBMFontRasterizer's font (src/modules/font/wrap_Font.cpp,
+      # lines 158-196): the definition in +data+ with its +images+ and
+      # DPI scale.
+      private def initialize_bmfont(data, rest, settings)
+        images, dpiscale, *more = rest
+        raise ArgumentError, "a BMFont takes no hinting, dpiscale:, or sdf: settings" if settings
+        raise ArgumentError, "wrong number of arguments (given #{more.size + 3}, expected 2..3)" unless more.empty?
+
+        dpiscale = case dpiscale
+        when Float, Integer, nil then dpiscale
+        else raise TypeError, "wrong argument type #{dpiscale.class} (expected Float)"
+        end
+        pages = (images.is_a?(Array) ? images : [images]).map { |image| Font.image_data(image).native }
+        definition = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
+        @native = Native::Graphics.new_bmfont(definition, pages, dpiscale)
+      end
+
+      # The ImageData for +image+, which LÖVE reads as luax_convobj does
+      # for the image module's newImageData (src/modules/font/wrap_Font.cpp,
+      # convimagedata): a file name or a FileData is decoded. :nodoc:
+      def self.image_data(image)
+        case image
+        when Lota::Image::ImageData then image
+        when String, Filesystem::FileData then Lota::Image::ImageData.new(image)
+        else raise TypeError, "wrong argument type #{image.class} (expected Lota::Image::ImageData)"
+        end
       end
 
       # The engine's Font, made as w_newRasterizer chooses: LÖVE's default

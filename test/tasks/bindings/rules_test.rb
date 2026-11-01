@@ -54,6 +54,8 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.graphics.newCanvas")
     assert_empty collisions("love.graphics.newImage")
     assert_empty collisions("love.physics.newRectangleShape")
+    assert_empty collisions("love.graphics.newImageFont")
+    assert_empty collisions("love.graphics.newText")
     assert_equal [[:open, [2]]], collisions("love.graphics.newCubeTexture")
   end
 

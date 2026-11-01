@@ -22,6 +22,7 @@
 #include "graphics/Shader.h"
 #include "graphics/ShaderStage.h"
 #include "graphics/SpriteBatch.h"
+#include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
 #include "graphics/renderstate.h"
 #include "graphics/vertex.h"
@@ -761,6 +762,46 @@ Rice::Array w_SpriteBatch_getDrawRange(const SpriteBatch &t) {
   return results;
 }
 
+// TextBatch:clear: w_TextBatch_clear (wrap_TextBatch.cpp:141-146).
+void w_TextBatch_clear(TextBatch &t) {
+  require_main_thread(MODULE);
+  t.clear();
+}
+
+// TextBatch:setFont: w_TextBatch_setFont (wrap_TextBatch.cpp:148-154).
+void w_TextBatch_setFont(TextBatch &t, Font *f) {
+  require_main_thread(MODULE);
+  t.setFont(f);
+}
+
+// TextBatch:getFont: w_TextBatch_getFont (wrap_TextBatch.cpp:156-162).
+Font *w_TextBatch_getFont(const TextBatch &t) {
+  require_main_thread(MODULE);
+  Font *f = t.getFont();
+  return f;
+}
+
+// TextBatch:getWidth: w_TextBatch_getWidth (wrap_TextBatch.cpp:164-170).
+double w_TextBatch_getWidth(const TextBatch &t, int index) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getWidth((index - 1)));
+}
+
+// TextBatch:getHeight: w_TextBatch_getHeight (wrap_TextBatch.cpp:172-178).
+double w_TextBatch_getHeight(const TextBatch &t, int index) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getHeight((index - 1)));
+}
+
+// TextBatch:getDimensions: w_TextBatch_getDimensions (wrap_TextBatch.cpp:180-187).
+Rice::Array w_TextBatch_getDimensions(const TextBatch &t, int index) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  results.push(static_cast<double>(t.getWidth((index - 1))), false);
+  results.push(static_cast<double>(t.getHeight((index - 1))), false);
+  return results;
+}
+
 // Texture:getTextureType: w_Texture_getTextureType (wrap_Texture.cpp:34-42).
 std::string w_Texture_getTextureType(const Texture &t) {
   require_main_thread(MODULE);
@@ -1115,6 +1156,13 @@ void define_generated_graphics(const Rice::Module &native) {
                      Rice::Arg("count") = std::optional<int>())
       .define_method("texture", &w_SpriteBatch_getTexture)
       .define_method("draw_range", &w_SpriteBatch_getDrawRange);
+  Rice::define_class_under<TextBatch>(native, "TextBatch")
+      .define_method("clear", &w_TextBatch_clear)
+      .define_method("set_font", &w_TextBatch_setFont, Rice::Arg("f"))
+      .define_method("font", &w_TextBatch_getFont)
+      .define_method("width", &w_TextBatch_getWidth, Rice::Arg("index") = 0)
+      .define_method("height", &w_TextBatch_getHeight, Rice::Arg("index") = 0)
+      .define_method("dimensions", &w_TextBatch_getDimensions, Rice::Arg("index") = 0);
   Rice::define_class_under<Texture>(native, "Texture")
       .define_method("canvas?", &w_Texture_isCanvas)
       .define_method("texture_type", &w_Texture_getTextureType)

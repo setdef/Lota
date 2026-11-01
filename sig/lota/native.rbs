@@ -165,6 +165,28 @@ module Lota
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
     end
 
+    type colored_text = [String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]
+
+    class TextBatch
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def set: (Array[colored_text] text) -> nil
+
+      def setf: (Array[colored_text] text, Float | Integer wraplimit, String align) -> nil
+
+      def add: (Array[colored_text] text, Array[Float | Integer] placement) -> Integer
+
+      def add_with_transform: (Array[colored_text] text, Transform transform) -> Integer
+
+      def addf: (Array[colored_text] text, Float | Integer wraplimit, String align, Array[Float | Integer] placement) -> Integer
+
+      def addf_with_transform: (Array[colored_text] text, Float | Integer wraplimit, String align, Transform transform) -> Integer
+    end
+
     class Shader
       def self.cpp_class: () -> String
 
@@ -555,6 +577,20 @@ module Lota
       def self.new_truetype_font: (Data data, Integer size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
 
       def self.new_font_from_file: (FileData data) -> Font
+
+      def self.new_image_font: (ImageData data, String glyphs, Integer? extraspacing, (Float | Integer)? dpiscale) -> Font
+
+      def self.new_bmfont: (FileData definition, Array[ImageData] images, (Float | Integer)? dpiscale) -> Font
+
+      def self.print_with_transform: (Array[colored_text] text, Font? font, Transform transform) -> nil
+
+      def self.printf_with_transform: (Array[colored_text] text, Font? font, Transform transform, Float | Integer limit, String? align) -> nil
+
+      def self.new_text_batch: (Font font, Array[colored_text]? text) -> TextBatch
+
+      def self.draw_text_batch: (TextBatch batch, Array[Float | Integer] placement) -> nil
+
+      def self.draw_text_batch_with_transform: (TextBatch batch, Transform transform) -> nil
 
       def self.print: (Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]] text, Font? font, Array[Float | Integer] placement) -> nil
 

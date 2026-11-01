@@ -266,13 +266,14 @@ generate "love.graphics.getDefaultFilter"
 bound_by_hand "love.graphics.print",
   reason: "reads its text through luax_checkcoloredstring and its placement through " \
     "luax_checkstandardtransform, at positions that depend on whether a Font comes first; Lota binds the " \
-    "form without a Font, with its text and nine numbers as Arrays"
+    "form with the nine numbers, with its text and numbers as Arrays, and the form with a Transform, each with " \
+    "a Font or nil"
 bound_by_hand "love.graphics.printf",
-  reason: "reads its text, Font, placement, and alignment at positions it computes; Lota binds the form " \
-    "without a Font, as print"
+  reason: "reads its text, Font, placement, and alignment at positions it computes; Lota binds the forms " \
+    "with the numbers and with a Transform, as print"
 bound_by_hand "love.graphics.draw",
   reason: "reads its placement at a position that depends on whether a Quad comes second; Lota binds a " \
-    "Texture, a SpriteBatch, and a Texture through a Quad, each with its nine numbers as an Array, as print, " \
+    "Texture, a SpriteBatch, a TextBatch, and a Texture through a Quad, each with its nine numbers as an Array, as print, " \
     "or with a Transform"
 bound_by_hand "love.graphics.drawLayer",
   reason: "reads its placement at a position that depends on whether a Quad comes third, as draw; Lota binds " \
@@ -816,3 +817,26 @@ bound_by_hand "love.filesystem.openFile",
     "Lota returns the File, or the nil and message, as one Array (rule 4)"
 generate "File:close"
 generate "FileData:getFilename"
+bound_by_hand "love.graphics.newImageFont",
+  reason: "converts its arguments to a Rasterizer through luax_convobj, reading the stack at the positions it " \
+    "computes; Lota::Graphics::ImageFont.new converts the image to an ImageData and binds the Rasterizer " \
+    "made from it, with its glyphs, extra spacing, and DPI scale"
+bound_by_hand "love.graphics.newTextBatch",
+  reason: "reads its text through luax_checkcoloredstring only when it is given; Lota binds the form with " \
+    "the text as an Array and the form without it"
+bound_by_hand "TextBatch:set",
+  reason: "reads its text through luax_checkcoloredstring, which Lota reads as an Array"
+bound_by_hand "TextBatch:setf",
+  reason: "reads its text through luax_checkcoloredstring, as TextBatch:set, after its wrap limit and " \
+    "alignment"
+bound_by_hand "TextBatch:add",
+  reason: "reads its text through luax_checkcoloredstring and its placement as a Transform or nine numbers; " \
+    "Lota binds each form, with the numbers as an Array, as love.graphics.draw"
+bound_by_hand "TextBatch:addf",
+  reason: "reads its text through luax_checkcoloredstring and its placement as TextBatch:add does"
+generate "TextBatch:clear"
+generate "TextBatch:setFont"
+generate "TextBatch:getFont"
+generate "TextBatch:getWidth"
+generate "TextBatch:getHeight"
+generate "TextBatch:getDimensions"

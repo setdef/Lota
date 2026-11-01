@@ -10,7 +10,11 @@ module Lota
 
       def initialize: (*argument? arguments, ?hinting: argument?, ?dpiscale: argument?, ?sdf: bool) -> void
 
-      type argument = Filesystem::FileData | Integer | Float | Symbol | String
+      type argument = Filesystem::FileData | Lota::Image::ImageData | Integer | Float | Symbol | String | Array[Filesystem::FileData | Lota::Image::ImageData | String | nil]
+
+      private def initialize_bmfont: (Filesystem::FileData | String data, Array[argument?] rest, bool settings) -> Native::Graphics::Font
+
+      def self.image_data: (argument? image) -> Lota::Image::ImageData
 
       private def native_font: ((Filesystem::FileData | String)? data, argument? size, argument? hinting, argument? dpiscale, bool sdf) -> Native::Graphics::Font
 

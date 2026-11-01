@@ -92,6 +92,8 @@ class MainThreadTest < Minitest::Test
       "Font.new(data)" => -> { Lota::Graphics::Font.new(font_data) },
       "Font.new(data, size)" => -> { Lota::Graphics::Font.new(font_data, 8) },
       "Font.new(name, size)" => -> { Lota::Graphics::Font.new("resources/font.ttf", 8) },
+      "ImageFont.new" => -> { Lota::Graphics::ImageFont.new("resources/font-letters-ab.png", "AB") },
+      "TextBatch.new" => -> { Lota::Graphics::TextBatch.new(font, "off") },
       "font=" => -> { Lota::Graphics.font = font },
       "font" => -> { Lota::Graphics.font },
       "print" => -> { Lota::Graphics.print("off", 0, 0) },

@@ -140,7 +140,7 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 86175 - (3 * 32 * 32) + 1 : 86175
+    assertions = skipped ? 90547 - (3 * 32 * 32) + 1 : 90547
     EngineHelper.open_window
     supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
@@ -148,7 +148,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^183 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
+    assert_match(/^186 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

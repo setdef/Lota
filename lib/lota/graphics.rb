@@ -12,12 +12,15 @@ require_relative "graphics/canvas"
 require_relative "graphics/cube_image"
 require_relative "graphics/font"
 require_relative "graphics/image"
+require_relative "graphics/image_font"
 require_relative "graphics/quad"
 require_relative "graphics/shader"
 require_relative "graphics/sprite_batch"
 require_relative "graphics/stats"
 require_relative "graphics/supported"
 require_relative "graphics/system_limits"
+require_relative "graphics/text"
+require_relative "graphics/text_batch"
 require_relative "graphics/texture_formats"
 require_relative "graphics/texture_types"
 require_relative "graphics/volume_image"
@@ -887,9 +890,8 @@ module Lota
       case drawable
       when Texture then Native::Graphics.draw(drawable.native, placement)
       when SpriteBatch then Native::Graphics.draw_sprite_batch(drawable.native, placement)
-      else
-        raise TypeError,
-          "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture or Lota::Graphics::SpriteBatch)"
+      when TextBatch then Native::Graphics.draw_text_batch(drawable.native, placement)
+      else raise TypeError, not_drawable(drawable)
       end
     end
 
@@ -915,10 +917,15 @@ module Lota
       case drawable
       when Texture then Native::Graphics.draw_with_transform(drawable.native, transform.native)
       when SpriteBatch then Native::Graphics.draw_sprite_batch_with_transform(drawable.native, transform.native)
-      else
-        raise TypeError,
-          "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture or Lota::Graphics::SpriteBatch)"
+      when TextBatch then Native::Graphics.draw_text_batch_with_transform(drawable.native, transform.native)
+      else raise TypeError, not_drawable(drawable)
       end
+    end
+
+    # The message for a +drawable+ draw cannot draw.
+    private_class_method def self.not_drawable(drawable)
+      "wrong argument type #{drawable.class} " \
+        "(expected Lota::Graphics::Texture, Lota::Graphics::SpriteBatch, or Lota::Graphics::TextBatch)"
     end
 
     # Draws one layer of an array texture in the current color, matching
@@ -1114,8 +1121,8 @@ module Lota
     # A newline in the text starts a new line. Colored text is multiplied
     # by the current color. LÖVE reads each number as a single-precision
     # float, and so does Lota. A Font given draws this text alone; the
-    # current font stays as it was. LÖVE also places text with a
-    # Transform; Lota binds that form later.
+    # current font stays as it was. A Lota::Math::Transform takes the place
+    # of the nine numbers, as it does for draw.
     #
     # Raises TypeError for text or a number of the wrong type,
     # ArgumentError for a tenth number, and ThreadError off the main
@@ -1126,9 +1133,20 @@ module Lota
     #   Lota::Graphics.print("Score: 100", 10, 10)
     #   Lota::Graphics.print("Score: 100", big_font, 10, 10)
     #   Lota::Graphics.print([[1, 0, 0], "red ", [0, 0, 1], "blue"], 10, 30)
+    #   Lota::Graphics.print("Score: 100", big_font, transform)
+    #
+    # :call-seq:
+    #   print(text, font = nil, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   print(text, font = nil, transform)
     def self.print(text, font = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
       ky = nil
     )
+      if font.is_a?(Math::Transform)
+        return Native::Graphics.print_with_transform(colored_text(text), nil, font.native)
+      elsif font.is_a?(Font) && x.is_a?(Math::Transform)
+        return Native::Graphics.print_with_transform(colored_text(text), font.native, x.native)
+      end
+
       unless font.is_a?(Font)
         raise ArgumentError, "wrong number of arguments (given 10 numbers, expected 0..9)" unless ky.nil?
 
@@ -1136,7 +1154,7 @@ module Lota
           placement(number(font || 0), number(x || 0), y, r, sx, sy, ox, oy, kx))
       end
 
-      Native::Graphics.print(colored_text(text), font.native, placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky))
+      Native::Graphics.print(colored_text(text), font.native, placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
     end
 
     # Draws text in the current font and color, or in a Font given first,
@@ -1161,8 +1179,8 @@ module Lota
     # [ky] Float or Integer vertical shearing factor; 0 likewise.
     #
     # Lines break at a newline, and wrap between words that would cross
-    # the limit. LÖVE also places text with a Transform; Lota binds that
-    # form later.
+    # the limit. A Lota::Math::Transform takes the place of the position
+    # and the numbers after the alignment.
     #
     # Raises ArgumentError for an unknown alignment or a twelfth argument
     # after the text, TypeError for text or a number of the wrong type,
@@ -1172,9 +1190,21 @@ module Lota
     #
     #   Lota::Graphics.printf("Congratulations!\nYou have finished the game!", 300, 250, 200, :center)
     #   Lota::Graphics.printf("Victory!", big_font, 8, 8, 240, :center)
-    def self.printf(text, font, x, y, limit = nil, align = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil,
+    #   Lota::Graphics.printf("Victory!", big_font, transform, 240, :center)
+    #
+    # :call-seq:
+    #   printf(text, font = nil, x, y, limit, align = :left, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   printf(text, font = nil, transform, limit, align = :left)
+    def self.printf(text, font, x, y = nil, limit = nil, align = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil,
       kx = nil, ky = nil
     )
+      if font.is_a?(Math::Transform)
+        return Native::Graphics.printf_with_transform(colored_text(text), nil, font.native, number(x), alignment(y))
+      elsif font.is_a?(Font) && x.is_a?(Math::Transform)
+        return Native::Graphics.printf_with_transform(colored_text(text), font.native, x.native, number(y),
+          alignment(limit))
+      end
+
       arguments = [x, y, limit, align, r, sx, sy, ox, oy, kx, ky]
       unless font.is_a?(Font)
         raise ArgumentError, "wrong number of arguments (given 12 after the text, expected 3..11)" unless ky.nil?
@@ -1247,7 +1277,8 @@ module Lota
     # The placement luax_checkstandardtransform reads where it finds no
     # Transform: up to nine numbers, the position 0 when +nil+ or left
     # out. More than nine is an ArgumentError, as for any Ruby method.
-    private_class_method def self.standard_placement(*numbers)
+    # :nodoc:
+    def self.standard_placement(*numbers)
       raise ArgumentError, "wrong number of arguments (given #{numbers.size}, expected 0..9)" if numbers.size > 9
 
       x, y, r, sx, sy, ox, oy, kx, ky = numbers

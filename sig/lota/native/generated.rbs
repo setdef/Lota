@@ -309,6 +309,20 @@ module Lota
       def draw_range: () -> Array[Integer]
     end
 
+    class TextBatch
+      def clear: () -> nil
+
+      def set_font: (Graphics::Font f) -> nil
+
+      def font: () -> Graphics::Font
+
+      def width: (?Integer index) -> Float
+
+      def height: (?Integer index) -> Float
+
+      def dimensions: (?Integer index) -> [Float, Float]
+    end
+
     class Texture
       def canvas?: () -> bool
 

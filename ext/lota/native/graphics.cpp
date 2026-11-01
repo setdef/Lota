@@ -27,6 +27,7 @@
 #include "graphics/Graphics.h"
 #include "graphics/Quad.h"
 #include "graphics/SpriteBatch.h"
+#include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
 #include "graphics/vertex.h"
 #include "image/FormatHandler.h"
@@ -488,6 +489,34 @@ Font *new_font_from_file(love::filesystem::FileData *data) {
   return new_font(instance, font_module().newRasterizer(data));
 }
 
+// w_newImageFont (wrap_Graphics.cpp:1410-1435) of the image +data+, through
+// w_newImageRasterizer (wrap_Font.cpp:198-215): the glyphs in +glyphs+ in
+// the order they are drawn in the image, spaced +extraspacing+ pixels
+// further apart than the image draws them, at +dpiscale+.
+Font *new_image_font(love::image::ImageData *data, const std::string &glyphs,
+                     std::optional<int> extraspacing, std::optional<double> dpiscale) {
+  Graphics &instance = created_graphics();
+  return new_font(instance,
+                  font_module().newImageRasterizer(data, glyphs, extraspacing.value_or(0),
+                                                   static_cast<float>(dpiscale.value_or(1.0))));
+}
+
+// w_newFont with a BMFont definition and its images, through
+// w_newBMFontRasterizer (wrap_Font.cpp:158-196): the definition in
+// +definition+ and the pages it names, in order, from +images+. A page
+// left out is loaded from the definition's folder.
+Font *new_bmfont(love::filesystem::FileData *definition, Rice::Array images,
+                 std::optional<double> dpiscale) {
+  Graphics &instance = created_graphics();
+  const Rice::Array pages = std::move(images);
+  std::vector<love::image::ImageData *> list;
+  for (const auto page : pages) {
+    list.push_back(Rice::detail::From_Ruby<love::image::ImageData *>().convert(page.value()));
+  }
+  return new_font(instance, font_module().newBMFontRasterizer(
+                                definition, list, static_cast<float>(dpiscale.value_or(1.0))));
+}
+
 // A Ruby number, read as a float, as luaL_checknumber and LÖVE's casts
 // read each number of a color or a placement.
 float to_float(const Rice::Object &number) {
@@ -643,6 +672,128 @@ void printf(Rice::Array text, Font *font, Rice::Array placement, double limit,
   } else {
     graphics().printf(strings, static_cast<float>(limit), mode, matrix);
   }
+}
+
+// w_print placed by a Transform (wrap_Graphics.cpp:3410-3433 and
+// wrap_SpriteBatch.h:33-64): +text+ in +font+, or in the current font
+// when +font+ is nil.
+void print_with_transform(Rice::Array text, Font *font, const love::math::Transform *transform) {
+  const Rice::Array parts = std::move(text);
+  const std::vector<love::font::ColoredString> strings = colored_strings(parts);
+  if (font != nullptr) {
+    graphics().print(strings, font, transform->getMatrix());
+  } else {
+    graphics().print(strings, transform->getMatrix());
+  }
+}
+
+// w_printf placed by a Transform (wrap_Graphics.cpp:3435-3492), as
+// print_with_transform.
+void printf_with_transform(Rice::Array text, Font *font, const love::math::Transform *transform,
+                           double limit, const std::optional<std::string> &align) {
+  const Rice::Array parts = std::move(text);
+  const std::vector<love::font::ColoredString> strings = colored_strings(parts);
+  Font::AlignMode mode = Font::ALIGN_LEFT;
+  if (align.has_value() && !Font::getConstant(align->c_str(), mode)) {
+    raise_enum_error("alignment", Font::getConstants(mode), *align);
+  }
+  if (font != nullptr) {
+    graphics().printf(strings, font, static_cast<float>(limit), mode, transform->getMatrix());
+  } else {
+    graphics().printf(strings, static_cast<float>(limit), mode, transform->getMatrix());
+  }
+}
+
+// w_newTextBatch (wrap_Graphics.cpp:2321-2341): a batch drawn in +font+,
+// holding +text+ unless it is nil. Its one reference goes to the Ruby
+// wrapper.
+love::graphics::TextBatch *new_text_batch(Font *font, std::optional<Rice::Array> text) {
+  Graphics &instance = created_graphics();
+  if (!text.has_value()) {
+    return instance.newTextBatch(font);
+  }
+  const Rice::Array parts = std::move(text.value());
+  return instance.newTextBatch(font, colored_strings(parts));
+}
+
+// The alignment w_TextBatch_setf and w_TextBatch_addf read
+// (wrap_TextBatch.cpp:50-56 and 131-135).
+Font::AlignMode text_alignment(const std::string &align) {
+  Font::AlignMode mode = Font::ALIGN_MAX_ENUM;
+  if (!Font::getConstant(align.c_str(), mode)) {
+    raise_enum_error("align mode", Font::getConstants(mode), align);
+  }
+  return mode;
+}
+
+// w_TextBatch_set (wrap_TextBatch.cpp:35-44): replaces the batch's text.
+void text_batch_set(love::graphics::TextBatch &batch, Rice::Array text) {
+  require_main_thread(MODULE);
+  const Rice::Array parts = std::move(text);
+  batch.set(colored_strings(parts));
+}
+
+// w_TextBatch_setf (wrap_TextBatch.cpp:46-67): replaces the batch's text
+// with text wrapped at +wraplimit+ and aligned within it.
+void text_batch_setf(love::graphics::TextBatch &batch, Rice::Array text, double wraplimit,
+                     const std::string &align) {
+  require_main_thread(MODULE);
+  const Font::AlignMode mode = text_alignment(align);
+  const Rice::Array parts = std::move(text);
+  batch.set(colored_strings(parts), static_cast<float>(wraplimit), mode);
+}
+
+// w_TextBatch_add (wrap_TextBatch.cpp:69-107): adds +text+ placed by the
+// nine numbers, and returns its index, counting from 1 as Lua does.
+int text_batch_add(love::graphics::TextBatch &batch, Rice::Array text, Rice::Array placement) {
+  require_main_thread(MODULE);
+  const Rice::Array parts = std::move(text);
+  const Rice::Array numbers = std::move(placement);
+  return batch.add(colored_strings(parts), placement_of(numbers)) + 1;
+}
+
+// w_TextBatch_add placed by a Transform.
+int text_batch_add_with_transform(love::graphics::TextBatch &batch, Rice::Array text,
+                                  const love::math::Transform *transform) {
+  require_main_thread(MODULE);
+  const Rice::Array parts = std::move(text);
+  return batch.add(colored_strings(parts), transform->getMatrix()) + 1;
+}
+
+// w_TextBatch_addf (wrap_TextBatch.cpp:109-150): adds +text+ wrapped at
+// +wraplimit+ and aligned within it, placed by the nine numbers.
+int text_batch_addf(love::graphics::TextBatch &batch, Rice::Array text, double wraplimit,
+                    const std::string &align, Rice::Array placement) {
+  require_main_thread(MODULE);
+  const Rice::Array parts = std::move(text);
+  const Rice::Array numbers = std::move(placement);
+  const Font::AlignMode mode = text_alignment(align);
+  return batch.addf(colored_strings(parts), static_cast<float>(wraplimit), mode,
+                    placement_of(numbers)) +
+         1;
+}
+
+// w_TextBatch_addf placed by a Transform.
+int text_batch_addf_with_transform(love::graphics::TextBatch &batch, Rice::Array text,
+                                   double wraplimit, const std::string &align,
+                                   const love::math::Transform *transform) {
+  require_main_thread(MODULE);
+  const Rice::Array parts = std::move(text);
+  const Font::AlignMode mode = text_alignment(align);
+  return batch.addf(colored_strings(parts), static_cast<float>(wraplimit), mode,
+                    transform->getMatrix()) +
+         1;
+}
+
+// w_draw of a TextBatch with numbers (wrap_Graphics.cpp:3245-3279).
+void draw_text_batch(love::graphics::TextBatch *batch, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(batch, placement_of(numbers));
+}
+
+void draw_text_batch_with_transform(love::graphics::TextBatch *batch,
+                                    const love::math::Transform *transform) {
+  graphics().draw(batch, transform->getMatrix());
 }
 
 // w_draw of a Drawable with numbers (wrap_Graphics.cpp:3245-3279): the
@@ -1080,6 +1231,17 @@ void define_graphics(const Rice::Module &native) {
                      Rice::Arg("placement"))
       .define_method("set_color", &sprite_batch_set_color, Rice::Arg("red"), Rice::Arg("green"),
                      Rice::Arg("blue"), Rice::Arg("alpha"));
+  define_engine_class<love::graphics::TextBatch>(native, "TextBatch")
+      .define_method("set", &text_batch_set, Rice::Arg("text"))
+      .define_method("setf", &text_batch_setf, Rice::Arg("text"), Rice::Arg("wraplimit"),
+                     Rice::Arg("align"))
+      .define_method("add", &text_batch_add, Rice::Arg("text"), Rice::Arg("placement"))
+      .define_method("add_with_transform", &text_batch_add_with_transform, Rice::Arg("text"),
+                     Rice::Arg("transform"))
+      .define_method("addf", &text_batch_addf, Rice::Arg("text"), Rice::Arg("wraplimit"),
+                     Rice::Arg("align"), Rice::Arg("placement"))
+      .define_method("addf_with_transform", &text_batch_addf_with_transform, Rice::Arg("text"),
+                     Rice::Arg("wraplimit"), Rice::Arg("align"), Rice::Arg("transform"));
   // LÖVE's graphics Font is Native::Graphics::Font, since Native::Font is
   // love.font, the module that rasterizes its glyphs (native/font.cpp).
   Rice::Module graphics_module = Rice::define_module_under(native, "Graphics");
@@ -1139,6 +1301,23 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("sdf"), Rice::Return().takeOwnership())
       .define_singleton_function("new_font_from_file", &new_font_from_file, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("new_image_font", &new_image_font, Rice::Arg("data"),
+                                 Rice::Arg("glyphs"), Rice::Arg("extraspacing"),
+                                 Rice::Arg("dpiscale"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_bmfont", &new_bmfont, Rice::Arg("definition"),
+                                 Rice::Arg("images"), Rice::Arg("dpiscale"),
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("print_with_transform", &print_with_transform, Rice::Arg("text"),
+                                 Rice::Arg("font"), Rice::Arg("transform"))
+      .define_singleton_function("printf_with_transform", &printf_with_transform, Rice::Arg("text"),
+                                 Rice::Arg("font"), Rice::Arg("transform"), Rice::Arg("limit"),
+                                 Rice::Arg("align"))
+      .define_singleton_function("new_text_batch", &new_text_batch, Rice::Arg("font"),
+                                 Rice::Arg("text"), Rice::Return().takeOwnership())
+      .define_singleton_function("draw_text_batch", &draw_text_batch, Rice::Arg("batch"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("draw_text_batch_with_transform", &draw_text_batch_with_transform,
+                                 Rice::Arg("batch"), Rice::Arg("transform"))
       .define_singleton_function("print", &print, Rice::Arg("text"), Rice::Arg("font"),
                                  Rice::Arg("placement"))
       .define_singleton_function("printf", &printf, Rice::Arg("text"), Rice::Arg("font"),

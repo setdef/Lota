@@ -91,6 +91,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Audio.position`, `orientation`, `velocity`, `doppler_scale`, and `distance_model`, with their writers, translating the listener's functions of `love.audio`.
 - `Lota::Graphics::Shader.new`, translating `love.graphics.newShader` with one or two sources, file names, or `FileData`, and `defines:`, `debugname:`, and `write:`; `Shader#send` and `send_color` for numbers, booleans, vectors and matrices as Arrays, a Transform, Textures, and a `Data`, with a matrix layout of `:row` or `:column`; and `warnings`, `uniform?`, `stage?`, `local_threadgroup_size`, and `debug_name`.
 - `Lota::Graphics.shader` and `shader=`, translating `getShader` and `setShader`, and `Lota::Graphics.validate_shader`, which returns `[true]` or `[false, message]`.
+- `Lota::Graphics::TextBatch.new`, translating `love.graphics.newTextBatch`, with `set`, `setf`, `add`, `addf`, `clear`, `font` and `font=`, `width`, `height`, and `dimensions`; text and its colors are as `print` takes them, `add` and `addf` return an index counting from 1, and `Lota::Graphics.draw` draws one.
+- `Lota::Graphics::ImageFont.new`, translating `love.graphics.newImageFont` for a file name, a `FileData`, or an `ImageData`, with extra spacing and a DPI scale; it returns a `Font`, and `ImageFont === font` is true of every `Font`.
+- `Lota::Graphics::Text.new`, translating LÖVE 12's deprecated `love.graphics.newText`: it makes a `TextBatch` and prints LÖVE's deprecation notice; `Text === x` is true of every `TextBatch`.
+- `Lota::Graphics::Font.new` makes a BMFont from its definition and images, as `Font.new(definition, images, dpiscale)`.
+- `Lota::Graphics.print` and `printf` take a `Lota::Math::Transform` in place of the position and numbers.
 - `Lota::Window.update_mode`, `mode`, `desktop_dimensions`, and `safe_area`, translating `love.window.updateMode`, `getMode`, `getDesktopDimensions`, and `getSafeArea`; `mode` returns the width, the height, and a frozen `Lota::Window::Mode` of the settings, with LÖVE's field names.
 - `Lota::System.os`, translating `love.system.getOS`.
 - `Lota::Mouse.visible=`, `visible?`, `grabbed=`, `grabbed?`, `set_relative_mode`, `relative_mode`, and `cursor_supported?`; `Lota::Graphics.created?` and `reset`; and `Lota::Window.open?`.

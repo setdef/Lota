@@ -38,6 +38,10 @@ class ObjectTypeTest < Minitest::Test
         Lota::Graphics::SpriteBatch.new(Lota::Graphics::Canvas.new(4, 4)),
         %w[SpriteBatch Drawable Object],
 ],
+      "TextBatch" => [
+        Lota::Graphics::TextBatch.new(Lota::Graphics::Font.new(12)),
+        %w[TextBatch Drawable Object],
+],
     }
   end
 

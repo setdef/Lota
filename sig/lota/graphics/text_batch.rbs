@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class TextBatch
+      attr_reader native: Native::TextBatch
+
+      def self.from_native: (Native::TextBatch native) -> TextBatch
+
+      def self.new: (Font font, ?Graphics::text? text) -> TextBatch
+
+      def set: (Graphics::text text) -> nil
+
+      def setf: (Graphics::text text, Float | Integer wraplimit, Symbol | String align) -> nil
+
+      def add: (Graphics::text text, *(Math::Transform | Float | Integer)? placement) -> Integer
+
+      def addf: (Graphics::text text, Float | Integer wraplimit, Symbol | String align, *(Math::Transform | Float | Integer)? placement) -> Integer
+
+      private def numbers: (Array[Math::Transform | Float | Integer | nil] placement) -> Array[Float | Integer | nil]
+
+      def clear: () -> nil
+
+      def font=: (Font font) -> void
+
+      def font: () -> Font
+
+      def width: (?Integer? index) -> Float
+
+      def height: (?Integer? index) -> Float
+
+      def dimensions: (?Integer? index) -> [Float, Float]
+    end
+  end
+end

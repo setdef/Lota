@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
-  TYPES = %w[Canvas Font Image Quad Shader SpriteBatch].freeze
+  TYPES = %w[Canvas Font Image Quad Shader SpriteBatch Text].freeze
 
   # Lövetest runs its modules in a fixed order, graphics before window
   # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
@@ -170,15 +170,30 @@ class GraphicsTest < Lovetest::TestMethod
     assert_object(Lota::Graphics::Font.new("resources/font.ttf", 8, :normal, 1))
   end
 
+  # Translated to Ruby from love.test.graphics.newImageFont
+  # (vendor/love/testing/tests/graphics.lua:1728-1732): newImageFont
+  # becomes ImageFont.new, a module (rule 2).
+  def test_new_image_font
+    assert_object(Lota::Graphics::ImageFont.new("resources/love.png", "ABCD", 1))
+  end
+
+  # Translated to Ruby from love.test.graphics.newTextBatch
+  # (vendor/love/testing/tests/graphics.lua:1784-1789): newTextBatch
+  # becomes TextBatch.new (rule 2).
+  def test_new_text_batch
+    font = Lota::Graphics::Font.new("resources/font.ttf")
+    assert_object(Lota::Graphics::TextBatch.new(font, "helloworld"))
+  end
+
   # Translated to Ruby from love.test.graphics.Font
-  # (vendor/love/testing/tests/graphics.lua:264-308), all but its check of
-  # font substitution (lines 310-321), whose newImageFont waits for
-  # slice 4's image fonts: newFont becomes Font.new (rule 2), the getters
-  # drop get (rule 3), getDPIScale is dpi_scale (rule 13), getFilter's
-  # results an Array whose first Lua keeps (rule 4), setFilter and
-  # setLineHeight writers (rules 5 and 6), hasGlyphs glyphs? (rule 8), and
-  # getWrap's two results an Array, its lines an Array counted from 0;
-  # setFont, setCanvas, and newCanvas as test_set_font has them.
+  # (vendor/love/testing/tests/graphics.lua:264-322): newFont becomes
+  # Font.new (rule 2) and newImageFont ImageFont.new, a module (rule 2),
+  # the getters drop get (rule 3), getDPIScale is dpi_scale (rule 13),
+  # getFilter's results an Array whose first Lua keeps (rule 4),
+  # setFilter, setLineHeight, and setFallbacks writers (rules 5 and 6),
+  # hasGlyphs glyphs? (rule 8), and getWrap's two results an Array, its
+  # lines an Array counted from 0; setFont, setCanvas, and newCanvas as
+  # test_set_font has them.
   def test_font
     # create obj
     font = Lota::Graphics::Font.new("resources/font.ttf", 8)
@@ -225,6 +240,65 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = canvas
     Lota::Graphics.font = font
     Lota::Graphics.print("Aa", 0, 5)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+
+    # check font substitution
+    fontab = Lota::Graphics::ImageFont.new("resources/font-letters-ab.png", "AB")
+    fontcd = Lota::Graphics::ImageFont.new("resources/font-letters-cd.png", "CD")
+    fontab.fallbacks = fontcd
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 0)
+    Lota::Graphics.font = fontab
+    Lota::Graphics.print("AB", 0, 0) # should come from fontab
+    Lota::Graphics.print("CD", 0, 9) # should come from fontcd
+    Lota::Graphics.canvas = nil
+    imgdata2 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata2)
+  end
+
+  # Translated to Ruby from love.test.graphics.Text
+  # (vendor/love/testing/tests/graphics.lua:1219-1262): newFont and
+  # newTextBatch become Font.new and TextBatch.new (rule 2), the getters
+  # drop get (rule 3), getDimensions' two results an Array (rule 4),
+  # whose first Lua keeps in the three checks that name it, setFont a
+  # writer (rule 5), setf and addf keep their names (rule 13) with the
+  # alignment a symbol (rule 9), draw takes the TextBatch as it does a
+  # texture, and newCanvas, setCanvas, and readbackTexture as test_font
+  # has them.
+  def test_text
+    # setup text object
+    font = Lota::Graphics::Font.new("resources/font.ttf", 8)
+    plaintext = Lota::Graphics::TextBatch.new(font, "test")
+    assert_object(plaintext)
+
+    # check height/width/dimensions
+    assert_equal(font.height, plaintext.font.height, "check font matches")
+    tw, th = plaintext.dimensions
+    assert_equal(24, tw, "check initial dim w")
+    assert_equal(8, th, "check initial dim h")
+    assert_equal(tw, plaintext.width, "check initial dim w")
+    assert_equal(th, plaintext.height, "check initial dim h")
+
+    # check changing text effects dimensions
+    plaintext.add("more text", 100, 0, 0)
+    assert_equal(49, plaintext.dimensions.first, "check adding text")
+    plaintext.set("test")
+    assert_equal(24, plaintext.dimensions.first, "check resetting text")
+    plaintext.clear
+    assert_equal(0, plaintext.dimensions.first, "check clearing text")
+
+    # check drawing + setting more complex text
+    colortext = Lota::Graphics::TextBatch.new(font, [[1, 0, 0, 1], "test"])
+    assert_object(colortext)
+    colortext.setf("LÖVE is an *awesome* framework you can use to make 2D games in Lua", 60, :right)
+    colortext.addf([[1, 1, 0], "overlap"], 1000, :left)
+    font2 = Lota::Graphics::Font.new("resources/font.ttf", 8)
+    colortext.font = font2
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.draw(colortext, 0, 10)
     Lota::Graphics.canvas = nil
     imgdata = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata)

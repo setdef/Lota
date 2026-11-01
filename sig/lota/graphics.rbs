@@ -111,11 +111,13 @@ module Lota
 
     def self.line: (*(Float | Integer | Array[Float | Integer]) points) -> nil
 
-    def self.draw: (Texture | SpriteBatch drawable, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.draw: (Texture | SpriteBatch | TextBatch drawable, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+
+    private def self.not_drawable: (::Object drawable) -> String
 
     private def self.transform_quad: ((Quad | Float | Integer)? quad) -> Quad
 
-    private def self.draw_with_transform: (Texture | SpriteBatch drawable, Quad? quad, Math::Transform transform) -> nil
+    private def self.draw_with_transform: (Texture | SpriteBatch | TextBatch drawable, Quad? quad, Math::Transform transform) -> nil
 
     def self.draw_layer: (Texture texture, Integer | Float layer, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
@@ -125,9 +127,9 @@ module Lota
 
     def self.font: () -> Font
 
-    def self.print: (text text, ?(Font | Float | Integer)? font, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.print: (text text, ?(Font | Math::Transform | Float | Integer)? font, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
-    def self.printf: (text text, Font | Float | Integer font, Float | Integer x, Float | Integer y, ?(Float | Integer | Symbol | String)? limit, ?(Symbol | String | Float | Integer)? align, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+    def self.printf: (text text, Font | Math::Transform | Float | Integer font, Math::Transform | Float | Integer x, ?(Float | Integer | Symbol | String)? y, ?(Math::Transform | Float | Integer | Symbol | String)? limit, ?(Symbol | String | Float | Integer)? align, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
     private def self.number: (::Object? value) -> (Float | Integer)
 
@@ -139,7 +141,7 @@ module Lota
 
     private def self.placement: (Float | Integer x, Float | Integer y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
 
-    private def self.standard_placement: (*(Float | Integer)? numbers) -> Array[Float | Integer]
+    def self.standard_placement: (*(Float | Integer)? numbers) -> Array[Float | Integer]
 
     def self.placement_after: ((Quad | Float | Integer)? quad, (Float | Integer)? x, (Float | Integer)? y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
 

@@ -455,6 +455,20 @@ class GeneratorTest < Minitest::Test
     assert_match(/^    class Data\n/, rbs)
   end
 
+  # A class outside that module names the class by its module, since Font
+  # alone is love.font's there: TextBatch:getFont returns a
+  # Graphics::Font.
+  def test_a_class_outside_the_module_names_the_class_by_its_module
+    list = Bindings::BindingList.new
+    list.generate("Font:getHeight")
+    list.generate("TextBatch:getFont")
+    list.generate("TextBatch:setFont")
+    rbs = BindingsHelper.generator(list:).files.fetch("sig/lota/native/generated.rbs")
+
+    assert_includes rbs, "def font: () -> Graphics::Font"
+    assert_includes rbs, "def set_font: (Graphics::Font f) -> nil"
+  end
+
   # ImageData:encode returns love.filesystem's FileData, whose header is
   # neither love.image's nor common's, but the one another module has.
   def test_a_type_of_another_module_includes_that_modules_header

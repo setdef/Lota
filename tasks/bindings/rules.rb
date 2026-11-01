@@ -82,11 +82,15 @@ module Bindings
     # Canvas === texture asks texture.canvas?, and Image === is true of
     # every Texture (rule 2's text), as RectangleShape === is of every
     # PolygonShape, which newRectangleShape makes (wrap_Physics.cpp,
-    # w_newRectangleShape), as the maintainer decided.
+    # w_newRectangleShape), as the maintainer decided, and by the same
+    # precedent ImageFont === is true of every Font and Text === of every
+    # TextBatch, whose products the engine cannot tell apart.
     MODULE_FACTORY_MATCHES = {
       "newCanvas" => "Texture:isCanvas",
       "newImage" => "Texture",
       "newRectangleShape" => "PolygonShape",
+      "newImageFont" => "Font",
+      "newText" => "TextBatch",
     }.freeze
     # The methods rule 16 gives every LÖVE object, from Object:type and
     # Object:typeOf (src/common/runtime.cpp, w__type and w__typeOf), which
