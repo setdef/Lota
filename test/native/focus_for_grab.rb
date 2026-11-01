@@ -7,7 +7,7 @@
 
 require "lota"
 require "lota_native_test"
-require_relative "../../tasks/focus_lock"
+require_relative "../../tasks/desktop_input"
 
 # Gives the window keyboard focus for Lövetest's love.mouse.setGrabbed
 # test alone (test/lovetest/tests/mouse.rb), which SDL passes only for the
@@ -29,15 +29,17 @@ require_relative "../../tasks/focus_lock"
 # test of Ctrl+C holds Ctrl (test/native/error_handler_test.rb).
 #
 # The gate's checks run at the same time (tasks/gate.rb), and another
-# process taking the focus would fail this test, so it holds the lock for
-# focus (tasks/focus_lock.rb) from setup to teardown. So does every
-# other test of MouseTest, since they set the pointer, which is the
-# computer's, and read it back, and another process moving it between
-# the two fails them.
+# process taking the focus would fail this test, so it holds the desktop
+# input lock (tasks/desktop_input.rb) from setup to teardown, and, since
+# what the person at the computer types would go to its window, asks them
+# to step away. Every other test of MouseTest holds the lock too, silently,
+# since they set the pointer, which is the computer's, and read it back,
+# and another process moving it between the two fails them, but their
+# windows stay in the background.
 module FocusForGrab
   def setup
     super
-    @focus_lock = FocusLock.acquire
+    @desktop_input = DesktopInput.acquire(speak: name == "test_set_grabbed")
     LotaNativeTest.focus_window if name == "test_set_grabbed"
   end
 
@@ -49,7 +51,7 @@ module FocusForGrab
     end
     super
   ensure
-    FocusLock.release(@focus_lock) if @focus_lock
+    @desktop_input&.release
   end
 end
 

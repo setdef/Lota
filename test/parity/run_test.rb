@@ -45,17 +45,24 @@ class RunTest < Minitest::Test
   end
 
   # The pointer is the computer's: a run that moves or clicks it waits for
-  # the lock for it (tasks/focus_lock.rb), and one that does not goes on.
+  # the desktop input lock (tasks/desktop_input.rb) while another process
+  # holds it, and one that does not goes on. The holder is a process of
+  # its own, since the threads of one process share the lock.
   def test_a_run_that_moves_the_pointer_waits_for_the_lock_and_one_that_does_not_goes_on
-    lock = FocusLock.acquire
-    plain = Parity.run({}, "echo", "plain", side: "Lota") { 1 }
-    moving = Thread.new { Parity.run({ "LOTA_PARITY_MOVE" => "1:10:10" }, "echo", "moved", side: "Lota") { 1 } }
+    holder = "DesktopInput.hold(speak: false) { puts 'held'; $stdout.flush; $stdin.read }"
+    Open3.popen2(RbConfig.ruby, "-r", File.expand_path("../../tasks/desktop_input", __dir__), "-e", holder,
+      err: File::NULL) do |stdin, stdout, wait|
+      assert_equal "held\n", stdout.gets
+      plain = Parity.run({}, "echo", "plain", side: "Lota") { 1 }
+      moving = Thread.new { Parity.run({ "LOTA_PARITY_MOVE" => "1:10:10" }, "echo", "moved", side: "Lota") { 1 } }
 
-    assert_equal "plain\n", plain.text
-    assert_nil moving.join(1)
+      assert_equal "plain\n", plain.text
+      assert_nil moving.join(1)
 
-    FocusLock.release(lock)
+      stdin.close
+      wait.join
 
-    assert_equal "moved\n", moving.value.text
+      assert_equal "moved\n", moving.value.text
+    end
   end
 end

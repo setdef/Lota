@@ -8,7 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../callback_helper"
-require_relative "../../tasks/focus_lock"
+require_relative "../../tasks/desktop_input"
 
 # Lota.errorhandler, translated from love.errorhandler
 # (vendor/love/src/modules/love/callbacks.lua:221-349), in this process's
@@ -159,9 +159,10 @@ class ErrorHandlerTest < Minitest::Test
 
   # Lines 241-261: the mouse is shown and set free, and the
   # drawing state reset, before the screen draws in a font of 15 pixels.
-  # It holds the lock for the pointer (tasks/focus_lock.rb), which it hides and frees.
+  # It holds the desktop input lock (tasks/desktop_input.rb), silently,
+  # for the pointer, which it hides and frees.
   def test_the_handler_resets_the_mouse_and_the_drawing_state
-    FocusLock.hold { reset_mouse_and_drawing_state }
+    DesktopInput.hold(speak: false) { reset_mouse_and_drawing_state }
   end
 
   def reset_mouse_and_drawing_state

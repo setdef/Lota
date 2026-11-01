@@ -10,7 +10,7 @@ require "json"
 require "open3"
 require "rbconfig"
 require "tmpdir"
-require_relative "../../tasks/focus_lock"
+require_relative "../../tasks/desktop_input"
 require_relative "reference_cache"
 
 # The parity harness (Plan 001, "What correct means"): a LÖVE game,
@@ -331,9 +331,11 @@ module Parity
   # seconds is stuck: it is killed, and its Output ends with a line that
   # says so, naming it as +side+.
   #
-  # A run whose script moves or clicks the mouse holds the lock for the
-  # pointer (tasks/focus_lock.rb) until it ends, since the pointer is the
-  # computer's, and the gate's other checks read it and move it too.
+  # A run whose script moves or clicks the mouse holds the desktop input
+  # lock (tasks/desktop_input.rb) until it ends, since the pointer is the
+  # computer's, and the gate's other checks read it and move it too. It
+  # holds it silently: its window stays in the background, and takes no
+  # focus.
   def self.run(environment, *command, side:, stall: STALL, &shown)
     return run_holding_pointer(environment, command, side:, stall:, &shown) if moves_pointer?(environment)
 
@@ -345,7 +347,7 @@ module Parity
   end
 
   def self.run_holding_pointer(environment, command, side:, stall:, &shown)
-    FocusLock.hold { run_unlocked(environment, *command, side:, stall:, &shown) }
+    DesktopInput.hold(speak: false) { run_unlocked(environment, *command, side:, stall:, &shown) }
   end
 
   def self.run_unlocked(environment, *command, side:, stall: STALL, &shown)

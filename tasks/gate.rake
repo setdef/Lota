@@ -15,9 +15,10 @@ require_relative "gate"
 #
 # Every check reads the build and writes only its own files: each test
 # process has a home and an audio file of its own (test/test_home.rb), and
-# its windows stay in the background. The windows that take keyboard focus
-# (Lövetest's mouse-grab test, and the game package:install runs in front)
-# hold the lock for it (tasks/focus_lock.rb), so they wait for each other.
+# its windows stay in the background. The tests that take keyboard focus or
+# move the pointer (Lövetest's mouse tests, and the game package:install
+# runs in front) hold the desktop input lock (tasks/desktop_input.rb), so
+# they wait for each other.
 # test:ruby runs as its shards (tasks/test.rake), and cpp, lint, and steep
 # are short enough to share a lane.
 #

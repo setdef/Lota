@@ -11,7 +11,7 @@ require "rbconfig"
 require "digest"
 require "rubygems/package"
 require "tmpdir"
-require_relative "focus_lock"
+require_relative "desktop_input"
 require_relative "native_format"
 
 # Checks that each gem works once packaged, not just in the repository.
@@ -435,11 +435,12 @@ class PackageCheck
     end
   end
 
-  # A game whose window takes the focus holds the lock for it
-  # (tasks/focus_lock.rb), since the gate's other checks may be running
-  # windows of their own.
+  # A game whose window takes the focus holds the desktop input lock
+  # (tasks/desktop_input.rb), since the gate's other checks may be running
+  # windows of their own, and asks the person at the computer to step
+  # away, since what they type would go to it.
   private def with_focus(game, &)
-    game.background ? yield : FocusLock.hold(&)
+    game.background ? yield : DesktopInput.hold(&)
   end
 
   private def game_folder(game, work)
