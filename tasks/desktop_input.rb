@@ -28,8 +28,13 @@ require "rbconfig"
 # - Once SETTLE seconds pass with none of its spans running, a process that
 #   held a speaking span tries the lock without waiting. If it gets it and
 #   the marker is there, it removes the marker and says COME_BACK. If the
-#   lock is busy, someone else is still working, and will call the person
-#   back. It checks the same way as it ends.
+#   lock is busy, it tries again at each poll until it calls back or finds
+#   the marker gone, so a busy lock only delays the call back.
+# - On exit it first waits out the rest of SETTLE from its last release,
+#   so a process blocked waiting for the lock takes it first, then tries
+#   once more.
+# - Both files are made mode 0666 whatever the umask, so every user's
+#   processes can open the lock and rewrite the marker.
 # - A silent span takes the same lock, but never speaks, never writes or
 #   removes the marker, and starts no watcher.
 #
@@ -38,6 +43,12 @@ require "rbconfig"
 # says it first shows as a Notification Center banner, which takes no
 # focus, for a person whose sound is off, then says with macOS's own say
 # if it is there. Neither fails the span if it cannot be shown or said.
+#
+# Two edges are left for the gem the projects mean to share: a retrying
+# watcher can find the lock free in the gap between another process's
+# spans and call the person back while that process still has more to
+# do, and a person of another user cannot delete a marker left in /tmp,
+# whose sticky bit keeps each user's files their own.
 #
 # Spans nest, and spans on several threads of one process share the one
 # lock held while any runs, since a second +flock+ from the same process,
@@ -139,25 +150,40 @@ class DesktopInput
 
   # Calls the person back, once SETTLE seconds have passed since the last
   # span of this process ended, if a speaking span has run since the last
-  # call. The watcher polls it.
+  # call. While the lock is busy and the marker is there, it tries again
+  # at the next call. The watcher polls it.
   def tick
     @state.synchronize do
       next unless @pending && @depth.zero?
       next if now - @last_done < @settle
 
-      @pending = false
-      come_back
+      @pending = come_back == :busy
     end
   end
 
   # Calls the person back if no one holds the lock and the marker says
-  # they were sent away. Never waits for the lock.
+  # they were sent away. Never waits for the lock. Returns +:called+,
+  # +:busy+ when someone holds the lock and the marker is there, or
+  # +:gone+ when the marker is not.
   def call_back
     @state.synchronize { come_back }
   end
 
+  # What a process that held a speaking span does as it exits: stops the
+  # watcher, waits out what is left of SETTLE since it last let go of the
+  # lock, so a process already waiting for the lock takes it first, and
+  # then calls back.
+  def finish
+    @watcher&.kill&.join
+    @watcher = nil
+    last_done = @state.synchronize { @last_done }
+    left = last_done && (@settle - (now - last_done))
+    sleep left if left&.positive?
+    call_back
+  end
+
   private def take
-    file = File.open(@lock, File::RDONLY | File::CREAT, 0o666)
+    file = open_lock
     begin
       unless file.flock(File::LOCK_EX | File::LOCK_NB)
         @log.puts WAITING
@@ -175,9 +201,24 @@ class DesktopInput
     @watcher ||= start_watcher
   end
 
+  private def open_lock
+    file = File.open(@lock, File::RDONLY | File::CREAT, 0o666)
+    share(@lock)
+    file
+  end
+
   private def step_away
     File.write(@marker, "#{Process.pid} #{Time.now.to_i}")
+    share(@marker)
     tell(STEP_AWAY)
+  end
+
+  # Makes +path+ readable and writable by every user, whatever the umask.
+  # A file another user created stays as they made it.
+  private def share(path)
+    File.chmod(0o666, path)
+  rescue Errno::EPERM
+    nil
   end
 
   private def warned_by_a_live_process?
@@ -197,10 +238,7 @@ class DesktopInput
   end
 
   private def start_watcher
-    at_exit do
-      @watcher.kill.join
-      call_back
-    end
+    at_exit { finish }
     Thread.new do
       loop do
         sleep [@settle / 4.0, 0.25].min
@@ -211,12 +249,16 @@ class DesktopInput
 
   # Holding no lock of its own, looks at the lock on a fresh descriptor.
   private def come_back
-    File.open(@lock, File::RDONLY | File::CREAT, 0o666) do |file|
-      next unless file.flock(File::LOCK_EX | File::LOCK_NB)
-      next unless File.exist?(@marker)
+    file = open_lock
+    begin
+      return File.exist?(@marker) ? :busy : :gone unless file.flock(File::LOCK_EX | File::LOCK_NB)
+      return :gone unless File.exist?(@marker)
 
       File.delete(@marker)
       tell(COME_BACK)
+      :called
+    ensure
+      file.close
     end
   end
 

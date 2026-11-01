@@ -75,7 +75,9 @@ class DesktopInputTest < Minitest::Test
       osascript: File.join(root, "osascript"), settle: SETTLE, env: {}, host_os: "darwin", log: StringIO.new, **)
   end
 
-  def wait_for(path) = Timeout.timeout(5) { sleep 0.01 until File.exist?(path) }
+  def wait_for(path) = wait_until { File.exist?(path) }
+
+  def wait_until(&) = Timeout.timeout(5) { sleep 0.01 until yield }
 
   # The second process's span waits for the first's and starts as soon as
   # it ends, so the person is asked to step away once and to come back
@@ -94,9 +96,9 @@ class DesktopInputTest < Minitest::Test
   end
 
   # A process that settles while another, silent, holds the lock says
-  # nothing, since someone is still working; on its way out, once the lock
-  # is free, it asks the person back.
-  def test_no_one_is_asked_back_while_a_silent_span_holds_the_lock
+  # nothing, since someone is still working, and asks the person back
+  # once the lock is free, without waiting to exit.
+  def test_a_silent_span_holding_the_lock_only_delays_the_call_back
     in_desktop do |root|
       speaker = spawn_script(root, "input.hold { File.write(File.join(dir, 'spoke'), ''); hand_over_to('silent') }; " \
         "sleep 0.1 until File.exist?(File.join(dir, 'free'))")
@@ -105,12 +107,52 @@ class DesktopInputTest < Minitest::Test
         run_script(root, "input.hold(speak: false) { sleep #{SETTLE * 3} }", err: "silent")
 
         assert_equal told(DesktopInput::STEP_AWAY), said(root)
+        wait_until { said(root).size == 4 }
+
+        assert_equal told(DesktopInput::STEP_AWAY, DesktopInput::COME_BACK), said(root)
       ensure
         File.write(File.join(root, "free"), "")
         reap(speaker)
       end
 
       assert_equal told(DesktopInput::STEP_AWAY, DesktopInput::COME_BACK), said(root)
+    end
+  end
+
+  # A process that exits as soon as it lets go leaves the lock to one
+  # already waiting for it, held up here so that the exiting one would
+  # get there first, and so leaves the call back to that one.
+  def test_a_process_exiting_as_it_lets_go_leaves_the_call_back_to_one_waiting
+    in_desktop do |root|
+      first = spawn_script(root, "input.hold { File.write(File.join(dir, 'first'), ''); hand_over_to('second') }; " \
+        "File.write(File.join(dir, 'released'), '')")
+      wait_for(File.join(root, "first"))
+      second = spawn_script(root, "input.hold { sleep #{SETTLE * 3} }", err: "second")
+      begin
+        wait_until { File.exist?(File.join(root, "second")) && File.read(File.join(root, "second")).include?(DesktopInput::WAITING) }
+        Process.kill(:STOP, second)
+        wait_for(File.join(root, "released"))
+        sleep SETTLE / 3
+      ensure
+        Process.kill(:CONT, second)
+      end
+      reap(first)
+      reap(second)
+
+      assert_equal told(DesktopInput::STEP_AWAY, DesktopInput::COME_BACK), said(root)
+    end
+  end
+
+  # The lock and the marker are ones every user can open and rewrite,
+  # whatever the umask of the process that made them.
+  def test_the_files_it_makes_are_every_users_whatever_the_umask
+    in_desktop do |root|
+      pid = spawn(RbConfig.ruby, "-e", "#{PRELUDE}\ninput.hold { File.write(File.join(dir, 'mode'), " \
+        "File.stat(File.join(dir, 'away')).mode & 0o777) }", root, umask: 0o022)
+      reap(pid)
+
+      assert_equal 0o666, File.stat(File.join(root, "lock")).mode & 0o777
+      assert_equal 0o666, Integer(File.read(File.join(root, "mode")))
     end
   end
 
