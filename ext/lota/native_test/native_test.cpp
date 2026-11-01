@@ -6,9 +6,7 @@
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 #include "native_test/dialogs.hpp"
-#ifdef __APPLE__
-#include "native_test/still_pointer.hpp"
-#else
+#ifndef __APPLE__
 #include "native_test/selections.hpp"
 #endif
 
@@ -35,7 +33,6 @@
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
-#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
@@ -493,36 +490,6 @@ void press_key(int scancode, bool down) {
   push(event);
 }
 
-#ifdef __APPLE__
-// SDL's own NSWindow for the window SDL opened, which SDL names in its
-// properties, or nullptr when none is open. AppKit lists windows of its
-// own too, so the first it lists need not be SDL's.
-const void *sdl_nswindow() {
-  int count = 0;
-  // SDL_GetWindows allocates the list, which SDL_free releases.
-  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
-  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
-  if (window == nullptr) {
-    return nullptr;
-  }
-  return SDL_GetPointerProperty(SDL_GetWindowProperties(window),
-                                SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-}
-
-// Queues a movement of the mouse to +x+, +y+ in the window SDL opened,
-// counting from its top left, as the system queues one when the person at
-// the computer moves the mouse, and waits until AppKit's queue holds it
-// (lota::native_test::move_mouse_as_a_person_would, still_pointer.mm).
-// Whether it does.
-bool move_mouse_as_a_person_would(double x, double y) {
-  return lota::native_test::move_mouse_as_a_person_would(sdl_nswindow(), x, y);
-}
-
-// What AppKit says of the window SDL opened and of this program
-// (lota::native_test::window_state, still_pointer.mm).
-std::string window_state() { return lota::native_test::window_state(sdl_nswindow()); }
-#endif
-
 // Makes this program active, with its first window holding keyboard
 // focus (lota::native_test::activate, dialogs.mm), and pumps SDL's events,
 // leaving them queued, until SDL hears that the window has focus, for up
@@ -735,13 +702,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("focus_window", &focus_window)
       .define_module_function("unfocus_window", &unfocus_window)
       .define_module_function("stay_in_background", &lota::native_test::stay_in_background)
-#ifdef __APPLE__
-      .define_module_function("hold_pointer", &lota::native_test::hold_pointer)
-      .define_module_function("release_pointer", &lota::native_test::release_pointer)
-      .define_module_function("move_mouse_as_a_person_would", &move_mouse_as_a_person_would,
-                              Rice::Arg("x"), Rice::Arg("y"))
-      .define_module_function("window_state", &window_state)
-#else
+#ifndef __APPLE__
       .define_module_function("tolerate_vanished_requestors",
                               &lota::native_test::tolerate_vanished_requestors)
       .define_module_function("request_clipboard_and_vanish",

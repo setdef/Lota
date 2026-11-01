@@ -146,15 +146,11 @@ class PackageCheck
   # [gems] The gems to check, in dependency order.
   # [out] Where progress goes.
   # [format] The NativeFormat of the platform the gems are for.
-  # [still_pointer] liblota_still_pointer, which a game whose window
-  #   takes focus loads first (#hold_pointer), or +nil+ where no one uses
-  #   the computer, as on CI's delivery runner, which builds nothing.
-  def initialize(root:, gems:, out: $stdout, format: NativeFormat.host, still_pointer: nil)
+  def initialize(root:, gems:, out: $stdout, format: NativeFormat.host)
     @root = root
     @gems = gems
     @out = out
     @format = format
-    @still_pointer = still_pointer
   end
 
   # Checks that each source gem stops at install, then builds, unpacks,
@@ -430,29 +426,13 @@ class PackageCheck
     guard = guard(work)
     gem.games.each do |game|
       install_dependencies(game, env, work)
-      run_env = env.merge(@format.report_environment, SILENT).merge(game.background ? BACKGROUND : hold_pointer)
+      run_env = env.merge(@format.report_environment, SILENT).merge(game.background ? BACKGROUND : {})
       output, status = with_focus(game) do
         Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
           *game.arguments, chdir: work)
       end
       verify_game(game, home, output, status)
     end
-  end
-
-  # What a game whose window takes the focus loads first, so that the
-  # person at the computer moving the mouse moves nothing in it: a window
-  # with focus hears of every movement of the mouse, wherever the pointer
-  # is, and Lövetest's mouse tests read back where they warped the pointer,
-  # which SDL replaces with the place of any movement it hears of after
-  # (ext/lota/native_test/still_pointer.mm). liblota_still_pointer links
-  # only the system's frameworks, so no library of Lota's or LÖVE's loads
-  # from outside the installed gem. Raises Failure when the library it was
-  # given is not there.
-  def hold_pointer
-    return {} unless @still_pointer
-    raise Failure, "#{@still_pointer} is not built; rake compile builds it" unless File.file?(@still_pointer)
-
-    { "DYLD_INSERT_LIBRARIES" => @still_pointer }
   end
 
   # A game whose window takes the focus holds the lock for it

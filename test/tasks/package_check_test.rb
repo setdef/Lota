@@ -300,35 +300,6 @@ class PackageCheckTest < Minitest::Test
     end
   end
 
-  # liblota_still_pointer, which a foreground game loads from the build
-  # tree, links only the system's frameworks, and is no library of Lota's.
-  def test_the_still_pointer_library_from_the_build_tree_is_not_outside
-    in_tree do |home|
-      gem = "#{home}/gems/lota-0.0.0-arm64-darwin/lib"
-      output = dyld("/repo/tmp/engine/build/lib/liblota_still_pointer.dylib", "#{gem}/lota/native.bundle",
-        "#{gem}/lota/frameworks/SDL3.framework/Versions/A/SDL3") +
-        "lota-package-check: lota loaded from #{gem}/lota.rb\n"
-
-      assert_empty PackageCheck.outside(output, home, format: MACHO)
-    end
-  end
-
-  # A game whose window takes focus loads liblota_still_pointer first, and
-  # the check fails, rather than run it without, when it is not there.
-  def test_a_foreground_game_loads_the_still_pointer_library_it_was_given
-    in_tree do |dir|
-      library = File.join(dir, "liblota_still_pointer.dylib")
-      check = -> (path) { PackageCheck.new(root: dir, gems: [], out: StringIO.new, still_pointer: path) }
-
-      assert_equal({}, check.call(nil).hold_pointer)
-      error = assert_raises(PackageCheck::Failure) { check.call(library).hold_pointer }
-      assert_includes error.message, "not built"
-      File.write(library, "")
-
-      assert_equal({ "DYLD_INSERT_LIBRARIES" => library }, check.call(library).hold_pointer)
-    end
-  end
-
   def test_lota_its_bundle_or_a_framework_from_anywhere_else_is_outside
     in_tree do |home|
       output = dyld("#{ROOT}/lib/lota/native.bundle", "/vendor/SDL3.framework/Versions/A/SDL3") +
