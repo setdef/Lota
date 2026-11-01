@@ -34,10 +34,18 @@ require_relative "../../tasks/focus_lock"
 # other test of MouseTest, since they set the pointer, which is the
 # computer's, and read it back, and another process moving it between
 # the two fails them.
+#
+# The person at the computer moving the mouse would fail them too: the
+# movement macOS reports is where SDL then reads the pointer
+# (test/native/still_pointer_test.rb). So on macOS each test of MouseTest
+# also holds the pointer still from setup to teardown, dropping every
+# movement the system reports to this program (LotaNativeTest.hold_pointer),
+# which leaves the person's mouse free to move everywhere else.
 module FocusForGrab
   def setup
     super
     @focus_lock = FocusLock.acquire
+    LotaNativeTest.hold_pointer if LotaNativeTest.respond_to?(:hold_pointer)
     LotaNativeTest.focus_window if name == "test_set_grabbed"
   end
 
@@ -49,6 +57,7 @@ module FocusForGrab
     end
     super
   ensure
+    LotaNativeTest.release_pointer if LotaNativeTest.respond_to?(:release_pointer)
     FocusLock.release(@focus_lock) if @focus_lock
   end
 end

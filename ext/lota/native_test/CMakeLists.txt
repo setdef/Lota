@@ -9,11 +9,12 @@
 # that suite starts processes without forking a sanitized Ruby.
 # dialogs.mm presses Return on dialogs through AppKit on macOS, for the
 # parity harness and the tests of boot.lua's version warning, and
-# dialogs_linux.cpp asks liblota_dialogs to on Linux.
+# dialogs_linux.cpp asks liblota_dialogs to on Linux. still_pointer.mm
+# holds the pointer still against the person at the computer, on macOS.
 # lota.gemspec does not package this directory, and extconf.rb builds it
 # only when asked (--enable-native-test), so no installed gem contains it.
 if(APPLE)
-	add_library(lota_native_test MODULE native_test.cpp dialogs.mm)
+	add_library(lota_native_test MODULE native_test.cpp dialogs.mm still_pointer.mm)
 else()
 	add_library(lota_native_test MODULE native_test.cpp dialogs_linux.cpp selections_linux.cpp)
 	# dialogs_linux.cpp gives up keyboard focus through Xlib, on the
@@ -60,6 +61,15 @@ if(APPLE)
 	target_link_options(lota_loopback PRIVATE -F${lota_loopback_libraries} "SHELL:-framework OpenAL-Soft"
 		"LINKER:-rpath,@executable_path/../Frameworks"
 		"LINKER:-rpath,@loader_path/${lota_loopback_relative}")
+
+	# liblota_still_pointer (still_pointer_library.mm), which holds the
+	# pointer still for a whole program that cannot load this extension:
+	# lota run from the installed gem, whose window takes focus
+	# (tasks/package_check.rb). It links only AppKit.
+	add_library(lota_still_pointer SHARED still_pointer.mm still_pointer_library.mm)
+	lota_harness_library(lota_still_pointer)
+	target_include_directories(lota_still_pointer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+	target_link_options(lota_still_pointer PRIVATE "SHELL:-framework AppKit")
 else()
 	# The reference love and Lota both load the OpenAL Soft that `rake
 	# dependencies` built (tasks/dependencies.rb), which the dynamic linker

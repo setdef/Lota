@@ -115,9 +115,10 @@ def build_native_package
 end
 
 # Installs the precompiled gems in +files+ and runs lota from them, as CI's
-# delivery job does.
-def deliver_packages(files)
-  PackageCheck.new(root: Dir.pwd, gems: packages).deliver(files)
+# delivery job does. +still_pointer+ holds the pointer still in a game whose
+# window takes focus (PackageCheck#hold_pointer).
+def deliver_packages(files, still_pointer: nil)
+  PackageCheck.new(root: Dir.pwd, gems: packages, still_pointer:).deliver(files)
 rescue PackageCheck::Failure => e
   abort "❌ #{e.message}"
 end
@@ -131,12 +132,17 @@ namespace :package do
   end
 
   desc "Build each precompiled gem, then deliver it as CI does: install it and run a game from it (slow)"
+  # On macOS the foreground game loads liblota_still_pointer, which rake
+  # compile builds beside the test extension, so moving the mouse while it
+  # runs fails nothing.
   task install: :compile do
-    deliver_packages([build_native_package])
+    still_pointer = File.expand_path("lib/liblota_still_pointer.dylib", ENGINE_BUILD) if ENGINE_PLATFORM == "macos"
+    deliver_packages([build_native_package], still_pointer:)
   end
 
   # Builds nothing, so it runs on a runner that has only the repository's
-  # tasks and the gems built on another, as CI's delivery job does.
+  # tasks and the gems built on another, as CI's delivery job does, where
+  # no one moves the mouse, so it holds no pointer still.
   desc "Install the precompiled gems given, already built, into an empty GEM_HOME, then run lota and a game from them"
   task :deliver do |_task, args|
     deliver_packages(args.extras)

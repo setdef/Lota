@@ -6,7 +6,9 @@
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 #include "native_test/dialogs.hpp"
-#ifndef __APPLE__
+#ifdef __APPLE__
+#include "native_test/still_pointer.hpp"
+#else
 #include "native_test/selections.hpp"
 #endif
 
@@ -702,7 +704,13 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("focus_window", &focus_window)
       .define_module_function("unfocus_window", &unfocus_window)
       .define_module_function("stay_in_background", &lota::native_test::stay_in_background)
-#ifndef __APPLE__
+#ifdef __APPLE__
+      .define_module_function("hold_pointer", &lota::native_test::hold_pointer)
+      .define_module_function("release_pointer", &lota::native_test::release_pointer)
+      .define_module_function("move_mouse_as_a_person_would",
+                              &lota::native_test::move_mouse_as_a_person_would, Rice::Arg("x"),
+                              Rice::Arg("y"))
+#else
       .define_module_function("tolerate_vanished_requestors",
                               &lota::native_test::tolerate_vanished_requestors)
       .define_module_function("request_clipboard_and_vanish",
