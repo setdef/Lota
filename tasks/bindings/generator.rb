@@ -46,13 +46,20 @@ module Bindings
     # [exceptions] The BindingExceptions.
     # [style] The .clang-format file the C++ is laid out by.
     # [label] Names the LÖVE commit in the generated headers.
-    def initialize(root:, love:, list:, exceptions:, style:, label:)
+    # [survey] The Survey of +love+, or +nil+ to read it, the first time it
+    #   is needed.
+    # [types] The CppTypes of +love+'s headers, likewise. Reading every
+    #   header takes seconds, so the tests read them once for every
+    #   generator they make.
+    def initialize(root:, love:, list:, exceptions:, style:, label:, survey: nil, types: nil)
       @root = File.expand_path(root)
       @love = File.join(@root, love)
       @list = list
       @exceptions = exceptions
       @style = File.join(@root, style)
       @label = label
+      @survey = survey
+      @types = types
     end
 
     # Every generated file, by path relative to the repository.

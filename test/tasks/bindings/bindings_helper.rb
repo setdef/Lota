@@ -35,10 +35,21 @@ module BindingsHelper
     @exceptions ||= Bindings::BindingExceptions.load(File.join(TreeHelper::ROOT, "binding_exceptions.rb"))
   end
 
-  # A generator over the repository at +root+.
+  # A generator over the repository at +root+: for the repository and its
+  # own list, the same one every time, since it only reads.
   def self.generator(root: TreeHelper::ROOT, list: self.list)
+    return @generator ||= new_generator(root, list) if root == TreeHelper::ROOT && list.equal?(self.list)
+
+    new_generator(root, list)
+  end
+
+  # A Generator of its own, for +root+ and +list+, reading vendor/love
+  # through the survey and the headers' types every test shares, which
+  # are what a generator would read itself: root's vendor/love is
+  # vendor/love, or a link to it.
+  def self.new_generator(root, list)
     Bindings::Generator.new(root:, love: "vendor/love", list:, exceptions:, style: "ext/.clang-format",
-      label: "vendor/love #{`git -C #{LOVE} rev-parse HEAD`.strip}")
+      label: "vendor/love #{`git -C #{LOVE} rev-parse HEAD`.strip}", survey:, types:)
   end
 
   def survey
