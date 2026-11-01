@@ -7,17 +7,23 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
+require_relative "../../tasks/focus_lock"
 
 # Lota::Mouse, beyond what Lövetest's tests for it check
 # (test/lovetest/tests/mouse.rb): the arguments LÖVE takes, what it
 # returns, and the errors it raises (src/modules/mouse/wrap_Mouse.cpp).
 class CursorTest < Minitest::Test
+  # The pointer and its cursor are the computer's, so a test that reads or
+  # sets them holds the lock for them (tasks/focus_lock.rb).
   def setup
+    @focus_lock = FocusLock.acquire
     EngineHelper.open_window
   end
 
   def teardown
     Lota::Mouse.cursor = nil
+  ensure
+    FocusLock.release(@focus_lock)
   end
 
   def test_the_mouse_is_open_once_lota_boots

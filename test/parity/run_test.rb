@@ -43,4 +43,19 @@ class RunTest < Minitest::Test
     assert output.text.end_with?("The reference love showed no new frame for 0.5 seconds, after starting, " \
       "and was stopped.\n"), output.text
   end
+
+  # The pointer is the computer's: a run that moves or clicks it waits for
+  # the lock for it (tasks/focus_lock.rb), and one that does not goes on.
+  def test_a_run_that_moves_the_pointer_waits_for_the_lock_and_one_that_does_not_goes_on
+    lock = FocusLock.acquire
+    plain = Parity.run({}, "echo", "plain", side: "Lota") { 1 }
+    moving = Thread.new { Parity.run({ "LOTA_PARITY_MOVE" => "1:10:10" }, "echo", "moved", side: "Lota") { 1 } }
+
+    assert_equal "plain\n", plain.text
+    assert_nil moving.join(1)
+
+    FocusLock.release(lock)
+
+    assert_equal "moved\n", moving.value.text
+  end
 end

@@ -10,6 +10,7 @@ require "json"
 require "open3"
 require "rbconfig"
 require "tmpdir"
+require_relative "../../tasks/focus_lock"
 
 # The parity harness (Plan 001, "What correct means"): a LÖVE game,
 # unchanged, in the reference love built from vendor/love, and its Ruby
@@ -254,7 +255,25 @@ module Parity
   # before the first. A command that shows no new frame for +stall+
   # seconds is stuck: it is killed, and its Output ends with a line that
   # says so, naming it as +side+.
+  #
+  # A run whose script moves or clicks the mouse holds the lock for the
+  # pointer (tasks/focus_lock.rb) until it ends, since the pointer is the
+  # computer's, and the gate's other checks read it and move it too.
   def self.run(environment, *command, side:, stall: STALL, &shown)
+    return run_holding_pointer(environment, command, side:, stall:, &shown) if moves_pointer?(environment)
+
+    run_unlocked(environment, *command, side:, stall:, &shown)
+  end
+
+  def self.moves_pointer?(environment)
+    !environment.fetch("LOTA_PARITY_MOVE", "").empty? || !environment.fetch("LOTA_PARITY_CLICK", "").empty?
+  end
+
+  def self.run_holding_pointer(environment, command, side:, stall:, &shown)
+    FocusLock.hold { run_unlocked(environment, *command, side:, stall:, &shown) }
+  end
+
+  def self.run_unlocked(environment, *command, side:, stall: STALL, &shown)
     Open3.popen2e(environment, *command) do |stdin, output, wait|
       stdin.close
       reader = Thread.new { output.read }

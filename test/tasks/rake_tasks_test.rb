@@ -56,14 +56,22 @@ class RakeTasksTest < Minitest::Test
 
   # rake bench opens a window for each of dozens of runs, so the gate
   # never runs it; it builds what it runs, Lota and the reference love.
+  # What the gate runs, as default runs it (tasks/gate.rake): what it
+  # prepares, in order, then the tasks of each check, lane by lane.
+  def gate_tasks = GATE_PREPARE + GATE_LANES.flatten.flat_map(&:tasks)
+
+  def test_default_task_is_the_gate
+    assert_equal %w[gate], prerequisites("default")
+  end
+
   def test_bench_is_not_part_of_the_gate_and_builds_both_engines
     assert_equal %w[compile reference:love], prerequisites("bench")
-    refute_includes prerequisites("default"), "bench"
+    refute_includes gate_tasks, "bench"
   end
 
   def test_default_task_builds_the_engine_and_runs_every_cpp_gate
-    assert_includes prerequisites("default"), "engine"
-    assert_includes prerequisites("default"), "cpp"
+    assert_includes gate_tasks, "engine"
+    assert_includes gate_tasks, "cpp"
     assert_equal %w[cpp:format cpp:no_nolint cpp:tidy], prerequisites("cpp")
   end
 
@@ -93,16 +101,16 @@ class RakeTasksTest < Minitest::Test
   # The precompiled gem installs in seconds, so the gate installs it and
   # runs a game from it, as CI does on a fresh runner.
   def test_default_task_checks_both_packages_last
-    assert_equal %w[package:check package:install], prerequisites("default").last(2)
+    windowed = GATE_LANES.find { |lane| lane.any? { |check| check.tasks.include?("package:check") } }
+
+    assert_equal %w[package:check package:install], windowed.last(2).flat_map(&:tasks)
   end
 
   # The parity harness runs in the gate, against the reference love built
   # from vendor/love and Lota compiled from this tree.
   def test_default_task_runs_the_parity_harness_after_compiling
-    default = prerequisites("default")
-
-    assert_includes default, "test:parity"
-    assert_operator default.index("compile"), :<, default.index("test:parity")
+    assert_includes gate_tasks, "test:parity"
+    assert_operator gate_tasks.index("compile"), :<, gate_tasks.index("test:parity")
     assert_equal %w[compile reference:love], prerequisites("test:parity")
   end
 
@@ -113,10 +121,22 @@ class RakeTasksTest < Minitest::Test
   end
 
   def test_default_task_compiles_before_it_tests
-    default = prerequisites("default")
+    shards = gate_tasks.grep(/\Atest:shard:/)
 
-    assert_operator default.index("compile"), :<, default.index("test")
+    refute_empty shards
+    shards.each { |shard| assert_operator gate_tasks.index("compile"), :<, gate_tasks.index(shard) }
+    shards.each { |shard| assert_equal %w[compile], prerequisites(shard) }
     assert_equal %w[test:ruby], prerequisites("test")
+  end
+
+  # The gate runs test:ruby as shards, so the shards must hold exactly the
+  # files test:ruby does, each once.
+  def test_the_shards_hold_exactly_the_files_of_test_ruby
+    shards = RUBY_SHARDS.values.flat_map { |globs| Dir[*globs] }
+
+    assert_equal Dir[*TEST_SUITES.fetch(:ruby)].sort, shards.sort
+    assert_equal shards.uniq, shards
+    assert_equal RUBY_SHARDS.keys.map { |name| "test:shard:#{name}" }.sort, gate_tasks.grep(/\Atest:shard:/).sort
   end
 
   # The engine tree is configured only through extconf.rb, which

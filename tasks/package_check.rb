@@ -11,6 +11,7 @@ require "rbconfig"
 require "digest"
 require "rubygems/package"
 require "tmpdir"
+require_relative "focus_lock"
 require_relative "native_format"
 
 # Checks that each gem works once packaged, not just in the repository.
@@ -426,10 +427,19 @@ class PackageCheck
     gem.games.each do |game|
       install_dependencies(game, env, work)
       run_env = env.merge(@format.report_environment, SILENT).merge(game.background ? BACKGROUND : {})
-      output, status = Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
-        *game.arguments, chdir: work)
+      output, status = with_focus(game) do
+        Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
+          *game.arguments, chdir: work)
+      end
       verify_game(game, home, output, status)
     end
+  end
+
+  # A game whose window takes the focus holds the lock for it
+  # (tasks/focus_lock.rb), since the gate's other checks may be running
+  # windows of their own.
+  private def with_focus(game, &)
+    game.background ? yield : FocusLock.hold(&)
   end
 
   private def game_folder(game, work)
