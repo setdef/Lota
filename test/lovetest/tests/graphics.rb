@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
-  TYPES = %w[Canvas Font Image Quad SpriteBatch].freeze
+  TYPES = %w[Canvas Font Image Quad Shader SpriteBatch].freeze
 
   # Lövetest runs its modules in a fixed order, graphics before window
   # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
@@ -1720,9 +1720,7 @@ class GraphicsTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.graphics.Canvas
-  # (vendor/love/testing/tests/graphics.lua:102-256), all but its checks of
-  # y-down drawing with a shader (lines 206-236), whose newShader and
-  # setShader wait for slice 5's shaders: newCanvas becomes Canvas.new
+  # (vendor/love/testing/tests/graphics.lua:102-256): newCanvas becomes Canvas.new
   # (rule 2), with its settings table keywords (rule 10) whose names are
   # symbols (rule 9), :"2d" among them; the getters drop get (rule 3), and
   # getDPIScale and getMSAA are dpi_scale and msaa (rule 13); the
@@ -1731,8 +1729,11 @@ class GraphicsTest < Lovetest::TestMethod
   # getMipmapFilter, getDimensions, and getPixelDimensions return Arrays
   # (rule 4); setFilter, setWrap, setMipmapFilter, and setDepthSampleMode
   # become writers (rules 5 and 6); renderTo's function a block (rule 12);
-  # and setCanvas the writer canvas= (rule 5). assertGreaterEqual(2, n)
-  # is assert_operator(n, :>=, 2), as Lövetest's checks n >= 2.
+  # and setCanvas and setShader the writers canvas= and shader= (rule 5).
+  # assertGreaterEqual(2, n) is assert_operator(n, :>=, 2), as Lövetest's
+  # checks n >= 2. Lua's long strings of GLSL are squiggly heredocs,
+  # whose indentation GLSL ignores, and a call's several results as its
+  # last argument, as canvas:getDimensions() gives them, a splat.
   def test_canvas
     # create canvas with defaults
     canvas = Lota::Graphics::Canvas.new(100, 100,
@@ -1834,6 +1835,39 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = nil
     imgdata2 = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata2)
+
+    # check y-down
+    shader1 = Lota::Graphics::Shader.new(<<~GLSL)
+      vec4 effect(vec4 c, Image tex, vec2 tc, vec2 pc) {
+        return tc.y > 0.5 ? vec4(1.0, 0.0, 0.0, 1.0) : vec4(0.0, 1.0, 0.0, 1.0);
+      }
+    GLSL
+    shader2 = Lota::Graphics::Shader.new(<<~GLSL)
+      vec4 effect(vec4 c, Image tex, vec2 tc, vec2 pc) {
+        // rounding during quantization from float to unorm8 doesn't seem to be
+        // totally consistent across devices, lets do it ourselves.
+        highp vec2 value = pc / love_ScreenSize.xy;
+        highp vec2 quantized = (floor(255.0 * value + 0.5) + 0.1) / 255.0;
+        return vec4(quantized, 0.0, 1.0);
+      }
+    GLSL
+    img = Lota::Graphics::Image.new(Lota::Image::ImageData.new(1, 1))
+
+    Lota::Graphics.push(:all)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.shader = shader1
+    Lota::Graphics.draw(img, 0, 0, 0, *canvas.dimensions)
+    Lota::Graphics.pop
+    imgdata3 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata3)
+
+    Lota::Graphics.push(:all)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.shader = shader2
+    Lota::Graphics.draw(img, 0, 0, 0, *canvas.dimensions)
+    Lota::Graphics.pop
+    imgdata4 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata4)
 
     # check depth samples
     dcanvas = Lota::Graphics::Canvas.new(100, 100,
@@ -2110,5 +2144,409 @@ class GraphicsTest < Lovetest::TestMethod
     imgdata = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata)
   end
+
+  # Translated to Ruby from love.test.graphics.Shader
+  # (vendor/love/testing/tests/graphics.lua:822-1090): newShader becomes
+  # Shader.new (rule 2), with its options table keywords (rule 10);
+  # getWarnings and getDebugName warnings and debug_name (rules 3 and 13),
+  # hasUniform uniform? (rule 8), and sendColor send_color (rule 13);
+  # setShader the writer shader=, which takes nil where Lua passes nothing
+  # (rule 5); and validateShader validate_shader, whose results come back
+  # as an Array (rule 4). Lua's tables of numbers are Arrays, its pcall a
+  # rescue, as test_get_system_cursor has it, getInt8 int8, and
+  # newImageData ImageData.new; the rest as test_canvas names. Shader:send
+  # is send (rule 13), which RuboCop's Style/Send reads as Ruby's own
+  # Object#send, so it is called through __send__(:send, ...).
+  def test_shader
+    # check valid shader
+    pixelcode1 = <<~GLSL
+      uniform Image tex2;
+      vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 texturecolor = Texel(tex2, texture_coords);
+        return texturecolor * color;
+      }
+    GLSL
+    vertexcode1 = <<~GLSL
+      vec4 position(mat4 transform_projection, vec4 vertex_position) {
+        return transform_projection * vertex_position;
+      }
+    GLSL
+    shader1 = Lota::Graphics::Shader.new(pixelcode1, vertexcode1, debugname: "testshader")
+    assert_object(shader1)
+    assert_equal("", shader1.warnings, "check shader valid")
+    assert_false(shader1.uniform?("tex1"), "check invalid uniform")
+    assert_true(shader1.uniform?("tex2"), "check valid uniform")
+    assert_equal("testshader", shader1.debug_name)
+
+    # check invalid shader
+    pixelcode2 = <<~GLSL
+      uniform float ww;
+      vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 texturecolor = Texel(tex, texture_coords);
+        float unused = ww * 3 * color;
+        return texturecolor * color;
+      }
+    GLSL
+    err = begin
+      Lota::Graphics::Shader.new(pixelcode2, vertexcode1)
+      nil
+    rescue RuntimeError => e
+      e.message
+    end
+    refute_equal(nil, err, "check shader compile fails")
+
+    # check using a shader to draw + sending uniforms
+    # shader will return a given color if overwrite set to 1, otherwise def. draw
+    pixelcode3 = <<~GLSL
+      uniform vec4 col;
+      uniform float overwrite;
+      vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 texcol = Texel(tex, texture_coords);
+        if (overwrite == 1.0) {
+          return col;
+        } else {
+          return texcol * color;
+        }
+      }
+    GLSL
+    shader3 = Lota::Graphics::Shader.new(pixelcode3, vertexcode1)
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.push(:all)
+    Lota::Graphics.canvas = canvas
+    # set color to yellow
+    Lota::Graphics.color = 1, 1, 0, 1
+    # turn shader 'on' and use red to draw
+    shader3.__send__(:send, "overwrite", 1)
+    shader3.send_color("col", [1, 0, 0, 1])
+    Lota::Graphics.shader = shader3
+    Lota::Graphics.rectangle(:fill, 0, 0, 8, 8)
+    Lota::Graphics.shader = nil
+    # turn shader 'off' and draw again
+    shader3.__send__(:send, "overwrite", 0)
+    Lota::Graphics.shader = shader3
+    Lota::Graphics.rectangle(:fill, 8, 8, 8, 8)
+    Lota::Graphics.pop
+
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+
+    # test some uncommon paths for shader uniforms
+    shader4 = Lota::Graphics::Shader.new(<<~GLSL)
+      uniform bool booleans[5];
+      vec4 effect(vec4 vcolor, Image tex, vec2 tc, vec2 pc) {
+        return booleans[3] ? vec4(0, 1, 0, 0) : vec4(1, 0, 0, 0);
+      }
+    GLSL
+
+    shader4.__send__(:send, "booleans", false, true, true)
+
+    shader5 = Lota::Graphics::Shader.new(<<~GLSL)
+      uniform sampler2D textures[5];
+      vec4 effect(vec4 vcolor, Image tex, vec2 tc, vec2 pc) {
+        return Texel(textures[2], tc) + Texel(textures[3], tc);
+      }
+    GLSL
+
+    canvas2 = Lota::Graphics::Canvas.new(1, 1)
+    Lota::Graphics.canvas = canvas2
+    Lota::Graphics.clear(0, 0.5, 0, 1)
+    Lota::Graphics.canvas = nil
+
+    shader5.__send__(:send, "textures", canvas2, canvas2, canvas2, canvas2, canvas2)
+
+    shader6 = Lota::Graphics::Shader.new(<<~GLSL)
+      struct Data {
+        bool boolValue;
+        float floatValue;
+        sampler2D tex;
+      };
+
+      uniform Data data;
+      uniform Data dataArray[3];
+
+      vec4 effect(vec4 vcolor, Image tex, vec2 tc, vec2 pc) {
+        return (data.boolValue && dataArray[1].boolValue) ? Texel(dataArray[0].tex, tc) : vec4(0.0, 0.0, 0.0, 0.0);
+      }
+    GLSL
+
+    shader6.__send__(:send, "data.boolValue", true)
+    shader6.__send__(:send, "dataArray[1].boolValue", true)
+    shader6.__send__(:send, "dataArray[0].tex", canvas2)
+
+    shader7 = Lota::Graphics::Shader.new(<<~GLSL)
+      uniform vec3 vec3s[3];
+
+      vec4 effect(vec4 vcolor, Image tex, vec2 tc, vec2 pc) {
+        return vec4(vec3s[1], 1.0);
+      }
+    GLSL
+
+    shader7.__send__(:send, "vec3s", [0, 0, 1], [0, 1, 0], [1, 0, 0])
+
+    canvas3 = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.push(:all)
+    Lota::Graphics.canvas = canvas3
+    Lota::Graphics.shader = shader7
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.pop
+    imgdata2 = Lota::Graphics.readback_texture(canvas3)
+    compare_img(imgdata2)
+
+    if Lota::Graphics.supported.glsl3
+      shader8 = Lota::Graphics::Shader.new(<<~GLSL)
+        #pragma language glsl3
+        #ifdef GL_ES
+          precision highp float;
+        #endif
+
+        varying vec4 VaryingUnused1;
+        varying mat3 VaryingMatrix;
+        flat varying ivec4 VaryingInt;
+
+        #ifdef VERTEX
+        layout(location = 0) in vec4 VertexPosition;
+        layout(location = 1) in ivec4 IntAttributeUnused;
+
+        void vertexmain()
+        {
+          VaryingMatrix = mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1));
+          VaryingInt = ivec4(1, 1, 1, 1);
+          love_Position = TransformProjectionMatrix * VertexPosition;
+        }
+        #endif
+
+        #ifdef PIXEL
+        out ivec4 outData;
+
+        void pixelmain()
+        {
+          outData = ivec4(VaryingMatrix[1][1] > 0.0 ? 1 : 0, 1, VaryingInt.x, 1);
+        }
+        #endif
+      GLSL
+
+      canvas4 = Lota::Graphics::Canvas.new(16, 16, format: :rgba8i)
+      Lota::Graphics.push(:all)
+      Lota::Graphics.blend_mode = :none
+      Lota::Graphics.canvas = canvas4
+      Lota::Graphics.shader = shader8
+      Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+      Lota::Graphics.pop
+
+      intimagedata = Lota::Graphics.readback_texture(canvas4)
+      imgdata3 = Lota::Image::ImageData.new(16, 16, :rgba8)
+      (0..15).each do |y|
+        (0..15).each do |x|
+          ir, ig, ib, ia = intimagedata.int8(4 * ((y * 16) + x), 4)
+          imgdata3.pixel = x, y, ir, ig, ib, ia
+        end
+      end
+      compare_img(imgdata3)
+    else
+      assert_true(true, "skip shader IO test")
+    end
+
+    supported = Lota::Graphics.supported
+    if supported.glsl4 && supported.vertexwrite && supported.pixelwrite
+      name = Lota::Graphics.renderer_info.first
+      is_gles = name.include?("OpenGL ES")
+
+      success, message = Lota::Graphics.validate_shader(is_gles, <<~GLSL)
+        #pragma language glsl4
+
+        #ifdef PIXEL
+        buffer ColorBuffer
+        {
+          vec4 colors[];
+        };
+
+        void effect()
+        {
+          colors[0] = VaryingColor;
+          love_PixelColor = colors[0];
+        }
+        #endif
+
+        #ifdef VERTEX
+        vec4 position(mat4 m, vec4 p)
+        {
+          return m * p;
+        }
+        #endif
+      GLSL
+
+      assert_false(success, "shader should not validate (SSBO)")
+      assert_equal("Shader validation error:\nStorage Buffer block 'ColorBuffer' must be marked as readonly in " \
+        "vertex and pixel shaders unless explicitly enabled.", message)
+
+      success, message = Lota::Graphics.validate_shader(is_gles, <<~GLSL, write: true)
+        #pragma language glsl4
+
+        buffer ColorBuffer
+        {
+          vec4 colors[];
+        };
+
+        void effect()
+        {
+          colors[0] = VaryingColor;
+          love_PixelColor = colors[0];
+        }
+      GLSL
+
+      assert_true(success, "shader should validate (SSBO)")
+      assert_nil(message)
+
+      success, message = Lota::Graphics.validate_shader(is_gles, <<~GLSL)
+        #pragma language glsl4
+
+        layout(rgba32f) uniform readonly highp image2D RGBAImage;
+
+        void effect()
+        {
+          love_PixelColor = VaryingColor * imageLoad(RGBAImage, ivec2(gl_FragCoord.xy));
+        }
+      GLSL
+
+      assert_false(success, "shader should not validate (image)")
+      assert_equal("Shader validation error:\nStorage Texture uniform variables (image2D, etc) are only allowed in " \
+        "compute shaders unless explicitly enabled.", message)
+
+      success, message = Lota::Graphics.validate_shader(is_gles, <<~GLSL, write: true)
+        #pragma language glsl4
+
+        #ifdef GL_ES
+          precision highp float;
+        #endif
+
+        layout(rgba32f) uniform readonly highp image2D RGBAImage;
+
+        void effect()
+        {
+          love_PixelColor = VaryingColor * imageLoad(RGBAImage, ivec2(gl_FragCoord.xy));
+        }
+      GLSL
+
+      assert_true(success, "shader should validate (image)")
+      assert_nil(message)
+    else
+      assert_true(true, "skip feature test")
+    end
+  end
+
+  # Translated to Ruby from love.test.graphics.newShader
+  # (vendor/love/testing/tests/graphics.lua:1760-1773), by the rules
+  # test_shader names.
+  def test_new_shader
+    pixelcode = <<~GLSL
+      vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 texturecolor = Texel(tex, texture_coords);
+        return texturecolor * color;
+      }
+    GLSL
+    vertexcode = <<~GLSL
+      vec4 position(mat4 transform_projection, vec4 vertex_position) {
+        return transform_projection * vertex_position;
+      }
+    GLSL
+    assert_object(Lota::Graphics::Shader.new(pixelcode, vertexcode))
+  end
+
+  # Translated to Ruby from love.test.graphics.validateShader
+  # (vendor/love/testing/tests/graphics.lua:1823-1841), by the rules
+  # test_shader names: Lua keeps the first result, as status, = does.
+  def test_validate_shader
+    pixelcode = <<~GLSL
+      vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 texturecolor = Texel(tex, texture_coords);
+        return texturecolor * color;
+      }
+    GLSL
+    vertexcode = <<~GLSL
+      vec4 position(mat4 transform_projection, vec4 vertex_position) {
+        return transform_projection * vertex_position;
+      }
+    GLSL
+    # check made up code first
+    status, = Lota::Graphics.validate_shader(true, "nothing here", "or here")
+    assert_false(status, "check invalid shader code")
+    # check real code
+    status, = Lota::Graphics.validate_shader(true, pixelcode, vertexcode)
+    assert_true(status, "check valid shader code")
+  end
+
+  # Translated to Ruby from love.test.graphics.getShader
+  # (vendor/love/testing/tests/graphics.lua:2046-2049): getShader becomes
+  # shader (rule 3).
+  def test_get_shader
+    # should be no shader active
+    assert_nil(Lota::Graphics.shader, "check no active shader")
+  end
+
+  # Translated to Ruby from love.test.graphics.setFrontFaceWinding
+  # (vendor/love/testing/tests/graphics.lua:2315-2341): getFrontFaceWinding
+  # becomes front_face_winding (rule 3), setFrontFaceWinding the writer
+  # front_face_winding= (rule 5), with the windings as symbols (rule 9);
+  # newImage Image.new and newImageData ImageData.new (rule 2); and the
+  # rules test_shader names.
+  def test_set_front_face_winding
+    # check documented modes are valid
+    original = Lota::Graphics.front_face_winding
+    Lota::Graphics.front_face_winding = :cw
+    assert_equal(:cw, Lota::Graphics.front_face_winding, "check ffw cw set")
+    Lota::Graphics.front_face_winding = :ccw
+    assert_equal(:ccw, Lota::Graphics.front_face_winding, "check ffw ccw set")
+    Lota::Graphics.front_face_winding = original
+    # @TODO better graphics drawing specific test
+
+    shader = Lota::Graphics::Shader.new(<<~GLSL)
+      vec4 effect(vec4 c, Image tex, vec2 tc, vec2 pc) {
+        return gl_FrontFacing ? vec4(0.0, 1.0, 0.0, 1.0) : vec4(1.0, 0.0, 0.0, 1.0);
+      }
+    GLSL
+    dummyimg = Lota::Graphics::Image.new(Lota::Image::ImageData.new(1, 1))
+
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.push(:all)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.shader = shader
+    Lota::Graphics.draw(dummyimg, 0, 0, 0, 16, 16)
+    Lota::Graphics.pop
+
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.setShader
+  # (vendor/love/testing/tests/graphics.lua:2460-2486), by the rules
+  # test_shader names.
+  def test_set_shader
+    # make a shader that will only ever draw yellow
+    pixelcode = <<~GLSL
+      vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 texturecolor = Texel(tex, texture_coords);
+        return vec4(1.0,1.0,0.0,1.0);
+      }
+    GLSL
+    vertexcode = <<~GLSL
+      vec4 position(mat4 transform_projection, vec4 vertex_position) {
+        return transform_projection * vertex_position;
+      }
+    GLSL
+    shader = Lota::Graphics::Shader.new(pixelcode, vertexcode)
+    canvas = Lota::Graphics::Canvas.new(16, 16)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.shader = shader
+    # draw red rectangle
+    Lota::Graphics.color = 1, 0, 0, 1
+    Lota::Graphics.rectangle(:fill, 0, 0, 16, 16)
+    Lota::Graphics.shader = nil
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
   # SPDX-SnippetEnd
 end

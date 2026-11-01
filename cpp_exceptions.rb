@@ -53,6 +53,16 @@ allow "ext/lota/native_test/native_test.cpp", line: 378,
 allow "ext/lota/native/event.cpp", lines: [66, 89],
   reason: "love::Variant exposes its value only as a union tagged by getType(); there is no other accessor."
 
+# love::graphics::Shader::UniformInfo keeps a uniform's components or
+# matrix size, and the memory its values go to, in anonymous unions
+# tagged by baseType, and offers no accessor but the unions themselves
+# (vendor/love/src/modules/graphics/Shader.h:144-181). LÖVE's own
+# wrap_Shader.cpp reads them the same way. Lota reads them in one function
+# and nowhere else.
+allow "ext/lota/native/shader.cpp", lines: [135, 154],
+  reason: "Shader::UniformInfo exposes a uniform's size and memory only as unions tagged by baseType; " \
+    "there is no other accessor."
+
 # The parity harness's audio device (ext/lota/native_test/loopback.cpp)
 # interposes alcCreateContext, which OpenAL declares as taking its
 # attributes as a const ALCint * ending in a zero, with no length (alc.h).

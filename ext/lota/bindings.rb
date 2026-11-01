@@ -370,6 +370,25 @@ bound_by_hand "love.graphics.getTextureFormats",
 bound_by_hand "love.graphics.getTextureTypes",
   reason: "fills in a table with a field for each texture type, in a loop over the types' names, as " \
     "love.graphics.getStats fills its own"
+generate "love.graphics.setShader"
+generate "love.graphics.getShader"
+bound_by_hand "love.graphics.newShader",
+  reason: "reads its sources from strings, files, or FileData and its options table in w_getShaderSource, " \
+    "and rewrites a compile error through _transformGLSLErrorMessages in wrap_Graphics.lua; " \
+    "Lota::Graphics::Shader.new ports both to Ruby, and Lota binds the shader from the sources and defines"
+bound_by_hand "love.graphics.validateShader",
+  reason: "reads its sources and options through w_getShaderSource, as love.graphics.newShader, and returns " \
+    "a message from a catch block, which the generator does not port"
+generate "Shader:getWarnings"
+generate "Shader:hasUniform"
+generate "Shader:hasStage"
+generate "Shader:getLocalThreadgroupSize"
+generate "Shader:getDebugName"
+bound_by_hand "Shader:send",
+  reason: "reads every argument after the name by its Lua type and by the uniform's type, at positions it " \
+    "computes, into the uniform's union of memory; Lota binds the values as one Array"
+bound_by_hand "Shader:sendColor",
+  reason: "reads its values as Shader:send does, clamped and gamma-corrected"
 
 # love.image
 bound_from_lua "ImageData:getWidth"

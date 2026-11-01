@@ -29,6 +29,7 @@
 // that every binding sees the same list (ReleasedOnMainThread, below).
 #include "graphics/Font.h"
 #include "graphics/Quad.h"
+#include "graphics/Shader.h"
 #include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
 
@@ -119,6 +120,7 @@ template <typename T> struct ReleasedOnMainThread : std::false_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Texture> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Font> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Quad> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Shader> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true_type {};
 
 // The object a wrapper of an engine object of class T also holds a

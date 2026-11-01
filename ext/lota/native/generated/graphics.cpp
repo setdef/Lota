@@ -19,6 +19,8 @@
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
 #include "graphics/Quad.h"
+#include "graphics/Shader.h"
+#include "graphics/ShaderStage.h"
 #include "graphics/SpriteBatch.h"
 #include "graphics/Texture.h"
 #include "graphics/renderstate.h"
@@ -476,6 +478,24 @@ void w_setWireframe(bool enable) { instance()->setWireframe(enable); }
 // love.graphics.isWireframe: w_isWireframe (wrap_Graphics.cpp:2968-2972).
 bool w_isWireframe() { return instance()->isWireframe(); }
 
+// love.graphics.setShader: w_setShader (wrap_Graphics.cpp:2974-2985).
+void w_setShader(std::optional<Shader *> shader) {
+  if (!shader.has_value()) {
+    instance()->setShader();
+    return;
+  }
+  instance()->setShader(required(shader, "shader"));
+}
+
+// love.graphics.getShader: w_getShader (wrap_Graphics.cpp:2987-2996).
+Shader *w_getShader() {
+  Shader *shader = instance()->getShader();
+  if (shader != nullptr) {
+    return shader;
+  }
+  return nullptr;
+}
+
 // love.graphics.getRendererInfo: w_getRendererInfo (wrap_Graphics.cpp:3170-3180).
 Rice::Array w_getRendererInfo() {
   Rice::Array results;
@@ -615,6 +635,57 @@ void w_Quad_setLayer(Quad &quad, int layer) {
 int w_Quad_getLayer(const Quad &quad) {
   require_main_thread(MODULE);
   return quad.getLayer() + 1;
+}
+
+// Shader:getWarnings: w_Shader_getWarnings (wrap_Shader.cpp:42-48).
+std::string w_Shader_getWarnings(const Shader &shader) {
+  require_main_thread(MODULE);
+  const std::string warnings = shader.getWarnings();
+  return warnings;
+}
+
+// Shader:hasUniform: w_Shader_hasUniform (wrap_Shader.cpp:479-485).
+bool w_Shader_hasUniform(const Shader &shader, const std::string &name) {
+  require_main_thread(MODULE);
+  return shader.hasUniform(name);
+}
+
+// Shader:hasStage: w_Shader_hasStage (wrap_Shader.cpp:487-497).
+bool w_Shader_hasStage(Shader &shader, const std::string &stage) {
+  require_main_thread(MODULE);
+  ShaderStageType stage_value{};
+  if (!ShaderStage::getConstant(stage.c_str(), stage_value)) {
+    raise_enum_error("shader stage", stage);
+  }
+  return shader.hasStage(stage_value);
+}
+
+// Shader:getLocalThreadgroupSize: w_Shader_getLocalThreadgroupSize (wrap_Shader.cpp:499-515).
+Rice::Array w_Shader_getLocalThreadgroupSize(Shader &shader) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  if (!shader.hasStage(SHADERSTAGE_COMPUTE)) {
+    results.push(nullptr, false);
+    return results;
+  }
+  int x{};
+  int y{};
+  int z{};
+  shader.getLocalThreadgroupSize(&x, &y, &z);
+  results.push(x, false);
+  results.push(y, false);
+  results.push(z, false);
+  return results;
+}
+
+// Shader:getDebugName: w_Shader_getDebugName (wrap_Shader.cpp:552-561).
+std::optional<std::string> w_Shader_getDebugName(const Shader &shader) {
+  require_main_thread(MODULE);
+  const std::string &debugName = shader.getDebugName();
+  if (debugName.empty()) {
+    return std::nullopt;
+  }
+  return debugName;
 }
 
 // SpriteBatch:clear: w_SpriteBatch_clear (wrap_SpriteBatch.cpp:125-130).
@@ -1005,7 +1076,10 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("pixel_width", &w_getPixelWidth)
       .define_singleton_function("pixel_height", &w_getPixelHeight)
       .define_singleton_function("pixel_dimensions", &w_getPixelDimensions)
-      .define_singleton_function("flush_batch", &w_flushBatch);
+      .define_singleton_function("flush_batch", &w_flushBatch)
+      .define_singleton_function("set_shader", &w_setShader,
+                                 Rice::Arg("shader") = std::optional<Shader *>())
+      .define_singleton_function("shader", &w_getShader);
   Rice::define_class_under<Font>(Rice::define_module_under(native, "Graphics"), "Font")
       .define_method("height", &w_Font_getHeight)
       .define_method("line_height", &w_Font_getLineHeight)
@@ -1023,6 +1097,12 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_method("texture_dimensions", &w_Quad_getTextureDimensions)
       .define_method("set_layer", &w_Quad_setLayer, Rice::Arg("layer"))
       .define_method("layer", &w_Quad_getLayer);
+  Rice::define_class_under<Shader>(native, "Shader")
+      .define_method("warnings", &w_Shader_getWarnings)
+      .define_method("uniform?", &w_Shader_hasUniform, Rice::Arg("name"))
+      .define_method("stage?", &w_Shader_hasStage, Rice::Arg("stage"))
+      .define_method("local_threadgroup_size", &w_Shader_getLocalThreadgroupSize)
+      .define_method("debug_name", &w_Shader_getDebugName);
   Rice::define_class_under<SpriteBatch>(native, "SpriteBatch")
       .define_method("clear", &w_SpriteBatch_clear)
       .define_method("flush", &w_SpriteBatch_flush)

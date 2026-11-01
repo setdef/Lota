@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Shader
+      include Object
+
+      type source = String | Filesystem::FileData | nil
+
+      type defines = Hash[String | Symbol, String | Integer | Float | bool] | Array[String | Symbol] | nil
+
+      type value = Float | Integer | bool | Symbol | Texture | Math::Transform | Lota::Data | Array[Float | Integer | bool | Array[Float | Integer]]
+
+      attr_reader native: Native::Shader
+
+      def self.from_native: (Native::Shader native) -> Shader
+
+      def self.new: (source first, ?source second, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
+
+      def self.source: (source first, source second, defines defines, String? debugname) -> [Array[String], Array[[String, String]], String]
+
+      private def self.source_of: (source argument) -> String?
+
+      private def self.file_source: (String code) -> String
+
+      private def self.file_name?: (String code) -> bool
+
+      private def self.defines_of: (defines defines) -> Array[[String, String]]
+
+      private def self.define_name: (String | Symbol | Integer name) -> String
+
+      private def self.define_value: (String | Integer | Float | bool | nil value) -> String
+
+      private def self.lua_number_string: (Float value) -> String
+
+      private def self.debugname_of: (String? debugname) -> String
+
+      private def self.mark_deprecated_uses: (Native::Shader native, Thread::Backtrace::Location? location) -> void
+
+      private def self.transform_glsl_error_messages: (String message) -> String
+
+      private def self.glsl_error_line: (String line) -> String?
+
+      def warnings: () -> String
+
+      def send: (String name, *value values) -> nil
+
+      def send_color: (String name, *value colors) -> bool
+
+      def uniform?: (String name) -> bool
+
+      def stage?: (Symbol | String stage) -> bool
+
+      def local_threadgroup_size: () -> Array[Integer?]
+
+      def debug_name: () -> String?
+
+      private def native_value: (value value) -> Native::Shader::value
+    end
+  end
+end

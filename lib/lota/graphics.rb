@@ -13,6 +13,7 @@ require_relative "graphics/cube_image"
 require_relative "graphics/font"
 require_relative "graphics/image"
 require_relative "graphics/quad"
+require_relative "graphics/shader"
 require_relative "graphics/sprite_batch"
 require_relative "graphics/stats"
 require_relative "graphics/supported"
@@ -1522,6 +1523,73 @@ module Lota
     #   Lota::Graphics.front_face_winding # => :ccw
     def self.front_face_winding
       Native::Graphics.front_face_winding.to_sym
+    end
+
+    # Sets the shader drawing uses, matching love.graphics.setShader
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setShader).
+    #
+    # [shader] A Lota::Graphics::Shader, or +nil+ for LÖVE's own, which
+    #   draws textures and colors as they are.
+    #
+    # Lota::Graphics.push(:all) saves it and pop restores it. Raises
+    # TypeError for anything but a Shader or +nil+, and ThreadError off
+    # the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.shader = dissolve
+    #   Lota::Graphics.draw(card, 100, 100)
+    #   Lota::Graphics.shader = nil
+    def self.shader=(shader)
+      case shader
+      when nil then Native::Graphics.set_shader
+      when Shader then Native::Graphics.set_shader(shader.native)
+      else raise TypeError, "wrong argument type #{shader.class} (expected Lota::Graphics::Shader)"
+      end
+    end
+
+    # The shader drawing uses, or +nil+ while it uses LÖVE's own,
+    # matching love.graphics.getShader
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getShader).
+    #
+    # It is the same Ruby object that was set. Raises ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.shader # => nil
+    def self.shader
+      native = Native::Graphics.shader
+      native && Shader.from_native(native)
+    end
+
+    # Whether shader source compiles, matching love.graphics.validateShader
+    # (src/modules/graphics/wrap_Graphics.cpp, w_validateShader), without
+    # making a shader.
+    #
+    # [gles] Whether to check it as OpenGL ES would compile it, true or
+    #   false.
+    # [first] The source, as Lota::Graphics::Shader.new takes it.
+    # [second] The other stage's source, or +nil+.
+    # [defines] As Lota::Graphics::Shader.new takes them.
+    # [debugname] As Lota::Graphics::Shader.new takes it.
+    # [write] As Lota::Graphics::Shader.new takes it.
+    #
+    # Returns an Array of LÖVE's results (ADR 001, rule 4): +[true]+, or
+    # +false+ and LÖVE's message, so <tt>.first</tt> is whether it
+    # compiles. Raises TypeError for a +gles+ that is not true or false,
+    # and as Lota::Graphics::Shader.new raises for its sources and
+    # options.
+    #
+    # === Example
+    #
+    #   ok, message = Lota::Graphics.validate_shader(false, "nothing here")
+    #   ok # => false
+    def self.validate_shader(gles, first, second = nil, defines: nil, debugname: nil, write: nil)
+      raise TypeError, "wrong argument type #{gles.class} (expected true or false)" unless [true, false].include?(gles)
+
+      stages, pairs, name = Shader.source(first, second, defines, debugname)
+      Native::Graphics.validate_shader(gles, stages, name, pairs, write ? true : false)
     end
 
     # Sets how lines are joined where they meet, matching

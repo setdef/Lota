@@ -165,6 +165,26 @@ module Lota
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
     end
 
+    class Shader
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      type value = Float | Integer | bool | String | Texture | Transform | Data | Array[Float | Integer | bool | Array[Float | Integer]]
+
+      def send_values: (String name, Array[value] values) -> nil
+
+      def send_color: (String name, Array[value] values) -> bool
+
+      def deprecated_texture_functions?: () -> bool
+
+      def deprecated_texture_uniform?: () -> bool
+
+      def unset_vertex_input_locations: () -> String
+    end
+
     class TextureSettings
       def self.cpp_class: () -> String
 
@@ -450,6 +470,12 @@ module Lota
     end
 
     module Graphics
+      def self.check_created: () -> nil
+
+      def self.new_shader: (Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> Shader
+
+      def self.validate_shader: (bool gles, Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> ([true] | [false, String])
+
       def self.open: () -> nil
 
       def self.open?: () -> bool

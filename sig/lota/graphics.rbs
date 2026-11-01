@@ -171,6 +171,12 @@ module Lota
 
     def self.front_face_winding: () -> Symbol
 
+    def self.shader=: (Shader? shader) -> void
+
+    def self.shader: () -> Shader?
+
+    def self.validate_shader: (bool gles, String | Filesystem::FileData | nil first, ?(String | Filesystem::FileData)? second, ?defines: Hash[String | Symbol, String | Integer | Float | bool] | Array[String | Symbol] | nil, ?debugname: String?, ?write: boolish) -> ([true] | [false, String])
+
     def self.line_join=: (Symbol | String join) -> void
 
     def self.line_join: () -> Symbol

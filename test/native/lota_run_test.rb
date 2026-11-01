@@ -6,6 +6,7 @@
 #++
 
 require_relative "native_helper"
+require_relative "../engine_helper"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
@@ -124,22 +125,30 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics (its Canvas, Font, Image, Quad, and SpriteBatch tests among them),
+  # love.graphics (its Canvas, Font, Image, Quad, Shader, and SpriteBatch tests among them),
   # love.audio (its Source test among them), love.sound, love.image, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.window, love.filesystem, and love.physics tests, run from
   # the update callback of a game whose conf.rb translates Lövetest's
   # conf.lua. On a GitHub Actions macOS runner, Lövetest's arc test
   # compares none of its three 32 by 32 images, and asserts once instead
   # (test/lovetest/tests/graphics.rb, test_arc, which skips only on "OS X").
-  # Lövetest skips its discard test everywhere, and so does Lota.
+  # Lövetest skips its discard test everywhere, and so does Lota. Its
+  # Shader test compares a 16 by 16 image a glsl3 shader draws, and
+  # validates four glsl4 shaders with its eight checks, only where the
+  # renderer supports them, and asserts once for each instead
+  # (test/lovetest/tests/graphics.rb, test_shader).
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 64871 - (3 * 32 * 32) + 1 : 64871
+    assertions = skipped ? 86175 - (3 * 32 * 32) + 1 : 86175
+    EngineHelper.open_window
+    supported = Lota::Graphics.supported
+    assertions -= (16 * 16) - 1 unless supported.glsl3
+    assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^177 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
+    assert_match(/^183 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

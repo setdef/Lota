@@ -239,6 +239,10 @@ module Lota
       def self.pixel_dimensions: () -> [Integer, Integer]
 
       def self.flush_batch: () -> nil
+
+      def self.set_shader: (?Shader? shader) -> nil
+
+      def self.shader: () -> Shader?
     end
 
     module Graphics
@@ -271,6 +275,18 @@ module Lota
       def set_layer: (Integer layer) -> nil
 
       def layer: () -> Integer
+    end
+
+    class Shader
+      def warnings: () -> String
+
+      def uniform?: (String name) -> bool
+
+      def stage?: (String stage) -> bool
+
+      def local_threadgroup_size: () -> Array[nil | Integer]
+
+      def debug_name: () -> String?
     end
 
     class SpriteBatch

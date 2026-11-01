@@ -24,6 +24,7 @@ add_library(lota_native MODULE
 	native.cpp
 	physics.cpp
 	random_generator.cpp
+	shader.cpp
 	sound.cpp
 	system.cpp
 	texture.cpp

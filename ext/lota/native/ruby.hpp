@@ -21,6 +21,10 @@ inline bool is_array(const Rice::Object &value) {
   return rb_obj_is_kind_of(value.value(), rb_cArray) == Qtrue;
 }
 
+inline bool is_string(const Rice::Object &value) {
+  return rb_obj_is_kind_of(value.value(), rb_cString) == Qtrue;
+}
+
 inline bool is_numeric(const Rice::Object &value) {
   return rb_obj_is_kind_of(value.value(), rb_cNumeric) == Qtrue;
 }
