@@ -37,7 +37,7 @@ jobs:
       run:
         shell: msys2 {0}
     env:
-      CCACHE_DIR: ${{ runner.temp }}/ccache
+      CCACHE_DIR: D:/ccache
       CCACHE_MAXSIZE: 2G
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
@@ -64,7 +64,7 @@ jobs:
           ruby-version: "4.0"
           windows-toolchain: none
 
-      - uses: msys2/setup-msys2@v2
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with:
           msystem: ${{ matrix.msystem }}
           path-type: inherit
@@ -101,7 +101,7 @@ jobs:
 
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/ccache
+          path: D:/ccache
           key: ccache-mingw-${{ matrix.platform }}-${{ github.run_id }}
           restore-keys: ccache-mingw-${{ matrix.platform }}-
 
@@ -143,7 +143,7 @@ jobs:
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()
         with:
-          path: ${{ runner.temp }}/ccache
+          path: D:/ccache
           key: ccache-mingw-${{ matrix.platform }}-${{ github.run_id }}
 
       - name: Inspect the extension
