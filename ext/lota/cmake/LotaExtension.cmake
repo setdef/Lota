@@ -50,6 +50,20 @@ function(lota_ruby_extension target feature load_directory)
 	# header, like LÖVE's (engine/CMakeLists.txt) and Ruby's (an imported
 	# target's include directories are system directories).
 	target_include_directories(${target} SYSTEM PRIVATE ${RICE_DIR}/include)
+	# Rice 4.12's rice.hpp is one file joined from many, and uses parts of
+	# the standard library (std::exception_ptr at line 1124, std::transform
+	# at 9962) before the line that includes their header. libstdc++ and
+	# Apple's libc++ reach them through headers included earlier, but
+	# MSYS2's CLANGARM64 libc++ does not, so there every standard header
+	# Rice includes is included first, changing no file of Rice's.
+	if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		foreach(header IN ITEMS algorithm any array cmath complex cstdio cstdlib cstring exception filesystem
+				fstream functional ios iosfwd iostream iterator limits map memory optional ostream regex set
+				sstream stdexcept string string_view tuple type_traits typeindex typeinfo unordered_map utility
+				variant vector)
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-include${header}>)
+		endforeach()
+	endif()
 	target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..)
 	target_link_libraries(${target} PRIVATE Ruby::Module lota_engine)
 	lota_strict_warnings(${target})
@@ -114,7 +128,9 @@ function(lota_link_linux target name map load_directory)
 	set_target_properties(${target} PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH "${rpaths}")
 endfunction()
 
-# MinGW's ld, for a DLL Ruby loads (the spike for ADR 002, section 4).
+# MinGW's linker (GNU ld with GCC, LLD with clang), for a DLL Ruby loads
+# (ADR 002, section 4). Windows has no rpath: the DLLs the extension links
+# are loaded before it, by their absolute paths (preload/).
 function(lota_link_mingw target name map)
 	# Export Init_<name> alone. A module definition file is an explicit
 	# export, which turns off ld's default of exporting every symbol (the
@@ -123,7 +139,16 @@ function(lota_link_mingw target name map)
 	file(WRITE ${definitions} "EXPORTS\n\tInit_${name}\n")
 	target_sources(${target} PRIVATE ${definitions})
 	target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
-	# GCC's runtime inside the extension, so it neither needs MSYS2's
-	# libstdc++-6.dll nor binds to another copy a different gem loaded.
+	# The compiler's runtime inside the extension, so it needs no
+	# libgcc_s, libstdc++, libc++, or libwinpthread DLL, and never binds to
+	# another copy that a different gem, or MSYS2, put in the process.
+	# GCC's libstdc++ uses winpthreads, which GCC's driver links after
+	# everything named here, as a DLL, so it is linked statically first,
+	# with libstdc++ before it, as OpenAL Soft's ALSOFT_STATIC_WINPTHREAD
+	# does (its CMakeLists.txt:351-366). clang's libc++ uses Windows'
+	# threads.
 	target_link_options(${target} PRIVATE -static-libgcc -static-libstdc++)
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		target_link_options(${target} PRIVATE "LINKER:--push-state,-Bstatic,-lstdc++,-lwinpthread,--pop-state")
+	endif()
 endfunction()

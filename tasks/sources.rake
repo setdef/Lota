@@ -7,11 +7,12 @@
 
 require_relative "licensing"
 require_relative "linux_build"
+require_relative "windows_build"
 require_relative "source_archive"
 
 namespace :sources do
   desc "Download the source archives the precompiled gem carries (ext/lota/licenses.rb) into vendor/sources, " \
-    "and on Linux what LÖVE's dependencies build from"
+    "and on Linux and Windows what LÖVE's dependencies build from"
   task :fetch do
     licensing = Licensing.load("ext/lota/licenses.rb")
     licensing.frameworks.each_value.filter_map(&:source).uniq.each do |source|
@@ -22,7 +23,8 @@ namespace :sources do
     end
     # tasks/engine.rake
     LINUX_BUILD.fetch if ENGINE_PLATFORM == "linux"
-  rescue LinuxBuild::Failure => e
+    WINDOWS_BUILD.fetch if ENGINE_PLATFORM == "windows"
+  rescue LinuxBuild::Failure, WindowsBuild::Failure => e
     abort "❌ #{e.message}"
   end
 end

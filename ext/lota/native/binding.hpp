@@ -17,50 +17,26 @@
 // clang-tidy's misc-include-cleaner reads).
 //
 // rice/stl.hpp converts std::string, among others; it follows rice/rice.hpp.
-// Rice 4.12's rice.hpp is one file joined from many, and uses parts of
-// the standard library (std::exception_ptr at line 1124, std::transform
-// at 9962) before the line that includes their header. libstdc++ reaches
-// them through headers included earlier, but MSYS2's CLANGARM64 libc++
-// does not, so every standard header Rice includes comes first (the
-// MinGW spike).
-#include <algorithm>
-#include <any>
-#include <array>
-#include <cmath>
-#include <complex>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <exception>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <ios>
-#include <iosfwd>
-#include <iostream>
-#include <iterator>
-#include <limits>
-#include <map>
-#include <memory>
-#include <optional>
-#include <ostream>
-#include <regex>
-#include <set>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <type_traits>
-#include <typeindex>
-#include <typeinfo>
-#include <unordered_map>
-#include <utility>
-#include <variant>
-#include <vector>
-
+//
+// GCC 16, for MinGW, warns -Warray-bounds inside Ruby's own inline
+// functions (ruby/internal/fl_type.h:466, core/rarray.h:263) wherever Rice
+// inlines them into its own (Rice::Object::vcall, rice.hpp:16264): it
+// takes RBASIC(obj) of a VALUE it cannot rule out being a special
+// constant for a pointer to address zero ("source object is likely at
+// address zero"). Both are system headers, but GCC reports a warning it
+// finds after inlining at the inlined line regardless. Rice's and Ruby's
+// headers are first included here, so turning the warning off around these
+// two lines turns it off for their code alone: GCC decides by the line a
+// warning is reported at, and every other line keeps it, as an error.
+#if defined(__MINGW32__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
+#if defined(__MINGW32__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 // On Windows Ruby's headers include <windows.h> (ruby/win32.h), whose
 // winnt.h defines KEY_EXECUTE, a registry access right, as a macro, which
@@ -126,8 +102,10 @@ concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 #ifdef __APPLE__
 inline bool on_main_thread() { return pthread_main_np() == 1; }
 #elif defined(_WIN32)
-// Windows names no main thread. The spike takes the thread that loads the
-// extension, which is Ruby's main thread when require runs there.
+// Windows names no main thread, and ties a window to the thread that made
+// it, whichever that is. Lota takes the thread that loads the extension,
+// which is Ruby's main thread, the one ruby.exe started on, when require
+// runs there, as it does from lib/lota.rb.
 inline const unsigned long loading_thread = GetCurrentThreadId();
 inline bool on_main_thread() { return GetCurrentThreadId() == loading_thread; }
 #else

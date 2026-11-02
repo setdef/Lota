@@ -59,13 +59,14 @@ class EngineSources
   class Failure < StandardError; end
 
   # The platform name a source list is generated for, from Ruby's
-  # <tt>host_os</tt>: macOS or Linux, the platforms Lota builds on.
+  # <tt>host_os</tt>: macOS, Linux, or Windows with MinGW, the platforms
+  # Lota builds on.
   def self.platform(host_os)
     return "macos" if host_os.include?("darwin")
     return "linux" if host_os.include?("linux")
     return "windows" if host_os.include?("mingw")
 
-    raise Failure, "Lota builds its engine on macOS and Linux only, not #{host_os}"
+    raise Failure, "Lota builds its engine on macOS, Linux, and Windows with MinGW only, not #{host_os}"
   end
 
   # What CMake is told when it evaluates LÖVE's tree for +platform+.
@@ -79,13 +80,27 @@ class EngineSources
     return %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF] if platform == "linux"
     # On Windows LÖVE's install rules name megasource's SDL3 target
     # (vendor/love/CMakeLists.txt:2053), so the evaluation defines a
-    # stand-in for it (the MinGW spike).
+    # stand-in for it (engine_sources_windows.cmake).
     if platform == "windows"
-      return %W[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF -DMEGA_SDL3=lota_sdl3_stand_in
-        -DCMAKE_PROJECT_INCLUDE=#{File.expand_path('engine_sources_windows.cmake', __dir__)}]
+      return %W[
+        -G
+        Ninja
+        -DMEGA=ON
+        -DLOVE_JIT=OFF
+        -DMEGA_SDL3=lota_sdl3_stand_in
+        -DCMAKE_PROJECT_INCLUDE=#{File.expand_path('engine_sources_windows.cmake', __dir__)}
+      ]
     end
 
     %w[-G Ninja -DMEGA=ON]
+  end
+
+  # The label of the list generated for +platform+ from vendor/love's
+  # +commit+: what CMake is told, less the file the Windows evaluation
+  # includes, whose path is the machine's, not the tree's.
+  def self.label(commit, platform)
+    definitions = cmake_args(platform).grep(/\A-D/).grep_v(/\A-DCMAKE_PROJECT_INCLUDE=/)
+    "vendor/love #{commit} on #{platform} with #{definitions.join(' ')}"
   end
 
   # [source] The CMake source tree to evaluate (vendor/love).
@@ -105,10 +120,11 @@ class EngineSources
     [header, sources_block(kept), excluded_block(dropped)].join("\n")
   end
 
-  # Writes the generated file to +path+.
+  # Writes the generated file to +path+, byte for byte, so Windows writes
+  # the same lines macOS and Linux do, not a CRLF at the end of each.
   def write(path)
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, generate)
+    File.binwrite(path, generate)
   end
 
   # Why the committed file at +path+ does not match LÖVE's tree, as lines

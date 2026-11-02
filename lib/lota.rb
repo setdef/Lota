@@ -31,6 +31,10 @@ end
 # each to Lota::ErrorMessage as Ruby raises it (ADR 001, section 7).
 require_relative "lota/restart"
 require_relative "lota/error_message"
+# Windows has no rpath, and finds a DLL by its name in directories the
+# process chooses, so the extension's DLLs are loaded first, each by its
+# absolute path, from lib/lota/libraries (ext/lota/preload).
+require "lota/preload" if RUBY_PLATFORM.include?("mingw")
 require "lota/native"
 
 # Ruby runs exit procs on the main thread, after the game and before it
