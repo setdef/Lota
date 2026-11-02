@@ -515,16 +515,16 @@ module Lota
     #
     # === Example
     #
-    #   Lota::Window.v_sync # => 1
-    def self.v_sync
-      Native::Window.v_sync
+    #   Lota::Window.vsync # => 1
+    def self.vsync
+      Native::Window.vsync
     end
 
     # Sets the window's vertical synchronization, matching
     # love.window.setVSync (src/modules/window/wrap_Window.cpp,
     # w_setVSync).
     #
-    # [vsync] Integer 1, 0, or -1, as Lota::Window.v_sync answers; +true+
+    # [vsync] Integer 1, 0, or -1, as Lota::Window.vsync answers; +true+
     #   is 1 and +false+ is 0.
     #
     # Raises TypeError for anything else, and ThreadError off the main
@@ -532,8 +532,8 @@ module Lota
     #
     # === Example
     #
-    #   Lota::Window.v_sync = 0
-    def self.v_sync=(vsync)
+    #   Lota::Window.vsync = 0
+    def self.vsync=(vsync)
       value = case vsync
       when true then 1
       when false then 0

@@ -762,7 +762,7 @@ module Lota
 
       def self.icon: () -> ImageData
 
-      def self.v_sync: () -> Integer
+      def self.vsync: () -> Integer
 
       def self.set_display_sleep_enabled: (bool enable) -> nil
 

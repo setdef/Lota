@@ -136,6 +136,14 @@ class RulesTest < Minitest::Test
     assert_equal "int16", Bindings::Rules.snake_case("Int16")
   end
 
+  # Rule 13 spells the V of VSync, which stands for "vertical", with the
+  # word it begins, so love.window.getVSync is vsync, not v_sync.
+  def test_rule_13_spells_vsync_as_one_word
+    assert_equal "get_vsync", Bindings::Rules.snake_case("getVSync")
+    assert_equal "vsync", Bindings::Rules.snake_case("VSync")
+    assert_equal "Lota::Window.vsync", ruby_name("love.window.getVSync")
+  end
+
   # Rule 13: an acronym is one word, and digits stay with the word they
   # follow, as in Ruby's use_ssl? and sha256, so nothing is left open.
   def test_rule_13_keeps_an_acronym_and_its_digits_one_word

@@ -852,7 +852,7 @@ bound_by_hand "love.window.getFullscreenModes",
   reason: "builds a table of tables with lua_createtable, which the generator does not port; Lota returns an " \
     "Array of Arrays, which Lota::Window.fullscreen_modes makes FullscreenModes"
 bound_by_hand "love.window.setVSync",
-  reason: "reads its argument as a boolean or an integer by its Lua type; Lota::Window.v_sync= chooses, and " \
+  reason: "reads its argument as a boolean or an integer by its Lua type; Lota::Window.vsync= chooses, and " \
     "binds the integer"
 bound_by_hand "love.window.close",
   reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port; " \

@@ -286,7 +286,7 @@ void define_generated_window(const Rice::Module &native) {
       .define_singleton_function("position", &w_getPosition)
       .define_singleton_function("set_icon", &w_setIcon, Rice::Arg("i"))
       .define_singleton_function("icon", &w_getIcon)
-      .define_singleton_function("v_sync", &w_getVSync)
+      .define_singleton_function("vsync", &w_getVSync)
       .define_singleton_function("set_display_sleep_enabled", &w_setDisplaySleepEnabled,
                                  Rice::Arg("enable"))
       .define_singleton_function("display_sleep_enabled?", &w_isDisplaySleepEnabled)

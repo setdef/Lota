@@ -305,18 +305,18 @@ class WindowTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.window.getVSync and
   # love.test.window.setVSync (window.lua:138-140 and 354-357): getVSync
-  # becomes v_sync (rule 13: V and Sync are two words in LÖVE's name) and
-  # setVSync the writer v_sync= (rule 5). Lövetest leaves vsync off; this
-  # puts it back.
-  def test_get_v_sync
-    assert_not_nil(Lota::Window.v_sync)
+  # becomes vsync (rule 13: the V stands for "vertical", so VSync is one
+  # word) and setVSync the writer vsync= (rule 5). Lövetest leaves vsync
+  # off; this puts it back.
+  def test_get_vsync
+    assert_not_nil(Lota::Window.vsync)
   end
 
-  def test_set_v_sync
-    before = Lota::Window.v_sync
-    Lota::Window.v_sync = 0
-    assert_not_nil(Lota::Window.v_sync)
-    Lota::Window.v_sync = before
+  def test_set_vsync
+    before = Lota::Window.vsync
+    Lota::Window.vsync = 0
+    assert_not_nil(Lota::Window.vsync)
+    Lota::Window.vsync = before
   end
 
   # Translated to Ruby from love.test.window.hasFocus and

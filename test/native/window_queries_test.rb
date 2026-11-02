@@ -21,7 +21,7 @@ class WindowQueriesTest < Minitest::Test
   # Puts back what a test may have changed.
   def teardown
     Lota::Window.set_fullscreen(false, :desktop)
-    Lota::Window.v_sync = 1
+    Lota::Window.vsync = 1
   end
 
   def test_the_displays_are_counted_and_named_from_1
@@ -91,12 +91,12 @@ class WindowQueriesTest < Minitest::Test
   # w_setVSync (wrap_Window.cpp:434-443) reads a boolean as 1 or 0 and
   # otherwise needs an integer. The system decides whether it can wait
   # unless a frame is late (-1), so only 0 and 1 are checked.
-  def test_v_sync_is_an_integer_that_a_boolean_sets
-    assert_v_sync(0) { Lota::Window.v_sync = false }
-    assert_v_sync(1) { Lota::Window.v_sync = true }
-    assert_v_sync(0) { Lota::Window.v_sync = 0.0 }
+  def test_vsync_is_an_integer_that_a_boolean_sets
+    assert_vsync(0) { Lota::Window.vsync = false }
+    assert_vsync(1) { Lota::Window.vsync = true }
+    assert_vsync(0) { Lota::Window.vsync = 0.0 }
 
-    error = assert_raises(TypeError) { Lota::Window.v_sync = "1" }
+    error = assert_raises(TypeError) { Lota::Window.vsync = "1" }
     assert_equal "wrong argument type String for vsync (expected Integer, true, or false)", error.message
   end
 
@@ -184,7 +184,7 @@ class WindowQueriesTest < Minitest::Test
   end
 
   # Asserts that the block's request for vsync reached the system, which
-  # keeps it, so that v_sync answers +expected+, or refuses it and says
+  # keeps it, so that vsync answers +expected+, or refuses it and says
   # why. LÖVE's Window::setVSync ignores a refusal, and its getVSync
   # answers what SDL keeps instead (src/modules/window/sdl/Window.cpp,
   # lines 1094-1135): Mesa's software GLX, on a display without DRI as
@@ -192,21 +192,21 @@ class WindowQueriesTest < Minitest::Test
   # 864-871), so SDL refuses every interval and answers 0 (SDL 3.4.10,
   # src/video/x11/SDL_x11opengl.c, lines 961-1008 and 1099-1102).
   #
-  # Where SDL refuses, this checks only that v_sync answers what SDL
+  # Where SDL refuses, this checks only that vsync answers what SDL
   # keeps, so a binding that passed 0 for +true+ would pass there. SDL's
   # refusal reads the same for 0 and 1 and keeps neither, so nothing in the
   # process can tell which the binding passed short of replacing SDL's
   # function, which the tests do not do. The check of the value itself is
   # macOS's, and any driver's that keeps the interval, where the first
   # branch runs.
-  private def assert_v_sync(expected)
+  private def assert_vsync(expected)
     LotaNativeTest.clear_sdl_error
     yield
     refusal = LotaNativeTest.sdl_error
     if refusal.empty?
-      assert_equal expected, Lota::Window.v_sync
+      assert_equal expected, Lota::Window.vsync
     else
-      assert_equal LotaNativeTest.swap_interval, Lota::Window.v_sync, refusal
+      assert_equal LotaNativeTest.swap_interval, Lota::Window.vsync, refusal
     end
   end
 

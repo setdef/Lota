@@ -51,9 +51,9 @@ module Lota
 
     def self.set_icon: (Lota::Image::ImageData imagedata) -> bool
 
-    def self.v_sync: () -> Integer
+    def self.vsync: () -> Integer
 
-    def self.v_sync=: (Integer | Float | bool vsync) -> void
+    def self.vsync=: (Integer | Float | bool vsync) -> void
 
     def self.display_sleep_enabled?: () -> bool
 

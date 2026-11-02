@@ -102,7 +102,8 @@ module Bindings
     OWN_TYPE = %w[getType setType].freeze
     # Rule 13's spelling of the words LÖVE capitalizes inside: UInt is C's
     # uint (uint8_t), one word as Int is int, so getUInt8 becomes uint8.
-    ONE_WORD = { "UInt" => "Uint" }.freeze
+    # The V of VSync stands for "vertical", so getVSync becomes get_vsync.
+    ONE_WORD = { "UInt" => "Uint", "VSync" => "Vsync" }.freeze
     # Rule 13: Lua's metamethods, by the name Ruby gives the same method,
     # its operator where it has one (Lua 5.1 reference manual, section
     # 2.8). One with no Ruby counterpart, such as __concat, fits no rule.
