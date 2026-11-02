@@ -53,6 +53,8 @@
 
 #ifdef __APPLE__
 #include <pthread.h>
+#elif defined(_WIN32)
+#include <windows.h> // Ruby's own headers include it on Windows (ruby/win32.h)
 #else
 #include <unistd.h>
 #endif
@@ -72,6 +74,11 @@ concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 // thread ID is the process's ID (gettid(2)).
 #ifdef __APPLE__
 inline bool on_main_thread() { return pthread_main_np() == 1; }
+#elif defined(_WIN32)
+// Windows names no main thread. The spike takes the thread that loads the
+// extension, which is Ruby's main thread when require runs there.
+inline const unsigned long loading_thread = GetCurrentThreadId();
+inline bool on_main_thread() { return GetCurrentThreadId() == loading_thread; }
 #else
 inline bool on_main_thread() { return gettid() == getpid(); }
 #endif

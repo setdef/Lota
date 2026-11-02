@@ -62,6 +62,7 @@ class EngineSources
   def self.platform(host_os)
     return "macos" if host_os.include?("darwin")
     return "linux" if host_os.include?("linux")
+    return "windows" if host_os.include?("mingw")
 
     raise Failure, "Lota builds its engine on macOS and Linux only, not #{host_os}"
   end
@@ -74,7 +75,16 @@ class EngineSources
   # LuaJIT is turned off; it chooses only which Lua LÖVE links, never which
   # of LÖVE's sources compile, and the engine leaves Lua out anyway.
   def self.cmake_args(platform)
-    (platform == "linux") ? %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF] : %w[-G Ninja -DMEGA=ON]
+    return %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF] if platform == "linux"
+    # On Windows LÖVE's install rules name megasource's SDL3 target
+    # (vendor/love/CMakeLists.txt:2053), so the evaluation defines a
+    # stand-in for it (the MinGW spike).
+    if platform == "windows"
+      return %W[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF -DMEGA_SDL3=lota_sdl3_stand_in
+        -DCMAKE_PROJECT_INCLUDE=#{File.expand_path('engine_sources_windows.cmake', __dir__)}]
+    end
+
+    %w[-G Ninja -DMEGA=ON]
   end
 
   # [source] The CMake source tree to evaluate (vendor/love).

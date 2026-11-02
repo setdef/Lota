@@ -33,6 +33,10 @@ name: CI
 
 on:
   push:
+    # The MinGW spike's branch runs its own workflow (mingw-spike.yml) and
+    # never merges, so it does not spend the gate's runners.
+    branches-ignore:
+      - spike/mingw
   pull_request:
 
 permissions:
