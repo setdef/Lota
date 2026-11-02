@@ -58,7 +58,12 @@ module Lota
     # queue first to gather what the system has reported. A message's name
     # is a Symbol, as are its arguments that are names in LÖVE, such as a
     # key (rule 9), and numbers LÖVE's C++ holds as integers are Integers
-    # (rule 14). With a block, it returns +nil+.
+    # (rule 14). A table, which #push and #restart carry, comes back as an
+    # Array when its keys are 1 to n, a Lua sequence, as the empty table
+    # is, and as a Hash otherwise, with every number in it a Float, its
+    # Strings in UTF-8, and its keys converted as its values are: a Hash's
+    # String keys stay Strings, for they are the game's data, not names in
+    # LÖVE. With a block, it returns +nil+.
     #
     # Lota's loop polls the queue once a frame and calls your callbacks
     # for what it finds, so a game that polls it itself takes those
@@ -89,22 +94,42 @@ module Lota
     # [name] Symbol or String name of the message. Lota's loop calls the
     #   callback of that name; a name LÖVE has no callback for raises
     #   RuntimeError there (<tt>"Unknown event: name"</tt>), as in LÖVE.
-    # [arguments] The message's arguments: +true+, +false+, numbers, and
-    #   Strings, or Symbols, which become their names. They end at the
-    #   first +nil+, as LÖVE stops reading there.
+    # [arguments] The message's arguments: +true+, +false+, numbers,
+    #   Strings, Symbols, which become their names, and tables, an
+    #   Array or a Hash, which LÖVE reads as a Lua table (luax_checkvariant,
+    #   src/common/runtime.cpp). They end at the first +nil+, as LÖVE stops
+    #   reading there.
     #
     # A number comes back from the queue as a Float, as LÖVE keeps every
-    # number in a message as a double. Returns +true+. Raises
-    # ArgumentError, with LÖVE's message, for any other argument; LÖVE also
-    # passes tables and its own objects, which Lota does not pass through
-    # the queue yet. Raises RuntimeError when the event module is not
-    # open.
+    # number in a message as a double. An Array is the table whose keys are
+    # 1 to its size, and a Hash the table of its keys and values, each of
+    # them read as an argument is, +nil+ too, and tables in it as well;
+    # #poll tells how a table comes back. Returns +true+. Raises
+    # ArgumentError, with LÖVE's message, for any other argument, and for a
+    # table with a Proc or a Method in it, as LÖVE refuses a table with a
+    # function in it; TypeError for a value in a table that is none of
+    # those; RuntimeError, with LÖVE's message, for a table that holds
+    # itself; and SystemStackError for tables nested too deeply for the
+    # stack. LÖVE also passes its own objects, which Lota does not pass
+    # through the queue yet. Raises RuntimeError when the event module is
+    # not open.
     #
-    # === Example
+    # === Examples
     #
     #   Lota::Event.push(:keypressed, :space, :space, false)
+    #
+    #   Lota::Event.push(:scored, { player: 1, points: [10, 20] })
+    #   Lota::Event.poll.next # => [:scored, {"player" => 1.0, "points" => [10.0, 20.0]}]
     def self.push(name, *arguments)
-      Native::Event.push(EnumName.of(name), variants(arguments))
+      values = arguments.take_while { |argument| !argument.nil? }.each.with_index(2).map do |argument, position|
+        tokens = Variant.tokens(argument) if Variant.value?(argument)
+        if tokens.nil? || tokens.first == Variant::UNKNOWN
+          raise ArgumentError, "Argument #{position} can't be stored safely\nExpected boolean, number, string or userdata."
+        end
+
+        tokens
+      end
+      Native::Event.push(EnumName.of(name), values)
     end
 
     # Waits for the next message and returns it, matching love.event.wait
@@ -173,10 +198,11 @@ module Lota
     #
     # [arguments] Every argument, +nil+ included, as LÖVE reads each of
     #   them (luax_checkvariant): +nil+, +true+, +false+, numbers, which
-    #   leave the queue as Floats, Strings, and Symbols, which become their
-    #   names. A Proc or a Method, Ruby's function, is kept as LÖVE keeps a
-    #   function, as a value that carries nothing, and leaves the queue as
-    #   +nil+.
+    #   leave the queue as Floats, Strings, Symbols, which become their
+    #   names, and tables, an Array or a Hash, as #push reads them. A Proc
+    #   or a Method, Ruby's function, is kept as LÖVE keeps a function, as
+    #   a value that carries nothing, and leaves the queue as +nil+, and so
+    #   is a table with one in it.
     #
     # The game ends as one that quits with status 0 does, after the +quit+
     # callback has had its say, with the window closed and the exit procs
@@ -187,17 +213,20 @@ module Lota
     # alone: LÖVE too passes only the value after <tt>"restart"</tt> on.
     # A game that restarts every time it starts never ends, as in LÖVE.
     # A game started any other way than <tt>lota run</tt> ends instead.
-    # Returns +true+. LÖVE also carries tables and its own
-    # objects, which Lota does not put in a message yet: raises TypeError
-    # for a Hash, an Array, a Lota::Object, or any other value. Raises
-    # RuntimeError when the event module is not open.
+    # Returns +true+. LÖVE also carries its own objects, which Lota does
+    # not put in a message yet: raises TypeError for a Lota::Object, or any
+    # other value, in a table or not. Raises RuntimeError, with LÖVE's
+    # message, for a table that holds itself, SystemStackError for tables
+    # nested too deeply for the stack, and RuntimeError when the event
+    # module is not open.
     #
     # === Example
     #
     #   Lota::Event.restart
     #   Lota::Event.restart("level 2") # Lota.restart is "level 2" next
+    #   Lota::Event.restart({ level: 2, lives: 3 }) # {"level" => 2.0, "lives" => 3.0}
     def self.restart(*arguments)
-      Native::Event.restart(arguments)
+      Native::Event.restart(arguments.map { |argument| Variant.tokens(argument) })
     end
 
     # Sets the callable the operating system's own loop draws the window
@@ -215,11 +244,14 @@ module Lota
     # LÖVE's own game loop passes its frame to it. What the callable
     # returns, an exit status or an Array of it and a restart value, as
     # the frame of Lota.run returns them, ends the game as a +quit+
-    # message would. Each is read as #restart reads its arguments. An
-    # error it raises, a value #restart would refuse, or a +throw+ out of
-    # it comes out of the next #pump as RuntimeError, its message after
-    # <tt>"Error in modal draw callback: "</tt>, as LÖVE turns every error
-    # of the callback into one. Raises TypeError for a value that does not
+    # message would. Each is read as #restart reads its arguments, so a
+    # table it returns is carried, and one it returns alone goes in an
+    # Array of its own, <tt>[[1, 2]]</tt>, lest its elements be read as
+    # the results. An error it raises, a value #restart would refuse, a
+    # table that holds itself, or a +throw+ out of it comes out of the
+    # next #pump as RuntimeError, its message after <tt>"Error in modal
+    # draw callback: "</tt>, as LÖVE turns every error of the callback
+    # into one. Raises TypeError for a value that does not
     # answer +call+, and RuntimeError when the event module is not open.
     #
     # === Example
@@ -230,26 +262,15 @@ module Lota
         raise TypeError, "wrong argument type #{callable.class} (expected a callable)"
       end
 
-      Native::Event.set_modal_draw_callback(callable)
+      Native::Event.set_modal_draw_callback(callable && -> { results(callable.call) })
     end
 
-    # The values of a message's +arguments+ as the engine stores them: up
-    # to the first +nil+, as LÖVE stops reading there, with numbers as
-    # Floats and Symbols as their names. :nodoc:
-    private_class_method def self.variants(arguments)
-      values = [] #: Array[bool | Float | String]
-      arguments.each.with_index(2) do |argument, position|
-        case argument
-        when nil then break
-        when true, false, String then values << argument
-        when Symbol then values << argument.name
-        when Integer, Float then values << argument.to_f
-        else
-          raise ArgumentError,
-            "Argument #{position} can't be stored safely\nExpected boolean, number, string or userdata."
-        end
-      end
-      values
+    # The tokens of the two results of a modal draw callback that returned
+    # +values+, an Array of them or the first alone, each read as #restart
+    # reads its arguments (Lota::Variant). :nodoc:
+    private_class_method def self.results(values)
+      first, second = values.is_a?(Array) ? values : [values]
+      [Variant.tokens(first), Variant.tokens(second)]
     end
   end
 end

@@ -86,6 +86,7 @@ class RestartRunTest < Minitest::Test
       "empty" => '""',
       "extra" => '"first"',
       "binary" => '"\xFF\u0000"',
+      "table" => '[1.0, {"name" => "ada"}]',
     }.each do |name, expected|
       FileUtils.rm_f(@log)
       output, status = lota_run(name)

@@ -94,15 +94,43 @@ class EventQueueTest < Minitest::Test
     assert_equal [[:quit, "restart", nil, nil, 3.0]], Lota::Event.poll.to_a
   end
 
-  # LÖVE carries a table as a SharedTable, and Lota does not carry a Hash
-  # or an Array yet, nor a value Lua has no counterpart of.
-  def test_restart_refuses_what_lota_does_not_carry_yet
-    error = assert_raises(TypeError) { Lota::Event.restart(1, [2]) }
+  # luax_checkvariant reads a table as a SharedTable (runtime.cpp:758-808):
+  # one whose keys are 1 to n comes back an Array, and any other a Hash.
+  def test_restart_carries_a_table
+    Lota::Event.restart([1, { level: "two" }], {})
 
-    assert_equal "wrong argument type Array (expected nil, true, false, a number, a String, a Symbol, or a Proc)",
-      error.message
-    assert_raises(TypeError) { Lota::Event.restart({}) }
-    assert_raises(TypeError) { Lota::Event.restart(Object.new) }
+    assert_equal [[:quit, "restart", [1.0, { "level" => "two" }], []]], Lota::Event.poll.to_a
+  end
+
+  # A table with a function in it is of unknown type, as the function is
+  # (runtime.cpp:784-808), which w_restart keeps, and which leaves the
+  # queue as nil.
+  def test_restart_keeps_a_table_holding_a_proc_as_a_value_that_carries_nothing
+    Lota::Event.restart([1, [-> {}]], { 1.method(:+) => 2 })
+
+    assert_equal [[:quit, "restart", nil, nil]], Lota::Event.poll.to_a
+  end
+
+  def test_restart_raises_for_a_table_that_holds_itself
+    cycle = {}
+    cycle[:self] = cycle
+    error = assert_raises(RuntimeError) { Lota::Event.restart(cycle) }
+
+    assert_equal "Cycle detected in table", error.message
+    assert_empty Lota::Event.poll.to_a
+  end
+
+  # LÖVE also carries its own objects; Lota does not put a Lota::Object in
+  # a message yet, nor a value Lua has no counterpart of, in a table or not.
+  def test_restart_refuses_what_lota_does_not_carry
+    error = assert_raises(TypeError) { Lota::Event.restart(1, Object.new) }
+
+    assert_equal "wrong argument type Object (expected nil, true, false, a number, a String, a Symbol, an Array, " \
+      "a Hash, or a Proc)", error.message
+    assert_raises(TypeError) { Lota::Event.restart([1..2]) }
+    assert_raises(TypeError) { Lota::Event.restart({ Object.new => 1 }) }
+    # LÖVE reads a pair's value even when its key is a function.
+    assert_raises(TypeError) { Lota::Event.restart({ -> {} => Object.new }) }
     assert_empty Lota::Event.poll.to_a
   end
 
@@ -172,7 +200,26 @@ class EventQueueTest < Minitest::Test
     error = assert_raises(RuntimeError) { Lota::Event.pump }
 
     assert_equal "Error in modal draw callback: wrong argument type Object (expected nil, true, false, a number, " \
-      "a String, a Symbol, or a Proc)", error.message
+      "a String, a Symbol, an Array, a Hash, or a Proc)", error.message
+  end
+
+  # drawCallbackInner reads a table it returns as luax_checkvariant reads
+  # one (wrap_Event.cpp:161-173): the Array of results holds each.
+  def test_a_table_the_callback_returns_is_carried
+    Lota::Event.modal_draw_callback = -> { [[1, 2], { score: 3 }] }
+    resize_and_pump
+
+    assert_equal [[:quit, [1.0, 2.0], { "score" => 3.0 }, true]], queued
+  end
+
+  def test_a_table_that_holds_itself_comes_out_of_the_next_pump
+    cycle = []
+    cycle << cycle
+    Lota::Event.modal_draw_callback = -> { [cycle] }
+    LotaNativeTest.request_modal_draw
+    error = assert_raises(RuntimeError) { Lota::Event.pump }
+
+    assert_equal "Error in modal draw callback: Cycle detected in table", error.message
   end
 
   # A function the callback returns is a Variant of unknown type, which is

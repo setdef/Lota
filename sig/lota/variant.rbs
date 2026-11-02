@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Variant
+    type token = String | Float | Integer | bool | nil | Symbol
+
+    type native = String | Float | Integer | bool | nil | Array[token]
+
+    type value = String | Float | Integer | bool | nil | Array[value] | Hash[value, value]
+
+    type carried = bool | Numeric | String | Symbol | ::Proc | ::Method | nil | Array[carried] | Hash[carried, carried]
+
+    TABLE: :table
+
+    UNKNOWN: :unknown
+
+    EXPECTED: String
+
+    def self.tokens: (::Object? value) -> Array[token]
+
+    def self.value?: (::Object? value) -> bool
+
+    def self.ruby: (native value) -> value
+
+    def self.read: (Array[token] tokens) -> value
+
+    private def self.write: (::Object? value, Array[token] tokens, Hash[::Object, bool] outer) -> void
+
+    private def self.number: (Numeric value) -> Float
+
+    private def self.table: (Array[[::Object?, ::Object?]] pairs, ::Object value, Array[token] tokens, Hash[::Object, bool] outer) -> void
+
+    private def self.pair: (::Object? key, ::Object? element, Array[token] tokens, Hash[::Object, bool] outer) -> bool
+
+    private def self.at: (Array[token] tokens, Integer index) -> [value, Integer]
+
+    private def self.table_at: (Array[token] tokens, Integer index, token count) -> [value, Integer]
+
+    private def self.sequence?: (Hash[value, value] hash) -> bool
+  end
+end

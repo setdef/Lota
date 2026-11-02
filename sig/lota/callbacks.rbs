@@ -3,7 +3,7 @@
 
 module Lota
   module Callbacks
-    type argument = String | Symbol | Float | Integer | bool | nil
+    type argument = Symbol | Variant::value
 
     type handler = ^(*argument) -> ::Object?
 
@@ -29,9 +29,9 @@ module Lota
 
     def self.poll: () -> [Symbol, Array[argument]]?
 
-    def self.message: (Array[String | Float | Integer | bool | nil]? message) -> [Symbol, Array[argument]]?
+    def self.message: (Array[Variant::native]? message) -> [Symbol, Array[argument]]?
 
-    def self.argument: (Symbol name, Integer index, String | Float | Integer | bool | nil argument) -> argument
+    def self.argument: (Symbol name, Integer index, Variant::native argument) -> argument
 
     HANDLERS: Hash[Symbol, handler]
 

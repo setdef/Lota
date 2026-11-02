@@ -139,7 +139,8 @@ module Lota
     # The message's name becomes a Symbol, as do its arguments that are
     # names in LÖVE (ENUM_ARGUMENTS); the strings SDL gives are UTF-8.
     # Numbers LÖVE holds as integers (INTEGER_ARGUMENTS) become Integers,
-    # and the rest stay Floats.
+    # and the rest stay Floats. A table becomes an Array or a Hash
+    # (Lota::Variant).
     def self.poll
       message(Native::Event.poll)
     end
@@ -171,6 +172,7 @@ module Lota
         integer = INTEGER_ARGUMENTS.fetch(name, []).include?(index)
         integer &&= Native::Graphics.open? if name == :resize
         integer ? argument.to_i : argument
+      when Array then Variant.ruby(argument)
       else
         argument
       end

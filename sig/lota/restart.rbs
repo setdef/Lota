@@ -3,13 +3,17 @@
 
 module Lota
   module Restart
-    type value = bool | Float | String | nil
+    type value = Variant::value
 
     interface _Environment
       def delete: (String name) -> String?
     end
 
     VARIABLE: String
+
+    MAXIMUM_LENGTH: Integer
+
+    MAXIMUM_DEPTH: Integer
 
     class Unsupported < TypeError
     end
@@ -28,7 +32,7 @@ module Lota
 
     def self.value: () -> value
 
-    def self.encode: (bool | Float | Integer | String | Symbol | nil value) -> String
+    def self.encode: (Variant::carried value) -> String
 
     def self.decode: (String text) -> value
 
@@ -38,9 +42,19 @@ module Lota
 
     def self.restartable?: () -> bool
 
-    def self.request: (bool | Float | Integer | String | Symbol | nil value) -> String
+    def self.request: (Variant::carried value) -> String
 
     def self.exec_pending: () -> void
+
+    private def self.written: (Variant::carried value, Array[Array[Variant::carried] | Hash[Variant::carried, Variant::carried]] outer) -> String
+
+    private def self.table: (Array[[Variant::carried, Variant::carried]] pairs, Array[Variant::carried] | Hash[Variant::carried, Variant::carried] value, Array[Array[Variant::carried] | Hash[Variant::carried, Variant::carried]] outer) -> String
+
+    private def self.read: (StringScanner scanner, Integer depth, Array[Variant::token] tokens) -> void
+
+    private def self.pairs: (StringScanner scanner, Integer depth, Array[Variant::token] tokens) -> void
+
+    private def self.expect: (StringScanner scanner, Regexp delimiter) -> void
 
     private def self.install: () -> void
 

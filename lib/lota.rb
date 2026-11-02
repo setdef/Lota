@@ -84,9 +84,12 @@ module Lota
   # A game asks to start again with Lota::Event.restart. <tt>lota run</tt>
   # ends it, and starts it again with the first argument that followed
   # <tt>"restart"</tt>, which this returns: +nil+, +true+, +false+, a
-  # Float, or a String. A Symbol arrives as the String of its name, and an
-  # Integer as a Float, as the event queue makes them. It is set before
-  # conf.rb loads, and the same in every callback.
+  # Float, a String, or a table, an Array or a Hash. A Symbol arrives as
+  # the String of its name, an Integer as a Float, and a table as
+  # Lota::Event.poll gives one back, an Array when its keys are 1 to n and
+  # a Hash with String keys for Symbols otherwise, as the event queue
+  # makes them. It is set before conf.rb loads, and the same in every
+  # callback.
   #
   # === Example
   #

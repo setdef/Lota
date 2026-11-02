@@ -8,7 +8,7 @@ module Lota
     def self.poll: () { (Symbol name, *Callbacks::argument arguments) -> void } -> nil
                  | () -> Enumerator[Array[Callbacks::argument], nil]
 
-    def self.push: (Symbol | String name, *(bool | Float | Integer | String | Symbol | nil) arguments) -> bool
+    def self.push: (Symbol | String name, *Variant::carried arguments) -> bool
 
     def self.wait: () -> Array[Symbol | Callbacks::argument]?
 
@@ -16,7 +16,7 @@ module Lota
 
     def self.quit: (?(Integer | Float)? exit_status) -> bool
 
-    def self.restart: (*(bool | Float | Integer | String | Symbol | ::Proc | ::Method | nil) arguments) -> bool
+    def self.restart: (*Variant::carried arguments) -> bool
 
     interface _Callable
       def call: () -> ::Object?
@@ -26,6 +26,6 @@ module Lota
 
     def self.modal_draw_callback=: (callable? callable) -> void
 
-    private def self.variants: (Array[bool | Float | Integer | String | Symbol | nil] arguments) -> Array[bool | Float | String]
+    private def self.results: (::Object? values) -> [Array[Variant::token], Array[Variant::token]]
   end
 end

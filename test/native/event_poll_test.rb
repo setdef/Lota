@@ -70,11 +70,106 @@ class EventPollTest < Minitest::Test
     assert_equal [[:keypressed, :space, :space, false]], Lota::Event.poll.to_a
   end
 
-  # luax_checkvariant cannot store a table (wrap_Event.cpp:97-101).
+  # w_push raises when luax_checkvariant makes a Variant of unknown type
+  # (wrap_Event.cpp:101-107), as it makes of a function.
   def test_an_argument_an_event_cannot_carry_raises_loves_error
-    error = assert_raises(ArgumentError) { Lota::Event.push(:test, 1, [2]) }
+    error = assert_raises(ArgumentError) { Lota::Event.push(:test, 1, -> {}) }
 
     assert_equal "Argument 3 can't be stored safely\nExpected boolean, number, string or userdata.", error.message
+    assert_raises(ArgumentError) { Lota::Event.push(:test, Object.new) }
+    assert_empty Lota::Event.poll.to_a
+  end
+
+  # luax_checkvariant reads a table as a SharedTable of its keys and values,
+  # each read as an argument is (runtime.cpp:758-808), and luax_pushvariant
+  # makes a table of it again (runtime.cpp:837-853). An Array is the table
+  # whose keys are 1 to n, and comes back an Array; numbers come back as
+  # Floats, Symbols as their names, and Strings as UTF-8.
+  def test_an_array_is_carried_as_a_table_and_comes_back_an_array
+    Lota::Event.push(:test, [1, "café", :name, true, [2.5, []]])
+
+    message = Lota::Event.poll.to_a
+
+    assert_equal [[:test, [1.0, "café", "name", true, [2.5, []]]]], message
+    assert_equal Encoding::UTF_8, message.dig(0, 1, 1).encoding
+  end
+
+  # A table whose keys are not 1 to n comes back a Hash, its keys converted
+  # as its values are: they are data, not LÖVE's names, so a Symbol key
+  # comes back a String (ADR 001, rule 9, is for enum strings).
+  def test_a_hash_is_carried_as_a_table_and_comes_back_a_hash
+    Lota::Event.push(:test, { :name => "Ada", "level" => 3, 0 => false, true => [1], 2.5 => { inner: nil } })
+
+    expected = { "name" => "Ada", "level" => 3.0, 0.0 => false, true => [1.0], 2.5 => { "inner" => nil } }
+
+    assert_equal [[:test, expected]], Lota::Event.poll.to_a
+  end
+
+  # Lua has one kind of table, so whatever its keys are, a table whose keys
+  # are exactly 1 to n is a sequence, and the empty table is one too.
+  def test_a_table_whose_keys_are_one_to_n_comes_back_an_array_whatever_it_was
+    Lota::Event.push(:test, { 2 => "b", 1 => "a" }, {}, { 1 => "a", 3 => "c" }, { 1.5 => "x" })
+
+    assert_equal [[:test, %w[a b], [], { 1.0 => "a", 3.0 => "c" }, { 1.5 => "x" }]], Lota::Event.poll.to_a
+  end
+
+  # Unlike an argument, a value in a table does not end the table at nil:
+  # the SharedTable holds each pair Ruby has.
+  def test_a_nil_in_a_table_is_carried
+    Lota::Event.push(:test, [1, nil, 3], { nil => 1, "gone" => nil })
+
+    assert_equal [[:test, [1.0, nil, 3.0], { nil => 1.0, "gone" => nil }]], Lota::Event.poll.to_a
+  end
+
+  # A table with a key or value of unknown type is one itself
+  # (runtime.cpp:784-808), which w_push refuses.
+  def test_a_table_holding_a_proc_cannot_be_stored
+    error = assert_raises(ArgumentError) { Lota::Event.push(:test, 1, [[-> {}]]) }
+
+    assert_equal "Argument 3 can't be stored safely\nExpected boolean, number, string or userdata.", error.message
+    assert_raises(ArgumentError) { Lota::Event.push(:test, { 1.method(:+) => 1 }) }
+    assert_empty Lota::Event.poll.to_a
+  end
+
+  # luax_checkvariant keeps the tables it is inside of and raises when one
+  # holds itself (runtime.cpp:768-774), but reads a table twice when it is
+  # only shared.
+  def test_a_table_that_holds_itself_raises_and_a_shared_one_is_carried
+    cycle = [1]
+    cycle << { again: cycle }
+    error = assert_raises(RuntimeError) { Lota::Event.push(:test, cycle) }
+
+    assert_equal "Cycle detected in table", error.message
+
+    shared = [1]
+    Lota::Event.push(:test, [shared, shared])
+
+    assert_equal [[:test, [[1.0], [1.0]]]], Lota::Event.poll.to_a
+  end
+
+  def test_a_value_in_a_table_that_lua_has_no_counterpart_of_raises_type_error
+    error = assert_raises(TypeError) { Lota::Event.push(:test, [1..2]) }
+
+    assert_equal "wrong argument type Range (expected nil, true, false, a number, a String, a Symbol, an Array, " \
+      "a Hash, or a Proc)", error.message
+    assert_empty Lota::Event.poll.to_a
+  end
+
+  # Lota::Native reads only the tokens Lota::Variant writes, and refuses
+  # any others rather than read past them.
+  def test_the_engine_refuses_tokens_that_are_not_one_value
+    [[], [:table], [:table, 1, 1.0], [1.0, 2.0], [:table, 2, 1.0, 2.0]].each do |tokens|
+      assert_raises(ArgumentError, tokens.inspect) { Lota::Native::Event.push("test", [tokens]) }
+    end
+    assert_empty Lota::Event.poll.to_a
+  end
+
+  # Lua's own stack bounds how deep a table can be. Ruby's bounds Lota's,
+  # which raises SystemStackError rather than overflow the machine's.
+  def test_a_table_too_deep_for_the_stack_raises_system_stack_error
+    deep = 1_000_000.times.reduce([]) { |inner, _| [inner] }
+
+    assert_raises(SystemStackError) { Lota::Event.push(:test, deep) }
     assert_empty Lota::Event.poll.to_a
   end
 

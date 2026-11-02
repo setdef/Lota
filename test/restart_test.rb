@@ -9,8 +9,8 @@ require_relative "test_helper"
 require "lota/restart"
 
 # The value a restart carries across exec, in an environment variable no
-# one trusts: it holds nil, booleans, numbers and strings, and anything
-# else is dropped. That a restart starts the game again is
+# one trusts: it holds nil, booleans, numbers, strings, and tables of
+# them, and anything else is dropped. That a restart starts the game again is
 # test/native/restart_run_test.rb's to prove, in processes of their own.
 class RestartTest < Minitest::Test
   def roundtrip(value)
@@ -47,11 +47,60 @@ class RestartTest < Minitest::Test
     assert_equal [0xff, 0x00], bytes.bytes
   end
 
+  # A table crosses as the event queue gives one back: keys 1 to n make an
+  # Array, and any others a Hash, with numbers as Floats and Symbols as
+  # Strings, keys and values alike.
+  def test_tables_cross_as_the_queue_gives_them_back
+    assert_equal [1.0, "two", [true, nil], []], roundtrip([1, :two, [true, nil], {}])
+    assert_equal({ "name" => "Ada", 0.0 => false, true => { "deep" => [2.5] }, nil => "nil key" },
+      roundtrip({ :name => "Ada", 0 => false, true => { deep: [2.5] }, nil => "nil key" }))
+    assert_equal %w[a b], roundtrip({ 2 => "b", 1 => "a" })
+    assert_equal({ 1.0 => "a", 3.0 => "c" }, roundtrip({ 1 => "a", 3 => "c" }))
+  end
+
+  def test_a_string_in_a_table_keeps_its_bytes_and_is_utf8
+    key, value = roundtrip({ "café" => "\xff\x00".b }).first
+
+    assert_equal "café", key
+    assert_equal Encoding::UTF_8, key.encoding
+    assert_equal [0xff, 0x00], value.bytes
+    assert_equal Encoding::UTF_8, value.encoding
+  end
+
+  def test_tables_nest_as_deep_as_the_limit
+    deepest = Lota::Restart::MAXIMUM_DEPTH.times.reduce(1) { |inner, _| [inner] }
+
+    assert_equal deepest, roundtrip(deepest)
+    error = assert_raises(TypeError) { Lota::Restart.encode([deepest]) }
+    assert_includes error.message, Lota::Restart::MAXIMUM_DEPTH.to_s
+  end
+
   def test_what_the_queue_cannot_carry_is_refused
-    [[1], {}, Object.new, -> {}, 1..2, Complex(1, 2)].each do |value|
+    [Object.new, -> {}, 1..2, Complex(1, 2), [Object.new], { a: -> {} }, { Object.new => 1 }].each do |value|
       error = assert_raises(TypeError) { Lota::Restart.encode(value) }
-      assert_includes error.message, value.class.to_s
+      assert_match(/Object|Proc|Range|Complex/, error.message)
     end
+  end
+
+  def test_a_table_that_holds_itself_is_refused_and_a_shared_one_crosses
+    cycle = [1]
+    cycle << { again: cycle }
+    error = assert_raises(TypeError) { Lota::Restart.encode(cycle) }
+
+    assert_equal "Cycle detected in table", error.message
+
+    shared = [1]
+
+    assert_equal [[1.0], [1.0]], roundtrip([shared, shared])
+  end
+
+  # Environment variables are limited in size on every system, the largest
+  # to a megabyte (macOS's ARG_MAX), so nothing longer can cross.
+  def test_a_value_too_long_for_the_environment_is_refused
+    error = assert_raises(TypeError) { Lota::Restart.encode("x" * Lota::Restart::MAXIMUM_LENGTH) }
+
+    assert_includes error.message, "too long"
+    assert_raises(ArgumentError) { Lota::Restart.decode("string:#{'78' * Lota::Restart::MAXIMUM_LENGTH}") }
   end
 
   def test_nothing_but_what_encode_writes_is_read
@@ -75,7 +124,24 @@ class RestartTest < Minitest::Test
       " nil:",
       "NIL:",
       "number:0x00000000000000",
-].each do |text|
+      "table:",
+      "table:(",
+      "table:()x",
+      "table:())",
+      "table:(nil:)",
+      "table:(nil:,)",
+      "table:(nil:,nil:;)",
+      "table:(nil:,nil:",
+      "table:(nil:,nil:,nil:)",
+      "table:(;)",
+      "table:(string:abc,nil:)",
+      "table:(nil: ,nil:)",
+      "table:[nil:,nil:]",
+      "array:()",
+      "table:(eval:1,nil:)",
+      "#{'table:(nil:,' * (Lota::Restart::MAXIMUM_DEPTH + 1)}nil:#{')' * (Lota::Restart::MAXIMUM_DEPTH + 1)}",
+      "table:(nil:,\xff)",
+    ].each do |text|
       assert_raises(ArgumentError, text.inspect) { Lota::Restart.decode(text) }
     end
   end
@@ -108,6 +174,6 @@ class RestartTest < Minitest::Test
   end
 
   def test_asking_to_restart_with_what_cannot_cross_raises_before_the_game_ends
-    assert_raises(TypeError) { Lota::Restart.request([1]) }
+    assert_raises(TypeError) { Lota::Restart.request([Object.new]) }
   end
 end

@@ -21,6 +21,15 @@ inline bool is_array(const Rice::Object &value) {
   return rb_obj_is_kind_of(value.value(), rb_cArray) == Qtrue;
 }
 
+// The number of elements of +array+, and the one at +index+. Read one at
+// a time, rather than copied out, each stays where Ruby's collector can
+// see it, in +array+, however long a caller takes over the rest.
+inline long length(const Rice::Array &array) { return RARRAY_LEN(array.value()); }
+
+inline Rice::Object entry(const Rice::Array &array, long index) {
+  return {rb_ary_entry(array.value(), index)};
+}
+
 inline bool is_string(const Rice::Object &value) {
   return rb_obj_is_kind_of(value.value(), rb_cString) == Qtrue;
 }
@@ -41,12 +50,6 @@ inline bool is_symbol(const Rice::Object &value) { return RB_SYMBOL_P(value.valu
 // The name of the Symbol +value+.
 inline std::string symbol_name(const Rice::Object &value) {
   return Rice::detail::From_Ruby<std::string>().convert(rb_sym2str(value.value()));
-}
-
-// Whether +value+ is a Proc or a Method, Ruby's counterparts of a Lua
-// function.
-inline bool is_function(const Rice::Object &value) {
-  return rb_obj_is_proc(value.value()) == Qtrue || rb_obj_is_method(value.value()) == Qtrue;
 }
 
 // Whether +value+ is a +klass+, or of a class under it, as Ruby's is_a?

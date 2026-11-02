@@ -438,17 +438,17 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.poll: () -> Array[String | Float | Integer | bool | nil]?
+      def self.poll: () -> Array[Lota::Variant::native]?
 
-      def self.wait: () -> Array[String | Float | Integer | bool | nil]?
+      def self.wait: () -> Array[Lota::Variant::native]?
 
       def self.quit: (?Float? exit_status) -> bool
 
-      def self.restart: (Array[bool | Float | Integer | String | Symbol | ::Proc | ::Method | nil] arguments) -> bool
+      def self.restart: (Array[Array[Lota::Variant::token]] arguments) -> bool
 
-      def self.set_modal_draw_callback: (Lota::Event::callable? callable) -> nil
+      def self.set_modal_draw_callback: (^() -> [Array[Lota::Variant::token], Array[Lota::Variant::token]] | nil callable) -> nil
 
-      def self.push: (String name, Array[bool | Float | String] arguments) -> bool
+      def self.push: (String name, Array[Array[Lota::Variant::token]] arguments) -> bool
     end
 
     module Keyboard

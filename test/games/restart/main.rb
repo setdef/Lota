@@ -27,6 +27,7 @@ VALUES = {
   "empty" => [""],
   "binary" => ["\xff\x00".b],
   "extra" => ["first", 2, true],
+  "table" => [[1, { name: :ada }]],
   "none" => [],
 }.freeze
 

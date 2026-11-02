@@ -5,5 +5,6 @@
 
 target :lib do
   signature "sig"
+  library "strscan"
   check "lib"
 end

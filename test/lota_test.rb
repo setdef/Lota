@@ -64,6 +64,7 @@ class LotaTest < Minitest::Test
       Lota::EnumName
       Lota::ErrorMessage
       Lota::Restart
+      Lota::Variant
     ]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }

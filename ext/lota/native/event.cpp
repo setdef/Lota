@@ -13,12 +13,12 @@
 #include "event/sdl/Event.h"
 
 #include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace lota::native {
@@ -54,16 +54,17 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // the kinds of value LÖVE's event module puts in a message, and changed to
 // build Ruby values instead of pushing Lua ones.
 
-// Appends one argument of a message to +result+, as Ruby sees it. Strings
+// Appends +variant+ to +result+ as Ruby sees it, unless it is a table,
+// whose SharedTable it returns instead for push_table to write. Strings
 // come back as bytes in Ruby's default external encoding (Rice's
-// std::string conversion); Lota::Callbacks marks them as the UTF-8 SDL
+// std::string conversion); Lota::Variant marks them as the UTF-8 SDL
 // gives. A light userdata, such as a touch's id, becomes the Integer its
 // pointer holds, and a value of unknown type, which love.event.restart and
 // a modal draw callback make of a function, becomes nil, as
-// luax_pushvariant's default pushes. Engine objects and tables come only
-// from modules Lota does not open yet (love.joystick, love.filesystem),
-// and Lota's own love.event functions do not put them in a message yet.
-void push_argument(Rice::Array &result, const Variant &variant) {
+// luax_pushvariant's default pushes. Engine objects come only from modules
+// Lota does not open yet (love.joystick, love.filesystem), and Lota's own
+// love.event functions do not put them in a message yet.
+const Variant::SharedTable *push_value(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
   // other way to read it.
@@ -84,6 +85,8 @@ void push_argument(Rice::Array &result, const Variant &variant) {
   case Variant::LUSERDATA:
     result.push(std::bit_cast<std::uintptr_t>(data.userdata), false);
     break;
+  case Variant::TABLE:
+    return data.table;
   case Variant::NIL:
   case Variant::UNKNOWN:
     result.push(Rice::Object(), false);
@@ -92,6 +95,55 @@ void push_argument(Rice::Array &result, const Variant &variant) {
     throw love::Exception("Lota cannot pass this event's arguments to Ruby yet.");
   }
   // NOLINTEND(cppcoreguidelines-pro-type-union-access)
+  return nullptr;
+}
+
+// The Symbol that starts a table among Lota::Variant's tokens.
+Rice::Symbol table_token() { return {"table"}; }
+
+// luax_pushvariant for a table (runtime.cpp:837-853), which sets each of
+// its pairs, key and then value, in the table's order: appends to +result+
+// one Array of Lota::Variant's tokens for +table+, the Symbol :table and
+// the number of its pairs, then each key and value, a table among them
+// written so in its place. Lota::Variant reads it as an Array or a Hash.
+// It keeps its place in each table it is inside of, rather than calling
+// itself, so a table nests as deep as Ruby built it.
+void push_table(Rice::Array &result, const Variant::SharedTable *table) {
+  struct Place {
+    const Variant::SharedTable *table;
+    std::size_t next; // the next of its keys and values, two to a pair
+  };
+  Rice::Array tokens;
+  std::vector<Place> places;
+  const auto open = [&tokens, &places](const Variant::SharedTable *opened) {
+    tokens.push(table_token(), false);
+    tokens.push(opened->pairs.size(), false);
+    places.push_back({.table = opened, .next = 0});
+  };
+  open(table);
+  while (!places.empty()) {
+    Place &place = places.back();
+    if (place.next == place.table->pairs.size() * 2) {
+      places.pop_back();
+      continue;
+    }
+    const auto &pair = place.table->pairs.at(place.next / 2);
+    const Variant &value = place.next % 2 == 0 ? pair.first : pair.second;
+    place.next++;
+    if (const Variant::SharedTable *inner = push_value(tokens, value)) {
+      open(inner);
+    }
+  }
+  result.push(tokens, false);
+}
+
+// Appends one argument of a message to +result+, as Ruby sees it: a table
+// as the Array of its tokens (push_table), and anything else as itself
+// (push_value). Nothing else in a message becomes an Array.
+void push_argument(Rice::Array &result, const Variant &variant) {
+  if (const Variant::SharedTable *table = push_value(result, variant)) {
+    push_table(result, table);
+  }
 }
 
 // luax_pushmessage (wrap_Event.cpp:42-50): +message+ as an Array of its
@@ -143,22 +195,110 @@ bool quit(std::optional<double> exit_status) {
   return true;
 }
 
-// Each of +list+, which Lota::Event.push has read as w_push reads them (up
-// to the first nil, raising its error for a value an event cannot carry),
-// as the Variant luax_checkvariant makes of it: a boolean, a number, or a
-// string.
-std::vector<Variant> variants(const Rice::Array &list) {
-  std::vector<Variant> args;
-  Rice::detail::From_Ruby<std::variant<bool, double, std::string>> from_ruby;
-  for (const auto item : list) {
-    std::visit([&args](const auto &value) { args.emplace_back(value); },
-               from_ruby.convert(item.value()));
+// The Variant for the one token that is a value in itself: nil, a
+// boolean, a Float, a String, or :unknown, which Lota::Variant writes for
+// a Proc or a Method, or a table with one in it.
+Variant token_variant(const Rice::Object &token) {
+  if (ruby::is_nil(token)) {
+    return {};
   }
-  return args;
+  if (ruby::is_boolean(token)) {
+    return {ruby::is_true(token)};
+  }
+  if (ruby::is_string(token)) {
+    return {Rice::detail::From_Ruby<std::string>().convert(token.value())};
+  }
+  if (ruby::is_symbol(token) && ruby::symbol_name(token) == "unknown") {
+    return Variant::unknown();
+  }
+  return {Rice::detail::From_Ruby<double>().convert(token.value())};
+}
+
+// A table being read from tokens: its pairs so far, how many are to come,
+// and the key of the pair it is in the middle of.
+struct OpenTable {
+  love::StrongRef<Variant::SharedTable> table;
+  std::size_t remaining;
+  std::optional<Variant> key;
+};
+
+// Gives +value+ to the table it is in, as the key or the value of its next
+// pair, and each table that completes so to the one it is in. Returns the
+// value no table is open to take, which is the whole value read.
+std::optional<Variant> place(std::vector<OpenTable> &tables, Variant value) {
+  while (!tables.empty()) {
+    OpenTable &open = tables.back();
+    if (!open.key.has_value()) {
+      open.key = std::move(value);
+      return std::nullopt;
+    }
+    open.table->pairs.emplace_back(std::move(open.key.value()), std::move(value));
+    open.key.reset();
+    if (--open.remaining > 0) {
+      return std::nullopt;
+    }
+    // The Variant releases the table it is given, so it takes a reference
+    // of its own.
+    open.table->retain();
+    value = Variant(open.table.get());
+    tables.pop_back();
+  }
+  return value;
+}
+
+// The Variant luax_checkvariant (runtime.cpp:722-812) makes, from the
+// tokens Lota::Variant.tokens has read a Ruby value into: a table is the
+// Symbol :table, the number of its pairs, and each key and value in turn,
+// read into a SharedTable (runtime.cpp:758-808). Lota::Variant has already
+// raised LÖVE's errors and made a table of unknown type one token. Raises
+// ArgumentError for tokens it did not write.
+Variant tokens_variant(const Rice::Array &tokens) {
+  std::vector<OpenTable> tables;
+  long index = 0;
+  while (index < ruby::length(tokens)) {
+    const Rice::Object token = ruby::entry(tokens, index++);
+    std::optional<Variant> whole;
+    if (ruby::is_symbol(token) && ruby::symbol_name(token) == "table") {
+      if (index == ruby::length(tokens)) {
+        break;
+      }
+      const auto count =
+          Rice::detail::From_Ruby<std::size_t>().convert(ruby::entry(tokens, index++).value());
+      love::StrongRef<Variant::SharedTable> table(new Variant::SharedTable(),
+                                                  love::Acquire::NORETAIN);
+      if (count > 0) {
+        tables.push_back({.table = std::move(table), .remaining = count, .key = std::nullopt});
+        continue;
+      }
+      table->retain();
+      whole = place(tables, Variant(table.get()));
+    } else {
+      whole = place(tables, token_variant(token));
+    }
+    if (whole.has_value()) {
+      if (index != ruby::length(tokens)) {
+        break;
+      }
+      return std::move(whole.value());
+    }
+  }
+  ruby::raise_argument_error("not the tokens of one value");
+}
+
+// Each of +list+, an Array of Lota::Variant's tokens for each value, as
+// its Variant.
+std::vector<Variant> variants(const Rice::Array &list) {
+  std::vector<Variant> values;
+  values.reserve(static_cast<std::size_t>(ruby::length(list)));
+  for (long index = 0; index < ruby::length(list); index++) {
+    values.push_back(tokens_variant(Rice::Array(ruby::entry(list, index))));
+  }
+  return values;
 }
 
 // w_push (wrap_Event.cpp:90-115): queues a message named +name+ with
-// +arguments+.
+// +arguments+, which Lota::Event.push has read as w_push reads them, up to
+// the first nil and raising its error for a value of unknown type.
 bool push(const std::string &name, Rice::Array list) {
   const Rice::Array arguments = std::move(list);
   const love::StrongRef<Message> message(new Message(name, variants(arguments)),
@@ -167,47 +307,14 @@ bool push(const std::string &name, Rice::Array list) {
   return true;
 }
 
-// The Variant luax_checkvariant (runtime.cpp:722-812) makes of +value+,
-// for the kinds of Lua value Ruby has: nil, a boolean, a number, and a
-// string, with a Symbol as its name (ADR 001, rule 9). A Proc or a Method,
-// Ruby's function, is a Variant of unknown type, as a Lua function is,
-// which carries nothing and leaves the queue as nil. LÖVE also reads a
-// table as a SharedTable and its own objects as themselves; Lota does not
-// put a Hash, an Array, or a Lota::Object in a message yet, and raises
-// TypeError for them and for anything else.
-Variant checked_variant(const Rice::Object &value) {
-  if (ruby::is_nil(value)) {
-    return {};
-  }
-  if (ruby::is_boolean(value)) {
-    return {ruby::is_true(value)};
-  }
-  if (ruby::is_numeric(value)) {
-    return {Rice::detail::From_Ruby<double>().convert(value.value())};
-  }
-  if (ruby::is_string(value)) {
-    return {Rice::detail::From_Ruby<std::string>().convert(value.value())};
-  }
-  if (ruby::is_symbol(value)) {
-    return {ruby::symbol_name(value)};
-  }
-  if (ruby::is_function(value)) {
-    return Variant::unknown();
-  }
-  ruby::raise_type_error("wrong argument type " + ruby::class_name(value) +
-                         " (expected nil, true, false, a number, a String, a Symbol, or a Proc)");
-}
-
 // w_restart (wrap_Event.cpp:138-153): queues a quit message whose first
 // argument is "restart", followed by every one of +arguments+, nil
-// included, each read as luax_checkvariant reads it.
+// included, which Lota::Event.restart has read as luax_checkvariant reads
+// them.
 bool restart(Rice::Array list) {
   const Rice::Array arguments = std::move(list);
-  std::vector<Variant> args;
-  args.emplace_back(std::string("restart"));
-  for (const auto item : arguments) {
-    args.push_back(checked_variant(Rice::Object(item.value())));
-  }
+  std::vector<Variant> args = variants(arguments);
+  args.emplace(args.begin(), std::string("restart"));
   const love::StrongRef<Message> message(new Message("quit", args), love::Acquire::NORETAIN);
   event().push(message.get());
   return true;
@@ -220,25 +327,21 @@ bool restart(Rice::Array list) {
 using Callable = ruby::Root;
 
 // drawCallbackInner and drawCallback (wrap_Event.cpp:161-193): calls the
-// callable, whose two results, an Array when it returns several (rule 4),
-// go to LÖVE's quit message, each read as luax_checkvariant reads it. An
-// error it raises, or a result Lota cannot read, reaches the pump as an
-// exception with the callback's name in front, as lua_cpcall catches
-// every error in LÖVE's. So does a throw or another non-local exit, which
-// Rice reports as a JumpException: a Lua function has no way out but an
-// error, and Event::modalDraw would pass the exit on without the name.
+// callable, which Lota::Event.modal_draw_callback= has given the game's
+// callable to, and which returns the tokens of its two results, each read
+// as luax_checkvariant reads it, for LÖVE's quit message. An error it
+// raises, the game's or one for a result Lota cannot read, reaches the
+// pump as an exception with the callback's name in front, as lua_cpcall
+// catches every error in LÖVE's. So does a throw or another non-local
+// exit, which Rice reports as a JumpException: a Lua function has no way
+// out but an error, and Event::modalDraw would pass the exit on without
+// the name.
 void draw_callback(void *context, Variant *first, Variant *second) {
   Rice::Object callable = static_cast<Callable *>(context)->value();
   try {
-    const Rice::Object result = callable.vcall("call", Rice::Array());
-    if (ruby::is_array(result)) {
-      const std::vector<Rice::Object> values = ruby::elements(Rice::Array(result));
-      *first = values.empty() ? Variant() : checked_variant(values.at(0));
-      *second = values.size() < 2 ? Variant() : checked_variant(values.at(1));
-    } else {
-      *first = checked_variant(result);
-      *second = Variant();
-    }
+    const Rice::Array results(callable.vcall("call", Rice::Array()));
+    *first = tokens_variant(Rice::Array(ruby::entry(results, 0)));
+    *second = tokens_variant(Rice::Array(ruby::entry(results, 1)));
   } catch (const Rice::Exception &error) {
     throw love::Exception("Error in modal draw callback: %s", error.what());
   } catch (const Rice::JumpException &jump) {
