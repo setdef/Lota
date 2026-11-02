@@ -5,7 +5,7 @@ module Lota
   module Info
     def version: () -> [Integer, Integer, Integer, String]
 
-    def version_compatible?: (String | Integer | Float major, ?(Integer | Float)? minor, ?(Integer | Float) revision) -> bool
+    def version_compatible?: (String | Integer | Float major, ?(Integer | Float)? minor, ?(Integer | Float)? revision) -> bool
 
     def deprecation_output=: (bool enable) -> void
 

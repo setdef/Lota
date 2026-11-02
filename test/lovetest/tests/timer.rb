@@ -18,7 +18,7 @@ class TimerTest < Lovetest::TestMethod
   #
   # Translated to Ruby from love.test.timer.getAverageDelta,
   # love.test.timer.getDelta, and love.test.timer.getFPS
-  # (vendor/love/testing/tests/timer.lua:13-33): the getters drop get
+  # (vendor/love/testing/tests/timer.lua:13-28): the getters drop get
   # (rule 3), and getFPS is fps (rule 13, which makes FPS one word).
   def test_get_average_delta
     assert_not_nil(Lota::Timer.average_delta)
@@ -33,7 +33,7 @@ class TimerTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.timer.getTime and
-  # love.test.timer.sleep (timer.lua:36-50): Lua's assertRange of a value
+  # love.test.timer.sleep (timer.lua:32-45): Lua's assertRange of a value
   # between two bounds is Minitest's assert_includes on the Range of them.
   def test_get_time
     starttime = Lota::Timer.time
@@ -48,7 +48,7 @@ class TimerTest < Lovetest::TestMethod
     assert_includes(0.05..1, Lota::Timer.time - starttime, "check 0.1s passes")
   end
 
-  # Translated to Ruby from love.test.timer.step (timer.lua:53-57).
+  # Translated to Ruby from love.test.timer.step (timer.lua:50-52).
   def test_step
     assert_not_nil(Lota::Timer.step)
   end

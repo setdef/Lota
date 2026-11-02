@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <span>
@@ -35,6 +36,7 @@
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
@@ -593,6 +595,28 @@ void request_modal_draw() {
   }
 }
 
+// The area SDL keeps for text input in the first window, where the system
+// places its candidate window, as [x, y, w, h] in the window's
+// coordinates. Keyboard::setTextInput's form with a rectangle sets it
+// (keyboard/sdl/Keyboard.cpp:147-165) with SDL_SetTextInputArea, which
+// stores it whether or not the system shows anything there, and nothing
+// in Lota or LÖVE reads it back.
+Rice::Array text_input_area() {
+  int count = 0;
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  SDL_Rect area{};
+  int cursor = 0;
+  if (window == nullptr || !SDL_GetTextInputArea(window, &area, &cursor)) {
+    throw std::runtime_error(SDL_GetError());
+  }
+  Rice::Array result;
+  for (const int value : {area.x, area.y, area.w, area.h}) {
+    result.push(value, false);
+  }
+  return result;
+}
+
 // The first window's size in pixels changing to the size it already has,
 // so that LÖVE's handler (Event::convertWindowEvent) reads the window's
 // real size and nothing changes.
@@ -791,6 +815,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("sdl_error", &sdl_error)
       .define_module_function("clear_sdl_error", &clear_sdl_error)
       .define_module_function("swap_interval", &swap_interval)
+      .define_module_function("text_input_area", &text_input_area)
       .define_module_function("image_data_bytes", &image_data_bytes,
                               Rice::Arg("image_data").setValue())
       .define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),

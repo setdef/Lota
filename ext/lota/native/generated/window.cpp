@@ -207,9 +207,10 @@ Rice::Array w_toPixels(double wx, std::optional<double> wy) {
     results.push(instance()->toPixels(wx), false);
     return results;
   }
+  const double wy_value = required(wy, "wy");
   double px = 0.0;
   double py = 0.0;
-  instance()->toPixels(wx, required(wy, "wy"), px, py);
+  instance()->toPixels(wx, wy_value, px, py);
   results.push(px, false);
   results.push(py, false);
   return results;
@@ -222,9 +223,10 @@ Rice::Array w_fromPixels(double px, std::optional<double> py) {
     results.push(instance()->fromPixels(px), false);
     return results;
   }
+  const double py_value = required(py, "py");
   double wx = 0.0;
   double wy = 0.0;
-  instance()->fromPixels(px, required(py, "py"), wx, wy);
+  instance()->fromPixels(px, py_value, wx, wy);
   results.push(wx, false);
   results.push(wy, false);
   return results;

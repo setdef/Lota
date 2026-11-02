@@ -50,7 +50,7 @@ module Lota
     #   <tt>"12.0.0"</tt>, which gains <tt>".0"</tt> when it has fewer than
     #   two dots.
     # [minor] Integer, required when +major+ is not a String.
-    # [revision] Integer, 0 by default.
+    # [revision] Integer, 0 when +nil+ or left out.
     #
     # A version is compatible when it is one of the versions the engine
     # lists as compatible (#_version_compat). Raises TypeError for a
@@ -66,7 +66,7 @@ module Lota
       else
         raise TypeError, "wrong argument type #{minor.class} (expected Integer)" unless minor.is_a?(Numeric)
 
-        "#{Integer(major)}.#{Integer(minor)}.#{Integer(revision)}"
+        "#{Integer(major)}.#{Integer(minor)}.#{Integer(revision || 0)}"
       end
       _version_compat.any? { |compatible| written(compatible) == version }
     end

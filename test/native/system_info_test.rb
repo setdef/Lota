@@ -50,6 +50,9 @@ class SystemInfoTest < Minitest::Test
   # A computer has no motor, so vibrating does nothing and returns nothing
   # (System::vibrate, system/System.cpp), whether or not it is told how
   # long; w_vibrate waits half a second by default (wrap_System.cpp:100).
+  # This shows only that the call reaches the engine and returns nil: a
+  # computer does nothing a test can read, so a binding that dropped the
+  # seconds would pass too.
   def test_vibrating_a_computer_does_nothing
     assert_nil Lota::System.vibrate
     assert_nil Lota::System.vibrate(0.01)

@@ -102,7 +102,9 @@ module Lota
     # The time since the program began, in seconds, as a Float, matching
     # love.timer.getTime (src/modules/timer/wrap_Timer.cpp, w_getTime),
     # from a clock that only moves forward. Subtract two readings to time
-    # something. Raises RuntimeError when the timer module is not open.
+    # something. Unlike the rest of Lota::Timer it answers before the
+    # timer module is open, as LÖVE's w_getTime calls the static
+    # Timer::getTime, which needs no module.
     #
     # === Example
     #

@@ -98,18 +98,31 @@ class KeyboardSettingsTest < Minitest::Test
   end
 
   # The form with a rectangle (wrap_Keyboard.cpp:166-174) turns text input
-  # on or off as well as placing it, and wants all four numbers.
+  # on or off as well as placing it, and wants all four numbers, which it
+  # reads in order, so the first one missing is the one named.
+  # Keyboard::setTextInput (keyboard/sdl/Keyboard.cpp:147-165) converts
+  # them from DPI-scaled units to the window's coordinates, through the
+  # window's pixels, and truncates them for SDL.
   def test_text_input_with_a_rectangle
     Lota::Keyboard.text_input = false, 10, 20, 100, 30
 
     refute_predicate Lota::Keyboard, :text_input?
+    assert_equal [10, 20, 100, 30].map { |n| window_coordinate(n) }, LotaNativeTest.text_input_area
 
-    Lota::Keyboard.text_input = true, 10.5, 20, 100, 30
+    Lota::Keyboard.text_input = true, 10.5, 21.75, 101, 33
 
     assert_predicate Lota::Keyboard, :text_input?
+    assert_equal [10.5, 21.75, 101, 33].map { |n| window_coordinate(n) }, LotaNativeTest.text_input_area
     error = assert_raises(ArgumentError) { Lota::Keyboard.text_input = true, 10, 20 }
 
     assert_equal "Missing argument. Name: w.", error.message
+  end
+
+  # +units+ as Window::DPIToWindowCoords converts them (window/sdl/
+  # Window.cpp:1375-1390) and the SDL_Rect truncates them.
+  private def window_coordinate(units)
+    width, = Lota::Window.mode
+    (units * Lota::Window.dpi_scale * width / Lota::Graphics.pixel_width).to_i
   end
 
   def test_a_computer_has_no_screen_keyboard_showing

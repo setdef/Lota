@@ -86,8 +86,11 @@ void w_setTextInput(bool enable, std::optional<double> x, std::optional<double> 
   if (!x.has_value()) {
     instance()->setTextInput(enable);
   } else {
-    instance()->setTextInput(enable, required(x, "x"), required(y, "y"), required(w, "w"),
-                             required(h, "h"));
+    const double x_value = required(x, "x");
+    const double y_value = required(y, "y");
+    const double w_value = required(w, "w");
+    const double h_value = required(h, "h");
+    instance()->setTextInput(enable, x_value, y_value, w_value, h_value);
   }
 }
 

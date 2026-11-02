@@ -169,12 +169,26 @@ class GeneratorTest < Minitest::Test
       "?Integer? points) -> nil", port.rbs.sub("self.", "")
   end
 
+  # w_setTextInput reads x, y, w, and h with checks, in four statements,
+  # so a missing one is the first LÖVE names. C++ leaves the order of a
+  # call's arguments unspecified, and GCC on x86_64 evaluates them right
+  # to left, so each checked read is a local of its own, declared where
+  # LÖVE reads it, rather than inlined into the call.
+  def test_a_checked_read_is_read_where_lovee_reads_it
+    code = port("love.keyboard.setTextInput").definition
+    reads = %w[x y w h].map { |name| code.index(%(const double #{name}_value = required(#{name}, "#{name}");)) }
+
+    assert_equal 4, reads.compact.size, code
+    assert_equal reads.sort, reads
+    assert_operator reads.last, :<, code.index("instance()->setTextInput(enable, x_value, y_value, w_value, h_value);")
+  end
+
   # w_SpriteBatch_setDrawRange reads its start, which Lua counts from 1,
   # into a variable as (int) luaL_checkinteger(L, 2) - 1, and the engine
   # counts from 0, so the port keeps the subtraction the declaration
   # makes, as w_Quad_setLayer's does.
   def test_a_variable_read_with_arithmetic_keeps_it
-    assert_includes port("SpriteBatch:setDrawRange").definition, %(t.setDrawRange((required(start, "start") - 1), required(count, "count"));)
+    assert_includes port("SpriteBatch:setDrawRange").definition, %(const int start_value = (required(start, "start") - 1);)
     assert_includes port("Quad:setLayer").definition, "quad.setLayer((layer - 1));"
   end
 
@@ -188,7 +202,8 @@ class GeneratorTest < Minitest::Test
 
     assert_includes port.registration, %(Rice::Arg("sw") = std::optional<double>(), ) +
       %(Rice::Arg("sh") = std::optional<double>())
-    assert_includes port.definition, %(quad.refresh(v, required(sw, "sw"), required(sh, "sh"));)
+    assert_includes port.definition, %(const double sw_value = required(sw, "sw");\nconst double sh_value = required(sh, "sh");\n) +
+      "quad.refresh(v, sw_value, sh_value);"
     assert_match(/\?\(Float \| Integer\)\? sw, \?\(Float \| Integer\)\? sh\) -> nil\z/, port.rbs)
   end
 
@@ -349,7 +364,7 @@ class GeneratorTest < Minitest::Test
   def test_a_count_of_the_arguments_tests_whether_one_is_given
     code = port("love.graphics.newSpriteBatch").definition
 
-    assert_includes code, "if (usage.has_value() && "
+    assert_includes code, "if (usage.has_value()) {"
     assert_includes code, "BufferDataUsage usage_value = BUFFERDATAUSAGE_DYNAMIC;"
     refute_includes code, "lua_gettop"
   end
@@ -367,18 +382,25 @@ class GeneratorTest < Minitest::Test
     assert_includes mask, "if (!g.has_value()) {"
     refute_includes mask, "lua_gettop"
     assert_match(/if \(!comparestr\.has_value\(\) &&\s*!actionstr\.has_value\(\)\) \{/, stencil)
-    assert_includes stencil, %(getConstant(required(comparestr, "comparestr").c_str(), s.compare))
+    assert_includes stencil, %(const char *const comparestr_value = required(comparestr, "comparestr").c_str();\n) +
+      "if (!getConstant(comparestr_value, s.compare)) {"
     assert_includes stencil, "s.readMask = static_cast<love::uint32>(read_mask.value_or(LOVE_UINT32_MAX));"
   end
 
-  # w_setBlendMode tests its alpha mode's name only when it is given one,
-  # in an if whose body is that test alone; the port tests both in one
-  # if, as clang-tidy's readability-redundant-nested-if asks.
-  def test_an_if_holding_only_an_if_tests_both_conditions_at_once
-    code = port("love.graphics.setBlendMode").definition
+  # w_setDepthMode reads the compare mode's name and the write flag
+  # before it checks the name, so a missing flag is reported before an
+  # unknown name, as in LÖVE, which inlining the flag into the call after
+  # the check would reverse.
+  def test_a_checked_read_comes_before_the_statements_lovee_puts_after_it
+    code = port("love.graphics.setDepthMode").definition
+    order = [
+      %(const bool write_value = required(write, "write");),
+      "if (!getConstant(str_value, compare_value))",
+      "instance()->setDepthMode(compare_value, write_value);",
+].map { |line| code.index(line) }
 
-    assert_includes code, 'if (alphamode.has_value() && !getConstant(required(alphamode, "alphamode").c_str(), '
-    assert_equal 2, code.scan(/^if \(/).size
+    assert_equal 3, order.compact.size, code
+    assert_equal order.sort, order
   end
 
   # The render state's enums and structs (graphics/renderstate.h) and the

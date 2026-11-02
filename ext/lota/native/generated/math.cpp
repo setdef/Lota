@@ -54,11 +54,12 @@ Transform *w_newTransform(std::optional<double> x, std::optional<double> y, doub
   if (!x.has_value()) {
     t = instance()->newTransform();
   } else {
-    t = instance()->newTransform(
-        static_cast<float>(required(x, "x")), static_cast<float>(required(y, "y")),
-        static_cast<float>(a), static_cast<float>(sx),
-        static_cast<float>(sy.value_or(static_cast<float>(sx))), static_cast<float>(ox),
-        static_cast<float>(oy), static_cast<float>(kx), static_cast<float>(ky));
+    const float x_value = static_cast<float>(required(x, "x"));
+    const float y_value = static_cast<float>(required(y, "y"));
+    t = instance()->newTransform(x_value, y_value, static_cast<float>(a), static_cast<float>(sx),
+                                 static_cast<float>(sy.value_or(static_cast<float>(sx))),
+                                 static_cast<float>(ox), static_cast<float>(oy),
+                                 static_cast<float>(kx), static_cast<float>(ky));
   }
   return t;
 }

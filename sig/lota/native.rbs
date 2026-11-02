@@ -444,7 +444,7 @@ module Lota
 
       def self.quit: (?Float? exit_status) -> bool
 
-      def self.restart: (Array[bool | Float | String] arguments) -> bool
+      def self.restart: (Array[bool | Float | Integer | String | Symbol | ::Proc | ::Method | nil] arguments) -> bool
 
       def self.set_modal_draw_callback: (Lota::Event::callable? callable) -> nil
 

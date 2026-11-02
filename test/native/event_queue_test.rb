@@ -44,7 +44,7 @@ class EventQueueTest < Minitest::Test
     Lota::Event.clear
   end
 
-  # w_wait (wrap_Event.cpp:74-91) takes the next message SDL has and
+  # w_wait (wrap_Event.cpp:74-88) takes the next message SDL has and
   # returns its name and arguments, after marking itself deprecated. SDL
   # may hold a message of the system's first, as a mouse the person moves,
   # so this waits until the key arrives.
@@ -61,7 +61,7 @@ class EventQueueTest < Minitest::Test
 
     assert_equal [:keypressed, :space, :space, false], message
     assert_match(
-      /\ALota - Warning: #{Regexp.escape(__FILE__)}:\d+: Using deprecated function Lota::Event.wait \(replaced by wait_timeout parameter in Lota::Event.pump\)\n\z/,
+      /\ALota - Warning: #{Regexp.escape(__FILE__)}:\d+: Using deprecated function Lota::Event.wait \(replaced by waitTimeout parameter in Lota::Event.pump\)\n\z/,
       printed,
     )
   ensure
@@ -77,10 +77,32 @@ class EventQueueTest < Minitest::Test
     assert_equal [[:quit, "restart"], [:quit, "restart", 1.0, "two", true, "three"]], Lota::Event.poll.to_a
   end
 
-  def test_restart_refuses_what_an_event_cannot_carry
-    error = assert_raises(ArgumentError) { Lota::Event.restart(1, [2]) }
+  # Unlike w_push, w_restart reads every argument up to lua_gettop, so a
+  # nil, even the last, is carried and does not end the list.
+  def test_restart_carries_every_nil_it_is_given
+    Lota::Event.restart(nil, 2, nil)
 
-    assert_equal "Argument 3 can't be stored safely\nExpected boolean, number, string or userdata.", error.message
+    assert_equal [[:quit, "restart", nil, 2.0, nil]], Lota::Event.poll.to_a
+  end
+
+  # luax_checkvariant makes a function a Variant of unknown type
+  # (runtime.cpp:722-812), which w_restart keeps without complaint, unlike
+  # w_push, and luax_pushvariant gives back as nil (runtime.cpp:854-857).
+  def test_restart_keeps_a_proc_as_a_value_that_carries_nothing
+    Lota::Event.restart(-> {}, 1.method(:+), 3)
+
+    assert_equal [[:quit, "restart", nil, nil, 3.0]], Lota::Event.poll.to_a
+  end
+
+  # LÖVE carries a table as a SharedTable, and Lota does not carry a Hash
+  # or an Array yet, nor a value Lua has no counterpart of.
+  def test_restart_refuses_what_lota_does_not_carry_yet
+    error = assert_raises(TypeError) { Lota::Event.restart(1, [2]) }
+
+    assert_equal "wrong argument type Array (expected nil, true, false, a number, a String, a Symbol, or a Proc)",
+      error.message
+    assert_raises(TypeError) { Lota::Event.restart({}) }
+    assert_raises(TypeError) { Lota::Event.restart(Object.new) }
     assert_empty Lota::Event.poll.to_a
   end
 
@@ -141,12 +163,45 @@ class EventQueueTest < Minitest::Test
     Lota::Event.pump # the error was taken
   end
 
-  def test_a_result_an_event_cannot_carry_comes_out_of_the_next_pump
+  # drawCallbackInner reads the results with luax_checkvariant
+  # (wrap_Event.cpp:161-173), whose error lua_cpcall turns into the
+  # callback's (176-193). Lota refuses what Event.restart refuses.
+  def test_a_result_lota_cannot_read_comes_out_of_the_next_pump
     Lota::Event.modal_draw_callback = -> { Object.new }
     LotaNativeTest.request_modal_draw
     error = assert_raises(RuntimeError) { Lota::Event.pump }
 
-    assert_equal "Error in modal draw callback: it returned Object, which an event cannot carry.", error.message
+    assert_equal "Error in modal draw callback: wrong argument type Object (expected nil, true, false, a number, " \
+      "a String, a Symbol, or a Proc)", error.message
+  end
+
+  # A function the callback returns is a Variant of unknown type, which is
+  # not nil, so Event::pump queues the quit (event/sdl/Event.cpp:184-199),
+  # and it leaves the queue as nil. A Symbol is its name.
+  def test_a_proc_or_a_symbol_the_callback_returns_is_read_as_restart_reads_it
+    Lota::Event.modal_draw_callback = -> { -> {} }
+    resize_and_pump
+
+    assert_equal [[:quit, nil, nil, true]], queued
+
+    Lota::Event.modal_draw_callback = -> { [0, :restart] }
+    resize_and_pump
+
+    assert_equal [[:quit, 0, "restart", true]], queued
+  end
+
+  # Lua leaves a function only by returning or by an error, which
+  # lua_cpcall catches, so a throw out of the callable is an error of the
+  # callback's too, rather than an exit that skips the pump.
+  def test_a_throw_out_of_the_callback_comes_out_of_the_next_pump
+    Lota::Event.modal_draw_callback = -> { throw :out }
+    error = catch(:out) do
+      LotaNativeTest.request_modal_draw
+      assert_raises(RuntimeError) { Lota::Event.pump }
+    end
+
+    assert_kind_of RuntimeError, error
+    assert_equal "Error in modal draw callback: Unexpected throw", error.message
   end
 
   def test_anything_that_answers_call_may_draw

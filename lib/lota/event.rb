@@ -96,8 +96,9 @@ module Lota
     # A number comes back from the queue as a Float, as LÖVE keeps every
     # number in a message as a double. Returns +true+. Raises
     # ArgumentError, with LÖVE's message, for any other argument; LÖVE also
-    # passes its own objects, which Lota does not pass through the queue
-    # yet. Raises RuntimeError when the event module is not open.
+    # passes tables and its own objects, which Lota does not pass through
+    # the queue yet. Raises RuntimeError when the event module is not
+    # open.
     #
     # === Example
     #
@@ -109,7 +110,8 @@ module Lota
     # Waits for the next message and returns it, matching love.event.wait
     # (src/modules/event/wrap_Event.cpp, w_wait), which LÖVE has
     # deprecated in favor of the +wait_timeout+ of #pump. The first use
-    # prints LÖVE's notice (Lota::Deprecation).
+    # prints LÖVE's notice (Lota::Deprecation), word for word but for the
+    # function names ADR 001, section 7, rewrites.
     #
     # It returns the message's name and arguments as one Array (ADR 001,
     # rule 4), as #poll yields them, or +nil+ when what arrives is nothing
@@ -123,7 +125,7 @@ module Lota
     #
     #   name, *arguments = Lota::Event.wait
     def self.wait
-      Deprecation.mark("Lota::Event.wait", :function, :replaced, "wait_timeout parameter in Lota::Event.pump",
+      Deprecation.mark("Lota::Event.wait", :function, :replaced, "waitTimeout parameter in Lota::Event.pump",
         where: Deprecation.where(caller_locations(1, 1)))
       message = Callbacks.message(Native::Event.wait)
       message && [message.first, *message.last]
@@ -169,19 +171,25 @@ module Lota
     # with <tt>"restart"</tt> as its first argument, followed by
     # +arguments+.
     #
-    # [arguments] Booleans, numbers, Strings, or Symbols, which become
-    #   their names, as #push reads them.
+    # [arguments] Every argument, +nil+ included, as LÖVE reads each of
+    #   them (luax_checkvariant): +nil+, +true+, +false+, numbers, which
+    #   leave the queue as Floats, Strings, and Symbols, which become their
+    #   names. A Proc or a Method, Ruby's function, is kept as LÖVE keeps a
+    #   function, as a value that carries nothing, and leaves the queue as
+    #   +nil+.
     #
     # Lota does not restart games yet, so a game that restarts ends, as
     # one that quits with status 0 does, after the +quit+ callback has had
-    # its say. Returns +true+. Raises RuntimeError when the event module
-    # is not open.
+    # its say. Returns +true+. LÖVE also carries tables and its own
+    # objects, which Lota does not put in a message yet: raises TypeError
+    # for a Hash, an Array, a Lota::Object, or any other value. Raises
+    # RuntimeError when the event module is not open.
     #
     # === Example
     #
     #   Lota::Event.restart
     def self.restart(*arguments)
-      Native::Event.restart(variants(arguments))
+      Native::Event.restart(arguments)
     end
 
     # Sets the callable the operating system's own loop draws the window
@@ -199,9 +207,12 @@ module Lota
     # LÖVE's own game loop passes its frame to it. What the callable
     # returns, an exit status or an Array of it and a restart value, as
     # the frame of Lota.run returns them, ends the game as a +quit+
-    # message would; an error it raises comes out of the next #pump.
-    # Raises TypeError for a value that does not answer +call+, and
-    # RuntimeError when the event module is not open.
+    # message would. Each is read as #restart reads its arguments. An
+    # error it raises, a value #restart would refuse, or a +throw+ out of
+    # it comes out of the next #pump as RuntimeError, its message after
+    # <tt>"Error in modal draw callback: "</tt>, as LÖVE turns every error
+    # of the callback into one. Raises TypeError for a value that does not
+    # answer +call+, and RuntimeError when the event module is not open.
     #
     # === Example
     #

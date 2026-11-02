@@ -193,12 +193,13 @@ void w_setStencilState(const std::optional<std::string> &actionstr,
     return;
   }
   StencilState s{};
-  if (!getConstant(required(actionstr, "actionstr").c_str(), s.action)) {
-    raise_enum_error("stencil draw action", getConstants(s.action),
-                     required(actionstr, "actionstr"));
+  const char *const actionstr_value = required(actionstr, "actionstr").c_str();
+  if (!getConstant(actionstr_value, s.action)) {
+    raise_enum_error("stencil draw action", getConstants(s.action), actionstr_value);
   }
-  if (!getConstant(required(comparestr, "comparestr").c_str(), s.compare)) {
-    raise_enum_error("compare mode", getConstants(s.compare), required(comparestr, "comparestr"));
+  const char *const comparestr_value = required(comparestr, "comparestr").c_str();
+  if (!getConstant(comparestr_value, s.compare)) {
+    raise_enum_error("compare mode", getConstants(s.compare), comparestr_value);
   }
   s.value = value;
   s.readMask = static_cast<love::uint32>(read_mask.value_or(LOVE_UINT32_MAX));
@@ -298,10 +299,11 @@ void w_setBlendMode(const std::string &mode, const std::optional<std::string> &a
     raise_enum_error("blend mode", getConstants(mode_value), mode);
   }
   BlendAlpha alphamode_value = BLENDALPHA_MULTIPLY;
-  if (alphamode.has_value() &&
-      !getConstant(required(alphamode, "alphamode").c_str(), alphamode_value)) {
-    raise_enum_error("blend alpha mode", getConstants(alphamode_value),
-                     required(alphamode, "alphamode"));
+  if (alphamode.has_value()) {
+    const char *const alphastr_value = required(alphamode, "alphamode").c_str();
+    if (!getConstant(alphastr_value, alphamode_value)) {
+      raise_enum_error("blend alpha mode", getConstants(alphamode_value), alphastr_value);
+    }
   }
   instance()->setBlendMode(mode_value, alphamode_value);
 }
@@ -413,10 +415,12 @@ void w_setDepthMode(const std::optional<std::string> &compare, std::optional<boo
     instance()->setDepthMode();
   } else {
     CompareMode compare_value = COMPARE_ALWAYS;
-    if (!getConstant(required(compare, "compare").c_str(), compare_value)) {
-      raise_enum_error("compare mode", getConstants(compare_value), required(compare, "compare"));
+    const char *const str_value = required(compare, "compare").c_str();
+    const bool write_value = required(write, "write");
+    if (!getConstant(str_value, compare_value)) {
+      raise_enum_error("compare mode", getConstants(compare_value), str_value);
     }
-    instance()->setDepthMode(compare_value, required(write, "write"));
+    instance()->setDepthMode(compare_value, write_value);
   }
 }
 
@@ -485,7 +489,8 @@ void w_setShader(std::optional<Shader *> shader) {
     instance()->setShader();
     return;
   }
-  instance()->setShader(required(shader, "shader"));
+  Shader *const shader_value = required(shader, "shader");
+  instance()->setShader(shader_value);
 }
 
 // love.graphics.getShader: w_getShader (wrap_Graphics.cpp:2987-2996).
@@ -527,11 +532,11 @@ void w_rectangle(const std::string &mode, double x, double y, double w, double h
                           static_cast<float>(rx.value_or(0.0)),
                           static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))));
   } else {
-    instance()->rectangle(mode_value, static_cast<float>(x), static_cast<float>(y),
-                          static_cast<float>(w), static_cast<float>(h),
-                          static_cast<float>(rx.value_or(0.0)),
-                          static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))),
-                          required(points, "points"));
+    const int points_value = required(points, "points");
+    instance()->rectangle(
+        mode_value, static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
+        static_cast<float>(h), static_cast<float>(rx.value_or(0.0)),
+        static_cast<float>(ry.value_or(static_cast<float>(rx.value_or(0.0)))), points_value);
   }
 }
 
@@ -546,8 +551,9 @@ void w_circle(const std::string &mode, double x, double y, double radius,
     instance()->circle(mode_value, static_cast<float>(x), static_cast<float>(y),
                        static_cast<float>(radius));
   } else {
+    const int points_value = required(points, "points");
     instance()->circle(mode_value, static_cast<float>(x), static_cast<float>(y),
-                       static_cast<float>(radius), required(points, "points"));
+                       static_cast<float>(radius), points_value);
   }
 }
 
@@ -563,9 +569,10 @@ void w_ellipse(const std::string &mode, double x, double y, double a, std::optio
                         static_cast<float>(a),
                         static_cast<float>(b.value_or(static_cast<float>(a))));
   } else {
-    instance()->ellipse(
-        mode_value, static_cast<float>(x), static_cast<float>(y), static_cast<float>(a),
-        static_cast<float>(b.value_or(static_cast<float>(a))), required(points, "points"));
+    const int points_value = required(points, "points");
+    instance()->ellipse(mode_value, static_cast<float>(x), static_cast<float>(y),
+                        static_cast<float>(a),
+                        static_cast<float>(b.value_or(static_cast<float>(a))), points_value);
   }
 }
 
@@ -744,7 +751,9 @@ void w_SpriteBatch_setDrawRange(SpriteBatch &t, std::optional<int> start,
   if (!start.has_value()) {
     t.setDrawRange();
   } else {
-    t.setDrawRange((required(start, "start") - 1), required(count, "count"));
+    const int start_value = (required(start, "start") - 1);
+    const int count_value = required(count, "count");
+    t.setDrawRange(start_value, count_value);
   }
 }
 
@@ -891,9 +900,9 @@ void w_Texture_setMipmapFilter(Texture &t, const std::optional<std::string> &mip
   if (!mipmapstr.has_value()) {
     s.mipmapFilter = SamplerState::MIPMAP_FILTER_NONE;
   } else {
-    if (!SamplerState::getConstant(required(mipmapstr, "mipmapstr").c_str(), s.mipmapFilter)) {
-      raise_enum_error("filter mode", SamplerState::getConstants(s.mipmapFilter),
-                       required(mipmapstr, "mipmapstr"));
+    const char *const mipmapstr_value = required(mipmapstr, "mipmapstr").c_str();
+    if (!SamplerState::getConstant(mipmapstr_value, s.mipmapFilter)) {
+      raise_enum_error("filter mode", SamplerState::getConstants(s.mipmapFilter), mipmapstr_value);
     }
   }
   s.lodBias = -(static_cast<float>(lod_bias));
@@ -990,9 +999,10 @@ void w_Texture_setDepthSampleMode(Texture &t, const std::optional<std::string> &
   SamplerState s = t.getSamplerState();
   s.depthSampleMode.hasValue = false;
   if (str.has_value()) {
+    const char *const str_value = required(str, "str").c_str();
     s.depthSampleMode.hasValue = true;
-    if (!getConstant(required(str, "str").c_str(), s.depthSampleMode.value)) {
-      raise_enum_error("compare mode", getConstants(s.depthSampleMode.value), required(str, "str"));
+    if (!getConstant(str_value, s.depthSampleMode.value)) {
+      raise_enum_error("compare mode", getConstants(s.depthSampleMode.value), str_value);
     }
   }
   t.setSamplerState(s);

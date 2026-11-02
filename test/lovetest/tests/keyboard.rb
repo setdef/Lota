@@ -26,7 +26,7 @@ class KeyboardTest < Lovetest::TestMethod
   #
   # Translated to Ruby from love.test.keyboard.getKeyFromScancode and
   # love.test.keyboard.getScancodeFromKey
-  # (vendor/love/testing/tests/keyboard.lua:12-21): getKeyFromScancode
+  # (vendor/love/testing/tests/keyboard.lua:13-21): getKeyFromScancode
   # becomes key_from_scancode and getScancodeFromKey scancode_from_key
   # (rule 3), and Lua's check that the field is a function Ruby's that the
   # module answers the method.
@@ -39,7 +39,7 @@ class KeyboardTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.keyboard.hasKeyRepeat,
-  # hasScreenKeyboard, and hasTextInput (keyboard.lua:24-42): the
+  # hasScreenKeyboard, and hasTextInput (keyboard.lua:25-42): the
   # predicates drop has and gain ? (rule 8).
   def test_has_key_repeat
     enabled = Lota::Keyboard.key_repeat?
@@ -57,7 +57,7 @@ class KeyboardTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.keyboard.isDown
-  # (vendor/love/testing/tests/keyboard.lua:45-49): isDown becomes down?
+  # (vendor/love/testing/tests/keyboard.lua:46-49): isDown becomes down?
   # (rule 8), and the key's name a symbol (rule 9).
   def test_is_down
     keydown = Lota::Keyboard.down?(:a)
@@ -65,14 +65,14 @@ class KeyboardTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.keyboard.isScancodeDown
-  # (keyboard.lua:52-56): isScancodeDown becomes scancode_down? (rule 8).
+  # (keyboard.lua:53-56): isScancodeDown becomes scancode_down? (rule 8).
   def test_is_scancode_down
     keydown = Lota::Keyboard.scancode_down?(:a)
     assert_not_nil(keydown)
   end
 
   # Translated to Ruby from love.test.keyboard.setKeyRepeat
-  # (keyboard.lua:59-64): setKeyRepeat becomes the writer key_repeat=
+  # (keyboard.lua:60-64): setKeyRepeat becomes the writer key_repeat=
   # (rule 5).
   def test_set_key_repeat
     Lota::Keyboard.key_repeat = true
@@ -81,7 +81,7 @@ class KeyboardTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.keyboard.isModifierActive
-  # (keyboard.lua:67-77).
+  # (keyboard.lua:68-77).
   def test_is_modifier_active
     active1 = Lota::Keyboard.modifier_active?(:numlock)
     active2 = Lota::Keyboard.modifier_active?(:capslock)
@@ -94,7 +94,7 @@ class KeyboardTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.keyboard.setTextInput
-  # (keyboard.lua:80-84): setTextInput becomes the writer text_input=
+  # (keyboard.lua:81-84): setTextInput becomes the writer text_input=
   # (rule 5).
   def test_set_text_input
     Lota::Keyboard.text_input = false

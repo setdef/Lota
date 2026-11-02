@@ -427,10 +427,28 @@ object:,
       @parameters = trailing_optional(
         @reads.group_by { |read| read[:index] }.sort.filter_map { |index, reads| parameter(index, reads) }
       )
+      @hoisted = {}
       @reads.select { |read| read[:variable] }.each do |read|
         value = read_value(read[:call], read[:cast] || cast_of(read[:declared], read[:call]))
-        @aliases[read[:variable]] = read[:rest].empty? ? value : "(#{value} #{read[:rest]})"
+        value = "(#{value} #{read[:rest]})" unless read[:rest].empty?
+        next @aliases[read[:variable]] = value unless value.include?("required(")
+
+        local = "#{Rules.snake_case(read[:variable])}_value"
+        @hoisted[read[:text]] = hoisted(read, local, value)
+        @aliases[read[:variable]] = local
       end
+    end
+
+    # The declaration that reads a variable LÖVE reads with a check into
+    # a local of its own, where LÖVE reads it. Every other read is used
+    # where LÖVE uses its variable, but a missing argument raises from
+    # this one, and C++ leaves the order of a call's arguments unspecified
+    # (GCC evaluates them right to left on x86_64), so inlining it would
+    # name another missing argument than LÖVE's first.
+    private def hoisted(read, local, value)
+      declared = read[:declared].gsub(/\blua_Number\b/, "double")
+      type = declared.end_with?("*") ? "#{read[:constant] ? 'const ' : ''}#{declared}const" : "const #{declared}"
+      "#{type} #{local} = #{value}"
     end
 
     # +parameters+, each after an optional one made optional too: Ruby
@@ -619,7 +637,7 @@ line: node.line,
     end
 
     private def emit_expression(text)
-      return [] if parameter_declaration?(text)
+      return @hoisted.key?(text) ? ["#{@hoisted.fetch(text)};"] : [] if parameter_declaration?(text)
       return ["std::array<#{Regexp.last_match(1)}, #{Regexp.last_match(3)}> #{Regexp.last_match(2)}{};"] if text =~ C_ARRAY
       return [] if text.match?(RELEASE) && owned?
       return emit_guard(@guards.fetch(Regexp.last_match(1))) if text =~ /\A(\w+)\s*\(\s*L\s*\)\z/ && @guards.key?(Regexp.last_match(1))
@@ -638,35 +656,11 @@ line: node.line,
     private def emit_if(node)
       body = emit(node.body)
       condition = pointer_tests(rewrite(node.text))
-      if node.alternative.empty? && (inner = lone_if(body))
-        return ["if (#{conjunct(condition)} && #{conjunct(inner.first)}) {", *inner.last, "}"]
-      end
-
       lines = ["if (#{condition}) {", *body, "}"]
       return lines if node.alternative.empty?
 
       alternative = emit(node.alternative)
       body.last.to_s.match?(/\A(?:return|throw)\b|\Araise_enum_error\(/) ? lines.concat(alternative) : lines.push("else {", *alternative, "}")
-    end
-
-    # The condition and body of +body+ when it is one if and nothing else,
-    # as when w_setBlendMode tests its alpha mode's name only when given
-    # one; emit_if tests both conditions in one if, as clang-tidy's
-    # readability-redundant-nested-if asks.
-    private def lone_if(body)
-      first = body.first.to_s.match(/\Aif \((.*)\) \{\z/m) or return nil
-      depth = 0
-      body.each_with_index do |line, index|
-        depth += 1 if line.end_with?("{")
-        depth -= 1 if line.start_with?("}")
-        return nil if depth.zero? && index < body.size - 1
-      end
-      [first[1], body[1...-1]]
-    end
-
-    # +condition+, in parentheses when another operator could bind into it.
-    private def conjunct(condition)
-      condition.match?(/\|\||\?/) ? "(#{condition})" : condition
     end
 
     private def emit_return(text, last:)

@@ -14,6 +14,8 @@ require_relative "../engine_helper"
 # second. Lövetest checks only that they answer
 # (test/lovetest/tests/timer.rb).
 class TimerClockTest < Minitest::Test
+  include NativeHelper
+
   def setup
     EngineHelper.open_window
   end
@@ -25,6 +27,19 @@ class TimerClockTest < Minitest::Test
 
     assert_kind_of Float, before
     assert_includes 0.015..0.5, after - before
+  end
+
+  # w_getTime calls Timer::getTime, which is static (Timer.h:78), so it
+  # answers before the timer module is open, where every other function
+  # of the module raises. A process of its own, which opens nothing,
+  # shows it.
+  def test_time_answers_before_the_timer_module_is_open
+    script = "require #{File.join(__dir__, '../../lib/lota').dump}; p Lota::Native::Timer.open?, " \
+      "Lota::Timer.time.class; begin; Lota::Timer.delta; rescue RuntimeError => e; p e.message; end"
+    output, status = capture2e({}, RbConfig.ruby, "-e", script)
+
+    assert_predicate status, :success?, output
+    assert_equal "false\nFloat\n\"Lota::Timer is not open.\"\n", output
   end
 
   # Timer::step (Timer.cpp:57-80) works the frame rate out of the steps

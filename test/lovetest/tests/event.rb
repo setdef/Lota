@@ -29,7 +29,7 @@ class EventTest < Lovetest::TestMethod
   # SPDX-License-Identifier: Zlib
   #
   # Translated to Ruby from love.test.event.clear, love.test.event.poll,
-  # and love.test.event.push (vendor/love/testing/tests/event.lua:12-61):
+  # and love.test.event.push (vendor/love/testing/tests/event.lua:12-63):
   # the event names become symbols (rule 9), and Lua's for over
   # love.event.poll a block given to poll (rule 15).
   def test_clear
@@ -73,7 +73,7 @@ class EventTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.event.pump and love.test.event.wait
-  # (event.lua:64-69 and 98-103), which Lövetest skips because they are
+  # (event.lua:44-46 and 78-80), which Lövetest skips because they are
   # used internally. wait is deprecated.
   def test_pump
     skip("used internally")
@@ -83,7 +83,7 @@ class EventTest < Lovetest::TestMethod
     skip("used internally")
   end
 
-  # Translated to Ruby from love.test.event.quit (event.lua:72-80). Lövetest
+  # Translated to Ruby from love.test.event.quit (event.lua:67-73). Lövetest
   # sets love.test.module.fakequit, so that its love.quit keeps the quit
   # from ending the program; this test takes the quit message out of the
   # queue before anything can act on it, which is what that does.

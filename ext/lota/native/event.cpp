@@ -58,9 +58,11 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // come back as bytes in Ruby's default external encoding (Rice's
 // std::string conversion); Lota::Callbacks marks them as the UTF-8 SDL
 // gives. A light userdata, such as a touch's id, becomes the Integer its
-// pointer holds. Engine objects and tables come only from modules Lota
-// does not open yet (love.joystick, love.filesystem) or from
-// love.event.push, which Lota does not bind yet.
+// pointer holds, and a value of unknown type, which love.event.restart and
+// a modal draw callback make of a function, becomes nil, as
+// luax_pushvariant's default pushes. Engine objects and tables come only
+// from modules Lota does not open yet (love.joystick, love.filesystem),
+// and Lota's own love.event functions do not put them in a message yet.
 void push_argument(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
@@ -83,6 +85,7 @@ void push_argument(Rice::Array &result, const Variant &variant) {
     result.push(std::bit_cast<std::uintptr_t>(data.userdata), false);
     break;
   case Variant::NIL:
+  case Variant::UNKNOWN:
     result.push(Rice::Object(), false);
     break;
   default:
@@ -114,7 +117,7 @@ Rice::Object poll() {
   return message_array(polled);
 }
 
-// w_wait (wrap_Event.cpp:74-91), after the deprecation notice that
+// w_wait (wrap_Event.cpp:74-88), after the deprecation notice that
 // Lota::Event.wait marks: the next message, waiting for one, as an Array
 // of its name and its arguments, or nil when SDL's event is one LÖVE does
 // not pass on.
@@ -154,7 +157,7 @@ std::vector<Variant> variants(const Rice::Array &list) {
   return args;
 }
 
-// w_push (wrap_Event.cpp:85-110): queues a message named +name+ with
+// w_push (wrap_Event.cpp:90-115): queues a message named +name+ with
 // +arguments+.
 bool push(const std::string &name, Rice::Array list) {
   const Rice::Array arguments = std::move(list);
@@ -164,31 +167,15 @@ bool push(const std::string &name, Rice::Array list) {
   return true;
 }
 
-// w_restart (wrap_Event.cpp:138-153): queues a quit message whose first
-// argument is "restart", followed by +arguments+, as Lota::Event.restart
-// reads them for push.
-bool restart(Rice::Array list) {
-  const Rice::Array arguments = std::move(list);
-  std::vector<Variant> args;
-  args.emplace_back(std::string("restart"));
-  for (Variant &argument : variants(arguments)) {
-    args.push_back(std::move(argument));
-  }
-  const love::StrongRef<Message> message(new Message("quit", args), love::Acquire::NORETAIN);
-  event().push(message.get());
-  return true;
-}
-
-// drawCallback and cleanupCallback (wrap_Event.cpp:166-199), for a Ruby
-// callable that LÖVE keeps in a Reference to a Lua function. The callable
-// is a root of Ruby's garbage collector from when the event module takes
-// it until the module lets go of it.
-using Callable = ruby::Root;
-
-// The Variant luax_checkvariant (without tables) makes of one of the
-// values a modal draw callback returns, which is nothing, a boolean, a
-// number, or a string.
-Variant returned_variant(const Rice::Object &value) {
+// The Variant luax_checkvariant (runtime.cpp:722-812) makes of +value+,
+// for the kinds of Lua value Ruby has: nil, a boolean, a number, and a
+// string, with a Symbol as its name (ADR 001, rule 9). A Proc or a Method,
+// Ruby's function, is a Variant of unknown type, as a Lua function is,
+// which carries nothing and leaves the queue as nil. LÖVE also reads a
+// table as a SharedTable and its own objects as themselves; Lota does not
+// put a Hash, an Array, or a Lota::Object in a message yet, and raises
+// TypeError for them and for anything else.
+Variant checked_variant(const Rice::Object &value) {
   if (ruby::is_nil(value)) {
     return {};
   }
@@ -201,29 +188,61 @@ Variant returned_variant(const Rice::Object &value) {
   if (ruby::is_string(value)) {
     return {Rice::detail::From_Ruby<std::string>().convert(value.value())};
   }
-  throw love::Exception(
-      "Error in modal draw callback: it returned %s, which an event cannot carry.",
-      ruby::class_name(value).c_str());
+  if (ruby::is_symbol(value)) {
+    return {ruby::symbol_name(value)};
+  }
+  if (ruby::is_function(value)) {
+    return Variant::unknown();
+  }
+  ruby::raise_type_error("wrong argument type " + ruby::class_name(value) +
+                         " (expected nil, true, false, a number, a String, a Symbol, or a Proc)");
 }
 
-// drawCallback (wrap_Event.cpp:174-199): calls the callable, whose two
-// results, an Array when it returns several (rule 4), go to LÖVE's quit
-// message. A Ruby error it raises reaches the pump as an exception, with
-// the callback's name in front, as LÖVE's does.
+// w_restart (wrap_Event.cpp:138-153): queues a quit message whose first
+// argument is "restart", followed by every one of +arguments+, nil
+// included, each read as luax_checkvariant reads it.
+bool restart(Rice::Array list) {
+  const Rice::Array arguments = std::move(list);
+  std::vector<Variant> args;
+  args.emplace_back(std::string("restart"));
+  for (const auto item : arguments) {
+    args.push_back(checked_variant(Rice::Object(item.value())));
+  }
+  const love::StrongRef<Message> message(new Message("quit", args), love::Acquire::NORETAIN);
+  event().push(message.get());
+  return true;
+}
+
+// drawCallback and cleanupCallback (wrap_Event.cpp:176-199), for a Ruby
+// callable that LÖVE keeps in a Reference to a Lua function. The callable
+// is a root of Ruby's garbage collector from when the event module takes
+// it until the module lets go of it.
+using Callable = ruby::Root;
+
+// drawCallbackInner and drawCallback (wrap_Event.cpp:161-193): calls the
+// callable, whose two results, an Array when it returns several (rule 4),
+// go to LÖVE's quit message, each read as luax_checkvariant reads it. An
+// error it raises, or a result Lota cannot read, reaches the pump as an
+// exception with the callback's name in front, as lua_cpcall catches
+// every error in LÖVE's. So does a throw or another non-local exit, which
+// Rice reports as a JumpException: a Lua function has no way out but an
+// error, and Event::modalDraw would pass the exit on without the name.
 void draw_callback(void *context, Variant *first, Variant *second) {
   Rice::Object callable = static_cast<Callable *>(context)->value();
   try {
     const Rice::Object result = callable.vcall("call", Rice::Array());
     if (ruby::is_array(result)) {
       const std::vector<Rice::Object> values = ruby::elements(Rice::Array(result));
-      *first = values.empty() ? Variant() : returned_variant(values.at(0));
-      *second = values.size() < 2 ? Variant() : returned_variant(values.at(1));
+      *first = values.empty() ? Variant() : checked_variant(values.at(0));
+      *second = values.size() < 2 ? Variant() : checked_variant(values.at(1));
     } else {
-      *first = returned_variant(result);
+      *first = checked_variant(result);
       *second = Variant();
     }
   } catch (const Rice::Exception &error) {
     throw love::Exception("Error in modal draw callback: %s", error.what());
+  } catch (const Rice::JumpException &jump) {
+    throw love::Exception("Error in modal draw callback: %s", jump.what());
   }
 }
 

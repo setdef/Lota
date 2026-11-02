@@ -721,9 +721,9 @@ MotorJoint *w_newMotorJoint(Body *body1, Body *body2, std::optional<double> corr
   }
   MotorJoint *j = nullptr;
   if (correction_factor.has_value()) {
-    j = instance()->newMotorJoint(
-        body1, body2, static_cast<float>(required(correction_factor, "correction_factor")),
-        collide_connected);
+    const float correction_factor_value =
+        static_cast<float>(required(correction_factor, "correction_factor"));
+    j = instance()->newMotorJoint(body1, body2, correction_factor_value, collide_connected);
   } else {
     j = instance()->newMotorJoint(body1, body2);
   }
@@ -811,9 +811,10 @@ bool w_Shape_testPoint(const Shape &t, double x, double y, std::optional<double>
                        std::optional<double> px, std::optional<double> py) {
   bool result = false;
   if (r.has_value()) {
-    result = t.testPoint(
-        static_cast<float>(x), static_cast<float>(y), static_cast<float>(required(r, "r")),
-        static_cast<float>(required(px, "px")), static_cast<float>(required(py, "py")));
+    const float r_value = static_cast<float>(required(r, "r"));
+    const float px_value = static_cast<float>(required(px, "px"));
+    const float py_value = static_cast<float>(required(py, "py"));
+    result = t.testPoint(static_cast<float>(x), static_cast<float>(y), r_value, px_value, py_value);
   } else {
     result = t.testPoint(static_cast<float>(x), static_cast<float>(y));
   }

@@ -167,14 +167,14 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.focus
-  # (window.lua:12-16): focus stays focus (rule 13). Lövetest cannot test
+  # (window.lua:12-15): focus stays focus (rule 13). Lövetest cannot test
   # it, as the function returns nothing, and only checks that it exists.
   def test_focus
     assert_equal(true, Lota::Window.respond_to?(:focus), "check method exists")
   end
 
   # Translated to Ruby from love.test.window.fromPixels and
-  # love.test.window.toPixels (window.lua:19-25 and 368-374):
+  # love.test.window.toPixels (window.lua:19-24 and 368-373):
   # fromPixels becomes from_pixels and toPixels to_pixels (rule 13), and
   # getDPIScale dpi_scale.
   def test_from_pixels
@@ -192,33 +192,36 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.getDPIScale
-  # (window.lua:27-32): dependent on hardware, so the best it can do is
-  # not nil.
+  # (window.lua:29-31): dependent on hardware, so the best it can do is
+  # not nil. Lövetest's test asserts assertNotNil(test), that its own
+  # test object is not nil, and never calls getDPIScale, a slip in
+  # Lövetest; this asserts what its comment means, that dpi_scale is not
+  # nil.
   def test_get_dpi_scale
     assert_not_nil(Lota::Window.dpi_scale)
   end
 
   # Translated to Ruby from love.test.window.getDisplayCount
-  # (window.lua:43-47): getDisplayCount becomes display_count (rule 3).
+  # (window.lua:45-47): getDisplayCount becomes display_count (rule 3).
   def test_get_display_count
     assert_operator(Lota::Window.display_count, :>=, 1, "check 1 display")
   end
 
   # Translated to Ruby from love.test.window.getDisplayName
-  # (window.lua:50-54): getDisplayName becomes display_name.
+  # (window.lua:52-54): getDisplayName becomes display_name.
   def test_get_display_name
     assert_not_nil(Lota::Window.display_name(1))
   end
 
   # Translated to Ruby from love.test.window.getDisplayOrientation
-  # (window.lua:57-61): getDisplayOrientation becomes display_orientation
+  # (window.lua:59-61): getDisplayOrientation becomes display_orientation
   # and its name a symbol (rule 9).
   def test_get_display_orientation
     assert_not_nil(Lota::Window.display_orientation(1))
   end
 
   # Translated to Ruby from love.test.window.getFullscreen
-  # (window.lua:64-76): getFullscreen becomes fullscreen (rule 3), whose
+  # (window.lua:65-76): getFullscreen becomes fullscreen (rule 3), whose
   # two values are an Array (rule 4). setFullscreen returns whether the
   # system agreed, so it stays a method (rule 7).
   def test_get_fullscreen
@@ -234,13 +237,13 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.getFullscreenModes
-  # (window.lua:79-83): getFullscreenModes becomes fullscreen_modes.
+  # (window.lua:81-83): getFullscreenModes becomes fullscreen_modes.
   def test_get_fullscreen_modes
     assert_not_nil(Lota::Window.fullscreen_modes(1))
   end
 
   # Translated to Ruby from love.test.window.getIcon
-  # (window.lua:86-95): getIcon becomes icon (rule 3), and setIcon, which
+  # (window.lua:87-94): getIcon becomes icon (rule 3), and setIcon, which
   # returns whether the system took the icon, set_icon (rule 7).
   # newImageData becomes ImageData.new (rule 2), reading the file from
   # Lövetest's resources.
@@ -254,7 +257,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.getPosition and
-  # love.test.window.setPosition (window.lua:107-114 and 333-341):
+  # love.test.window.setPosition (window.lua:109-114 and 334-341):
   # getPosition becomes position, whose three values are an Array
   # (rules 3 and 4), and setPosition the writer position= (rules 5 and 6).
   # Lövetest leaves the window where it put it; these put it back, so the
@@ -280,7 +283,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.getTitle and
-  # love.test.window.setTitle (window.lua:128-134 and 344-350): getTitle
+  # love.test.window.setTitle (window.lua:129-134 and 345-350): getTitle
   # becomes title and setTitle the writer title= (rules 3 and 5). They put
   # back the title they found, where Lövetest sets "love.test", so a test
   # that reads the window's title finds it as the settings made it.
@@ -301,7 +304,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.getVSync and
-  # love.test.window.setVSync (window.lua:137-141 and 353-357): getVSync
+  # love.test.window.setVSync (window.lua:138-140 and 354-357): getVSync
   # becomes v_sync (rule 13: V and Sync are two words in LÖVE's name) and
   # setVSync the writer v_sync= (rule 5). Lövetest leaves vsync off; this
   # puts it back.
@@ -317,7 +320,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.hasFocus and
-  # love.test.window.hasMouseFocus (window.lua:143-155): hasFocus becomes
+  # love.test.window.hasMouseFocus (window.lua:145-154): hasFocus becomes
   # the predicate focus? and hasMouseFocus mouse_focus? (rule 8). Neither
   # can force focus, so they only check for an answer.
   def test_has_focus
@@ -329,8 +332,8 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.isDisplaySleepEnabled and
-  # love.test.window.setDisplaySleepEnabled (window.lua:157-166 and
-  # 277-286): isDisplaySleepEnabled becomes display_sleep_enabled? and
+  # love.test.window.setDisplaySleepEnabled (window.lua:158-166 and
+  # 278-285): isDisplaySleepEnabled becomes display_sleep_enabled? and
   # setDisplaySleepEnabled the writer display_sleep_enabled= (rules 8
   # and 5).
   def test_is_display_sleep_enabled
@@ -353,7 +356,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.isMaximized and
-  # love.test.window.maximize (window.lua:169-181 and 223-237):
+  # love.test.window.maximize (window.lua:170-181 and 224-236):
   # isMaximized becomes maximized? (rule 8). On macOS the window is
   # not maximized at once, so the test waits a few frames.
   def test_is_maximized
@@ -383,7 +386,7 @@ class WindowTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.window.isMinimized,
   # love.test.window.minimize, and love.test.window.restore
-  # (window.lua:184-198, 239-253, and 261-274): isMinimized becomes
+  # (window.lua:185-198, 240-252, and 262-274): isMinimized becomes
   # minimized? (rule 8).
   def test_is_minimized
     skip_on_linux_runner("xvfb on Linux doesn't support window minimization")
@@ -428,7 +431,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.isOccluded
-  # (window.lua:201-206): isOccluded becomes occluded? (rule 8). Focusing
+  # (window.lua:202-205): isOccluded becomes occluded? (rule 8). Focusing
   # the window is what puts it in front, so test/native/focus_for_tests.rb
   # gives it focus for this test, holding the desktop input lock, where
   # the tests' windows otherwise stay in the background.
@@ -439,21 +442,21 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.isVisible
-  # (window.lua:216-220): isVisible becomes visible? (rule 8).
+  # (window.lua:217-220): isVisible becomes visible? (rule 8).
   def test_is_visible
     # check visible initially
     assert_true(Lota::Window.visible?, "check window visible")
   end
 
   # Translated to Ruby from love.test.window.requestAttention
-  # (window.lua:255-258): test:skipTest becomes Minitest's skip, as
+  # (window.lua:256-258): test:skipTest becomes Minitest's skip, as
   # Lövetest skips it.
   def test_request_attention
     skip("cant test this worked")
   end
 
   # Translated to Ruby from love.test.window.setFullscreen
-  # (window.lua:288-300). setFullscreen returns whether the system agreed
+  # (window.lua:289-300). setFullscreen returns whether the system agreed
   # (rule 7), so it stays set_fullscreen.
   def test_set_fullscreen
     skip_on_linux_runner("xvfb on Linux doesn't support fullscreen")
@@ -468,7 +471,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.setIcon
-  # (window.lua:303-310): setIcon becomes set_icon (rule 7). It runs
+  # (window.lua:305-310): setIcon becomes set_icon (rule 7). It runs
   # after getIcon's test (see the order above), so the icon is set already,
   # which changes nothing it checks.
   def test_set_icon
@@ -479,7 +482,7 @@ class WindowTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.window.showMessageBox
-  # (window.lua:360-364): test:skipTest becomes Minitest's skip, as
+  # (window.lua:362-364): test:skipTest becomes Minitest's skip, as
   # Lövetest skips it.
   def test_show_message_box
     skip("cant test this worked")

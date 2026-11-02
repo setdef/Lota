@@ -47,6 +47,11 @@ class InfoTest < Minitest::Test
     refute Lota.version_compatible?(11, 5)
   end
 
+  # luaL_optinteger reads a nil revision as one left out, so it is 0.
+  def test_a_nil_revision_is_zero
+    assert Lota.version_compatible?(12, 0, nil)
+  end
+
   def test_a_version_in_numbers_needs_a_minor
     error = assert_raises(TypeError) { Lota.version_compatible?(12) }
 

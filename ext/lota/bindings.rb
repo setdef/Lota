@@ -102,8 +102,8 @@ bound_by_hand "love.event.wait",
     "does not port; Lota returns them as the Array Lota::Event.poll yields, as it does for the message w_poll_i " \
     "pushes"
 bound_by_hand "love.event.restart",
-  reason: "reads a Variant of any kind at every position (luax_checkvariant), as love.event.push; Lota narrows " \
-    "them to the booleans, numbers, and strings an event carries"
+  reason: "reads a Variant of any kind at every position, nil included (luax_checkvariant), which Lota reads " \
+    "for the values Ruby has, a Proc as a function, and does not yet read as a table or a LÖVE object"
 bound_by_hand "love.event.setModalDrawCallback",
   reason: "keeps a Lua function in a Reference and calls it with lua_cpcall (drawCallback), which the " \
     "generator does not port; Lota keeps a Ruby callable as a root of the garbage collector"

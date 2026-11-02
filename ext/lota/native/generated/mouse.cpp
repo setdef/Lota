@@ -64,7 +64,8 @@ void w_setCursor(std::optional<Cursor *> cursor) {
     instance()->setCursor();
     return;
   }
-  instance()->setCursor(required(cursor, "cursor"));
+  Cursor *const cursor_value = required(cursor, "cursor");
+  instance()->setCursor(cursor_value);
 }
 
 // love.mouse.isCursorSupported: w_isCursorSupported (wrap_Mouse.cpp:135-139).

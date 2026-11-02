@@ -16,7 +16,7 @@ module Lota
 
     def self.quit: (?(Integer | Float)? exit_status) -> bool
 
-    def self.restart: (*(bool | Float | Integer | String | Symbol | nil) arguments) -> bool
+    def self.restart: (*(bool | Float | Integer | String | Symbol | ::Proc | ::Method | nil) arguments) -> bool
 
     interface _Callable
       def call: () -> ::Object?

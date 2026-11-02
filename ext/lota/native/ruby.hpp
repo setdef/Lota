@@ -36,6 +36,19 @@ inline bool is_boolean(const Rice::Object &value) {
 
 inline bool is_true(const Rice::Object &value) { return value.value() == Qtrue; }
 
+inline bool is_symbol(const Rice::Object &value) { return RB_SYMBOL_P(value.value()); }
+
+// The name of the Symbol +value+.
+inline std::string symbol_name(const Rice::Object &value) {
+  return Rice::detail::From_Ruby<std::string>().convert(rb_sym2str(value.value()));
+}
+
+// Whether +value+ is a Proc or a Method, Ruby's counterparts of a Lua
+// function.
+inline bool is_function(const Rice::Object &value) {
+  return rb_obj_is_proc(value.value()) == Qtrue || rb_obj_is_method(value.value()) == Qtrue;
+}
+
 // Whether +value+ is a +klass+, or of a class under it, as Ruby's is_a?
 // asks; nil is a NilClass, where Rice's own is_a refuses nil.
 inline bool is_kind_of(const Rice::Object &value, const Rice::Class &klass) {

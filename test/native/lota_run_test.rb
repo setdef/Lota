@@ -139,11 +139,16 @@ class LotaRunTest < Minitest::Test
   # Shader test compares a 16 by 16 image a glsl3 shader draws, and
   # validates four glsl4 shaders with its eight checks, only where the
   # renderer supports them, and asserts once for each instead
-  # (test/lovetest/tests/graphics.rb, test_shader).
+  # (test/lovetest/tests/graphics.rb, test_shader). Its getPowerInfo test
+  # checks the battery's percent, which Minitest's assert_includes counts
+  # as two assertions, and its seconds, as one, only on a machine that
+  # reports them (test/lovetest/tests/system.rb, test_get_power_info), so
+  # this asks this machine, as the game will; plugging a laptop in or out
+  # while the game runs could change the answer between the two.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 90631 - (3 * 32 * 32) + 1 : 90631
+    assertions = skipped ? 90630 - (3 * 32 * 32) + 1 : 90630
     # Lövetest skips its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
     # manager (test/lovetest/tests/window.rb), seven tests of 13 checks,
@@ -155,6 +160,9 @@ class LotaRunTest < Minitest::Test
     supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
     assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
+    _, percent, seconds = Lota::System.power_info
+    assertions += 2 unless percent.nil?
+    assertions += 1 unless seconds.nil?
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)

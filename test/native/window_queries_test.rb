@@ -156,7 +156,9 @@ class WindowQueriesTest < Minitest::Test
   end
 
   # w_requestAttention (wrap_Window.cpp:759-764) returns nothing, whatever
-  # the system does with the request.
+  # the system does with the request. This shows only that the call
+  # reaches the engine and returns nil: nothing a test can read shows
+  # whether the system was asked, or whether +false+ reached it.
   def test_attention_can_be_requested
     assert_nil Lota::Window.request_attention
     assert_nil Lota::Window.request_attention(false)
@@ -189,6 +191,14 @@ class WindowQueriesTest < Minitest::Test
   # Xvfb is, offers no swap control (Mesa 23.2, src/glx/drisw_glx.c, lines
   # 864-871), so SDL refuses every interval and answers 0 (SDL 3.4.10,
   # src/video/x11/SDL_x11opengl.c, lines 961-1008 and 1099-1102).
+  #
+  # Where SDL refuses, this checks only that v_sync answers what SDL
+  # keeps, so a binding that passed 0 for +true+ would pass there. SDL's
+  # refusal reads the same for 0 and 1 and keeps neither, so nothing in the
+  # process can tell which the binding passed short of replacing SDL's
+  # function, which the tests do not do. The check of the value itself is
+  # macOS's, and any driver's that keeps the interval, where the first
+  # branch runs.
   private def assert_v_sync(expected)
     LotaNativeTest.clear_sdl_error
     yield
