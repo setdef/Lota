@@ -42,7 +42,10 @@ require "rbconfig"
 # DESKTOP_INPUT_QUIET is set; elsewhere it is a silent one. Each thing it
 # says it first shows as a Notification Center banner, which takes no
 # focus, for a person whose sound is off, then says with macOS's own say
-# if it is there. Neither fails the span if it cannot be shown or said.
+# if it is there. Neither fails the span if it cannot be shown or said,
+# and each is stopped after TELL_LIMIT seconds, so a banner or a voice
+# that hangs cannot hang the span or the process's exit, which waits for
+# the call back.
 #
 # Two edges are left for the gem the projects mean to share: a retrying
 # watcher can find the lock free in the gap between another process's
@@ -72,6 +75,9 @@ class DesktopInput
   COME_BACK = "The tests are done with the keyboard and mouse. You can come back now."
   # What a span that has to wait for the lock prints first.
   WAITING = "waiting for the desktop input lock"
+  # Seconds the banner, and then the voice, may take before it is
+  # stopped: far longer than either sentence takes to say.
+  TELL_LIMIT = 30
 
   # [lock] The file locked.
   # [marker] The file that says the person was told to step away.
@@ -81,8 +87,9 @@ class DesktopInput
   # [env] The environment that can quiet it (CI, DESKTOP_INPUT_QUIET).
   # [host_os] The operating system, which speaks only when it is macOS.
   # [log] Where WAITING is printed.
+  # [tell_limit] Seconds the banner, and then the voice, may take.
   def initialize(lock: LOCK, marker: MARKER, say: SAY, osascript: OSASCRIPT, settle: SETTLE, env: ENV,
-    host_os: RbConfig::CONFIG["host_os"], log: $stderr
+    host_os: RbConfig::CONFIG["host_os"], log: $stderr, tell_limit: TELL_LIMIT
   )
     @lock = lock
     @marker = marker
@@ -92,6 +99,7 @@ class DesktopInput
     @env = env
     @host_os = host_os
     @log = log
+    @tell_limit = tell_limit
     @state = Monitor.new
     @depth = 0
     @file = nil
@@ -269,8 +277,25 @@ class DesktopInput
 
   # Shows +words+ in a banner, then says them, waiting until they are said.
   private def tell(words)
-    system(@osascript, "-e", "display notification #{words.dump} with title \"Tests\"", exception: false)
-    system(@say, words, exception: false) if File.executable?(@say)
+    run(@osascript, "-e", "display notification #{words.dump} with title \"Tests\"")
+    run(@say, words) if File.executable?(@say)
+  end
+
+  # Runs +command+ and waits for it, as system does, for at most
+  # @tell_limit seconds, then stops it. A command that cannot start is
+  # skipped, as system(exception: false) skips it.
+  private def run(*command)
+    pid = Process.spawn(*command)
+    deadline = now + @tell_limit
+    until Process.wait(pid, Process::WNOHANG)
+      next sleep(0.05) if now < deadline
+
+      Process.kill(:KILL, pid)
+      Process.wait(pid)
+      break
+    end
+  rescue SystemCallError
+    nil
   end
 
   private def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)

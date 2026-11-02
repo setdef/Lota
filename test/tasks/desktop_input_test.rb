@@ -157,6 +157,27 @@ class DesktopInputTest < Minitest::Test
     end
   end
 
+  # A say that never finishes would hold the watcher's call back, and so
+  # the process's exit, which waits for it, for good. Each thing said gets
+  # at most its limit before it is stopped, so the process exits; the
+  # banner was shown first, and the words were not said.
+  def test_a_say_that_hangs_is_stopped_so_the_process_still_exits
+    in_desktop do |root|
+      write(root, "say", "#!/bin/sh\ncase \"$1\" in *'come back'*) touch \"#{root}/telling\"; exec sleep 60;; esac\n" \
+        "printf 'say: %s\\n' \"$1\" >> \"#{root}/said\"\n")
+      script = "input = DesktopInput.new(lock: File.join(dir, 'lock'), marker: File.join(dir, 'away'), " \
+        "say: File.join(dir, 'say'), osascript: File.join(dir, 'osascript'), settle: #{SETTLE}, env: {}, " \
+        "host_os: 'darwin', tell_limit: 0.5)\n" \
+        "input.hold { }; sleep 0.01 until File.exist?(File.join(dir, 'telling'))"
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      run_script(root, script)
+
+      assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 5
+      assert_equal [*told(DesktopInput::STEP_AWAY), told(DesktopInput::COME_BACK).first], said(root)
+      refute_path_exists File.join(root, "away")
+    end
+  end
+
   # The lock and the marker are ones every user can open and rewrite,
   # whatever the umask of the process that made them.
   def test_the_files_it_makes_are_every_users_whatever_the_umask
