@@ -19,7 +19,8 @@ set(ENGINE_LIBRARY_DIRS ${ENGINE_DEPS_DIR}/bin PARENT_SCOPE)
 set(ENGINE_RUNTIME_LIBRARIES ${ENGINE_DEPS_DIR}/bin/OpenAL32.dll PARENT_SCOPE)
 
 target_include_directories(lota_engine PUBLIC
-	# <SDL3/...>, <ogg/...>, <vorbis/...>, <libmodplug/...>, and <zlib.h>.
+	# <SDL3/...>, <ogg/...>, <vorbis/...>, <theora/...>, <libmodplug/...>,
+	# and <zlib.h>.
 	${ENGINE_DEPS_DIR}/include
 	# OpenAL Soft's, FreeType's, and HarfBuzz's headers without a prefix,
 	# as on Linux (dependencies_linux.cmake).
@@ -50,6 +51,7 @@ target_link_libraries(lota_engine INTERFACE
 	${ENGINE_DEPS_DIR}/lib/libfreetype.a
 	${ENGINE_DEPS_DIR}/lib/libOpenAL32.dll.a
 	${ENGINE_DEPS_DIR}/lib/libmodplug.a
+	${ENGINE_DEPS_DIR}/lib/libtheoradec.a
 	${ENGINE_DEPS_DIR}/lib/libvorbisfile.a
 	${ENGINE_DEPS_DIR}/lib/libvorbis.a
 	${ENGINE_DEPS_DIR}/lib/libogg.a

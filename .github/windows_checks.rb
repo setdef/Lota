@@ -33,6 +33,18 @@ require "tmpdir"
 module WindowsChecks
   ROOT = File.expand_path("..", __dir__)
   LIBRARIES = File.join(ROOT, "lib/lota/libraries")
+  # Words that name or quote a license, for which #notices reports a file.
+  LICENSE_WORDS = [
+    "GNU Library General Public",
+    "GNU Lesser General Public",
+    "GNU General Public",
+    "MIT",
+    "BSD",
+    "Apache",
+    "public domain",
+    "Permission is hereby",
+    "Redistribution and use",
+  ].freeze
 
   extend self
 
@@ -44,9 +56,9 @@ module WindowsChecks
     puts "#{files.size} files of #{source} compiled"
     by_notice = Hash.new { |hash, key| hash[key] = [] }
     files.each do |file|
-      head = File.foreach(file).first(60).join
-      notices = head.scan(/^.*copyright.*$/i).map { |line| line.gsub(%r{\A[\s/*#;-]+|[\s*/]+\z}, "") }
-      licenses = %w[LGPL GPL MIT BSD Apache public\ domain Permission\ is\ hereby].select { |word| head.include?(word) }
+      text = File.binread(file).force_encoding(Encoding::UTF_8).scrub
+      notices = text.scan(/^.*copyright.*$/i).map { |line| line.gsub(%r{\A[\s/*#;-]+|[\s*/]+\z}, "") }
+      licenses = LICENSE_WORDS.select { |word| text.include?(word) }
       by_notice[[notices.sort, licenses]] << file.delete_prefix(prefix)
     end
     by_notice.sort_by { |key, _| key.inspect }.each do |(notices, licenses), paths|

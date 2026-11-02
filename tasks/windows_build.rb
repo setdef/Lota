@@ -9,6 +9,9 @@ require "digest"
 require "etc"
 require "fileutils"
 require "open3"
+require "openssl"
+require "rbconfig"
+require "timeout"
 require_relative "source_archive"
 
 # LÖVE's dependencies on Windows, built from source with MinGW, in MSYS2's
@@ -33,8 +36,9 @@ require_relative "source_archive"
 # without bzip2, libpng, Brotli, or HarfBuzz, as megasource builds it (no
 # bzip2 there either); HarfBuzz with FreeType alone, no GLib, Graphite,
 # ICU, or Uniscribe; SDL without iconv; OpenAL Soft with its Windows
-# backends alone, linking the compiler's runtime statically. Theora is
-# left out: love.video is not bound, so the extension takes no object of
+# backends alone, linking the compiler's runtime statically. Theora's
+# decoder is built for the engine's video module, which compiles against
+# it, but love.video is not bound, so the extension takes no object of
 # LÖVE's that calls it, as on Linux, where the gem carries no libtheora.
 #
 # As LinuxBuild does, it keeps downloading apart from building, so the
@@ -89,6 +93,12 @@ class WindowsBuild
       checked: "downloads.xiph.org/releases/vorbis/SHA256SUMS"
     ),
     Archive.new(
+      name: "libtheora", directory: "libtheora-1.2.0",
+      url: "https://downloads.xiph.org/releases/theora/libtheora-1.2.0.tar.gz",
+      sha256: "279327339903b544c28a92aeada7d0dcfd0397b59c2f368cc698ac56f515906e",
+      checked: "downloads.xiph.org/releases/theora/SHA256SUMS"
+    ),
+    Archive.new(
       name: "libmodplug", directory: "libmodplug-0.8.8.5",
       url: "https://sourceforge.net/projects/modplug-xmms/files/libmodplug/0.8.8.5/libmodplug-0.8.8.5.tar.gz/download",
       sha256: "77462d12ee99476c8645cb5511363e3906b88b33a6b54362b4dbc0f39aa2daad",
@@ -124,12 +134,16 @@ class WindowsBuild
   # [root] Where the build goes (tmp/dependencies).
   # [repository] The repository, which +sources+ is relative to.
   # [arm64] Whether the build is for ARM64, as on windows-11-arm.
+  # [archives] What it builds, ARCHIVES unless a test says otherwise.
   # [out] Where progress goes; +nil+ means wherever $stdout points.
-  def initialize(sources:, root:, repository: Dir.pwd, arm64: RbConfig::CONFIG["host_cpu"] == "aarch64", out: nil)
+  def initialize(sources:, root:, repository: Dir.pwd, arm64: RbConfig::CONFIG["host_cpu"] == "aarch64",
+    archives: ARCHIVES, out: nil
+  )
     @sources = File.expand_path(sources, repository)
     @root = File.expand_path(root, repository)
     @repository = File.expand_path(repository)
     @arm64 = arm64
+    @archives = archives
     @out = out
   end
 
@@ -148,14 +162,16 @@ class WindowsBuild
     File.join(@root, "dependencies.stamp")
   end
 
+  # How many times #fetch tries each download: hosts fail now and then, as
+  # LinuxBuild::ATTEMPTS rides out.
+  ATTEMPTS = 5
+
   # Downloads each archive into +sources+, unless it is there with the
-  # recorded SHA-256.
+  # recorded SHA-256, trying each ATTEMPTS times.
   def fetch
-    ARCHIVES.each do |archive|
-      SourceArchive.new(archive, root: @repository).fetch
+    @archives.each do |archive|
+      attempt(archive) { SourceArchive.new(archive, root: @repository).fetch }
       say "✅ #{archive.path} is #{archive.url}, SHA-256 #{archive.sha256}"
-    rescue SourceArchive::Failure => e
-      raise Failure, e.message
     end
   end
 
@@ -170,7 +186,7 @@ class WindowsBuild
 
     FileUtils.rm_rf(@root)
     FileUtils.mkdir_p(@root)
-    ARCHIVES.each { |archive| build(archive) }
+    @archives.each { |archive| build(archive) }
     File.write(dependencies_stamp, stamp)
     say "✅ Built LÖVE's Windows dependencies: #{installdir}"
     installdir
@@ -186,6 +202,8 @@ class WindowsBuild
   def options(name)
     case name
     when "zlib", "libmodplug" then []
+    # The Makefile's options for libtheora, which builds with Autotools.
+    when "libtheora" then %W[--with-ogg=#{installdir} --disable-examples --disable-encode]
     when "libogg" then %w[-DBUILD_SHARED_LIBS=OFF -DINSTALL_DOCS=OFF]
     when "libvorbis" then %w[-DBUILD_SHARED_LIBS=OFF]
     # As love-appimage-source's Makefile configures it (--without-png
@@ -260,15 +278,34 @@ class WindowsBuild
     @arm64 ? options : [*options, "-DALSOFT_STATIC_WINPTHREAD=ON"]
   end
 
-  # Extracts +archive+ and builds it into installdir.
+  # Runs the block until it does not fail, ATTEMPTS times at most: a
+  # connection dropped, a host that answered with an error, or an archive
+  # other than the one recorded.
+  private def attempt(archive)
+    tries = 0
+    begin
+      yield
+    rescue SourceArchive::Failure, IOError, SystemCallError, OpenSSL::SSL::SSLError, Timeout::Error => e
+      tries += 1
+      raise Failure, "#{archive.url}: #{e.message}" if tries >= ATTEMPTS
+
+      say "Retrying #{archive.url} (#{tries} of #{ATTEMPTS - 1}): #{e.message}"
+      retry
+    end
+  end
+
+  # Extracts +archive+, once it is the one recorded, and builds it into
+  # installdir.
   private def build(archive)
     source = File.join(@root, "src", archive.directory)
     FileUtils.mkdir_p(File.dirname(source))
-    path = File.join(@repository, archive.path)
-    raise Failure, "#{path} is missing; run bundle exec rake sources:fetch" unless File.file?(path)
-
-    run(File.dirname(source), "cmake", "-E", "tar", "xf", path)
-    (archive.name == "libmodplug") ? autotools(source) : cmake(archive, source)
+    begin
+      SourceArchive.new(archive, root: @repository).verify!
+    rescue SourceArchive::Failure => e
+      raise Failure, e.message
+    end
+    run(File.dirname(source), "cmake", "-E", "tar", "xf", File.join(@repository, archive.path))
+    AUTOTOOLS.include?(archive.name) ? autotools(archive, source) : cmake(archive, source)
     remove_shared_zlib if archive.name == "zlib"
     say "✅ Built #{archive.name}"
   end
@@ -284,17 +321,20 @@ class WindowsBuild
     run(@root, "cmake", "--install", build)
   end
 
-  # libmodplug 0.8.8.5 builds with Autotools alone, as on Linux, run by
-  # MSYS2's sh, for the machine the compiler targets, named for Autotools
-  # (clang says aarch64-w64-windows-gnu, which libmodplug's config.sub
-  # predates), and built on that machine too, since its config.guess does
-  # not know MSYS2.
-  private def autotools(source)
+  # The libraries that build with Autotools alone, as on Linux: libtheora
+  # 1.2.0 and libmodplug 0.8.8.5.
+  AUTOTOOLS = %w[libtheora libmodplug].freeze
+
+  # Runs the release's configure with MSYS2's sh, for the machine the
+  # compiler targets, named for Autotools (clang says
+  # aarch64-w64-windows-gnu, which these config.sub files predate), and as
+  # built on that machine too, since their config.guess does not know MSYS2.
+  private def autotools(archive, source)
     host = capture(compiler("CC", "cc"), "-dumpmachine").sub(/windows-gnu\z/, "mingw32")
     build = File.join(source, "build")
     FileUtils.mkdir_p(build)
     run(build, "sh", "../configure", "--prefix=#{installdir}", "--build=#{host}", "--host=#{host}", "--enable-static",
-      "--disable-shared")
+      "--disable-shared", *options(archive.name))
     run(build, "make", "-j#{Etc.nprocessors}", "install")
   end
 
