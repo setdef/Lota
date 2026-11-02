@@ -92,12 +92,9 @@ class WindowQueriesTest < Minitest::Test
   # otherwise needs an integer. The system decides whether it can wait
   # unless a frame is late (-1), so only 0 and 1 are checked.
   def test_v_sync_is_an_integer_that_a_boolean_sets
-    Lota::Window.v_sync = false
-    assert_equal 0, Lota::Window.v_sync
-    Lota::Window.v_sync = true
-    assert_equal 1, Lota::Window.v_sync
-    Lota::Window.v_sync = 0.0
-    assert_equal 0, Lota::Window.v_sync
+    assert_v_sync(0) { Lota::Window.v_sync = false }
+    assert_v_sync(1) { Lota::Window.v_sync = true }
+    assert_v_sync(0) { Lota::Window.v_sync = 0.0 }
 
     error = assert_raises(TypeError) { Lota::Window.v_sync = "1" }
     assert_equal "wrong argument type String for vsync (expected Integer, true, or false)", error.message
@@ -117,7 +114,12 @@ class WindowQueriesTest < Minitest::Test
 
   # w_setPosition (wrap_Window.cpp:377-394) takes the display and whether
   # to wait for the system as its third and fourth values, both optional,
-  # which rule 6 puts in the Array.
+  # which rule 6 puts in the Array. Waiting is the default, so the window
+  # is where it was sent at once. Without the wait, a system that moves
+  # windows later, as X11 does, reports the move in an event, which SDL
+  # reads into the position only as the events are pumped (SDL 3.4.10,
+  # src/video/x11/SDL_x11window.c, X11_UpdateWindowPosition, and
+  # src/events/SDL_windowevents.c, SDL_EVENT_WINDOW_MOVED).
   def test_the_position_takes_a_display_and_whether_to_wait
     x, y, display = Lota::Window.position
     assert_kind_of Integer, x
@@ -127,6 +129,7 @@ class WindowQueriesTest < Minitest::Test
     Lota::Window.position = 120, 130
     assert_equal [120, 130, 1], Lota::Window.position
     Lota::Window.position = 140, 150, nil, false
+    pump_until { Lota::Window.position == [140, 150, 1] }
     assert_equal [140, 150, 1], Lota::Window.position
   ensure
     Lota::Window.position = x, y, display
@@ -176,5 +179,35 @@ class WindowQueriesTest < Minitest::Test
 
     assert_raises(ArgumentError) { Lota::Window.show_message_box("Title", "Message", :info, true, true) }
     assert_raises(ArgumentError) { Lota::Window.show_message_box("Title", "Message", %w[A], :info, true, true) }
+  end
+
+  # Asserts that the block's request for vsync reached the system, which
+  # keeps it, so that v_sync answers +expected+, or refuses it and says
+  # why. LÖVE's Window::setVSync ignores a refusal, and its getVSync
+  # answers what SDL keeps instead (src/modules/window/sdl/Window.cpp,
+  # lines 1094-1135): Mesa's software GLX, on a display without DRI as
+  # Xvfb is, offers no swap control (Mesa 23.2, src/glx/drisw_glx.c, lines
+  # 864-871), so SDL refuses every interval and answers 0 (SDL 3.4.10,
+  # src/video/x11/SDL_x11opengl.c, lines 961-1008 and 1099-1102).
+  private def assert_v_sync(expected)
+    LotaNativeTest.clear_sdl_error
+    yield
+    refusal = LotaNativeTest.sdl_error
+    if refusal.empty?
+      assert_equal expected, Lota::Window.v_sync
+    else
+      assert_equal LotaNativeTest.swap_interval, Lota::Window.v_sync, refusal
+    end
+  end
+
+  # Pumps the system's events, and drops them, until the block is true or
+  # ten seconds have passed.
+  private def pump_until
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 10
+    until yield || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      Lota::Event.pump
+      Lota::Event.clear
+      sleep 0.01
+    end
   end
 end

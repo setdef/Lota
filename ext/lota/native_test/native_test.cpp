@@ -583,6 +583,25 @@ void rotate_display() {
   push(event);
 }
 
+// SDL's message for the last request it refused on this thread, or ""
+// once SDL_ClearError has run. SDL_GL_SetSwapInterval refuses on a
+// driver that cannot wait for the display (SDL 3.4.10,
+// src/video/x11/SDL_x11opengl.c, X11_GL_SetSwapInterval), which LÖVE's
+// Window::setVSync does not check (src/modules/window/sdl/Window.cpp,
+// lines 1094-1108), so the message is the one sign that the request
+// reached the driver.
+std::string sdl_error() { return SDL_GetError(); }
+
+void clear_sdl_error() { SDL_ClearError(); }
+
+// The swap interval SDL answers for the current OpenGL context, which is
+// what LÖVE's Window::getVSync answers with one (Window.cpp, lines
+// 1128-1135), or 0 without one, as SDL_GL_GetSwapInterval leaves it.
+int swap_interval() {
+  int interval = 0;
+  return SDL_GL_GetSwapInterval(&interval) ? interval : 0;
+}
+
 // Mixes +dt+ seconds of game time on the parity harness's loopback device
 // into the file +path+ (lota_loopback_render, loopback.cpp), as the
 // harness's Lua side does through LuaJIT's FFI (test/parity/lua/conf.lua).
@@ -731,6 +750,9 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
       .define_module_function("rotate_display", &rotate_display)
+      .define_module_function("sdl_error", &sdl_error)
+      .define_module_function("clear_sdl_error", &clear_sdl_error)
+      .define_module_function("swap_interval", &swap_interval)
       .define_module_function("image_data_bytes", &image_data_bytes,
                               Rice::Arg("image_data").setValue())
       .define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),
