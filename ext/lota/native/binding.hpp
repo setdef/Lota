@@ -17,6 +17,12 @@
 // clang-tidy's misc-include-cleaner reads).
 //
 // rice/stl.hpp converts std::string, among others; it follows rice/rice.hpp.
+// Rice 4.12's rice.hpp names std::exception_ptr without including
+// <exception>; libstdc++ and Apple's libc++ reach it through other
+// headers, but MSYS2's CLANGARM64 libc++ declares it only (the MinGW
+// spike).
+#include <exception>
+
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
 

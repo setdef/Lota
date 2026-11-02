@@ -217,13 +217,21 @@ jobs:
           $env:Path = "$(Split-Path (Get-Command ruby).Source);C:\Windows\system32;C:\Windows"
           ruby .github/mingw_spike_smoke.rb bare "" tmp/samedir/lib
 
+      # The last run hung at exit after every check passed, so each group
+      # of modules runs alone, under a timeout.
       - name: Load Lota with its DLLs' directory added
         if: steps.inspect.outcome == 'success'
         continue-on-error: true
-        shell: pwsh
+        timeout-minutes: 12
         run: |
-          $env:Path = "$(Split-Path (Get-Command ruby).Source);C:\Windows\system32;C:\Windows"
-          ruby .github/mingw_spike_smoke.rb add-dll-directory "$PWD\tmp\dlls"
+          clean="$(dirname "$(which ruby)"):/c/Windows/system32:/c/Windows"
+          dlls=$(cygpath -w "$PWD/tmp/dlls")
+          for groups in "core" "core sdl" "core audio" "core sdl audio"; do
+            echo "=== SPIKE_GROUPS=$groups"
+            start=$(date +%s)
+            SPIKE_GROUPS="$groups" PATH="$clean" /usr/bin/timeout -k 5 120 ruby .github/mingw_spike_smoke.rb add-dll-directory "$dlls"
+            echo "=== exit status $? after $(( $(date +%s) - start ))s (124 is the timeout)"
+          done
 
       # The test files that open no window and need neither the test-only
       # extension (ext/lota/native_test, which is POSIX-only) nor a GPU,
@@ -231,13 +239,14 @@ jobs:
       - name: Run the headless tests
         if: steps.inspect.outcome == 'success'
         continue-on-error: true
+        timeout-minutes: 15
         run: |
           gem install minitest -v '~> 6.0' --no-document
           status=0
           for test in test/version_test.rb test/info_test.rb test/error_message_test.rb test/settings_test.rb \
             test/record_test.rb test/deprecation_test.rb test/boot_test.rb test/callbacks_test.rb; do
             echo "== $test"
-            RUBY_DLL_PATH="$(cygpath -w "$MINGW_PREFIX/bin")" ruby -Ilib -Itest "$test" 2>&1 | tail -15 || status=1
+            RUBY_DLL_PATH="$(cygpath -w "$MINGW_PREFIX/bin")" /usr/bin/timeout -k 5 120 ruby -Ilib -Itest "$test" 2>&1 | tail -15 || status=1
           done
           exit $status
 
