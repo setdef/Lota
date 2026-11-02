@@ -97,6 +97,16 @@ bound_by_hand "love.event.push",
     "narrows to the booleans, numbers, and strings an event carries"
 bound_by_hand "love.event.quit",
   reason: "reads a Variant of any kind at every position (luax_checkvariant), which Lota narrows to an exit status"
+bound_by_hand "love.event.wait",
+  reason: "returns a message's name and a computed number of arguments (luax_pushmessage), which the generator " \
+    "does not port; Lota returns them as the Array Lota::Event.poll yields, as it does for the message w_poll_i " \
+    "pushes"
+bound_by_hand "love.event.restart",
+  reason: "reads a Variant of any kind at every position (luax_checkvariant), as love.event.push; Lota narrows " \
+    "them to the booleans, numbers, and strings an event carries"
+bound_by_hand "love.event.setModalDrawCallback",
+  reason: "keeps a Lua function in a Reference and calls it with lua_cpcall (drawCallback), which the " \
+    "generator does not port; Lota keeps a Ruby callable as a root of the garbage collector"
 
 # love.filesystem
 generate "love.filesystem.init"
@@ -412,6 +422,18 @@ bound_by_hand "love.image.newImageData",
 bound_by_hand "love.keyboard.isDown",
   reason: "reads its keys in a loop over every argument, or from a table; Lota::Keyboard.down? passes them " \
     "as one Array"
+generate "love.keyboard.setKeyRepeat"
+generate "love.keyboard.hasKeyRepeat"
+generate "love.keyboard.setTextInput"
+generate "love.keyboard.hasTextInput"
+generate "love.keyboard.hasScreenKeyboard"
+generate "love.keyboard.isScreenKeyboardVisible"
+bound_by_hand "love.keyboard.isScancodeDown",
+  reason: "reads its scancodes in a loop over every argument, or from a table, as love.keyboard.isDown; " \
+    "Lota::Keyboard.scancode_down? passes them as one Array"
+generate "love.keyboard.getScancodeFromKey"
+generate "love.keyboard.getKeyFromScancode"
+generate "love.keyboard.isModifierActive"
 
 # love.mouse
 generate "love.mouse.getSystemCursor"
@@ -764,11 +786,23 @@ generate "Decoder:getDuration"
 generate "love.system.setClipboardText"
 generate "love.system.getClipboardText"
 generate "love.system.getOS"
+generate "love.system.getProcessorCount"
+generate "love.system.getMemorySize"
+generate "love.system.getPowerInfo"
+generate "love.system.openURL"
+generate "love.system.vibrate"
+generate "love.system.hasBackgroundMusic"
+bound_by_hand "love.system.getPreferredLocales",
+  reason: "builds a table of strings with lua_createtable and lua_rawseti in a loop, which the generator does " \
+    "not port; Lota returns the locales as an Array of Strings"
 
 # love.timer
 generate "love.timer.step"
 generate "love.timer.getDelta"
 generate "love.timer.sleep"
+generate "love.timer.getFPS"
+generate "love.timer.getAverageDelta"
+generate "love.timer.getTime"
 
 # love.window
 generate "love.window.getSafeArea"

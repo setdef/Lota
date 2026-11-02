@@ -41,6 +41,27 @@ class GeneratorTest < Minitest::Test
     assert_includes port.registration, %(Rice::Arg("magstr") = std::optional<std::string>())
   end
 
+  # Timer::getTime is static, and clang-tidy's
+  # readability-static-accessed-through-instance refuses it called through
+  # instance(), so the port calls it on the class and keeps the call
+  # through instance() for a method that is not static.
+  def test_a_static_method_is_called_on_its_class
+    assert_includes port("love.timer.getTime").definition, "return Timer::getTime();"
+    assert_includes port("love.timer.getFPS").definition, "return instance()->getFPS();"
+  end
+
+  # w_vibrate reads its seconds with luaL_optnumber(L, 1, 0.5), and
+  # clang-tidy's readability-magic-numbers refuses 0.5 in a Rice::Arg, so
+  # the port names it, while a default of 0 or 1 stays as it is.
+  def test_a_magic_number_default_is_a_named_constant
+    port = port("love.system.vibrate")
+
+    assert_equal ["constexpr double W_VIBRATE_SECONDS = 0.5;"], port.default_constants
+    assert_includes port.registration, %(Rice::Arg("seconds") = W_VIBRATE_SECONDS)
+    assert_empty port("love.event.pump").default_constants
+    assert_includes port("love.event.pump").registration, %(Rice::Arg("wait_timeout") = 0.0)
+  end
+
   # The generated file includes a header for each name it uses: the class
   # of an object argument (w_setFont's Font), std::min and std::max,
   # LÖVE's integer limits, and its Rect (w_getSafeArea's, common/math.h), as clang-tidy's misc-include-cleaner requires.

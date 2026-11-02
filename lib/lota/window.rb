@@ -290,11 +290,9 @@ module Lota
       end
     end
 
-    # Where a caller called from, as luaL_where gives it for level 1: its
-    # file and line and a colon and space, or nothing when unknown.
+    # Where a caller called from (Deprecation.where).
     private_class_method def self.where(locations)
-      location = locations&.first
-      location ? "#{location.path}:#{location.lineno}: " : ""
+      Deprecation.where(locations)
     end
 
     # luax_boolflag (src/common/runtime.cpp): the default when nil, else

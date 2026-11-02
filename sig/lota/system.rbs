@@ -8,5 +8,19 @@ module Lota
     def self.os: () -> String
 
     def self.clipboard_text: () -> String
+
+    def self.processor_count: () -> Integer
+
+    def self.memory_size: () -> Integer
+
+    def self.power_info: () -> [Symbol, Integer?, Integer?]
+
+    def self.open_url: (String url) -> bool
+
+    def self.vibrate: (?(Float | Integer) seconds) -> nil
+
+    def self.background_music?: () -> bool
+
+    def self.preferred_locales: () -> Array[String]
   end
 end

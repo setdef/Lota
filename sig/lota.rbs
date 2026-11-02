@@ -4,6 +4,8 @@
 module Lota
   extend DefaultCallbacks
 
+  extend Info
+
   def self.filesystem: () -> singleton(Filesystem)
 
   def self.image: () -> singleton(Image)?

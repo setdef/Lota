@@ -87,6 +87,16 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   version.freeze();
   native.const_set("VERSION", version);
 
+  // love._version_major, _version_minor, _version_revision, and
+  // _version_codename (love.cpp:549-557), which love.getVersion gives
+  // (love.cpp:300-307).
+  native.const_set("VERSION_MAJOR", Rice::detail::to_ruby(love::VERSION_MAJOR));
+  native.const_set("VERSION_MINOR", Rice::detail::to_ruby(love::VERSION_MINOR));
+  native.const_set("VERSION_REVISION", Rice::detail::to_ruby(love::VERSION_REV));
+  Rice::String codename(std::string{love::VERSION_CODENAME});
+  codename.freeze();
+  native.const_set("VERSION_CODENAME", codename);
+
   // love._version_compat (love.cpp:596-602), the versions a game's
   // t.version may name without boot.lua's compatibility warning, which
   // love.isVersionCompatible compares it with (love.cpp:309-352).

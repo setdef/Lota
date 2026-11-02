@@ -3,6 +3,28 @@
 
 module Lota
   module Keyboard
-    def self.down?: (*(Symbol | String) keys) -> bool
+    def self.down?: (*(Symbol | String | Array[Symbol | String]) keys) -> bool
+
+    def self.scancode_down?: (*(Symbol | String | Array[Symbol | String]) scancodes) -> bool
+
+    def self.key_repeat=: (bool enable) -> void
+
+    def self.key_repeat?: () -> bool
+
+    def self.text_input=: (bool | [bool, Float | Integer, Float | Integer, Float | Integer, Float | Integer] enable) -> void
+
+    def self.text_input?: () -> bool
+
+    def self.screen_keyboard?: () -> bool
+
+    def self.screen_keyboard_visible?: () -> bool
+
+    def self.scancode_from_key: (Symbol | String key) -> Symbol
+
+    def self.key_from_scancode: (Symbol | String scancode) -> Symbol
+
+    def self.modifier_active?: (Symbol | String key) -> bool
+
+    private def self.names: (Array[Symbol | String | Array[Symbol | String]] keys) -> Array[String]
   end
 end

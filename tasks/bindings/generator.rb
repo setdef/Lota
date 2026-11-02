@@ -211,7 +211,7 @@ module Bindings
         using namespace love;
         using namespace #{namespace_of(wrap)};
 
-        #{module_constant(name, ports)}#{accessor(name, instance_wrap(ports), main) if instance?(ports)}
+        #{module_constant(name, ports)}#{default_constants(ports)}#{accessor(name, instance_wrap(ports), main) if instance?(ports)}
         // SPDX-SnippetBegin
         // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
         // SPDX-License-Identifier: Zlib
@@ -250,6 +250,13 @@ module Bindings
       return "" unless instance?(ports) || ports.any? { |port| port.definition.include?("MODULE") }
 
       %(constexpr const char *MODULE = "#{Rules.module_constant(name)}";\n)
+    end
+
+    # The constants that hold the defaults of the ports' parameters that
+    # are magic numbers, which a Rice::Arg may not spell out.
+    private def default_constants(ports)
+      lines = ports.sort_by { |port| [port.function.wrap.path, port.function.definition.line] }.flat_map(&:default_constants)
+      lines.empty? ? "" : "\n#{lines.join("\n")}\n"
     end
 
     private def accessor(name, wrap, main)

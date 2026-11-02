@@ -78,6 +78,14 @@ module Lota
       nil
     end
 
+    # Where a caller called from, as luaL_where gives it for level 1: its
+    # file and line and a colon and space, or an empty String when
+    # unknown. Pass it <tt>caller_locations(1, 1)</tt>. :nodoc:
+    def self.where(locations)
+      location = locations&.first
+      location ? "#{location.path}:#{location.lineno}: " : ""
+    end
+
     # Turns the printing of notices on or off, as
     # setDeprecationOutputEnabled does: turning it on prints the notice of
     # each name used exactly once so far.

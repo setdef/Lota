@@ -8,9 +8,9 @@
 
 namespace lota::native {
 
-// Binds the functions of love::system::System that open the module, as
-// module functions of <native>::System. Its clipboard functions are
-// generated (native/generated/system.cpp).
+// Binds the functions of love::system::System that open the module and
+// list the preferred locales, as module functions of <native>::System. Its
+// other functions are generated (native/generated/system.cpp).
 void define_system(const Rice::Module &native);
 
 } // namespace lota::native

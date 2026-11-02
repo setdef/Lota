@@ -27,6 +27,8 @@ module Lota
 
     self.@output: bool
 
+    def self.where: (Array[Thread::Backtrace::Location]? locations) -> String
+
     def self.mark: (String name, Symbol api, ?Symbol type, ?String? replacement, ?where: String) -> nil
 
     def self.output=: (bool enable) -> void

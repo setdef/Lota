@@ -16,8 +16,8 @@ module Lota
   # passes the result to your update callback as +dt+, and sleeps a
   # millisecond a frame with it, as LÖVE's loop does.
   #
-  # Use it to measure frames yourself, or to sleep, when you write a game
-  # loop of your own.
+  # Use it to read the frame rate, to time something, or to measure frames
+  # and sleep when you write a game loop of your own.
   #
   # === Examples
   #
@@ -71,6 +71,46 @@ module Lota
     #   Lota::Timer.sleep(0.001)
     def self.sleep(seconds)
       Native::Timer.sleep(seconds)
+    end
+
+    # The number of frames per second, as an Integer, matching
+    # love.timer.getFPS (src/modules/timer/wrap_Timer.cpp, w_getFPS): the
+    # steps of the last second, which the timer updates once a second. It
+    # is 0 until the first second has passed. Raises RuntimeError when the
+    # timer module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.print("FPS: #{Lota::Timer.fps}", 10, 10)
+    def self.fps
+      Native::Timer.fps
+    end
+
+    # The average time a step took over the last second, in seconds, as a
+    # Float, matching love.timer.getAverageDelta
+    # (src/modules/timer/wrap_Timer.cpp, w_getAverageDelta). It is 0.0
+    # until the first second has passed. Raises RuntimeError when the timer
+    # module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Timer.average_delta # => 0.0166...
+    def self.average_delta
+      Native::Timer.average_delta
+    end
+
+    # The time since the program began, in seconds, as a Float, matching
+    # love.timer.getTime (src/modules/timer/wrap_Timer.cpp, w_getTime),
+    # from a clock that only moves forward. Subtract two readings to time
+    # something. Raises RuntimeError when the timer module is not open.
+    #
+    # === Example
+    #
+    #   started = Lota::Timer.time
+    #   load_level
+    #   puts "Loaded in #{Lota::Timer.time - started} seconds"
+    def self.time
+      Native::Timer.time
     end
   end
 end

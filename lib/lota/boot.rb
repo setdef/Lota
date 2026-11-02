@@ -408,7 +408,7 @@ module Lota
     # not compatible with is warned about.
     private def check_version
       @settings.version = tostring(@settings.version)
-      return if version_compatible?(@settings.version)
+      return if Lota.version_compatible?(@settings.version)
 
       msg = "This game indicates it was made for version '#{@settings.version}' of LOVE.\n" \
         "It may not be compatible with the running version (#{Native::VERSION})."
@@ -416,21 +416,6 @@ module Lota
       puts msg
 
       Native::Window.show_message_box("Compatibility Warning", msg, "warning") if Native::Window.open?
-    end
-
-    # Whether the engine is compatible with the String +version+, as
-    # love.isVersionCompatible decides for a string (love.cpp:309-352): a
-    # version with fewer than two dots gains ".0", once, and must then
-    # equal one of love._version_compat, each written the same way.
-    private def version_compatible?(version)
-      version = revision(version)
-      Native::VERSION_COMPATIBILITY.any? { |v| revision(v) == version }
-    end
-
-    # +version+ with ".0" appended when it has fewer than two dots
-    # (love.cpp:317-319 and 339-341).
-    private def revision(version)
-      (version.count(".") < 2) ? "#{version}.0" : version
     end
 
     # +value+ as Lua's tostring writes it, for the values a setting holds:

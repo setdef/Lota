@@ -48,8 +48,17 @@ double w_step() { return instance()->step(); }
 // love.timer.getDelta: w_getDelta (wrap_Timer.cpp:39-43).
 double w_getDelta() { return instance()->getDelta(); }
 
+// love.timer.getFPS: w_getFPS (wrap_Timer.cpp:45-49).
+int w_getFPS() { return instance()->getFPS(); }
+
+// love.timer.getAverageDelta: w_getAverageDelta (wrap_Timer.cpp:51-55).
+double w_getAverageDelta() { return instance()->getAverageDelta(); }
+
 // love.timer.sleep: w_sleep (wrap_Timer.cpp:57-61).
 void w_sleep(double seconds) { instance()->sleep(seconds); }
+
+// love.timer.getTime: w_getTime (wrap_Timer.cpp:63-67).
+double w_getTime() { return Timer::getTime(); }
 
 // SPDX-SnippetEnd
 
@@ -59,7 +68,10 @@ void define_generated_timer(const Rice::Module &native) {
   Rice::define_module_under(native, "Timer")
       .define_singleton_function("step", &w_step)
       .define_singleton_function("delta", &w_getDelta)
-      .define_singleton_function("sleep", &w_sleep, Rice::Arg("seconds"));
+      .define_singleton_function("sleep", &w_sleep, Rice::Arg("seconds"))
+      .define_singleton_function("fps", &w_getFPS)
+      .define_singleton_function("average_delta", &w_getAverageDelta)
+      .define_singleton_function("time", &w_getTime);
 }
 
 } // namespace lota::native

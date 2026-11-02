@@ -167,7 +167,7 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    skips = (ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 10 : 3
+    skips = (ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 14 : 7
     assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
     refute_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
@@ -220,7 +220,7 @@ class RakeTasksTest < Minitest::Test
   # NativeHelper#capture2e: under rake test:native, a forked child can die
   # before it runs the command (LotaNativeTest.spawn).
   def test_no_native_suite_file_forks
-    forks = /\bOpen3\b|\bIO\.popen\b|\bProcess\.spawn\b|(?<![.\w])(?:spawn|system|fork)\b|`|%x/
+    forks = %r{\bOpen3\b|\bIO\.popen\b|\bProcess\.spawn\b|(?<![./\w])(?:spawn|system|fork)\b|`|%x}
     Dir.chdir(ROOT) do
       files = Dir[*TEST_SUITES.fetch(:native), "test/native/native_helper.rb"]
       forking = files.select { |path| File.readlines(path).grep_v(/\A\s*#/).join.match?(forks) }
@@ -231,10 +231,11 @@ class RakeTasksTest < Minitest::Test
   end
 
   # rake test runs the sanitized suite through this test, so every line of
-  # test:native runs in the gate. Its three skips are Lövetest's discard,
-  # requestAttention, and showMessageBox tests, which Lövetest skips
-  # everywhere (test/lovetest/tests/graphics.rb and window.rb), and, on a
-  # GitHub runner on Linux, seven window tests more (window.rb).
+  # test:native runs in the gate. Its seven skips are Lövetest's discard,
+  # requestAttention, showMessageBox, openURL, vibrate, pump, and wait
+  # tests, which Lövetest skips everywhere (test/lovetest/tests/graphics.rb,
+  # window.rb, system.rb, and event.rb), and, on a GitHub runner on Linux,
+  # seven window tests more (window.rb).
   def test_the_native_suite_passes_under_the_sanitizers
     task = Rake::Task["test:native"].tap(&:reenable)
     failure = nil
@@ -245,7 +246,7 @@ class RakeTasksTest < Minitest::Test
     end
 
     assert_nil failure, "#{failure&.message}\n#{out}"
-    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 10 : 3
+    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 14 : 7
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end

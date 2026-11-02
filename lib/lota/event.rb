@@ -103,19 +103,30 @@ module Lota
     #
     #   Lota::Event.push(:keypressed, :space, :space, false)
     def self.push(name, *arguments)
-      values = [] #: Array[bool | Float | String]
-      arguments.each.with_index(2) do |argument, position|
-        case argument
-        when nil then break
-        when true, false, String then values << argument
-        when Symbol then values << argument.name
-        when Integer, Float then values << argument.to_f
-        else
-          raise ArgumentError,
-            "Argument #{position} can't be stored safely\nExpected boolean, number, string or userdata."
-        end
-      end
-      Native::Event.push(EnumName.of(name), values)
+      Native::Event.push(EnumName.of(name), variants(arguments))
+    end
+
+    # Waits for the next message and returns it, matching love.event.wait
+    # (src/modules/event/wrap_Event.cpp, w_wait), which LÖVE has
+    # deprecated in favor of the +wait_timeout+ of #pump. The first use
+    # prints LÖVE's notice (Lota::Deprecation).
+    #
+    # It returns the message's name and arguments as one Array (ADR 001,
+    # rule 4), as #poll yields them, or +nil+ when what arrives is nothing
+    # LÖVE passes on. Unlike #poll it waits for what the operating system
+    # reports, not for what is already in the queue, so it blocks the game
+    # until something happens. Waiting while a canvas is the target raises
+    # RuntimeError, as pump does. Raises RuntimeError when the event
+    # module is not open.
+    #
+    # === Example
+    #
+    #   name, *arguments = Lota::Event.wait
+    def self.wait
+      Deprecation.mark("Lota::Event.wait", :function, :replaced, "wait_timeout parameter in Lota::Event.pump",
+        where: Deprecation.where(caller_locations(1, 1)))
+      message = Callbacks.message(Native::Event.wait)
+      message && [message.first, *message.last]
     end
 
     # Empties the queue, matching love.event.clear
@@ -151,6 +162,75 @@ module Lota
     #   Lota::Event.quit(1)  # exits with 1
     def self.quit(exit_status = nil)
       Native::Event.quit(exit_status&.to_f)
+    end
+
+    # Asks the game to quit and start again, matching love.event.restart
+    # (src/modules/event/wrap_Event.cpp, w_restart): the same as #quit
+    # with <tt>"restart"</tt> as its first argument, followed by
+    # +arguments+.
+    #
+    # [arguments] Booleans, numbers, Strings, or Symbols, which become
+    #   their names, as #push reads them.
+    #
+    # Lota does not restart games yet, so a game that restarts ends, as
+    # one that quits with status 0 does, after the +quit+ callback has had
+    # its say. Returns +true+. Raises RuntimeError when the event module
+    # is not open.
+    #
+    # === Example
+    #
+    #   Lota::Event.restart
+    def self.restart(*arguments)
+      Native::Event.restart(variants(arguments))
+    end
+
+    # Sets the callable the operating system's own loop draws the window
+    # with, matching love.event.setModalDrawCallback
+    # (src/modules/event/wrap_Event.cpp, w_setModalDrawCallback), which
+    # ADR 001's rule 5 makes a writer and its rule 12 lets take any object
+    # that answers +call+.
+    #
+    # [callable] Anything that answers +call+ with no arguments, or +nil+
+    #   for none.
+    #
+    # While the system resizes the window, on macOS and Windows, it does
+    # not return to the game, so nothing draws until the player lets go.
+    # The event module calls this instead, during the system's loop, and
+    # LÖVE's own game loop passes its frame to it. What the callable
+    # returns, an exit status or an Array of it and a restart value, as
+    # the frame of Lota.run returns them, ends the game as a +quit+
+    # message would; an error it raises comes out of the next #pump.
+    # Raises TypeError for a value that does not answer +call+, and
+    # RuntimeError when the event module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Event.modal_draw_callback = -> { Lota::Graphics.present; nil }
+    def self.modal_draw_callback=(callable)
+      unless callable.nil? || callable.respond_to?(:call)
+        raise TypeError, "wrong argument type #{callable.class} (expected a callable)"
+      end
+
+      Native::Event.set_modal_draw_callback(callable)
+    end
+
+    # The values of a message's +arguments+ as the engine stores them: up
+    # to the first +nil+, as LÖVE stops reading there, with numbers as
+    # Floats and Symbols as their names. :nodoc:
+    private_class_method def self.variants(arguments)
+      values = [] #: Array[bool | Float | String]
+      arguments.each.with_index(2) do |argument, position|
+        case argument
+        when nil then break
+        when true, false, String then values << argument
+        when Symbol then values << argument.name
+        when Integer, Float then values << argument.to_f
+        else
+          raise ArgumentError,
+            "Argument #{position} can't be stored safely\nExpected boolean, number, string or userdata."
+        end
+      end
+      values
     end
   end
 end

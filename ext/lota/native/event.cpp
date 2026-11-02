@@ -4,6 +4,7 @@
 #include "native/event.hpp"
 
 #include "native/binding.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -13,6 +14,7 @@
 
 #include <bit>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -89,22 +91,39 @@ void push_argument(Rice::Array &result, const Variant &variant) {
   // NOLINTEND(cppcoreguidelines-pro-type-union-access)
 }
 
-// w_poll_i (wrap_Event.cpp:52-65) and luax_pushmessage (lines 42-50): the
-// next message, as an Array of its name and its arguments, or nil when the
-// queue is empty. Event::poll hands over the queue's reference, which the
-// StrongRef releases.
+// luax_pushmessage (wrap_Event.cpp:42-50): +message+ as an Array of its
+// name and its arguments. Event::poll and Event::wait hand over the
+// message's reference, which the StrongRef releases.
+Rice::Array message_array(Message *message) {
+  const love::StrongRef<Message> owned(message, love::Acquire::NORETAIN);
+  Rice::Array result;
+  result.push(owned->name, false);
+  for (const Variant &argument : owned->args) {
+    push_argument(result, argument);
+  }
+  return result;
+}
+
+// w_poll_i (wrap_Event.cpp:52-65): the next message, as an Array of its
+// name and its arguments, or nil when the queue is empty.
 Rice::Object poll() {
   Message *polled = nullptr;
   if (!event().poll(polled) || polled == nullptr) {
     return {};
   }
-  const love::StrongRef<Message> message(polled, love::Acquire::NORETAIN);
-  Rice::Array result;
-  result.push(message->name, false);
-  for (const Variant &argument : message->args) {
-    push_argument(result, argument);
+  return message_array(polled);
+}
+
+// w_wait (wrap_Event.cpp:74-91), after the deprecation notice that
+// Lota::Event.wait marks: the next message, waiting for one, as an Array
+// of its name and its arguments, or nil when SDL's event is one LÖVE does
+// not pass on.
+Rice::Object wait() {
+  Message *waited = event().wait();
+  if (waited == nullptr) {
+    return {};
   }
-  return result;
+  return message_array(waited);
 }
 
 // w_quit (wrap_Event.cpp:123-136): queues a quit message with one
@@ -121,22 +140,115 @@ bool quit(std::optional<double> exit_status) {
   return true;
 }
 
-// w_push (wrap_Event.cpp:85-110): queues a message named +name+ with
-// +arguments+. Lota::Event.push reads them as w_push does, up to the first
-// nil and raising its error for a value an event cannot carry, and passes
-// on what luax_checkvariant would make of each: a boolean, a number, or a
+// Each of +list+, which Lota::Event.push has read as w_push reads them (up
+// to the first nil, raising its error for a value an event cannot carry),
+// as the Variant luax_checkvariant makes of it: a boolean, a number, or a
 // string.
-bool push(const std::string &name, Rice::Array list) {
-  const Rice::Array arguments = std::move(list);
+std::vector<Variant> variants(const Rice::Array &list) {
   std::vector<Variant> args;
   Rice::detail::From_Ruby<std::variant<bool, double, std::string>> from_ruby;
-  for (const auto item : arguments) {
+  for (const auto item : list) {
     std::visit([&args](const auto &value) { args.emplace_back(value); },
                from_ruby.convert(item.value()));
   }
-  const love::StrongRef<Message> message(new Message(name, args), love::Acquire::NORETAIN);
+  return args;
+}
+
+// w_push (wrap_Event.cpp:85-110): queues a message named +name+ with
+// +arguments+.
+bool push(const std::string &name, Rice::Array list) {
+  const Rice::Array arguments = std::move(list);
+  const love::StrongRef<Message> message(new Message(name, variants(arguments)),
+                                         love::Acquire::NORETAIN);
   event().push(message.get());
   return true;
+}
+
+// w_restart (wrap_Event.cpp:138-153): queues a quit message whose first
+// argument is "restart", followed by +arguments+, as Lota::Event.restart
+// reads them for push.
+bool restart(Rice::Array list) {
+  const Rice::Array arguments = std::move(list);
+  std::vector<Variant> args;
+  args.emplace_back(std::string("restart"));
+  for (Variant &argument : variants(arguments)) {
+    args.push_back(std::move(argument));
+  }
+  const love::StrongRef<Message> message(new Message("quit", args), love::Acquire::NORETAIN);
+  event().push(message.get());
+  return true;
+}
+
+// drawCallback and cleanupCallback (wrap_Event.cpp:166-199), for a Ruby
+// callable that LÖVE keeps in a Reference to a Lua function. The callable
+// is a root of Ruby's garbage collector from when the event module takes
+// it until the module lets go of it.
+using Callable = ruby::Root;
+
+// The Variant luax_checkvariant (without tables) makes of one of the
+// values a modal draw callback returns, which is nothing, a boolean, a
+// number, or a string.
+Variant returned_variant(const Rice::Object &value) {
+  if (ruby::is_nil(value)) {
+    return {};
+  }
+  if (ruby::is_boolean(value)) {
+    return {ruby::is_true(value)};
+  }
+  if (ruby::is_numeric(value)) {
+    return {Rice::detail::From_Ruby<double>().convert(value.value())};
+  }
+  if (ruby::is_string(value)) {
+    return {Rice::detail::From_Ruby<std::string>().convert(value.value())};
+  }
+  throw love::Exception(
+      "Error in modal draw callback: it returned %s, which an event cannot carry.",
+      ruby::class_name(value).c_str());
+}
+
+// drawCallback (wrap_Event.cpp:174-199): calls the callable, whose two
+// results, an Array when it returns several (rule 4), go to LÖVE's quit
+// message. A Ruby error it raises reaches the pump as an exception, with
+// the callback's name in front, as LÖVE's does.
+void draw_callback(void *context, Variant *first, Variant *second) {
+  Rice::Object callable = static_cast<Callable *>(context)->value();
+  try {
+    const Rice::Object result = callable.vcall("call", Rice::Array());
+    if (ruby::is_array(result)) {
+      const std::vector<Rice::Object> values = ruby::elements(Rice::Array(result));
+      *first = values.empty() ? Variant() : returned_variant(values.at(0));
+      *second = values.size() < 2 ? Variant() : returned_variant(values.at(1));
+    } else {
+      *first = returned_variant(result);
+      *second = Variant();
+    }
+  } catch (const Rice::Exception &error) {
+    throw love::Exception("Error in modal draw callback: %s", error.what());
+  }
+}
+
+void cleanup_callback(void *context) {
+  const std::unique_ptr<Callable> owned(static_cast<Callable *>(context));
+}
+
+// The ModalDrawData for +callable+, or none for nil (wrap_Event.cpp:
+// 201-221).
+love::event::Event::ModalDrawData modal_draw_data(const Rice::Object &callable) {
+  love::event::Event::ModalDrawData data = {};
+  if (!ruby::is_nil(callable)) {
+    data.draw = &draw_callback;
+    data.cleanup = &cleanup_callback;
+    data.context = std::make_unique<Callable>(callable).release();
+  }
+  return data;
+}
+
+// w_setModalDrawCallback (wrap_Event.cpp:201-221): the function the event
+// module calls to redraw the window while the system's own loop is
+// resizing it, or none.
+void set_modal_draw_callback(Rice::Object given) {
+  const Rice::Object callable = std::move(given);
+  event().setModalDrawData(modal_draw_data(callable));
 }
 
 // SPDX-SnippetEnd
@@ -148,7 +260,11 @@ void define_event(const Rice::Module &native) {
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("poll", &poll)
+      .define_singleton_function("wait", &wait)
       .define_singleton_function("push", &push, Rice::Arg("name"), Rice::Arg("arguments"))
+      .define_singleton_function("restart", &restart, Rice::Arg("arguments"))
+      .define_singleton_function("set_modal_draw_callback", &set_modal_draw_callback,
+                                 Rice::Arg("callable"))
       .define_singleton_function("quit", &quit, Rice::Arg("exit_status") = std::optional<double>());
 }
 

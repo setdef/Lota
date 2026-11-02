@@ -381,6 +381,26 @@ module Lota
       def set_linear: (bool linear) -> nil
     end
 
+    module Keyboard
+      def self.set_key_repeat: (bool enable) -> nil
+
+      def self.key_repeat?: () -> bool
+
+      def self.set_text_input: (bool enable, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? w, ?(Float | Integer)? h) -> nil
+
+      def self.text_input?: () -> bool
+
+      def self.screen_keyboard?: () -> bool
+
+      def self.screen_keyboard_visible?: () -> bool
+
+      def self.scancode_from_key: (String key) -> String
+
+      def self.key_from_scancode: (String scancode) -> String
+
+      def self.modifier_active?: (String key) -> bool
+    end
+
     module Math
       def self.new_transform: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer) a, ?(Float | Integer) sx, ?(Float | Integer)? sy, ?(Float | Integer) ox, ?(Float | Integer) oy, ?(Float | Integer) kx, ?(Float | Integer) ky) -> Transform
     end
@@ -685,6 +705,18 @@ module Lota
       def self.clipboard_text: () -> String
 
       def self.os: () -> String
+
+      def self.processor_count: () -> Integer
+
+      def self.memory_size: () -> Integer
+
+      def self.power_info: () -> Array[String | Integer | nil]
+
+      def self.open_url: (String url) -> bool
+
+      def self.vibrate: (?(Float | Integer) seconds) -> nil
+
+      def self.background_music?: () -> bool
     end
 
     module Timer
@@ -693,6 +725,12 @@ module Lota
       def self.delta: () -> Float
 
       def self.sleep: (Float | Integer seconds) -> nil
+
+      def self.fps: () -> Integer
+
+      def self.average_delta: () -> Float
+
+      def self.time: () -> Float
     end
 
     module Window

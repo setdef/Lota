@@ -5,8 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# Runs Lövetest's love.system tests of the clipboard, translated in
-# tests/clipboard.rb, in the test suite's own process.
+# Runs Lövetest's love.system tests, translated in tests/system.rb, in the test suite's own process.
 # test/native/lota_run_test.rb runs them again through lota run.
 require_relative "../test_helper"
-require_relative "tests/clipboard"
+require_relative "tests/system"

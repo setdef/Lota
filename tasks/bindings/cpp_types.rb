@@ -26,8 +26,11 @@ module Bindings
     class Parameter < Data.define(:type, :name)
     end
 
-    # One declared method. [const] says whether it is a const method.
-    class Method < Data.define(:return_type, :parameters, :const)
+    # One declared method. [const] says whether it is a const method, and
+    # [static] whether it is a static one, which clang-tidy's
+    # readability-static-accessed-through-instance asks to be called on its
+    # class.
+    class Method < Data.define(:return_type, :parameters, :const, :static)
     end
 
     # A class or struct: its header, body text, base classes, and
@@ -79,7 +82,8 @@ module Bindings
           close = Statements.matching(declaration.body, match.end(0) - 1)
           Method.new(return_type: substitute(clean(match[:return]), declaration, argument),
             parameters: parameters(declaration.body[(match.end(0))...close]),
-            const: declaration.body[(close + 1)..].match?(/\A\s*const\b/))
+            const: declaration.body[(close + 1)..].match?(/\A\s*const\b/),
+            static: match[:specifiers].match?(/\bstatic\b/))
         end
         return found if found.any?
       end
@@ -135,7 +139,7 @@ module Bindings
     end
 
     private def method_pattern(method)
-      /^[ \t]*(?:(?:virtual|static|inline|explicit|LOVE_EXPORT)\s+)*(?<return>(?:const\s+)?[\w:]+(?:\s*<[^;(){}]*?>)?(?:\s*[*&])*)\s*\b#{Regexp.escape(method)}\s*\(/
+      /^[ \t]*(?<specifiers>(?:(?:virtual|static|inline|explicit|LOVE_EXPORT)\s+)*)(?<return>(?:const\s+)?[\w:]+(?:\s*<[^;(){}]*?>)?(?:\s*[*&])*)\s*\b#{Regexp.escape(method)}\s*\(/
     end
 
     private def parameters(text)

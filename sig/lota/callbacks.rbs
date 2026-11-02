@@ -29,6 +29,8 @@ module Lota
 
     def self.poll: () -> [Symbol, Array[argument]]?
 
+    def self.message: (Array[String | Float | Integer | bool | nil]? message) -> [Symbol, Array[argument]]?
+
     def self.argument: (Symbol name, Integer index, String | Float | Integer | bool | nil argument) -> argument
 
     HANDLERS: Hash[Symbol, handler]

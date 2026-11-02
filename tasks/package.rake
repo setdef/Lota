@@ -60,11 +60,12 @@ LOVETEST_GAME = PackageCheck::Game.new(
   files: {},
   gems: ["minitest"],
   arguments: [],
-  # Its three skips are Lövetest's discard, requestAttention, and
-  # showMessageBox tests, which Lövetest skips everywhere
-  # (test/lovetest/tests/graphics.rb and window.rb), and, on a GitHub
-  # runner on Linux, seven window tests more (window.rb).
-  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, #{(ENV['GITHUB_ACTIONS'] == 'true' && RUBY_PLATFORM.include?('linux')) ? 10 : 3} skips$/m,
+  # Its seven skips are Lövetest's discard, requestAttention,
+  # showMessageBox, openURL, vibrate, pump, and wait tests, which Lövetest
+  # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,
+  # system.rb, and event.rb), and, on a GitHub runner on Linux, seven
+  # window tests more (window.rb).
+  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, #{(ENV['GITHUB_ACTIONS'] == 'true' && RUBY_PLATFORM.include?('linux')) ? 14 : 7} skips$/m,
   status: 0,
   # Lövetest's love.mouse.setGrabbed test passes only for a window with
   # keyboard focus, for which SDL grabs the mouse (SDL 3.4.10,

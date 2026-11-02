@@ -25,11 +25,13 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
@@ -556,6 +558,41 @@ bool unfocus_window() {
   return lost;
 }
 
+// The system redrawing the window during a live resize: SDL's window
+// exposed event with its first datum 1, which LÖVE's event watch
+// (event/sdl/Event.cpp:100-103) answers with the event module's modal
+// draw, calling the callback a game set with love.event.setModalDrawCallback,
+// but only from the thread that pumps events and only while a pump is
+// under way. A test cannot resize a window by hand, and SDL runs a function
+// another thread asks of its main thread from inside its next pump
+// (SDL_RunOnMainThread, SDL 3.4.10, src/events/SDL_events.c,
+// SDL_RunMainThreadCallbacks), so a thread asks that, and the event goes
+// into SDL's queue from inside Lota::Event.pump, as the system's would.
+// The callback runs during that pump; its results, or its error, are the
+// pump's to pass on (Event::pump, event/sdl/Event.cpp:158-182).
+void push_live_resize_expose(void * /*userdata*/) {
+  int count = 0;
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  SDL_Event event{};
+  event.window.type = SDL_EVENT_WINDOW_EXPOSED;
+  event.window.windowID = (window == nullptr) ? 0 : SDL_GetWindowID(window);
+  event.window.data1 = 1;
+  push(event);
+}
+
+// Queues the live resize's redraw for the next pump, and returns once it
+// is queued.
+void request_modal_draw() {
+  bool queued = false;
+  std::thread([&queued] {
+    queued = SDL_RunOnMainThread(&push_live_resize_expose, nullptr, false);
+  }).join();
+  if (!queued) {
+    throw std::runtime_error(SDL_GetError());
+  }
+}
+
 // The first window's size in pixels changing to the size it already has,
 // so that LÖVE's handler (Event::convertWindowEvent) reads the window's
 // real size and nothing changes.
@@ -749,6 +786,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
 #endif
       .define_module_function("edit_text", &edit_text)
       .define_module_function("resize_window", &resize_window)
+      .define_module_function("request_modal_draw", &request_modal_draw)
       .define_module_function("rotate_display", &rotate_display)
       .define_module_function("sdl_error", &sdl_error)
       .define_module_function("clear_sdl_error", &clear_sdl_error)

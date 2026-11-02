@@ -128,13 +128,14 @@ class LotaRunTest < Minitest::Test
   # The walking skeleton's acceptance test, through the loop: Lövetest's
   # love.graphics (its Canvas, Font, Image, Quad, Shader, and SpriteBatch tests among them),
   # love.audio (its Source test among them), love.sound, love.image, love.keyboard, love.mouse, love.math, love.event, love.system,
-  # love.window, love.filesystem, and love.physics tests, run from
+  # love.timer, love.window, love.filesystem, and love.physics tests, and
+  # those of love itself, run from
   # the update callback of a game whose conf.rb translates Lövetest's
   # conf.lua. On a GitHub Actions macOS runner, Lövetest's arc test
   # compares none of its three 32 by 32 images, and asserts once instead
   # (test/lovetest/tests/graphics.rb, test_arc, which skips only on "OS X").
-  # Lövetest skips its discard, requestAttention, and showMessageBox tests
-  # everywhere, and so does Lota. Its
+  # Lövetest skips its discard, requestAttention, showMessageBox,
+  # openURL, vibrate, pump, and wait tests everywhere, and so does Lota. Its
   # Shader test compares a 16 by 16 image a glsl3 shader draws, and
   # validates four glsl4 shaders with its eight checks, only where the
   # renderer supports them, and asserts once for each instead
@@ -142,14 +143,14 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 90589 - (3 * 32 * 32) + 1 : 90589
+    assertions = skipped ? 90631 - (3 * 32 * 32) + 1 : 90631
     # Lövetest skips its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
     # manager (test/lovetest/tests/window.rb), seven tests of 13 checks,
-    # beside the three it always skips.
+    # beside the seven it always skips.
     on_linux_runner = ENV["GITHUB_ACTIONS"] == "true" && TestHome::LINUX
     assertions -= 13 if on_linux_runner
-    skips = on_linux_runner ? 10 : 3
+    skips = on_linux_runner ? 14 : 7
     EngineHelper.open_window
     supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
@@ -157,7 +158,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^217 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
+    assert_match(/^248 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

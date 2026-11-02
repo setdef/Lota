@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Info
+    def version: () -> [Integer, Integer, Integer, String]
+
+    def version_compatible?: (String | Integer | Float major, ?(Integer | Float)? minor, ?(Integer | Float) revision) -> bool
+
+    def deprecation_output=: (bool enable) -> void
+
+    def deprecation_output?: () -> bool
+
+    def _version: () -> String
+
+    def _version_major: () -> Integer
+
+    def _version_minor: () -> Integer
+
+    def _version_revision: () -> Integer
+
+    def _version_codename: () -> String
+
+    def _version_compat: () -> Array[String]
+
+    def _os: () -> String
+
+    private def written: (String version) -> String
+  end
+end

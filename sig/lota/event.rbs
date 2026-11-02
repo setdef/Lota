@@ -10,8 +10,22 @@ module Lota
 
     def self.push: (Symbol | String name, *(bool | Float | Integer | String | Symbol | nil) arguments) -> bool
 
+    def self.wait: () -> Array[Symbol | Callbacks::argument]?
+
     def self.clear: () -> nil
 
     def self.quit: (?(Integer | Float)? exit_status) -> bool
+
+    def self.restart: (*(bool | Float | Integer | String | Symbol | nil) arguments) -> bool
+
+    interface _Callable
+      def call: () -> ::Object?
+    end
+
+    type callable = ::Object & _Callable
+
+    def self.modal_draw_callback=: (callable? callable) -> void
+
+    private def self.variants: (Array[bool | Float | Integer | String | Symbol | nil] arguments) -> Array[bool | Float | String]
   end
 end

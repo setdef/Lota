@@ -8,14 +8,16 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.event tests (vendor/love/testing/tests/event.lua),
-# translated to Ruby by ADR 001's rules, for the functions Lota binds. Like
-# the graphics tests, they run in the test suite's own process
-# (test/lovetest/event_test.rb) and under lota run (test/lovetest/game).
-# Lövetest runs each test from its love.update, after love.run has taken
-# every message from the queue; in the suite's own process nothing has,
-# so each test starts with the queue empty, as Lövetest's does. The test
-# of quit relies on Lövetest's love.quit, which cancels the quit, and of
-# pump and wait Lövetest skips.
+# translated to Ruby by ADR 001's rules, all six, two of them skipped as
+# Lövetest skips them (pump and wait). Like the graphics tests, they run in
+# the test suite's own process (test/lovetest/event_test.rb) and under
+# lota run (test/lovetest/game). Lövetest runs each test from its
+# love.update, after love.run has taken every message from the queue; in
+# the suite's own process nothing has, so each test starts with the queue
+# empty, as Lövetest's does. The test of quit relies on Lövetest's
+# love.quit, which cancels the quit; here the test takes the message out of
+# the queue itself, as no loop is there to hand it to a quit callback, and
+# as Lota.run's would end the game that runs the test.
 class EventTest < Lovetest::TestMethod
   def setup
     super
@@ -68,6 +70,27 @@ class EventTest < Lovetest::TestMethod
       count = count + a + b + c if n == :add
     end
     assert_equal(12, count, "check total events")
+  end
+
+  # Translated to Ruby from love.test.event.pump and love.test.event.wait
+  # (event.lua:64-69 and 98-103), which Lövetest skips because they are
+  # used internally. wait is deprecated.
+  def test_pump
+    skip("used internally")
+  end
+
+  def test_wait
+    skip("used internally")
+  end
+
+  # Translated to Ruby from love.test.event.quit (event.lua:72-80). Lövetest
+  # sets love.test.module.fakequit, so that its love.quit keeps the quit
+  # from ending the program; this test takes the quit message out of the
+  # queue before anything can act on it, which is what that does.
+  def test_quit
+    Lota::Event.quit(0)
+    # if it failed we'd have quit here
+    assert_equal([[:quit, 0]], Lota::Event.poll.to_a, "check quit hook called")
   end
   # SPDX-SnippetEnd
 end

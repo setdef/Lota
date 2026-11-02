@@ -61,6 +61,28 @@ bool is_down(Rice::Array names) {
   return instance->isDown(keys);
 }
 
+// w_isScancodeDown with its scancodes as arguments (wrap_Keyboard.cpp:
+// 86-124), read as w_isDown reads its keys: every name is checked before
+// the module is asked, and one that names no scancode raises.
+bool is_scancode_down(Rice::Array names) {
+  const Rice::Array list = std::move(names);
+  std::vector<Keyboard::Scancode> scancodes;
+  scancodes.reserve(list.size());
+  for (const auto item : list) {
+    const std::string name = Rice::String(item.value()).str();
+    Keyboard::Scancode scancode = Keyboard::SCANCODE_UNKNOWN;
+    if (!Keyboard::getConstant(name.c_str(), scancode)) {
+      raise_enum_error("scancode", name);
+    }
+    scancodes.push_back(scancode);
+  }
+  const auto *instance = love::Module::getInstance<Keyboard>(love::Module::M_KEYBOARD);
+  if (instance == nullptr) {
+    throw love::Exception("Lota::Keyboard is not open.");
+  }
+  return instance->isScancodeDown(scancodes);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -69,7 +91,8 @@ void define_keyboard(const Rice::Module &native) {
   Rice::define_module_under(native, "Keyboard")
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("down?", &is_down, Rice::Arg("names"));
+      .define_singleton_function("down?", &is_down, Rice::Arg("names"))
+      .define_singleton_function("scancode_down?", &is_scancode_down, Rice::Arg("names"));
 }
 
 } // namespace lota::native

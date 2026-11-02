@@ -60,6 +60,7 @@ class LotaTest < Minitest::Test
       Lota::Object
       Lota::Record
       Lota::Deprecation
+      Lota::Info
       Lota::EnumName
       Lota::ErrorMessage
     ]

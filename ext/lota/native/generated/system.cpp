@@ -26,6 +26,8 @@ using namespace love::system;
 
 constexpr const char *MODULE = "Lota::System";
 
+constexpr double W_VIBRATE_SECONDS = 0.5;
+
 // The system module, as LÖVE's instance() macro reaches it
 // (wrap_System.cpp:30), on any thread.
 System *instance() {
@@ -47,6 +49,12 @@ System *instance() {
 // love.system.getOS: w_getOS (wrap_System.cpp:32-36).
 std::string w_getOS() { return System::getOS(); }
 
+// love.system.getProcessorCount: w_getProcessorCount (wrap_System.cpp:38-42).
+int w_getProcessorCount() { return instance()->getProcessorCount(); }
+
+// love.system.getMemorySize: w_getMemorySize (wrap_System.cpp:44-48).
+int w_getMemorySize() { return instance()->getMemorySize(); }
+
 // love.system.setClipboardText: w_setClipboardText (wrap_System.cpp:50-55).
 void w_setClipboardText(const std::string &text) { instance()->setClipboardText(text); }
 
@@ -57,6 +65,39 @@ std::string w_getClipboardText() {
   return text;
 }
 
+// love.system.getPowerInfo: w_getPowerInfo (wrap_System.cpp:65-88).
+Rice::Array w_getPowerInfo() {
+  Rice::Array results;
+  int seconds = -1;
+  int percent = -1;
+  const char *str = nullptr;
+  const System::PowerState state = instance()->getPowerInfo(seconds, percent);
+  if (!System::getConstant(state, str)) {
+    str = "unknown";
+  }
+  results.push(std::string(str), false);
+  if (percent >= 0) {
+    results.push(percent, false);
+  } else {
+    results.push(nullptr, false);
+  }
+  if (seconds >= 0) {
+    results.push(seconds, false);
+  } else {
+    results.push(nullptr, false);
+  }
+  return results;
+}
+
+// love.system.openURL: w_openURL (wrap_System.cpp:90-95).
+bool w_openURL(const std::string &url) { return instance()->openURL(url); }
+
+// love.system.vibrate: w_vibrate (wrap_System.cpp:97-102).
+void w_vibrate(double seconds) { instance()->vibrate(seconds); }
+
+// love.system.hasBackgroundMusic: w_hasBackgroundMusic (wrap_System.cpp:104-108).
+bool w_hasBackgroundMusic() { return instance()->hasBackgroundMusic(); }
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -65,7 +106,13 @@ void define_generated_system(const Rice::Module &native) {
   Rice::define_module_under(native, "System")
       .define_singleton_function("set_clipboard_text", &w_setClipboardText, Rice::Arg("text"))
       .define_singleton_function("clipboard_text", &w_getClipboardText)
-      .define_singleton_function("os", &w_getOS);
+      .define_singleton_function("os", &w_getOS)
+      .define_singleton_function("processor_count", &w_getProcessorCount)
+      .define_singleton_function("memory_size", &w_getMemorySize)
+      .define_singleton_function("power_info", &w_getPowerInfo)
+      .define_singleton_function("open_url", &w_openURL, Rice::Arg("url"))
+      .define_singleton_function("vibrate", &w_vibrate, Rice::Arg("seconds") = W_VIBRATE_SECONDS)
+      .define_singleton_function("background_music?", &w_hasBackgroundMusic);
 }
 
 } // namespace lota::native

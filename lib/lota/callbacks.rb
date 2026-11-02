@@ -141,7 +141,13 @@ module Lota
     # Numbers LÖVE holds as integers (INTEGER_ARGUMENTS) become Integers,
     # and the rest stay Floats.
     def self.poll
-      message = Native::Event.poll
+      message(Native::Event.poll)
+    end
+
+    # +message+, as Native::Event.poll or wait gives it, an Array of the
+    # name and its arguments or +nil+, as its name and an Array of its
+    # arguments as Ruby sees them (poll). :nodoc:
+    def self.message(message)
       return unless message
 
       name = message.first.to_s.to_sym

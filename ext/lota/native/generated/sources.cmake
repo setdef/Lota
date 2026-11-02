@@ -13,6 +13,7 @@ set(LOTA_GENERATED_SOURCES
 	generated/filesystem.cpp
 	generated/graphics.cpp
 	generated/image.cpp
+	generated/keyboard.cpp
 	generated/math.cpp
 	generated/mouse.cpp
 	generated/physics.cpp

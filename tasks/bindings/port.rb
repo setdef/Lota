@@ -52,10 +52,22 @@ module Bindings
         cpp.end_with?("&", "*") ? "#{cpp}#{name}" : "#{cpp} #{name}"
       end
 
-      # Its Rice::Arg, with its default.
-      def rice_arg
+      # The numbers clang-tidy's readability-magic-numbers lets stand in a
+      # default (its IgnoredIntegerValues and IgnoredFloatingPointValues,
+      # and zero).
+      PLAIN_DEFAULTS = %w[0 1 2 3 4 0.0 1.0 100.0].freeze
+
+      # Whether its default is a number clang-tidy's
+      # readability-magic-numbers refuses in a Rice::Arg.
+      def magic_default?
+        !default.nil? && default.match?(/\A-?\d+(?:\.\d+)?\z/) && !PLAIN_DEFAULTS.include?(default.delete_prefix("-"))
+      end
+
+      # Its Rice::Arg, with its default, which a magic number gets as the
+      # named constant +constant+ (Port#default_constants).
+      def rice_arg(constant = nil)
         return %(Rice::Arg("#{name}") = std::optional<#{base}>()) if optional
-        return %(Rice::Arg("#{name}") = #{default}) if default
+        return %(Rice::Arg("#{name}") = #{constant || default}) if default
 
         %(Rice::Arg("#{name}"))
       end
@@ -190,10 +202,19 @@ object:,
 
     # The Rice call that binds it, on a Rice::Module or Data_Type.
     def registration
-      args = parameters.map(&:rice_arg)
+      args = parameters.map { |parameter| parameter.rice_arg(default_constant(parameter)) }
       args << "Rice::Return().takeOwnership()" if owned?
       kind = singleton? ? "define_singleton_function" : "define_method"
       ".#{kind}(#{[%("#{native_name}"), "&#{cpp_name}", *args].join(', ')})"
+    end
+
+    # The constants it declares for the defaults of its parameters that are
+    # magic numbers, as C++ lines, each named for the function and the
+    # parameter (W_VIBRATE_SECONDS).
+    def default_constants
+      parameters.select(&:magic_default?).map do |parameter|
+        "constexpr #{parameter.cpp} #{default_constant(parameter)} = #{parameter.default};"
+      end
     end
 
     # The engine classes of the objects it returns (luax_pushtype), whose
@@ -571,6 +592,12 @@ line: node.line,
       value
     end
 
+    # The name of the constant that holds +parameter+'s default, or nil
+    # when the default is no magic number.
+    private def default_constant(parameter)
+      "#{cpp_name}_#{parameter.name}".upcase if parameter.magic_default?
+    end
+
     # --- Emission.
 
     private def emit(nodes, top: false)
@@ -798,6 +825,7 @@ line: node.line,
       text = text.gsub(/(?<![\w.])(\d+\.\d*|\.\d+)f\b/, '\1F')
       text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
       text = keep_strings(text)
+      text = static_calls(text)
       text = whole_strings(text)
       text = uncast(text)
       text = array_arguments(text)
@@ -941,6 +969,18 @@ line: node.line,
         end
       end
       out
+    end
+
+    # +text+ with each call of a static method of the module's class,
+    # which LÖVE's wrap function makes through instance(), made on the
+    # class, as clang-tidy's readability-static-accessed-through-instance
+    # asks (Timer::getTime).
+    private def static_calls(text)
+      text.gsub(/\binstance\(\)\s*->\s*(\w+)\s*\(/) do
+        name = Regexp.last_match(1)
+        methods = @types.methods(@module_class, name, module_dir: @module_dir)
+        (methods.any? && methods.all?(&:static)) ? "#{@module_class}::#{name}(" : Regexp.last_match(0)
+      end
     end
 
     # The type a declaration converts its read to, when it differs from
