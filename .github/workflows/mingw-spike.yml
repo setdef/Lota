@@ -1,0 +1,195 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The MinGW spike (ADR 002, section 4): can LÖVE's engine and Lota's
+# extension build with MinGW against RubyInstaller's UCRT Ruby, the Ruby
+# Fledge ships on Windows? Runs only on the spike's branch, which never
+# merges.
+
+name: MinGW spike
+
+on:
+  push:
+    branches:
+      - spike/mingw
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: x64-mingw-ucrt
+            msystem: UCRT64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      CCACHE_DIR: ${{ runner.temp }}/ccache
+      CCACHE_MAXSIZE: 2G
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      CC: gcc
+      CXX: g++
+    steps:
+      # The runner's Git converts line endings, which would keep
+      # physics.patch from applying to LÖVE's sources.
+      - name: Keep line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch LÖVE's sources
+        shell: pwsh
+        run: git submodule update --init --depth 1 vendor/love
+
+      # RubyInstaller's Ruby, built with MinGW against the UCRT.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+          windows-toolchain: none
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          path-type: inherit
+          update: true
+          install: patch
+          pacboy: >-
+            gcc:p cmake:p ninja:p ccache:p
+            sdl3:p openal:p freetype:p harfbuzz:p libvorbis:p libogg:p
+            libtheora:p libmodplug:p zlib:p
+
+      - name: Report the toolchain and Ruby
+        run: |
+          set -x
+          which gcc g++ cmake ninja patch ruby
+          gcc --version
+          cmake --version
+          ruby -v
+          ruby -e 'c = RbConfig::CONFIG; %w[arch host_os target_os DLEXT CC CXX libdir LIBRUBY prefix].each { |k| puts "#{k}=#{c[k]}" }'
+          gem env
+          pacman -Q | grep -Ei 'gcc|sdl3|openal|freetype|harfbuzz|vorbis|ogg|theora|modplug|zlib|cmake|ninja|brotli|graphite|glib|bzip2|png'
+
+      - name: Evaluate LÖVE's source list on Windows
+        continue-on-error: true
+        run: |
+          mkdir -p tmp
+          ruby -e 'require "./tasks/engine_sources"
+            s = EngineSources.new(source: "vendor/love", build: "tmp/engine/sources/windows",
+              cmake_args: EngineSources.cmake_args("windows"), label: "vendor/love on windows")
+            File.write("tmp/sources_windows.generated.cmake", s.generate)'
+          diff <(grep '^\s*\$' ext/lota/engine/sources_windows.cmake) <(grep '^\s*\$' tmp/sources_windows.generated.cmake) && echo "the hand-derived list matches"
+
+      - name: Install Rice
+        run: gem install rice -v 4.12.0 --no-document
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-mingw-${{ matrix.platform }}-${{ github.run_id }}
+          restore-keys: ccache-mingw-${{ matrix.platform }}-
+
+      - name: Configure through extconf.rb
+        run: |
+          ccache --zero-stats
+          mkdir -p tmp/ext
+          cd tmp/ext
+          ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$GITHUB_WORKSPACE/tmp/engine/build")"
+
+      - name: Build the engine
+        id: engine
+        continue-on-error: true
+        run: |
+          start=$(date +%s)
+          set -o pipefail
+          cmake --build tmp/engine/build --target lota_engine -- -k 0 2>&1 | tee tmp/engine.log
+          echo "engine built in $(( $(date +%s) - start ))s"
+
+      - name: Build the extension
+        id: native
+        continue-on-error: true
+        run: |
+          start=$(date +%s)
+          set -o pipefail
+          cmake --build tmp/engine/build --target lota_native -- -k 0 2>&1 | tee tmp/native.log
+          echo "extension built in $(( $(date +%s) - start ))s"
+
+      - name: Summarize the errors
+        if: always()
+        run: |
+          for log in tmp/engine.log tmp/native.log; do
+            [ -f "$log" ] || continue
+            echo "== $log"
+            grep -E 'error:|FAILED:|undefined reference|multiple definition' "$log" | sort | uniq -c | sort -rn | head -150 || true
+          done
+          ccache --show-stats || true
+
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-mingw-${{ matrix.platform }}-${{ github.run_id }}
+
+      - name: Inspect the extension
+        id: inspect
+        if: steps.native.outcome == 'success'
+        run: |
+          so=tmp/engine/build/lib/lota/native.so
+          ls -l "$so"
+          objdump -p "$so" | grep -E 'DLL Name|^\s+\[ *[0-9]+\]' | head -60
+          cp "$so" lib/lota/native.so
+          # Every DLL the extension loads, and theirs, that is not Windows'.
+          prefix=$(cygpath -u "$(dirname "$(which gcc)")")
+          seen=""
+          queue="$so"
+          while [ -n "$queue" ]; do
+            set -- $queue; file=$1; shift; queue="$*"
+            for dll in $(objdump -p "$file" | sed -n 's/^\s*DLL Name: //p'); do
+              case " $seen " in *" $dll "*) continue ;; esac
+              seen="$seen $dll"
+              if [ -f "$prefix/$dll" ]; then
+                echo "MSYS2 $dll $(stat -c %s "$prefix/$dll")"
+                queue="$queue $prefix/$dll"
+              else
+                echo "system $dll"
+              fi
+            done
+          done
+
+      - name: Load Lota with nothing on the DLL search path
+        if: steps.inspect.outcome == 'success'
+        continue-on-error: true
+        run: ruby .github/mingw_spike_smoke.rb bare
+
+      - name: Load Lota with MSYS2's bin added as a DLL directory
+        if: steps.inspect.outcome == 'success'
+        continue-on-error: true
+        run: ruby .github/mingw_spike_smoke.rb add-dll-directory "$(cygpath -w "$(dirname "$(which gcc)")")"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mingw-spike-${{ matrix.platform }}
+          path: |
+            tmp/*.log
+            tmp/sources_windows.generated.cmake
+            tmp/engine/build/lib/lota/native.so
+            tmp/engine/build/lib/lota/native.map
+          if-no-files-found: ignore
+          retention-days: 7

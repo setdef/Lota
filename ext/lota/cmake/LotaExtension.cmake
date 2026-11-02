@@ -61,6 +61,8 @@ function(lota_ruby_extension target feature load_directory)
 	set(map ${CMAKE_BINARY_DIR}/lib/${directory}/${name}.map)
 	if(APPLE)
 		lota_link_macos(${target} ${name} ${map} ${load_directory})
+	elseif(MINGW)
+		lota_link_mingw(${target} ${name} ${map})
 	else()
 		lota_link_linux(${target} ${name} ${map} ${load_directory})
 	endif()
@@ -110,4 +112,18 @@ function(lota_link_linux target name map load_directory)
 		list(APPEND rpaths "\$ORIGIN/${relative}")
 	endforeach()
 	set_target_properties(${target} PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH "${rpaths}")
+endfunction()
+
+# MinGW's ld, for a DLL Ruby loads (the spike for ADR 002, section 4).
+function(lota_link_mingw target name map)
+	# Export Init_<name> alone. A module definition file is an explicit
+	# export, which turns off ld's default of exporting every symbol (the
+	# engine's archive would overflow the 65535 ordinals a DLL can export).
+	set(definitions ${CMAKE_CURRENT_BINARY_DIR}/${name}.def)
+	file(WRITE ${definitions} "EXPORTS\n\tInit_${name}\n")
+	target_sources(${target} PRIVATE ${definitions})
+	target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
+	# GCC's runtime inside the extension, so it neither needs MSYS2's
+	# libstdc++-6.dll nor binds to another copy a different gem loaded.
+	target_link_options(${target} PRIVATE -static-libgcc -static-libstdc++)
 endfunction()
