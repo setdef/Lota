@@ -23,6 +23,14 @@ module Lota
 
     attr_reader settings: Settings
 
+    attr_reader restart_value: Restart::value
+
+    @restart: bool
+
+    def restart?: () -> bool
+
+    private def finish: (::Object? retval) -> Integer
+
     def initialize: (String? path, ?Array[String] arguments, ?fused: bool) -> void
 
     def call: () -> Integer

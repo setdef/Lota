@@ -29,6 +29,7 @@ end
 
 # The engine's error messages name LÖVE's Lua API, so the extension hands
 # each to Lota::ErrorMessage as Ruby raises it (ADR 001, section 7).
+require_relative "lota/restart"
 require_relative "lota/error_message"
 require "lota/native"
 
@@ -76,6 +77,30 @@ require_relative "lota/boot"
 # love.system are always loaded (boot.lua:44-49), and so are
 # Lota.filesystem and, once lota run boots, Lota.system.
 module Lota
+  # The value the game was restarted with, or +nil+ on a normal start,
+  # translated from love.restart (vendor/love/src/love.cpp, runlove,
+  # lines 247-250).
+  #
+  # A game asks to start again with Lota::Event.restart. <tt>lota run</tt>
+  # ends it, and starts it again with the first argument that followed
+  # <tt>"restart"</tt>, which this returns: +nil+, +true+, +false+, a
+  # Float, or a String. A Symbol arrives as the String of its name, and an
+  # Integer as a Float, as the event queue makes them. It is set before
+  # conf.rb loads, and the same in every callback.
+  #
+  # === Example
+  #
+  #   def Lota.load
+  #     @level = Lota.restart || "first"
+  #   end
+  #
+  #   def Lota.keypressed(key)
+  #     Lota::Event.restart("second") if key == :r
+  #   end
+  def self.restart
+    Restart.value
+  end
+
   # Lota::Filesystem, as love.filesystem.
   #
   # === Example

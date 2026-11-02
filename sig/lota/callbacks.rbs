@@ -35,7 +35,7 @@ module Lota
 
     HANDLERS: Hash[Symbol, handler]
 
-    def self.dispatch: () -> argument
+    def self.dispatch: () -> (argument | [String, argument])
 
     def self.handle: (Symbol name, *argument arguments) -> ::Object?
 

@@ -6,6 +6,8 @@ module Lota
 
   extend Info
 
+  def self.restart: () -> Restart::value
+
   def self.filesystem: () -> singleton(Filesystem)
 
   def self.image: () -> singleton(Image)?

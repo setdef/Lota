@@ -263,11 +263,14 @@ module Lota
     # A quit ends the game when its third argument is truthy (a quit an
     # error screen already confirmed, in LÖVE), when the game has no quit
     # callback, or when the quit callback returns a falsy value; the
-    # status is its first argument, or 0.
+    # status is its first argument, or 0. A quit that says
+    # <tt>"restart"</tt> returns that and its second argument, as the
+    # Array love.run's two results are (callbacks.lua:182, <tt>return a or
+    # 0, b</tt>).
     def self.dispatch
       Event.poll do |name, a, b, c, d, e, f, g, h|
         if name == :quit && (c || !Lota.respond_to?(:quit) || !call(:quit))
-          return a || 0
+          return (a == "restart") ? ["restart", b] : (a || 0)
         end
 
         handle(name, a, b, c, d, e, f, g, h)
@@ -555,11 +558,9 @@ module Lota
 
         # Lua returns from inside its for loop; a Ruby block breaks out of
         # Event.poll with the status instead, which the frame returns.
-        status = Event.poll do |e, a, _b, _c|
+        status = Event.poll do |e, a, b, _c|
           if e == :quit
-            # LÖVE also passes on a restart's arguments, and Lota does not
-            # restart games yet.
-            break a || 1
+            break (a == "restart") ? ["restart", b] : (a || 1)
           elsif e == :keypressed && a == :escape
             break 1
           elsif e == :keypressed && a == :c && Keyboard.down?(:lctrl, :rctrl)

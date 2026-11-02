@@ -139,6 +139,15 @@ class ErrorHandlerTest < Minitest::Test
     assert_equal 1, frame.call
   end
 
+  # Lines 318-320: "Also handle restart args", so a restart asked of the
+  # error screen restarts the game with its value.
+  def test_a_restart_ends_the_screen_with_restart_and_its_value
+    frame, = handled
+    Lota::Event.restart(:again)
+
+    assert_equal ["restart", "again"], frame.call
+  end
+
   # Lines 296-302 and 342-346: each frame clears the window to LÖVE's blue
   # and prints the text in white from (60, 60), then sleeps.
   def test_the_frame_draws_the_text_in_white_on_loves_blue_from_60_60

@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Restart
+    type value = bool | Float | String | nil
+
+    interface _Environment
+      def delete: (String name) -> String?
+    end
+
+    VARIABLE: String
+
+    class Unsupported < TypeError
+    end
+
+    self.@value: value
+
+    self.@taken: bool
+
+    self.@command: Array[String]?
+
+    self.@directory: String?
+
+    self.@pending: String?
+
+    self.@installed: bool?
+
+    def self.value: () -> value
+
+    def self.encode: (bool | Float | Integer | String | Symbol | nil value) -> String
+
+    def self.decode: (String text) -> value
+
+    def self.take: (?_Environment environment) -> void
+
+    def self.remember: (Array[String] arguments) -> void
+
+    def self.restartable?: () -> bool
+
+    def self.request: (bool | Float | Integer | String | Symbol | nil value) -> String
+
+    def self.exec_pending: () -> void
+
+    private def self.install: () -> void
+
+  end
+end

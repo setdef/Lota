@@ -64,6 +64,12 @@ module Lota
     # The Lota::Settings conf.rb changed, once configure has run.
     attr_reader :settings
 
+    # The value the game asked to restart with, once call has returned
+    # because it restarted: the first argument after <tt>"restart"</tt>,
+    # which the new run reads as Lota.restart. It is +nil+ when the game
+    # did not restart, or restarted with nothing.
+    attr_reader :restart_value
+
     # Prepares to start the game in the folder +path+.
     #
     # [path] String path of the game's folder, as given on the command
@@ -114,7 +120,13 @@ module Lota
     # objects Ruby's garbage collector freed on another thread are released
     # on the main thread (ADR 001, section 5). A frame that returns an
     # Integer or Float exits with it; any other truthy value exits with 0,
-    # as LÖVE's love.cpp treats a value that is not a number. LÖVE also
+    # as LÖVE's love.cpp treats a value that is not a number. A frame that
+    # returns <tt>"restart"</tt>, alone or first in an Array with the
+    # value the game restarts with, as love.run returns them after
+    # Lota::Event.restart (callbacks.lua:177-187), ends the game with
+    # status 0 and makes #restart? true; <tt>lota run</tt> then starts the
+    # game again (Lota::Restart). Raises TypeError, before anything ends,
+    # for a restart value that cannot cross into the new process. LÖVE also
     # hands each new frame to the event module, to draw while the system
     # holds the window modal (lines 511-514); Lota does not bind that yet.
     #
@@ -122,6 +134,8 @@ module Lota
     #
     #   status = Lota::Boot.new("games/pong").call
     def call
+      Restart.take
+      @restart = false
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
       @inerror = false
@@ -130,10 +144,33 @@ module Lota
       while (func = @func)
         _, retval = protect { func.call }
         Native.drain_release_queue
-        return (retval.is_a?(Integer) || retval.is_a?(Float)) ? retval.to_i : 0 if retval
+        return finish(retval) if retval
       end
 
       1
+    end
+
+    # Whether the game ended by asking to restart, once call has returned.
+    # A restart ends the game as a quit does, with status 0.
+    def restart?
+      @restart
+    end
+
+    # The program's exit status for what the last frame returned
+    # (love.cpp, runlove, lines 275-290): LÖVE restarts when the frame's
+    # first result is the string <tt>"restart"</tt>, with the second as the
+    # value for the new run, and otherwise exits with the first when it is
+    # a number, or 0.
+    private def finish(retval)
+      first, value = retval.is_a?(Array) ? retval : [retval]
+      if first == "restart"
+        Restart.encode(value)
+        @restart = true
+        @restart_value = value
+        return 0
+      end
+
+      (first.is_a?(Integer) || first.is_a?(Float)) ? first.to_i : 0
     end
 
     # Brings the game up to the point where its loop starts, as love.boot

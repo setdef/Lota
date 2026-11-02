@@ -6,6 +6,7 @@
 #++
 
 require_relative "version"
+require_relative "restart"
 require_relative "cli/commands/run"
 
 module Lota
@@ -50,6 +51,7 @@ module Lota
       else
         command = COMMANDS[command_name]
         if command
+          Restart.remember([command_name, *argv])
           command.call(argv)
         else
           warn "Unknown command: #{command_name}"

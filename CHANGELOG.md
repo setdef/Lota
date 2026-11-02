@@ -38,6 +38,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - A private `Kernel#lota` returning `Lota`, and `Lota.filesystem`, `image`, `graphics`, `timer`, `event`, and `window` returning their modules, or `nil` when a module is not open, as when the settings turn it off.
 - `Lota::Window.set_mode`, `title=`, and `title`, translating `love.window.setMode`, `setTitle`, and `getTitle`.
 - `Lota::Timer.step` and `sleep`, and `Lota::Event.pump` and `quit`, translating `love.timer` and `love.event`; a quit's exit status leaves the event queue as an Integer, so `Lota::Event.quit(3)` exits with 3.
+- `Lota::Event.restart` restarts the game, as `love.event.restart` does: `lota run` ends the game as a quit does, then runs itself again with `exec` (same process id, command, and arguments), and `Lota.restart`, for `love.restart`, holds the first value passed to `restart` (`nil`, a boolean, a Float, or a String; `nil` on a normal start). A game that restarts every time it starts never ends, as in LÖVE.
 - `Lota::Graphics.active?`, `origin`, `background_color`, `present`, `width`, `height`, and `dimensions`.
 - `Lota::Graphics.rectangle`, `circle`, `ellipse`, `arc`, and `line`, translating `love.graphics.rectangle` (with rounded corners), `circle`, `ellipse`, `arc` (with its `:pie`, `:open`, or `:closed` arc mode), and `line`, in `:fill` or `:line` mode.
 - `Lota::Graphics.draw`, translating `love.graphics.draw` for a `Texture`, a `Texture` through a `Quad`, or a `SpriteBatch`, with a position, angle, scale, origin, and shear.

@@ -76,6 +76,19 @@ class RunLoopTest < Minitest::Test
     assert_empty @calls, "a frame that quits does not update"
   end
 
+  # callbacks.lua:182: love.run returns "restart" and the value after it,
+  # which love.cpp reads (runlove, lines 275-290). A frame returns two
+  # results as an Array (rule 4).
+  def test_a_restart_ends_the_game_with_restart_and_the_value_after_it
+    Lota::Event.restart("level 2", "ignored")
+
+    assert_equal ["restart", "level 2"], Lota.run.call
+
+    Lota::Event.restart
+
+    assert_equal ["restart", nil], Lota.run.call
+  end
+
   def test_a_quit_event_without_a_status_ends_with_0
     Lota::Event.quit
 
