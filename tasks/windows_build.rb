@@ -201,7 +201,12 @@ class WindowsBuild
   # installs, by its name.
   def options(name)
     case name
-    when "zlib", "libmodplug" then []
+    when "zlib" then []
+    # libmodplug 0.8.8.5 is C++ from before C++17, which took away the
+    # register its mixer declares (src/fastmix.cpp:764); GCC warns, but
+    # clang, the compiler on ARM64, refuses it. So it compiles as C++14, the
+    # standard Autoconf's default flags (-g -O2) beside it.
+    when "libmodplug" then ["CXXFLAGS=-g -O2 -std=gnu++14"]
     # The Makefile's options for libtheora, which builds with Autotools.
     when "libtheora" then %W[--with-ogg=#{installdir} --disable-examples --disable-encode]
     when "libogg" then %w[-DBUILD_SHARED_LIBS=OFF -DINSTALL_DOCS=OFF]

@@ -88,11 +88,16 @@ module WindowsChecks
   end
 
   # Compiles +body+ after binding.hpp, as +file+ is compiled by +command+.
-  def compile(command, file, probe, body)
+  def compile(command, _file, probe, body)
     File.binwrite(probe, "#include \"native/binding.hpp\"\n#{body}\n")
-    probe_command = command.sub(file, probe.tr("\\", "/")).sub(/-o \S+/, "-o #{probe}.obj")
+    # The source, however the command spells its path, but not the object
+    # or dependency files named after it.
+    source = %r{(?<=\s)\S*native[\\/]math\.cpp(?=\s|\z)}
+    abort "no source in the compile command: #{command}" unless command.match?(source)
+
+    probe_command = command.gsub(source, probe.tr("\\", "/")).sub(/-o \S+/, "-o #{probe}.obj")
     output, status = Open3.capture2e(probe_command)
-    [status.success?, output]
+    [status.success?, "#{probe_command}\n#{output}"]
   end
 
   def closure(*files)
