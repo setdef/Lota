@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Window
+    class DisplayMode < ::Data
+      include Record
+
+      attr_reader width: Integer
+
+      attr_reader height: Integer
+
+      attr_reader refreshrate: Float
+
+      def self.new: (width: Integer, height: Integer, refreshrate: Float) -> instance
+    end
+  end
+end

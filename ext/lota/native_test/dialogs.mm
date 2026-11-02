@@ -18,15 +18,47 @@ std::atomic<int> &answered() {
   return count;
 }
 
+// The button in +view+ that answers Return: the one whose key equivalent
+// is Return, which SDL gives the button flagged
+// SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT (SDL_cocoamessagebox.m), or nil.
+// It looks through the views level by level, without recursion.
+NSButton *return_button(NSView *view) {
+  if (view == nil) {
+    return nil;
+  }
+  NSMutableArray<NSView *> *const pending = [NSMutableArray arrayWithObject:view];
+  while ([pending count] > 0) {
+    NSView *const current = [pending firstObject];
+    [pending removeObjectAtIndex:0];
+    if ([current isKindOfClass:[NSButton class]] &&
+        [[static_cast<NSButton *>(current) keyEquivalent] isEqualToString:@"\r"]) {
+      return static_cast<NSButton *>(current);
+    }
+    [pending addObjectsFromArray:[current subviews]];
+  }
+  return nil;
+}
+
 // Presses Return on the dialog up, if one is. SDL shows its message box
 // with NSAlert's runModal (SDL_ShowMessageBox, as LÖVE's
 // Window::showMessageBox calls it in
 // vendor/love/src/modules/window/sdl/Window.cpp), whose window is the
 // application's modal window, and Return presses that window's default
 // button (NSWindow's defaultButtonCell), which NSAlert makes its first.
+// A dialog with buttons of its own makes none its window's default, and
+// marks the button Return presses by its key equivalent instead. A dialog
+// attached to a window of the program's is a sheet of that window, which
+// is then the modal one (SDL3MessageBoxPresenter, SDL_cocoamessagebox.m).
 void press_return(CFRunLoopTimerRef /*timer*/, void * /*info*/) {
-  NSWindow *const dialog = [NSApp modalWindow];
-  NSButtonCell *const button = [dialog defaultButtonCell];
+  NSWindow *const modal = [NSApp modalWindow];
+  NSWindow *const dialog = ([modal attachedSheet] != nil) ? [modal attachedSheet] : modal;
+  NSButtonCell *const default_button = [dialog defaultButtonCell];
+  if (default_button != nil) {
+    [default_button performClick:nil];
+    ++answered();
+    return;
+  }
+  NSButton *const button = return_button([dialog contentView]);
   if (button == nil) {
     return;
   }

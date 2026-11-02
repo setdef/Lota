@@ -167,7 +167,8 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, 1 skips\n"
+    skips = (ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 10 : 3
+    assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
     refute_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n1 runs, 3 assertions, 1 failures, 0 errors, 0 skips\n"
@@ -230,8 +231,10 @@ class RakeTasksTest < Minitest::Test
   end
 
   # rake test runs the sanitized suite through this test, so every line of
-  # test:native runs in the gate. Its one skip is Lövetest's discard test,
-  # which Lövetest skips everywhere (test/lovetest/tests/graphics.rb).
+  # test:native runs in the gate. Its three skips are Lövetest's discard,
+  # requestAttention, and showMessageBox tests, which Lövetest skips
+  # everywhere (test/lovetest/tests/graphics.rb and window.rb), and, on a
+  # GitHub runner on Linux, seven window tests more (window.rb).
   def test_the_native_suite_passes_under_the_sanitizers
     task = Rake::Task["test:native"].tap(&:reenable)
     failure = nil
@@ -242,7 +245,8 @@ class RakeTasksTest < Minitest::Test
     end
 
     assert_nil failure, "#{failure&.message}\n#{out}"
-    assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, 1 skips$/, out)
+    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 10 : 3
+    assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end
 

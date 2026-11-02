@@ -178,6 +178,15 @@ class PackageCheckTest < Minitest::Test
     assert_equal ["/usr/bin/ruby", "/gems/SDL3.framework/Versions/A/SDL3"], MACHO.loaded(output)
   end
 
+  # A library dyld reports while a run is printing a line of progress dots
+  # is reported in the middle of that line.
+  def test_dyld_reports_in_the_middle_of_a_line_are_read_and_taken_out
+    output = "...dyld[7]: <4E21E109-7AF9-3222-97EA-BFD99EAEEC19> /System/Cryptexes/libMetal.dylib\n..S.\n"
+
+    assert_equal ["/System/Cryptexes/libMetal.dylib"], MACHO.loaded(output)
+    assert_equal ".....S.\n", MACHO.printed(output)
+  end
+
   def test_warnings_are_the_lines_rubygems_starts_with_warning
     output = "WARNING:  no homepage specified\nWARNING:  See https://guides.rubygems.org/ for help\n  " \
       "Successfully built RubyGem\n  Name: lota\n"

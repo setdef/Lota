@@ -97,6 +97,15 @@ class ParserTest < Minitest::Test
     assert_equal "Texture", calls.find { |call| call.base_name == "luax_checktype" }.template
   end
 
+  # The template as the wrap file spells it keeps its namespace, which the
+  # template drops.
+  def test_a_template_keeps_the_namespace_the_wrap_file_spells
+    call = Bindings::Calls.in("luax_checktype<image::ImageData>(L, 1)").first
+
+    assert_equal "ImageData", call.template
+    assert_equal "image::ImageData", call.qualified_template
+  end
+
   # LÖVE registers 1,088 functions in the luaL_Reg tables of its 74 wrap
   # files at the pinned commit, under 815 distinct names.
   def test_the_catalog_lists_every_registered_function_once

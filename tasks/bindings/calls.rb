@@ -34,6 +34,12 @@ module Bindings
         name[/<\s*([\w:]+)\s*>\z/, 1]&.split("::")&.last
       end
 
+      # The template argument as the wrap file spells it, with its namespace
+      # (image::ImageData in luax_checktype<image::ImageData>), or nil.
+      def qualified_template
+        name[/<\s*([\w:]+)\s*>\z/, 1]
+      end
+
       # Whether L, the lua_State, is its first argument.
       def lua?
         arguments.first == "L"

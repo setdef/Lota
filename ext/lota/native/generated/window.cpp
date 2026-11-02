@@ -8,10 +8,12 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/math.h"
+#include "image/ImageData.h"
 #include "window/Window.h"
 
 #include <optional>
@@ -47,8 +49,51 @@ Window *instance() {
 // (vendor/love/src/modules/window), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// love.window.getDisplayCount: w_getDisplayCount (wrap_Window.cpp:32-36).
+int w_getDisplayCount() { return instance()->getDisplayCount(); }
+
+// love.window.getDisplayName: w_getDisplayName (wrap_Window.cpp:38-47).
+std::string w_getDisplayName(int index) {
+  const char *name = nullptr;
+  name = instance()->getDisplayName((index - 1));
+  return name;
+}
+
 // love.window.isHighDPIAllowed: w_isHighDPIAllowed (wrap_Window.cpp:247-251).
 bool w_isHighDPIAllowed() { return isHighDPIAllowed(); }
+
+// love.window.getDisplayOrientation: w_getDisplayOrientation (wrap_Window.cpp:253-270).
+std::string w_getDisplayOrientation(std::optional<int> argument1) {
+  int displayindex = 0;
+  if (argument1.has_value()) {
+    displayindex = required(argument1, "argument1") - 1;
+  } else {
+    int x{};
+    int y{};
+    instance()->getPosition(x, y, displayindex);
+  }
+  const char *orientationstr = nullptr;
+  if (!Window::getConstant(instance()->getDisplayOrientation(displayindex), orientationstr)) {
+    throw love::Exception("Unknown display orientation type.");
+  }
+  return orientationstr;
+}
+
+// love.window.setFullscreen: w_setFullscreen (wrap_Window.cpp:311-330).
+bool w_setFullscreen(bool fullscreen, const std::optional<std::string> &argument2) {
+  Window::FullscreenType fstype = Window::FULLSCREEN_MAX_ENUM;
+  const char *typestr = !argument2.has_value() ? nullptr : required(argument2, "argument2").c_str();
+  if (typestr != nullptr && !Window::getConstant(typestr, fstype)) {
+    raise_enum_error("fullscreen type", Window::getConstants(fstype), typestr);
+  }
+  bool success = false;
+  if (fstype == Window::FULLSCREEN_MAX_ENUM) {
+    success = instance()->setFullscreen(fullscreen);
+  } else {
+    success = instance()->setFullscreen(fullscreen, fstype);
+  }
+  return success;
+}
 
 // love.window.isOpen: w_isOpen (wrap_Window.cpp:347-351).
 bool w_isOpen() { return instance()->isOpen(); }
@@ -72,6 +117,32 @@ Rice::Array w_getDesktopDimensions(std::optional<int> argument1) {
   return results;
 }
 
+// love.window.setPosition: w_setPosition (wrap_Window.cpp:377-394).
+void w_setPosition(int x, int y, std::optional<int> argument3, bool wait_for_sync) {
+  int displayindex = 0;
+  if (argument3.has_value()) {
+    displayindex = required(argument3, "argument3") - 1;
+  } else {
+    int x_unused{};
+    int y_unused{};
+    instance()->getPosition(x_unused, y_unused, displayindex);
+  }
+  instance()->setPosition(x, y, displayindex, wait_for_sync);
+}
+
+// love.window.getPosition: w_getPosition (wrap_Window.cpp:396-406).
+Rice::Array w_getPosition() {
+  Rice::Array results;
+  int x = 0;
+  int y = 0;
+  int displayindex = 0;
+  instance()->getPosition(x, y, displayindex);
+  results.push(x, false);
+  results.push(y, false);
+  results.push(displayindex + 1, false);
+  return results;
+}
+
 // love.window.getSafeArea: w_getSafeArea (wrap_Window.cpp:408-416).
 Rice::Array w_getSafeArea() {
   Rice::Array results;
@@ -83,11 +154,110 @@ Rice::Array w_getSafeArea() {
   return results;
 }
 
+// love.window.setIcon: w_setIcon (wrap_Window.cpp:418-425).
+bool w_setIcon(image::ImageData *i) {
+  bool success = false;
+  success = instance()->setIcon(i);
+  return success;
+}
+
+// love.window.getIcon: w_getIcon (wrap_Window.cpp:427-432).
+image::ImageData *w_getIcon() {
+  image::ImageData *i = instance()->getIcon();
+  return i;
+}
+
+// love.window.getVSync: w_getVSync (wrap_Window.cpp:445-449).
+int w_getVSync() { return instance()->getVSync(); }
+
+// love.window.setDisplaySleepEnabled: w_setDisplaySleepEnabled (wrap_Window.cpp:451-455).
+void w_setDisplaySleepEnabled(bool enable) { instance()->setDisplaySleepEnabled(enable); }
+
+// love.window.isDisplaySleepEnabled: w_isDisplaySleepEnabled (wrap_Window.cpp:457-461).
+bool w_isDisplaySleepEnabled() { return instance()->isDisplaySleepEnabled(); }
+
 // love.window.setTitle: w_setTitle (wrap_Window.cpp:463-468).
 void w_setTitle(const std::string &title) { instance()->setWindowTitle(title); }
 
 // love.window.getTitle: w_getTitle (wrap_Window.cpp:470-474).
 std::string w_getTitle() { return instance()->getWindowTitle(); }
+
+// love.window.hasFocus: w_hasFocus (wrap_Window.cpp:476-480).
+bool w_hasFocus() { return instance()->hasFocus(); }
+
+// love.window.hasMouseFocus: w_hasMouseFocus (wrap_Window.cpp:482-486).
+bool w_hasMouseFocus() { return instance()->hasMouseFocus(); }
+
+// love.window.isVisible: w_isVisible (wrap_Window.cpp:488-492).
+bool w_isVisible() { return instance()->isVisible(); }
+
+// love.window.isOccluded: w_isOccluded (wrap_Window.cpp:494-498).
+bool w_isOccluded() { return instance()->isOccluded(); }
+
+// love.window.getDPIScale: w_getDPIScale (wrap_Window.cpp:500-504).
+double w_getDPIScale() { return instance()->getDPIScale(); }
+
+// love.window.getNativeDPIScale: w_getNativeDPIScale (wrap_Window.cpp:506-510).
+double w_getNativeDPIScale() { return instance()->getNativeDPIScale(); }
+
+// love.window.toPixels: w_toPixels (wrap_Window.cpp:512-531).
+Rice::Array w_toPixels(double wx, std::optional<double> wy) {
+  Rice::Array results;
+  if (!wy.has_value()) {
+    results.push(instance()->toPixels(wx), false);
+    return results;
+  }
+  double px = 0.0;
+  double py = 0.0;
+  instance()->toPixels(wx, required(wy, "wy"), px, py);
+  results.push(px, false);
+  results.push(py, false);
+  return results;
+}
+
+// love.window.fromPixels: w_fromPixels (wrap_Window.cpp:533-552).
+Rice::Array w_fromPixels(double px, std::optional<double> py) {
+  Rice::Array results;
+  if (!py.has_value()) {
+    results.push(instance()->fromPixels(px), false);
+    return results;
+  }
+  double wx = 0.0;
+  double wy = 0.0;
+  instance()->fromPixels(px, required(py, "py"), wx, wy);
+  results.push(wx, false);
+  results.push(wy, false);
+  return results;
+}
+
+// love.window.minimize: w_minimize (wrap_Window.cpp:554-558).
+void w_minimize() { instance()->minimize(); }
+
+// love.window.maximize: w_maximize (wrap_Window.cpp:560-564).
+void w_maximize() { instance()->maximize(); }
+
+// love.window.restore: w_restore (wrap_Window.cpp:566-570).
+void w_restore() { instance()->restore(); }
+
+// love.window.focus: w_focus (wrap_Window.cpp:572-576).
+void w_focus() { instance()->focus(); }
+
+// love.window.isMaximized: w_isMaximized (wrap_Window.cpp:578-582).
+bool w_isMaximized() { return instance()->isMaximized(); }
+
+// love.window.isMinimized: w_isMinimized (wrap_Window.cpp:584-588).
+bool w_isMinimized() { return instance()->isMinimized(); }
+
+// love.window.requestAttention: w_requestAttention (wrap_Window.cpp:759-764).
+void w_requestAttention(bool continuous) { instance()->requestAttention(continuous); }
+
+// love.window.getSystemTheme: w_getSystemTheme (wrap_Window.cpp:772-779).
+std::string w_getSystemTheme() {
+  const Window::SystemTheme theme = instance()->getSystemTheme();
+  const char *str = "unknown";
+  Window::getConstant(theme, str);
+  return str;
+}
 
 // SPDX-SnippetEnd
 
@@ -101,7 +271,42 @@ void define_generated_window(const Rice::Module &native) {
       .define_singleton_function("set_title", &w_setTitle, Rice::Arg("title"))
       .define_singleton_function("title", &w_getTitle)
       .define_singleton_function("window_open?", &w_isOpen)
-      .define_singleton_function("high_dpi_allowed?", &w_isHighDPIAllowed);
+      .define_singleton_function("high_dpi_allowed?", &w_isHighDPIAllowed)
+      .define_singleton_function("display_count", &w_getDisplayCount)
+      .define_singleton_function("display_name", &w_getDisplayName, Rice::Arg("index"))
+      .define_singleton_function("display_orientation", &w_getDisplayOrientation,
+                                 Rice::Arg("argument1") = std::optional<int>())
+      .define_singleton_function("set_fullscreen", &w_setFullscreen, Rice::Arg("fullscreen"),
+                                 Rice::Arg("argument2") = std::optional<std::string>())
+      .define_singleton_function("set_position", &w_setPosition, Rice::Arg("x"), Rice::Arg("y"),
+                                 Rice::Arg("argument3") = std::optional<int>(),
+                                 Rice::Arg("wait_for_sync") = true)
+      .define_singleton_function("position", &w_getPosition)
+      .define_singleton_function("set_icon", &w_setIcon, Rice::Arg("i"))
+      .define_singleton_function("icon", &w_getIcon)
+      .define_singleton_function("v_sync", &w_getVSync)
+      .define_singleton_function("set_display_sleep_enabled", &w_setDisplaySleepEnabled,
+                                 Rice::Arg("enable"))
+      .define_singleton_function("display_sleep_enabled?", &w_isDisplaySleepEnabled)
+      .define_singleton_function("focus?", &w_hasFocus)
+      .define_singleton_function("mouse_focus?", &w_hasMouseFocus)
+      .define_singleton_function("visible?", &w_isVisible)
+      .define_singleton_function("occluded?", &w_isOccluded)
+      .define_singleton_function("dpi_scale", &w_getDPIScale)
+      .define_singleton_function("native_dpi_scale", &w_getNativeDPIScale)
+      .define_singleton_function("to_pixels", &w_toPixels, Rice::Arg("wx"),
+                                 Rice::Arg("wy") = std::optional<double>())
+      .define_singleton_function("from_pixels", &w_fromPixels, Rice::Arg("px"),
+                                 Rice::Arg("py") = std::optional<double>())
+      .define_singleton_function("minimize", &w_minimize)
+      .define_singleton_function("maximize", &w_maximize)
+      .define_singleton_function("restore", &w_restore)
+      .define_singleton_function("focus", &w_focus)
+      .define_singleton_function("maximized?", &w_isMaximized)
+      .define_singleton_function("minimized?", &w_isMinimized)
+      .define_singleton_function("request_attention", &w_requestAttention,
+                                 Rice::Arg("continuous") = false)
+      .define_singleton_function("system_theme", &w_getSystemTheme);
 }
 
 } // namespace lota::native

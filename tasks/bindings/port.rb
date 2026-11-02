@@ -491,7 +491,8 @@ line: node.line,
       when :boolean, :truthy then "bool"
       when :object
         type = helper_type(read[:call])
-        "#{'const ' if read[:constant] || const_only?(read[:variable], type)}#{type} *"
+        spelled = read[:call].qualified_template&.then { |name| (name.split("::").last == type) ? name : nil } || type
+        "#{'const ' if read[:constant] || const_only?(read[:variable], type)}#{spelled} *"
       else raise Unsupported, "#{@function.love_name} reads a #{kind} argument"
       end
     end
@@ -692,7 +693,7 @@ line: node.line,
       text.gsub(/\(\s*(?<type>[\w:]+)\s*\*\s*\)\s*(?<name>\w+)\b(?!\s*[(\[.]|\s*->)/) do
         match = Regexp.last_match
         same = parameters.compact.any? do |parameter|
-          parameter.name == match[:name] && parameter.cpp.delete(" ") == "#{match[:type].split('::').last}*"
+          parameter.name == match[:name] && parameter.cpp.delete(" ").sub(/\A(?:\w+::)+/, "") == "#{match[:type].split('::').last}*"
         end
         same ? match[:name] : match[0]
       end

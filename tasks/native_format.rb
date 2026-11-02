@@ -174,14 +174,17 @@ module NativeFormat
     end
 
     # The files dyld reports loading, from output printed with
-    # DYLD_PRINT_LIBRARIES set.
+    # DYLD_PRINT_LIBRARIES set. dyld reports a library when something first
+    # loads it, such as Metal when a window fills the screen, which can be
+    # while a test run is partway through a line of progress dots, so its
+    # report need not start a line.
     def loaded(output)
-      output.scan(/^dyld\[\d+\]: <[\h-]+> (.+)$/).flatten
+      output.scan(/dyld\[\d+\]: <[\h-]+> (.+)$/).flatten
     end
 
-    # +output+ without what dyld printed.
+    # +output+ without what dyld printed, wherever on a line it printed it.
     def printed(output)
-      output.lines.grep_v(/^dyld\[\d+\]: /).join
+      output.gsub(/dyld\[\d+\]: [^\n]*\n/, "")
     end
 
     # The libraries a run loaded that are not macOS's own (from /System):

@@ -455,6 +455,18 @@ class GeneratorTest < Minitest::Test
     assert_match(/^    class Data\n/, rbs)
   end
 
+  # A wrap file that names an object's class with its namespace
+  # (luax_checktype<image::ImageData>, as w_setIcon does) is ported with
+  # that spelling, where the module's own namespace does not hold the
+  # class: ImageData alone is not in love::window.
+  def test_a_class_the_wrap_file_names_with_its_namespace_keeps_it_in_the_port
+    list = Bindings::BindingList.new
+    list.generate("love.window.setIcon")
+    cpp = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/window.cpp")
+
+    assert_includes cpp, "bool w_setIcon(image::ImageData *i)"
+  end
+
   # A class outside that module names the class by its module, since Font
   # alone is love.font's there: TextBatch:getFont returns a
   # Graphics::Font.
@@ -620,11 +632,8 @@ class GeneratorTest < Minitest::Test
   # The rules give each bound function the Ruby name lib/ already
   # defines, so the generator and the hand-written Ruby agree. RandomGenerator
   # has no Ruby class yet, and Lota::Math draws from the math module's
-  # generator itself; love.filesystem's init and setSource only Lota::Boot, as they serve
-  # only boot.lua; and love.window.showMessageBox only Lota's error
-  # handler, until the maintainer settles how its buttons form, whose table
-  # holds both the buttons and the enterbutton and escapebutton settings,
-  # translates.
+  # generator itself; and love.filesystem's init and setSource only Lota::Boot, as they serve
+  # only boot.lua.
   UNWRITTEN = %w[
     RandomGenerator:_random
     RandomGenerator:getState
@@ -635,7 +644,6 @@ class GeneratorTest < Minitest::Test
     love.filesystem.setSource
     love.math._getRandomGenerator
     love.math.newRandomGenerator
-    love.window.showMessageBox
   ].freeze
 
   def test_lib_defines_the_name_the_rules_give_each_bound_function

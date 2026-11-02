@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "window/display_mode"
 require_relative "window/mode"
 
 module Lota
@@ -21,12 +22,16 @@ module Lota
   # Like Lota::Graphics, it raises ThreadError anywhere but the main
   # thread.
   #
-  # Use it to change the window's size or mode, or to set its title.
+  # Use it to change the window's size or mode, to go fullscreen, to ask
+  # about the displays, or to set its title.
   #
   # === Examples
   #
   #   Lota::Window.title = "Asteroids"
   #   Lota::Window.set_mode(1280, 720, resizable: true, vsync: 0)
+  #
+  #   Lota::Window.set_fullscreen(true, :desktop)
+  #   Lota::Window.display_count # => 2
   #
   #   unless Lota::Window.set_mode(1920, 1080, fullscreen: true)
   #     Lota::Window.set_mode(800, 600) # fall back
@@ -311,6 +316,530 @@ module Lota
       when true then 1
       when false then 0
       else default
+      end
+    end
+
+    # SPDX-SnippetEnd
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # How many displays are connected, matching love.window.getDisplayCount
+    # (src/modules/window/wrap_Window.cpp, w_getDisplayCount).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.display_count # => 1
+    def self.display_count
+      Native::Window.display_count
+    end
+
+    # The name of a display, matching love.window.getDisplayName
+    # (src/modules/window/wrap_Window.cpp, w_getDisplayName).
+    #
+    # [index] Integer display, counting from 1.
+    #
+    # Raises RuntimeError for a display that is not connected, and
+    # ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.display_name(1) # => "Built-in Retina Display"
+    def self.display_name(index)
+      Native::Window.display_name(index).force_encoding(Encoding::UTF_8)
+    end
+
+    # The way a display is turned, as a Symbol (ADR 001, rule 9),
+    # matching love.window.getDisplayOrientation
+    # (src/modules/window/wrap_Window.cpp, w_getDisplayOrientation).
+    #
+    # [displayindex] Integer display, counting from 1; the one the window
+    #   is on when +nil+ or left out.
+    #
+    # It is +:unknown+, +:landscape+, +:landscapeflipped+, +:portrait+, or
+    # +:portraitflipped+. Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.display_orientation # => :landscape
+    def self.display_orientation(displayindex = nil)
+      Native::Window.display_orientation(displayindex).to_sym
+    end
+
+    # The modes a display can be set to, as an Array of frozen
+    # DisplayModes (ADR 001, rules 4 and 10), matching
+    # love.window.getFullscreenModes
+    # (src/modules/window/wrap_Window.cpp, w_getFullscreenModes).
+    #
+    # [displayindex] Integer display, counting from 1; the one the window
+    #   is on when +nil+ or left out.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   mode = Lota::Window.fullscreen_modes.first
+    #   mode.width # => 1920
+    def self.fullscreen_modes(displayindex = nil)
+      Native::Window.fullscreen_modes(displayindex).map do |width, height, refreshrate|
+        DisplayMode.new(width:, height:, refreshrate:)
+      end
+    end
+
+    # Whether the window is fullscreen and its fullscreen type, as an
+    # Array (ADR 001, rule 4) of a boolean and +:desktop+ or +:exclusive+
+    # (rule 9), matching love.window.getFullscreen
+    # (src/modules/window/wrap_Window.cpp, w_getFullscreen).
+    #
+    # The type is the one the window will use when it goes fullscreen, so
+    # it is set even while the window is not. Raises ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   fullscreen, type = Lota::Window.fullscreen # => [false, :desktop]
+    def self.fullscreen
+      fullscreen, type = Native::Window.fullscreen
+      [fullscreen, type.to_sym]
+    end
+
+    # Makes the window fullscreen, or not, matching love.window.setFullscreen
+    # (src/modules/window/wrap_Window.cpp, w_setFullscreen).
+    #
+    # [fullscreen] +true+ to fill the screen, +false+ for a window.
+    # [fullscreentype] +:desktop+ for a borderless window the size of the
+    #   desktop, or +:exclusive+ to change the display's mode; the type
+    #   the window already has when +nil+ or left out.
+    #
+    # Returns +false+ when the system refuses (ADR 001, rule 7). Raises
+    # ArgumentError for an unknown +fullscreentype+, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.set_fullscreen(true, :exclusive) or Lota::Window.set_fullscreen(true)
+    def self.set_fullscreen(fullscreen, fullscreentype = nil)
+      Native::Window.set_fullscreen(fullscreen, fullscreentype&.to_s)
+    end
+
+    # Closes the window, matching love.window.close
+    # (src/modules/window/wrap_Window.cpp, w_close), which LÖVE has
+    # deprecated without a replacement. The first use prints LÖVE's notice
+    # (Lota::Deprecation). Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.close
+    def self.close
+      Deprecation.mark("Lota::Window.close", :function, :noreplacement, where: where(caller_locations(1, 1)))
+      Native::Window.close
+    end
+
+    # The window's position, as an Array (ADR 001, rule 4) of the
+    # Integer x and y of its top left corner on its display and that
+    # display, counting from 1, matching love.window.getPosition
+    # (src/modules/window/wrap_Window.cpp, w_getPosition).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   x, y, displayindex = Lota::Window.position # => [100, 100, 1]
+    def self.position
+      Native::Window.position
+    end
+
+    # Moves the window, matching love.window.setPosition
+    # (src/modules/window/wrap_Window.cpp, w_setPosition), whose values
+    # rule 6 of ADR 001 makes one Array.
+    #
+    # [position] An Array of the Integer x and y of the window's top left
+    #   corner, then optionally the Integer display, counting from 1,
+    #   which is the one the window is on when +nil+ or left out, and
+    #   whether to wait for the system to move the window, which is +true+
+    #   when left out.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Window.position = 100, 100
+    #   Lota::Window.position = 0, 0, 2
+    def self.position=(position)
+      x, y, displayindex, wait_for_sync = position
+      Native::Window.set_position(x, y, displayindex, wait_for_sync.nil? || wait_for_sync)
+    end
+
+    # The window's icon, an Lota::Image::ImageData, or +nil+ when none has
+    # been set, matching love.window.getIcon
+    # (src/modules/window/wrap_Window.cpp, w_getIcon).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.icon # => nil
+    def self.icon
+      native = Native::Window.icon
+      native && Lota::Image::ImageData.from_native(native)
+    end
+
+    # Sets the window's icon, matching love.window.setIcon
+    # (src/modules/window/wrap_Window.cpp, w_setIcon).
+    #
+    # [imagedata] Lota::Image::ImageData to show as the icon.
+    #
+    # LÖVE stores the icon before the system can refuse it, so +icon+
+    # answers it even when this returns +false+ (ADR 001, rule 7). Raises
+    # TypeError for anything but an ImageData, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.set_icon(Lota::Image::ImageData.new("icon.png"))
+    def self.set_icon(imagedata)
+      unless imagedata.is_a?(Lota::Image::ImageData)
+        raise TypeError, "wrong argument type #{imagedata.class} (expected Lota::Image::ImageData)"
+      end
+
+      Native::Window.set_icon(imagedata.native)
+    end
+
+    # The window's vertical synchronization: 1 waits for the display's
+    # refresh, 0 does not, and -1 waits unless a frame is late. Matches
+    # love.window.getVSync (src/modules/window/wrap_Window.cpp,
+    # w_getVSync).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.v_sync # => 1
+    def self.v_sync
+      Native::Window.v_sync
+    end
+
+    # Sets the window's vertical synchronization, matching
+    # love.window.setVSync (src/modules/window/wrap_Window.cpp,
+    # w_setVSync).
+    #
+    # [vsync] Integer 1, 0, or -1, as Lota::Window.v_sync answers; +true+
+    #   is 1 and +false+ is 0.
+    #
+    # Raises TypeError for anything else, and ThreadError off the main
+    # thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.v_sync = 0
+    def self.v_sync=(vsync)
+      value = case vsync
+      when true then 1
+      when false then 0
+      when Integer then vsync
+      when Float then vsync.to_i
+      else raise TypeError, "wrong argument type #{vsync.class} for vsync (expected Integer, true, or false)"
+      end
+      Native::Window.set_vsync(value)
+    end
+
+    # Whether the system may turn the display off while the game runs
+    # without input, matching love.window.isDisplaySleepEnabled
+    # (src/modules/window/wrap_Window.cpp, w_isDisplaySleepEnabled).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.display_sleep_enabled? # => true
+    def self.display_sleep_enabled?
+      Native::Window.display_sleep_enabled?
+    end
+
+    # Lets the system turn the display off while the game runs without
+    # input, or not, matching love.window.setDisplaySleepEnabled
+    # (src/modules/window/wrap_Window.cpp, w_setDisplaySleepEnabled).
+    #
+    # [enable] +true+ to let it, +false+ to keep it on; any other value
+    #   counts as its truthiness.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.display_sleep_enabled = false
+    def self.display_sleep_enabled=(enable)
+      Native::Window.set_display_sleep_enabled(enable)
+    end
+
+    # Whether the window has keyboard focus, matching love.window.hasFocus
+    # (src/modules/window/wrap_Window.cpp, w_hasFocus).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.focus? # => true
+    def self.focus?
+      Native::Window.focus?
+    end
+
+    # Whether the pointer is over the window, matching
+    # love.window.hasMouseFocus (src/modules/window/wrap_Window.cpp,
+    # w_hasMouseFocus).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.mouse_focus? # => false
+    def self.mouse_focus?
+      Native::Window.mouse_focus?
+    end
+
+    # Whether the window is shown, matching love.window.isVisible
+    # (src/modules/window/wrap_Window.cpp, w_isVisible).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.visible? # => true
+    def self.visible?
+      Native::Window.visible?
+    end
+
+    # Whether another window covers all of this one, matching
+    # love.window.isOccluded (src/modules/window/wrap_Window.cpp,
+    # w_isOccluded).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.occluded? # => false
+    def self.occluded?
+      Native::Window.occluded?
+    end
+
+    # Whether the window is maximized, matching love.window.isMaximized
+    # (src/modules/window/wrap_Window.cpp, w_isMaximized).
+    #
+    # Some systems answer only after a few frames of the loop.
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.maximized? # => false
+    def self.maximized?
+      Native::Window.maximized?
+    end
+
+    # Whether the window is minimized, matching love.window.isMinimized
+    # (src/modules/window/wrap_Window.cpp, w_isMinimized).
+    #
+    # Some systems answer only after a few frames of the loop.
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.minimized? # => false
+    def self.minimized?
+      Native::Window.minimized?
+    end
+
+    # Makes the window as large as the desktop allows, matching
+    # love.window.maximize (src/modules/window/wrap_Window.cpp,
+    # w_maximize). Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.maximize
+    def self.maximize
+      Native::Window.maximize
+    end
+
+    # Puts the window away, matching love.window.minimize
+    # (src/modules/window/wrap_Window.cpp, w_minimize). Raises ThreadError
+    # off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.minimize
+    def self.minimize
+      Native::Window.minimize
+    end
+
+    # Brings the window back from being maximized or minimized, matching
+    # love.window.restore (src/modules/window/wrap_Window.cpp, w_restore).
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.restore
+    def self.restore
+      Native::Window.restore
+    end
+
+    # Raises the window and asks the system to give it keyboard focus,
+    # matching love.window.focus (src/modules/window/wrap_Window.cpp,
+    # w_focus). Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.focus
+    def self.focus
+      Native::Window.focus
+    end
+
+    # Asks the system to draw the player's attention to the window,
+    # matching love.window.requestAttention
+    # (src/modules/window/wrap_Window.cpp, w_requestAttention).
+    #
+    # [continuous] Whether to keep asking until the player focuses the
+    #   window; +false+ by default.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.request_attention(true)
+    def self.request_attention(continuous = false)
+      Native::Window.request_attention(continuous)
+    end
+
+    # How many pixels the window's units make, as a Float, matching
+    # love.window.getDPIScale (src/modules/window/wrap_Window.cpp,
+    # w_getDPIScale): 2.0 on a Retina display with high DPI allowed, and
+    # 1.0 when sizes count in pixels.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.dpi_scale # => 2.0
+    def self.dpi_scale
+      Native::Window.dpi_scale
+    end
+
+    # The scale of the window's display, whatever the window's settings,
+    # as a Float, matching love.window.getNativeDPIScale
+    # (src/modules/window/wrap_Window.cpp, w_getNativeDPIScale).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.native_dpi_scale # => 2.0
+    def self.native_dpi_scale
+      Native::Window.native_dpi_scale
+    end
+
+    # A length, or a position, in the window's units as pixels, matching
+    # love.window.toPixels (src/modules/window/wrap_Window.cpp,
+    # w_toPixels).
+    #
+    # [wx] Float or Integer length, or position across.
+    # [wy] Float or Integer position down, when converting a position.
+    #
+    # Returns a Float for one number, and an Array (ADR 001, rule 4) of two
+    # Floats for two. Raises ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Window.to_pixels(50) # => 100.0
+    #   Lota::Window.to_pixels(50, 20) # => [100.0, 40.0]
+    def self.to_pixels(wx, wy = nil)
+      converted = Native::Window.to_pixels(wx, wy)
+      wy.nil? ? converted.first : converted
+    end
+
+    # A length, or a position, in pixels as the window's units, matching
+    # love.window.fromPixels (src/modules/window/wrap_Window.cpp,
+    # w_fromPixels).
+    #
+    # [px] Float or Integer length, or position across.
+    # [py] Float or Integer position down, when converting a position.
+    #
+    # Returns a Float for one number, and an Array (ADR 001, rule 4) of two
+    # Floats for two. Raises ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Window.from_pixels(100) # => 50.0
+    #   Lota::Window.from_pixels(100, 40) # => [50.0, 20.0]
+    def self.from_pixels(px, py = nil)
+      converted = Native::Window.from_pixels(px, py)
+      py.nil? ? converted.first : converted
+    end
+
+    # The theme the system shows its windows in, as a Symbol (ADR 001,
+    # rule 9), matching love.window.getSystemTheme
+    # (src/modules/window/wrap_Window.cpp, w_getSystemTheme).
+    #
+    # It is +:unknown+, +:light+, or +:dark+. Raises ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.system_theme # => :dark
+    def self.system_theme
+      Native::Window.system_theme.to_sym
+    end
+
+    # Shows a message box, matching love.window.showMessageBox
+    # (src/modules/window/wrap_Window.cpp, w_showMessageBox), which takes
+    # its arguments in one of two forms.
+    #
+    # With a message alone, <tt>show_message_box(title, message, type,
+    # attachtowindow)</tt> shows it and returns whether it could:
+    #
+    # [title] String shown in the box's title bar.
+    # [message] String shown in the box.
+    # [type] +:info+ (the default), +:warning+, or +:error+.
+    # [attachtowindow] Whether the box belongs to the window; +true+ by
+    #   default.
+    #
+    # With an Array of button names for its third argument,
+    # <tt>show_message_box(title, message, buttons, type, attachtowindow,
+    # enterbutton:, escapebutton:)</tt> shows them and returns which the
+    # player pressed, counting from 1:
+    #
+    # [buttons] Array of at least one String.
+    # [enterbutton] Integer button Return presses, counting from 1; the
+    #   first by default.
+    # [escapebutton] Integer button Escape presses; the last by default.
+    #
+    # LÖVE tells the forms apart by whether its third argument is a table,
+    # which also holds the +enterbutton+ and +escapebutton+ settings, so
+    # Lota tells them by whether it is an Array, and reads those two as
+    # keywords (rule 10). Raises ArgumentError for an empty Array, an
+    # unknown +type+, or +enterbutton+ or +escapebutton+ without buttons,
+    # and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Window.show_message_box("Saved", "Your game was saved.")
+    #   Lota::Window.show_message_box("Quit?", "Unsaved progress is lost.", %w[Quit Stay], :warning, escapebutton: 2)
+    def self.show_message_box(title, message, buttons_or_type = nil, *options, enterbutton: nil, escapebutton: nil)
+      raise ArgumentError, "wrong number of arguments (given #{options.size + 3}, expected 2..5)" if options.size > 2
+
+      if buttons_or_type.is_a?(Array)
+        type, attachtowindow = options
+        Native::Window.show_message_box_with_buttons(title, message, buttons_or_type, enterbutton, escapebutton,
+          type&.to_s, attachtowindow.nil? || !!attachtowindow)
+      else
+        unless enterbutton.nil? && escapebutton.nil?
+          raise ArgumentError, "enterbutton and escapebutton need an Array of buttons"
+        end
+
+        raise ArgumentError, "wrong number of arguments (given #{options.size + 3}, expected 2..4)" if options.size > 1
+
+        attachtowindow = options.first
+        Native::Window.show_message_box(title, message, buttons_or_type&.to_s, attachtowindow.nil? || !!attachtowindow)
       end
     end
 

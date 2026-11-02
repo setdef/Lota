@@ -27,8 +27,9 @@ class LotaRunTest < Minitest::Test
   # Presses Return on each dialog the game shows (press_return_on_dialogs.rb).
   PRESS_RETURN = File.expand_path("press_return_on_dialogs.rb", __dir__)
 
-  # Gives the window focus for Lövetest's setGrabbed test (focus_for_grab.rb).
-  FOCUS_FOR_GRAB = File.expand_path("focus_for_grab.rb", __dir__)
+  # Gives the window focus for Lövetest's setGrabbed and isOccluded tests
+  # (focus_for_tests.rb).
+  FOCUS_FOR_TESTS = File.expand_path("focus_for_tests.rb", __dir__)
 
   # boot.lua's warning for a game made for a version the engine is not
   # compatible with (boot.lua:381-384), for t.version +version+.
@@ -132,15 +133,23 @@ class LotaRunTest < Minitest::Test
   # conf.lua. On a GitHub Actions macOS runner, Lövetest's arc test
   # compares none of its three 32 by 32 images, and asserts once instead
   # (test/lovetest/tests/graphics.rb, test_arc, which skips only on "OS X").
-  # Lövetest skips its discard test everywhere, and so does Lota. Its
+  # Lövetest skips its discard, requestAttention, and showMessageBox tests
+  # everywhere, and so does Lota. Its
   # Shader test compares a 16 by 16 image a glsl3 shader draws, and
   # validates four glsl4 shaders with its eight checks, only where the
   # renderer supports them, and asserts once for each instead
   # (test/lovetest/tests/graphics.rb, test_shader).
   def test_lovetest_passes_when_run_by_lota_run
-    output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_GRAB)
+    output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 90547 - (3 * 32 * 32) + 1 : 90547
+    assertions = skipped ? 90589 - (3 * 32 * 32) + 1 : 90589
+    # Lövetest skips its window tests of fullscreen, maximizing, and
+    # minimizing on a GitHub runner on Linux, where xvfb has no window
+    # manager (test/lovetest/tests/window.rb), seven tests of 13 checks,
+    # beside the three it always skips.
+    on_linux_runner = ENV["GITHUB_ACTIONS"] == "true" && TestHome::LINUX
+    assertions -= 13 if on_linux_runner
+    skips = on_linux_runner ? 10 : 3
     EngineHelper.open_window
     supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
@@ -148,7 +157,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^186 runs, #{assertions} assertions, 0 failures, 0 errors, 1 skips$/, output)
+    assert_match(/^217 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -465,6 +474,45 @@ class LotaRunTest < Minitest::Test
 
       assert_predicate status, :success?, output
       assert_equal "#{self.class.version_warning('11.3')}true\ndialogs 1\n", output
+    end
+  end
+
+  # w_showMessageBox (wrap_Window.cpp:590-653) shows a box of one button and
+  # returns whether it could, or shows the buttons it is given and returns
+  # the one the player pressed, counting from 1. Return presses the
+  # enterbutton, the first unless it says otherwise (SDL's
+  # SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, set in Window::showMessageBox).
+  def test_a_game_shows_message_boxes_and_learns_which_button_was_pressed
+    in_game("main.rb" => <<~RUBY) do |directory|
+      def Lota.load
+        p Lota::Window.show_message_box("Saved", "Your game was saved.", :info, false)
+        p Lota::Window.show_message_box("Quit?", "Unsaved progress is lost.", %w[Quit Stay], :warning)
+        p Lota::Window.show_message_box("Quit?", "Unsaved progress is lost.", %w[Quit Stay], enterbutton: 2)
+        Lota::Event.quit
+      end
+    RUBY
+      output, status = lota_run(directory, preload: PRESS_RETURN, environment: answering_dialogs)
+
+      assert_predicate status, :success?, output
+      assert_equal "true\n1\n2\ndialogs 3\n", output
+    end
+  end
+
+  # w_close (wrap_Window.cpp:353-358) closes the window and is marked
+  # deprecated without a replacement (luax_markdeprecated), so the first
+  # use prints the notice, with where it was used.
+  def test_closing_the_window_works_and_says_it_is_deprecated
+    in_game("main.rb" => <<~RUBY) do |directory|
+      def Lota.load
+        Lota::Window.close
+        p Lota::Window.open?
+        Lota::Event.quit
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "Lota - Warning: #{directory}/main.rb:2: Using deprecated function Lota::Window.close\nfalse\n", output
     end
   end
 

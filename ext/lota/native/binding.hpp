@@ -89,8 +89,9 @@ inline void require_main_thread(const char *module) {
 // must (tasks/bindings/port.rb, trailing_optional), or because LÖVE tests
 // whether it is given, in a form that requires it: LÖVE reads it with a
 // check there. A missing one raises ArgumentError, naming it as Rice
-// names a missing argument, where LÖVE's check raises.
-template <typename T> T required(const std::optional<T> &argument, const std::string &name) {
+// names a missing argument, where LÖVE's check raises. It returns a
+// reference into the argument, so a string's c_str() outlives the read.
+template <typename T> const T &required(const std::optional<T> &argument, const std::string &name) {
   if (!argument.has_value()) {
     throw std::invalid_argument("Missing argument. Name: " + name + ".");
   }

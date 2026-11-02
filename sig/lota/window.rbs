@@ -29,6 +29,70 @@ module Lota
 
     private def self.vsync_of: (::Object? value, Integer default) -> Integer
 
+    def self.display_count: () -> Integer
+
+    def self.display_name: (Integer index) -> String
+
+    def self.display_orientation: (?Integer? displayindex) -> Symbol
+
+    def self.fullscreen_modes: (?Integer? displayindex) -> Array[DisplayMode]
+
+    def self.fullscreen: () -> [bool, Symbol]
+
+    def self.set_fullscreen: (bool fullscreen, ?(Symbol | String)? fullscreentype) -> bool
+
+    def self.close: () -> nil
+
+    def self.position: () -> [Integer, Integer, Integer]
+
+    def self.position=: ([Integer, Integer] | [Integer, Integer, Integer?] | [Integer, Integer, Integer?, bool?] position) -> void
+
+    def self.icon: () -> Lota::Image::ImageData?
+
+    def self.set_icon: (Lota::Image::ImageData imagedata) -> bool
+
+    def self.v_sync: () -> Integer
+
+    def self.v_sync=: (Integer | Float | bool vsync) -> void
+
+    def self.display_sleep_enabled?: () -> bool
+
+    def self.display_sleep_enabled=: (bool enable) -> void
+
+    def self.focus?: () -> bool
+
+    def self.mouse_focus?: () -> bool
+
+    def self.visible?: () -> bool
+
+    def self.occluded?: () -> bool
+
+    def self.maximized?: () -> bool
+
+    def self.minimized?: () -> bool
+
+    def self.maximize: () -> nil
+
+    def self.minimize: () -> nil
+
+    def self.restore: () -> nil
+
+    def self.focus: () -> nil
+
+    def self.request_attention: (?bool continuous) -> nil
+
+    def self.dpi_scale: () -> Float
+
+    def self.native_dpi_scale: () -> Float
+
+    def self.to_pixels: (Float | Integer wx, ?(Float | Integer)? wy) -> (Float | Array[Float])
+
+    def self.from_pixels: (Float | Integer px, ?(Float | Integer)? py) -> (Float | Array[Float])
+
+    def self.system_theme: () -> Symbol
+
+    def self.show_message_box: (String title, String message, ?(Array[String] | Symbol | String)? buttons_or_type, *(Symbol | String | bool)? options, ?enterbutton: Integer?, ?escapebutton: Integer?) -> (bool | Integer)
+
     def self.title=: (String title) -> void
 
     def self.title: () -> String

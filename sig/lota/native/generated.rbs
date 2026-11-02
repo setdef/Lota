@@ -707,6 +707,60 @@ module Lota
       def self.window_open?: () -> bool
 
       def self.high_dpi_allowed?: () -> bool
+
+      def self.display_count: () -> Integer
+
+      def self.display_name: (Integer index) -> String
+
+      def self.display_orientation: (?Integer? argument1) -> String
+
+      def self.set_fullscreen: (bool fullscreen, ?String? argument2) -> bool
+
+      def self.set_position: (Integer x, Integer y, ?Integer? argument3, ?bool wait_for_sync) -> nil
+
+      def self.position: () -> [Integer, Integer, Integer]
+
+      def self.set_icon: (ImageData i) -> bool
+
+      def self.icon: () -> ImageData
+
+      def self.v_sync: () -> Integer
+
+      def self.set_display_sleep_enabled: (bool enable) -> nil
+
+      def self.display_sleep_enabled?: () -> bool
+
+      def self.focus?: () -> bool
+
+      def self.mouse_focus?: () -> bool
+
+      def self.visible?: () -> bool
+
+      def self.occluded?: () -> bool
+
+      def self.dpi_scale: () -> Float
+
+      def self.native_dpi_scale: () -> Float
+
+      def self.to_pixels: (Float | Integer wx, ?(Float | Integer)? wy) -> Array[Float]
+
+      def self.from_pixels: (Float | Integer px, ?(Float | Integer)? py) -> Array[Float]
+
+      def self.minimize: () -> nil
+
+      def self.maximize: () -> nil
+
+      def self.restore: () -> nil
+
+      def self.focus: () -> nil
+
+      def self.maximized?: () -> bool
+
+      def self.minimized?: () -> bool
+
+      def self.request_attention: (?bool continuous) -> nil
+
+      def self.system_theme: () -> String
     end
   end
 end

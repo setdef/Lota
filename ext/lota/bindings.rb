@@ -784,6 +784,45 @@ generate "love.window.setTitle"
 generate "love.window.getTitle"
 generate "love.window.isOpen"
 generate "love.window.isHighDPIAllowed"
+generate "love.window.getDisplayCount"
+generate "love.window.getDisplayName"
+generate "love.window.getDisplayOrientation"
+generate "love.window.setFullscreen"
+generate "love.window.setPosition"
+generate "love.window.getPosition"
+generate "love.window.setIcon"
+generate "love.window.getIcon"
+generate "love.window.getVSync"
+generate "love.window.setDisplaySleepEnabled"
+generate "love.window.isDisplaySleepEnabled"
+generate "love.window.hasFocus"
+generate "love.window.hasMouseFocus"
+generate "love.window.isVisible"
+generate "love.window.isOccluded"
+generate "love.window.getDPIScale"
+generate "love.window.getNativeDPIScale"
+generate "love.window.toPixels"
+generate "love.window.fromPixels"
+generate "love.window.minimize"
+generate "love.window.maximize"
+generate "love.window.restore"
+generate "love.window.focus"
+generate "love.window.isMaximized"
+generate "love.window.isMinimized"
+generate "love.window.requestAttention"
+generate "love.window.getSystemTheme"
+bound_by_hand "love.window.getFullscreen",
+  reason: "raises with luaL_error after it has read the window's settings, which the generator does not port; " \
+    "Lota returns the Array (rule 4) and raises love::Exception"
+bound_by_hand "love.window.getFullscreenModes",
+  reason: "builds a table of tables with lua_createtable, which the generator does not port; Lota returns an " \
+    "Array of Arrays, which Lota::Window.fullscreen_modes makes DisplayModes"
+bound_by_hand "love.window.setVSync",
+  reason: "reads its argument as a boolean or an integer by its Lua type; Lota::Window.v_sync= chooses, and " \
+    "binds the integer"
+bound_by_hand "love.window.close",
+  reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port; " \
+    "Lota::Window.close marks it through Lota::Deprecation and binds the call"
 bound_by_hand "love.window.showMessageBox",
   reason: "chooses between its forms by whether its third argument is a table, which also holds the " \
     "enterbutton and escapebutton settings; Lota binds each form as a function of its own"

@@ -99,6 +99,60 @@ Rice::Array fullscreen_types() {
   return names;
 }
 
+// w_getFullscreen (wrap_Window.cpp:332-345): whether the window is
+// fullscreen and the name of its fullscreen type, as an Array (ADR 001,
+// rule 4). Unlike w_getMode, it raises for a type Window has no name for.
+Rice::Array get_fullscreen() {
+  int width = 0;
+  int height = 0;
+  WindowSettings settings;
+  window().getWindow(width, height, settings);
+
+  const char *typestr = nullptr;
+  if (!Window::getConstant(settings.fstype, typestr)) {
+    throw love::Exception("Unknown fullscreen type.");
+  }
+
+  Rice::Array results;
+  results.push(settings.fullscreen, false);
+  results.push(std::string(typestr), false);
+  return results;
+}
+
+// w_getFullscreenModes (wrap_Window.cpp:272-309): the modes of a display,
+// each as an Array of its width, height, and refresh rate, which
+// Lota::Window.fullscreen_modes makes frozen DisplayModes (rule 10). The
+// display counts from 1, as the table's does, and is the window's own
+// when nil.
+Rice::Array get_fullscreen_modes(std::optional<int> display) {
+  int displayindex = 0;
+  if (display.has_value()) {
+    displayindex = display.value() - 1;
+  } else {
+    int x = 0;
+    int y = 0;
+    window().getPosition(x, y, displayindex);
+  }
+
+  Rice::Array list;
+  for (const Window::DisplayMode &mode : window().getFullscreenModes(displayindex)) {
+    Rice::Array entry;
+    entry.push(mode.width, false);
+    entry.push(mode.height, false);
+    entry.push(mode.refreshRate, false);
+    list.push(entry, false);
+  }
+  return list;
+}
+
+// w_setVSync (wrap_Window.cpp:434-443): the Ruby side has turned a
+// boolean into the 1 or 0 LÖVE makes of it.
+void set_vsync(int vsync) { window().setVSync(vsync); }
+
+// w_close (wrap_Window.cpp:353-358), which LÖVE has deprecated without a
+// replacement; Lota::Window.close marks it so.
+void close_window() { window().close(); }
+
 // w__setHighDPIAllowed (vendor/love/src/modules/love/love.cpp:439-445),
 // which boot.lua calls before the window opens.
 void set_high_dpi_allowed(bool enable) {
@@ -187,6 +241,11 @@ void define_window(const Rice::Module &native) {
                                  Rice::Arg("settings"))
       .define_singleton_function("get_window", &get_window, Rice::Arg("settings"))
       .define_singleton_function("fullscreen_types", &fullscreen_types)
+      .define_singleton_function("fullscreen", &get_fullscreen)
+      .define_singleton_function("fullscreen_modes", &get_fullscreen_modes,
+                                 Rice::Arg("display") = std::optional<int>())
+      .define_singleton_function("set_vsync", &set_vsync, Rice::Arg("vsync"))
+      .define_singleton_function("close", &close_window)
       .define_singleton_function("set_high_dpi_allowed", &set_high_dpi_allowed, Rice::Arg("enable"))
       .define_singleton_function(
           "show_message_box", &show_message_box, Rice::Arg("title"), Rice::Arg("message"),

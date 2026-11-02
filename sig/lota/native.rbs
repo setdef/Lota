@@ -484,6 +484,14 @@ module Lota
 
       def self.fullscreen_types: () -> Array[String]
 
+      def self.fullscreen: () -> [bool, String]
+
+      def self.fullscreen_modes: (?Integer? display) -> Array[[Integer, Integer, Float]]
+
+      def self.set_vsync: (Integer vsync) -> nil
+
+      def self.close: () -> nil
+
       def self.set_high_dpi_allowed: (bool enable) -> nil
 
       def self.show_message_box: (String title, String message, ?String? type, ?bool attachtowindow) -> bool

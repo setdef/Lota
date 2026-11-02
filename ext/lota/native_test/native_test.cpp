@@ -512,7 +512,8 @@ bool focus_window() {
 }
 
 // Undoes focus_window: gives keyboard focus back to the program that had
-// it (lota::native_test::give_up_focus, dialogs.mm), and pumps SDL's
+// it (lota::native_test::give_up_focus, dialogs.mm), shows the window
+// again, and pumps SDL's
 // events, leaving them queued, until SDL hears that the window lost focus,
 // for up to a second. SDL lets go of every key held down when its window
 // loses focus (SDL 3.4.10, src/events/SDL_keyboard.c, SDL_SetKeyboardFocus
@@ -523,17 +524,36 @@ bool unfocus_window() {
   lota::native_test::give_up_focus();
   constexpr int tries = 100;
   constexpr Uint32 wait = 10;
-  for (int i = 0; i < tries; ++i) {
+  bool lost = false;
+  for (int i = 0; i < tries && !lost; ++i) {
     SDL_PumpEvents();
     int count = 0;
     const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
     SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
-    if (window == nullptr || (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) == 0) {
-      return true;
+    lost = window == nullptr || (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) == 0;
+    if (!lost) {
+      SDL_Delay(wait);
+    }
+  }
+  // A program that stops being a regular one has its windows ordered out,
+  // which SDL reports as hiding the first window a moment later, so the
+  // window is shown again, which SDL_WINDOW_ACTIVATE_WHEN_SHOWN
+  // (test/test_helper.rb) keeps from activating the program. A window that
+  // is never hidden is left as it is.
+  constexpr int hide_tries = 30;
+  for (int i = 0; i < hide_tries; ++i) {
+    SDL_PumpEvents();
+    int count = 0;
+    const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+    SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+    if (window != nullptr && (SDL_GetWindowFlags(window) & SDL_WINDOW_HIDDEN) != 0) {
+      SDL_ShowWindow(window);
+      SDL_PumpEvents();
+      break;
     }
     SDL_Delay(wait);
   }
-  return false;
+  return lost;
 }
 
 // The first window's size in pixels changing to the size it already has,
