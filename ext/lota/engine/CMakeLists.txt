@@ -92,6 +92,13 @@ target_compile_options(lota_engine PRIVATE
 	# LÖVE's warnings are LÖVE's to fix, upstream (ADR 001, section 1).
 	-w
 )
+# The MinGW spike: data/Compressor.cpp:91 and filesystem/NativeFile.cpp:341
+# use std::nothrow without including <new>, which libstdc++ and Apple's
+# libc++ include through other headers, but MSYS2's CLANGARM64 libc++
+# does not. Forcing the header in changes no file of LÖVE's.
+if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	target_compile_options(lota_engine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-includenew>)
+endif()
 
 if(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_macos.cmake)
