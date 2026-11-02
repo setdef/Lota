@@ -45,6 +45,7 @@ class EngineSources
       "Lua threads and channels, ADR 001 section 1"),
     Rule.new(%r{\Asrc/libraries/enet/enet\.cpp\z}, "lua-enet binding, ADR 001 section 1"),
     Rule.new(%r{\Asrc/love\.cpp\z}, "main() of the love executable, which boots Lua"),
+    Rule.new(%r{\Aextra/windows/}, "the love executable's Windows resources"),
     Rule.new(%r{\Asrc/libraries/(lua53|luasocket|luahttps)/}, "Lua, or a library only Lua calls"),
   ].freeze
 

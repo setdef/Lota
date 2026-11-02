@@ -20,6 +20,15 @@
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
 
+// On Windows Ruby's headers include <windows.h> (ruby/win32.h), whose
+// winnt.h defines KEY_EXECUTE, a registry access right, as a macro, which
+// would replace LÖVE's enumerator love::keyboard::Keyboard::KEY_EXECUTE
+// (keyboard/Keyboard.h:457). LÖVE's own sources include LÖVE's headers
+// without Ruby's, so only Lota's need this.
+#ifdef _WIN32
+#undef KEY_EXECUTE
+#endif
+
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/Object.h" // IWYU pragma: export

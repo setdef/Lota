@@ -93,8 +93,10 @@ jobs:
           ruby -e 'require "./tasks/engine_sources"
             s = EngineSources.new(source: "vendor/love", build: "tmp/engine/sources/windows",
               cmake_args: EngineSources.cmake_args("windows"), label: "vendor/love on windows")
-            File.write("tmp/sources_windows.generated.cmake", s.generate)'
-          diff <(grep '^\s*\$' ext/lota/engine/sources_windows.cmake) <(grep '^\s*\$' tmp/sources_windows.generated.cmake) && echo "the hand-derived list matches"
+            File.binwrite("tmp/sources_windows.generated.cmake", s.generate)'
+          grep -v '^#   vendor/love' ext/lota/engine/sources_windows.cmake > tmp/committed.cmake
+          grep -v '^#   vendor/love' tmp/sources_windows.generated.cmake > tmp/generated.cmake
+          diff tmp/committed.cmake tmp/generated.cmake && echo "the committed list matches"
 
       - name: Install Rice
         run: gem install rice -v 4.12.0 --no-document
