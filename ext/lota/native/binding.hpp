@@ -17,11 +17,47 @@
 // clang-tidy's misc-include-cleaner reads).
 //
 // rice/stl.hpp converts std::string, among others; it follows rice/rice.hpp.
-// Rice 4.12's rice.hpp names std::exception_ptr without including
-// <exception>; libstdc++ and Apple's libc++ reach it through other
-// headers, but MSYS2's CLANGARM64 libc++ declares it only (the MinGW
-// spike).
+// Rice 4.12's rice.hpp is one file joined from many, and uses parts of
+// the standard library (std::exception_ptr at line 1124, std::transform
+// at 9962) before the line that includes their header. libstdc++ reaches
+// them through headers included earlier, but MSYS2's CLANGARM64 libc++
+// does not, so every standard header Rice includes comes first (the
+// MinGW spike).
+#include <algorithm>
+#include <any>
+#include <array>
+#include <cmath>
+#include <complex>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <ios>
+#include <iosfwd>
+#include <iostream>
+#include <iterator>
+#include <limits>
+#include <map>
+#include <memory>
+#include <optional>
+#include <ostream>
+#include <regex>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <typeindex>
+#include <typeinfo>
+#include <unordered_map>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export

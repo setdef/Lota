@@ -55,6 +55,23 @@ end
 
 check("require lota") { require "lota" }
 check("loaded from") { $LOADED_FEATURES.grep(/native\.so/) }
+# Where Windows found each DLL the extension links.
+check("DLL paths") do
+  require "fiddle"
+  kernel32 = Fiddle.dlopen("kernel32")
+  handle = Fiddle::Function.new(kernel32["GetModuleHandleA"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_VOIDP)
+  name = Fiddle::Function.new(kernel32["GetModuleFileNameA"],
+    [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT], Fiddle::TYPE_INT)
+  %w[SDL3.dll libopenal-1.dll libfreetype-6.dll libharfbuzz-0.dll zlib1.dll libstdc++-6.dll libc++.dll
+    libwinpthread-1.dll].filter_map do |dll|
+    module_handle = handle.call(dll)
+    next if module_handle.null?
+
+    buffer = Fiddle::Pointer.malloc(1024, Fiddle::RUBY_FREE)
+    length = name.call(module_handle, buffer, 1024)
+    buffer.to_s(length)
+  end
+end
 opened = %i[Data Timer Sound System Image Font Math Physics]
 opened += %i[Event Keyboard Mouse] if groups.include?("sdl")
 opened.each do |name|
