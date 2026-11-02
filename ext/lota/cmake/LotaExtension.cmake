@@ -140,15 +140,12 @@ function(lota_link_mingw target name map)
 	target_sources(${target} PRIVATE ${definitions})
 	target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
 	# The compiler's runtime inside the extension, so it needs no
-	# libgcc_s, libstdc++, libc++, or libwinpthread DLL, and never binds to
-	# another copy that a different gem, or MSYS2, put in the process.
-	# GCC's libstdc++ uses winpthreads, which GCC's driver links after
-	# everything named here, as a DLL, so it is linked statically first,
-	# with libstdc++ before it, as OpenAL Soft's ALSOFT_STATIC_WINPTHREAD
-	# does (its CMakeLists.txt:351-366). clang's libc++ uses Windows'
-	# threads.
-	target_link_options(${target} PRIVATE -static-libgcc -static-libstdc++)
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		target_link_options(${target} PRIVATE "LINKER:--push-state,-Bstatic,-lstdc++,-lwinpthread,--pop-state")
-	endif()
+	# libgcc_s, libstdc++, libc++, libunwind, or libwinpthread DLL, and
+	# never binds to another copy that a different gem, or MSYS2, put in
+	# the process. -static-libstdc++ alone leaves winpthreads, which GCC's
+	# libstdc++ uses, to the -lpthread GCC's driver adds after everything
+	# else, as a DLL; -static has the driver link every library it adds
+	# from its archive. Ruby, OpenAL Soft, and Windows are linked by their
+	# import libraries, which are archives too, so they stay DLLs.
+	target_link_options(${target} PRIVATE -static)
 endfunction()

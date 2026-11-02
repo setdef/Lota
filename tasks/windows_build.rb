@@ -280,7 +280,12 @@ class WindowsBuild
       -DALSOFT_STATIC_LIBGCC=ON
       -DALSOFT_STATIC_STDCXX=ON
     ]
-    @arm64 ? options : [*options, "-DALSOFT_STATIC_WINPTHREAD=ON"]
+    # The {fmt} it bundles calls malloc and free without including
+    # <cstdlib> (fmt-11.1.1/include/fmt/format.h:745-750), which libstdc++
+    # includes through other headers and MSYS2's libc++, on ARM64, does
+    # not, so it is included first there, changing no file of OpenAL
+    # Soft's.
+    @arm64 ? [*options, "-DCMAKE_CXX_FLAGS=-include cstdlib"] : [*options, "-DALSOFT_STATIC_WINPTHREAD=ON"]
   end
 
   # Runs the block until it does not fail, ATTEMPTS times at most: a
