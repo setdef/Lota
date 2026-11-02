@@ -95,7 +95,19 @@ Rice::Array open() {
   if (love::Module::getInstance<Audio>(love::Module::M_AUDIO) == nullptr) {
     throw love::Exception("Could not open any audio module.");
   }
+#ifdef _WIN32
+  // The MinGW spike: std::atexit in a DLL registers with the DLL's own
+  // exit table, which Windows runs at DLL_PROCESS_DETACH, after ExitProcess
+  // has terminated every other thread, among them the thread that streams
+  // Sources and OpenAL Soft's mixer, so closing the device then waits for
+  // threads that no longer run, and the process never exits. Ruby's VM
+  // runs ruby_vm_at_exit's functions as it passes away, after the game's
+  // objects are freed and before the process exits, while those threads
+  // still run.
+  static const bool closes_at_exit = (ruby_vm_at_exit([](ruby_vm_t *) { close(); }), true);
+#else
   static const bool closes_at_exit = std::atexit(&close) == 0;
+#endif
   static_cast<void>(closes_at_exit);
   return lines;
 }

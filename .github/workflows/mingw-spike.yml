@@ -231,8 +231,9 @@ jobs:
           for groups in "core" "core sdl" "core audio" "core sdl audio"; do
             echo "=== SPIKE_GROUPS=$groups"
             start=$(date +%s)
-            SPIKE_GROUPS="$groups" PATH="$clean" /usr/bin/timeout -k 5 120 ruby .github/mingw_spike_smoke.rb add-dll-directory "$dlls"
-            echo "=== exit status $? after $(( $(date +%s) - start ))s (124 is the timeout)"
+            status=0
+            SPIKE_GROUPS="$groups" PATH="$clean" /usr/bin/timeout -k 5 120 ruby .github/mingw_spike_smoke.rb add-dll-directory "$dlls" || status=$?
+            echo "=== exit status $status after $(( $(date +%s) - start ))s (124 is the timeout)"
           done
 
       # The test files that open no window and need neither the test-only
