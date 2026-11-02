@@ -217,18 +217,22 @@ jobs:
           PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load bare "$decoy" || status=$?
           [ "$status" = 3 ] || { echo "the control exited $status, not 3"; exit 1; }
 
+      # The PATH adds the directory of Git for Windows' commands, which holds
+      # no DLL, since the gemspec the version test loads lists its files
+      # with git.
       - name: Run the headless tests
         timeout-minutes: 15
         run: |
           gem install minitest -v '~> 6.0' --no-document
-          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Program Files/Git/cmd"
           status=0
           for test in test/version_test.rb test/info_test.rb test/error_message_test.rb test/settings_test.rb \
             test/record_test.rb test/deprecation_test.rb test/boot_test.rb test/callbacks_test.rb \
             test/variant_test.rb test/restart_test.rb; do
             echo "== $test"
-            PATH="$clean" /usr/bin/timeout -k 5 180 ruby -Ilib -Itest "$test" 2>&1 | tail -15
-            code=${PIPESTATUS[0]}
+            code=0
+            PATH="$clean" /usr/bin/timeout -k 5 180 ruby -Ilib -Itest "$test" > tmp/test.log 2>&1 || code=$?
+            tail -15 tmp/test.log
             [ "$code" = 0 ] || { echo "== $test exited $code"; status=1; }
           done
           exit $status

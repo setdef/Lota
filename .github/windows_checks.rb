@@ -105,8 +105,12 @@ module WindowsChecks
     problems = []
     seen = {}
     queue = files.map { |file| File.expand_path(file) }
+    done = []
     until queue.empty?
       file = queue.shift
+      next if done.include?(file.downcase)
+
+      done << file.downcase
       puts "#{file.delete_prefix("#{ROOT}/")}: #{File.size(file)} bytes"
       imports, = Open3.capture2(objdump, "-p", file)
       imports.scan(/DLL Name: (\S+)/).flatten.each do |dll|
@@ -141,7 +145,7 @@ module WindowsChecks
   # How RubyInstaller adds a DLL directory: by its own extension (:cext),
   # Fiddle, or PATH.
   def report_dll_directories
-    mechanism = RubyInstaller::Build::DllDirectory.class_variable_get(:@@dll_directory_mechanism)
+    mechanism = RubyInstaller::Runtime::DllDirectory.class_variable_get(:@@dll_directory_mechanism)
     puts "RubyInstaller adds DLL directories by #{mechanism.inspect} " \
       "(#{$LOADED_FEATURES.grep(/dll_directory/).join(', ')})"
   rescue NameError => e
