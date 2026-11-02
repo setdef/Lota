@@ -143,6 +143,20 @@ class DesktopInputTest < Minitest::Test
     end
   end
 
+  # A process that exits while its watcher is calling the person back
+  # waits until the words are said, rather than cutting them off after
+  # the banner. Here say takes a second over the call back, and the
+  # process exits as soon as say starts.
+  def test_a_process_exiting_while_it_calls_back_waits_until_it_is_said
+    in_desktop do |root|
+      write(root, "say", "#!/bin/sh\ncase \"$1\" in *'come back'*) touch \"#{root}/telling\"; sleep 1;; esac\n" \
+        "printf 'say: %s\\n' \"$1\" >> \"#{root}/said\"\n")
+      run_script(root, "input.hold { }; sleep 0.01 until File.exist?(File.join(dir, 'telling'))")
+
+      assert_equal told(DesktopInput::STEP_AWAY, DesktopInput::COME_BACK), said(root)
+    end
+  end
+
   # The lock and the marker are ones every user can open and rewrite,
   # whatever the umask of the process that made them.
   def test_the_files_it_makes_are_every_users_whatever_the_umask

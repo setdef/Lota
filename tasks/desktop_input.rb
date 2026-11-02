@@ -173,8 +173,13 @@ class DesktopInput
   # watcher, waits out what is left of SETTLE since it last let go of the
   # lock, so a process already waiting for the lock takes it first, and
   # then calls back.
+  #
+  # It stops the watcher only between ticks, since a tick holds the state
+  # throughout a call back, and killing the watcher mid-call would leave
+  # the marker removed and the words shown but never said.
   def finish
-    @watcher&.kill&.join
+    @state.synchronize { @watcher&.kill }
+    @watcher&.join
     @watcher = nil
     last_done = @state.synchronize { @last_done }
     left = last_done && (@settle - (now - last_done))
