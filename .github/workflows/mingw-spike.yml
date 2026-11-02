@@ -204,18 +204,20 @@ jobs:
       - name: Load Lota with nothing on the DLL search path
         if: steps.inspect.outcome == 'success'
         continue-on-error: true
-        shell: pwsh
+        timeout-minutes: 4
         run: |
-          $env:Path = "$(Split-Path (Get-Command ruby).Source);C:\Windows\system32;C:\Windows"
-          ruby .github/mingw_spike_smoke.rb bare
+          clean="$(dirname "$(which ruby)"):/c/Windows/system32:/c/Windows"
+          SPIKE_GROUPS=core PATH="$clean" /usr/bin/timeout -k 5 120 ruby .github/mingw_spike_smoke.rb bare
+          echo "=== exit status $?"
 
       - name: Load Lota with its DLLs beside the extension
         if: steps.inspect.outcome == 'success'
         continue-on-error: true
-        shell: pwsh
+        timeout-minutes: 4
         run: |
-          $env:Path = "$(Split-Path (Get-Command ruby).Source);C:\Windows\system32;C:\Windows"
-          ruby .github/mingw_spike_smoke.rb bare "" tmp/samedir/lib
+          clean="$(dirname "$(which ruby)"):/c/Windows/system32:/c/Windows"
+          SPIKE_GROUPS=core PATH="$clean" /usr/bin/timeout -k 5 120 ruby .github/mingw_spike_smoke.rb bare "" tmp/samedir/lib
+          echo "=== exit status $?"
 
       # The last run hung at exit after every check passed, so each group
       # of modules runs alone, under a timeout.
