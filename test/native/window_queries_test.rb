@@ -51,14 +51,14 @@ class WindowQueriesTest < Minitest::Test
   end
 
   # w_getFullscreenModes (wrap_Window.cpp:272-309) lists tables of width,
-  # height, and refresh rate, which rule 10 makes frozen DisplayModes that
+  # height, and refresh rate, which rule 10 makes frozen FullscreenModes that
   # also answer brackets.
   def test_the_fullscreen_modes_are_frozen_records
     modes = Lota::Window.fullscreen_modes
 
     refute_empty modes
     mode = modes.first
-    assert_instance_of Lota::Window::DisplayMode, mode
+    assert_instance_of Lota::Window::FullscreenMode, mode
     assert_predicate mode, :frozen?
     assert_kind_of Integer, mode.width
     assert_kind_of Integer, mode.height

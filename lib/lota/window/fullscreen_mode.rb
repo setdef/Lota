@@ -21,7 +21,7 @@ module Lota
     #
     #   mode = Lota::Window.fullscreen_modes.first
     #   Lota::Window.set_mode(mode.width, mode.height, fullscreen: true, fullscreentype: :exclusive)
-    class DisplayMode < ::Data.define(:width, :height, :refreshrate)
+    class FullscreenMode < ::Data.define(:width, :height, :refreshrate)
       include Record
     end
   end

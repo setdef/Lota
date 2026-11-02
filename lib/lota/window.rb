@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-require_relative "window/display_mode"
+require_relative "window/fullscreen_mode"
 require_relative "window/mode"
 
 module Lota
@@ -368,7 +368,7 @@ module Lota
     end
 
     # The modes a display can be set to, as an Array of frozen
-    # DisplayModes (ADR 001, rules 4 and 10), matching
+    # FullscreenModes (ADR 001, rules 4 and 10), matching
     # love.window.getFullscreenModes
     # (src/modules/window/wrap_Window.cpp, w_getFullscreenModes).
     #
@@ -383,7 +383,7 @@ module Lota
     #   mode.width # => 1920
     def self.fullscreen_modes(displayindex = nil)
       Native::Window.fullscreen_modes(displayindex).map do |width, height, refreshrate|
-        DisplayMode.new(width:, height:, refreshrate:)
+        FullscreenMode.new(width:, height:, refreshrate:)
       end
     end
 

@@ -3,7 +3,7 @@
 
 module Lota
   module Window
-    class DisplayMode < ::Data
+    class FullscreenMode < ::Data
       include Record
 
       attr_reader width: Integer

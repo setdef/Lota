@@ -35,7 +35,7 @@ module Lota
 
     def self.display_orientation: (?Integer? displayindex) -> Symbol
 
-    def self.fullscreen_modes: (?Integer? displayindex) -> Array[DisplayMode]
+    def self.fullscreen_modes: (?Integer? displayindex) -> Array[FullscreenMode]
 
     def self.fullscreen: () -> [bool, Symbol]
 
