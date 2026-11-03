@@ -50,6 +50,20 @@ function(lota_ruby_extension target feature load_directory)
 	# header, like LÖVE's (engine/CMakeLists.txt) and Ruby's (an imported
 	# target's include directories are system directories).
 	target_include_directories(${target} SYSTEM PRIVATE ${RICE_DIR}/include)
+	# Rice 4.12's rice.hpp is one file joined from many, and uses parts of
+	# the standard library (std::exception_ptr at line 1124, std::transform
+	# at 9962) before the line that includes their header. libstdc++ and
+	# Apple's libc++ reach them through headers included earlier, but
+	# MSYS2's CLANGARM64 libc++ does not, so there every standard header
+	# Rice includes is included first, changing no file of Rice's.
+	if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		foreach(header IN ITEMS algorithm any array cmath complex cstdio cstdlib cstring exception filesystem
+				fstream functional ios iosfwd iostream iterator limits map memory optional ostream regex set
+				sstream stdexcept string string_view tuple type_traits typeindex typeinfo unordered_map utility
+				variant vector)
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-include${header}>)
+		endforeach()
+	endif()
 	target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..)
 	target_link_libraries(${target} PRIVATE Ruby::Module lota_engine)
 	lota_strict_warnings(${target})
@@ -61,6 +75,8 @@ function(lota_ruby_extension target feature load_directory)
 	set(map ${CMAKE_BINARY_DIR}/lib/${directory}/${name}.map)
 	if(APPLE)
 		lota_link_macos(${target} ${name} ${map} ${load_directory})
+	elseif(MINGW)
+		lota_link_mingw(${target} ${name} ${map})
 	else()
 		lota_link_linux(${target} ${name} ${map} ${load_directory})
 	endif()
@@ -110,4 +126,26 @@ function(lota_link_linux target name map load_directory)
 		list(APPEND rpaths "\$ORIGIN/${relative}")
 	endforeach()
 	set_target_properties(${target} PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH "${rpaths}")
+endfunction()
+
+# MinGW's linker (GNU ld with GCC, LLD with clang), for a DLL Ruby loads
+# (ADR 002, section 4). Windows has no rpath: the DLLs the extension links
+# are loaded before it, by their absolute paths (preload/).
+function(lota_link_mingw target name map)
+	# Export Init_<name> alone. A module definition file is an explicit
+	# export, which turns off ld's default of exporting every symbol (the
+	# engine's archive would overflow the 65535 ordinals a DLL can export).
+	set(definitions ${CMAKE_CURRENT_BINARY_DIR}/${name}.def)
+	file(WRITE ${definitions} "EXPORTS\n\tInit_${name}\n")
+	target_sources(${target} PRIVATE ${definitions})
+	target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
+	# The compiler's runtime inside the extension, so it needs no
+	# libgcc_s, libstdc++, libc++, libunwind, or libwinpthread DLL, and
+	# never binds to another copy that a different gem, or MSYS2, put in
+	# the process. -static-libstdc++ alone leaves winpthreads, which GCC's
+	# libstdc++ uses, to the -lpthread GCC's driver adds after everything
+	# else, as a DLL; -static has the driver link every library it adds
+	# from its archive. Ruby, OpenAL Soft, and Windows are linked by their
+	# import libraries, which are archives too, so they stay DLLs.
+	target_link_options(${target} PRIVATE -static)
 endfunction()

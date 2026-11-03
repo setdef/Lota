@@ -86,6 +86,10 @@ add_subdirectory(engine)
 
 include(cmake/LotaExtension.cmake)
 add_subdirectory(native)
+# Windows has no rpath; the preloader loads the extension's DLLs first.
+if(MINGW)
+	add_subdirectory(preload)
+endif()
 if(LOTA_NATIVE_TEST)
 	add_subdirectory(native_test)
 endif()

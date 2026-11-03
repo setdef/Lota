@@ -48,12 +48,13 @@ module CppGates
 
     # The platform the source at +path+ is compiled on alone, or nil for a
     # source every platform compiles: Objective-C and Objective-C++ on
-    # macOS, and a source named for Linux (<tt>dialogs_linux.cpp</tt>) on
-    # Linux.
+    # macOS, a source named for Linux (<tt>dialogs_linux.cpp</tt>) on
+    # Linux, and one named for Windows (<tt>preload_windows.cpp</tt>) on
+    # Windows.
     def self.platform_of(path)
       return "macos" if %w[.m .mm].include?(File.extname(path))
 
-      "linux" if File.basename(path, ".*").end_with?("_linux")
+      File.basename(path, ".*")[/_(linux|windows)\z/, 1]
     end
 
     # Every source and header, as absolute paths.

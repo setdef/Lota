@@ -77,6 +77,19 @@ cmake = File.read(File.join(build, "CMakeCache.txt"))[/^CMAKE_COMMAND:INTERNAL=(
 # the sanitized tree: Linux maps a library from its file, and a process
 # that reads a page of one written over while it runs dies with SIGBUS.
 bundle = "native.#{RbConfig::CONFIG['DLEXT']}"
+# On Windows the preloader goes beside the bundle, and the DLLs it loads in
+# libraries/ beside them (ext/lota/preload).
+preload = "preload.#{RbConfig::CONFIG['DLEXT']}"
+windows = RbConfig::CONFIG["host_os"].include?("mingw")
+build_preload = windows ? <<~MAKE : ""
+  \tcp $(BUILD)/lib/lota/#{preload} #{preload}
+  \trm -rf libraries
+  \tcp -R $(BUILD)/lib/lota/libraries libraries
+MAKE
+install_preload = windows ? <<~MAKE : ""
+  \tcp #{preload} $(DESTDIR)$(sitearchdir)$(target_prefix)/#{preload}
+  \tcp -R libraries $(DESTDIR)$(sitearchdir)$(target_prefix)/
+MAKE
 File.write("Makefile", <<~MAKEFILE)
   # Written by ext/lota/extconf.rb. Do not edit.
   CMAKE = #{cmake.shellescape}
@@ -89,11 +102,12 @@ File.write("Makefile", <<~MAKEFILE)
   all:
   \t$(CMAKE) --build $(BUILD)
   \tcp $(BUILD)/lib/lota/$(BUNDLE) $(BUNDLE)
-
+  #{build_preload}
   install: all
   \tmkdir -p $(DESTDIR)$(sitearchdir)$(target_prefix)
   \tcp $(BUNDLE) $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE).new
   \tmv -f $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE).new $(DESTDIR)$(sitearchdir)$(target_prefix)/$(BUNDLE)
+  #{install_preload}
 
   clean:
   \trm -f $(BUNDLE)
