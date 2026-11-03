@@ -8,6 +8,7 @@
 require "lota"
 require "lota_native_test"
 require "desktop_input_lock"
+require_relative "../lovetest/unseen_desktop"
 
 # Gives the window focus for two of Lövetest's tests alone: its
 # love.mouse.setGrabbed test (test/lovetest/tests/mouse.rb), which SDL
@@ -50,6 +51,12 @@ require "desktop_input_lock"
 # fill the screen, minimize, and move windows, and which several programs
 # doing so at once leave in states they were not in when the tests asked,
 # and those that can be seen ask the person to step away as well.
+#
+# On a desktop that macOS does not draw, such as a login session in the
+# background or a virtual machine without a display, macOS counts no
+# window as seen, so Lövetest's isOccluded test cannot pass truthfully
+# there; whoever runs the tests there sets LOTA_DESKTOP_UNSEEN=1, and that
+# test skips (test/lovetest/unseen_desktop.rb). Nothing else changes.
 #
 # The windows of the gate's other checks hold no lock, and need none. On
 # macOS the system puts a window that a program in the background opens or
@@ -111,11 +118,14 @@ module FocusForTests
     holding = HOLDING.include?(self.class.name) || HELD.fetch(self.class.name, []).include?(name)
     @desktop_input = DesktopInputLock.acquire(speak: speaking) if speaking || holding
     keep_the_pointer_to_the_test if self.class.name == "MouseTest"
-    take_focus if focusing
+    # The isOccluded test skips on a desktop macOS does not draw, where
+    # asking for a window that can be seen would only time out.
+    @focused = focusing && !(self.class.name == "WindowTest" && UnseenDesktop.on?)
+    take_focus if @focused
   end
 
   def teardown
-    if name == FOCUSING[self.class.name]
+    if @focused
       give_focus_back
       Lota::Event.pump
       Lota::Event.clear

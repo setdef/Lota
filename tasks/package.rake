@@ -8,6 +8,7 @@
 require "fileutils"
 require_relative "native_gem"
 require_relative "package_check"
+require_relative "../test/lovetest/unseen_desktop"
 
 # Lota's precompiled gem, built from rake compile's bundle, which CMake
 # links in ENGINE_BUILD (tasks/engine.rake), against LÖVE's dependencies,
@@ -64,8 +65,9 @@ LOVETEST_GAME = PackageCheck::Game.new(
   # showMessageBox, openURL, vibrate, pump, and wait tests, which Lövetest
   # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,
   # system.rb, and event.rb), and, on a GitHub runner on Linux, seven
-  # window tests more (window.rb).
-  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, #{(ENV['GITHUB_ACTIONS'] == 'true' && RUBY_PLATFORM.include?('linux')) ? 14 : 7} skips$/m,
+  # window tests more (window.rb), and, on a desktop macOS does not draw,
+  # the isOccluded test (test/lovetest/unseen_desktop.rb).
+  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, #{UnseenDesktop.skips((ENV['GITHUB_ACTIONS'] == 'true' && RUBY_PLATFORM.include?('linux')) ? 14 : 7)} skips$/m,
   status: 0,
   # Lövetest's love.mouse.setGrabbed test passes only for a window with
   # keyboard focus, for which SDL grabs the mouse (SDL 3.4.10,

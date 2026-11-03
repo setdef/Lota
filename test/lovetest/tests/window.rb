@@ -6,6 +6,7 @@
 #++
 
 require_relative "../lovetest_helper"
+require_relative "../unseen_desktop"
 
 # Lövetest's love.window tests (vendor/love/testing/tests/window.lua),
 # translated to Ruby by ADR 001's rules. Like the graphics tests, they run
@@ -437,8 +438,12 @@ class WindowTest < Lovetest::TestMethod
   # (window.lua:202-205): isOccluded becomes occluded? (rule 8). Focusing
   # the window is what puts it in front, so test/native/focus_for_tests.rb
   # gives it focus for this test, holding the desktop input lock, where
-  # the tests' windows otherwise stay in the background.
+  # the tests' windows otherwise stay in the background. On a desktop that
+  # macOS does not draw (LOTA_DESKTOP_UNSEEN, test/lovetest/unseen_desktop.rb)
+  # no window can be seen, so it skips, as Lövetest skips what its
+  # machine cannot do.
   def test_is_occluded
+    skip(UnseenDesktop::REASON) if UnseenDesktop.on?
     Lota::Window.focus
     wait_for { !Lota::Window.occluded? }
     assert_false(Lota::Window.occluded?, "check window not occluded")

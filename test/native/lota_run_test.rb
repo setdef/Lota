@@ -7,6 +7,7 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
+require_relative "../lovetest/unseen_desktop"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
@@ -159,7 +160,10 @@ class LotaRunTest < Minitest::Test
     # beside the seven it always skips.
     on_linux_runner = ENV["GITHUB_ACTIONS"] == "true" && TestHome::LINUX
     assertions -= 13 if on_linux_runner
-    skips = on_linux_runner ? 14 : 7
+    skips = UnseenDesktop.skips(on_linux_runner ? 14 : 7)
+    # On a desktop macOS does not draw, the isOccluded test skips before
+    # its one assertion (test/lovetest/unseen_desktop.rb).
+    assertions -= 1 if UnseenDesktop.on?
     EngineHelper.open_window
     supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
