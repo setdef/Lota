@@ -1125,3 +1125,60 @@ library "libogg.so.0",
 library "libz.so.1",
   copyright: ["1995-2023 Jean-loup Gailly and Mark Adler"],
   license: ["Zlib"]
+
+# Windows. The one DLL the gem carries in lib/lota/libraries, which
+# tasks/windows_build.rb builds from its release's source archive; every
+# other library LÖVE links compiles into the bundle there.
+#
+# OpenAL Soft 1.24.3, from the release archive the gem carries as its
+# source on every platform (openal_soft_source), recorded as on macOS and
+# Linux, from the files the Windows build compiles, as its ninja
+# dependency log lists them (the notices step of
+# .github/workflows/windows.yml), read whole for every notice and license
+# they state: with the WASAPI, DirectSound, and Windows Multimedia backends
+# (alc/backends/wasapi.cpp:1-20, dsound.cpp and winmm.cpp the same), under
+# the library's own license, and EAX (al/eax), which ALSOFT_EAX turns on
+# for Windows alone (CMakeLists.txt:122) and whose files state no notice of
+# their own, so are the library's under its license; and {fmt}'s chrono.h,
+# whose safe_duration_cast keeps Paul Dreik's notice (fmt-11.1.1/include/
+# fmt/chrono.h:47-53) under {fmt}'s MIT license. None of the Linux
+# backends, nor RTKit, compile. It links its compiler's runtime statically
+# (ALSOFT_STATIC_LIBGCC, ALSOFT_STATIC_STDCXX, and with GCC
+# ALSOFT_STATIC_WINPTHREAD), so with GCC it carries mingw-w64's
+# winpthreads, whose COPYING (mingw-w64-libraries/winpthreads/COPYING)
+# is the MIT License with the mingw-w64 project's notice and, for the code
+# it derives from Lockless Inc.'s, BSD-3-Clause with theirs. The bundle
+# links it as LÖVE's Windows build does, a DLL apart, which a player can
+# replace.
+library "OpenAL32.dll",
+  copyright: [
+    "1999-2000 by authors.",
+    "1999-2007 by authors.",
+    "1999-2010 by authors.",
+    "2005 Boris Mikhaylov",
+    "2008-2017 by Chris Robinson and Christopher Fitzgerald.",
+    "2009 by Chris Robinson.",
+    "2010 by Chris Robinson",
+    "2011 by Chris Robinson",
+    "2011 by Chris Robinson.",
+    "2011 by authors.",
+    "2012 - 2016, Victor Zverovich",
+    "2012 - present, Victor Zverovich",
+    "2012 - present, Victor Zverovich and {fmt} contributors",
+    "Paul Dreik 2019",
+    "2013 Julien Pommier ( pommier@modartt.com )",
+    "2013 by Anis A. Hireche",
+    "2013 by Mike Gorchak",
+    "2014 by Timothy Arceri <t_arceri@yahoo.com.au>.",
+    "2015, Archontis Politis",
+    "2018 by Raul Herraiz.",
+    "2018, Steffen Schümann <s.schuemann@pobox.com>",
+    "2019 by Anis A. Hireche",
+    "2019, Christopher Robinson",
+    "2023 Christopher Robinson",
+    "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
+    "2011 mingw-w64 project",
+    "2010 Lockless Inc.",
+  ],
+  license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
+  source: openal_soft_source
