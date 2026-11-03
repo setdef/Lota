@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_properties.h>
@@ -97,7 +98,10 @@ void reread_occlusion() {}
 
 // Nothing to say: each lane's X display holds only this program's window
 // (tasks/gate.rb).
-std::string window_state() { return {}; }
+std::string window_state() {
+  std::string state;
+  return state;
+}
 
 // Under X11 a warp reaches SDL only as the motion event the X server sends
 // the window under the pointer (SDL 3.4.10, src/video/x11/SDL_x11mouse.c,
