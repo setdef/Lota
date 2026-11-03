@@ -66,8 +66,22 @@ class ReleaseTest < Minitest::Test
     write(root, "CHANGELOG.md", changelog)
     write(root, "Gemfile.lock", LOCKFILE)
     run!(root, "git", "init", "--quiet", "--initial-branch=#{branch}")
+    # A commit starts git's maintenance in the background, which makes and
+    # removes files under .git while in_tree removes the directory, so
+    # removing it failed on CI with ENOENT on objects/maintenance.lock.
+    run!(root, "git", "config", "maintenance.auto", "false")
+    run!(root, "git", "config", "gc.auto", "0")
     run!(root, "git", "add", "--all")
     run!(root, "git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--quiet", "-m", "start")
+  end
+
+  def test_a_repository_built_for_a_test_runs_no_background_git_maintenance
+    in_tree do |root|
+      repository(root)
+
+      assert_equal "false", run!(root, "git", "config", "--get", "maintenance.auto").strip
+      assert_equal "0", run!(root, "git", "config", "--get", "gc.auto").strip
+    end
   end
 
   def test_prepare_moves_unreleased_under_the_dated_version_and_sets_the_version_everywhere
