@@ -24,6 +24,19 @@ module Lota
   # (<tt>Process.exec</tt>), with the command and arguments it was started
   # with. The process keeps its id.
   #
+  # On macOS, a restart can wait on a busy machine. Before the new run
+  # starts, the system ends every other thread of the process, and each
+  # thread runs its own ending at its own priority: exit raises the
+  # priority of a dying process's threads, but exec does not (XNU 12377,
+  # bsd/kern/mach_loader.c, load_machfile, and osfmk/kern/task.c,
+  # task_start_halt_locked and task_complete_halt). A process that opened
+  # a window keeps threads of the system's frameworks at background and
+  # utility priority, so when other programs keep every core busy, those
+  # threads wait for a turn and the restart waits with them: a few
+  # milliseconds on an idle machine, seconds or more on a loaded one.
+  # macOS has no public way to raise those threads, and starting a new
+  # process instead would not keep the process id.
+  #
   # Only <tt>lota run</tt> remembers the command, so a game started in
   # any other way, such as by Lota::Boot in your own program, ends when it
   # restarts, as a quit ends it. Ruby's own flags are not remembered but
