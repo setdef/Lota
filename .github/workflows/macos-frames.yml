@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Throwaway experiment on spike/macos-frames, never on trunk: the macOS
+# gate, as ci.yml's gate job runs it, five times side by side, with the
+# instrumentation library .github/experiment/gpu_watch.mm loaded into both
+# engines of every parity run, to find what the blank parity frame is.
+
+name: macOS frames experiment
+
+on:
+  push:
+    branches: [spike/macos-frames]
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: LOTA_GATE_JOBS (empty for the default, every lane at once)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MISE_DISABLE_TOOLS: ruby,rust
+  BUNDLE_FROZEN: "true"
+  LOTA_PARITY_CACHE: "0"
+
+jobs:
+  gate:
+    name: Gate copy ${{ matrix.copy }}
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [1, 2, 3, 4, 5]
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+
+      - name: Report the GUI session
+        run: echo "launchctl managername is $(launchctl managername)"
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+        with:
+          version: 2026.10.11
+
+      - name: Place Bundler and ccache outside the checkout
+        id: paths
+        run: |
+          {
+            echo "BUNDLE_PATH=$HOME/.cache/lota/bundle"
+            echo "CCACHE_DIR=$HOME/.cache/lota/ccache"
+          } >> "$GITHUB_ENV"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
+          echo "submodules=$(git submodule status | shasum -a 256 | cut -c 1-16)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/bundle
+          key: gems-${{ steps.paths.outputs.ruby }}-${{ hashFiles('Gemfile.lock') }}
+
+      - name: Install the bundle
+        run: bundle install
+
+      - name: Fetch the source archives
+        run: bundle exec rake sources:fetch
+
+      - name: Compile through ccache
+        run: |
+          {
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_COMPILERCHECK=%compiler% -v"
+            echo "CCACHE_MAXSIZE=2G"
+            for language in C CXX OBJC OBJCXX; do echo "CMAKE_${language}_COMPILER_LAUNCHER=ccache"; done
+          } >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-
+            ccache-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build the instrumentation library
+        run: |
+          mkdir -p tmp/experiment
+          clang++ -std=c++20 -dynamiclib -fobjc-arc -framework QuartzCore -framework Metal -framework Foundation \
+            -o tmp/experiment/liblota_gpu_watch.dylib .github/experiment/gpu_watch.mm
+          sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string
+          system_profiler SPDisplaysDataType || true
+
+      - name: Run the gate
+        timeout-minutes: 45
+        env:
+          A: --verbose
+          LOTA_GATE_JOBS: ${{ inputs.jobs }}
+        run: |
+          if [ -z "$LOTA_GATE_JOBS" ]; then unset LOTA_GATE_JOBS; fi
+          bundle exec rake
+
+      - name: Summarize the instrumentation
+        if: always()
+        run: |
+          log=tmp/experiment/gpu_watch.log
+          if [ ! -f "$log" ]; then echo "[gpu_watch-summary] no log"; exit 0; fi
+          echo "[gpu_watch-summary] lines: $(wc -l < "$log")"
+          echo "[gpu_watch-summary] processes: $(grep -c ' loaded$' "$log")"
+          echo "[gpu_watch-summary] drawable textures:"; grep 'drawable texture' "$log" | sed 's/.*drawable texture/  /' | sort | uniq -c
+          echo "[gpu_watch-summary] events (not loaded/installed/texture/exit):"
+          grep -v -e ' loaded$' -e ' installed on ' -e 'drawable texture' -e ' exit: ' "$log" | head -200 || true
+          echo "[gpu_watch-summary] exits with any event:"
+          grep ' exit: ' "$log" | grep -v 'slow or nil 0 (nil 0), commits [0-9]*, failed command buffers 0, screenshots [0-9]*, uniform 165 0, uniform black 0, partly 165 0' || true
+          echo "[gpu_watch-summary] longest nextDrawable waits:"
+          grep ' exit: ' "$log" | sed 's/.*longest nextDrawable \([0-9.]*\) s.*/\1/' | sort -n | tail -5
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: gpu-watch-${{ github.run_attempt }}-copy-${{ matrix.copy }}
+          path: tmp/experiment/gpu_watch.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: parity-mismatches-${{ github.run_attempt }}-copy-${{ matrix.copy }}
+          path: tmp/parity-mismatches
+          if-no-files-found: ignore
+          retention-days: 7

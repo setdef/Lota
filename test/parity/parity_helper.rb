@@ -66,10 +66,15 @@ module Parity
   # writes, +audio+: the preload is the harness's alone, since a run gets
   # no variable of this process's (Parity.environment).
   def self.loopback(audio)
-    libraries = [LOOPBACK, *NativeHelper.dialogs(LIB)]
+    libraries = [LOOPBACK, *NativeHelper.dialogs(LIB), *GPU_WATCH]
     preload = TestHome::LINUX ? { "LD_PRELOAD" => libraries.join(" ") } : { "DYLD_INSERT_LIBRARIES" => libraries.join(":") }
-    { **preload, "LOTA_LOOPBACK_FILE" => audio }
+    watch = GPU_WATCH.empty? ? {} : { "GPU_WATCH_LOG" => File.join(ROOT, "tmp/experiment/gpu_watch.log") }
+    { **preload, **watch, "LOTA_LOOPBACK_FILE" => audio }
   end
+
+  # Throwaway spike/macos-frames experiment (.github/experiment): the
+  # instrumentation library, when the workflow built it.
+  GPU_WATCH = Dir[File.join(ROOT, "tmp/experiment/liblota_gpu_watch.dylib")].freeze
 
   # What either engine reads of memory it never wrote is the same in both,
   # on Linux. Mesa's software renderer, on CI's Xvfb, gives a window's

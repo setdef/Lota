@@ -33,6 +33,7 @@ name: CI
 
 on:
   push:
+    branches-ignore: [spike/macos-frames]
   pull_request:
 
 permissions:
