@@ -33,10 +33,18 @@ class EventQueueTest < Minitest::Test
     Lota::Event.pump
   end
 
-  # What the queue holds, but for the exposed message every live resize
-  # also queues.
+  # The messages the system sends a window on its own, as the window is
+  # shown, covered, resized, or given focus (event/sdl/Event.cpp,
+  # convertWindowEvent). Which of them arrive, and when, is up to the
+  # system, so a test that asks what a callback queued cannot count them:
+  # CI's runner sent an occluded message in the middle of two of these
+  # tests, and an exposed message follows every live resize.
+  WINDOW_MESSAGES = %i[exposed occluded visible focus mousefocus resize displayrotated themechanged].freeze
+
+  # What the queue holds, but for the messages the system sends a window
+  # on its own.
   def queued
-    Lota::Event.poll.to_a.map { |message| Array(message) } - [[:exposed]]
+    Lota::Event.poll.to_a.map { |message| Array(message) }.reject { |message| WINDOW_MESSAGES.include?(message.first) }
   end
 
   def teardown
