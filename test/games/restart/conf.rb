@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# A game that restarts once, for test/native/lota_run_test.rb. Its window
+# A game that restarts, for test/native/restart_run_test.rb. Its window
 # is small, so the two runs open and close theirs quickly.
 def Lota.conf(t)
   t.title = "Restart"

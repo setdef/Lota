@@ -7,7 +7,6 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
-require_relative "../../tasks/desktop_input"
 require "rbconfig"
 require "tmpdir"
 
@@ -16,6 +15,9 @@ require "tmpdir"
 # window, and reads the log the game's runs append to. LÖVE restarts in the
 # same process (src/love.cpp, main); Lota replaces the process with
 # itself, so the pid stays the same and a new Ruby, with a new Lota, runs.
+# It holds no desktop input lock (tasks/desktop_input.rb): the game's
+# windows stay in the background (test/test_helper.rb), and it neither
+# moves the pointer nor takes the focus.
 class RestartRunTest < Minitest::Test
   include NativeHelper
 
@@ -23,7 +25,6 @@ class RestartRunTest < Minitest::Test
 
   def setup
     super
-    @desktop_input = DesktopInput.acquire(speak: false)
     @directory = Dir.mktmpdir("lota-restart-test")
     @log = File.join(@directory, "log")
   end
@@ -31,8 +32,6 @@ class RestartRunTest < Minitest::Test
   def teardown
     FileUtils.remove_entry(@directory)
     super
-  ensure
-    @desktop_input&.release
   end
 
   # Runs <tt>lota run</tt> on the game with +arguments+ and returns its
@@ -74,8 +73,10 @@ class RestartRunTest < Minitest::Test
     assert_equal %w[true true], [first["verbose"], second["verbose"]], "-w is kept"
   end
 
+  # One lota run restarts once for each kind, each restart with the next
+  # kind's value, so each crosses an exec of its own.
   def test_every_kind_of_value_arrives_as_the_event_queue_carries_it
-    {
+    expected = {
       "nil" => "nil",
       "none" => "nil",
       "true" => "true",
@@ -87,13 +88,15 @@ class RestartRunTest < Minitest::Test
       "extra" => '"first"',
       "binary" => '"\xFF\u0000"',
       "table" => '[1.0, {"name" => "ada"}]',
-    }.each do |name, expected|
-      FileUtils.rm_f(@log)
-      output, status = lota_run(name)
+    }
+    output, status = lota_run("chain", *expected.keys)
 
-      assert_equal 3, status.exitstatus, "#{name}: #{output}"
-      assert_equal expected, log.fetch(2).last["restart"], name
-    end
+    assert_equal 3, status.exitstatus, output
+    loads = log.filter_map { |kind, fields| fields if kind == "load" }
+
+    assert_equal expected.size + 1, loads.size, output
+    assert_equal ["nil", *expected.values], loads.map { |fields| fields["restart"] }
+    assert_equal [loads.first["pid"]] * loads.size, loads.map { |fields| fields["pid"] }, "exec keeps the process"
   end
 
   def test_a_game_that_quits_does_not_start_again

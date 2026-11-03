@@ -9,7 +9,10 @@
 # first run restarts with the value its first argument names, and the
 # second quits with status 3, so the log tells what crossed. An argument of
 # "never" quits at once, and "extra" restarts with several values, of
-# which only the first crosses.
+# which only the first crosses. A first argument of "chain" restarts once
+# for each argument after it, the Nth run with the value the Nth names,
+# and the run after the last quits with status 3, so one lota run carries
+# every value across a restart of its own.
 LOG = ENV.fetch("LOTA_RESTART_LOG")
 
 def log(line)
@@ -33,18 +36,19 @@ VALUES = {
 
 def Lota.load(arguments)
   @arguments = arguments
-  @second = File.exist?(LOG)
+  @run = File.exist?(LOG) ? File.readlines(LOG).count { |line| line.start_with?("load ") } + 1 : 1
   log("load pid=#{Process.pid} arguments=#{arguments.inspect} restart=#{Lota.restart.inspect} " \
     "variable=#{ENV.key?('LOTA_RESTART_VALUE')} verbose=#{$VERBOSE.inspect}")
   at_exit { log("at_exit pid=#{Process.pid}") }
 end
 
 def Lota.draw
+  names = (@arguments.first == "chain") ? @arguments.drop(1) : @arguments.first(1)
   if @arguments.first == "never"
     Lota::Event.quit(0)
-  elsif @second
+  elsif @run > names.size
     Lota::Event.quit(3)
   else
-    Lota::Event.restart(*VALUES.fetch(@arguments.first, []))
+    Lota::Event.restart(*VALUES.fetch(names.fetch(@run - 1), []))
   end
 end
