@@ -33,6 +33,8 @@ name: CI
 
 on:
   push:
+    branches-ignore:
+      - spike/mingw
   pull_request:
 
 permissions:
