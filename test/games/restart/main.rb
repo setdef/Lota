@@ -12,7 +12,8 @@
 # which only the first crosses. A first argument of "chain" restarts once
 # for each argument after it, the Nth run with the value the Nth names,
 # and the run after the last quits with status 3, so one lota run carries
-# every value across a restart of its own.
+# every value across a restart of its own. With LOTA_RESTART_WINDOW set
+# it also logs whether the window is open and when Lota closes it.
 LOG = ENV.fetch("LOTA_RESTART_LOG")
 
 def log(line)
@@ -40,9 +41,26 @@ def Lota.load(arguments)
   log("load pid=#{Process.pid} arguments=#{arguments.inspect} restart=#{Lota.restart.inspect} " \
     "variable=#{ENV.key?('LOTA_RESTART_VALUE')} verbose=#{$VERBOSE.inspect}")
   at_exit { log("at_exit pid=#{Process.pid}") }
+  log("window module=#{Lota::Native::Window.open?} shown=#{shown?}")
+  Lota::Native::Window.singleton_class.prepend(LogClose) if ENV.key?("LOTA_RESTART_WINDOW")
 end
 
-def Lota.draw
+# Logs a close of the window, which Lota::Restart makes after the exit
+# procs and before the process is replaced.
+module LogClose
+  def close(*)
+    log("close was_shown=#{shown?}")
+    super.tap { log("closed shown=#{shown?}") }
+  end
+end
+
+# Whether the window is open: false until it opens and after it closes.
+def shown?
+  Lota::Native::Window.open? && Lota::Native::Window.window_open?
+end
+
+# Not draw, which runs only with a window.
+def Lota.update(_dt)
   names = (@arguments.first == "chain") ? @arguments.drop(1) : @arguments.first(1)
   if @arguments.first == "never"
     Lota::Event.quit(0)

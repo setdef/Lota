@@ -7,17 +7,22 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
+require "desktop_input_lock"
 require "rbconfig"
 require "tmpdir"
 
 # A game that restarts, end to end (Lota::Restart): each test runs the lota
 # executable on test/games/restart in a Ruby of its own, which opens a real
-# window, and reads the log the game's runs append to. LÖVE restarts in the
-# same process (src/love.cpp, main); Lota replaces the process with
+# window or not, and reads the log the game's runs append to. LÖVE restarts
+# in the same process (src/love.cpp, main); Lota replaces the process with
 # itself, so the pid stays the same and a new Ruby, with a new Lota, runs.
-# It holds no desktop input lock (the desktop_input_lock gem): the game's
-# windows stay in the background (test/test_helper.rb), and it neither
-# moves the pointer nor takes the focus.
+# The game opens no window unless a test says so, as nothing a restart
+# carries depends on one, and a process that opened a window can make
+# each restart wait seconds on a busy Mac (Lota::Restart). Those tests
+# hold no desktop input lock (the desktop_input_lock gem). The one that
+# opens windows holds it, silently, though the windows stay in the
+# background (test/test_helper.rb) and it neither moves the pointer nor
+# takes the focus, so it never waits on a person or another check's focus.
 class RestartRunTest < Minitest::Test
   include NativeHelper
 
@@ -48,10 +53,10 @@ class RestartRunTest < Minitest::Test
 
   # The lines of the log: [kind, fields] for each, with the fields as a
   # Hash of String to the text after the equals sign.
-  def log
-    File.readlines(@log, chomp: true).map do |line|
+  def log(only: %w[load at_exit])
+    File.readlines(@log, chomp: true).filter_map do |line|
       kind, rest = line.split(" ", 2)
-      [kind, rest.scan(/(\w+)=(.*?)(?= \w+=|\z)/).to_h]
+      [kind, rest.scan(/(\w+)=(.*?)(?= \w+=|\z)/).to_h] if only.nil? || only.include?(kind)
     end
   end
 
@@ -97,6 +102,26 @@ class RestartRunTest < Minitest::Test
     assert_equal expected.size + 1, loads.size, output
     assert_equal ["nil", *expected.values], loads.map { |fields| fields["restart"] }
     assert_equal [loads.first["pid"]] * loads.size, loads.map { |fields| fields["pid"] }, "exec keeps the process"
+  end
+
+  # The only test with windows: the first run closes its window before the
+  # process is replaced, and the second opens a window of its own.
+  def test_a_restart_closes_the_window_and_the_new_run_opens_its_own
+    output, status = DesktopInputLock.hold(speak: false) do
+      lota_run("string", environment: { "LOTA_RESTART_WINDOW" => "1" })
+    end
+
+    assert_equal 3, status.exitstatus, output
+    kinds = log(only: nil).map(&:first)
+
+    assert_equal %w[load window at_exit close closed load window at_exit], kinds, output
+    _, opened, _, was_open, closed, _, reopened, = log(only: nil).map(&:last)
+
+    assert_equal "true", opened["shown"], "the first run had a window"
+    assert_equal "true", was_open["was_shown"], "the window was still open when Lota closed it"
+    assert_equal "false", closed["shown"], "and closed before the process was replaced"
+    assert_equal "true", reopened["shown"], "the second run opens a window of its own"
+    assert_equal 1, log.map { |_, fields| fields["pid"] }.uniq.size, "exec keeps the process"
   end
 
   def test_a_game_that_quits_does_not_start_again
