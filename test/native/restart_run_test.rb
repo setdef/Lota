@@ -16,6 +16,8 @@ require "tmpdir"
 # window or not, and reads the log the game's runs append to. LÖVE restarts
 # in the same process (src/love.cpp, main); Lota replaces the process with
 # itself, so the pid stays the same and a new Ruby, with a new Lota, runs.
+# On Windows, where Ruby's exec starts a new process instead
+# (Lota::Restart), each run has a pid of its own.
 # The game opens no window unless a test says so, as nothing a restart
 # carries depends on one, and a process that opened a window can make
 # each restart wait seconds on a busy Mac (Lota::Restart). Those tests
@@ -78,6 +80,19 @@ class RestartRunTest < Minitest::Test
     assert_equal %w[true true], [first["verbose"], second["verbose"]], "-w is kept"
   end
 
+  # Asserts that the runs whose process ids are +pids+ replaced each
+  # other as exec does: in the same process on macOS and Linux, and each in
+  # a process of its own on Windows, where Ruby's exec starts the command
+  # as a new process and waits for it (Lota::Restart), as
+  # .github/windows_checks.rb's restart check shows.
+  def assert_exec_replaced_the_process(pids)
+    if Gem.win_platform?
+      assert_equal pids.uniq, pids, "on Windows each run is a process of its own"
+    else
+      assert_equal [pids.first] * pids.size, pids, "exec keeps the process"
+    end
+  end
+
   # One lota run restarts once for each kind, each restart with the next
   # kind's value, so each crosses an exec of its own.
   def test_every_kind_of_value_arrives_as_the_event_queue_carries_it
@@ -101,7 +116,7 @@ class RestartRunTest < Minitest::Test
 
     assert_equal expected.size + 1, loads.size, output
     assert_equal ["nil", *expected.values], loads.map { |fields| fields["restart"] }
-    assert_equal [loads.first["pid"]] * loads.size, loads.map { |fields| fields["pid"] }, "exec keeps the process"
+    assert_exec_replaced_the_process(loads.map { |fields| fields["pid"] })
   end
 
   # The only test with windows: the first run closes its window before the
@@ -121,7 +136,7 @@ class RestartRunTest < Minitest::Test
     assert_equal "true", was_open["was_shown"], "the window was still open when Lota closed it"
     assert_equal "false", closed["shown"], "and closed before the process was replaced"
     assert_equal "true", reopened["shown"], "the second run opens a window of its own"
-    assert_equal 1, log.map { |_, fields| fields["pid"] }.uniq.size, "exec keeps the process"
+    assert_exec_replaced_the_process(log(only: %w[load]).map { |_, fields| fields["pid"] })
   end
 
   def test_a_game_that_quits_does_not_start_again

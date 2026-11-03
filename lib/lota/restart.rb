@@ -24,6 +24,12 @@ module Lota
   # (<tt>Process.exec</tt>), with the command and arguments it was started
   # with. The process keeps its id.
   #
+  # Windows cannot replace a process, so there Ruby's exec starts the
+  # command as a new process, waits for it, and exits with its status
+  # (Ruby's win32/win32.c, child_result). Each run has a process id of its
+  # own, and the process that restarted stays, waiting, until the run it
+  # started ends.
+  #
   # On macOS, a restart can wait on a busy machine. Before the new run
   # starts, the system ends every other thread of the process, and each
   # thread runs its own ending at its own priority: exit raises the
