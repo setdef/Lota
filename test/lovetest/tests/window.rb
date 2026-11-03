@@ -275,7 +275,10 @@ class WindowTest < Lovetest::TestMethod
     x0, y0, display = Lota::Window.position
     # check position is returned
     Lota::Window.position = 100, 100, 1
-    wait_frames(10)
+    # Lövetest lets ten frames go by (waitFrames(10)); the system moves
+    # the window when it gets to it, and can report a move an earlier test
+    # made after this one, so the frames go by until it reports this one.
+    wait_for { Lota::Window.position.first(2) == [100, 100] }
     x, y, = Lota::Window.position
     assert_equal(100, x, "check position x")
     assert_equal(100, y, "check position y")

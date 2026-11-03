@@ -171,4 +171,41 @@ void give_up_focus() {
   }
 }
 
+// SDL clears a window's occluded flag only on its exposed event, which it
+// sends when the system says the window's occlusion changed, and when the
+// window's view redraws its layer, if the system says the window can be
+// seen (SDL 3.4.10, src/video/cocoa/SDL_cocoawindow.m,
+// windowDidChangeOcclusionState, updateLayer, and
+// Cocoa_SendExposedEventIfVisible). After a minimize and a restore the
+// system can leave the window in front without saying so again, and SDL
+// would call it occluded for good; redrawing the view at once has SDL ask.
+void reread_occlusion() {
+  @autoreleasepool {
+    NSWindow *const window = [[NSApp windows] firstObject];
+    NSView *const view = [window contentView];
+    [view setNeedsDisplay:YES];
+    [view displayIfNeeded];
+  }
+}
+
+// SDL moves the pointer with CGWarpMouseCursorPosition, which sends no
+// event, and tells itself of the move (SDL 3.4.10,
+// src/video/cocoa/SDL_cocoamouse.m, Cocoa_WarpMouseGlobal); but the
+// system then sends the window under the pointer mouse moved events of
+// its own, some of them a while later, at where an earlier warp put the
+// pointer, and SDL's mouseMoved (src/video/cocoa/SDL_cocoawindow.m) sets
+// the position from each, so a pump after a second warp can leave the
+// position at the first. A person moving the mouse over the window does
+// the same. A window that ignores mouse events gets none of them, and SDL
+// then knows the position only from its warps.
+bool ignore_mouse_events(bool ignore) {
+  @autoreleasepool {
+    NSArray<NSWindow *> *const windows = [NSApp windows];
+    for (NSWindow *window in windows) {
+      [window setIgnoresMouseEvents:ignore ? YES : NO];
+    }
+    return [windows count] > 0;
+  }
+}
+
 } // namespace lota::native_test

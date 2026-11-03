@@ -28,6 +28,15 @@ void stay_in_background();
 // and keeps this one in the background from then on.
 void give_up_focus();
 
+// Has SDL ask the system again whether the program's first window can be
+// seen, which SDL otherwise learns only when the system says it changed.
+void reread_occlusion();
+
+// Makes the program's windows let the system's mouse events through to
+// whatever is under them, or, with +ignore+ false, take them again.
+// Whether it could.
+bool ignore_mouse_events(bool ignore);
+
 } // namespace lota::native_test
 
 #endif // LOTA_NATIVE_TEST_DIALOGS_HPP

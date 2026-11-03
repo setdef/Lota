@@ -89,4 +89,17 @@ void give_up_focus() {
   XFlush(display);
 }
 
+// Nothing to do: under X11 SDL reads a window's occlusion from the
+// window manager's state each time the X server says it changed (SDL
+// 3.4.10, src/video/x11/SDL_x11events.c, X11_DispatchEvent), so the
+// pumps that deliver those events keep it current.
+void reread_occlusion() {}
+
+// Under X11 a warp reaches SDL only as the motion event the X server sends
+// the window under the pointer (SDL 3.4.10, src/video/x11/SDL_x11mouse.c,
+// X11_WarpMouseInternal), so a window that took no mouse events would
+// never hear of one; and each lane has a display of its own, where no
+// person moves the mouse (tasks/gate.rb). Nothing to do, and it could not.
+bool ignore_mouse_events(bool /*ignore*/) { return false; }
+
 } // namespace lota::native_test

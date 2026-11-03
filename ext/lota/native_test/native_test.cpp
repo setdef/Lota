@@ -497,13 +497,16 @@ void press_key(int scancode, bool down) {
 // Makes this program active, with its first window holding keyboard
 // focus (lota::native_test::activate, dialogs.mm), and pumps SDL's events,
 // leaving them queued, until SDL hears that the window has focus, for up
-// to a second. Whether it does.
+// to a second. Each try also has SDL ask the system again whether the
+// window can be seen (lota::native_test::reread_occlusion). Whether it
+// has focus.
 bool focus_window() {
   lota::native_test::activate();
   constexpr int tries = 100;
   constexpr Uint32 wait = 10;
   for (int i = 0; i < tries; ++i) {
     SDL_PumpEvents();
+    lota::native_test::reread_occlusion();
     int count = 0;
     const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
     SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
@@ -802,6 +805,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("focus_window", &focus_window)
       .define_module_function("unfocus_window", &unfocus_window)
       .define_module_function("stay_in_background", &lota::native_test::stay_in_background)
+      .define_module_function("ignore_mouse_events", &lota::native_test::ignore_mouse_events,
+                              Rice::Arg("ignore"))
 #ifndef __APPLE__
       .define_module_function("tolerate_vanished_requestors",
                               &lota::native_test::tolerate_vanished_requestors)

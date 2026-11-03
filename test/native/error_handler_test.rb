@@ -86,37 +86,49 @@ class ErrorHandlerTest < Minitest::Test
   # Lines 263-293: "Error", the message, and the traceback under
   # "Traceback", without boot.rb's frames and without tabs, which Ctrl+C
   # copies (lines 304-309 and 324-325).
+  #
+  # The clipboard is the computer's, and the gate's other checks run this
+  # test and Lövetest's clipboard tests at the same time
+  # (test/lovetest/tests/system.rb), so each test here that writes it and
+  # reads it back holds the desktop input lock (tasks/desktop_input.rb),
+  # silently, from the one to the other.
   def test_ctrl_c_copies_the_error_and_its_traceback
-    frame, = handled
-    LotaNativeTest.hold(LCTRL, true)
-    LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
+    DesktopInput.hold(speak: false) do
+      frame, = handled
+      LotaNativeTest.hold(LCTRL, true)
+      LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
 
-    assert_nil frame.call
-    assert_equal "Error\n\n/game/main.rb:3:in 'Lota.update': boom (RuntimeError)\n\n\nTraceback\n\n" \
-      "/game/main.rb:3:in 'Lota.update'\n/lota/lib/lota/callbacks.rb:56:in 'Lota::Callbacks.call'\n" \
-      "/lota/exe/lota:5:in '<main>'", Lota::System.clipboard_text
+      assert_nil frame.call
+      assert_equal "Error\n\n/game/main.rb:3:in 'Lota.update': boom (RuntimeError)\n\n\nTraceback\n\n" \
+        "/game/main.rb:3:in 'Lota.update'\n/lota/lib/lota/callbacks.rb:56:in 'Lota::Callbacks.call'\n" \
+        "/lota/exe/lota:5:in '<main>'", Lota::System.clipboard_text
+    end
   end
 
   # c without Ctrl copies nothing (line 324).
   def test_c_alone_copies_nothing
-    Lota::System.clipboard_text = "before"
-    frame, = handled
-    LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
+    DesktopInput.hold(speak: false) do
+      Lota::System.clipboard_text = "before"
+      frame, = handled
+      LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
 
-    assert_nil frame.call
-    assert_equal "before", Lota::System.clipboard_text
+      assert_nil frame.call
+      assert_equal "before", Lota::System.clipboard_text
+    end
   end
 
   # Lines 267-280: bytes that start no UTF-8 character are dropped, and a
   # line says so.
   def test_an_error_whose_text_is_not_utf8_is_shown_without_its_stray_bytes
-    frame, = handled(error("bad \xFF byte".b))
-    LotaNativeTest.hold(LCTRL, true)
-    LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
-    frame.call
+    DesktopInput.hold(speak: false) do
+      frame, = handled(error("bad \xFF byte".b))
+      LotaNativeTest.hold(LCTRL, true)
+      LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
+      frame.call
 
-    assert Lota::System.clipboard_text.start_with?("Error\n\n/game/main.rb:3:in 'Lota.update': bad  byte " \
-      "(RuntimeError)\nInvalid UTF-8 string in error message.\n\n\nTraceback\n\n"), Lota::System.clipboard_text
+      assert Lota::System.clipboard_text.start_with?("Error\n\n/game/main.rb:3:in 'Lota.update': bad  byte " \
+        "(RuntimeError)\nInvalid UTF-8 string in error message.\n\n\nTraceback\n\n"), Lota::System.clipboard_text
+    end
   end
 
   # Lines 318-323: Escape and a quit end the screen, a quit
