@@ -28,12 +28,34 @@
 # and arm64, so both gems need the same glibc, 2.35. LÖVE's arm64 job runs
 # on ubuntu-24.04-arm, whose glibc, 2.39, would leave out every system
 # older than Ubuntu 24.04 for the arm64 gem alone.
+#
+# Release: a tag such as v0.1.0, pushed on a commit of trunk, runs all of
+# the above again on that commit, and the release job publishes a GitHub
+# release of the gems the delivery jobs installed and ran, but only when
+# every platform's gate and delivery passed. A release is a promise about
+# each platform it lists, and one missing a platform would leave the
+# games that depend on it there with nothing to install
+# (doc/contributors/releasing.md). Run by hand (workflow_dispatch), the
+# release job is a dry run: it checks and assembles the release that
+# lib/lota/version.rb names, and keeps it as an artifact instead.
 
 name: CI
 
 on:
   push:
+    branches:
+      - "**"
+    tags:
+      - "v[0-9]*"
   pull_request:
+  workflow_dispatch:
+    inputs:
+      ignore_gate_failures:
+        description: >-
+          Test only: build, deliver, and assemble the gems even where a
+          gate fails, to try the release job. Refused on a tag.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -160,8 +182,12 @@ jobs:
       # own macOS CI commands, through the ccache configured above, and
       # runs each fixture game in it and in Lota (tasks/reference_love.rb,
       # test/parity). The runner's default Xcode builds it.
+      #
+      # A dry run may go on past a failing gate, but never on a tag (the
+      # ignore_gate_failures input).
       - name: Run the gate
         timeout-minutes: 40
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
         env:
           A: --verbose
         run: bundle exec rake
@@ -210,13 +236,19 @@ jobs:
           path: ~/.cache/lota/ccache
           key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
 
+      # The gem's SHA-256 travels with it, so the delivery job installs
+      # the gem this job built, and a release publishes the gem the
+      # delivery job installed, byte for byte.
       - name: Build the precompiled gem
-        run: bundle exec rake package:native
+        run: |
+          bundle exec rake package:native
+          cd pkg
+          for gem in lota-*-arm64-darwin.gem; do shasum -a 256 "$gem" > "$gem.sha256"; done
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lota-arm64-darwin
-          path: pkg/lota-*-arm64-darwin.gem
+          path: pkg/lota-*-arm64-darwin.gem*
           if-no-files-found: error
           retention-days: 14
 
@@ -276,10 +308,26 @@ jobs:
           name: lota-arm64-darwin
           path: ${{ runner.temp }}/gem
 
+      - name: Check the gem is the one the gate built
+        working-directory: ${{ runner.temp }}/gem
+        run: shasum -a 256 --check ./*.sha256
+
       - name: Install the gem and run Lövetest from it
         run: |
           gems=$(IFS=,; files=("$RUNNER_TEMP"/gem/*.gem); echo "${files[*]}")
           bundle exec rake "package:deliver[$gems]"
+
+      # What a release publishes for this platform (the release job): the
+      # gem just installed and run, unchanged by it.
+      - name: Check the gem is still the one the gate built
+        working-directory: ${{ runner.temp }}/gem
+        run: shasum -a 256 --check ./*.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-lota-arm64-darwin
+          path: ${{ runner.temp }}/gem/lota-*
+          if-no-files-found: error
+          retention-days: 14
 
   # The gate on Linux, on x86_64 and on arm64. LÖVE's Linux CI installs
   # these packages to build SDL, OpenAL Soft, and LÖVE (main.yml's Linux
@@ -426,6 +474,7 @@ jobs:
       # beside the dependencies.
       - name: Run the gate
         timeout-minutes: 100
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
         env:
           A: --verbose
         run: bundle exec rake
@@ -471,12 +520,17 @@ jobs:
           key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
 
       - name: Build the precompiled gem
-        run: bundle exec rake package:native
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          bundle exec rake package:native
+          cd pkg
+          for gem in lota-*-"$PLATFORM".gem; do sha256sum "$gem" > "$gem.sha256"; done
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lota-${{ matrix.platform }}
-          path: pkg/lota-*-${{ matrix.platform }}.gem
+          path: pkg/lota-*-${{ matrix.platform }}.gem*
           if-no-files-found: error
           retention-days: 14
 
@@ -544,7 +598,148 @@ jobs:
           name: lota-${{ matrix.platform }}
           path: ${{ runner.temp }}/gem
 
+      - name: Check the gem is the one the gate built
+        working-directory: ${{ runner.temp }}/gem
+        run: sha256sum --check ./*.sha256
+
       - name: Install the gem and run Lövetest from it
         run: |
           gems=$(IFS=,; files=("$RUNNER_TEMP"/gem/*.gem); echo "${files[*]}")
           bundle exec rake "package:deliver[$gems]"
+
+      - name: Check the gem is still the one the gate built
+        working-directory: ${{ runner.temp }}/gem
+        run: sha256sum --check ./*.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-lota-${{ matrix.platform }}
+          path: ${{ runner.temp }}/gem/lota-*
+          if-no-files-found: error
+          retention-days: 14
+
+  # The release (doc/contributors/releasing.md), from the gems the
+  # delivery jobs installed and ran, never rebuilt. It runs for a tag
+  # v0.1.0 pushed to this repository, and by hand as a dry run; never for
+  # a pull request, and never in a fork. It needs every platform's gate
+  # and delivery to have passed, so a tag on a commit where any platform
+  # failed publishes nothing; rerun the failed jobs, or fix the commit and
+  # tag the fix with the next version. Its token alone may write, and only
+  # the repository's contents, which a GitHub release is; it uses no other
+  # secret. Windows joins by moving windows.yml's jobs into this workflow,
+  # with a delivery job that uploads a verified gem as these do, adding
+  # them to needs, and its platforms to PLATFORMS.
+  release:
+    name: Release
+    needs: [gate, delivery, linux-gate, linux-delivery]
+    if: >-
+      github.repository == 'setdef/Lota'
+      && ((github.event_name == 'push' && github.ref_type == 'tag')
+      || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      # One gem for each, every one of which the release must carry.
+      PLATFORMS: arm64-darwin x86_64-linux-gnu aarch64-linux-gnu
+      PUBLISH: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    steps:
+      - name: Refuse to publish past a failing gate
+        if: inputs.ignore_gate_failures
+        run: |
+          if [ "$GITHUB_REF_TYPE" != branch ]; then
+            echo "::error::ignore_gate_failures is for a dry run on a branch, never a tag"
+            exit 1
+          fi
+          echo "::warning::A dry run that ignored the gates' failures; a tag would publish nothing from this commit unless they pass"
+
+      # Every branch and tag, to ask whether the commit is on trunk.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # A tag anyone with push access can put on any commit, so the
+      # commit must already be on trunk, where the gate ran on it.
+      - name: Check the commit is on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
+            echo "$GITHUB_SHA is on $DEFAULT_BRANCH"
+          elif [ "$PUBLISH" = true ]; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on $DEFAULT_BRANCH; releases are cut from $DEFAULT_BRANCH"
+            exit 1
+          else
+            echo "::warning::$GITHUB_SHA is not on $DEFAULT_BRANCH, so a tag on it would publish nothing"
+          fi
+
+      - name: Install libyaml
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes libyaml-dev
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - name: Place Bundler outside the checkout
+        id: paths
+        run: |
+          echo "BUNDLE_PATH=$HOME/.cache/lota/bundle" >> "$GITHUB_ENV"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/bundle
+          key: gems-${{ steps.paths.outputs.ruby }}-${{ hashFiles('Gemfile.lock') }}
+
+      - name: Install the bundle
+        run: bundle install
+
+      # The tag must name lib/lota/version.rb's version, and CHANGELOG.md
+      # must have a dated section for it, whose changes are the notes. A
+      # dry run checks the tag the version would have.
+      - name: Check the tag, the version, and the changelog
+        id: release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ "$PUBLISH" != true ]; then
+            TAG=v$(bundle exec ruby -r ./lib/lota/version -e 'print Lota::VERSION')
+          fi
+          bundle exec rake "release:check[$TAG]"
+          bundle exec rake "release:notes[${TAG#v},$RUNNER_TEMP/notes.md]"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: verified-lota-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/release
+
+      # Exactly one gem for each platform, each the one its delivery job
+      # verified, and SHA256SUMS for them all.
+      - name: Assemble the release
+        run: |
+          read -r -a platforms <<< "$PLATFORMS"
+          bundle exec rake "release:assemble[$RUNNER_TEMP/release$(printf ',%s' "${platforms[@]}")]"
+          cat "$RUNNER_TEMP/release/SHA256SUMS"
+
+      - name: Publish the release
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Lota ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/release/*
+
+      - name: Copy the notes beside the gems
+        if: env.PUBLISH != 'true'
+        run: cp "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP/release/"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: env.PUBLISH != 'true'
+        with:
+          name: release-dry-run-${{ steps.release.outputs.tag }}
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error
+          retention-days: 14
