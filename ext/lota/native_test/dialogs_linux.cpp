@@ -95,6 +95,10 @@ void give_up_focus() {
 // pumps that deliver those events keep it current.
 void reread_occlusion() {}
 
+// Nothing to say: each lane's X display holds only this program's window
+// (tasks/gate.rb).
+std::string window_state() { return {}; }
+
 // Under X11 a warp reaches SDL only as the motion event the X server sends
 // the window under the pointer (SDL 3.4.10, src/video/x11/SDL_x11mouse.c,
 // X11_WarpMouseInternal), so a window that took no mouse events would

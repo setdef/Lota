@@ -6,7 +6,12 @@
 #import <AppKit/AppKit.h>
 #import <CoreFoundation/CoreFoundation.h>
 
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
 #include <atomic>
+#include <memory>
+#include <string>
 
 namespace lota::native_test {
 
@@ -185,6 +190,51 @@ void reread_occlusion() {
     NSView *const view = [window contentView];
     [view setNeedsDisplay:YES];
     [view displayIfNeeded];
+  }
+}
+
+// What the system says of each of the program's windows, in the order
+// AppKit lists them, for a test to say why its window was not as it
+// expected: its window number (the one CGWindowListCopyWindowInfo
+// lists), whether it is SDL's first window, whether the system counts
+// it as seen (occlusionState's NSWindowOcclusionStateVisible, the bit
+// SDL reads, src/video/cocoa/SDL_cocoawindow.m), whether it is ordered
+// in, key, main, on the active space, or minimized, its alpha, level,
+// and frame, and the screen it is on; then whether the program is the
+// active one, and its activation policy.
+std::string window_state() {
+  @autoreleasepool {
+    int count = 0;
+    const std::unique_ptr<SDL_Window *, void (*)(void *)> sdl_windows(SDL_GetWindows(&count),
+                                                                      SDL_free);
+    const void *const sdl_window =
+        (sdl_windows && count > 0)
+            ? SDL_GetPointerProperty(SDL_GetWindowProperties(*sdl_windows),
+                                     SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr)
+            : nullptr;
+    NSMutableString *const state = [NSMutableString string];
+    for (NSWindow *window in [NSApp windows]) {
+      const NSRect frame = [window frame];
+      [state appendFormat:@"window %ld%s: seen by macOS %s, ordered in %s, key %s, main %s, "
+                          @"on the active space %s, minimized %s, alpha %.2f, level %ld, "
+                          @"frame (%.0f, %.0f, %.0f, %.0f), screen %@; ",
+                          static_cast<long>([window windowNumber]),
+                          (static_cast<const void *>(window) == sdl_window) ? " (SDL's)" : "",
+                          (([window occlusionState] & NSWindowOcclusionStateVisible) != 0) ? "yes"
+                                                                                           : "no",
+                          [window isVisible] ? "yes" : "no", [window isKeyWindow] ? "yes" : "no",
+                          [window isMainWindow] ? "yes" : "no",
+                          [window isOnActiveSpace] ? "yes" : "no",
+                          [window isMiniaturized] ? "yes" : "no", [window alphaValue],
+                          static_cast<long>([window level]), frame.origin.x, frame.origin.y,
+                          frame.size.width, frame.size.height,
+                          ([window screen] != nil) ? [[window screen] localizedName] : @"none"];
+    }
+    [state appendFormat:@"program active %s, activation policy %ld",
+                        [NSApp isActive] ? "yes" : "no",
+                        static_cast<long>([NSApp activationPolicy])];
+    const char *const text = [state UTF8String];
+    return (text != nullptr) ? std::string(text) : std::string();
   }
 }
 

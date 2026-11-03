@@ -805,6 +805,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("focus_window", &focus_window)
       .define_module_function("unfocus_window", &unfocus_window)
       .define_module_function("stay_in_background", &lota::native_test::stay_in_background)
+      .define_module_function("window_state", &lota::native_test::window_state)
       .define_module_function("ignore_mouse_events", &lota::native_test::ignore_mouse_events,
                               Rice::Arg("ignore"))
 #ifndef __APPLE__

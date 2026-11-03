@@ -134,8 +134,21 @@ module FocusForTests
   # neither pumps SDL's events before it reads, so a test that starts here
   # finds them as they were found. Another program can take the focus back
   # in the meantime, as a person's click does, so each try activates the
-  # window again; one that never gets it fails here, saying so, rather than
-  # in the test's assertion about state it never had.
+  # window again; one that never gets it fails here, saying so, and what
+  # the system says of the program's windows (LotaNativeTest.window_state),
+  # rather than in the test's assertion about state it never had.
+  #
+  # SDL's occluded flag only remembers what the system last said: SDL sets
+  # it when the system says the window's occlusion changed and it cannot
+  # be seen, and clears it only when the system says it can
+  # (SDL 3.4.10, src/video/cocoa/SDL_cocoawindow.m,
+  # windowDidChangeOcclusionState and Cocoa_SendExposedEventIfVisible). In
+  # a login session that is not on the console, as a hidden test account's
+  # is, the system counts nearly every window as one that cannot be seen,
+  # in front or not, so a window whose occlusion the system has said
+  # changed, as it does around a fullscreen window's change of space, stays
+  # occluded however often this asks, and fails here, the system's answer
+  # saying "seen by macOS no" of a window that is key and in front.
   private def take_focus
     seen = self.class.name == "WindowTest"
     deadline = clock + DEADLINE
@@ -143,8 +156,10 @@ module FocusForTests
       return if LotaNativeTest.focus_window && !(seen && Lota::Window.occluded?)
 
       if clock > deadline
+        report = LotaNativeTest.window_state
         flunk "#{name} needs its window in front with keyboard focus, and after #{DEADLINE} seconds of " \
-          "asking it had focus #{Lota::Window.focus?} and was occluded #{Lota::Window.occluded?}"
+          "asking it had focus #{Lota::Window.focus?} and was occluded #{Lota::Window.occluded?}" \
+          "#{"; the system says: #{report}" unless report.empty?}"
       end
       sleep 0.05
     end

@@ -7,6 +7,8 @@
 #ifndef LOTA_NATIVE_TEST_DIALOGS_HPP
 #define LOTA_NATIVE_TEST_DIALOGS_HPP
 
+#include <string>
+
 namespace lota::native_test {
 
 // Presses Return on every dialog the program shows from now on, and keeps
@@ -31,6 +33,11 @@ void give_up_focus();
 // Has SDL ask the system again whether the program's first window can be
 // seen, which SDL otherwise learns only when the system says it changed.
 void reread_occlusion();
+
+// What the system says of the program's windows: whether each can be
+// seen, is in front, has focus, and where it is; for a test's failure
+// message.
+std::string window_state();
 
 // Makes the program's windows let the system's mouse events through to
 // whatever is under them, or, with +ignore+ false, take them again.
