@@ -15,6 +15,8 @@ require_relative "frame_comparison"
 # matches, and one with pixels changed fails on the pixel compareImg fails
 # on first, with compareImg's message.
 class FrameComparisonTest < Lovetest::TestMethod
+  NAMES = ["expected frame", "actual frame"].freeze
+
   def lovetest_method
     "clear"
   end
@@ -42,6 +44,7 @@ class FrameComparisonTest < Lovetest::TestMethod
 
     assert_predicate comparison, :match?
     assert_nil comparison.message
+    assert_nil comparison.difference(NAMES)
   end
 
   # compareImg goes column by column, so (2, 9) fails before (3, 5),
@@ -56,6 +59,17 @@ class FrameComparisonTest < Lovetest::TestMethod
     assert_includes comparison.message, "at 2,9, matching = ra, not matching = gb (clear-1)"
   end
 
+  # The difference names the expected frame's pixel at the point whose
+  # actual pixel the message names, counts the pixels that differ, and says
+  # how each frame is coloured.
+  def test_a_difference_names_both_pixels_counts_the_pixels_and_gives_each_frames_colours
+    comparison = Parity::FrameComparison.new(expected, cleared([[3, 5], [2, 9], [12, 0]]), "clear-1")
+
+    assert_equal "expected frame has (255,255,0,255) there; 3 of 256 pixels differ; " \
+      "expected frame: (255,255,0,255) at every pixel; " \
+      "actual frame: 2 colours, the commonest (255,255,0,255) at 253 pixels", comparison.difference(NAMES)
+  end
+
   def test_one_step_in_one_component_fails
     actual = cleared([[0, 0]], [1, 1, 1.0 / 255, 1])
     comparison = Parity::FrameComparison.new(expected, actual, "clear-1")
@@ -68,5 +82,7 @@ class FrameComparisonTest < Lovetest::TestMethod
     comparison = Parity::FrameComparison.new(expected, Lota::Graphics.readback_texture(canvas), "clear-1")
 
     assert_equal "frame is 8x16, expected 16x16 (clear-1)", comparison.message
+    assert_equal "expected frame: (255,255,0,255) at every pixel; actual frame: (0,0,0,0) at every pixel",
+      comparison.difference(NAMES)
   end
 end

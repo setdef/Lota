@@ -37,6 +37,8 @@ module Parity
     # compareImg does; +label+ names the frame in the message, as
     # compareImg names its test.
     def initialize(expected, actual, label)
+      @expected = expected
+      @actual = actual
       @message = if [expected.width, expected.height] != [actual.width, actual.height]
         "frame is #{actual.width}x#{actual.height}, expected #{expected.width}x#{expected.height} (#{label})"
       elsif bytes(expected) != bytes(actual)
@@ -68,6 +70,7 @@ module Parity
         end
         [column, row]
       end.min
+      @first = (iy * actual.width) + ix
       pixel_message(expected.pixel(ix, iy), actual.pixel(ix, iy), ix, iy, label)
     end
 
@@ -80,4 +83,44 @@ module Parity
     end
   end
   # SPDX-SnippetEnd
+
+  class FrameComparison
+    # What compareImg's message leaves out, for a person reading a failure,
+    # in 8-bit components, or +nil+ when the frames match: the pixel the
+    # message names, as the expected frame has it, since the message gives
+    # only the actual frame's; how many pixels of the two differ; and the
+    # colours of each, +names+ naming the expected frame and the actual one
+    # ("LÖVE's frame" and "Lota's frame", say). A frame drawn in a single
+    # colour, as one holding only the clear is, says so. Frames of two
+    # sizes have no pixels to set side by side, only their colours.
+    def difference(names)
+      return if match?
+
+      expected, actual = [@expected, @actual].map { |image| bytes(image).unpack("N*") }
+      colours = names.zip([expected, actual]).map { |name, pixels| "#{name}: #{Parity.colours(pixels)}" }
+      return colours.join("; ") unless @first
+
+      differing = expected.each_index.count { |index| expected[index] != actual[index] }
+      pixel = "#{names.first} has #{Parity.colour(expected.fetch(@first))} there"
+      [pixel, "#{differing} of #{actual.size} pixels differ", *colours].join("; ")
+    end
+  end
+
+  # How +pixels+, a frame's pixels each packed as a big-endian RGBA
+  # Integer, are coloured: one colour at every pixel, or how many colours,
+  # and the commonest; or that it has none.
+  def self.colours(pixels)
+    return "no pixels" if pixels.empty?
+
+    tally = pixels.tally
+    commonest, count = tally.max_by { |_, pixel_count| pixel_count }
+    return "#{colour(commonest)} at every pixel" if tally.size == 1
+
+    "#{tally.size} colours, the commonest #{colour(commonest)} at #{count} pixels"
+  end
+
+  # +pixel+, packed as a big-endian RGBA Integer, as its 8-bit components.
+  def self.colour(pixel)
+    "(#{[pixel].pack('N').bytes.join(',')})"
+  end
 end

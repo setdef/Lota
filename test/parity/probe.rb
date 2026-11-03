@@ -33,9 +33,9 @@ module Parity
   # comes up after it, which leaves quitting to the game; a game still
   # running a frame later did not quit, and the probe quits with status 1.
   # At exit it writes LOTA_PARITY_REPORT: how many frames it compared, and
-  # the first that differed, which it also saves in
-  # LOTA_PARITY_MISMATCH_DIR, as LÖVE showed it, love-NNNN.png, and as Lota
-  # showed it, lota-NNNN.png.
+  # the first that differed, and how (mismatch_with_love), which it also
+  # saves in LOTA_PARITY_MISMATCH_DIR, as LÖVE showed it, love-NNNN.png,
+  # and as Lota showed it, lota-NNNN.png.
   #
   # Every dialog the game shows, such as LÖVE's version warning, which
   # boot.lua shows before the window opens, has Return pressed on it, as
@@ -165,12 +165,9 @@ module Parity
         return if @mismatch
 
         actual = Lota::Image::ImageData.from_native(native)
-        message = mismatch_with_love(number, actual)
+        @mismatch = mismatch_with_love(number, actual)
         @compared += 1
-        return unless message
-
-        @mismatch = { "frame" => number, "message" => message }
-        keep_mismatch(number, actual)
+        keep_mismatch(number, actual) if @mismatch
       end
 
       # Saves frame +number+ as LÖVE showed it, if it did, and as Lota
@@ -220,12 +217,22 @@ module Parity
         File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch))
       end
 
+      # How frame +number+, shown by Lota as +actual+, differs from the one
+      # LÖVE showed, as the report has it, or +nil+ when they match: the
+      # frame, compareImg's message, which names Lota's pixel, and the
+      # difference, which names LÖVE's, counts the pixels that differ, and
+      # says how each engine's frame is coloured
+      # (FrameComparison#difference).
       private def mismatch_with_love(number, actual)
         path = love_frame(number)
-        return "LÖVE showed no frame #{number}" unless File.exist?(path)
+        return { "frame" => number, "message" => "LÖVE showed no frame #{number}" } unless File.exist?(path)
 
         expected = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
-        FrameComparison.new(expected, actual, "frame #{number}").message
+        comparison = FrameComparison.new(expected, actual, "frame #{number}")
+        return if comparison.match?
+
+        difference = comparison.difference(["LÖVE's frame", "Lota's frame"])
+        { "frame" => number, "message" => comparison.message, "difference" => difference }
       end
     end
 

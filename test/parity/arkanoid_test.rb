@@ -148,7 +148,9 @@ class ArkanoidTest < Minitest::Test
   # The harness itself: with the keys left alone in Lota, the first frame
   # that differs from LÖVE's is the first one LÖVE drew with the right
   # arrow held, and comparing stops there. That frame is kept as both
-  # engines showed it, and the two differ as the report says.
+  # engines showed it, and the two differ as the report says, in
+  # compareImg's message and in the difference that names LÖVE's pixel,
+  # counts the pixels, and colours both frames.
   def test_a_frame_that_differs_is_reported_with_its_first_differing_pixel
     run = lota(SCRIPTS.keys.first, Parity::Script.new(frames: SCRIPT.frames, fps: SCRIPT.fps, holds: []))
 
@@ -162,7 +164,11 @@ class ArkanoidTest < Minitest::Test
     kept = File.binread(File.join(run.mismatch_dir, "love-0031.png"))
     assert_equal File.binread(File.join(love.frames_dir, "0031.png")), kept
     expected, actual = %w[love lota].map { |engine| frame(File.join(run.mismatch_dir, "#{engine}-0031.png")) }
-    assert_equal run.mismatch.fetch("message"), Parity::FrameComparison.new(expected, actual, "frame 31").message
+    comparison = Parity::FrameComparison.new(expected, actual, "frame 31")
+    assert_equal run.mismatch.fetch("message"), comparison.message
+    assert_equal comparison.difference(["LÖVE's frame", "Lota's frame"]), run.mismatch.fetch("difference")
+    assert_match(/\ALÖVE's frame has \(\d+,\d+,\d+,\d+\) there; [1-9]\d* of 480000 pixels differ; LÖVE's frame: /,
+      run.mismatch.fetch("difference"))
     # Only a test that failed leaves its frames for CI to upload.
     FileUtils.rm_rf(run.mismatch_dir)
   end
