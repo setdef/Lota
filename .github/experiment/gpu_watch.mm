@@ -101,10 +101,11 @@ static void scan(id<MTLCommandBuffer> command) {
   if (buffer == nil) return;
   ++scans;
   const uint8_t *bytes = (const uint8_t *)buffer.contents;
-  size_t length = buffer.length, pixels = length / 4, filled = 0, dark = 0;
+  size_t length = buffer.length, pixels = length / 4, filled = 0, dark = 0, zero = 0;
   for (size_t i = 0; i < length; i += 4) {
     if (bytes[i] == 0xA5 && bytes[i + 1] == 0xA5 && bytes[i + 2] == 0xA5 && bytes[i + 3] == 0xA5) ++filled;
     if (bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 0) ++dark;
+    if (bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 0 && bytes[i + 3] == 0) ++zero;
   }
   const char *verdict = nullptr;
   if (filled == pixels) {
@@ -118,9 +119,9 @@ static void scan(id<MTLCommandBuffer> command) {
     ++partial;
   }
   if (verdict != nullptr || command.status != MTLCommandBufferStatusCompleted || command.error != nil || getenv("GPU_WATCH_VERBOSE"))
-    say("screenshot %ld of drawable %ld: %s; %zu of %zu pixels 165, %zu black; command buffer status %ld, error %s, GPU %.3f ms, "
+    say("screenshot %ld of drawable %ld: %s; %zu of %zu pixels 165, %zu black, %zu all-zero (alpha 0 too); command buffer status %ld, error %s, GPU %.3f ms, "
         "drawable framebufferOnly %d",
-      scans.load(), drawable, verdict ? verdict : "content", filled, pixels, dark, (long)command.status,
+      scans.load(), drawable, verdict ? verdict : "content", filled, pixels, dark, zero, (long)command.status,
       command.error ? command.error.description.UTF8String : "none", (command.GPUEndTime - command.GPUStartTime) * 1000,
       framebuffer_only.load());
 }
@@ -135,7 +136,9 @@ static id new_buffer(id self, SEL selector, NSUInteger length, MTLResourceOption
   size_t expected = screenshot_bytes.load();
   if (buffer != nil && expected != 0 && length == expected && (options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared
       && screenshot_bytes.compare_exchange_strong(expected, 0)) {
+#ifndef GPU_WATCH_NO_FILL
     memset(buffer.contents, 0xA5, length);
+#endif
     std::lock_guard<std::mutex> hold(pending_lock);
     pending = buffer;
     pending_drawable = drawables.load();

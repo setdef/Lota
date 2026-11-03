@@ -9,14 +9,16 @@
 name: macOS frames experiment
 
 on:
-  push:
-    branches: [spike/macos-frames]
   workflow_dispatch:
     inputs:
       jobs:
         description: LOTA_GATE_JOBS (empty for the default, every lane at once)
         required: false
         default: ""
+      fill:
+        description: Fill the screenshot buffer with 0xA5 before the blit (yes or no)
+        required: false
+        default: "yes"
 
 permissions:
   contents: read
@@ -92,9 +94,14 @@ jobs:
             ccache-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build the instrumentation library
+        env:
+          FILL: ${{ inputs.fill }}
         run: |
           mkdir -p tmp/experiment
-          clang++ -std=c++20 -dynamiclib -fobjc-arc -framework QuartzCore -framework Metal -framework Foundation \
+          defines=()
+          if [ "$FILL" = "no" ]; then defines=(-DGPU_WATCH_NO_FILL); fi
+          echo "[gpu_watch-summary] fill: ${FILL:-yes}"
+          clang++ -std=c++20 -dynamiclib -fobjc-arc "${defines[@]}" -framework QuartzCore -framework Metal -framework Foundation \
             -o tmp/experiment/liblota_gpu_watch.dylib .github/experiment/gpu_watch.mm
           sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string
           system_profiler SPDisplaysDataType || true
