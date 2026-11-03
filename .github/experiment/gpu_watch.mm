@@ -4,7 +4,9 @@
 // Throwaway diagnostic for the spike/macos-frames CI experiment. Never on
 // trunk. Loaded into the reference love and into Lota with
 // DYLD_INSERT_LIBRARIES (Parity.loopback). It changes nothing the engines
-// draw, and writes only to the file GPU_WATCH_LOG names (the harness
+// draw, and writes only to gpu_watch.log beside itself (no variable names
+// it, since the reference cache's key hashes every file a variable
+// names; and the harness
 // compares the engines' output exactly, so nothing goes to stderr). Every
 // line starts with [gpu_watch]. It records:
 // * every nextDrawable that returns nil or takes longer than 0.25 s;
@@ -30,6 +32,8 @@
 #include <fcntl.h>
 #include <mutex>
 #include <unistd.h>
+#include <dlfcn.h>
+#include <libgen.h>
 
 static IMP original_next, original_commit, original_new_buffer, original_wait;
 static std::atomic<long> drawables{0}, commits{0}, failures{0}, slow{0}, nils{0}, scans{0}, grey{0}, black{0}, partial{0};
@@ -47,9 +51,10 @@ static double now() {
   return t.tv_sec + t.tv_nsec / 1e9;
 }
 
+static char path[1024] = "";
+
 static void say(const char *format, ...) {
-  const char *path = getenv("GPU_WATCH_LOG");
-  if (path == nullptr) return;
+  if (path[0] == '\0') return;
   char line[2048];
   timespec wall;
   clock_gettime(CLOCK_REALTIME, &wall);
@@ -72,10 +77,12 @@ static void say(const char *format, ...) {
 static void commit(id self, SEL selector) {
   long number = ++commits;
   long drawable = drawables.load();
+  double committed = now();
   [(id<MTLCommandBuffer>)self addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
     if (buffer.status != MTLCommandBufferStatusCompleted) {
       ++failures;
-      say("command buffer %ld (after drawable %ld) ended with status %ld: %s", number, drawable, (long)buffer.status,
+      say("command buffer %ld (after drawable %ld, %ld screenshots scanned) ended with status %ld after %.3f s, GPU %.3f ms: %s",
+        number, drawable, scans.load(), (long)buffer.status, now() - committed, (buffer.GPUEndTime - buffer.GPUStartTime) * 1000,
         buffer.error ? buffer.error.description.UTF8String : "no error");
     }
   }];
@@ -110,7 +117,7 @@ static void scan(id<MTLCommandBuffer> command) {
     verdict = "PARTLY 165 (blit landed in part)";
     ++partial;
   }
-  if (verdict != nullptr || getenv("GPU_WATCH_VERBOSE"))
+  if (verdict != nullptr || command.status != MTLCommandBufferStatusCompleted || command.error != nil || getenv("GPU_WATCH_VERBOSE"))
     say("screenshot %ld of drawable %ld: %s; %zu of %zu pixels 165, %zu black; command buffer status %ld, error %s, GPU %.3f ms, "
         "drawable framebufferOnly %d",
       scans.load(), drawable, verdict ? verdict : "content", filled, pixels, dark, (long)command.status,
@@ -183,16 +190,20 @@ static void summary() {
 }
 
 __attribute__((constructor)) static void install() {
+  Dl_info self;
+  if (dladdr((const void *)&install, &self) && self.dli_fname) {
+    char copy[1024];
+    snprintf(copy, sizeof copy, "%s", self.dli_fname);
+    snprintf(path, sizeof path, "%s/gpu_watch.log", dirname(copy));
+  }
   const char *run = getenv("LOTA_LOOPBACK_FILE");
   const char *slash = run ? strrchr(run, '/') : nullptr;
   char directory[256] = "";
   if (run && slash) {
-    size_t end = slash - run;
     const char *start = run;
     for (const char *p = run; p < slash; ++p)
       if (*p == '/') start = p + 1;
-    snprintf(directory, sizeof directory, "%.*s", (int)(slash - start), start);
-    (void)end;
+    snprintf(directory, sizeof directory, "%s", start);
   }
   snprintf(tag, sizeof tag, "pid=%d %s run=%s", getpid(), getprogname(), directory);
   original_next = method_setImplementation(class_getInstanceMethod([CAMetalLayer class], @selector(nextDrawable)), (IMP)next_drawable);

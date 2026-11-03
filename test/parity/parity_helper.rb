@@ -68,8 +68,7 @@ module Parity
   def self.loopback(audio)
     libraries = [LOOPBACK, *NativeHelper.dialogs(LIB), *GPU_WATCH]
     preload = TestHome::LINUX ? { "LD_PRELOAD" => libraries.join(" ") } : { "DYLD_INSERT_LIBRARIES" => libraries.join(":") }
-    watch = GPU_WATCH.empty? ? {} : { "GPU_WATCH_LOG" => File.join(ROOT, "tmp/experiment/gpu_watch.log") }
-    { **preload, **watch, "LOTA_LOOPBACK_FILE" => audio }
+    { **preload, "LOTA_LOOPBACK_FILE" => audio }
   end
 
   # Throwaway spike/macos-frames experiment (.github/experiment): the
