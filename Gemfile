@@ -24,4 +24,4 @@ gem "flog", "4.8.0"
 gem "steep"
 gem "rdoc", "~> 7.0"
 
-gem "desktop_input_lock", git: "https://github.com/setdef/DesktopInputLock.git", tag: "v0.1.0"
+gem "desktop_input_lock", git: "https://github.com/setdef/DesktopInputLock.git", tag: "v0.2.0"
