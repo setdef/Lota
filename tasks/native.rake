@@ -23,10 +23,10 @@ namespace :engine do
   task configure: NATIVE_MAKEFILE
 end
 
-# The engine links LÖVE's Linux dependencies (tasks/engine.rake), so it is
+# The engine links LÖVE's Linux or Windows dependencies (tasks/engine.rake), so it is
 # configured again once they are built: a file task, so that a configure
 # waits for them without running again when they are current.
-DEPENDENCIES = (ENGINE_PLATFORM == "linux") ? [LINUX_BUILD.dependencies_stamp] : []
+DEPENDENCIES = DEPENDENCIES_STAMPS
 file NATIVE_MAKEFILE => DEPENDENCIES
 
 # rake-compiler rebuilds the bundle only when a file it knows of changes,

@@ -11,8 +11,11 @@ if(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_macos.cmake)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_linux.cmake)
+elseif(MINGW)
+	# Windows, with MinGW (ADR 002, section 4).
+	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_windows.cmake)
 else()
-	message(FATAL_ERROR "Lota builds its engine on macOS and Linux only, not ${CMAKE_SYSTEM_NAME}.")
+	message(FATAL_ERROR "Lota builds its engine on macOS, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
 endif()
 
 # Lota's physics patch (ADR 001, section 2, and physics.patch), applied to a
@@ -89,9 +92,18 @@ target_compile_options(lota_engine PRIVATE
 	# LÖVE's warnings are LÖVE's to fix, upstream (ADR 001, section 1).
 	-w
 )
+# data/Compressor.cpp:91 and filesystem/NativeFile.cpp:341
+# use std::nothrow without including <new>, which libstdc++ and Apple's
+# libc++ include through other headers, but MSYS2's CLANGARM64 libc++
+# does not. Forcing the header in changes no file of LÖVE's.
+if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	target_compile_options(lota_engine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-includenew>)
+endif()
 
 if(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_macos.cmake)
+elseif(MINGW)
+	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_windows.cmake)
 else()
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_linux.cmake)
 endif()

@@ -191,16 +191,45 @@ class EngineSourcesTest < Minitest::Test
     assert_nil engine.reason("vendor/src/common/runtime.cpp")
   end
 
-  def test_platform_names_macos_and_linux_and_refuses_other_hosts
+  def test_platform_names_macos_linux_and_windows_and_refuses_other_hosts
     assert_equal "macos", EngineSources.platform("darwin25")
     assert_equal "linux", EngineSources.platform("linux-gnu")
+    assert_equal "windows", EngineSources.platform("mingw32")
 
-    error = assert_raises(EngineSources::Failure) { EngineSources.platform("mingw32") }
-    assert_equal "Lota builds its engine on macOS and Linux only, not mingw32", error.message
+    error = assert_raises(EngineSources::Failure) { EngineSources.platform("mswin64_140") }
+    assert_equal "Lota builds its engine on macOS, Linux, and Windows with MinGW only, not mswin64_140",
+      error.message
   end
 
   def test_linux_evaluates_without_luajit
     assert_equal %w[-G Ninja -DMEGA=ON], EngineSources.cmake_args("macos")
     assert_equal %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF], EngineSources.cmake_args("linux")
+  end
+
+  # LÖVE's Windows install rules name megasource's SDL3 target, which the
+  # evaluation stands in for.
+  def test_windows_evaluates_without_luajit_with_a_stand_in_for_megasources_sdl
+    args = EngineSources.cmake_args("windows")
+
+    assert_equal %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF -DMEGA_SDL3=lota_sdl3_stand_in], args.first(5)
+    assert_equal "-DCMAKE_PROJECT_INCLUDE=#{File.join(ROOT, 'tasks/engine_sources_windows.cmake')}", args.last
+  end
+
+  # A generated list names no path of the machine that generated it.
+  def test_label_names_the_commit_and_what_cmake_is_told_but_no_path
+    assert_equal "vendor/love abc on linux with -DMEGA=ON -DLOVE_JIT=OFF", EngineSources.label("abc", "linux")
+    assert_equal "vendor/love abc on windows with -DMEGA=ON -DLOVE_JIT=OFF -DMEGA_SDL3=lota_sdl3_stand_in",
+      EngineSources.label("abc", "windows")
+  end
+
+  # Ruby on Windows writes each newline as CRLF in text mode.
+  def test_write_writes_the_generated_bytes
+    in_tree do |root|
+      love_tree(root)
+      list = File.join(root, "sources_test.cmake")
+      sources(root).write(list)
+
+      assert_equal sources(root).generate.b, File.binread(list)
+    end
   end
 end

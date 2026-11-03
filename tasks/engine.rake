@@ -9,6 +9,7 @@ require "rbconfig"
 require_relative "cmake_build"
 require_relative "engine_sources"
 require_relative "linux_build"
+require_relative "windows_build"
 
 # The tree that builds LÖVE's engine, Lota::Native, and the test-only
 # extension from ext/lota. ext/lota/extconf.rb configures it (rake compile,
@@ -26,8 +27,7 @@ ENGINE_SOURCES_FILE = "ext/lota/engine/sources_#{ENGINE_PLATFORM}.cmake"
 ENGINE_SOURCES_ARGS = EngineSources.cmake_args(ENGINE_PLATFORM)
 ENGINE_SOURCES = EngineSources.new(
   source: "vendor/love", build: "tmp/engine/sources/#{ENGINE_PLATFORM}", cmake_args: ENGINE_SOURCES_ARGS,
-  label: "vendor/love #{`git -C vendor/love rev-parse HEAD`.strip} on #{ENGINE_PLATFORM} with " \
-    "#{ENGINE_SOURCES_ARGS.grep(/\A-D/).join(' ')}"
+  label: EngineSources.label(`git -C vendor/love rev-parse HEAD`.strip, ENGINE_PLATFORM)
 )
 
 namespace :engine do
@@ -71,8 +71,27 @@ if ENGINE_PLATFORM == "linux"
   end
 end
 
-desc "Build LÖVE's Linux dependencies into tmp/dependencies, from what sources:fetch downloaded (Linux only)"
-task dependencies: ((ENGINE_PLATFORM == "linux") ? [LINUX_BUILD.dependencies_stamp] : [])
+# On Windows, tasks/windows_build.rb builds them from each release's source,
+# as rake sources:fetch downloaded it.
+WINDOWS_BUILD = WindowsBuild.new(sources: WindowsBuild::SOURCES, root: "tmp/dependencies")
+
+if ENGINE_PLATFORM == "windows"
+  file WINDOWS_BUILD.dependencies_stamp => ["tasks/windows_build.rb"] do
+    WINDOWS_BUILD.dependencies
+  rescue WindowsBuild::Failure => e
+    abort "❌ #{e.message}"
+  end
+end
+
+# What the engine build waits for on each platform: the stamp of LÖVE's
+# dependencies where Lota builds them, and nothing on macOS.
+DEPENDENCIES_STAMPS = {
+  "linux" => [LINUX_BUILD.dependencies_stamp],
+  "windows" => [WINDOWS_BUILD.dependencies_stamp],
+}.fetch(ENGINE_PLATFORM, []).freeze
+
+desc "Build LÖVE's Linux or Windows dependencies into tmp/dependencies, from what sources:fetch downloaded"
+task dependencies: DEPENDENCIES_STAMPS
 
 desc "Build LÖVE's engine as a static library, with the extensions that link it"
 task engine: %w[dependencies engine:sources:check bindings:check engine:configure] do
