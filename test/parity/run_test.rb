@@ -47,22 +47,32 @@ class RunTest < Minitest::Test
   # The pointer is the computer's: a run that moves or clicks it waits for
   # the desktop input lock (tasks/desktop_input.rb) while another process
   # holds it, and one that does not goes on. The holder is a process of
-  # its own, since the threads of one process share the lock.
+  # its own, since the threads of one process share the lock. The lock is
+  # a file of the test's own, so the test waits for its holder alone, not
+  # for every test on the computer that holds the real one.
   def test_a_run_that_moves_the_pointer_waits_for_the_lock_and_one_that_does_not_goes_on
-    holder = "DesktopInput.hold(speak: false) { puts 'held'; $stdout.flush; $stdin.read }"
-    Open3.popen2(RbConfig.ruby, "-r", File.expand_path("../../tasks/desktop_input", __dir__), "-e", holder,
-      err: File::NULL) do |stdin, stdout, wait|
-      assert_equal "held\n", stdout.gets
-      plain = Parity.run({}, "echo", "plain", side: "Lota") { 1 }
-      moving = Thread.new { Parity.run({ "LOTA_PARITY_MOVE" => "1:10:10" }, "echo", "moved", side: "Lota") { 1 } }
+    Dir.mktmpdir("lota-run-test-") do |dir|
+      lock = File.join(dir, "lock")
+      marker = File.join(dir, "away")
+      input = DesktopInput.new(lock:, marker:)
+      holder = "DesktopInput.new(lock: #{lock.dump}, marker: #{marker.dump}).hold(speak: false) " \
+        "{ puts 'held'; $stdout.flush; $stdin.read }"
+      Open3.popen2(RbConfig.ruby, "-r", File.expand_path("../../tasks/desktop_input", __dir__), "-e", holder,
+        err: File::NULL) do |stdin, stdout, wait|
+        assert_equal "held\n", stdout.gets
+        plain = Parity.run({}, "echo", "plain", side: "Lota", desktop_input: input) { 1 }
+        moving = Thread.new do
+          Parity.run({ "LOTA_PARITY_MOVE" => "1:10:10" }, "echo", "moved", side: "Lota", desktop_input: input) { 1 }
+        end
 
-      assert_equal "plain\n", plain.text
-      assert_nil moving.join(1)
+        assert_equal "plain\n", plain.text
+        assert_nil moving.join(1)
 
-      stdin.close
-      wait.join
+        stdin.close
+        wait.join
 
-      assert_equal "moved\n", moving.value.text
+        assert_equal "moved\n", moving.value.text
+      end
     end
   end
 end

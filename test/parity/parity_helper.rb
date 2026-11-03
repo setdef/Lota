@@ -332,22 +332,20 @@ module Parity
   # says so, naming it as +side+.
   #
   # A run whose script moves or clicks the mouse holds the desktop input
-  # lock (tasks/desktop_input.rb) until it ends, since the pointer is the
-  # computer's, and the gate's other checks read it and move it too. It
-  # holds it silently: its window stays in the background, and takes no
-  # focus.
-  def self.run(environment, *command, side:, stall: STALL, &shown)
-    return run_holding_pointer(environment, command, side:, stall:, &shown) if moves_pointer?(environment)
+  # lock (tasks/desktop_input.rb), +desktop_input+'s, until it ends, since
+  # the pointer is the computer's, and the gate's other checks read it and
+  # move it too. It holds it silently: its window stays in the background,
+  # and takes no focus.
+  def self.run(environment, *command, side:, stall: STALL, desktop_input: DesktopInput::DEFAULT, &shown)
+    if moves_pointer?(environment)
+      return desktop_input.hold(speak: false) { run_unlocked(environment, *command, side:, stall:, &shown) }
+    end
 
     run_unlocked(environment, *command, side:, stall:, &shown)
   end
 
   def self.moves_pointer?(environment)
     !environment.fetch("LOTA_PARITY_MOVE", "").empty? || !environment.fetch("LOTA_PARITY_CLICK", "").empty?
-  end
-
-  def self.run_holding_pointer(environment, command, side:, stall:, &shown)
-    DesktopInput.hold(speak: false) { run_unlocked(environment, *command, side:, stall:, &shown) }
   end
 
   def self.run_unlocked(environment, *command, side:, stall: STALL, &shown)
