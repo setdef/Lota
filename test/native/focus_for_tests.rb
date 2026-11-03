@@ -24,12 +24,13 @@ require "desktop_input_lock"
 # test/native/lota_run_test.rb loads it with ruby -r into the lota run of
 # test/lovetest/game, where it prepends itself once each is defined.
 #
-# It waits for the focus before the test starts, and for the program it
-# took the focus from to have it back before the lock goes to anyone else
-# (take_focus and give_focus_back), so a test reads only what it ensured,
-# and no answer of the system to one holder arrives in the next one's turn.
+# It waits for the focus before the test starts, and on macOS for the
+# program it took the focus from to have it back before the lock goes to
+# anyone else (take_focus and give_focus_back), so a test reads only what
+# it ensured, and no answer of the system to one holder arrives in the
+# next one's turn. On Linux the window keeps the focus (give_focus_back).
 #
-# Afterward it gives the focus back and keeps the program in the
+# Afterward, on macOS, it gives the focus back and keeps the program in the
 # background (LotaNativeTest.unfocus_window), and takes the events that
 # queued off the queue, among them the key releases SDL sends as the
 # window loses focus. A window left with focus would lose it whenever the
@@ -153,7 +154,17 @@ module FocusForTests
   # holding the lock, until SDL hears that the window lost it, so that the
   # system's answer cannot arrive after the next holder of the lock has
   # taken focus for a window of its own, and take it from that one.
+  #
+  # On Linux there is nothing to give it back to, so it keeps it. Each
+  # lane's X display holds only this program's window (tasks/gate.rb),
+  # and whatever this hands the focus to, Openbox gives it straight back:
+  # given to the X server's PointerRoot or to None, the focus reaches no
+  # window, and Openbox then focuses the window that last had it (its
+  # focus debug log says "Focus went to root or pointer root/none", then
+  # "Focusing client"), which is this one. No other program on the
+  # display can take the focus from it, and no person clicks there.
   private def give_focus_back
+    return if Lota::System.os == "Linux"
     return if LotaNativeTest.unfocus_window
 
     deadline = clock + DEADLINE
