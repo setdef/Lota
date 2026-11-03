@@ -8,7 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../callback_helper"
-require_relative "../../tasks/desktop_input"
+require "desktop_input_lock"
 
 # Lota.errorhandler, translated from love.errorhandler
 # (vendor/love/src/modules/love/callbacks.lua:221-349), in this process's
@@ -90,10 +90,10 @@ class ErrorHandlerTest < Minitest::Test
   # The clipboard is the computer's, and the gate's other checks run this
   # test and Lövetest's clipboard tests at the same time
   # (test/lovetest/tests/system.rb), so each test here that writes it and
-  # reads it back holds the desktop input lock (tasks/desktop_input.rb),
+  # reads it back holds the desktop input lock (the desktop_input_lock gem),
   # silently, from the one to the other.
   def test_ctrl_c_copies_the_error_and_its_traceback
-    DesktopInput.hold(speak: false) do
+    DesktopInputLock.hold(speak: false) do
       frame, = handled
       LotaNativeTest.hold(LCTRL, true)
       LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
@@ -107,7 +107,7 @@ class ErrorHandlerTest < Minitest::Test
 
   # c without Ctrl copies nothing (line 324).
   def test_c_alone_copies_nothing
-    DesktopInput.hold(speak: false) do
+    DesktopInputLock.hold(speak: false) do
       Lota::System.clipboard_text = "before"
       frame, = handled
       LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
@@ -120,7 +120,7 @@ class ErrorHandlerTest < Minitest::Test
   # Lines 267-280: bytes that start no UTF-8 character are dropped, and a
   # line says so.
   def test_an_error_whose_text_is_not_utf8_is_shown_without_its_stray_bytes
-    DesktopInput.hold(speak: false) do
+    DesktopInputLock.hold(speak: false) do
       frame, = handled(error("bad \xFF byte".b))
       LotaNativeTest.hold(LCTRL, true)
       LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
@@ -180,10 +180,10 @@ class ErrorHandlerTest < Minitest::Test
 
   # Lines 241-261: the mouse is shown and set free, and the
   # drawing state reset, before the screen draws in a font of 15 pixels.
-  # It holds the desktop input lock (tasks/desktop_input.rb), silently,
+  # It holds the desktop input lock (the desktop_input_lock gem), silently,
   # for the pointer, which it hides and frees.
   def test_the_handler_resets_the_mouse_and_the_drawing_state
-    DesktopInput.hold(speak: false) { reset_mouse_and_drawing_state }
+    DesktopInputLock.hold(speak: false) { reset_mouse_and_drawing_state }
   end
 
   def reset_mouse_and_drawing_state

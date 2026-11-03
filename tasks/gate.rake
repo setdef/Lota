@@ -17,7 +17,7 @@ require_relative "gate"
 # process has a home and an audio file of its own (test/test_home.rb), and
 # its windows stay in the background. The tests that take keyboard focus or
 # move the pointer (Lövetest's mouse tests, and the game package:install
-# runs in front) hold the desktop input lock (tasks/desktop_input.rb), so
+# runs in front) hold the desktop input lock (the desktop_input_lock gem), so
 # they wait for each other.
 # test:ruby runs as its shards (tasks/test.rake), and cpp, lint, and steep
 # are short enough to share a lane.

@@ -7,17 +7,17 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
-require_relative "../../tasks/desktop_input"
+require "desktop_input_lock"
 
 # Lota::Mouse, beyond what Lövetest's tests for it check
 # (test/lovetest/tests/mouse.rb): the arguments LÖVE takes, what it
 # returns, and the errors it raises (src/modules/mouse/wrap_Mouse.cpp).
 class CursorTest < Minitest::Test
   # The pointer and its cursor are the computer's, so a test that reads or
-  # sets them holds the desktop input lock (tasks/desktop_input.rb),
+  # sets them holds the desktop input lock (the desktop_input_lock gem),
   # silently, since it takes neither from the person at the computer.
   def setup
-    @desktop_input = DesktopInput.acquire(speak: false)
+    @desktop_input = DesktopInputLock.acquire(speak: false)
     EngineHelper.open_window
   end
 

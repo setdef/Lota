@@ -297,7 +297,6 @@ module Parity
         "test/native/native_helper.rb",
         "test/test_home.rb",
         "test/test_helper.rb",
-        "tasks/desktop_input.rb",
       ].map { |path| File.expand_path("../../#{path}", __dir__) }.freeze
 
       # [harness] The files that decide how the harness starts a run.

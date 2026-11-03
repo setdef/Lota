@@ -15,7 +15,7 @@ require "tmpdir"
 # window, and reads the log the game's runs append to. LÖVE restarts in the
 # same process (src/love.cpp, main); Lota replaces the process with
 # itself, so the pid stays the same and a new Ruby, with a new Lota, runs.
-# It holds no desktop input lock (tasks/desktop_input.rb): the game's
+# It holds no desktop input lock (the desktop_input_lock gem): the game's
 # windows stay in the background (test/test_helper.rb), and it neither
 # moves the pointer nor takes the focus.
 class RestartRunTest < Minitest::Test

@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 #
 # The tests that fill the screen, or maximize, minimize, raise, or move
 # the window, change what the person at the computer sees, so each runs
-# holding the desktop input lock (tasks/desktop_input.rb) and, with it,
+# holding the desktop input lock (the desktop_input_lock gem) and, with it,
 # asks them to step away: test/native/focus_for_tests.rb does so around
 # the tests in the suite's process and under lota run, and package:install
 # does around its whole run. None of them moves the pointer or types.

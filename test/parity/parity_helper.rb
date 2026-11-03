@@ -10,7 +10,7 @@ require "json"
 require "open3"
 require "rbconfig"
 require "tmpdir"
-require_relative "../../tasks/desktop_input"
+require "desktop_input_lock"
 require_relative "reference_cache"
 
 # The parity harness (Plan 001, "What correct means"): a LÖVE game,
@@ -332,11 +332,11 @@ module Parity
   # says so, naming it as +side+.
   #
   # A run whose script moves or clicks the mouse holds the desktop input
-  # lock (tasks/desktop_input.rb), +desktop_input+'s, until it ends, since
+  # lock (the desktop_input_lock gem), +desktop_input+'s, until it ends, since
   # the pointer is the computer's, and the gate's other checks read it and
   # move it too. It holds it silently: its window stays in the background,
   # and takes no focus.
-  def self.run(environment, *command, side:, stall: STALL, desktop_input: DesktopInput::DEFAULT, &shown)
+  def self.run(environment, *command, side:, stall: STALL, desktop_input: DesktopInputLock::DEFAULT, &shown)
     if moves_pointer?(environment)
       return desktop_input.hold(speak: false) { run_unlocked(environment, *command, side:, stall:, &shown) }
     end

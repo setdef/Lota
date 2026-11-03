@@ -45,7 +45,7 @@ class RunTest < Minitest::Test
   end
 
   # The pointer is the computer's: a run that moves or clicks it waits for
-  # the desktop input lock (tasks/desktop_input.rb) while another process
+  # the desktop input lock (the desktop_input_lock gem) while another process
   # holds it, and one that does not goes on. The holder is a process of
   # its own, since the threads of one process share the lock. The lock is
   # a file of the test's own, so the test waits for its holder alone, not
@@ -54,10 +54,10 @@ class RunTest < Minitest::Test
     Dir.mktmpdir("lota-run-test-") do |dir|
       lock = File.join(dir, "lock")
       marker = File.join(dir, "away")
-      input = DesktopInput.new(lock:, marker:)
-      holder = "DesktopInput.new(lock: #{lock.dump}, marker: #{marker.dump}).hold(speak: false) " \
+      input = DesktopInputLock.new(lock:, marker:)
+      holder = "DesktopInputLock.new(lock: #{lock.dump}, marker: #{marker.dump}).hold(speak: false) " \
         "{ puts 'held'; $stdout.flush; $stdin.read }"
-      Open3.popen2(RbConfig.ruby, "-r", File.expand_path("../../tasks/desktop_input", __dir__), "-e", holder,
+      Open3.popen2(RbConfig.ruby, "-rdesktop_input_lock", "-e", holder,
         err: File::NULL) do |stdin, stdout, wait|
         assert_equal "held\n", stdout.gets
         plain = Parity.run({}, "echo", "plain", side: "Lota", desktop_input: input) { 1 }

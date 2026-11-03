@@ -7,7 +7,7 @@
 
 require "lota"
 require "lota_native_test"
-require_relative "../../tasks/desktop_input"
+require "desktop_input_lock"
 
 # Gives the window focus for two of Lövetest's tests alone: its
 # love.mouse.setGrabbed test (test/lovetest/tests/mouse.rb), which SDL
@@ -40,7 +40,7 @@ require_relative "../../tasks/desktop_input"
 #
 # The gate's checks run at the same time (tasks/gate.rb), and another
 # process taking the focus would fail these tests, so each holds the desktop
-# input lock (tasks/desktop_input.rb) from setup to teardown, and, since
+# input lock (the desktop_input_lock gem) from setup to teardown, and, since
 # what the person at the computer types would go to its window, asks them
 # to step away. Every other test of MouseTest holds the lock too, silently,
 # since they set the pointer, which is the computer's, and read it back,
@@ -108,7 +108,7 @@ module FocusForTests
     focusing = name == FOCUSING[self.class.name]
     speaking = focusing || SPEAKING.fetch(self.class.name, []).include?(name)
     holding = HOLDING.include?(self.class.name) || HELD.fetch(self.class.name, []).include?(name)
-    @desktop_input = DesktopInput.acquire(speak: speaking) if speaking || holding
+    @desktop_input = DesktopInputLock.acquire(speak: speaking) if speaking || holding
     keep_the_pointer_to_the_test if self.class.name == "MouseTest"
     take_focus if focusing
   end
