@@ -20,11 +20,13 @@
 #include "image/CompressedImageData.h"
 #include "image/Image.h"
 #include "image/ImageData.h"
+#include "thread/threads.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -510,6 +512,61 @@ int texture_pixel_height(const Texture &texture, std::optional<int> mipmap) {
   return texture.getPixelHeight(mipmap_of(texture, mipmap));
 }
 
+// Graphics::readbackTexture (Graphics.cpp:506-517) into +dest+, an
+// ImageData wider than +rect+, which LÖVE's OpenGL backend reads nothing
+// into where OpenGL has glGetTextureSubImage (opengl/OpenGL.cpp:1306-1310),
+// as Mesa's OpenGL 4.5 does. Its immediate readback writes
+// straight into the ImageData's rows (opengl/GraphicsReadback.cpp:63-75)
+// with GL_PACK_ROW_LENGTH set to the ImageData's width, but tells
+// glGetTextureSubImage that the memory holds only rect.w by rect.h
+// pixels (opengl/Texture.cpp:488-503), so a wider ImageData's rows reach
+// past that size, and OpenGL refuses the read with GL_INVALID_OPERATION,
+// "bufSize is too small" (Mesa 23.2, src/mesa/main/texgetimage.c,
+// pbo_error_check, and src/mesa/main/pbo.c, _mesa_validate_pbo_access),
+// leaving the ImageData as it was. glReadPixels, which LÖVE uses without
+// OpenGL 4.5, as on macOS, takes no size and reads the rows. This reads
+// the rectangle into an ImageData of its own size, which the size LÖVE
+// gives glGetTextureSubImage fits, after the checks LÖVE makes before it
+// reads (GraphicsReadback.cpp:57-99), then makes the checks of +dest+
+// that follow them (lines 101-111), and copies the rows to where LÖVE's
+// readback puts them (lines 136-145) as its asynchronous readback copies
+// them (lines 186-204). +dest+ comes back retained, as
+// Graphics::readbackTexture returns it.
+ImageData *readback_into_wider(Graphics &instance, Texture *t, int slice, int mipmap,
+                               const love::Rect &rect, ImageData *dest, int destx, int desty) {
+  love::StrongRef<ImageData> read;
+  read.set(instance.readbackTexture(t, slice, mipmap, rect, nullptr, 0, 0),
+           love::Acquire::NORETAIN);
+
+  const love::PixelFormat format = love::getLinearPixelFormat(t->getPixelFormat());
+  if (love::getLinearPixelFormat(dest->getFormat()) != format) {
+    throw love::Exception(
+        "Destination ImageData pixel format must match the source Texture's format.");
+  }
+  if (destx < 0 || desty < 0) {
+    throw love::Exception("Invalid destination ImageData x/y coordinates.");
+  }
+  if (destx + rect.w > dest->getWidth() || desty + rect.h > dest->getHeight()) {
+    throw love::Exception(
+        "The specified rectangle does not fit within the destination ImageData's dimensions.");
+  }
+
+  const love::thread::Lock lock(dest->getMutex());
+  const std::size_t stride = love::getPixelFormatUncompressedRowSize(format, dest->getWidth());
+  const std::size_t rowsize = love::getPixelFormatUncompressedRowSize(format, rect.w);
+  const std::size_t offset =
+      love::getPixelFormatUncompressedRowSize(format, (desty * dest->getWidth()) + destx);
+  const std::span<const char> source(static_cast<const char *>(read->getData()), read->getSize());
+  const std::span<char> target(static_cast<char *>(dest->getData()), dest->getSize());
+  const auto rows = static_cast<std::size_t>(rect.h);
+  for (std::size_t row = 0; row < rows; ++row) {
+    std::ranges::copy(source.subspan(row * rowsize, rowsize),
+                      target.subspan(offset + (row * stride), rowsize).begin());
+  }
+  dest->retain();
+  return dest;
+}
+
 // w_readbackTexture (wrap_Graphics.cpp:2411-2449) of the arguments after
 // the texture, as Lota::Graphics.readback_texture passes them: the slice,
 // counting from 1, which a texture that is not 2D needs; the mipmap,
@@ -551,6 +608,9 @@ ImageData *readback_texture(Texture *t, Rice::Array arguments) {
     desty = optional_integer_at(given, dest_index + 2, 0);
   }
 
+  if (dest != nullptr && dest->getWidth() != rect.w) {
+    return readback_into_wider(instance, t, slice, mipmap, rect, dest, destx, desty);
+  }
   return instance.readbackTexture(t, slice, mipmap, rect, dest, destx, desty);
 }
 

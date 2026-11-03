@@ -188,6 +188,23 @@ class RenderTargetTest < Minitest::Test
     assert_equal [CLEAR, RED], [dest.pixel(0, 0), dest.pixel(3, 3)]
   end
 
+  # LÖVE's checks of the ImageData it reads into, which Lota makes itself
+  # for one wider than the rectangle (GraphicsReadback.cpp:101-111).
+  def test_readback_refuses_an_image_data_given_that_cannot_take_the_rectangle
+    canvas = Graphics::Canvas.new(2, 2)
+    wrong_format = Lota::Image::ImageData.new(4, 4, :rgba16)
+    errors = [[wrong_format, 0, 0], [Lota::Image::ImageData.new(4, 4), -1, 0], [Lota::Image::ImageData.new(4, 4), 3, 0]]
+      .map do |dest, destx, desty|
+      assert_raises(RuntimeError) { Graphics.readback_texture(canvas, nil, nil, 0, 0, 2, 2, dest, destx, desty) }.message
+    end
+
+    assert_equal [
+      "Destination ImageData pixel format must match the source Texture's format.",
+      "Invalid destination ImageData x/y coordinates.",
+      "The specified rectangle does not fit within the destination ImageData's dimensions.",
+], errors
+  end
+
   def test_readback_of_a_2d_texture_takes_no_slice_but_a_number
     error = assert_raises(TypeError) { Graphics.readback_texture(Graphics::Canvas.new(2, 2), :first) }
 

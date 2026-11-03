@@ -220,6 +220,18 @@ module Lota
     # The copy waits for the graphics card to finish drawing, so it is
     # slow; read back for tests, screenshots, and tools, not every frame.
     #
+    # Read into a +dest+ wider than the rectangle, Lota differs from LÖVE
+    # on drivers whose OpenGL has glGetTextureSubImage, such as Mesa's on
+    # Linux: LÖVE tells the driver the memory holds only the rectangle's
+    # pixels, though the rows it writes are +dest+'s width apart
+    # (src/modules/graphics/opengl/Texture.cpp, readbackInternal), so the
+    # driver refuses the read and LÖVE leaves +dest+ as it was. For a
+    # wider +dest+, on every driver, Lota reads the rectangle on its own
+    # and copies its rows into +dest+, with LÖVE's checks and messages, so
+    # the pixels arrive as they do where LÖVE's read works, such as on
+    # macOS, and only where it fails does the result differ from LÖVE's.
+    # Any other +dest+ is read as LÖVE reads it.
+    #
     # Raises TypeError for a slice of a 2D texture that is not a number,
     # RuntimeError with LÖVE's message for a mipmap, slice, or rectangle
     # the texture does not have or a texture that is not readable, and
