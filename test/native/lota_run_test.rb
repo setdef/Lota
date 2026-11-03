@@ -139,7 +139,11 @@ class LotaRunTest < Minitest::Test
   # Shader test compares a 16 by 16 image a glsl3 shader draws, and
   # validates four glsl4 shaders with its eight checks, only where the
   # renderer supports them, and asserts once for each instead
-  # (test/lovetest/tests/graphics.rb, test_shader). Its getPowerInfo test
+  # (test/lovetest/tests/graphics.rb, test_shader). Its Canvas and Image
+  # tests check a changed mipmap sharpness, once each, only where the
+  # renderer is neither OpenGL ES nor Metal (test_canvas and test_image),
+  # so on OpenGL, as on Linux, they assert twice more than the count
+  # below, which is Metal's, as on macOS. Its getPowerInfo test
   # checks the battery's percent, which Minitest's assert_includes counts
   # as two assertions, and its seconds, as one, only on a machine that
   # reports them (test/lovetest/tests/system.rb, test_get_power_info), so
@@ -160,6 +164,8 @@ class LotaRunTest < Minitest::Test
     supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
     assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
+    renderer = Lota::Graphics.renderer_info.first
+    assertions += 2 unless renderer.include?("OpenGL ES") || renderer.include?("Metal")
     _, percent, seconds = Lota::System.power_info
     assertions += 2 unless percent.nil?
     assertions += 1 unless seconds.nil?
