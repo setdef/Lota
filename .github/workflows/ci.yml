@@ -48,6 +48,8 @@ on:
   push:
     branches:
       - "**"
+      # Experiment only: the throwaway branch runs its own workflow by hand.
+      - "!experiment/**"
     tags:
       - "v[0-9]*"
   pull_request:

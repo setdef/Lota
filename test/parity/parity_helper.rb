@@ -40,8 +40,55 @@ module Parity
   # frame, so a run that keeps showing frames ends.
   STALL = 60
 
-  # What a run of one engine printed, and how it ended.
-  Output = Data.define(:text, :status)
+  # What a run of one engine printed, and how it ended: +text+, what the
+  # engine and the game printed, and +diagnostics+, the lines the Metal
+  # watch (METAL_WATCH) printed among them, which are the harness's, not
+  # the engine's, so no comparison of what the two engines printed sees
+  # them.
+  class Output < Data.define(:text, :status, :diagnostics)
+    def initialize(text:, status:, diagnostics: "")
+      super
+    end
+  end
+
+  # A line the Metal watch prints (ext/lota/native_test/metal_watch.mm).
+  # It writes each line whole, in one write of fewer bytes than a pipe
+  # writes at once, so a line of its own is never split, though it may
+  # land inside a line the engine had begun.
+  DIAGNOSTIC = /lota-metal-watch: [^\n]*\n/
+
+  # The Output of a run that printed +printed+, its standard output and
+  # error interleaved, and ended with +status+: the Metal watch's lines
+  # taken out of what the engine printed and kept apart.
+  def self.output(printed, status)
+    Output.new(printed.gsub(DIAGNOSTIC, ""), status, printed.scan(DIAGNOSTIC).join)
+  end
+
+  # How many of the last lines each engine printed a failure shows
+  # (Parity.mismatch_message).
+  TAIL = 40
+
+  # What a test that found the frame +mismatch+ differ says: the frame,
+  # then the last TAIL lines each engine printed, +love+'s and +lota+'s
+  # Output, and what the Metal watch reported in each, so that what an
+  # engine printed about a frame it could not draw, a GPU's error among
+  # it, is not lost with the run.
+  def self.mismatch_message(mismatch, love, lota)
+    sides = { "The reference love" => love, "Lota" => lota }.map do |side, output|
+      lines = output.text.lines
+      heading = (lines.size > TAIL) ? "#{side} printed, last #{TAIL} of #{lines.size} lines:" : "#{side} printed:"
+      "#{heading}\n#{block(lines.last(TAIL).join)}#{side}'s Metal watch reported:\n#{block(output.diagnostics)}"
+    end
+    "first differing frame: #{mismatch}\n#{sides.join}"
+  end
+
+  # +text+ as a block of lines in a failure's message: "(nothing)" when
+  # empty, and ending in a newline.
+  def self.block(text)
+    return "(nothing)\n" if text.empty?
+
+    text.end_with?("\n") ? text : "#{text}\n"
+  end
 
   # The build tree the harness's own libraries are in.
   LIB = File.join(ROOT, "tmp/engine/build/lib")
@@ -53,9 +100,20 @@ module Parity
   # names, which each side of the harness mixes once a frame, for the
   # frame's fixed dt, into the run's LOTA_LOOPBACK_FILE. Both engines are
   # started directly, never through a shell, which macOS protects and would
-  # drop DYLD_INSERT_LIBRARIES from. On Linux each run also loads the
-  # library that answers dialogs (NativeHelper.dialogs).
+  # drop DYLD_INSERT_LIBRARIES from. On macOS each run also loads the Metal
+  # watch (METAL_WATCH), and on Linux the library that answers dialogs
+  # (NativeHelper.dialogs).
   LOOPBACK = File.join(LIB, "liblota_loopback.#{TestHome::LINUX ? 'so' : 'dylib'}")
+
+  # On macOS, the parity harness's Metal watch (ext/lota/native_test/
+  # metal_watch.mm), which every run also loads: it prints, with the
+  # prefix DIAGNOSTIC matches, each Metal command buffer that ended other
+  # than completed, with its status and error, and at exit how many there
+  # were, so a frame that comes back black says whether the GPU ran it.
+  # LÖVE waits for the command buffer that copies a frame for its
+  # screenshot and never reads how it ended (graphics/metal/
+  # Graphics.mm:1740-1745). Linux draws with OpenGL, and loads none.
+  METAL_WATCH = TestHome::LINUX ? [] : [File.join(LIB, "liblota_metal_watch.dylib")]
 
   # The sample rate and channels the loopback device mixes at, and the
   # bytes of one sample frame: 32-bit float stereo at 48 kHz.
@@ -66,7 +124,7 @@ module Parity
   # writes, +audio+: the preload is the harness's alone, since a run gets
   # no variable of this process's (Parity.environment).
   def self.loopback(audio)
-    libraries = [LOOPBACK, *NativeHelper.dialogs(LIB)]
+    libraries = [LOOPBACK, *METAL_WATCH, *NativeHelper.dialogs(LIB)]
     preload = TestHome::LINUX ? { "LD_PRELOAD" => libraries.join(" ") } : { "DYLD_INSERT_LIBRARIES" => libraries.join(":") }
     { **preload, "LOTA_LOOPBACK_FILE" => audio }
   end
@@ -310,6 +368,7 @@ module Parity
         File.exist?(progress) ? File.read(progress).to_i : 0
       end
       @report = File.exist?(report) ? JSON.parse(File.read(report)) : {}
+      @love_output = love.output
     end
 
     # How many frames were compared.
@@ -321,11 +380,18 @@ module Parity
     def mismatch
       @report["mismatch"]
     end
+
+    # What a test that found a frame differ says: the frame, and what both
+    # engines printed (Parity.mismatch_message).
+    def mismatch_message
+      Parity.mismatch_message(mismatch, @love_output, output)
+    end
   end
 
   # Runs +command+ with +environment+, and with the variables every run
   # gets (Parity.environment), and with nothing else, and returns
-  # its Output, its standard output and error interleaved. The block
+  # its Output, its standard output and error interleaved, with the Metal
+  # watch's lines kept apart (Parity.output). The block
   # answers the last frame the command has shown, counting from 1, or 0
   # before the first. A command that shows no new frame for +stall+
   # seconds is stuck: it is killed, and its Output ends with a line that
@@ -355,7 +421,15 @@ module Parity
       stuck = Parity.stuck(wait, stall, &shown)
       Process.kill(:KILL, wait.pid) if stuck
       wait.join
-      Output.new(stuck ? reader.value + Parity.stopped(side, stall, stuck) : reader.value, wait.value)
+      result = Parity.output(stuck ? reader.value + Parity.stopped(side, stall, stuck) : reader.value, wait.value)
+      # Experiment only (experiment/blackframe-loop): every run's Metal
+      # watch lines, appended to the file LOTA_PARITY_DIAGNOSTICS names.
+      if (log = ENV.fetch("LOTA_PARITY_DIAGNOSTICS", nil))
+        game = environment.fetch("LOTA_PARITY_GAME", command.last)
+        File.write(log, "#{side} #{File.basename(game)} (#{wait.value}):\n" \
+          "#{result.diagnostics.empty? ? "(none)\n" : result.diagnostics}", mode: "a")
+      end
+      result
     end
   end
 
