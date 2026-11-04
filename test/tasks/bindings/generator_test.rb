@@ -141,6 +141,39 @@ class GeneratorTest < Minitest::Test
     assert_includes code, "#include <limits>"
   end
 
+  # w_ParticleSystem_getCount pushes the uint32 ParticleSystem::getCount
+  # returns, which the port returns as love::uint32, as it casts to one,
+  # because clang-tidy's misc-include-cleaner finds common/int.h only so.
+  def test_an_integer_the_engine_names_in_full_is_returned_as_loves_type
+    port = port("ParticleSystem:getCount")
+
+    assert_includes port.definition, "love::uint32 w_ParticleSystem_getCount(const ParticleSystem &t) {"
+    assert_match(/-> Integer\z/, port.rbs)
+  end
+
+  # w_ParticleSystem_getEmissionArea declares a love::Vector2, so its file
+  # includes the header of that name.
+  def test_a_vector_declared_in_a_port_has_its_header_included
+    list = Bindings::BindingList.new
+    list.generate("ParticleSystem:getEmissionArea")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/graphics.cpp")
+
+    assert_includes code, "love::Vector2 p{};"
+    assert_includes code, '#include "common/Vector.h"'
+  end
+
+  # w_Buffer_clear reads its offset and size into a lua_Number, hoisted into
+  # a local of its own; the local is a double, as every lua_Number is, in
+  # the cast that reads it too.
+  def test_a_hoisted_lua_number_is_a_double_in_its_cast
+    list = Bindings::BindingList.new
+    list.generate("Buffer:clear")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/graphics.cpp")
+
+    assert_includes code, "const double offsetp_value = static_cast<double>(required(offsetp, \"offsetp\"));"
+    refute_includes code, "lua_Number"
+  end
+
   # w_setFused takes any value and asks whether it is truthy
   # (luax_toboolean), which Rice reads as a bool.
   def test_a_truthy_argument_is_a_bool

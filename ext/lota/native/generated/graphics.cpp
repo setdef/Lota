@@ -13,11 +13,15 @@
 #include "common/Color.h"
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/Vector.h"
 #include "common/int.h"
 #include "common/math.h"
 #include "common/pixelformat.h"
+#include "graphics/Buffer.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
+#include "graphics/Mesh.h"
+#include "graphics/ParticleSystem.h"
 #include "graphics/Quad.h"
 #include "graphics/Shader.h"
 #include "graphics/ShaderStage.h"
@@ -61,6 +65,34 @@ Graphics *instance() {
 // Ported by the generator from the wrap functions cited below
 // (vendor/love/src/modules/graphics), with each read of the Lua
 // stack made a parameter and each push the result.
+
+// Buffer:getElementCount: w_Buffer_getElementCount (wrap_Buffer.cpp:363-368).
+size_t w_Buffer_getElementCount(const Buffer &t) {
+  require_main_thread(MODULE);
+  return t.getArrayLength();
+}
+
+// Buffer:getElementStride: w_Buffer_getElementStride (wrap_Buffer.cpp:370-375).
+size_t w_Buffer_getElementStride(const Buffer &t) {
+  require_main_thread(MODULE);
+  return t.getArrayStride();
+}
+
+// Buffer:getSize: w_Buffer_getSize (wrap_Buffer.cpp:377-382).
+size_t w_Buffer_getSize(const Buffer &t) {
+  require_main_thread(MODULE);
+  return t.getSize();
+}
+
+// Buffer:getDebugName: w_Buffer_getDebugName (wrap_Buffer.cpp:434-443).
+std::optional<std::string> w_Buffer_getDebugName(const Buffer &t) {
+  require_main_thread(MODULE);
+  const std::string &debugName = t.getDebugName();
+  if (debugName.empty()) {
+    return std::nullopt;
+  }
+  return debugName;
+}
 
 // Font:getHeight: w_Font_getHeight (wrap_Font.cpp:83-88).
 double w_Font_getHeight(const Font &t) {
@@ -169,6 +201,9 @@ Rice::Array w_getPixelDimensions() {
 
 // love.graphics.getDPIScale: w_getDPIScale (wrap_Graphics.cpp:245-249).
 double w_getDPIScale() { return instance()->getScreenDPIScale(); }
+
+// love.graphics.getQuadIndexBuffer: w_getQuadIndexBuffer (wrap_Graphics.cpp:251-255).
+Buffer *w_getQuadIndexBuffer() { return instance()->getQuadIndexBuffer(); }
 
 // love.graphics.getScissor: w_getScissor (wrap_Graphics.cpp:599-611).
 Rice::Array w_getScissor() {
@@ -609,6 +644,570 @@ void w_origin() { instance()->origin(); }
 
 // love.graphics.resetProjection: w_resetProjection (wrap_Graphics.cpp:4039-4043).
 void w_resetProjection() { instance()->resetProjection(); }
+
+// Mesh:getVertexCount: w_Mesh_getVertexCount (wrap_Mesh.cpp:235-240).
+size_t w_Mesh_getVertexCount(const Mesh &t) {
+  require_main_thread(MODULE);
+  return t.getVertexCount();
+}
+
+// Mesh:detachAttribute: w_Mesh_detachAttribute (wrap_Mesh.cpp:364-372).
+bool w_Mesh_detachAttribute(Mesh &t, const std::string &name) {
+  require_main_thread(MODULE);
+  bool success = false;
+  success = t.detachAttribute(name);
+  return success;
+}
+
+// Mesh:getVertexBuffer: w_Mesh_getVertexBuffer (wrap_Mesh.cpp:418-423).
+Buffer *w_Mesh_getVertexBuffer(const Mesh &t) {
+  require_main_thread(MODULE);
+  return t.getVertexBuffer();
+}
+
+// Mesh:flush: w_Mesh_flush (wrap_Mesh.cpp:425-430).
+void w_Mesh_flush(Mesh &t) {
+  require_main_thread(MODULE);
+  t.flush();
+}
+
+// Mesh:setIndexBuffer: w_Mesh_setIndexBuffer (wrap_Mesh.cpp:515-523).
+void w_Mesh_setIndexBuffer(Mesh &t, std::optional<Buffer *> argument1) {
+  require_main_thread(MODULE);
+  Buffer *b = nullptr;
+  if (argument1.has_value()) {
+    b = required(argument1, "argument1");
+  }
+  t.setIndexBuffer(b);
+}
+
+// Mesh:getIndexBuffer: w_Mesh_getIndexBuffer (wrap_Mesh.cpp:525-530).
+Buffer *w_Mesh_getIndexBuffer(const Mesh &t) {
+  require_main_thread(MODULE);
+  return t.getIndexBuffer();
+}
+
+// Mesh:setTexture: w_Mesh_setTexture (wrap_Mesh.cpp:532-545).
+void w_Mesh_setTexture(Mesh &t, std::optional<Texture *> tex) {
+  require_main_thread(MODULE);
+  if (!tex.has_value()) {
+    t.setTexture();
+  } else {
+    Texture *const tex_value = required(tex, "tex");
+    t.setTexture(tex_value);
+  }
+}
+
+// Mesh:getTexture: w_Mesh_getTexture (wrap_Mesh.cpp:547-557).
+Texture *w_Mesh_getTexture(const Mesh &t) {
+  require_main_thread(MODULE);
+  Texture *tex = t.getTexture();
+  if (tex == nullptr) {
+    return nullptr;
+  }
+  return tex;
+}
+
+// Mesh:setDrawMode: w_Mesh_setDrawMode (wrap_Mesh.cpp:559-570).
+void w_Mesh_setDrawMode(Mesh &t, const std::string &mode) {
+  require_main_thread(MODULE);
+  PrimitiveType mode_value{};
+  if (!getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("mesh draw mode", getConstants(mode_value), mode);
+  }
+  t.setDrawMode(mode_value);
+}
+
+// Mesh:getDrawMode: w_Mesh_getDrawMode (wrap_Mesh.cpp:572-583).
+std::string w_Mesh_getDrawMode(const Mesh &t) {
+  require_main_thread(MODULE);
+  const PrimitiveType mode = t.getDrawMode();
+  const char *str = nullptr;
+  if (!getConstant(mode, str)) {
+    throw love::Exception("Unknown mesh draw mode.");
+  }
+  return str;
+}
+
+// Mesh:setDrawRange: w_Mesh_setDrawRange (wrap_Mesh.cpp:585-599).
+void w_Mesh_setDrawRange(Mesh &t, std::optional<int> start, std::optional<int> count) {
+  require_main_thread(MODULE);
+  if (!start.has_value()) {
+    t.setDrawRange();
+  } else {
+    const int start_value = (required(start, "start") - 1);
+    const int count_value = required(count, "count");
+    t.setDrawRange(start_value, count_value);
+  }
+}
+
+// Mesh:getDrawRange: w_Mesh_getDrawRange (wrap_Mesh.cpp:601-613).
+Rice::Array w_Mesh_getDrawRange(const Mesh &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  int start = 0;
+  int count = 1;
+  if (!t.getDrawRange(start, count)) {
+    return results;
+  }
+  results.push(start + 1, false);
+  results.push(count, false);
+  return results;
+}
+
+// ParticleSystem:clone: w_ParticleSystem_clone (wrap_ParticleSystem.cpp:41-51).
+ParticleSystem *w_ParticleSystem_clone(ParticleSystem &t) {
+  require_main_thread(MODULE);
+  ParticleSystem *clone = nullptr;
+  clone = t.clone();
+  return clone;
+}
+
+// ParticleSystem:setTexture: w_ParticleSystem_setTexture (wrap_ParticleSystem.cpp:53-59).
+void w_ParticleSystem_setTexture(ParticleSystem &t, Texture *tex) {
+  require_main_thread(MODULE);
+  t.setTexture(tex);
+}
+
+// ParticleSystem:getTexture: w_ParticleSystem_getTexture (wrap_ParticleSystem.cpp:61-66).
+Texture *w_ParticleSystem_getTexture(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.getTexture();
+}
+
+// ParticleSystem:getBufferSize: w_ParticleSystem_getBufferSize (wrap_ParticleSystem.cpp:79-84).
+love::uint32 w_ParticleSystem_getBufferSize(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.getBufferSize();
+}
+
+// ParticleSystem:setInsertMode: w_ParticleSystem_setInsertMode (wrap_ParticleSystem.cpp:86-95).
+void w_ParticleSystem_setInsertMode(ParticleSystem &t, const std::string &mode) {
+  require_main_thread(MODULE);
+  ParticleSystem::InsertMode mode_value{};
+  if (!ParticleSystem::getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("insert mode", ParticleSystem::getConstants(mode_value), mode);
+  }
+  t.setInsertMode(mode_value);
+}
+
+// ParticleSystem:getInsertMode: w_ParticleSystem_getInsertMode (wrap_ParticleSystem.cpp:97-107).
+std::string w_ParticleSystem_getInsertMode(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  ParticleSystem::InsertMode mode{};
+  mode = t.getInsertMode();
+  const char *str = nullptr;
+  if (!ParticleSystem::getConstant(mode, str)) {
+    throw love::Exception("Unknown insert mode");
+  }
+  return str;
+}
+
+// ParticleSystem:setEmissionRate: w_ParticleSystem_setEmissionRate
+// (wrap_ParticleSystem.cpp:109-115).
+void w_ParticleSystem_setEmissionRate(ParticleSystem &t, double arg1) {
+  require_main_thread(MODULE);
+  t.setEmissionRate(static_cast<float>(arg1));
+}
+
+// ParticleSystem:getEmissionRate: w_ParticleSystem_getEmissionRate
+// (wrap_ParticleSystem.cpp:117-122).
+double w_ParticleSystem_getEmissionRate(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getEmissionRate());
+}
+
+// ParticleSystem:setEmitterLifetime: w_ParticleSystem_setEmitterLifetime
+// (wrap_ParticleSystem.cpp:124-130).
+void w_ParticleSystem_setEmitterLifetime(ParticleSystem &t, double arg1) {
+  require_main_thread(MODULE);
+  t.setEmitterLifetime(static_cast<float>(arg1));
+}
+
+// ParticleSystem:getEmitterLifetime: w_ParticleSystem_getEmitterLifetime
+// (wrap_ParticleSystem.cpp:132-137).
+double w_ParticleSystem_getEmitterLifetime(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getEmitterLifetime());
+}
+
+// ParticleSystem:setParticleLifetime: w_ParticleSystem_setParticleLifetime
+// (wrap_ParticleSystem.cpp:139-150).
+void w_ParticleSystem_setParticleLifetime(ParticleSystem &t, double arg1,
+                                          std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  if (static_cast<float>(arg1) < 0.0F ||
+      static_cast<float>(arg2.value_or(static_cast<float>(arg1))) < 0.0F) {
+    throw love::Exception("Invalid particle lifetime (must be >= 0)");
+  }
+  t.setParticleLifetime(static_cast<float>(arg1),
+                        static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getParticleLifetime: w_ParticleSystem_getParticleLifetime
+// (wrap_ParticleSystem.cpp:152-160).
+Rice::Array w_ParticleSystem_getParticleLifetime(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float min{};
+  float max{};
+  t.getParticleLifetime(min, max);
+  results.push(static_cast<double>(min), false);
+  results.push(static_cast<double>(max), false);
+  return results;
+}
+
+// ParticleSystem:setPosition: w_ParticleSystem_setPosition (wrap_ParticleSystem.cpp:162-169).
+void w_ParticleSystem_setPosition(ParticleSystem &t, double arg1, double arg2) {
+  require_main_thread(MODULE);
+  t.setPosition(static_cast<float>(arg1), static_cast<float>(arg2));
+}
+
+// ParticleSystem:moveTo: w_ParticleSystem_moveTo (wrap_ParticleSystem.cpp:180-187).
+void w_ParticleSystem_moveTo(ParticleSystem &t, double arg1, double arg2) {
+  require_main_thread(MODULE);
+  t.moveTo(static_cast<float>(arg1), static_cast<float>(arg2));
+}
+
+// ParticleSystem:setEmissionArea: w_ParticleSystem_setEmissionArea
+// (wrap_ParticleSystem.cpp:189-215).
+void w_ParticleSystem_setEmissionArea(ParticleSystem &t,
+                                      const std::optional<std::string> &argument1,
+                                      std::optional<double> argument2,
+                                      std::optional<double> argument3, double argument4,
+                                      bool argument5) {
+  require_main_thread(MODULE);
+  ParticleSystem::AreaSpreadDistribution distribution = ParticleSystem::DISTRIBUTION_NONE;
+  float x = 0.F;
+  float y = 0.F;
+  float angle = 0.0F;
+  bool directionRelativeToCenter = false;
+  const char *str = !argument1.has_value() ? nullptr : required(argument1, "argument1").c_str();
+  if (str != nullptr && !ParticleSystem::getConstant(str, distribution)) {
+    raise_enum_error("particle distribution", ParticleSystem::getConstants(distribution), str);
+  }
+  if (distribution != ParticleSystem::DISTRIBUTION_NONE) {
+    x = static_cast<float>(required(argument2, "argument2"));
+    y = static_cast<float>(required(argument3, "argument3"));
+    if (x < 0.0F || y < 0.0F) {
+      throw love::Exception("Invalid area spread parameters (must be >= 0)");
+    }
+    angle = static_cast<float>(argument4);
+    directionRelativeToCenter = argument5;
+  }
+  t.setEmissionArea(distribution, x, y, angle, directionRelativeToCenter);
+}
+
+// ParticleSystem:getEmissionArea: w_ParticleSystem_getEmissionArea
+// (wrap_ParticleSystem.cpp:217-234).
+Rice::Array w_ParticleSystem_getEmissionArea(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  love::Vector2 p{};
+  float angle{};
+  bool directionRelativeToCenter{};
+  const ParticleSystem::AreaSpreadDistribution distribution =
+      t.getEmissionArea(p, angle, directionRelativeToCenter);
+  const char *str = nullptr;
+  ParticleSystem::getConstant(distribution, str);
+  results.push(std::string(str), false);
+  results.push(static_cast<double>(p.x), false);
+  results.push(static_cast<double>(p.y), false);
+  results.push(static_cast<double>(angle), false);
+  results.push(directionRelativeToCenter, false);
+  return results;
+}
+
+// ParticleSystem:setDirection: w_ParticleSystem_setDirection (wrap_ParticleSystem.cpp:236-242).
+void w_ParticleSystem_setDirection(ParticleSystem &t, double arg1) {
+  require_main_thread(MODULE);
+  t.setDirection(static_cast<float>(arg1));
+}
+
+// ParticleSystem:getDirection: w_ParticleSystem_getDirection (wrap_ParticleSystem.cpp:244-249).
+double w_ParticleSystem_getDirection(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getDirection());
+}
+
+// ParticleSystem:setSpread: w_ParticleSystem_setSpread (wrap_ParticleSystem.cpp:251-257).
+void w_ParticleSystem_setSpread(ParticleSystem &t, double arg1) {
+  require_main_thread(MODULE);
+  t.setSpread(static_cast<float>(arg1));
+}
+
+// ParticleSystem:getSpread: w_ParticleSystem_getSpread (wrap_ParticleSystem.cpp:259-264).
+double w_ParticleSystem_getSpread(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getSpread());
+}
+
+// ParticleSystem:setSpeed: w_ParticleSystem_setSpeed (wrap_ParticleSystem.cpp:266-273).
+void w_ParticleSystem_setSpeed(ParticleSystem &t, double arg1, std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  t.setSpeed(static_cast<float>(arg1), static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getSpeed: w_ParticleSystem_getSpeed (wrap_ParticleSystem.cpp:275-283).
+Rice::Array w_ParticleSystem_getSpeed(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float min{};
+  float max{};
+  t.getSpeed(min, max);
+  results.push(static_cast<double>(min), false);
+  results.push(static_cast<double>(max), false);
+  return results;
+}
+
+// ParticleSystem:setLinearAcceleration: w_ParticleSystem_setLinearAcceleration
+// (wrap_ParticleSystem.cpp:285-294).
+void w_ParticleSystem_setLinearAcceleration(ParticleSystem &t, double xmin, double ymin,
+                                            std::optional<double> xmax,
+                                            std::optional<double> ymax) {
+  require_main_thread(MODULE);
+  t.setLinearAcceleration(static_cast<float>(xmin), static_cast<float>(ymin),
+                          static_cast<float>(xmax.value_or(static_cast<float>(xmin))),
+                          static_cast<float>(ymax.value_or(static_cast<float>(ymin))));
+}
+
+// ParticleSystem:getLinearAcceleration: w_ParticleSystem_getLinearAcceleration
+// (wrap_ParticleSystem.cpp:296-306).
+Rice::Array w_ParticleSystem_getLinearAcceleration(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  love::Vector2 min{};
+  love::Vector2 max{};
+  t.getLinearAcceleration(min, max);
+  results.push(static_cast<double>(min.x), false);
+  results.push(static_cast<double>(min.y), false);
+  results.push(static_cast<double>(max.x), false);
+  results.push(static_cast<double>(max.y), false);
+  return results;
+}
+
+// ParticleSystem:setRadialAcceleration: w_ParticleSystem_setRadialAcceleration
+// (wrap_ParticleSystem.cpp:308-315).
+void w_ParticleSystem_setRadialAcceleration(ParticleSystem &t, double arg1,
+                                            std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  t.setRadialAcceleration(static_cast<float>(arg1),
+                          static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getRadialAcceleration: w_ParticleSystem_getRadialAcceleration
+// (wrap_ParticleSystem.cpp:317-325).
+Rice::Array w_ParticleSystem_getRadialAcceleration(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float min{};
+  float max{};
+  t.getRadialAcceleration(min, max);
+  results.push(static_cast<double>(min), false);
+  results.push(static_cast<double>(max), false);
+  return results;
+}
+
+// ParticleSystem:setTangentialAcceleration: w_ParticleSystem_setTangentialAcceleration
+// (wrap_ParticleSystem.cpp:327-334).
+void w_ParticleSystem_setTangentialAcceleration(ParticleSystem &t, double arg1,
+                                                std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  t.setTangentialAcceleration(static_cast<float>(arg1),
+                              static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getTangentialAcceleration: w_ParticleSystem_getTangentialAcceleration
+// (wrap_ParticleSystem.cpp:336-344).
+Rice::Array w_ParticleSystem_getTangentialAcceleration(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float min{};
+  float max{};
+  t.getTangentialAcceleration(min, max);
+  results.push(static_cast<double>(min), false);
+  results.push(static_cast<double>(max), false);
+  return results;
+}
+
+// ParticleSystem:setLinearDamping: w_ParticleSystem_setLinearDamping
+// (wrap_ParticleSystem.cpp:346-353).
+void w_ParticleSystem_setLinearDamping(ParticleSystem &t, double arg1, std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  t.setLinearDamping(static_cast<float>(arg1),
+                     static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getLinearDamping: w_ParticleSystem_getLinearDamping
+// (wrap_ParticleSystem.cpp:355-363).
+Rice::Array w_ParticleSystem_getLinearDamping(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float min{};
+  float max{};
+  t.getLinearDamping(min, max);
+  results.push(static_cast<double>(min), false);
+  results.push(static_cast<double>(max), false);
+  return results;
+}
+
+// ParticleSystem:setSizeVariation: w_ParticleSystem_setSizeVariation
+// (wrap_ParticleSystem.cpp:400-409).
+void w_ParticleSystem_setSizeVariation(ParticleSystem &t, double arg1) {
+  require_main_thread(MODULE);
+  if (static_cast<float>(arg1) < 0.0F || static_cast<float>(arg1) > 1.0F) {
+    throw love::Exception("Size variation has to be between 0 and 1, inclusive.");
+  }
+  t.setSizeVariation(static_cast<float>(arg1));
+}
+
+// ParticleSystem:getSizeVariation: w_ParticleSystem_getSizeVariation
+// (wrap_ParticleSystem.cpp:411-416).
+double w_ParticleSystem_getSizeVariation(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getSizeVariation());
+}
+
+// ParticleSystem:setRotation: w_ParticleSystem_setRotation (wrap_ParticleSystem.cpp:418-425).
+void w_ParticleSystem_setRotation(ParticleSystem &t, double arg1, std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  t.setRotation(static_cast<float>(arg1),
+                static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getRotation: w_ParticleSystem_getRotation (wrap_ParticleSystem.cpp:427-435).
+Rice::Array w_ParticleSystem_getRotation(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float min{};
+  float max{};
+  t.getRotation(min, max);
+  results.push(static_cast<double>(min), false);
+  results.push(static_cast<double>(max), false);
+  return results;
+}
+
+// ParticleSystem:setSpin: w_ParticleSystem_setSpin (wrap_ParticleSystem.cpp:437-444).
+void w_ParticleSystem_setSpin(ParticleSystem &t, double arg1, std::optional<double> arg2) {
+  require_main_thread(MODULE);
+  t.setSpin(static_cast<float>(arg1), static_cast<float>(arg2.value_or(static_cast<float>(arg1))));
+}
+
+// ParticleSystem:getSpin: w_ParticleSystem_getSpin (wrap_ParticleSystem.cpp:446-454).
+Rice::Array w_ParticleSystem_getSpin(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  float start{};
+  float end{};
+  t.getSpin(start, end);
+  results.push(static_cast<double>(start), false);
+  results.push(static_cast<double>(end), false);
+  return results;
+}
+
+// ParticleSystem:setSpinVariation: w_ParticleSystem_setSpinVariation
+// (wrap_ParticleSystem.cpp:456-462).
+void w_ParticleSystem_setSpinVariation(ParticleSystem &t, double arg1) {
+  require_main_thread(MODULE);
+  t.setSpinVariation(static_cast<float>(arg1));
+}
+
+// ParticleSystem:getSpinVariation: w_ParticleSystem_getSpinVariation
+// (wrap_ParticleSystem.cpp:464-469).
+double w_ParticleSystem_getSpinVariation(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return static_cast<double>(t.getSpinVariation());
+}
+
+// ParticleSystem:setOffset: w_ParticleSystem_setOffset (wrap_ParticleSystem.cpp:471-478).
+void w_ParticleSystem_setOffset(ParticleSystem &t, double x, double y) {
+  require_main_thread(MODULE);
+  t.setOffset(static_cast<float>(x), static_cast<float>(y));
+}
+
+// ParticleSystem:getOffset: w_ParticleSystem_getOffset (wrap_ParticleSystem.cpp:480-487).
+Rice::Array w_ParticleSystem_getOffset(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  const love::Vector2 offset = t.getOffset();
+  results.push(static_cast<double>(offset.x), false);
+  results.push(static_cast<double>(offset.y), false);
+  return results;
+}
+
+// ParticleSystem:setRelativeRotation: w_ParticleSystem_setRelativeRotation
+// (wrap_ParticleSystem.cpp:620-625).
+void w_ParticleSystem_setRelativeRotation(ParticleSystem &t, bool enable) {
+  require_main_thread(MODULE);
+  t.setRelativeRotation(enable);
+}
+
+// ParticleSystem:hasRelativeRotation: w_ParticleSystem_hasRelativeRotation
+// (wrap_ParticleSystem.cpp:627-632).
+bool w_ParticleSystem_hasRelativeRotation(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.hasRelativeRotation();
+}
+
+// ParticleSystem:getCount: w_ParticleSystem_getCount (wrap_ParticleSystem.cpp:634-639).
+love::uint32 w_ParticleSystem_getCount(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.getCount();
+}
+
+// ParticleSystem:start: w_ParticleSystem_start (wrap_ParticleSystem.cpp:641-646).
+void w_ParticleSystem_start(ParticleSystem &t) {
+  require_main_thread(MODULE);
+  t.start();
+}
+
+// ParticleSystem:stop: w_ParticleSystem_stop (wrap_ParticleSystem.cpp:648-653).
+void w_ParticleSystem_stop(ParticleSystem &t) {
+  require_main_thread(MODULE);
+  t.stop();
+}
+
+// ParticleSystem:pause: w_ParticleSystem_pause (wrap_ParticleSystem.cpp:655-660).
+void w_ParticleSystem_pause(ParticleSystem &t) {
+  require_main_thread(MODULE);
+  t.pause();
+}
+
+// ParticleSystem:reset: w_ParticleSystem_reset (wrap_ParticleSystem.cpp:662-667).
+void w_ParticleSystem_reset(ParticleSystem &t) {
+  require_main_thread(MODULE);
+  t.reset();
+}
+
+// ParticleSystem:emit: w_ParticleSystem_emit (wrap_ParticleSystem.cpp:669-675).
+void w_ParticleSystem_emit(ParticleSystem &t, int num) {
+  require_main_thread(MODULE);
+  t.emit(num);
+}
+
+// ParticleSystem:isActive: w_ParticleSystem_isActive (wrap_ParticleSystem.cpp:677-682).
+bool w_ParticleSystem_isActive(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.isActive();
+}
+
+// ParticleSystem:isPaused: w_ParticleSystem_isPaused (wrap_ParticleSystem.cpp:684-689).
+bool w_ParticleSystem_isPaused(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.isPaused();
+}
+
+// ParticleSystem:isStopped: w_ParticleSystem_isStopped (wrap_ParticleSystem.cpp:691-696).
+bool w_ParticleSystem_isStopped(const ParticleSystem &t) {
+  require_main_thread(MODULE);
+  return t.isStopped();
+}
+
+// ParticleSystem:update: w_ParticleSystem_update (wrap_ParticleSystem.cpp:698-704).
+void w_ParticleSystem_update(ParticleSystem &t, double dt) {
+  require_main_thread(MODULE);
+  t.update(static_cast<float>(dt));
+}
 
 // Quad:getViewport: w_Quad_getViewport (wrap_Quad.cpp:56-65).
 Rice::Array w_Quad_getViewport(const Quad &quad) {
@@ -1130,7 +1729,13 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("flush_batch", &w_flushBatch)
       .define_singleton_function("set_shader", &w_setShader,
                                  Rice::Arg("shader") = std::optional<Shader *>())
-      .define_singleton_function("shader", &w_getShader);
+      .define_singleton_function("shader", &w_getShader)
+      .define_singleton_function("quad_index_buffer", &w_getQuadIndexBuffer);
+  Rice::define_class_under<Buffer>(native, "Buffer")
+      .define_method("element_count", &w_Buffer_getElementCount)
+      .define_method("element_stride", &w_Buffer_getElementStride)
+      .define_method("size", &w_Buffer_getSize)
+      .define_method("debug_name", &w_Buffer_getDebugName);
   Rice::define_class_under<Font>(Rice::define_module_under(native, "Graphics"), "Font")
       .define_method("height", &w_Font_getHeight)
       .define_method("line_height", &w_Font_getLineHeight)
@@ -1143,6 +1748,93 @@ void define_generated_graphics(const Rice::Module &native) {
                      Rice::Arg("magstr") = std::optional<std::string>(),
                      Rice::Arg("max_anisotropy") = 1.0)
       .define_method("filter", &w_Font_getFilter);
+  Rice::define_class_under<Mesh>(native, "Mesh")
+      .define_method("vertex_count", &w_Mesh_getVertexCount)
+      .define_method("detach_attribute", &w_Mesh_detachAttribute, Rice::Arg("name"))
+      .define_method("vertex_buffer", &w_Mesh_getVertexBuffer)
+      .define_method("flush", &w_Mesh_flush)
+      .define_method("set_index_buffer", &w_Mesh_setIndexBuffer,
+                     Rice::Arg("argument1") = std::optional<Buffer *>())
+      .define_method("index_buffer", &w_Mesh_getIndexBuffer)
+      .define_method("set_texture", &w_Mesh_setTexture,
+                     Rice::Arg("tex") = std::optional<Texture *>())
+      .define_method("texture", &w_Mesh_getTexture)
+      .define_method("set_draw_mode", &w_Mesh_setDrawMode, Rice::Arg("mode"))
+      .define_method("draw_mode", &w_Mesh_getDrawMode)
+      .define_method("set_draw_range", &w_Mesh_setDrawRange,
+                     Rice::Arg("start") = std::optional<int>(),
+                     Rice::Arg("count") = std::optional<int>())
+      .define_method("draw_range", &w_Mesh_getDrawRange);
+  Rice::define_class_under<ParticleSystem>(native, "ParticleSystem")
+      .define_method("clone", &w_ParticleSystem_clone, Rice::Return().takeOwnership())
+      .define_method("set_texture", &w_ParticleSystem_setTexture, Rice::Arg("tex"))
+      .define_method("texture", &w_ParticleSystem_getTexture)
+      .define_method("buffer_size", &w_ParticleSystem_getBufferSize)
+      .define_method("set_insert_mode", &w_ParticleSystem_setInsertMode, Rice::Arg("mode"))
+      .define_method("insert_mode", &w_ParticleSystem_getInsertMode)
+      .define_method("set_emission_rate", &w_ParticleSystem_setEmissionRate, Rice::Arg("arg1"))
+      .define_method("emission_rate", &w_ParticleSystem_getEmissionRate)
+      .define_method("set_emitter_lifetime", &w_ParticleSystem_setEmitterLifetime,
+                     Rice::Arg("arg1"))
+      .define_method("emitter_lifetime", &w_ParticleSystem_getEmitterLifetime)
+      .define_method("set_particle_lifetime", &w_ParticleSystem_setParticleLifetime,
+                     Rice::Arg("arg1"), Rice::Arg("arg2") = std::optional<double>())
+      .define_method("particle_lifetime", &w_ParticleSystem_getParticleLifetime)
+      .define_method("set_position", &w_ParticleSystem_setPosition, Rice::Arg("arg1"),
+                     Rice::Arg("arg2"))
+      .define_method("move_to", &w_ParticleSystem_moveTo, Rice::Arg("arg1"), Rice::Arg("arg2"))
+      .define_method("set_emission_area", &w_ParticleSystem_setEmissionArea,
+                     Rice::Arg("argument1") = std::optional<std::string>(),
+                     Rice::Arg("argument2") = std::optional<double>(),
+                     Rice::Arg("argument3") = std::optional<double>(), Rice::Arg("argument4") = 0.0,
+                     Rice::Arg("argument5") = false)
+      .define_method("emission_area", &w_ParticleSystem_getEmissionArea)
+      .define_method("set_direction", &w_ParticleSystem_setDirection, Rice::Arg("arg1"))
+      .define_method("direction", &w_ParticleSystem_getDirection)
+      .define_method("set_spread", &w_ParticleSystem_setSpread, Rice::Arg("arg1"))
+      .define_method("spread", &w_ParticleSystem_getSpread)
+      .define_method("set_speed", &w_ParticleSystem_setSpeed, Rice::Arg("arg1"),
+                     Rice::Arg("arg2") = std::optional<double>())
+      .define_method("speed", &w_ParticleSystem_getSpeed)
+      .define_method("set_linear_acceleration", &w_ParticleSystem_setLinearAcceleration,
+                     Rice::Arg("xmin"), Rice::Arg("ymin"),
+                     Rice::Arg("xmax") = std::optional<double>(),
+                     Rice::Arg("ymax") = std::optional<double>())
+      .define_method("linear_acceleration", &w_ParticleSystem_getLinearAcceleration)
+      .define_method("set_radial_acceleration", &w_ParticleSystem_setRadialAcceleration,
+                     Rice::Arg("arg1"), Rice::Arg("arg2") = std::optional<double>())
+      .define_method("radial_acceleration", &w_ParticleSystem_getRadialAcceleration)
+      .define_method("set_tangential_acceleration", &w_ParticleSystem_setTangentialAcceleration,
+                     Rice::Arg("arg1"), Rice::Arg("arg2") = std::optional<double>())
+      .define_method("tangential_acceleration", &w_ParticleSystem_getTangentialAcceleration)
+      .define_method("set_linear_damping", &w_ParticleSystem_setLinearDamping, Rice::Arg("arg1"),
+                     Rice::Arg("arg2") = std::optional<double>())
+      .define_method("linear_damping", &w_ParticleSystem_getLinearDamping)
+      .define_method("set_size_variation", &w_ParticleSystem_setSizeVariation, Rice::Arg("arg1"))
+      .define_method("size_variation", &w_ParticleSystem_getSizeVariation)
+      .define_method("set_rotation", &w_ParticleSystem_setRotation, Rice::Arg("arg1"),
+                     Rice::Arg("arg2") = std::optional<double>())
+      .define_method("rotation", &w_ParticleSystem_getRotation)
+      .define_method("set_spin", &w_ParticleSystem_setSpin, Rice::Arg("arg1"),
+                     Rice::Arg("arg2") = std::optional<double>())
+      .define_method("spin", &w_ParticleSystem_getSpin)
+      .define_method("set_spin_variation", &w_ParticleSystem_setSpinVariation, Rice::Arg("arg1"))
+      .define_method("spin_variation", &w_ParticleSystem_getSpinVariation)
+      .define_method("set_offset", &w_ParticleSystem_setOffset, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("offset", &w_ParticleSystem_getOffset)
+      .define_method("set_relative_rotation", &w_ParticleSystem_setRelativeRotation,
+                     Rice::Arg("enable"))
+      .define_method("relative_rotation?", &w_ParticleSystem_hasRelativeRotation)
+      .define_method("count", &w_ParticleSystem_getCount)
+      .define_method("start", &w_ParticleSystem_start)
+      .define_method("stop", &w_ParticleSystem_stop)
+      .define_method("pause", &w_ParticleSystem_pause)
+      .define_method("reset", &w_ParticleSystem_reset)
+      .define_method("emit", &w_ParticleSystem_emit, Rice::Arg("num"))
+      .define_method("active?", &w_ParticleSystem_isActive)
+      .define_method("paused?", &w_ParticleSystem_isPaused)
+      .define_method("stopped?", &w_ParticleSystem_isStopped)
+      .define_method("update", &w_ParticleSystem_update, Rice::Arg("dt"));
   Rice::define_class_under<Quad>(native, "Quad")
       .define_method("viewport", &w_Quad_getViewport)
       .define_method("texture_dimensions", &w_Quad_getTextureDimensions)

@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class GraphicsBuffer
+      include Object
+
+      class Format < ::Data
+        include Record
+
+        attr_reader name: String
+
+        attr_reader format: Symbol
+
+        attr_reader arraylength: Integer
+
+        attr_reader location: Integer
+
+        attr_reader offset: Integer
+
+        attr_reader size: Integer
+
+        def self.new: (name: String, format: Symbol, arraylength: Integer, location: Integer, offset: Integer, size: Integer) -> instance
+      end
+
+      type name = Symbol | String
+
+      type declaration = Hash[Symbol, ::Object?] | Format
+
+      attr_reader native: Native::Buffer
+
+      def self.from_native: (Native::Buffer native) -> GraphicsBuffer
+
+      def self.new: (name | Array[declaration] format, ::Object content, ?vertex: boolish, ?index: boolish, ?texel: boolish, ?shaderstorage: boolish, ?indirectarguments: boolish, ?usage: name?, ?debugname: String?) -> GraphicsBuffer
+
+      def self.create: (Thread::Backtrace::Location? location, name | Array[declaration] format, ::Object content, ?vertex: boolish, ?index: boolish, ?texel: boolish, ?shaderstorage: boolish, ?indirectarguments: boolish, ?usage: name?, ?debugname: String?) -> GraphicsBuffer
+
+      def self.declarations: (::Object format, bool location) -> Array[[String, String, Integer, Integer?]]
+
+      def self.declaration: (::Object entry, Integer index, bool location) -> [String, String, Integer, Integer?]
+
+      private def self.integer: (::Object? value) -> Integer
+
+      def self.native_content: (::Object? content) -> ::Object?
+
+      def self.mark_deprecated_bindings: (Native::Buffer | Native::Mesh native, String where) -> void
+
+      def set_array_data: (::Object data, ?Integer? source, ?Integer? destination, ?Integer? count) -> nil
+
+      def clear: (?(Float | Integer)? offset, ?(Float | Integer)? size) -> nil
+
+      def element_count: () -> Integer
+
+      def element_stride: () -> Integer
+
+      def size: () -> Integer
+
+      def format: () -> Array[Format]
+
+      def buffer_type?: (name type) -> bool
+
+      def debug_name: () -> String?
+    end
+
+    module Buffer
+      def self.new: (GraphicsBuffer::name | Array[GraphicsBuffer::declaration] format, ::Object content, ?vertex: boolish, ?index: boolish, ?texel: boolish, ?shaderstorage: boolish, ?indirectarguments: boolish, ?usage: GraphicsBuffer::name?, ?debugname: String?) -> GraphicsBuffer
+
+      def self.===: (::Object object) -> bool
+    end
+  end
+end

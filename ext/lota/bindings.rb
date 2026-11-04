@@ -401,6 +401,161 @@ bound_by_hand "Shader:send",
 bound_by_hand "Shader:sendColor",
   reason: "reads its values as Shader:send does, clamped and gamma-corrected"
 
+# love.graphics: meshes, buffers, and particles
+bound_by_hand "love.graphics.newComputeShader",
+  reason: "reads its source and options through w_getShaderSource and rewrites a compile error through " \
+    "_transformGLSLErrorMessages, as love.graphics.newShader; Lota::Graphics::ComputeShader.new ports both " \
+    "through Shader, and Lota binds the shader from the source and defines"
+bound_by_hand "Mesh:getAttachedAttributes",
+  reason: "builds a table of tables with lua_createtable and lua_setfield, and at the pinned commit sets each " \
+    "attribute's table into itself (wrap_Mesh.cpp:412), so it returns an empty table, which Lota returns as an empty Array"
+bound_by_hand "love.graphics.newBuffer",
+  reason: "reads its format and data from Lua tables of tables, flat tables, Data, or a count, and its settings " \
+    "from table fields (luax_newbuffer, luax_checkbufferformat), which the parser does not read; " \
+    "Lota::Graphics::Buffer.new reads the keywords and the format and Lota binds the buffer from the " \
+    "declarations, the uses, and the content"
+bound_by_hand "love.graphics.newMesh",
+  reason: "chooses among three forms by the types of its arguments and reads vertices from Lua tables " \
+    "(newStandardMesh, newCustomMesh, newMeshFromBuffers); Lota::Graphics::Mesh.new chooses the form and " \
+    "Lota binds each"
+bound_by_hand "love.graphics.drawInstanced",
+  reason: "reads a Transform or nine numbers through luax_checkstandardtransform, a template that hands the " \
+    "matrix to a callback, as love.graphics.applyTransform"
+bound_by_hand "love.graphics.drawIndirect",
+  reason: "reads a Transform or nine numbers through luax_checkstandardtransform, as love.graphics.drawInstanced"
+bound_by_hand "love.graphics.dispatchThreadgroups",
+  reason: "gives its second and third counts the default 1, which clang-tidy's readability-magic-numbers " \
+    "refuses in a Rice default; Lota binds them as optional integers"
+bound_by_hand "love.graphics.dispatchIndirect",
+  reason: "gives its argument index the default 1, as love.graphics.dispatchThreadgroups"
+bound_by_hand "Buffer:setArrayData",
+  reason: "writes from Lua tables or a Data into mapped memory through luax_writebufferdata, reading the stack " \
+    "at positions it computes; Lota reads the Arrays Lota::Graphics::Buffer passes"
+bound_by_hand "Buffer:getFormat",
+  reason: "fills in a table with a table for each member (lua_createtable, lua_setfield), which the generator " \
+    "does not port; Lota returns each member's fields, which Lota::Graphics::Buffer makes a frozen Data"
+bound_by_hand "Mesh:setVertices",
+  reason: "writes from Lua tables or a Data through luax_writebufferdata, reading the stack at positions it " \
+    "computes"
+bound_by_hand "Mesh:setVertex",
+  reason: "writes a vertex from a table or from the stack through luax_writebufferdata"
+bound_by_hand "Mesh:getVertex",
+  reason: "pushes a computed number of values through luax_readbufferdata"
+bound_by_hand "Mesh:setVertexAttribute",
+  reason: "writes an attribute from the stack through luax_writebufferdata"
+bound_by_hand "Mesh:getVertexAttribute",
+  reason: "pushes a computed number of values through luax_readbufferdata"
+bound_by_hand "Mesh:getVertexFormat",
+  reason: "fills in a table with a table for each attribute (lua_createtable, lua_setfield), as Buffer:getFormat"
+bound_by_hand "Mesh:setAttributeEnabled",
+  reason: "chooses its form by the type of argument 2 (lua_type), a name or a binding location"
+bound_by_hand "Mesh:isAttributeEnabled",
+  reason: "chooses its form by the type of argument 2, as Mesh:setAttributeEnabled"
+bound_by_hand "Mesh:attachAttribute",
+  reason: "chooses its form by the type of argument 2 and of argument 3, a Buffer or a Mesh, and reads " \
+    "optional arguments at positions that depend on the form"
+bound_by_hand "Mesh:setVertexMap",
+  reason: "chooses its form by its arguments' kinds, a table, a Data, a list on the stack, or nothing " \
+    "(lua_istable, luax_istype, lua_gettop); Lota binds the three that remain"
+bound_by_hand "Mesh:getVertexMap",
+  reason: "pushes a table built with lua_createtable, or nil"
+bound_by_hand "ParticleSystem:setSizes",
+  reason: "reads a count of values from the stack (lua_gettop) and chooses setSize or setSizes by it"
+bound_by_hand "ParticleSystem:getSizes",
+  reason: "returns a computed number of values (return (int) sizes.size())"
+bound_by_hand "ParticleSystem:setColors",
+  reason: "reads its colors from Lua tables or from the stack, choosing by lua_istable and lua_gettop"
+bound_by_hand "ParticleSystem:getColors",
+  reason: "returns a computed number of tables (return (int) colors.size())"
+bound_by_hand "ParticleSystem:setQuads",
+  reason: "reads its Quads from a table or from the stack, choosing by lua_istable"
+bound_by_hand "ParticleSystem:getQuads",
+  reason: "pushes a table of objects built with lua_createtable"
+bound_by_hand "Shader:getBufferFormat",
+  reason: "fills in a table with a table for each member (lua_createtable, lua_setfield), as Buffer:getFormat"
+bound_by_hand "love.graphics.newParticleSystem",
+  reason: "reads its size as a lua_Number and casts it twice, which the port writes as redundant and C-style " \
+    "casts that clang-tidy's readability-redundant-casting and modernize-avoid-c-style-cast refuse"
+bound_by_hand "Buffer:clear",
+  reason: "casts a lua_Number to size_t with C-style casts, which clang-tidy's modernize-avoid-c-style-cast " \
+    "refuses; Lota binds the offset and size as one Array"
+bound_by_hand "Buffer:isBufferType",
+  reason: "shifts a signed 1 by the buffer usage, which clang-tidy's bugprone-signed-bitwise refuses"
+bound_by_hand "ParticleSystem:setBufferSize",
+  reason: "reads its size as a lua_Number and casts it to uint32 with a C-style cast, as love.graphics.newParticleSystem"
+bound_by_hand "ParticleSystem:getPosition",
+  reason: "copies the Vector2 the engine returns by reference, which clang-tidy's " \
+    "performance-unnecessary-copy-initialization refuses, and the port does not include Vector's header"
+generate "love.graphics.getQuadIndexBuffer"
+generate "Buffer:getElementCount"
+generate "Buffer:getElementStride"
+generate "Buffer:getSize"
+generate "Buffer:getDebugName"
+generate "Mesh:getVertexCount"
+generate "Mesh:detachAttribute"
+generate "Mesh:getVertexBuffer"
+generate "Mesh:flush"
+generate "Mesh:setIndexBuffer"
+generate "Mesh:getIndexBuffer"
+generate "Mesh:setTexture"
+generate "Mesh:getTexture"
+generate "Mesh:setDrawMode"
+generate "Mesh:getDrawMode"
+generate "Mesh:setDrawRange"
+generate "Mesh:getDrawRange"
+generate "ParticleSystem:clone"
+generate "ParticleSystem:setTexture"
+generate "ParticleSystem:getTexture"
+generate "ParticleSystem:getBufferSize"
+generate "ParticleSystem:setInsertMode"
+generate "ParticleSystem:getInsertMode"
+generate "ParticleSystem:setEmissionRate"
+generate "ParticleSystem:getEmissionRate"
+generate "ParticleSystem:setEmitterLifetime"
+generate "ParticleSystem:getEmitterLifetime"
+generate "ParticleSystem:setParticleLifetime"
+generate "ParticleSystem:getParticleLifetime"
+generate "ParticleSystem:setPosition"
+generate "ParticleSystem:moveTo"
+generate "ParticleSystem:setEmissionArea"
+generate "ParticleSystem:getEmissionArea"
+generate "ParticleSystem:setDirection"
+generate "ParticleSystem:getDirection"
+generate "ParticleSystem:setSpread"
+generate "ParticleSystem:getSpread"
+generate "ParticleSystem:setSpeed"
+generate "ParticleSystem:getSpeed"
+generate "ParticleSystem:setLinearAcceleration"
+generate "ParticleSystem:getLinearAcceleration"
+generate "ParticleSystem:setRadialAcceleration"
+generate "ParticleSystem:getRadialAcceleration"
+generate "ParticleSystem:setTangentialAcceleration"
+generate "ParticleSystem:getTangentialAcceleration"
+generate "ParticleSystem:setLinearDamping"
+generate "ParticleSystem:getLinearDamping"
+generate "ParticleSystem:setSizeVariation"
+generate "ParticleSystem:getSizeVariation"
+generate "ParticleSystem:setRotation"
+generate "ParticleSystem:getRotation"
+generate "ParticleSystem:setSpin"
+generate "ParticleSystem:getSpin"
+generate "ParticleSystem:setSpinVariation"
+generate "ParticleSystem:getSpinVariation"
+generate "ParticleSystem:setOffset"
+generate "ParticleSystem:getOffset"
+generate "ParticleSystem:setRelativeRotation"
+generate "ParticleSystem:hasRelativeRotation"
+generate "ParticleSystem:getCount"
+generate "ParticleSystem:start"
+generate "ParticleSystem:stop"
+generate "ParticleSystem:pause"
+generate "ParticleSystem:reset"
+generate "ParticleSystem:emit"
+generate "ParticleSystem:isActive"
+generate "ParticleSystem:isPaused"
+generate "ParticleSystem:isStopped"
+generate "ParticleSystem:update"
+
 # love.image
 bound_from_lua "ImageData:getWidth"
 bound_from_lua "ImageData:getHeight"

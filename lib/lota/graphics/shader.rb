@@ -34,6 +34,23 @@ module Lota
     class Shader
       include Object
 
+      # One member of a buffer a shader declares, which #buffer_format
+      # returns, translated from the table love.graphics's
+      # Shader:getBufferFormat makes (src/modules/graphics/wrap_Shader.cpp,
+      # w_Shader_getBufferFormat): a frozen value with LÖVE's field names
+      # (ADR 001, rule 10).
+      #
+      # [name] The member's String name.
+      # [format] Symbol of its data format, such as +:floatvec2+.
+      # [arraylength] Integer length of the array the member is, or 0.
+      #
+      # === Example
+      #
+      #   shader.buffer_format("Particles").first.name # => "position"
+      class BufferFormat < ::Data.define(:name, :format, :arraylength)
+        include Record
+      end
+
       # The engine's Shader, for Lota's own modules. :nodoc:
       attr_reader :native
 
@@ -93,6 +110,21 @@ module Lota
           raise e.exception(transform_glsl_error_messages(e.message))
         end
         mark_deprecated_uses(native, caller_locations(1, 1)&.first)
+        from_native(native)
+      end
+
+      # Compiles a compute shader for ComputeShader.new, matching
+      # love.graphics.newComputeShader
+      # (src/modules/graphics/wrap_Graphics.cpp, w_newComputeShader), as new
+      # does a shader; +location+ is where a notice says it was made. :nodoc:
+      def self.compute(first, location, defines: nil, debugname: nil, write: nil)
+        stages, pairs, name = source(first, nil, defines, debugname)
+        native = begin
+          Native::Graphics.new_compute_shader(stages, name, pairs, write ? true : false)
+        rescue RuntimeError => e
+          raise e.exception(transform_glsl_error_messages(e.message))
+        end
+        mark_deprecated_uses(native, location)
         from_native(native)
       end
 
@@ -284,7 +316,8 @@ module Lota
       #   a bool; an Array of numbers or booleans for a vector; an Array
       #   for a matrix, flat or of rows, or a Lota::Math::Transform for a
       #   mat4, after an optional +:row+ or +:column+ layout (row by
-      #   default); or a Lota::Graphics::Texture for a sampler.
+      #   default); a Lota::Graphics::Texture for a sampler; or a
+      #   Lota::Graphics::GraphicsBuffer for a texel or storage buffer.
       #
       # A Lota::Data sends its bytes instead, as LÖVE packs the uniform:
       # <tt>send(name, data, offset = 0, size = nil)</tt>, with a matrix's
@@ -295,7 +328,7 @@ module Lota
       # Raises RuntimeError with LÖVE's message for a uniform the shader
       # does not have or does not use; TypeError for a value of the wrong
       # kind; ArgumentError for an unknown layout; and ThreadError off the
-      # main thread. Buffers wait for Lota::Graphics::Buffer.
+      # main thread.
       #
       # === Examples
       #
@@ -329,6 +362,24 @@ module Lota
       #   shader.send_color("tint", [1, 0.5, 0, 1])
       def send_color(name, *colors)
         native.send_color(name, colors.map { |value| native_value(value) })
+      end
+
+      # The format of one element of a buffer the shader declares, as an
+      # Array of BufferFormat, matching Shader:getBufferFormat
+      # (src/modules/graphics/wrap_Shader.cpp, w_Shader_getBufferFormat).
+      #
+      # [name] The buffer's String name in the shader.
+      #
+      # Raises RuntimeError with LÖVE's message for a buffer the shader
+      # does not declare, and ThreadError off the main thread.
+      #
+      # === Example
+      #
+      #   shader.buffer_format("Particles").map(&:name) # => ["position", "velocity"]
+      def buffer_format(name)
+        native.buffer_format(name).map do |member, format, arraylength|
+          BufferFormat.new(name: member, format: format.to_sym, arraylength:)
+        end
       end
 
       # Whether the shader has the uniform +name+ and uses it, matching
@@ -395,7 +446,7 @@ module Lota
       private def native_value(value)
         case value
         when Symbol then value.name
-        when Texture, Math::Transform, Lota::Data then value.native
+        when Texture, GraphicsBuffer, Math::Transform, Lota::Data then value.native
         else value
         end
       end

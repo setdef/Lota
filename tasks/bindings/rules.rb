@@ -56,11 +56,17 @@ module Bindings
     # block form until a game needs one", and a Source's play and stop,
     # since "a sound plays across frames while the game runs" (ADR 001,
     # section 7, after the table), whether the Source's own methods or
-    # love.audio's, which play and stop the Sources they are given.
+    # love.audio's, which play and stop the Sources they are given; a
+    # ParticleSystem's start and stop, which run across frames likewise;
+    # and a Mesh's attachAttribute and detachAttribute, which follow mount
+    # and unmount: an attribute stays attached as long as the mesh lives,
+    # so the pair gets no block form until a game needs one.
     NOT_PAIRS = {
       "love.filesystem.mount" => "love.filesystem.unmount",
       "Source:play" => "Source:stop",
       "love.audio.play" => "love.audio.stop",
+      "Mesh:attachAttribute" => "Mesh:detachAttribute",
+      "ParticleSystem:start" => "ParticleSystem:stop",
     }.freeze
     # Verbs that often open and close a pair, to find pairs rule 11 has
     # not decided.
@@ -91,7 +97,18 @@ module Bindings
       "newRectangleShape" => "PolygonShape",
       "newImageFont" => "Font",
       "newText" => "TextBatch",
+      "newComputeShader" => "Shader:hasStage",
     }.freeze
+    # The Ruby class a LÖVE type's methods belong to, where LÖVE's Lua type
+    # name differs from the name its wrap file registers: Buffer.cpp's type
+    # is "GraphicsBuffer" (rule 2 then makes Buffer a module, as it makes
+    # Image one for Texture).
+    RUBY_TYPE_NAMES = { "Buffer" => "GraphicsBuffer" }.freeze
+    # The setters whose first value is itself an Array or a Data, which
+    # stay methods, since a writer cannot tell that value from a list of
+    # several (rule 6), as ImageData's setPixel cannot be a plain writer
+    # of an Array.
+    PLAIN_SETTERS = %w[Buffer:setArrayData Mesh:setVertices Mesh:setVertexMap].freeze
     # The methods rule 16 gives every LÖVE object, from Object:type and
     # Object:typeOf (src/common/runtime.cpp, w__type and w__typeOf), which
     # no wrap file lists: object_type, type as another name for it, and
@@ -240,7 +257,7 @@ module Bindings
         return ROOT_TYPES.fetch(@function.type_name) if ROOT_TYPES.key?(@function.type_name)
 
         constant = Rules.module_constant(@function.module_name)
-        @function.type_name ? "#{constant}::#{@function.type_name}" : constant
+        @function.type_name ? "#{constant}::#{RUBY_TYPE_NAMES.fetch(@function.type_name, @function.type_name)}" : constant
       end
 
       private def base_name
@@ -300,6 +317,10 @@ module Bindings
       # Rules 5, 6, and 7.
       private def setter(rest)
         snake = Rules.snake_case(rest)
+        if PLAIN_SETTERS.include?(@function.love_name)
+          @rules << 6
+          return "set_#{snake}"
+        end
         if returns_value?
           @rules << 7
           several([5, 7], "returns a value from some forms and nothing from others") if @analysis&.counts&.include?(0)

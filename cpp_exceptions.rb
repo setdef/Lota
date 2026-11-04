@@ -59,7 +59,7 @@ allow "ext/lota/native/event.cpp", lines: [71, 97],
 # (vendor/love/src/modules/graphics/Shader.h:144-181). LÖVE's own
 # wrap_Shader.cpp reads them the same way. Lota reads them in one function
 # and nowhere else.
-allow "ext/lota/native/shader.cpp", lines: [135, 154],
+allow "ext/lota/native/shader.cpp", lines: [139, 158],
   reason: "Shader::UniformInfo exposes a uniform's size and memory only as unions tagged by baseType; " \
     "there is no other accessor."
 

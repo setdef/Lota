@@ -243,6 +243,18 @@ module Lota
       def self.set_shader: (?Shader? shader) -> nil
 
       def self.shader: () -> Shader?
+
+      def self.quad_index_buffer: () -> Buffer
+    end
+
+    class Buffer
+      def element_count: () -> Integer
+
+      def element_stride: () -> Integer
+
+      def size: () -> Integer
+
+      def debug_name: () -> String?
     end
 
     module Graphics
@@ -265,6 +277,138 @@ module Lota
 
         def filter: () -> [String, String, Integer]
       end
+    end
+
+    class Mesh
+      def vertex_count: () -> Integer
+
+      def detach_attribute: (String name) -> bool
+
+      def vertex_buffer: () -> Buffer
+
+      def flush: () -> nil
+
+      def set_index_buffer: (?Buffer? argument1) -> nil
+
+      def index_buffer: () -> Buffer
+
+      def set_texture: (?Texture? tex) -> nil
+
+      def texture: () -> Texture?
+
+      def set_draw_mode: (String mode) -> nil
+
+      def draw_mode: () -> String
+
+      def set_draw_range: (?Integer? start, ?Integer? count) -> nil
+
+      def draw_range: () -> Array[Integer]
+    end
+
+    class ParticleSystem
+      def clone: () -> ParticleSystem
+
+      def set_texture: (Texture tex) -> nil
+
+      def texture: () -> Texture
+
+      def buffer_size: () -> Integer
+
+      def set_insert_mode: (String mode) -> nil
+
+      def insert_mode: () -> String
+
+      def set_emission_rate: (Float | Integer arg1) -> nil
+
+      def emission_rate: () -> Float
+
+      def set_emitter_lifetime: (Float | Integer arg1) -> nil
+
+      def emitter_lifetime: () -> Float
+
+      def set_particle_lifetime: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def particle_lifetime: () -> [Float, Float]
+
+      def set_position: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def move_to: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def set_emission_area: (?String? argument1, ?(Float | Integer)? argument2, ?(Float | Integer)? argument3, ?(Float | Integer) argument4, ?bool argument5) -> nil
+
+      def emission_area: () -> [String, Float, Float, Float, bool]
+
+      def set_direction: (Float | Integer arg1) -> nil
+
+      def direction: () -> Float
+
+      def set_spread: (Float | Integer arg1) -> nil
+
+      def spread: () -> Float
+
+      def set_speed: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def speed: () -> [Float, Float]
+
+      def set_linear_acceleration: (Float | Integer xmin, Float | Integer ymin, ?(Float | Integer)? xmax, ?(Float | Integer)? ymax) -> nil
+
+      def linear_acceleration: () -> [Float, Float, Float, Float]
+
+      def set_radial_acceleration: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def radial_acceleration: () -> [Float, Float]
+
+      def set_tangential_acceleration: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def tangential_acceleration: () -> [Float, Float]
+
+      def set_linear_damping: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def linear_damping: () -> [Float, Float]
+
+      def set_size_variation: (Float | Integer arg1) -> nil
+
+      def size_variation: () -> Float
+
+      def set_rotation: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def rotation: () -> [Float, Float]
+
+      def set_spin: (Float | Integer arg1, ?(Float | Integer)? arg2) -> nil
+
+      def spin: () -> [Float, Float]
+
+      def set_spin_variation: (Float | Integer arg1) -> nil
+
+      def spin_variation: () -> Float
+
+      def set_offset: (Float | Integer x, Float | Integer y) -> nil
+
+      def offset: () -> [Float, Float]
+
+      def set_relative_rotation: (bool enable) -> nil
+
+      def relative_rotation?: () -> bool
+
+      def count: () -> Integer
+
+      def start: () -> nil
+
+      def stop: () -> nil
+
+      def pause: () -> nil
+
+      def reset: () -> nil
+
+      def emit: (Integer num) -> nil
+
+      def active?: () -> bool
+
+      def paused?: () -> bool
+
+      def stopped?: () -> bool
+
+      def update: (Float | Integer dt) -> nil
     end
 
     class Quad

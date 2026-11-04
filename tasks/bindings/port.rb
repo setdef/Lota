@@ -448,7 +448,7 @@ object:,
     private def hoisted(read, local, value)
       declared = read[:declared].gsub(/\blua_Number\b/, "double")
       type = declared.end_with?("*") ? "#{read[:constant] ? 'const ' : ''}#{declared}const" : "const #{declared}"
-      "#{type} #{local} = #{value}"
+      "#{type} #{local} = #{value.gsub(/\blua_Number\b/, 'double')}"
     end
 
     # +parameters+, each after an optional one made optional too: Ruby
@@ -1046,7 +1046,7 @@ line: node.line,
 
       type = type.sub(/\Aconst\s+/, "").delete("&").strip
       return ["int", "Integer"] if byte?(expression)
-      return [type, "Integer"] if type.match?(INTEGRAL)
+      return [type.sub(/\A(u?int(?:8|16|32|64))\z/, 'love::\1'), "Integer"] if type.match?(INTEGRAL)
       return ["double", "Float"] if type.match?(FLOATING) && pusher == "lua_pushnumber"
       return ["long long", "Integer"] if type.match?(FLOATING) && pusher == "lua_pushinteger"
 
@@ -1059,7 +1059,7 @@ line: node.line,
     private def convert(value, call, type)
       return "static_cast<long long>(#{value})" if call.base_name == "lua_pushinteger" && floating?(call.arguments[1])
       return "static_cast<int>(#{value})" if byte?(call.arguments[1])
-      return value.sub(/\A\(\s*double\s*\)\s*/, "") if type.match?(INTEGRAL)
+      return value.sub(/\A\(\s*double\s*\)\s*/, "") if type.delete_prefix("love::").match?(INTEGRAL)
       return value unless call.base_name == "lua_pushnumber" && type == "double"
 
       source = expression_type(call.arguments[1]).to_s.sub(/\Aconst\s+/, "").delete("&").strip

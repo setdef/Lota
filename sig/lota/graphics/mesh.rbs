@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Mesh
+      include Object
+
+      class VertexFormat < ::Data
+        include Record
+
+        attr_reader name: String
+
+        attr_reader location: Integer
+
+        attr_reader format: Symbol
+
+        attr_reader arraylength: Integer
+
+        attr_reader offset: Integer
+
+        def self.new: (name: String, location: Integer, format: Symbol, arraylength: Integer, offset: Integer) -> instance
+      end
+
+      type name = Symbol | String
+
+      attr_reader native: Native::Mesh
+
+      def self.from_native: (Native::Mesh native) -> Mesh
+
+      def self.new: (::Object first, ::Object second, ?::Object? third, ?::Object? fourth) -> Mesh
+
+      private def self.vertices?: (::Object value) -> bool
+
+      private def self.name_of: (::Object? mode) -> String
+
+      private def self.buffer_attributes: (::Object value) -> Array[[Native::Buffer, ::Object?, String?, String?, ::Object?, String?, ::Object?]]?
+
+      private def self.custom: (Array[::Object] format, ::Object? vertices, ::Object? mode, ::Object? usage, String where) -> Native::Mesh
+
+      private def self.legacy_declaration?: (::Object entry) -> bool
+
+      private def self.legacy_declaration: (Array[::Object] entry) -> [String, String, Integer, Integer?]
+
+      private def self.legacy_format: (String type, Integer components) -> String?
+
+      private def self.legacy_components: (String type, Integer components, Hash[Integer, String] formats) -> String
+
+      private def self.mark_legacy_format: (Array[::Object] format, String where) -> void
+
+      def set_vertices: (::Object? data, ?Integer? start, ?Integer? count) -> nil
+
+      def vertex=: (Array[::Object] arguments) -> void
+
+      def vertex: (Integer index) -> Array[Float | Integer]
+
+      def vertex_attribute=: (Array[::Object] arguments) -> void
+
+      def vertex_attribute: (Integer vertex, Integer attribute) -> Array[Float | Integer]
+
+      def vertex_count: () -> Integer
+
+      def vertex_format: () -> Array[VertexFormat]
+
+      def attribute_enabled=: (Array[::Object] arguments) -> void
+
+      def attribute_enabled?: (String | Integer attribute) -> bool
+
+      def attach_attribute: (String | Integer attribute, GraphicsBuffer | Mesh source, ?name? step, ?(String | Integer)? attach, ?Integer? startindex) -> nil
+
+      def detach_attribute: (String name) -> bool
+
+      def vertex_buffer: () -> GraphicsBuffer?
+
+      def flush: () -> nil
+
+      def set_vertex_map: (?::Object? first, *::Object rest) -> nil
+
+      def attached_attributes: () -> Array[Hash[Symbol, ::Object?]]
+
+      def vertex_map: () -> Array[Integer]?
+
+      def index_buffer=: (GraphicsBuffer? buffer) -> void
+
+      def index_buffer: () -> GraphicsBuffer?
+
+      def texture=: (Texture? texture) -> void
+
+      def texture: () -> Texture?
+
+      def draw_mode=: (name mode) -> void
+
+      def draw_mode: () -> Symbol
+
+      def draw_range=: (Array[Integer]? range) -> void
+
+      def draw_range: () -> Array[Integer]
+    end
+  end
+end

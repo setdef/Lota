@@ -215,6 +215,27 @@ class RulesTest < Minitest::Test
     assert_includes collisions("RecordingDevice:start"), [:open, [11]]
   end
 
+  # A ParticleSystem's start and stop run across frames, as a Source's play
+  # and stop do, and a Mesh's attach and detach follow mount and unmount:
+  # no rule 11 pair.
+  def test_particle_start_and_mesh_attach_are_no_pairs
+    assert_empty collisions("ParticleSystem:start")
+    assert_empty collisions("Mesh:attachAttribute")
+  end
+
+  # Buffer.cpp's Lua type is GraphicsBuffer, so its methods are that
+  # class's, and newBuffer is the module Buffer's new (rule 2); a setter
+  # whose first value is an Array or a Data stays a method (rule 6).
+  def test_graphics_buffer_is_the_class_and_array_first_setters_are_methods
+    assert_equal "Lota::Graphics::GraphicsBuffer#clear", translation("Buffer:clear").ruby_name
+    assert_equal "Lota::Graphics::Buffer.new", translation("love.graphics.newBuffer").ruby_name
+    assert_equal "Lota::Graphics::GraphicsBuffer#set_array_data", translation("Buffer:setArrayData").ruby_name
+    assert_equal "Lota::Graphics::Mesh#set_vertices", translation("Mesh:setVertices").ruby_name
+    assert_equal "Lota::Graphics::Mesh#set_vertex_map", translation("Mesh:setVertexMap").ruby_name
+    assert_equal "Lota::Graphics::Mesh#vertex=", translation("Mesh:setVertex").ruby_name
+    assert_empty collisions("love.graphics.newComputeShader")
+  end
+
   # Every function gets exactly one Ruby name, or a collision saying no
   # rule gives one.
   def test_every_function_is_named_exactly_once

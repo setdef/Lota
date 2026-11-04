@@ -318,6 +318,7 @@ module Bindings
       love << '"common/Module.h"' if code.include?("instance()")
       love << '"common/Color.h"' if code.match?(/\bColor[fD]?\b|\bColorT\b/)
       love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b|\bu?int(?:8|16|32|64)\b/)
+      love << '"common/Vector.h"' if code.match?(/\bVector[234]\b/)
       love << '"common/math.h"' if code.match?(/\bF?Rect\b/)
       love << '"common/pixelformat.h"' if code.match?(/\bPixelFormat\b/)
       love.concat(declaring_headers(name, code))

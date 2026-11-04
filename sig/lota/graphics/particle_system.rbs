@@ -1,0 +1,150 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class ParticleSystem
+      include Object
+
+      type name = Symbol | String
+
+      type range = Float | Integer | Array[Float | Integer]
+
+      type area = Array[name | Float | Integer | bool | nil] | name | nil
+
+      type colors = Array[Float | Integer] | Array[Array[Float | Integer]]
+
+      attr_reader native: Native::ParticleSystem
+
+      def self.from_native: (Native::ParticleSystem native) -> ParticleSystem
+
+      def self.new: (Texture texture, ?(Float | Integer)? size) -> ParticleSystem
+
+      def initialize_copy: (ParticleSystem system) -> void
+
+      def texture=: (Texture texture) -> void
+
+      def texture: () -> Texture
+
+      def buffer_size=: (Float | Integer size) -> void
+
+      def buffer_size: () -> Integer
+
+      def insert_mode=: (name mode) -> void
+
+      def insert_mode: () -> Symbol
+
+      def emission_rate=: (Float | Integer rate) -> void
+
+      def emission_rate: () -> Float
+
+      def emitter_lifetime=: (Float | Integer lifetime) -> void
+
+      def emitter_lifetime: () -> Float
+
+      def particle_lifetime=: (range lifetime) -> void
+
+      def particle_lifetime: () -> Array[Float]
+
+      def position=: (range position) -> void
+
+      def position: () -> Array[Float]
+
+      def move_to: (Float | Integer x, Float | Integer y) -> nil
+
+      def emission_area=: (area area) -> void
+
+      def emission_area: () -> Array[Symbol | Float | bool]
+
+      def direction=: (Float | Integer direction) -> void
+
+      def direction: () -> Float
+
+      def spread=: (Float | Integer spread) -> void
+
+      def spread: () -> Float
+
+      def speed=: (range speed) -> void
+
+      def speed: () -> Array[Float]
+
+      def linear_acceleration=: (range acceleration) -> void
+
+      def linear_acceleration: () -> Array[Float]
+
+      def radial_acceleration=: (range acceleration) -> void
+
+      def radial_acceleration: () -> Array[Float]
+
+      def tangential_acceleration=: (range acceleration) -> void
+
+      def tangential_acceleration: () -> Array[Float]
+
+      def linear_damping=: (range damping) -> void
+
+      def linear_damping: () -> Array[Float]
+
+      def sizes=: (range sizes) -> void
+
+      def sizes: () -> Array[Float]
+
+      def size_variation=: (Float | Integer variation) -> void
+
+      def size_variation: () -> Float
+
+      def rotation=: (range rotation) -> void
+
+      def rotation: () -> Array[Float]
+
+      def spin=: (range spin) -> void
+
+      def spin: () -> Array[Float]
+
+      def spin_variation=: (Float | Integer variation) -> void
+
+      def spin_variation: () -> Float
+
+      def offset=: (range offset) -> void
+
+      def offset: () -> Array[Float]
+
+      def colors=: (colors colors) -> void
+
+      def colors: () -> Array[Array[Float]]
+
+      def quads=: (Quad | Array[Quad] quads) -> void
+
+      def quads: () -> Array[Quad]
+
+      def relative_rotation=: (bool enable) -> void
+
+      def relative_rotation?: () -> bool
+
+      def count: () -> Integer
+
+      def start: () -> nil
+
+      def stop: () -> nil
+
+      def pause: () -> nil
+
+      def reset: () -> nil
+
+      def emit: (Integer count) -> nil
+
+      def active?: () -> bool
+
+      def paused?: () -> bool
+
+      def stopped?: () -> bool
+
+      def update: (Float | Integer dt) -> nil
+
+      private def range: (range value) -> [Float | Integer, (Float | Integer)?]
+
+      private def number: (::Object? value) -> (Float | Integer)?
+
+      private def pair: (range value) -> [Float | Integer, Float | Integer]
+    end
+  end
+end

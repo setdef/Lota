@@ -202,17 +202,103 @@ module Lota
 
       def type_of?: (String name) -> bool
 
-      type value = Float | Integer | bool | String | Texture | Transform | Data | Array[Float | Integer | bool | Array[Float | Integer]]
+      type value = Float | Integer | bool | String | Texture | Buffer | Transform | Data | Array[Float | Integer | bool | Array[Float | Integer]]
 
       def send_values: (String name, Array[value] values) -> nil
 
       def send_color: (String name, Array[value] values) -> bool
+
+      def buffer_format: (String name) -> Array[[String, String, Integer]]
 
       def deprecated_texture_functions?: () -> bool
 
       def deprecated_texture_uniform?: () -> bool
 
       def unset_vertex_input_locations: () -> String
+    end
+
+    type numbers = Array[Float | Integer | nil]
+
+    type table = Array[Float | Integer | nil | numbers]
+
+    class Buffer
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def set_array_data: (Array[::Object?] arguments) -> nil
+
+      def clear: (Array[::Object?] range) -> nil
+
+      def buffer_type?: (String usage) -> bool
+
+      def format: () -> Array[[String, String, Integer, Integer, Integer, Integer]]
+
+      def legacy_vertex_bindings?: () -> bool
+    end
+
+    class Mesh
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def set_vertices: (Array[::Object?] arguments) -> nil
+
+      def set_vertex: (::Object? index, ::Object? row) -> nil
+
+      def vertex: (::Object? index) -> Array[Float | Integer]
+
+      def set_vertex_attribute: (Array[::Object?] arguments) -> nil
+
+      def vertex_attribute: (Array[::Object?] position) -> Array[Float | Integer]
+
+      def vertex_format: () -> Array[[String, Integer, String, Integer, Integer]]
+
+      def set_attribute_enabled: (::Object? attribute, bool enable) -> nil
+
+      def attribute_enabled?: (::Object attribute) -> bool
+
+      def attach_attribute: (::Object attribute, ::Object source, ?String? step, ?::Object? attach, ?::Object? startindex) -> nil
+
+      def set_vertex_map: (::Object? indices) -> nil
+
+      def set_vertex_map_data: (::Object data, String type, ?::Object? count) -> nil
+
+      def clear_vertex_map: () -> nil
+
+      def vertex_map: () -> Array[Integer]?
+
+      def attached_attributes: () -> Array[Hash[Symbol, ::Object?]]
+
+      def legacy_vertex_bindings?: () -> bool
+    end
+
+    class ParticleSystem
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def set_buffer_size: (Float | Integer size) -> nil
+
+      def position: () -> Array[Float]
+
+      def set_sizes: (Array[Float | Integer] sizes) -> nil
+
+      def sizes: () -> Array[Float]
+
+      def set_colors: (Array[Float | Integer] | Array[Array[Float | Integer]] colors, bool tables) -> nil
+
+      def colors: () -> Array[Array[Float]]
+
+      def set_quads: (Array[Quad] quads) -> nil
+
+      def quads: () -> Array[Quad]
     end
 
     class TextureSettings
@@ -520,7 +606,39 @@ module Lota
     module Graphics
       def self.check_created: () -> nil
 
+      def self.new_buffer: (Array[::Object?] arguments) -> Buffer
+
+      def self.new_standard_mesh: (::Object? content, String mode, ?String? usage) -> Mesh
+
+      def self.new_custom_mesh: (Array[::Object?] arguments) -> Mesh
+
+      def self.new_particle_system: (Texture texture, ?(Float | Integer)? size) -> ParticleSystem
+
+      def self.new_mesh_from_buffers: (Array[[Buffer, ::Object?, String?, String?, ::Object?, String?, ::Object?]] attributes, String mode) -> Mesh
+
+      def self.draw_mesh: (Mesh mesh, Array[Float | Integer] placement) -> nil
+
+      def self.draw_mesh_with_transform: (Mesh mesh, Transform transform) -> nil
+
+      def self.draw_particle_system: (ParticleSystem system, Array[Float | Integer] placement) -> nil
+
+      def self.draw_particle_system_with_transform: (ParticleSystem system, Transform transform) -> nil
+
+      def self.draw_instanced: (Mesh mesh, Integer instancecount, Array[Float | Integer] placement) -> nil
+
+      def self.draw_instanced_with_transform: (Mesh mesh, Integer instancecount, Transform transform) -> nil
+
+      def self.draw_indirect: (Mesh mesh, Buffer argsbuffer, Integer argsindex, Array[Float | Integer] placement) -> nil
+
+      def self.draw_indirect_with_transform: (Mesh mesh, Buffer argsbuffer, Integer argsindex, Transform transform) -> nil
+
+      def self.dispatch_threadgroups: (Shader shader, Integer x, ?Integer? y, ?Integer? z) -> nil
+
+      def self.dispatch_indirect: (Shader shader, Buffer argsbuffer, ?Integer? argsindex) -> nil
+
       def self.new_shader: (Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> Shader
+
+      def self.new_compute_shader: (Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> Shader
 
       def self.validate_shader: (bool gles, Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> ([true] | [false, String])
 

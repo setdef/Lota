@@ -127,7 +127,7 @@ class LotaRunTest < Minitest::Test
   end
 
   # The walking skeleton's acceptance test, through the loop: Lövetest's
-  # love.graphics (its Canvas, Font, Image, Quad, Shader, and SpriteBatch tests among them),
+  # love.graphics (its Buffer, Canvas, Font, Image, Mesh, ParticleSystem, Quad, Shader, and SpriteBatch tests among them),
   # love.audio (its Source test among them), love.sound, love.image, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.timer, love.window, love.filesystem, and love.physics tests, and
   # those of love itself, run from
@@ -160,12 +160,17 @@ class LotaRunTest < Minitest::Test
     # beside the seven it always skips.
     on_linux_runner = ENV["GITHUB_ACTIONS"] == "true" && TestHome::LINUX
     assertions -= 13 if on_linux_runner
-    skips = UnseenDesktop.skips(on_linux_runner ? 14 : 7)
+    EngineHelper.open_window
+    supported = Lota::Graphics.supported
+    # Its Buffer, Mesh, ParticleSystem, newMesh, and newParticleSystem
+    # tests make 172 assertions and compare two 64 by 64 images, one for
+    # each pixel; its ShaderStorageBuffer test makes one more, and skips
+    # instead where the renderer lacks GLSL 4.
+    assertions += 172 + (2 * 64 * 64) + (supported.glsl4 ? 1 : 0)
+    skips = UnseenDesktop.skips((on_linux_runner ? 14 : 7) + (supported.glsl4 ? 0 : 1))
     # On a desktop macOS does not draw, the isOccluded test skips before
     # its one assertion (test/lovetest/unseen_desktop.rb).
     assertions -= 1 if UnseenDesktop.on?
-    EngineHelper.open_window
-    supported = Lota::Graphics.supported
     assertions -= (16 * 16) - 1 unless supported.glsl3
     assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
     renderer = Lota::Graphics.renderer_info.first
@@ -176,7 +181,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^248 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
+    assert_match(/^255 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

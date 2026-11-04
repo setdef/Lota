@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
-  TYPES = %w[Canvas Font Image Quad Shader SpriteBatch Text].freeze
+  TYPES = %w[Buffer Canvas Font Image Mesh ParticleSystem Quad Shader ShaderStorageBuffer SpriteBatch Text].freeze
 
   # Lövetest runs its modules in a fixed order, graphics before window
   # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
@@ -27,10 +27,16 @@ class GraphicsTest < Lovetest::TestMethod
   # Lövetest also runs a module's tests in the order of their names
   # (classes/TestModule.lua:68-71), so getColor, which checks the default
   # color, runs before resetProjection, which leaves the color blue, as
-  # its Lua does; each test here starts with the default color.
+  # its Lua does; each test here starts with the default color. Its
+  # getMeshCullMode likewise ends by setting the cull mode to back, where
+  # the default is none, after drawInstanced, which draws a mesh that back
+  # culling hides, so each test starts with the default cull mode too.
   def setup
     super
-    Lota::Graphics.color = 1, 1, 1, 1 if Lota.graphics
+    if Lota.graphics
+      Lota::Graphics.color = 1, 1, 1, 1
+      Lota::Graphics.mesh_cull_mode = :none
+    end
     return unless Lota.window
 
     _width, _height, flags = Lota::Window.mode
@@ -2620,6 +2626,515 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = nil
     imgdata = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.Buffer
+  # (vendor/love/testing/tests/graphics.lua:12-71): newBuffer becomes
+  # Buffer.new (rule 2), with its settings table keywords (rule 10) and its
+  # formats' names Symbols (rule 9); getElementCount, getElementStride,
+  # getSize, getFormat, and getDebugName element_count, element_stride,
+  # size, format, and debug_name (rule 3); isBufferType buffer_type?
+  # (rule 8); and setArrayData set_array_data, a method, since its first argument is
+  # itself an Array or a Data (rule 6). Lua's tables are
+  # Arrays, so getFormat's table, which type(format) == "table" checks, is
+  # an Array of Buffer::Format records, and #vertexformat its size. The
+  # rest as test_circle names.
+  def test_buffer
+    # setup vertex data and create some buffers
+    vertexformat = [
+      { name: "VertexPosition", format: :floatvec2, location: 0 },
+      { name: "VertexTexCoord", format: :floatvec2, location: 1 },
+      { name: "VertexColor", format: :unorm8vec4, location: 2 },
+    ]
+    vertexdata = [
+      [0, 0, 0, 0, 1, 0, 1, 1],
+      [10, 0, 1, 0, 0, 1, 1, 1],
+      [10, 10, 1, 1, 0, 0, 1, 1],
+      [0, 10, 0, 1, 1, 0, 0, 1],
+    ]
+    flatvertexdata = vertexdata.flatten
+    vertexbuffer1 = Lota::Graphics::Buffer.new(vertexformat, 4, vertex: true, debugname: "testvertexbuffer")
+    vertexbuffer2 = Lota::Graphics::Buffer.new(vertexformat, vertexdata, vertex: true)
+    assert_object(vertexbuffer1)
+    assert_object(vertexbuffer2)
+
+    # check buffer properties
+    assert_equal(4, vertexbuffer1.element_count, "check vertex count 1")
+    assert_equal(4, vertexbuffer2.element_count, "check vertex count 2")
+    # vertex buffers have their elements tightly packed.
+    assert_equal(20, vertexbuffer1.element_stride, "check vertex array stride")
+    assert_equal(20 * 4, vertexbuffer1.size, "check vertex buffer size")
+    vertexbuffer1.set_array_data(vertexdata)
+    vertexbuffer1.set_array_data(flatvertexdata)
+    vertexbuffer1.clear(8, 8) # partial clear (the first texcoord)
+
+    # check buffer types
+    assert_true(vertexbuffer1.buffer_type?(:vertex), "check is vertex buffer")
+    assert_false(vertexbuffer1.buffer_type?(:index), "check is not index buffer")
+    assert_false(vertexbuffer1.buffer_type?(:texel), "check is not texel buffer")
+    assert_false(vertexbuffer1.buffer_type?(:shaderstorage), "check is not shader storage buffer")
+
+    # check debug name
+    assert_equal("testvertexbuffer", vertexbuffer1.debug_name, "check buffer debug name")
+
+    # check buffer format and format properties
+    format = vertexbuffer1.format
+    assert_equal(Array, format.class, "check buffer format is table")
+    assert_equal(vertexformat.size, format.size, "check buffer format length")
+    vertexformat.each_with_index do |v, i|
+      assert_equal(v[:name], format[i].name, "check buffer format #{i + 1} name")
+      assert_equal(v[:format], format[i].format, "check buffer format #{i + 1} format")
+      assert_equal(0, format[i].arraylength, "check buffer format #{i + 1} array length")
+      assert_not_nil(format[i].offset)
+    end
+
+    # check index buffer
+    indexbuffer = Lota::Graphics::Buffer.new(:uint16, 128, index: true)
+    assert_true(indexbuffer.buffer_type?(:index), "check is index buffer")
+  end
+
+  # Translated to Ruby from love.test.graphics.ShaderStorageBuffer
+  # (vendor/love/testing/tests/graphics.lua:76-98): getSupported is
+  # supported (rule 3), test:skipTest Minitest's skip, and a format's
+  # names Strings and its formats Symbols. The rest as test_buffer names.
+  def test_shader_storage_buffer
+    skip("GLSL 4 and shader storage buffers are not supported on this system") unless Lota::Graphics.supported.glsl4
+
+    # setup buffer
+    format = [
+      { name: "1", format: :float },
+      { name: "2", format: :floatmat4x4 },
+      { name: "3", format: :floatvec2 },
+    ]
+    buffer = Lota::Graphics::Buffer.new(format, 1, shaderstorage: true)
+    assert_equal(96, buffer.element_stride, "check shader storage buffer element stride")
+
+    # set new data
+    data = Array.new(19, 0)
+    buffer.set_array_data(data)
+  end
+
+  # Translated to Ruby from love.test.graphics.Mesh
+  # (vendor/love/testing/tests/graphics.lua:434-558): newMesh becomes
+  # Mesh.new (rule 2); getDrawMode, getDrawRange, getTexture,
+  # getVertexCount, getVertexFormat, getVertex, getVertexAttribute, and
+  # getVertexMap draw_mode, draw_range, texture, vertex_count,
+  # vertex_format, vertex, vertex_attribute, and vertex_map (rule 3); the
+  # setters of several values writers of an Array (rules 5 and 6), so
+  # setVertex is vertex= with the index first, as ImageData:setPixel is
+  # pixel=, and setAttributeEnabled attribute_enabled= with the name and
+  # the flag; isAttributeEnabled attribute_enabled? (rule 8); draw modes
+  # and formats Symbols (rule 9); and getDrawRange, which returns two
+  # numbers or none, an Array (rule 4), so its first is nil as Lua's is. Lua's
+  # pcall becomes a rescue, as test_get_system_cursor has it. The rest as
+  # test_buffer names.
+  def test_mesh
+    # create 2d mesh with pretty colors
+    image = Lota::Graphics::Image.new("resources/love.png")
+    vertices = [
+      [0, 0, 0, 0, 1, 0, 0],
+      [image.width, 0, 1, 0, 0, 1, 0],
+      [image.width, image.height, 1, 1, 0, 0, 1],
+      [0, image.height, 0, 1, 1, 1, 0],
+    ]
+    mesh1 = Lota::Graphics::Mesh.new(vertices, :fan)
+    assert_object(mesh1)
+
+    # check draw mode
+    assert_equal(:fan, mesh1.draw_mode, "check draw mode")
+    mesh1.draw_mode = :triangles
+    assert_equal(:triangles, mesh1.draw_mode, "check draw mode set")
+
+    # check draw range
+    min1, = mesh1.draw_range
+    assert_nil(min1, "check draw range not set")
+    mesh1.draw_range = 1, 10
+    min2, max2 = mesh1.draw_range
+    assert_equal(1, min2, "check draw range set min")
+    assert_equal(10, max2, "check draw range set max")
+
+    # check texture pointer
+    assert_nil(mesh1.texture, "check no texture")
+    mesh1.texture = image
+    assert_equal(image.height, mesh1.texture.height, "check texture match w")
+    assert_equal(image.width, mesh1.texture.width, "check texture match h")
+
+    # check vertext count
+    assert_equal(4, mesh1.vertex_count, "check vertex count")
+
+    # check def vertex format
+    format = mesh1.vertex_format
+    assert_equal(:floatvec2, format[1].format, "check def vertex format 2")
+    assert_equal("VertexColor", format[2].name, "check def vertex format 3")
+
+    # check vertext attributes
+    assert_true(mesh1.attribute_enabled?("VertexPosition"), "check def attribute VertexPosition")
+    assert_true(mesh1.attribute_enabled?("VertexTexCoord"), "check def attribute VertexTexCoord")
+    assert_true(mesh1.attribute_enabled?("VertexColor"), "check def attribute VertexColor")
+    mesh1.attribute_enabled = "VertexPosition", false
+    mesh1.attribute_enabled = "VertexTexCoord", false
+    mesh1.attribute_enabled = "VertexColor", false
+    assert_false(mesh1.attribute_enabled?("VertexPosition"), "check disable attribute VertexPosition")
+    assert_false(mesh1.attribute_enabled?("VertexTexCoord"), "check disable attribute VertexTexCoord")
+    assert_false(mesh1.attribute_enabled?("VertexColor"), "check disable attribute VertexColor")
+
+    # check vertex itself
+    x1, y1, u1, v1, r1, g1, b1, a1 = mesh1.vertex(1)
+    assert_equal(0, x1, "check vertex props x")
+    assert_equal(0, y1, "check vertex props y")
+    assert_equal(0, u1, "check vertex props u")
+    assert_equal(0, v1, "check vertex props v")
+    assert_equal(1, r1, "check vertex props r")
+    assert_equal(0, g1, "check vertex props g")
+    assert_equal(0, b1, "check vertex props b")
+    assert_equal(1, a1, "check vertex props a")
+
+    # check setting a specific vertex
+    mesh1.vertex = 2, image.width, 0, 1, 0, 0, 1, 1, 1
+    x2, y2, u2, v2, r2, g2, b2, a2 = mesh1.vertex(2)
+    assert_equal(image.width, x2, "check changed vertex props x")
+    assert_equal(0, y2, "check changed vertex props y")
+    assert_equal(1, u2, "check changed vertex props u")
+    assert_equal(0, v2, "check changed vertex props v")
+    assert_equal(0, r2, "check changed vertex props r")
+    assert_equal(1, g2, "check changed vertex props g")
+    assert_equal(1, b2, "check changed vertex props b")
+    assert_equal(1, a2, "check changed vertex props a")
+
+    # check setting a specific vertex attribute
+    _r3, _g3, b3, = mesh1.vertex_attribute(3, 3)
+    assert_equal(1, b3, "check specific vertex color")
+    mesh1.vertex_attribute = 4, 3, 1, 0, 1
+    _r4, g4, = mesh1.vertex_attribute(4, 3)
+    assert_equal(0, g4, "check changed vertex color")
+
+    # check setting a vertice
+    mesh1.set_vertices(vertices)
+    _r5, g5, b5, = mesh1.vertex_attribute(4, 3)
+    _x6, _y6, _u6, _v6, _r6, _g6, _b6, _a6 = mesh1.vertex(2)
+    assert_equal(1, g5, "check reset vertex color 1")
+    assert_equal(0, b5, "check reset vertex color 2")
+
+    # check setting the vertex map
+    vmap1 = mesh1.vertex_map
+    assert_nil(vmap1, "check no map by def")
+    mesh1.set_vertex_map([4, 1, 2, 3])
+    vmap2 = mesh1.vertex_map
+    assert_equal(4, vmap2.size, "check set map len")
+    assert_equal(2, vmap2[2], "check set map val")
+
+    # check using custom attributes
+    mesh2 = Lota::Graphics::Mesh.new([
+      { name: "VertexPosition", format: :floatvec2, location: 0 },
+      { name: "VertexTexCoord", format: :floatvec2, location: 1 },
+      { name: "VertexColor", format: :floatvec4, location: 2 },
+      { name: "CustomValue1", format: :floatvec2, location: 3 },
+      { name: "CustomValue2", format: :uint16, location: 4 },
+    ], [
+      [0, 0, 0, 0, 1, 0, 0, 1, 2, 1, 1005],
+      [image.width, 0, 1, 0, 0, 1, 0, 0, 2, 2, 2005],
+      [image.width, image.height, 1, 1, 0, 0, 1, 0, 2, 3, 3005],
+      [0, image.height, 0, 1, 1, 1, 0, 0, 2, 4, 4005],
+    ], :fan)
+    c1, c2 = mesh2.vertex_attribute(1, 4)
+    c3, = mesh2.vertex_attribute(1, 5)
+    assert_equal(2, c1, "check custom attribute val 1")
+    assert_equal(1, c2, "check custom attribute val 2")
+    assert_equal(1005, c3, "check custom attribute val 3")
+
+    # check attaching custom attribute + detaching
+    mesh1.attach_attribute("CustomValue1", mesh2)
+    assert_true(mesh1.attribute_enabled?("CustomValue1"), "check custom attribute attached")
+    mesh1.detach_attribute("CustomValue1")
+    err = begin
+      mesh1.attribute_enabled?("CustomValue1")
+      nil
+    rescue => e
+      e
+    end
+    refute_equal(nil, err, "check attribute detached")
+    mesh1.detach_attribute("VertexPosition")
+    assert_true(mesh1.attribute_enabled?("VertexPosition"), "check cant detach def attribute")
+  end
+
+  # Translated to Ruby from love.test.graphics.ParticleSystem
+  # (vendor/love/testing/tests/graphics.lua:562-789): newParticleSystem
+  # becomes ParticleSystem.new (rule 2); the getters drop get and the
+  # predicates isX and hasX become x? (rules 3 and 8), so getCount is
+  # count, isActive active?, and hasRelativeRotation relative_rotation?;
+  # the setters writers (rule 5), those of several values taking an Array
+  # (rule 6), so setColors(1, 1, 1, 1, 1, 0, 0, 1) is colors = 1, 1, 1, 1,
+  # 1, 0, 0, 1 and setQuads(quad1, quad2) quads = quad1, quad2; getColors,
+  # getSizes, getQuads, and every getter of two or more numbers return
+  # Arrays (rule 4), so the Lua {psystem:getColors()}, a table of the
+  # colors, is the Array colors, and #{...} its size; emission areas and
+  # insert modes are Symbols (rule 9); and clone is Ruby's clone (rule
+  # 13's note on clone). Lua's math.pi is Math::PI, and math.floor
+  # Float#floor. The rest as test_circle names.
+  def test_particle_system
+    # create new system
+    image = Lota::Graphics::Image.new("resources/pixel.png")
+    quad1 = Lota::Graphics::Quad.new(0, 0, 1, 1, image)
+    quad2 = Lota::Graphics::Quad.new(0, 0, 1, 1, image)
+    psystem = Lota::Graphics::ParticleSystem.new(image, 1000)
+    assert_object(psystem)
+
+    # check psystem state properties
+    psystem.start
+    psystem.update(1)
+    assert_true(psystem.active?, "check active")
+    assert_false(psystem.paused?, "checked not paused by def")
+    assert_false(psystem.relative_rotation?, "check rel rot def")
+    psystem.pause
+    assert_true(psystem.paused?, "check now paused")
+    assert_false(psystem.stopped?, "check not stopped by def")
+    psystem.stop
+    assert_true(psystem.stopped?, "check now stopped")
+    psystem.start
+    psystem.reset
+
+    # check emitting some particles
+    # need to set a lifespan at minimum or none will be counted
+    min, max = psystem.particle_lifetime
+    assert_equal(0, min, "check def lifetime min")
+    assert_equal(0, max, "check def lifetime max")
+    psystem.particle_lifetime = 1, 2
+    psystem.emit(10)
+    psystem.update(1)
+    assert_equal(10, psystem.count, "check added particles")
+    psystem.reset
+    assert_equal(0, psystem.count, "check reset")
+
+    # check setting colors
+    colors1 = psystem.colors
+    assert_equal(1, colors1.size, "check 1 color by def")
+    psystem.colors = 1, 1, 1, 1, 1, 0, 0, 1
+    colors2 = psystem.colors
+    assert_equal(2, colors2.size, "check set colors")
+    assert_equal(1, colors2[1][0], "check set color")
+
+    # check setting direction
+    assert_equal(0, psystem.direction, "check def direction")
+    psystem.direction = 90 * (Math::PI / 180)
+    assert_equal((Math::PI / 2 * 100).floor, (psystem.direction * 100).floor, "check set direction")
+
+    # check emission area options
+    psystem.emission_area = :normal, 100, 50
+    psystem.emission_area = :ellipse, 100, 50
+    psystem.emission_area = :borderellipse, 100, 50
+    psystem.emission_area = :borderrectangle, 100, 50
+    psystem.emission_area = :none, 100, 50
+    psystem.emission_area = :uniform, 100, 50
+    dist, dx, dy, angle, rel = psystem.emission_area
+    assert_equal(:uniform, dist, "check emission area dist")
+    assert_equal(100, dx, "check emission area dx")
+    assert_equal(50, dy, "check emission area dy")
+    assert_equal(0, angle, "check emission area angle")
+    assert_false(rel, "check emission area rel")
+
+    # check emission rate
+    assert_equal(0, psystem.emission_rate, "check def emission rate")
+    psystem.emission_rate = 1
+    assert_equal(1, psystem.emission_rate, "check changed emission rate")
+
+    # check emission lifetime
+    assert_equal(-1, psystem.emitter_lifetime, "check def emitter life")
+    psystem.emitter_lifetime = 10
+    assert_equal(10, psystem.emitter_lifetime, "check changed emitter life")
+
+    # check insert mode
+    assert_equal(:top, psystem.insert_mode, "check def insert mode")
+    psystem.insert_mode = :bottom
+    psystem.insert_mode = :random
+    assert_equal(:random, psystem.insert_mode, "check change insert mode")
+
+    # check linear acceleration
+    xmin1, ymin1, xmax1, ymax1 = psystem.linear_acceleration
+    assert_equal(0, xmin1, "check def lin acceleration xmin")
+    assert_equal(0, ymin1, "check def lin acceleration ymin")
+    assert_equal(0, xmax1, "check def lin acceleration xmax")
+    assert_equal(0, ymax1, "check def lin acceleration ymax")
+    psystem.linear_acceleration = 1, 2, 3, 4
+    xmin2, ymin2, xmax2, ymax2 = psystem.linear_acceleration
+    assert_equal(1, xmin2, "check change lin acceleration xmin")
+    assert_equal(2, ymin2, "check change lin acceleration ymin")
+    assert_equal(3, xmax2, "check change lin acceleration xmax")
+    assert_equal(4, ymax2, "check change lin acceleration ymax")
+
+    # check linear damping
+    min3, max3 = psystem.linear_damping
+    assert_equal(0, min3, "check def lin damping min")
+    assert_equal(0, max3, "check def lin damping max")
+    psystem.linear_damping = 1, 2
+    min4, max4 = psystem.linear_damping
+    assert_equal(1, min4, "check change lin damping min")
+    assert_equal(2, max4, "check change lin damping max")
+
+    # check offset
+    ox1, oy1 = psystem.offset
+    assert_equal(0.5, ox1, "check def offset x") # 0.5 cos middle of pixel image which is 1x1
+    assert_equal(0.5, oy1, "check def offset y")
+    psystem.offset = 0, 10
+    ox2, oy2 = psystem.offset
+    assert_equal(0, ox2, "check change offset x")
+    assert_equal(10, oy2, "check change offset y")
+
+    # check lifetime (we set it earlier)
+    min5, max5 = psystem.particle_lifetime
+    assert_equal(1, min5, "check p lifetime min")
+    assert_equal(2, max5, "check p lifetime max")
+
+    # check position
+    x1, y1 = psystem.position
+    assert_equal(0, x1, "check emitter x")
+    assert_equal(0, y1, "check emitter y")
+    psystem.position = 10, 12
+    x2, y2 = psystem.position
+    assert_equal(10, x2, "check set emitter x")
+    assert_equal(12, y2, "check set emitter y")
+
+    # check quads
+    assert_equal(0, psystem.quads.size, "check def quads")
+    psystem.quads = [quad1]
+    psystem.quads = quad1, quad2
+    assert_equal(2, psystem.quads.size, "check set quads")
+
+    # check radial acceleration
+    min6, max6 = psystem.radial_acceleration
+    assert_equal(0, min6, "check def rad accel min")
+    assert_equal(0, max6, "check def rad accel max")
+    psystem.radial_acceleration = 1, 2
+    min7, max7 = psystem.radial_acceleration
+    assert_equal(1, min7, "check change rad accel min")
+    assert_equal(2, max7, "check change rad accel max")
+
+    # check rotation
+    min8, max8 = psystem.rotation
+    assert_equal(0, min8, "check def rot min")
+    assert_equal(0, max8, "check def rot max")
+    psystem.rotation = 90 * (Math::PI / 180), 180 * (Math::PI / 180)
+    min8, max8 = psystem.rotation
+    assert_equal((Math::PI / 2 * 100).floor, (min8 * 100).floor, "check set rot min")
+    assert_equal((Math::PI * 100).floor, (max8 * 100).floor, "check set rot max")
+
+    # check variation
+    assert_equal(0, psystem.size_variation, "check def variation")
+    psystem.size_variation = 1
+    assert_equal(1, psystem.size_variation, "check change variation")
+
+    # check sizes
+    assert_equal(1, psystem.sizes.size, "check def size")
+    psystem.sizes = 1, 2, 4, 1, 3, 2
+    sizes = psystem.sizes
+    assert_equal(6, sizes.size, "check set sizes")
+    assert_equal(3, sizes[4], "check set size")
+
+    # check speed
+    min9, max9 = psystem.speed
+    assert_equal(0, min9, "check def speed min")
+    assert_equal(0, max9, "check def speed max")
+    psystem.speed = 1, 10
+    min10, max10 = psystem.speed
+    assert_equal(1, min10, "check change speed min")
+    assert_equal(10, max10, "check change speed max")
+
+    # check variation + spin
+    variation = psystem.spin_variation
+    assert_equal(0, variation, "check def spin variation")
+    psystem.spin_variation = 1
+    assert_equal(1, psystem.spin_variation, "check change spin variation")
+    psystem.spin = 1, 2
+    min11, max11 = psystem.spin
+    assert_equal(1, min11, "check change spin min")
+    assert_equal(2, max11, "check change spin max")
+
+    # check spread
+    assert_equal(0, psystem.spread, "check def spread")
+    psystem.spread = 90 * (Math::PI / 180)
+    assert_equal((Math::PI / 2 * 100).floor, (psystem.spread * 100).floor, "check change spread")
+
+    # tangential acceleration
+    min12, max12 = psystem.tangential_acceleration
+    assert_equal(0, min12, "check def tan accel min")
+    assert_equal(0, max12, "check def tan accel max")
+    psystem.tangential_acceleration = 1, 2
+    min13, max13 = psystem.tangential_acceleration
+    assert_equal(1, min13, "check change tan accel min")
+    assert_equal(2, max13, "check change tan accel max")
+
+    # check texture
+    refute_equal(nil, psystem.texture, "check texture obj")
+    assert_object(psystem.texture)
+    psystem.texture = Lota::Graphics::Image.new("resources/love.png")
+    assert_object(psystem.texture)
+
+    # try a graphics test!
+    # hard to get exactly because of the variation but we can use some pixel
+    # tolerance and volume to try and cover the randomness
+    psystem2 = Lota::Graphics::ParticleSystem.new(image, 5000)
+    psystem2.emission_area = :uniform, 2, 64
+    psystem2.colors = 1, 0, 0, 1
+    psystem2.direction = 0 * Math::PI / 180
+    psystem2.emitter_lifetime = 100
+    psystem2.emission_rate = 5000
+    psystem3 = psystem2.clone
+    psystem3.position = 64, 0
+    psystem3.colors = 0, 1, 0, 1
+    psystem3.direction = 180 * (Math::PI / 180)
+    psystem2.start
+    psystem3.start
+    psystem2.update(1)
+    psystem3.update(1)
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(psystem2, 0, 0)
+    Lota::Graphics.draw(psystem3, 0, 0)
+    Lota::Graphics.canvas = nil
+    # this should result in a bunch of red pixels on the left 2px of the canvas
+    # and a bunch of green pixels on the right 2px of the canvas
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    @pixel_tolerance = 1
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.drawInstanced
+  # (vendor/love/testing/tests/graphics.lua:1449-1467): drawInstanced
+  # becomes draw_instanced (rule 13), and the rest as test_mesh and
+  # test_circle name.
+  def test_draw_instanced
+    image = Lota::Graphics::Image.new("resources/love.png")
+    vertices = [
+      [0, 0, 0, 0, 1, 0, 0],
+      [image.width, 0, 1, 0, 0, 1, 0],
+      [image.width, image.height, 1, 1, 0, 0, 1],
+      [0, image.height, 0, 1, 1, 1, 0],
+    ]
+    mesh = Lota::Graphics::Mesh.new(vertices, :fan)
+    canvas = Lota::Graphics::Canvas.new(64, 64)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw_instanced(mesh, 1000, 0, 0, 0, 1, 1)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    # need 1 tolerance here just cos of the amount of colors
+    @rgba_tolerance = 1
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.newMesh
+  # (vendor/love/testing/tests/graphics.lua:1737-1739): newMesh becomes
+  # Mesh.new (rule 2), with its draw mode and usage hint Symbols (rule 9).
+  def test_new_mesh
+    assert_object(Lota::Graphics::Mesh.new([[1, 1, 0, 0, 1, 1, 1, 1]], :fan, :dynamic))
+  end
+
+  # Translated to Ruby from love.test.graphics.newParticleSystem
+  # (vendor/love/testing/tests/graphics.lua:1744-1747): newParticleSystem
+  # becomes ParticleSystem.new (rule 2).
+  def test_new_particle_system
+    imgdata = Lota::Graphics::Image.new("resources/love.png")
+    assert_object(Lota::Graphics::ParticleSystem.new(imgdata, 1000))
   end
 
   # SPDX-SnippetEnd

@@ -6,11 +6,23 @@ module Lota
     class Shader
       include Object
 
+      class BufferFormat < ::Data
+        include Record
+
+        attr_reader name: String
+
+        attr_reader format: Symbol
+
+        attr_reader arraylength: Integer
+
+        def self.new: (name: String, format: Symbol, arraylength: Integer) -> instance
+      end
+
       type source = String | Filesystem::FileData | nil
 
       type defines = Hash[String | Symbol, String | Integer | Float | bool] | Array[String | Symbol] | nil
 
-      type value = Float | Integer | bool | Symbol | Texture | Math::Transform | Lota::Data | Array[Float | Integer | bool | Array[Float | Integer]]
+      type value = Float | Integer | bool | Symbol | Texture | GraphicsBuffer | Math::Transform | Lota::Data | Array[Float | Integer | bool | Array[Float | Integer]]
 
       attr_reader native: Native::Shader
 
@@ -43,6 +55,10 @@ module Lota
       private def self.glsl_error_line: (String line) -> String?
 
       def warnings: () -> String
+
+      def self.compute: (source first, Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
+
+      def buffer_format: (String name) -> Array[BufferFormat]
 
       def send: (String name, *value values) -> nil
 

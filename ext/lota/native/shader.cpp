@@ -11,15 +11,18 @@
 #include "common/Exception.h"
 #include "common/Matrix.h"
 #include "common/Module.h"
+#include "graphics/Buffer.h"
 #include "graphics/Graphics.h"
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
+#include "graphics/vertex.h"
 #include "math/MathModule.h"
 #include "math/Transform.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -27,6 +30,7 @@
 
 namespace lota::native {
 
+using love::graphics::Buffer;
 using love::graphics::Graphics;
 using love::graphics::Shader;
 using love::graphics::Texture;
@@ -354,10 +358,26 @@ void send_textures(const Values &values, int start, Shader &shader, const Unifor
   shader.sendTextures(uniform.info, textures.data(), count);
 }
 
-// w_Shader_sendLuaValues (lines 305-328). A texel or storage buffer takes
-// a Buffer (w_Shader_sendBuffers, lines 288-303), which Lota does not
-// bind yet, so every value is the wrong type for one, as LÖVE's
-// luax_checktype<Buffer> finds it.
+// luax_checktype<Buffer>.
+Buffer *check_buffer(const Rice::Object &value) {
+  if (!ruby::is_kind_of(value, Rice::Data_Type<Buffer>::klass())) {
+    raise_expected(value, "Lota::Graphics::Buffer");
+  }
+  return Rice::detail::From_Ruby<Buffer *>().convert(value.value());
+}
+
+// w_Shader_sendBuffers (lines 288-303).
+void send_buffers(const Values &values, int start, Shader &shader, const Uniform &uniform) {
+  const int count = count_of(values, start, uniform);
+  std::vector<Buffer *> buffers;
+  buffers.reserve(static_cast<std::size_t>(count));
+  for (int i = 0; i < count; i++) {
+    buffers.push_back(check_buffer(at(values, start + i)));
+  }
+  shader.sendBuffers(uniform.info, buffers.data(), count);
+}
+
+// w_Shader_sendLuaValues (lines 305-328).
 void send_values(const Values &values, int start, Shader &shader, const Uniform &uniform,
                  const std::string &name) {
   switch (uniform.info->baseType) {
@@ -382,7 +402,8 @@ void send_values(const Values &values, int start, Shader &shader, const Uniform 
     return;
   case Shader::UNIFORM_TEXELBUFFER:
   case Shader::UNIFORM_STORAGEBUFFER:
-    raise_expected(at(values, start), "Buffer");
+    send_buffers(values, start, shader, uniform);
+    return;
   default:
     throw love::Exception("Unknown variable type for shader uniform '%s", name.c_str());
   }
@@ -613,6 +634,17 @@ Shader *new_shader(Rice::Array stages, const std::string &debugname, Rice::Array
   return instance.newShader(sources_of(sources), compile_options(pairs, debugname, write));
 }
 
+// w_newComputeShader's shader (lines 1647-1683): the compute stage of the
+// first source, made as new_shader makes a shader.
+Shader *new_compute_shader(Rice::Array stages, const std::string &debugname, Rice::Array defines,
+                           bool write) {
+  const Rice::Array sources = std::move(stages);
+  const Rice::Array pairs = std::move(defines);
+  Graphics &instance = graphics();
+  return instance.newComputeShader(sources_of(sources).at(0),
+                                   compile_options(pairs, debugname, write));
+}
+
 // w_validateShader (lines 1685-1717): whether the sources compile for the
 // renderer +gles+ names, and the message they do not with.
 Rice::Array validate_shader(bool gles, Rice::Array stages, const std::string &debugname,
@@ -639,6 +671,40 @@ Rice::Array validate_shader(bool gles, Rice::Array stages, const std::string &de
   return results;
 }
 
+// w_Shader_getBufferFormat (wrap_Shader.cpp:517-550): the name, format, and
+// array length of each member of the buffer +name+ the shader declares.
+Rice::Array shader_buffer_format(Shader &shader, const std::string &name) {
+  require_main_thread(MODULE);
+  const std::vector<Buffer::DataDeclaration> *format = shader.getBufferFormat(name);
+  if (format == nullptr) {
+    throw love::Exception("Buffer '%s' does not exist in the Shader.", name.c_str());
+  }
+  Rice::Array members;
+  for (const Buffer::DataDeclaration &member : *format) {
+    const char *formatname = "unknown";
+    love::graphics::getConstant(member.format, formatname);
+    Rice::Array fields;
+    fields.push(member.name, false);
+    fields.push(std::string(formatname), false);
+    fields.push(member.arrayLength, false);
+    members.push(fields, false);
+  }
+  return members;
+}
+
+// w_dispatchThreadgroups (wrap_Graphics.cpp:3794-3802).
+void dispatch_threadgroups(Shader *shader, long long x, std::optional<long long> y,
+                           std::optional<long long> z) {
+  graphics().dispatchThreadgroups(shader, static_cast<int>(x), static_cast<int>(y.value_or(1)),
+                                  static_cast<int>(z.value_or(1)));
+}
+
+// w_dispatchIndirect (wrap_Graphics.cpp:3804-3811): the groups the
+// element +argsindex+, counting from 1, of +argsbuffer+ counts.
+void dispatch_indirect(Shader *shader, Buffer *argsbuffer, std::optional<long long> argsindex) {
+  graphics().dispatchIndirect(shader, argsbuffer, static_cast<int>(argsindex.value_or(1)) - 1);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -648,6 +714,7 @@ void define_shader(const Rice::Module &native) {
   define_engine_class<Shader>(native, "Shader")
       .define_method("send_values", &shader_send, Rice::Arg("name"), Rice::Arg("values"))
       .define_method("send_color", &shader_send_color, Rice::Arg("name"), Rice::Arg("values"))
+      .define_method("buffer_format", &shader_buffer_format, Rice::Arg("name"))
       .define_method(
           "deprecated_texture_functions?",
           [](const Shader &shader) { return shader.isUsingDeprecatedTextureFunctions(); })
@@ -659,7 +726,16 @@ void define_shader(const Rice::Module &native) {
 
   Rice::define_module_under(native, "Graphics")
       .define_singleton_function("check_created", &check_graphics_created)
+      .define_singleton_function(
+          "dispatch_threadgroups", &dispatch_threadgroups, Rice::Arg("shader"), Rice::Arg("x"),
+          Rice::Arg("y") = std::optional<long long>(), Rice::Arg("z") = std::optional<long long>())
+      .define_singleton_function("dispatch_indirect", &dispatch_indirect, Rice::Arg("shader"),
+                                 Rice::Arg("argsbuffer"),
+                                 Rice::Arg("argsindex") = std::optional<long long>())
       .define_singleton_function("new_shader", &new_shader, Rice::Arg("stages"),
+                                 Rice::Arg("debugname"), Rice::Arg("defines"), Rice::Arg("write"),
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("new_compute_shader", &new_compute_shader, Rice::Arg("stages"),
                                  Rice::Arg("debugname"), Rice::Arg("defines"), Rice::Arg("write"),
                                  Rice::Return().takeOwnership())
       .define_singleton_function("validate_shader", &validate_shader, Rice::Arg("gles"),

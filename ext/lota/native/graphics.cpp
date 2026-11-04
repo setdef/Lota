@@ -23,8 +23,11 @@
 #include "font/Rasterizer.h"
 #include "font/TextShaper.h"
 #include "font/TrueTypeRasterizer.h"
+#include "graphics/Buffer.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
+#include "graphics/Mesh.h"
+#include "graphics/ParticleSystem.h"
 #include "graphics/Quad.h"
 #include "graphics/SpriteBatch.h"
 #include "graphics/TextBatch.h"
@@ -811,6 +814,52 @@ void draw_sprite_batch(love::graphics::SpriteBatch *batch, Rice::Array placement
   graphics().draw(batch, placement_of(numbers));
 }
 
+// w_draw of a Mesh or a ParticleSystem with numbers or a Transform
+// (wrap_Graphics.cpp:3245-3279).
+void draw_mesh(love::graphics::Mesh *mesh, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(mesh, placement_of(numbers));
+}
+
+void draw_mesh_with_transform(love::graphics::Mesh *mesh, const love::math::Transform *transform) {
+  graphics().draw(mesh, transform->getMatrix());
+}
+
+void draw_particle_system(love::graphics::ParticleSystem *system, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(system, placement_of(numbers));
+}
+
+void draw_particle_system_with_transform(love::graphics::ParticleSystem *system,
+                                         const love::math::Transform *transform) {
+  graphics().draw(system, transform->getMatrix());
+}
+
+// w_drawInstanced (wrap_Graphics.cpp:3313-3324): +instancecount+ copies
+// of a Mesh, placed by the nine numbers or a Transform.
+void draw_instanced(love::graphics::Mesh *mesh, int instancecount, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().drawInstanced(mesh, placement_of(numbers), instancecount);
+}
+
+void draw_instanced_with_transform(love::graphics::Mesh *mesh, int instancecount,
+                                   const love::math::Transform *transform) {
+  graphics().drawInstanced(mesh, transform->getMatrix(), instancecount);
+}
+
+// w_drawIndirect (wrap_Graphics.cpp:3326-3336): a Mesh drawn as the
+// element +argsindex+, counting from 1, of +argsbuffer+ says.
+void draw_indirect(love::graphics::Mesh *mesh, love::graphics::Buffer *argsbuffer, int argsindex,
+                   Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().drawIndirect(mesh, placement_of(numbers), argsbuffer, argsindex - 1);
+}
+
+void draw_indirect_with_transform(love::graphics::Mesh *mesh, love::graphics::Buffer *argsbuffer,
+                                  int argsindex, const love::math::Transform *transform) {
+  graphics().drawIndirect(mesh, transform->getMatrix(), argsbuffer, argsindex - 1);
+}
+
 // w_draw of a Texture through a Quad (wrap_Graphics.cpp:3245-3279): the
 // part of +texture+ the quad shows, placed by the nine numbers.
 void draw_quad(Texture *texture, love::graphics::Quad *quad, Rice::Array placement) {
@@ -1325,6 +1374,25 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("draw", &draw, Rice::Arg("texture"), Rice::Arg("placement"))
       .define_singleton_function("draw_sprite_batch", &draw_sprite_batch, Rice::Arg("batch"),
                                  Rice::Arg("placement"))
+      .define_singleton_function("draw_mesh", &draw_mesh, Rice::Arg("mesh"), Rice::Arg("placement"))
+      .define_singleton_function("draw_mesh_with_transform", &draw_mesh_with_transform,
+                                 Rice::Arg("mesh"), Rice::Arg("transform"))
+      .define_singleton_function("draw_particle_system", &draw_particle_system, Rice::Arg("system"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("draw_particle_system_with_transform",
+                                 &draw_particle_system_with_transform, Rice::Arg("system"),
+                                 Rice::Arg("transform"))
+      .define_singleton_function("draw_instanced", &draw_instanced, Rice::Arg("mesh"),
+                                 Rice::Arg("instancecount"), Rice::Arg("placement"))
+      .define_singleton_function("draw_instanced_with_transform", &draw_instanced_with_transform,
+                                 Rice::Arg("mesh"), Rice::Arg("instancecount"),
+                                 Rice::Arg("transform"))
+      .define_singleton_function("draw_indirect", &draw_indirect, Rice::Arg("mesh"),
+                                 Rice::Arg("argsbuffer"), Rice::Arg("argsindex"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("draw_indirect_with_transform", &draw_indirect_with_transform,
+                                 Rice::Arg("mesh"), Rice::Arg("argsbuffer"), Rice::Arg("argsindex"),
+                                 Rice::Arg("transform"))
       .define_singleton_function("draw_quad", &draw_quad, Rice::Arg("texture"), Rice::Arg("quad"),
                                  Rice::Arg("placement"))
       .define_singleton_function("draw_with_transform", &draw_with_transform, Rice::Arg("texture"),

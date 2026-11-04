@@ -8,11 +8,15 @@
 require_relative "graphics/texture_settings"
 require_relative "graphics/texture"
 require_relative "graphics/array_image"
+require_relative "graphics/graphics_buffer"
 require_relative "graphics/canvas"
+require_relative "graphics/compute_shader"
 require_relative "graphics/cube_image"
 require_relative "graphics/font"
 require_relative "graphics/image"
 require_relative "graphics/image_font"
+require_relative "graphics/mesh"
+require_relative "graphics/particle_system"
 require_relative "graphics/quad"
 require_relative "graphics/shader"
 require_relative "graphics/sprite_batch"
@@ -867,8 +871,9 @@ module Lota
     #
     # The current color tints what is drawn, so white draws it as it is.
     # LÖVE reads each number as a single-precision float, and so does
-    # Lota. LÖVE also draws meshes, text, and its other drawables; Lota
-    # binds those forms with them.
+    # Lota. A drawable is a Lota::Graphics::Texture, SpriteBatch,
+    # TextBatch, Mesh, or ParticleSystem; LÖVE's other drawable, a video,
+    # waits for story 6.
     #
     # Raises TypeError for a drawable Lota cannot draw, for a quad with a
     # drawable that is not a Texture, for +nil+ in place of a quad with
@@ -903,6 +908,8 @@ module Lota
       when Texture then Native::Graphics.draw(drawable.native, placement)
       when SpriteBatch then Native::Graphics.draw_sprite_batch(drawable.native, placement)
       when TextBatch then Native::Graphics.draw_text_batch(drawable.native, placement)
+      when Mesh then Native::Graphics.draw_mesh(drawable.native, placement)
+      when ParticleSystem then Native::Graphics.draw_particle_system(drawable.native, placement)
       else raise TypeError, not_drawable(drawable)
       end
     end
@@ -930,6 +937,8 @@ module Lota
       when Texture then Native::Graphics.draw_with_transform(drawable.native, transform.native)
       when SpriteBatch then Native::Graphics.draw_sprite_batch_with_transform(drawable.native, transform.native)
       when TextBatch then Native::Graphics.draw_text_batch_with_transform(drawable.native, transform.native)
+      when Mesh then Native::Graphics.draw_mesh_with_transform(drawable.native, transform.native)
+      when ParticleSystem then Native::Graphics.draw_particle_system_with_transform(drawable.native, transform.native)
       else raise TypeError, not_drawable(drawable)
       end
     end
@@ -937,7 +946,8 @@ module Lota
     # The message for a +drawable+ draw cannot draw.
     private_class_method def self.not_drawable(drawable)
       "wrong argument type #{drawable.class} " \
-        "(expected Lota::Graphics::Texture, Lota::Graphics::SpriteBatch, or Lota::Graphics::TextBatch)"
+        "(expected Lota::Graphics::Texture, Lota::Graphics::SpriteBatch, Lota::Graphics::TextBatch, " \
+        "Lota::Graphics::Mesh, or Lota::Graphics::ParticleSystem)"
     end
 
     # Draws one layer of an array texture in the current color, matching
@@ -984,6 +994,133 @@ module Lota
 
       Native::Graphics.draw_layer(texture.native, layer.to_i, quad.is_a?(Quad) ? quad.native : nil,
         placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky))
+    end
+
+    # Draws copies of a mesh at once, matching love.graphics.drawInstanced
+    # (src/modules/graphics/wrap_Graphics.cpp, w_drawInstanced).
+    #
+    # [mesh] Lota::Graphics::Mesh to draw.
+    # [instancecount] Integer number of copies.
+    # [x] Placement as for draw: up to nine numbers, or a
+    #   Lota::Math::Transform.
+    #
+    # A vertex shader tells the copies apart by +gl_InstanceID+, or by an
+    # attribute attached to the mesh with +:perinstance+ steps. Returns
+    # +nil+. Raises TypeError for a mesh that is not a Mesh or a number of
+    # the wrong type, RuntimeError with LÖVE's message when the renderer
+    # cannot draw instances, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.draw_instanced(tile, 1000)
+    #   Lota::Graphics.draw_instanced(tile, 1000, 100, 100, 0, 2)
+    #
+    # :call-seq:
+    #   draw_instanced(mesh, instancecount, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   draw_instanced(mesh, instancecount, transform)
+    def self.draw_instanced(mesh, instancecount, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil,
+      kx = nil, ky = nil
+    )
+      raise TypeError, "wrong argument type #{mesh.class} (expected Lota::Graphics::Mesh)" unless mesh.is_a?(Mesh)
+
+      if x.is_a?(Math::Transform)
+        return Native::Graphics.draw_instanced_with_transform(mesh.native, instancecount, x.native)
+      end
+
+      Native::Graphics.draw_instanced(mesh.native, instancecount, standard_placement(x, y, r, sx, sy, ox, oy, kx, ky))
+    end
+
+    # Draws a mesh as a buffer of arguments says, matching
+    # love.graphics.drawIndirect (src/modules/graphics/wrap_Graphics.cpp,
+    # w_drawIndirect).
+    #
+    # [mesh] Lota::Graphics::Mesh to draw.
+    # [argsbuffer] Lota::Graphics::GraphicsBuffer of draw arguments, made with
+    #   +indirectarguments: true+.
+    # [argsindex] Integer element of it to read, counting from 1.
+    # [x] Placement as for draw_instanced.
+    #
+    # Returns +nil+. Raises what draw_instanced raises, and RuntimeError
+    # with LÖVE's message when the renderer cannot draw indirectly.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.draw_indirect(tile, arguments, 1, 100, 100)
+    #
+    # :call-seq:
+    #   draw_indirect(mesh, argsbuffer, argsindex, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+    #   draw_indirect(mesh, argsbuffer, argsindex, transform)
+    def self.draw_indirect(mesh, argsbuffer, argsindex, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil,
+      oy = nil, kx = nil, ky = nil
+    )
+      raise TypeError, "wrong argument type #{mesh.class} (expected Lota::Graphics::Mesh)" unless mesh.is_a?(Mesh)
+      unless argsbuffer.is_a?(GraphicsBuffer)
+        raise TypeError, "wrong argument type #{argsbuffer.class} (expected Lota::Graphics::GraphicsBuffer)"
+      end
+
+      if x.is_a?(Math::Transform)
+        return Native::Graphics.draw_indirect_with_transform(mesh.native, argsbuffer.native, argsindex, x.native)
+      end
+
+      Native::Graphics.draw_indirect(mesh.native, argsbuffer.native, argsindex,
+        standard_placement(x, y, r, sx, sy, ox, oy, kx, ky))
+    end
+
+    # Runs a compute shader, matching love.graphics.dispatchThreadgroups
+    # (src/modules/graphics/wrap_Graphics.cpp, w_dispatchThreadgroups).
+    #
+    # [shader] Lota::Graphics::Shader with a compute stage.
+    # [x] Integer number of thread groups along x.
+    # [y] Integer along y, 1 when left out.
+    # [z] Integer along z, 1 when left out.
+    #
+    # Returns +nil+. Raises TypeError for a shader that is not a Shader,
+    # RuntimeError with LÖVE's message for one with no compute stage or a
+    # renderer that cannot run it, and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.dispatch_threadgroups(simulate, 64)
+    def self.dispatch_threadgroups(shader, x, y = nil, z = nil)
+      raise TypeError, "wrong argument type #{shader.class} (expected Lota::Graphics::Shader)" unless shader.is_a?(Shader)
+
+      Native::Graphics.dispatch_threadgroups(shader.native, x, y, z)
+    end
+
+    # Runs a compute shader for the groups a buffer says, matching
+    # love.graphics.dispatchIndirect (src/modules/graphics/wrap_Graphics.cpp,
+    # w_dispatchIndirect).
+    #
+    # [shader] Lota::Graphics::Shader with a compute stage.
+    # [argsbuffer] Lota::Graphics::GraphicsBuffer of the groups, made with
+    #   +indirectarguments: true+.
+    # [argsindex] Integer element of it to read, counting from 1, 1 when
+    #   left out.
+    #
+    # Returns +nil+. Raises what dispatch_threadgroups raises.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.dispatch_indirect(simulate, groups)
+    def self.dispatch_indirect(shader, argsbuffer, argsindex = nil)
+      raise TypeError, "wrong argument type #{shader.class} (expected Lota::Graphics::Shader)" unless shader.is_a?(Shader)
+      unless argsbuffer.is_a?(GraphicsBuffer)
+        raise TypeError, "wrong argument type #{argsbuffer.class} (expected Lota::Graphics::GraphicsBuffer)"
+      end
+
+      Native::Graphics.dispatch_indirect(shader.native, argsbuffer.native, argsindex)
+    end
+
+    # The Lota::Graphics::GraphicsBuffer of indices that draws quads from four
+    # vertices each, or +nil+ before the window is open, matching love.graphics.getQuadIndexBuffer
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getQuadIndexBuffer).
+    #
+    # === Example
+    #
+    #   Lota::Graphics.quad_index_buffer.buffer_type?(:index) # => true
+    def self.quad_index_buffer
+      native = Native::Graphics.quad_index_buffer
+      native && GraphicsBuffer.from_native(native)
     end
 
     # The window's width, in units of the screen's DPI scale, matching

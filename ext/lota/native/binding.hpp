@@ -54,7 +54,10 @@
 
 // The engine classes of the modules LÖVE confines to its main thread, so
 // that every binding sees the same list (ReleasedOnMainThread, below).
+#include "graphics/Buffer.h"
 #include "graphics/Font.h"
+#include "graphics/Mesh.h"
+#include "graphics/ParticleSystem.h"
 #include "graphics/Quad.h"
 #include "graphics/Shader.h"
 #include "graphics/SpriteBatch.h"
@@ -159,6 +162,9 @@ template <> struct ReleasedOnMainThread<love::graphics::Font> : std::true_type {
 template <> struct ReleasedOnMainThread<love::graphics::Quad> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Shader> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Buffer> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Mesh> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::ParticleSystem> : std::true_type {};
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.

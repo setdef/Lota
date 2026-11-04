@@ -5,6 +5,7 @@
 
 #include "native/audio.hpp"
 #include "native/binding.hpp"
+#include "native/buffer.hpp"
 #include "native/data.hpp"
 #include "native/errors.hpp"
 #include "native/event.hpp"
@@ -16,6 +17,7 @@
 #include "native/keyboard.hpp"
 #include "native/math.hpp"
 #include "native/mouse.hpp"
+#include "native/particle_system.hpp"
 #include "native/physics.hpp"
 #include "native/random_generator.hpp"
 #include "native/shader.hpp"
@@ -76,6 +78,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_graphics(native);
   lota::native::define_texture(native);
   lota::native::define_shader(native);
+  lota::native::define_buffer(native);
+  lota::native::define_particle_system(native);
   lota::native::define_physics(native);
   // After the hand-written bindings, which define the classes the
   // generated ones add methods to.
