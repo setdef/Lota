@@ -24,6 +24,10 @@ The authority is the pinned submodule `vendor/love` (`git submodule update --ini
 
 Use "LÖVE", "LOVE", "Love2D", and LÖVE's heart logo only in ways that need no permission from their owner. Use the name only as plain text, and only where it is needed to say what Lota builds on, works with, or translates from ("builds a modified version of LÖVE's engine", "matching love.graphics.push"). Never put it in Lota's own names (project, gem, module, command, repository, domain, or product), except an identifier that must match LÖVE's API so that LÖVE code runs unchanged, such as the `love` method that `lota/compat` defines; such identifiers live only in opt-in compatibility code. Never use the logo or LÖVE's stylized artwork, and never word anything so it suggests the LÖVE Development Team made, endorses, or supports Lota. The README carries the statement that Lota is independent.
 
+## Reporting upstream
+
+LÖVE does not accept pull requests, bug reports, or other contributions made with LLM or generative AI tools (its README, in Contributing), so an agent files nothing at LÖVE, and the maintainer does not report in an agent's place. What an agent finds wrong in LÖVE's engine or tests goes into a numbered file of its own, `doc/contributors/upstream/NNN.md` (the next number after the last), written as the report the agent would file if it could: what is wrong, where in LÖVE's source, how to reproduce it, and what Lota does about it. Lota works around a finding in its own code whenever it can. Only when it cannot may an agent consider a patch file (ADR 001, section 2) and say why nothing else works. A fork of LÖVE needs the maintainer's permission first. Read any other project's contribution policy before putting anything in its tracker.
+
 ## How to work
 
 - Research before designing: read the LÖVE source and the relevant ADR in `doc/contributors/adr/` first.
@@ -38,6 +42,7 @@ Use "LÖVE", "LOVE", "Love2D", and LÖVE's heart logo only in ways that need no 
 - Every Ruby method has an RBS signature in `sig/` mirroring `lib/`. No `untyped`, no comments in `.rbs`. For `Data.define` classes, declare `self.new` instead of `initialize` (Steep mis-checks `initialize` there); plain classes declare `initialize` as usual.
 - RDoc (never YARD) in `.rb` files only. Wrap SPDX headers in `#--` / `#++`.
 - Architectural decisions get an ADR; plans live in `doc/contributors/plan/`.
+- Editing README.md or README.rdoc requires reading both files in full first, then rewriting for coherence, not appending.
 
 ## Commands
 
