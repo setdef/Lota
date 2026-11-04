@@ -52,9 +52,11 @@ On Linux the sanitizers are GCC's, which builds LÖVE's Linux engine, loaded wit
 
 `test/sanitizers` holds deliberate memory bugs, and only this task runs it.
 
-## The physics patch
+## The patches
 
-LÖVE's physics module holds Lua in its engine classes, so Lota changes it with its one patch, `ext/lota/engine/physics.patch` (ADR 001, section 2): when CMake configures the engine it copies `vendor/love/src/modules/physics` into the build tree's `patched/love`, applies the patch with `patch`, and compiles the copy, whose headers come before LÖVE's own, so `vendor/love` is never written to. A file the patch no longer applies to stops the configure. The patched files keep LÖVE's code, and replace each read or push of the Lua stack with C++ parameters and results, and each Lua reference with the `Reference` interfaces in the patch's new `Reference.h`, which `ext/lota/native/physics.cpp` implements. To change it, apply it to a copy of the module, edit the copy, and write the patch again with `diff -ruN`, paths starting `a/src` and `b/src`.
+LÖVE's physics module holds Lua in its engine classes, so Lota changes it with a patch, `ext/lota/engine/physics.patch` (ADR 001, section 2): when CMake configures the engine it copies `vendor/love/src/modules/physics` into the build tree's `patched/love`, applies the patch with `patch`, and compiles the copy, whose headers come before LÖVE's own, so `vendor/love` is never written to. A file the patch no longer applies to stops the configure. The patched files keep LÖVE's code, and replace each read or push of the Lua stack with C++ parameters and results, and each Lua reference with the `Reference` interfaces in the patch's new `Reference.h`, which `ext/lota/native/physics.cpp` implements. To change it, apply it to a copy of the module, edit the copy, and write the patch again with `diff -ruN`, paths starting `a/src` and `b/src`.
+
+The other patch, `ext/lota/engine/mesh.patch`, changes one statement of `src/modules/graphics/Mesh.cpp`, so that a Mesh frees its vertex data with `delete[]`, as it allocated it, where LÖVE's frees it with `delete`, which AddressSanitizer on Linux reports when the first Mesh is destroyed (`doc/contributors/upstream/005.md`). CMake applies it as it does the physics patch, to a copy of the file in `patched/love`, which it compiles with `-iquote` naming the file's own folder in `vendor/love`, so that the headers it includes in quotes are found where they were.
 
 ## Bindings
 

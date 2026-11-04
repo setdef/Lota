@@ -1,0 +1,28 @@
+SPDX-FileCopyrightText: 2006-2026 LOVE Development Team
+SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+SPDX-License-Identifier: Zlib
+
+Lota's Mesh patch: one statement of LÖVE's src/modules/graphics/Mesh.cpp.
+Mesh's constructors allocate its vertex data with new uint8[] (lines 53 and
+92), and its destructor frees it with delete (line 140), which C++ leaves
+undefined for memory new[] allocated. On Linux, AddressSanitizer stops
+rake test:native at the first Mesh destroyed, as an alloc-dealloc-mismatch
+(doc/contributors/upstream/005.md). Nothing outside Mesh.cpp can reach that
+statement: the pointer is private, and the destructor runs wherever a
+Mesh's last reference goes. This patch frees it with delete[], as it was
+allocated, and changes nothing else. CMake applies it to a copy of the file
+at configure time (ext/lota/engine/CMakeLists.txt); vendor/love is never
+written to.
+
+diff -ruN a/src/modules/graphics/Mesh.cpp b/src/modules/graphics/Mesh.cpp
+--- a/src/modules/graphics/Mesh.cpp
++++ b/src/modules/graphics/Mesh.cpp
+@@ -137,7 +137,7 @@
+ 
+ Mesh::~Mesh()
+ {
+-	delete vertexData;
++	delete[] vertexData;
+ 	if (indexData != nullptr)
+ 		free(indexData);
+ }

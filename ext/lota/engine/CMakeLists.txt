@@ -18,45 +18,61 @@ else()
 	message(FATAL_ERROR "Lota builds its engine on macOS, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
 endif()
 
-# Lota's physics patch (ADR 001, section 2, and physics.patch), applied to a
-# copy of LÖVE's physics module in the build tree, which the engine compiles
-# in place of vendor/love's. The copy is made when CMake configures, again
-# whenever the patch or a file of the module changes, and a patched file is
-# written only when it differs, so an unchanged file is not rebuilt.
+# Lota's patches of LÖVE's engine, each applied to a copy of the files it
+# changes in the build tree, which the engine compiles in place of
+# vendor/love's: physics.patch (ADR 001, section 2) to LÖVE's physics
+# module, and mesh.patch, which frees a Mesh's vertex data as it was
+# allocated, to graphics/Mesh.cpp. The copy is made when CMake configures,
+# again whenever a patch or one of the files it patches is edited, and a
+# patched file is written only when it differs, so an unchanged file is not
+# rebuilt.
 set(PHYSICS_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/physics.patch)
+set(MESH_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/mesh.patch)
+set(MESH_SOURCE src/modules/graphics/Mesh.cpp)
 set(PATCHED_SOURCE_DIR ${CMAKE_BINARY_DIR}/patched/love)
-set(PHYSICS_STAGING ${CMAKE_BINARY_DIR}/patched/staging)
+set(PATCH_STAGING ${CMAKE_BINARY_DIR}/patched/staging)
 file(GLOB_RECURSE PHYSICS_FILES RELATIVE ${ENGINE_SOURCE_DIR} ${ENGINE_SOURCE_DIR}/src/modules/physics/*)
 list(FILTER PHYSICS_FILES EXCLUDE REGEX "/wrap_[^/]*$")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PHYSICS_PATCH})
-file(REMOVE_RECURSE ${PHYSICS_STAGING})
-foreach(path IN LISTS PHYSICS_FILES)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PHYSICS_PATCH} ${MESH_PATCH})
+file(REMOVE_RECURSE ${PATCH_STAGING})
+foreach(path IN LISTS PHYSICS_FILES MESH_SOURCE)
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ENGINE_SOURCE_DIR}/${path})
-	configure_file(${ENGINE_SOURCE_DIR}/${path} ${PHYSICS_STAGING}/${path} COPYONLY)
+	configure_file(${ENGINE_SOURCE_DIR}/${path} ${PATCH_STAGING}/${path} COPYONLY)
 endforeach()
-execute_process(
-	COMMAND patch -p1 --forward --batch --silent --no-backup-if-mismatch -i ${PHYSICS_PATCH}
-	WORKING_DIRECTORY ${PHYSICS_STAGING}
-	RESULT_VARIABLE physics_patch_result
-	OUTPUT_VARIABLE physics_patch_output
-	ERROR_VARIABLE physics_patch_output)
-if(NOT physics_patch_result EQUAL 0)
-	message(FATAL_ERROR "physics.patch does not apply to ${ENGINE_SOURCE_DIR}/src/modules/physics; "
-		"update it for this LÖVE:\n${physics_patch_output}")
-endif()
-file(GLOB_RECURSE PATCHED_FILES RELATIVE ${PHYSICS_STAGING} ${PHYSICS_STAGING}/*)
+foreach(patch IN ITEMS physics mesh)
+	string(TOUPPER ${patch} name)
+	execute_process(
+		COMMAND patch -p1 --forward --batch --silent --no-backup-if-mismatch -i ${${name}_PATCH}
+		WORKING_DIRECTORY ${PATCH_STAGING}
+		RESULT_VARIABLE patch_result
+		OUTPUT_VARIABLE patch_output
+		ERROR_VARIABLE patch_output)
+	if(NOT patch_result EQUAL 0)
+		message(FATAL_ERROR "${patch}.patch does not apply to ${ENGINE_SOURCE_DIR}; "
+			"update it for this LÖVE:\n${patch_output}")
+	endif()
+endforeach()
+file(GLOB_RECURSE PATCHED_FILES RELATIVE ${PATCH_STAGING} ${PATCH_STAGING}/*)
 foreach(path IN LISTS PATCHED_FILES)
 	cmake_path(GET path PARENT_PATH directory)
 	file(MAKE_DIRECTORY ${PATCHED_SOURCE_DIR}/${directory})
-	file(COPY_FILE ${PHYSICS_STAGING}/${path} ${PATCHED_SOURCE_DIR}/${path} ONLY_IF_DIFFERENT)
+	file(COPY_FILE ${PATCH_STAGING}/${path} ${PATCHED_SOURCE_DIR}/${path} ONLY_IF_DIFFERENT)
 endforeach()
 set(patched_sources)
 foreach(source IN LISTS ENGINE_SOURCES)
 	string(REPLACE "${ENGINE_SOURCE_DIR}/src/modules/physics/" "${PATCHED_SOURCE_DIR}/src/modules/physics/"
 		source "${source}")
+	if(source STREQUAL "${ENGINE_SOURCE_DIR}/${MESH_SOURCE}")
+		set(source ${PATCHED_SOURCE_DIR}/${MESH_SOURCE})
+	endif()
 	list(APPEND patched_sources ${source})
 endforeach()
 set(ENGINE_SOURCES ${patched_sources})
+# The patched Mesh.cpp's copy sits without the headers beside it, which it
+# includes in quotes ("Mesh.h", "Shader.h", "Graphics.h"); -iquote searches
+# its original folder next, where the compiler found them before.
+set_source_files_properties(${PATCHED_SOURCE_DIR}/${MESH_SOURCE} PROPERTIES
+	COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/modules/graphics")
 
 add_library(lota_engine STATIC ${ENGINE_SOURCES})
 

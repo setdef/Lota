@@ -390,6 +390,16 @@ work "LÖVE's patched physics module",
   copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
   license: ["Zlib"]
 
+# LÖVE's graphics/Mesh.cpp as Lota's Mesh patch changes it
+# (ext/lota/engine/mesh.patch), which CMake writes into the build tree and
+# the bundle compiles in place of vendor/love's. It is LÖVE's file, under
+# LÖVE's license, with a change the patch's own header puts under the same
+# license.
+work "LÖVE's patched Mesh",
+  sources: ["tmp/*/build/patched/love/src/modules/graphics/Mesh.cpp"],
+  copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
+  license: ["Zlib"]
+
 # LÖVE's own sources (vendor/love/license.txt:6-9). Its bundled libraries
 # in src/libraries are works of their own, above; one the list lacks
 # stops the build.

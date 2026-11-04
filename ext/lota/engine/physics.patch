@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 SPDX-License-Identifier: Zlib
 
 Lota's physics patch (ADR 001, section 2): the only change Lota makes to
-LÖVE's engine. LÖVE's src/modules/physics/box2d is the one module whose
+LÖVE's engine for Lua. LÖVE's src/modules/physics/box2d is the one module whose
 engine classes hold Lua: methods that read and push the Lua stack, the
 contact, filter, query, and raycast callbacks that call Lua functions, and
 user data kept as Lua references. Without Lua none of it compiles. This

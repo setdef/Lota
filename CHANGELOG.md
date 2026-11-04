@@ -20,6 +20,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics.draw` draws a `Mesh` or a `ParticleSystem`, placed by numbers or a `Lota::Math::Transform`; `Lota::Graphics.draw_instanced`, `draw_indirect`, `dispatch_threadgroups`, `dispatch_indirect`, and `quad_index_buffer`, translating `drawInstanced`, `drawIndirect`, `dispatchThreadgroups`, `dispatchIndirect`, and `getQuadIndexBuffer`.
 - `Shader#send` takes a `GraphicsBuffer` for a texel or storage buffer uniform, and `Shader#buffer_format` returns the members of a buffer a shader declares as `Shader::BufferFormat` records.
 
+### Changed
+
+- LÖVE's `Mesh.cpp` is now compiled with a second patch of Lota's (`ext/lota/engine/mesh.patch`), which frees a Mesh's vertex data with `delete[]`, as it was allocated, where LÖVE's frees it with `delete`.
+
 ## [0.1.1] - 2026-11-03
 
 ### Fixed

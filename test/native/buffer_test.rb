@@ -17,6 +17,8 @@ require_relative "../engine_helper"
 # luax_validatebuffervertexbindings marks. A buffer has no reader, so what a
 # buffer stores is read back through a mesh that has the same format.
 class BufferTest < Minitest::Test
+  include NativeHelper
+
   POSITION = { name: "VertexPosition", format: :floatvec2, location: 0 }.freeze
 
   def setup
@@ -319,6 +321,24 @@ class BufferTest < Minitest::Test
       assert_raises(RuntimeError) { Lota::Graphics::Mesh.new([["a", "unorm16", 3]], 1, :points) }.message
   ensure
     capture_io { Lota::Deprecation.output = output }
+  end
+
+  # A Mesh's constructor allocates its vertex data with new[], and LÖVE's
+  # destructor frees it with delete (Mesh.cpp:53 and 140), which Lota's
+  # Mesh patch makes delete[] (ext/lota/engine/mesh.patch). Without it,
+  # AddressSanitizer on Linux ends rake test:native here, as the C++
+  # reference this test holds is released, with an alloc-dealloc-mismatch.
+  def test_a_mesh_frees_its_vertex_data_when_its_last_reference_goes
+    on_a_finished_fiber do
+      LotaNativeTest.observe_mesh(Lota::Graphics::Mesh.new([[0, 0], [1, 0], [1, 1]], :triangles).native)
+    end
+    collect_garbage
+
+    assert_equal [1], LotaNativeTest.observed_reference_counts
+    LotaNativeTest.forget_observed
+    assert_empty LotaNativeTest.observed_reference_counts
+  ensure
+    LotaNativeTest.forget_observed
   end
 
   def test_a_mesh_draws_where_it_is_placed

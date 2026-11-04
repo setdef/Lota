@@ -12,6 +12,7 @@
 
 #include "filesystem/FileData.h"
 #include "graphics/Font.h"
+#include "graphics/Mesh.h"
 #include "graphics/Texture.h"
 #include "image/ImageData.h"
 #include "math/RandomGenerator.h"
@@ -754,6 +755,9 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function(
           "observe_font", [](VALUE font) { observe<love::graphics::Font>(font, "Graphics::Font"); },
           Rice::Arg("font").setValue())
+      .define_module_function(
+          "observe_mesh", [](VALUE mesh) { observe<love::graphics::Mesh>(mesh, "Mesh"); },
+          Rice::Arg("mesh").setValue())
       .define_module_function(
           "observe_image_data",
           [](VALUE image_data) { observe<love::image::ImageData>(image_data, "ImageData"); },
