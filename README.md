@@ -5,7 +5,7 @@
 
 # Lota
 
-[![CI](https://github.com/setdef/Lota/actions/workflows/ci.yml/badge.svg?branch=trunk)](https://github.com/setdef/Lota/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/setdef/Lota)](https://github.com/setdef/Lota/releases) [![License](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsetdef%2FLota%2Ftrunk%2Flota.gemspec&search=spec%5C.license%20%3D%20%22(.*)%22&replace=%241&label=License&color=a2c93e)](https://spdx.org/licenses/AGPL-3.0-or-later.html) [![Ruby](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsetdef%2FLota%2Ftrunk%2Flota.gemspec&search=spec%5C.required_ruby_version%20%3D%20%22(.*)%22&replace=%241&label=Ruby&logo=ruby&color=a2c93e)](#compatibility) [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-a2c93e)](#compatibility) [![Certified Shovelware](https://justin.searls.co/img/shovelware.svg)](https://justin.searls.co/shovelware/)
+[![CI](https://github.com/setdef/Lota/actions/workflows/ci.yml/badge.svg?branch=trunk)](https://github.com/setdef/Lota/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/setdef/Lota)](https://github.com/setdef/Lota/releases) [![License](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsetdef%2FLota%2Ftrunk%2Flota.gemspec&search=spec%5C.license%20%3D%20%22(.*)%22&replace=%241&label=License&color=a2c93e)](https://spdx.org/licenses/AGPL-3.0-or-later.html) [![Ruby](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsetdef%2FLota%2Ftrunk%2Flota.gemspec&search=spec%5C.required_ruby_version%20%3D%20%22(.*)%22&replace=%241&label=Ruby&logo=ruby&color=a2c93e)](#compatibility) [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-a2c93e)](#compatibility) [![Certified Shovelware](https://justin.searls.co/img/shovelware.svg)](https://justin.searls.co/shovelware/)
 
 ## Introduction
 
@@ -71,12 +71,12 @@ An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left 
 | macOS 15 or newer on Apple Silicon | `arm64-darwin` | Released |
 | Linux with glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36, and later) on x86_64 | `x86_64-linux-gnu` | Released |
 | The same Linux on arm64 | `aarch64-linux-gnu` | Released |
-| Windows on x64, with [RubyInstaller](https://rubyinstaller.org/)'s Ruby | `x64-mingw-ucrt` | In the next release |
-| Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | In the next release |
+| Windows on x64, with [RubyInstaller](https://rubyinstaller.org/)'s Ruby | `x64-mingw-ucrt` | Released |
+| Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | Released |
 
 - Lota needs Ruby 4.0 (4.0.1 or newer).
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
-- On Windows, CI installs the gem and runs a game that opens no window and plays a sound. GitHub's Windows runners have no GPU, so nothing has yet tested drawing, input, or a real audio device on Windows.
+- On Windows, CI installs the gem and runs a game that opens no window and plays a sound. GitHub's Windows runners have no GPU, so nothing has yet tested drawing, input, or a real audio device on Windows, or the Windows save folder below, which comes from reading the code.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
 - Phones and tablets (iOS, iPadOS, and Android) are planned, and Lota does not build for them yet.
 
@@ -89,7 +89,7 @@ Lota is not on RubyGems.org. Each [GitHub release](https://github.com/setdef/Lot
 Download the gem for your platform, check it, and install it:
 
 ```sh
-version=0.1.1
+version=0.1.2
 platform=arm64-darwin   # or x86_64-linux-gnu, or aarch64-linux-gnu
 curl -LO "https://github.com/setdef/Lota/releases/download/v$version/lota-$version-$platform.gem"
 curl -LO "https://github.com/setdef/Lota/releases/download/v$version/SHA256SUMS"
@@ -98,7 +98,9 @@ gem install --local "lota-$version-$platform.gem"
 lota --version
 ```
 
-The last line prints `Lota 0.1.1`.
+The last line prints `Lota 0.1.2`.
+
+On Windows, download `lota-0.1.2-x64-mingw-ucrt.gem` (or `lota-0.1.2-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it, with RubyInstaller's Ruby.
 
 If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder instead, ask for the version, and install from there. Add a gem for each platform you work on; Bundler locks every platform it finds a gem for.
 
@@ -106,7 +108,7 @@ If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder in
 # Gemfile
 source "https://rubygems.org"
 
-gem "lota", "0.1.1"
+gem "lota", "0.1.2"
 ```
 
 ```sh
