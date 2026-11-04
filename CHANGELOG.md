@@ -10,6 +10,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- The `x86_64-linux-gnu` gem's libvorbis no longer needs glibc's `libmvec.so.1`, which the manylinux policy does not allow, so every library the Linux gems carry needs only glibc's and GCC's C++ runtime libraries that it allows.
+- The `arm64-darwin` gem's frameworks keep only rpaths inside the gem, so a framework installed in `/Library/Frameworks` can no longer shadow the gem's `ogg.framework`.
+
 ## [0.1.0] - 2026-11-03
 
 ### Changed
