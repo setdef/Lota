@@ -9,7 +9,13 @@
 
 name: Black frame loop (experiment)
 
+# GitHub dispatches by hand only a workflow it knows, which it learns of
+# from the default branch or from a push, so the branch's own push runs
+# it once too.
 on:
+  push:
+    branches:
+      - experiment/blackframe-loop
   workflow_dispatch:
     inputs:
       iterations:
@@ -97,7 +103,7 @@ jobs:
       # the file every engine run appends its Metal watch's lines to.
       - name: Run the arkanoid parity test in a loop
         env:
-          ITERATIONS: ${{ inputs.iterations }}
+          ITERATIONS: ${{ inputs.iterations || '12' }}
         run: |
           mkdir -p tmp/loop
           failures=0
