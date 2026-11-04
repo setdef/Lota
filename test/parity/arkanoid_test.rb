@@ -114,7 +114,7 @@ class ArkanoidTest < Minitest::Test
     run = lota(snapshot)
 
     assert_predicate run.output.status, :success?, run.output.text
-    assert_nil run.mismatch, "first differing frame: #{run.mismatch}"
+    assert_nil run.mismatch, run.mismatch_message
     assert_equal script.frames, run.compared
     assert_equal expected.output.text, run.output.text
   end
