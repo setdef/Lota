@@ -5,8 +5,10 @@
 # request; then the precompiled gem it builds, installed on a fresh runner
 # and run from there (Plan 001, the walking skeleton: "Continuous
 # integration" and "Delivery"), once for each platform Lota ships a gem
-# for: Apple Silicon macOS, and Linux on x86_64 and arm64 (Plan 001, story
-# 6). The macOS and Linux jobs run side by side.
+# for: Apple Silicon macOS, Linux on x86_64 and arm64 (Plan 001, story 6),
+# and Windows on x64 and ARM64 (ADR 002, section 4), whose jobs build the
+# engine and check it without the gate, which needs windows (the Windows
+# jobs say why). The macOS, Linux, and Windows jobs run side by side.
 #
 # macOS: LÖVE's own CI runs its tests on macOS runners with the normal
 # video driver (vendor/love/.github/workflows/main.yml, the macOS job),
@@ -32,7 +34,8 @@
 # Release: a tag such as v0.1.0, pushed on a commit of trunk, runs all of
 # the above again on that commit, and the release job publishes a GitHub
 # release of the gems the delivery jobs installed and ran, but only when
-# every platform's gate and delivery passed. A release is a promise about
+# every platform's gate (on Windows, its build) and delivery passed. A
+# release is a promise about
 # each platform it lists, and one missing a platform would leave the
 # games that depend on it there with nothing to install
 # (doc/contributors/releasing.md). Run by hand (workflow_dispatch), the
@@ -617,6 +620,323 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # Lota on Windows (ADR 002, section 4; Plan 002, item 10): LÖVE's
+  # dependencies built from source at LÖVE's versions (tasks/windows_build.rb),
+  # LÖVE's engine and Lota's extension built with MinGW against
+  # RubyInstaller's UCRT Ruby, the extension's closure of DLLs checked, its
+  # DLLs shown to load from the gem's own directory and nowhere else, the
+  # tests that open no window and need no test-only extension run from a
+  # PATH a player's machine might have, and the precompiled gem built. x64
+  # builds with MSYS2's UCRT64 environment (GCC), ARM64 with its CLANGARM64
+  # environment (clang), the toolchains RubyInstaller builds its Ruby with
+  # for each. A runner has no GPU, and Windows' own OpenGL is 1.1, which
+  # LÖVE's renderer cannot use, so nothing here opens a window; the gate
+  # (bundle exec rake), whose tests do, does not run on Windows.
+  windows-build:
+    name: Windows build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            platform: x64-mingw-ucrt
+            msystem: UCRT64
+            compiler: gcc:p
+            cc: gcc
+            cxx: g++
+            ccache: D:/ccache
+          # RubyInstaller's ARM64 Ruby is built with MSYS2's CLANGARM64
+          # environment, which has no GCC.
+          - runner: windows-11-arm
+            platform: aarch64-mingw-ucrt
+            msystem: CLANGARM64
+            compiler: clang:p lld:p llvm-tools:p
+            cc: clang
+            cxx: clang++
+            ccache: C:/ccache
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      CCACHE_DIR: ${{ matrix.ccache }}
+      CCACHE_MAXSIZE: 2G
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+    steps:
+      # The runner's Git converts line endings, which would keep
+      # physics.patch from applying to LÖVE's sources.
+      - name: Keep line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch LÖVE's sources
+        shell: pwsh
+        run: git submodule update --init --depth 1 vendor/love
+
+      # RubyInstaller's Ruby, built with MinGW against the UCRT.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+          windows-toolchain: none
+
+      # The toolchain alone: every library LÖVE links is built from source.
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          path-type: inherit
+          update: true
+          install: patch make
+          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p
+
+      # The REUSE tool, at the version mise.toml pins, which checks the
+      # gem's licensing as it is built (tasks/native_gem.rb), into the
+      # runner's Python.
+      - name: Install the REUSE tool
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check "reuse[charset-normalizer]==6.2.0"
+
+      - name: Report the toolchain and Ruby
+        id: toolchain
+        run: |
+          set -x
+          which $CC $CXX cmake ninja patch make ruby reuse strip
+          $CXX --version
+          cmake --version
+          ruby -v
+          ruby -e 'c = RbConfig::CONFIG; %w[arch host_os host_cpu DLEXT CC CXX libdir LIBRUBY].each { |k| puts "#{k}=#{c[k]}" }; puts "Gem::Platform.local=#{Gem::Platform.local}"'
+          echo "compiler=$($CC --version | head -1 | tr -c 'A-Za-z0-9._-' '_')" >> "$GITHUB_OUTPUT"
+
+      # The archives and what they build, kept while the recipe and the
+      # compiler stay the same (the stamp tasks/windows_build.rb checks).
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: dependencies
+        with:
+          path: |
+            vendor/sources/windows
+            tmp/dependencies/installdir
+            tmp/dependencies/dependencies.stamp
+          key: windows-dependencies-${{ matrix.platform }}-${{ steps.toolchain.outputs.compiler }}-${{ hashFiles('tasks/windows_build.rb', 'tasks/source_archive.rb') }}
+
+      # Kept out of ccache, whose cache is the engine's and the extension's.
+      - name: Build LÖVE's dependencies from source
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ""
+          CMAKE_CXX_COMPILER_LAUNCHER: ""
+        run: |
+          start=$(date +%s)
+          ruby -e 'require "./tasks/windows_build"
+            build = WindowsBuild.new(sources: WindowsBuild::SOURCES, root: "tmp/dependencies")
+            build.fetch
+            build.dependencies'
+          echo "dependencies ready in $(( $(date +%s) - start ))s"
+          ls -l tmp/dependencies/installdir/lib tmp/dependencies/installdir/bin
+
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        with:
+          path: |
+            vendor/sources/windows
+            tmp/dependencies/installdir
+            tmp/dependencies/dependencies.stamp
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
+
+      - name: Describe what OpenAL Soft compiled
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        run: ruby .github/windows_checks.rb notices tmp/dependencies/build/openal-soft-1.24.3 tmp/dependencies/src/openal-soft-1.24.3
+
+      # sources_windows.cmake is LÖVE's CMake evaluated on Windows, as
+      # rake engine:sources:check checks the other platforms' lists.
+      - name: Check the engine's source list
+        run: |
+          ruby -e 'require "./tasks/engine_sources"
+            commit = `git -C vendor/love rev-parse HEAD`.strip
+            s = EngineSources.new(source: "vendor/love", build: "tmp/engine/sources/windows",
+              cmake_args: EngineSources.cmake_args("windows"), label: EngineSources.label(commit, "windows"))
+            problems = s.problems("ext/lota/engine/sources_windows.cmake")
+            abort problems.join("\n") unless problems.empty?
+            puts "ext/lota/engine/sources_windows.cmake matches vendor/love"'
+
+      - name: Install Rice
+        run: gem install rice -v 4.12.0 --no-document
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ matrix.ccache }}
+          key: ccache-windows-${{ matrix.platform }}-${{ github.run_id }}
+          restore-keys: ccache-windows-${{ matrix.platform }}-
+
+      - name: Configure through extconf.rb
+        run: |
+          ccache --zero-stats
+          mkdir -p tmp/ext
+          cd tmp/ext
+          ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$GITHUB_WORKSPACE/tmp/engine/build")"
+
+      - name: Build the engine and the extension
+        run: |
+          start=$(date +%s)
+          make -C tmp/ext install sitearchdir="$PWD/lib"
+          echo "built in $(( $(date +%s) - start ))s"
+          ccache --show-stats
+          ls -l lib/lota/*.so lib/lota/libraries
+
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always() && github.ref_name == github.event.repository.default_branch
+        with:
+          path: ${{ matrix.ccache }}
+          key: ccache-windows-${{ matrix.platform }}-${{ github.run_id }}
+
+      - name: Check that Lota's code still warns as errors
+        run: ruby .github/windows_checks.rb werror tmp/engine/build/compile_commands.json
+
+      - name: Check the extension's DLLs
+        run: ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/OpenAL32.dll
+
+      # Each load runs with a PATH of only Ruby and Windows, as a player's
+      # machine might have, and with a decoy OpenAL32.dll, a DLL of
+      # Windows' own renamed, wherever a same-named DLL could be found:
+      # first on PATH, in a directory RubyInstaller::Runtime.add_dll_directory
+      # adds, and in each MSYS2 that RubyInstaller::Runtime.enable_msys_apps
+      # could add, the one this job set up (which RubyInstaller finds
+      # beside its Ruby) and the one installed on the runner (C:/msys64),
+      # as a player's might be. A decoy that loaded would leave Lota without
+      # OpenAL's functions. The decoys come out again, so the gem built
+      # below cannot carry one.
+      - name: Load Lota's DLLs from Lota's own directory
+        timeout-minutes: 6
+        run: |
+          mkdir -p tmp/decoy
+          cp /c/Windows/System32/version.dll tmp/decoy/OpenAL32.dll
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
+          decoy=$(cygpath -w "$PWD/tmp/decoy")
+          decoys=()
+          for msys in "$MINGW_PREFIX/bin" /c/msys64/ucrt64/bin /c/msys64/clangarm64/bin /c/msys64/mingw64/bin; do
+            [ -d "$msys" ] && cp /c/Windows/System32/version.dll "$msys/OpenAL32.dll" && decoys+=("$msys/OpenAL32.dll") && echo "decoy in $msys"
+          done
+          echo "== with Lota's preloader"
+          PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load preload "$decoy"
+          echo "== without it, as a control: the decoy alone answers for OpenAL32.dll"
+          status=0
+          PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load bare "$decoy" || status=$?
+          rm -rf tmp/decoy "${decoys[@]}"
+          [ "$status" = 3 ] || { echo "the control exited $status, not 3"; exit 1; }
+
+      # A restart replaces the process with lota run again; on Windows,
+      # Ruby's exec starts it as a new process (windows_checks.rb).
+      - name: Restart a game
+        timeout-minutes: 4
+        run: |
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
+          PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb restart
+
+      # The PATH adds the directory of Git for Windows' commands, which holds
+      # no DLL, since the gemspec the version test loads lists its files
+      # with git. A dry run may go on past a failing test, but never on a
+      # tag (the ignore_gate_failures input).
+      - name: Run the headless tests
+        timeout-minutes: 15
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
+        run: |
+          gem install minitest -v '~> 6.0' --no-document
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Program Files/Git/cmd"
+          status=0
+          for test in test/version_test.rb test/info_test.rb test/error_message_test.rb test/settings_test.rb \
+            test/record_test.rb test/deprecation_test.rb test/boot_test.rb test/callbacks_test.rb \
+            test/variant_test.rb test/restart_test.rb; do
+            echo "== $test"
+            code=0
+            PATH="$clean" /usr/bin/timeout -k 5 180 ruby -Ilib -Itest "$test" > tmp/test.log 2>&1 || code=$?
+            tail -15 tmp/test.log
+            [ "$code" = 0 ] || { echo "== $test exited $code"; status=1; }
+          done
+          exit $status
+
+      # The gem's SHA-256 travels with it, as on the other platforms. The
+      # package check builds it from what this job built, with the gem's
+      # REUSE record checked, and its binaries read for the DLLs they
+      # import (NativeFormat::PE), without Bundler (windows_checks.rb).
+      - name: Build the precompiled gem
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          ruby .github/windows_checks.rb package
+          cd pkg
+          for gem in lota-*-"$PLATFORM".gem; do sha256sum "$gem" > "$gem.sha256"; cat "$gem.sha256"; ls -l "$gem"; done
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lota-${{ matrix.platform }}
+          path: pkg/lota-*-${{ matrix.platform }}.gem*
+          if-no-files-found: error
+          retention-days: 14
+
+  # The Windows gem the build job built, on a runner that never built it,
+  # as the macOS and Linux delivery jobs do: RubyInstaller's Ruby and the
+  # repository's tasks, without MSYS2, the dependencies, or the engine,
+  # and with a PATH of only Ruby, Windows, Windows PowerShell, which the
+  # guard asks for the modules a run loaded, and Git, with which the check
+  # lists the repository's files. It installs the gem into an empty
+  # GEM_HOME and runs lota from it (tasks/package_check.rb): lota
+  # --version, every Ruby file loaded from the installed gem, and a game
+  # that opens no window and plays a sound through the gem's OpenAL32.dll
+  # (WINDOWLESS_GAME in tasks/package.rake), with Lota, the bundle, the
+  # preloader, and OpenAL32.dll loaded from the installed gem.
+  windows-delivery:
+    name: Delivery (${{ matrix.platform }})
+    needs: windows-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            platform: x64-mingw-ucrt
+          - runner: windows-11-arm
+            platform: aarch64-mingw-ucrt
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+          windows-toolchain: none
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lota-${{ matrix.platform }}
+          path: ${{ runner.temp }}/gem
+
+      - name: Check the gem is the one the build job built
+        working-directory: ${{ runner.temp }}/gem
+        run: sha256sum --check ./*.sha256
+
+      - name: Install the gem and run a game from it
+        run: |
+          clean="$(dirname "$(which ruby)"):/c/Windows/system32:/c/Windows:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd"
+          gems=("$RUNNER_TEMP"/gem/*.gem)
+          PATH="$clean" ruby .github/windows_checks.rb deliver "${gems[@]}"
+
+      - name: Check the gem is still the one the build job built
+        working-directory: ${{ runner.temp }}/gem
+        run: sha256sum --check ./*.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-lota-${{ matrix.platform }}
+          path: ${{ runner.temp }}/gem/lota-*
+          if-no-files-found: error
+          retention-days: 14
+
   # The release (doc/contributors/releasing.md), from the gems the
   # delivery jobs installed and ran, never rebuilt. It runs for a tag
   # v0.1.0 pushed to this repository, and by hand as a dry run; never for
@@ -625,12 +945,12 @@ jobs:
   # failed publishes nothing; rerun the failed jobs, or fix the commit and
   # tag the fix with the next version. Its token alone may write, and only
   # the repository's contents, which a GitHub release is; it uses no other
-  # secret. Windows joins by moving windows.yml's jobs into this workflow,
-  # with a delivery job that uploads a verified gem as these do, adding
-  # them to needs, and its platforms to PLATFORMS.
+  # secret. A new platform joins with a job that builds its gem and a
+  # delivery job that uploads it verified, as verified-lota-<platform>,
+  # both in needs, and the platform in PLATFORMS.
   release:
     name: Release
-    needs: [gate, delivery, linux-gate, linux-delivery]
+    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery]
     if: >-
       github.repository == 'setdef/Lota'
       && ((github.event_name == 'push' && github.ref_type == 'tag')
@@ -641,7 +961,7 @@ jobs:
       contents: write
     env:
       # One gem for each, every one of which the release must carry.
-      PLATFORMS: arm64-darwin x86_64-linux-gnu aarch64-linux-gnu
+      PLATFORMS: arm64-darwin x86_64-linux-gnu aarch64-linux-gnu x64-mingw-ucrt aarch64-mingw-ucrt
       PUBLISH: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
     steps:
       - name: Refuse to publish past a failing gate

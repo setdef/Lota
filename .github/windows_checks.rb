@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# The checks .github/workflows/windows.yml runs on Windows, in
+# The checks the Windows jobs of .github/workflows/ci.yml run, in
 # RubyInstaller's Ruby, each a command:
 #
 # [notices BUILD SOURCE] Every file of SOURCE that ninja compiled in BUILD,
@@ -30,6 +30,14 @@
 #   process, waits for it, and exits with its status (win32/win32.c,
 #   child_result, with P_OVERLAY), so each run has a process id of its
 #   own, which it reports.
+# [package] Builds the precompiled gem into pkg/, as rake package:native
+#   does, from the extension, the preloader, and the DLLs the job built,
+#   after downloading the source archives the gem carries.
+# [deliver GEM...] Installs the precompiled gems into an empty GEM_HOME
+#   and runs lota from them, as rake package:deliver does.
+#
+# The last two load tasks/package.rake without Bundler, whose Gemfile
+# holds gems RubyInstaller's Ruby would have to compile.
 
 require "json"
 require "open3"
@@ -232,6 +240,36 @@ module WindowsChecks
     pids = loads.map { |line| line[/ pid=(\d+)/, 1] }
     abort "the runs shared a process id: #{pids.join(', ')}" unless pids.uniq.size == pids.size
     puts "Each restart crossed, each run in a process of its own: #{pids.join(', ')}"
+  end
+
+  # Builds the precompiled gem into pkg/, as rake package:native does, from
+  # what the job built, and the archives sources:fetch keeps.
+  def package
+    package_tasks
+    Licensing.load(File.join(ROOT, "ext/lota/licenses.rb")).frameworks.each_value.filter_map(&:source).uniq
+      .each { |source| SourceArchive.new(source, root: ROOT).fetch }
+    puts "Built #{build_native_package}"
+  rescue PackageCheck::Failure, SourceArchive::Failure => e
+    abort "#{e.class}: #{e.message}"
+  end
+
+  # Installs the precompiled gems given into an empty GEM_HOME and runs
+  # lota from them, as rake package:deliver does.
+  def deliver(*gems)
+    package_tasks
+    deliver_packages(gems)
+  end
+
+  # tasks/package.rake's helpers, which rake package:native and
+  # package:deliver call, loaded without the bundle, which RubyInstaller's
+  # Ruby would have to compile gems for: rake and Ruby's own gems are all
+  # they need.
+  def package_tasks
+    require "rake"
+    TOPLEVEL_BINDING.receiver.extend(Rake::DSL)
+    Dir.chdir(ROOT)
+    # Kernel's load, which the load check's name hides here.
+    %w[engine package].each { |name| Kernel.load(File.join(ROOT, "tasks/#{name}.rake")) }
   end
 
   def same?(path, other)

@@ -138,7 +138,16 @@ function(lota_link_mingw target name map)
 	set(definitions ${CMAKE_CURRENT_BINARY_DIR}/${name}.def)
 	file(WRITE ${definitions} "EXPORTS\n\tInit_${name}\n")
 	target_sources(${target} PRIVATE ${definitions})
-	target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
+	# GNU ld's map names each archive member it took with the archive's
+	# path. LLD's -Map, its /lldmap, names a member by its own name alone,
+	# so with clang the map is the one link.exe's /map writes, whose
+	# Lib:Object column gives the archive's name beside the member's
+	# (lld/COFF/MapFile.cpp), passed through LLD's MinGW driver as -Xlink.
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		target_link_options(${target} PRIVATE "LINKER:-Xlink=-map:${map}")
+	else()
+		target_link_options(${target} PRIVATE "LINKER:-Map=${map}")
+	endif()
 	# The compiler's runtime inside the extension, so it needs no
 	# libgcc_s, libstdc++, libc++, libunwind, or libwinpthread DLL, and
 	# never binds to another copy that a different gem, or MSYS2, put in

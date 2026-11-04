@@ -5,7 +5,7 @@
 
 # Releasing Lota
 
-A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own (ADR 002, section 2). Building those gems by hand on three machines, and checking each one, is slow and easy to get wrong. So a release is a tag. You push it, and CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release.
+A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own (ADR 002, section 2). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag. You push it, and CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release.
 
 ## When to cut a release
 
@@ -48,7 +48,11 @@ The tag is annotated and unsigned, since no signing key is configured here. Once
 
 ## What CI does with the tag
 
-A tag matching `v[0-9]*` runs the whole of `.github/workflows/ci.yml` on its commit. Each platform's gate builds a gem and records its SHA-256, and its delivery job checks that SHA-256, installs the gem into an empty `GEM_HOME`, runs Lövetest from it, checks the SHA-256 again, and uploads the gem it verified. The release job then runs only if every one of those jobs passed. It refuses, before publishing anything, when:
+A tag matching `v[0-9]*` runs the whole of `.github/workflows/ci.yml` on its commit. Each platform's gate builds a gem and records its SHA-256, and its delivery job checks that SHA-256, installs the gem into an empty `GEM_HOME`, runs Lövetest from it, checks the SHA-256 again, and uploads the gem it verified.
+
+Windows works the same way with less. Its build job builds the engine with MinGW, runs the Windows checks and the tests that open no window, and builds the gem, but it does not run the gate. Its delivery job installs the gem on a runner without MSYS2 and runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`, because GitHub's Windows runners have no GPU and no OpenGL that LÖVE can draw with. So CI proves that a Windows gem installs, loads only its own DLLs and Windows', and runs a game. Only a Windows PC proves that it draws, takes input, and plays through a real audio device.
+
+The release job then runs only if every one of those jobs passed. It refuses, before publishing anything, when:
 
 - the tag's commit is not on trunk,
 - the tag is not `v` and the version lib/lota/version.rb gives,
@@ -61,6 +65,8 @@ It then creates the GitHub release for the tag, titled "Lota 0.1.0", with the CH
 lota-0.1.0-arm64-darwin.gem
 lota-0.1.0-x86_64-linux-gnu.gem
 lota-0.1.0-aarch64-linux-gnu.gem
+lota-0.1.0-x64-mingw-ucrt.gem
+lota-0.1.0-aarch64-mingw-ucrt.gem
 SHA256SUMS
 ```
 
@@ -81,6 +87,8 @@ gh release download v0.1.0 --repo setdef/Lota --pattern 'lota-0.1.0-arm64-darwin
 shasum -a 256 --check --ignore-missing SHA256SUMS
 gem install --local lota-0.1.0-arm64-darwin.gem
 ```
+
+On Windows, with RubyInstaller's Ruby, take `x64-mingw-ucrt` or `aarch64-mingw-ucrt`, whichever `ruby -e 'puts Gem::Platform.local'` prints, and compare PowerShell's `Get-FileHash` of the gem with its line in SHA256SUMS.
 
 A project with a Gemfile vendors the gems instead. Put the gem for each platform the project runs on in its `vendor/cache`, ask for the version, and install from there. Bundler locks every platform it finds a gem for in `vendor/cache`.
 

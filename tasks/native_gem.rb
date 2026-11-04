@@ -17,12 +17,14 @@ require_relative "package_check"
 require_relative "source_archive"
 
 # Builds Lota's precompiled gem for the platform it runs on: Apple Silicon
-# macOS (arm64-darwin), or Linux with glibc on x86_64 or arm64
-# (x86_64-linux-gnu, aarch64-linux-gnu).
+# macOS (arm64-darwin), Linux with glibc on x86_64 or arm64
+# (x86_64-linux-gnu, aarch64-linux-gnu), or Windows with RubyInstaller's
+# UCRT Ruby on x64 or ARM64 (x64-mingw-ucrt, aarch64-mingw-ucrt).
 #
 # The source gem cannot build Lota's extension once installed: the build
 # needs LÖVE's sources and its dependencies (love-apple-dependencies'
-# frameworks, or on Linux the libraries `rake dependencies` builds), which
+# frameworks, or on Linux and Windows the libraries `rake dependencies`
+# builds), which
 # do not ship. So Lota ships what rake compile built, as rake-compiler's
 # native gems do: the gem's platform is the build's, it has no extension
 # to compile, and the compiled bundle sits where require "lota/native"
@@ -53,6 +55,13 @@ require_relative "source_archive"
 #   directory ($ORIGIN), as LÖVE's AppImage carries them. Only glibc's and
 #   GCC's C++ runtime libraries that the manylinux policy allows come from
 #   the system (NativeFormat::ELF::SYSTEM).
+# - On Windows, which has no rpath, the one DLL, OpenAL32.dll, goes in
+#   lib/lota/libraries, and the preloader (lib/lota/preload.so), which
+#   loads it by its absolute path before the bundle loads, goes beside the
+#   bundle as its companion; every other library LÖVE links is in the
+#   bundle, and its archive is recorded with the bundle's works. Each is
+#   staged without its debugging information. Only Windows' own DLLs and
+#   Ruby's come from the system (NativeFormat::PE::SYSTEM).
 #
 # The gem is a REUSE project (REUSE Specification 3.3), as the
 # repository is: its REUSE.toml is the repository's, with an annotation
@@ -95,7 +104,8 @@ class NativeGem
   #   ships as LICENSES/<identifier>.txt.
   # [format] The NativeFormat of the platform the bundle was built on.
   # [dependencies] Where LÖVE's dependencies' headers are, relative to
-  #   +root+, which the bundle compiled against but does not carry.
+  #   +root+, which the bundle compiled against but does not carry: a
+  #   directory, or a list of directories and files (#outside).
   def initialize(root:, gemspec:, bundle:, build:, licensing:, licenses:, format: NativeFormat.host,
     dependencies: "vendor/love-apple-dependencies"
   )
@@ -131,17 +141,26 @@ class NativeGem
   # path of the .gem file, also under +work+.
   def build(work)
     libraries = library_sources
-    works = bundled_works
+    works = bundled_works(@bundle)
+    companions = self.companions.to_h { |companion| [companion, bundled_works(companion)] }
     stage = File.join(work, "stage")
     FileUtils.rm_rf(stage)
     spec = source_spec
     files = spec.files.reject { |file| file.start_with?("#{LICENSES}/") }
     files.each { |file| copy(File.join(@root, file), File.join(stage, file)) }
-    files += stage_bundle(stage)
+    companions.each_key { |companion| copy(File.join(@root, companion), File.join(stage, companion)) }
+    files += stage_bundle(stage) + companions.keys
     files += libraries.flat_map { |_, source| formatted { @format.stage_library(stage, library_dir, source) } }
     files += stage_sources(stage, libraries.keys)
-    files += stage_licensing(stage, works, libraries.keys)
+    files += stage_licensing(stage, works, companions, libraries.keys)
     package(native_spec(spec, files), stage, work)
+  end
+
+  # The extensions the gem carries beside the bundle, relative to the gem:
+  # on Windows the preloader, which loads the bundle's DLLs first
+  # (NativeFormat::PE).
+  def companions
+    formatted { @format.companions(@bundle) }.map { |name| File.join(File.dirname(@bundle), name) }
   end
 
   # The Ruby requirement: the source gem's, below the next minor version
@@ -169,16 +188,17 @@ class NativeGem
     raise PackageCheck::Failure, e.message
   end
 
-  # The works the bundle carries, from the linker's map of the bundle the
-  # build linked, which must be the one rake compile copied. Fails on a
-  # file the record lacks.
-  private def bundled_works
-    built = File.join(@root, @build, @bundle)
-    unless File.file?(built) && FileUtils.compare_file(built, File.join(@root, @bundle))
-      raise PackageCheck::Failure, "#{@bundle} is not #{File.join(@build, @bundle)}; run rake compile"
+  # The works the extension +extension+ (the bundle, or a companion)
+  # carries, from the linker's map of the one the build linked, which must
+  # be the one rake compile copied. Fails on a file the record lacks.
+  private def bundled_works(extension)
+    built = File.join(@root, @build, extension)
+    unless File.file?(built) && FileUtils.compare_file(built, File.join(@root, extension))
+      raise PackageCheck::Failure, "#{extension} is not #{File.join(@build, extension)}; run rake compile"
     end
 
-    linked = LinkedFiles.read(map: built.sub(/\.[^.]+\z/, ".map"), build: File.join(@root, @build))
+    linked = LinkedFiles.read(map: built.sub(/\.[^.]+\z/, ".map"), build: File.join(@root, @build),
+      libraries: dependency_directories + formatted { @format.library_directories })
     recorded { @licensing.bundled(linked, root: @root, outside:) }
   rescue LinkedFiles::Failure => e
     raise PackageCheck::Failure, e.message
@@ -186,13 +206,31 @@ class NativeGem
 
   # What the bundle reads that is not code it carries, so the record need
   # not cover it: the toolchain's and the SDK's headers and runtime (on
-  # Linux, the system's compiler and glibc's, under /usr), Ruby's headers,
+  # Linux, the system's compiler and glibc's, under /usr; on Windows, the
+  # MSYS2 environment's, with Ruby's import library), Ruby's headers,
   # which every extension compiles against, and the libraries' headers,
   # whose code ships in the libraries the bundle loads, each recorded on
-  # its own. The maintainer confirmed this scope.
+  # its own. The maintainer confirmed this scope. Each of +@dependencies+
+  # is a directory, whose files are all outside, or a file, such as
+  # OpenAL Soft's import library on Windows, whose stubs call into the DLL
+  # the gem carries.
   private def outside
-    [*formatted { @format.toolchain }, RbConfig::CONFIG.fetch("rubyhdrdir"), File.join(@root, @dependencies)]
-      .map { |dir| File.join(dir, "") }
+    dirs = [*formatted { @format.toolchain }, RbConfig::CONFIG.fetch("rubyhdrdir")].map { |dir| File.join(dir, "") }
+    dirs + Array(@dependencies).map do |path|
+      full = File.join(@root, path)
+      File.file?(full) ? full : File.join(full, "")
+    end
+  end
+
+  # The directories of +@dependencies+, where the linker found the
+  # libraries LÖVE's dependencies built, which a map that names a library
+  # without its directory means before any of the toolchain's of the same
+  # name, such as an SDL an MSYS2 installed.
+  private def dependency_directories
+    Array(@dependencies).map do |path|
+      full = File.join(@root, path)
+      File.file?(full) ? File.dirname(full) : full
+    end.uniq
   end
 
   private def recorded
@@ -229,8 +267,8 @@ class NativeGem
   # Writes the gem's REUSE.toml and LICENSES/, and checks the gem with
   # the REUSE tool. Every license text goes in first, and the ones no file
   # uses come out, so what remains is exactly what REUSE asks for.
-  private def stage_licensing(stage, works, frameworks)
-    annotations = @licensing.annotations(bundle: @bundle, works:, frameworks: frameworks.to_h do |name|
+  private def stage_licensing(stage, works, companions, frameworks)
+    annotations = @licensing.annotations(bundle: @bundle, works:, companions:, frameworks: frameworks.to_h do |name|
       [name, @format.annotation(File.join(library_dir, name))]
     end)
     File.write(File.join(stage, REUSE_TOML), "#{File.read(File.join(@root, REUSE_TOML))}\n#{annotations}")

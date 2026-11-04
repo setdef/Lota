@@ -7,16 +7,19 @@ behaves as the same game written in LÖVE.
 
 == Install
 
-Lota runs with Ruby 4.0 on Apple Silicon Macs, and on Linux with glibc
+Lota runs with Ruby 4.0 on Apple Silicon Macs, on Linux with glibc
 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36, and their successors)
-on x86_64 or arm64. Its gem comes compiled for each, with the parts of
-LÖVE's engine it loads, so installing it builds nothing:
+on x86_64 or arm64, and on Windows with RubyInstaller's Ruby on x64 or
+ARM64. Its gem comes compiled for each, with the parts of LÖVE's engine
+it loads, so installing it builds nothing:
 
   gem install lota
   lota run path/to/game
 
 On Linux, a game needs a desktop with X11 or Wayland and OpenGL, as a
-LÖVE game does.
+LÖVE game does. The Windows gems are new: their continuous integration
+runs a game without a window, so a game that draws is not yet tested
+there.
 
 On another platform or Ruby, such as Alpine Linux, whose C library is
 musl, RubyGems picks Lota's source gem, which stops and says so: Lota

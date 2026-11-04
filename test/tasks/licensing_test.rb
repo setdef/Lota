@@ -95,6 +95,94 @@ class LicensingTest < Minitest::Test
     assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
   end
 
+  # GNU ld's map with MinGW's GCC: CMake's objects end in .obj, GCC's own
+  # runtime's in .o, its lines end in \r\n, and Windows' separators read
+  # as /.
+  def test_gnu_lds_map_with_mingw_lists_obj_files_and_reads_windows_text_as_unix_text
+    map = <<~MAP
+      Archive member included to satisfy reference by file (symbol)
+
+      engine/liblota_engine.a(Font.cpp.obj)
+                                    native/CMakeFiles/lota_native.dir/font.cpp.obj (love::font::Font::Font())
+      /msys64/ucrt64/lib/libmingwex.a(lib64_libmingwex_a-strtod.o)
+
+      Memory Configuration
+
+      Linker script and memory map
+
+      LOAD /msys64/ucrt64/lib/crt2.o
+      LOAD native\\CMakeFiles\\lota_native.dir\\font.cpp.obj
+    MAP
+    linked = LinkedFiles.parse(map.gsub("\n", "\r\n"), deps(
+      "native\\CMakeFiles\\lota_native.dir\\font.cpp.obj" => ["\\src\\native\\font.cpp"],
+      "engine/CMakeFiles/lota_engine.dir/src/font/Font.cpp.obj" => ["/src/font/Font.cpp"]
+    ), build: "/build")
+
+    assert_equal [
+      "/msys64/ucrt64/lib/crt2.o",
+      "/msys64/ucrt64/lib/libmingwex.a",
+      "/src/font/Font.cpp",
+      "/src/native/font.cpp",
+], linked.files.sort
+    assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
+  end
+
+  # A map in link.exe's form (/map), as LLD writes it with MinGW's clang:
+  # each symbol with its file, an archive's member as the archive's name
+  # without its extension, a colon, and the member, and every file by its
+  # name alone, which is each object ninja built of that name, or the
+  # first file of that name in the linker's search directories.
+  def test_a_map_in_link_exes_form_lists_each_symbols_file_and_finds_it_where_the_linker_searched
+    Dir.mktmpdir("lota-link-map") do |dir|
+      %w[deps/libSDL3.a toolchain/crt2.o toolchain/libc++.a other/libSDL3.a].each do |file|
+        FileUtils.mkdir_p(File.join(dir, File.dirname(file)))
+        File.write(File.join(dir, file), "")
+      end
+      map = <<~MAP
+        native
+
+        Timestamp is 00000000 (Thu Jan  1 00:00:00 1970)
+
+        Preferred load address is 0000000180000000
+
+        Start         Length     Name                   Class
+        0001:00000000 00012345H .text                   CODE
+
+         Address         Publics by Value              Rva+Base               Lib:Object
+
+        0000:00000000       __ImageBase                0000000180000000
+        0000:00000000       __guard_flags              0000000000000000     <linker-defined>
+        0001:00000000       Init_native                0000000180001000     font.cpp.obj
+        0001:00000010       _ZN4love4font4FontC1Ev     0000000180001010     liblota_engine:Font.cpp.obj
+        0001:00000020       SDL_Init                   0000000180001020     libSDL3:SDL.c.obj
+        0001:00000030       SDL_Quit                   0000000180001030     libSDL3:SDL.c.obj
+        0001:00000040       _ZNSt3__16vectorC1Ev       0000000180001040     libc++:vector.cpp.obj
+        0001:00000050       mainCRTStartup             0000000180001050     crt2.o
+
+        entry point at         0001:00000000
+
+        Static symbols
+
+        0001:00000060       font_helper                0000000180001060     font.cpp.obj
+      MAP
+      linked = LinkedFiles.parse(map, deps(
+        "native/CMakeFiles/lota_native.dir/font.cpp.obj" => ["/src/native/font.cpp"],
+        "engine/CMakeFiles/lota_engine.dir/src/font/Font.cpp.obj" => ["/src/font/Font.cpp"],
+        "engine/CMakeFiles/other.dir/Font.cpp.obj" => ["/other/Font.cpp"]
+      ), build: "/build", libraries: %w[deps toolchain other].map { |name| File.join(dir, name) })
+
+      assert_equal [
+        File.join(dir, "deps/libSDL3.a"),
+        File.join(dir, "toolchain/crt2.o"),
+        File.join(dir, "toolchain/libc++.a"),
+        "/src/font/Font.cpp",
+        "/src/native/font.cpp",
+].sort,
+        linked.files.sort
+      assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
+    end
+  end
+
   def test_a_work_covers_the_files_under_its_globs
     lz4 = record.works.find { |work| work.name == "LZ4" }
     noto = record.works.find { |work| work.name == "Noto Sans" }

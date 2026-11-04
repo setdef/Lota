@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Precompiled gems for Windows with RubyInstaller's Ruby, `x64-mingw-ucrt` and `aarch64-mingw-ucrt`, which carry `OpenAL32.dll` and its source beside the extension and link every other library of LÖVE's into it.
+
 ## [0.1.1] - 2026-11-03
 
 ### Fixed

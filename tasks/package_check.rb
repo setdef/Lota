@@ -11,7 +11,6 @@ require "rbconfig"
 require "digest"
 require "rubygems/package"
 require "tmpdir"
-require "desktop_input_lock"
 require_relative "native_format"
 
 # Checks that each gem works once packaged, not just in the repository.
@@ -438,9 +437,15 @@ class PackageCheck
   # A game whose window takes the focus holds the desktop input lock
   # (the desktop_input_lock gem), since the gate's other checks may be running
   # windows of their own, and asks the person at the computer to step
-  # away, since what they type would go to it.
+  # away, since what they type would go to it. The lock's gem is loaded
+  # only then, so a check whose games all stay in the background, as
+  # Windows' delivery check runs without the bundle, needs no gem but
+  # Ruby's own.
   private def with_focus(game, &)
-    game.background ? yield : DesktopInputLock.hold(&)
+    return yield if game.background
+
+    require "desktop_input_lock"
+    DesktopInputLock.hold(&)
   end
 
   private def game_folder(game, work)

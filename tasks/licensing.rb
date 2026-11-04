@@ -150,9 +150,11 @@ class Licensing
   # which ships the frameworks, or libraries, +frameworks+ names, each name
   # to the path its annotation covers (NativeFormat#annotation), all paths
   # relative to the gem. Each one's source archive gets an annotation of
-  # its own, at its place in SOURCES.
-  def annotations(bundle:, works:, frameworks:)
-    tables = [annotation(bundle, works)]
+  # its own, at its place in SOURCES. +companions+ are the other
+  # extensions the gem carries, such as Windows' preloader, each path to
+  # the works it carries.
+  def annotations(bundle:, works:, frameworks:, companions: {})
+    tables = [annotation(bundle, works)] + companions.map { |path, carried| annotation(path, carried) }
     tables += frameworks.map { |name, path| annotation(path, [framework_for(name)]) }
     tables += sources(frameworks.keys).map do |source|
       annotation("#{SOURCES}/#{source.name}", [
@@ -206,14 +208,22 @@ end
 
 # The files a bundle was linked from: each object file the linker's map
 # lists, and what ninja's dependency log says each was compiled from. The
-# map is Apple's linker's (ld -map) on macOS, and GNU ld's (-Map) on
-# Linux, whose "Archive member included" section names each member it
-# took from an archive and whose LOAD lines name every other input.
+# map is Apple's linker's (ld -map) on macOS, GNU ld's (-Map) on Linux and
+# with MinGW's GCC, whose "Archive member included" section names each
+# member it took from an archive and whose LOAD lines name every other
+# input, and the one link.exe's /map writes with MinGW's clang, which LLD
+# writes too (lld/COFF/MapFile.cpp): each symbol with the file that
+# defined it, an archive's member as the archive's name without its
+# extension, a colon, and the member's name, and every other object by its
+# file name alone.
 #
 # An object from a static archive appears in the map by its file name
 # alone, as libengine.a(Data.cpp.o), so it is matched with the objects
 # ninja built for that archive's target by name; where several share a
 # name, all of them count, since any could be the one the linker took.
+# Where the map names an archive, or an object ninja did not build, by its
+# file name without a directory, as link.exe's map does, it is the first
+# of that name in +libraries+, the directories the linker searched.
 #
 # [files] Every source and header the linked objects read, and every
 #   linked object ninja did not build (a toolchain runtime's), as absolute
@@ -225,20 +235,23 @@ class LinkedFiles < Data.define(:files, :sources, :compiled)
   class Failure < StandardError; end
 
   # The files the bundle whose linker map is at +map+ was linked from, in
-  # the ninja build at +build+.
-  def self.read(map:, build:)
+  # the ninja build at +build+, whose linker searched the directories
+  # +libraries+.
+  def self.read(map:, build:, libraries: [])
     raise Failure, "#{map} does not exist; rake compile writes it beside the bundle" unless File.file?(map)
 
     deps, status = Open3.capture2e("ninja", "-C", build, "-t", "deps")
     raise Failure, "ninja -t deps failed in #{build}:\n#{deps}" unless status.success?
 
-    parse(File.binread(map), deps, build:)
+    parse(File.binread(map), deps, build:, libraries:)
   end
 
-  # The files from the map's text and ninja -t deps's output, in +build+.
-  def self.parse(map, deps, build:)
-    objects = objects(deps, build)
-    linked = linked(map).flat_map { |entry| members(entry, objects, build) }
+  # The files from the map's text and ninja -t deps's output, in +build+,
+  # whose linker searched +libraries+. Windows' \ separators read as /, and
+  # its \r\n line endings, with which GNU ld writes its map there, as \n.
+  def self.parse(map, deps, build:, libraries: [])
+    objects = objects(deps.delete("\r").tr("\\", "/"), build)
+    linked = linked(map.b.delete("\r").tr("\\", "/")).flat_map { |entry| members(entry, objects, build, libraries) }
     files = linked.flat_map { |object| objects.fetch(object, [object]) }.uniq
     new(files:, sources: linked.filter_map { |object| source(object, objects) }.uniq,
       compiled: objects.keys.filter_map { |object| source(object, objects) }.uniq)
@@ -262,6 +275,7 @@ class LinkedFiles < Data.define(:files, :sources, :compiled)
   # The map's object files, as it names them.
   private_class_method def self.linked(map)
     map = map.b
+    return link_linked(map) if map.match?(LINK_PUBLICS)
     return gnu_linked(map) unless map.start_with?("# Path: ")
 
     section = map[/^# Object files:\n(.*?)^# Sections:/m, 1] or raise Failure, "the linker map lists no object files"
@@ -276,32 +290,70 @@ class LinkedFiles < Data.define(:files, :sources, :compiled)
   # The object files in GNU ld's map: each archive member it took, from
   # the section that says why it took it, where a member starts a line,
   # and each object it loaded whole, from the LOAD lines, which also name
-  # the archives and shared libraries it searched.
+  # the archives and shared libraries it searched. With MinGW, an object
+  # CMake built ends in .obj, and one of GCC's own runtime in .o.
   private_class_method def self.gnu_linked(map)
-    loaded = map.scan(/^LOAD (.+\.o)$/).flatten
+    loaded = map.scan(/^LOAD (.+\.o(?:bj)?)$/).flatten
     raise Failure, "the linker map lists no object files" if loaded.empty?
 
     members = map[/^Archive member included to satisfy reference by file \(symbol\)\n(.*?)^#{GNU_SECTIONS}$/m, 1].to_s
-    (loaded + members.scan(/^(\S+\.o\))/).flatten).map { |entry| entry.force_encoding(Encoding::UTF_8) }
+    (loaded + members.scan(/^(\S+\.o(?:bj)?\))/).flatten).map { |entry| entry.force_encoding(Encoding::UTF_8) }
+  end
+
+  # The heading of the public symbols in a map in link.exe's form.
+  LINK_PUBLICS = /^\s*Address\s+Publics by Value\s+Rva\+Base\s+Lib:Object$/
+
+  # The object files in a map in link.exe's form: the file of each symbol,
+  # public or static, once each, with an archive's member written as GNU
+  # ld writes it, archive.a(member). A symbol the linker made has none, or
+  # a name in angle brackets, as <linker-defined>.
+  private_class_method def self.link_linked(map)
+    files = map.scan(/^\s*\h{4}:\h{8}\s+\S+\s+\h{16}\s+(?:[fi]\s+)?([^<\s]\S*)$/).flatten.uniq
+    raise Failure, "the linker map lists no object files" if files.empty?
+
+    files.map do |file|
+      archive, member = file.split(":", 2)
+      (member ? "#{archive}.a(#{member})" : file).force_encoding(Encoding::UTF_8)
+    end
   end
 
   # The objects ninja built that +entry+ names: itself, or, for an
   # archive's member, each object of the archive's target with its name.
-  # An object ninja did not build stands for itself, by absolute path.
-  private_class_method def self.members(entry, objects, build)
+  # An object named without a directory is each object ninja built of that
+  # name. Anything else stands for itself, by absolute path (#path).
+  private_class_method def self.members(entry, objects, build, libraries)
     return [entry] if objects.key?(entry)
 
     archive, member = entry.match(/\A(.+)\((.+)\)\z/)&.captures
-    return [File.expand_path(entry, build)] unless archive
+    unless archive
+      found = entry.include?("/") ? [] : objects.keys.select { |object| File.basename(object) == entry }
+      return found.empty? ? [path(entry, build, libraries)] : found
+    end
 
-    target = "#{File.dirname(archive)}/CMakeFiles/#{File.basename(archive, '.a').delete_prefix('lib')}.dir/"
-    found = objects.keys.select { |object| object.start_with?(target) && File.basename(object) == member }
-    found.empty? ? [File.expand_path(archive, build)] : found
+    found = objects.keys.select { |object| File.basename(object) == member && built_into?(object, archive) }
+    found.empty? ? [path(archive, build, libraries)] : found
+  end
+
+  # Whether ninja built +object+ for the target whose archive is +archive+:
+  # in that target's directory, beside the archive, or anywhere when the
+  # map names the archive without its directory.
+  private_class_method def self.built_into?(object, archive)
+    target = "CMakeFiles/#{File.basename(archive, '.a').delete_prefix('lib')}.dir/"
+    archive.include?("/") ? object.start_with?("#{File.dirname(archive)}/#{target}") : object.include?(target)
+  end
+
+  # The absolute path of +file+, as the map names it: in +build+, or, for a
+  # name without a directory, the first file of that name in +libraries+.
+  private_class_method def self.path(file, build, libraries)
+    found = libraries.map { |dir| File.join(dir, file) }.find { |candidate| File.file?(candidate) } unless
+      file.include?("/")
+    found || File.expand_path(file, build)
   end
 
   # The source +object+ was compiled from: what it read whose name is its
-  # own without .o.
+  # own without .o, or .obj.
   private_class_method def self.source(object, objects)
-    objects.fetch(object, []).find { |input| File.basename(input) == File.basename(object, ".o") }
+    name = File.basename(object).sub(/\.o(?:bj)?\z/, "")
+    objects.fetch(object, []).find { |input| File.basename(input) == name }
   end
 end
