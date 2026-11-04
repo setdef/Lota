@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-03
+
 ### Fixed
 
 - The `x86_64-linux-gnu` gem's libvorbis no longer needs glibc's `libmvec.so.1`, which the manylinux policy does not allow, so every library the Linux gems carry needs only glibc's and GCC's C++ runtime libraries that it allows.
