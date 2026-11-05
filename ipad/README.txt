@@ -35,7 +35,7 @@ If this README is already in an unpacked folder, open `@APP_NAME@.xcodeproj` bes
 
 ```sh
 mkdir -p ~/@APP_NAME@Kit && cd ~/@APP_NAME@Kit
-gh run download @RUN_ID@ -R @LOTA_REPOSITORY@ -n ios-kit
+gh run download @RUN_ID@ -R @RUN_REPOSITORY@ -n ios-kit
 shasum -a 256 -c SHA256SUMS
 ditto -x -k @APP_NAME@-ios.zip .
 open @APP_NAME@-ios/@APP_NAME@.xcodeproj

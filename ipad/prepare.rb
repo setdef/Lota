@@ -264,7 +264,7 @@ module KitPrepare
       "game_path" => game_path, "program" => program_note, "icon" => icon_note, "icon_generated" => icon.nil?,
       "orientations" => chosen, "audio_category" => audio, "hide_status_bar" => hide_status_bar,
       "questions" => env("KIT_QUESTIONS"), "lota_repository" => env("KIT_LOTA_REPOSITORY"), "lota_sha" => env("KIT_LOTA_SHA"),
-      "lota_ref" => env("KIT_LOTA_REF"), "fledge_ref" => fledge_ref, "run_id" => env("KIT_RUN_ID"), "run_url" => env("KIT_RUN_URL"),
+      "lota_ref" => env("KIT_LOTA_REF"), "fledge_ref" => fledge_ref, "run_id" => env("KIT_RUN_ID"), "run_url" => env("KIT_RUN_URL"), "run_repository" => env("KIT_RUN_REPOSITORY", env("KIT_LOTA_REPOSITORY")),
       "results_file" => "#{app_name}-results.txt"
     }
     if settings["questions"] != ""
@@ -316,7 +316,7 @@ module KitPrepare
       "GAME_REPOSITORY" => settings["game_repository"], "GAME_REF" => settings["game_ref"], "GAME_SHA" => settings["game_sha"],
       "GAME_PATH" => settings["game_path"], "PROGRAM" => settings["program"], "ICON" => settings["icon"],
       "LOTA_REPOSITORY" => settings["lota_repository"], "LOTA_SHA" => settings["lota_sha"], "LOTA_REF" => settings["lota_ref"],
-      "FLEDGE_REF" => settings["fledge_ref"], "RUN_ID" => settings["run_id"], "RUN_URL" => settings["run_url"],
+      "FLEDGE_REF" => settings["fledge_ref"], "RUN_ID" => settings["run_id"], "RUN_REPOSITORY" => settings["run_repository"], "RUN_URL" => settings["run_url"],
       "XCODE" => env("KIT_XCODE", "the Xcode in BUILD-INFO.txt"),
       "IPHONE_ORIENTATIONS" => orientation_prose(settings["orientations"]["iphone"]),
       "IPAD_ORIENTATIONS" => orientation_prose(settings["orientations"]["ipad"]),

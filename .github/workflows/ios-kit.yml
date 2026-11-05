@@ -20,7 +20,9 @@
 # launches in landscape, then taps and turns the screen.
 #
 # Pushed to an experiment/ios-kit-* branch, it builds Lota's own
-# test/games/winkit from that commit.
+# test/games/winkit from that commit. A game's own CI calls it as a
+# reusable workflow (workflow_call), with lota_ref naming the same ref as
+# its uses line; doc/contributors/ios-kit.md shows how.
 name: iOS kit
 
 on:
@@ -102,6 +104,89 @@ on:
         description: Check the ios-kit artifact of this earlier run instead of building one (empty to build)
         type: string
         default: ""
+      lota_ref:
+        description: The ref of Lota to build with, the one the workflow's uses line names (empty for this run's commit)
+        type: string
+        default: ""
+
+  workflow_call:
+    inputs:
+      lota_ref:
+        description: The ref of Lota to build with, the one the workflow's uses line names, such as the tag in uses
+        type: string
+        required: true
+      game_repository:
+        description: The GitHub repository (OWNER/NAME) that holds the game, usually the caller's own
+        type: string
+        required: true
+      game_ref:
+        description: Its tag, branch, or commit (empty for its default branch)
+        type: string
+        default: ""
+      game_path:
+        description: The game's folder in the repository, the one with main.rb
+        type: string
+        default: "."
+      display_name:
+        description: The name under the app's icon, CFBundleDisplayName (empty for the repository's name)
+        type: string
+        default: ""
+      app_name:
+        description: The Xcode target's name, letters and digits (empty to derive it from display_name)
+        type: string
+        default: ""
+      identifier:
+        description: The bundle identifier, reverse-DNS (empty for com.example.APP_NAME)
+        type: string
+        default: ""
+      program:
+        description: The program Fledge runs, relative to game_path (empty to write one that boots the game fused, as lota fuse does)
+        type: string
+        default: ""
+      icon:
+        description: A folder, glob, or PNG in the repository holding the 1024-pixel icon, such as icons/icon-*.png (empty for a plain one)
+        type: string
+        default: ""
+      orientations:
+        description: "Orientations, such as 'iphone: portrait landscape; ipad: all' (empty for that)"
+        type: string
+        default: ""
+      audio_category:
+        description: The audio session's category
+        type: string
+        default: ambient
+      hide_status_bar:
+        description: Hide the status bar
+        type: boolean
+        default: true
+      smoke_env:
+        description: NAME=VALUE pairs, space-separated, for the Simulator's normal launches (CI only)
+        type: string
+        default: ""
+      smoke_expect:
+        description: A Ruby regular expression the game's output must match in a normal launch (empty for none)
+        type: string
+        default: ""
+      smoke_seconds:
+        description: How long a normal launch may run
+        type: string
+        default: "20"
+      touch_env:
+        description: NAME=VALUE pairs added to smoke_env for the touch test's launch (CI only)
+        type: string
+        default: ""
+      extra_launches:
+        description: More portrait launches, separated by ;, each with its own NAME=VALUE pairs (CI only)
+        type: string
+        default: ""
+      kit_questions:
+        description: A text file in the repository with the playtest's questions (empty for the kit's own)
+        type: string
+        default: ""
+      project_run:
+        description: Check the ios-kit artifact of this earlier run instead of building one (empty to build)
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -117,23 +202,28 @@ env:
   # Pushed, the workflow checks winkit, which prints what Lota sees and
   # quits with 0 after its WINKIT_SECONDS; its touch launch runs the DPI
   # probe (test/games/winkit/main.rb).
+  # Run by a game's own CI (workflow_call), github.repository and
+  # github.sha are the game's, so Lota's checkout names its own.
+  LOTA_REPOSITORY: setdef/Lota
+  LOTA_REF: ${{ inputs.lota_ref || github.sha }}
+  LOTA_REF_NAME: ${{ inputs.lota_ref || github.ref_name }}
   KIT_GAME_REPOSITORY: ${{ inputs.game_repository || github.repository }}
-  KIT_GAME_REF: ${{ github.event_name == 'push' && github.sha || inputs.game_ref }}
-  KIT_GAME_PATH: ${{ github.event_name == 'push' && 'test/games/winkit' || inputs.game_path }}
-  KIT_DISPLAY_NAME: ${{ github.event_name == 'push' && 'Winkit' || inputs.display_name }}
+  KIT_GAME_REF: ${{ !inputs.game_repository && github.sha || inputs.game_ref }}
+  KIT_GAME_PATH: ${{ !inputs.game_repository && 'test/games/winkit' || inputs.game_path }}
+  KIT_DISPLAY_NAME: ${{ !inputs.game_repository && 'Winkit' || inputs.display_name }}
   KIT_APP_NAME: ${{ inputs.app_name }}
   KIT_IDENTIFIER: ${{ inputs.identifier }}
   KIT_PROGRAM: ${{ inputs.program }}
   KIT_ICON: ${{ inputs.icon }}
   KIT_ORIENTATIONS: ${{ inputs.orientations }}
   KIT_AUDIO_CATEGORY: ${{ inputs.audio_category || 'ambient' }}
-  KIT_HIDE_STATUS_BAR: ${{ github.event_name == 'push' || inputs.hide_status_bar }}
+  KIT_HIDE_STATUS_BAR: ${{ !inputs.game_repository || inputs.hide_status_bar }}
   KIT_QUESTIONS: ${{ inputs.kit_questions }}
-  KIT_SMOKE_ENV: ${{ github.event_name == 'push' && 'WINKIT_HIGHDPI=1' || inputs.smoke_env }}
-  KIT_SMOKE_EXPECT: ${{ github.event_name == 'push' && '(?m)^exiting with 0$' || inputs.smoke_expect }}
+  KIT_SMOKE_ENV: ${{ !inputs.game_repository && 'WINKIT_HIGHDPI=1' || inputs.smoke_env }}
+  KIT_SMOKE_EXPECT: ${{ !inputs.game_repository && '(?m)^exiting with 0$' || inputs.smoke_expect }}
   KIT_SMOKE_SECONDS: ${{ inputs.smoke_seconds || '20' }}
   KIT_EXTRA_LAUNCHES: ${{ inputs.extra_launches }}
-  KIT_TOUCH_ENV: ${{ github.event_name == 'push' && 'WINKIT_DPI_PROBE=1 WINKIT_SECONDS=150' || inputs.touch_env }}
+  KIT_TOUCH_ENV: ${{ !inputs.game_repository && 'WINKIT_DPI_PROBE=1 WINKIT_SECONDS=150' || inputs.touch_env }}
   KIT_DEVICES: >-
     iPad Pro 13-inch (M5)|iPad Pro 13-inch (M4);
     iPad (A16)|iPad (10th generation);
@@ -151,6 +241,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ env.LOTA_REPOSITORY }}
+          ref: ${{ env.LOTA_REF }}
           persist-credentials: false
           submodules: true
 
@@ -181,18 +273,26 @@ jobs:
       - name: Build SDL3 for iOS
         run: bundle exec rake ios:sdl3
 
-      - name: Check out the game
+      # With the run's token, so a game's own CI checks out its own
+      # repository even when it is private.
+      - name: Check the game's repository name
         run: |
           if ! [[ $KIT_GAME_REPOSITORY =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
             echo "::error::game_repository must be OWNER/NAME, not $KIT_GAME_REPOSITORY"; exit 1
           fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.KIT_GAME_REPOSITORY }}
+          ref: ${{ env.KIT_GAME_REF }}
+          persist-credentials: false
+          path: kit-game
+
+      - name: Move the game out of Lota's checkout
+        run: |
           clone=$RUNNER_TEMP/game/${KIT_GAME_REPOSITORY#*/}
-          mkdir -p "$clone"
-          git -C "$clone" init --quiet
-          git -C "$clone" remote add origin "https://github.com/$KIT_GAME_REPOSITORY.git"
-          # Fetched without credentials, so a private repository fails here.
-          GIT_TERMINAL_PROMPT=0 git -C "$clone" fetch --quiet --depth 1 origin "${KIT_GAME_REF:-HEAD}"
-          git -C "$clone" -c advice.detachedHead=false checkout --quiet FETCH_HEAD
+          mkdir -p "$(dirname "$clone")"
+          mv kit-game "$clone"
           sha=$(git -C "$clone" rev-parse HEAD)
           echo "$KIT_GAME_REPOSITORY ${KIT_GAME_REF:-(default branch)} is $sha"
           { echo "KIT_GAME_CLONE=$clone"; echo "KIT_GAME_SHA=$sha"; } >> "$GITHUB_ENV"
@@ -215,7 +315,7 @@ jobs:
           git -C "$gem" -c user.name=ios-kit -c user.email=ios-kit@example.com commit --quiet -m "Lota's gem files"
           du -sh "$gem"
           export KIT_LOTA_GEM=$gem KIT_FLEDGE_REF=$FLEDGE_REF KIT_PROJECT=$RUNNER_TEMP/project KIT_JSON=$RUNNER_TEMP/kit/kit.json
-          export KIT_LOTA_REPOSITORY=$GITHUB_REPOSITORY KIT_LOTA_SHA=$GITHUB_SHA KIT_LOTA_REF=$GITHUB_REF_NAME KIT_RUN_ID=$GITHUB_RUN_ID
+          export KIT_LOTA_REPOSITORY=$LOTA_REPOSITORY KIT_LOTA_SHA=$(git rev-parse HEAD) KIT_LOTA_REF=$LOTA_REF_NAME KIT_RUN_ID=$GITHUB_RUN_ID KIT_RUN_REPOSITORY=$GITHUB_REPOSITORY
           export KIT_RUN_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           mkdir -p "$RUNNER_TEMP/kit"
           ruby ipad/prepare.rb layout
@@ -280,6 +380,8 @@ jobs:
       # Only the kit's harness; no Lota, no bundle, no submodules.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ env.LOTA_REPOSITORY }}
+          ref: ${{ env.LOTA_REF }}
           persist-credentials: false
           sparse-checkout: ipad
           path: lota
@@ -373,6 +475,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ env.LOTA_REPOSITORY }}
+          ref: ${{ env.LOTA_REF }}
           persist-credentials: false
           sparse-checkout: ipad
           path: lota
