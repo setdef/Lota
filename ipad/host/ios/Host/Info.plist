@@ -11,9 +11,9 @@
   SDL_RunApp in Host/main.m expects, in place of Fledge's SceneDelegate.
 
   The iPad kit's additions for Dot Popper: its display name, which has a
-  space the target's name cannot; UIRequiresFullScreen, so the game has
-  the whole screen in every orientation the iPad allows; the status bar
-  hidden, as a game's is; UIApplicationSupportsIndirectInputEvents,
+  space the target's name cannot; the status bar hidden, as a game's is,
+  whatever SDL's view controller would prefer (UIRequiresFullScreen stays
+  unset, as Dot Popper's doc/ios.md asks); UIApplicationSupportsIndirectInputEvents,
   which SDL asks for to read a mouse or trackpad (it logs "You need
   UIApplicationSupportsIndirectInputEvents in your Info.plist for mouse
   support" without it); and an empty UILaunchScreen, so iOS runs the app
@@ -44,8 +44,6 @@
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
-	<key>UIRequiresFullScreen</key>
-	<true/>
 	<key>UIStatusBarHidden</key>
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

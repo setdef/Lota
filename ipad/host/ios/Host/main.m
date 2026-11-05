@@ -12,6 +12,7 @@
 // one the executable asks for, with -Wl,-stack_size in OTHER_LDFLAGS.
 // Info.plist names SDLUIKitSceneDelegate as the scene's delegate.
 @import FledgeRuby;
+@import AVFoundation;
 @import Foundation;
 
 #include <errno.h>
@@ -54,6 +55,14 @@ int main(int argc, char *argv[]) {
             os_log(app_log, "OS_ACTIVITY_DT_MODE is set, so the app's output stays on its own streams");
         } else if (fledge_ruby_forward_output(identifier.UTF8String) != 0) {
             os_log_error(app_log, "could not send the app's output to the log: %{public}s", strerror(errno));
+        }
+        // Dot Popper's sound is ambient (its doc/ios.md): it mixes with
+        // other apps' audio and the silent switch mutes it, as
+        // AVAudioSessionCategoryAmbient does; set before SDL and OpenAL
+        // open the audio device.
+        NSError *error = nil;
+        if (![AVAudioSession.sharedInstance setCategory:AVAudioSessionCategoryAmbient error:&error]) {
+            os_log_error(app_log, "could not set the audio session's category: %{public}@", error);
         }
     }
     return SDL_RunApp(argc, argv, run_ruby, NULL);

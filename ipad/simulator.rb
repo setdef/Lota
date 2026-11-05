@@ -23,11 +23,11 @@ $stdout.sync = true
 
 GAME_ENV = {
   "DOT_POPPER_AUTOPLAY" => "1",
-  "DOT_POPPER_QUIT_AFTER" => "40",
+  "DOT_POPPER_QUIT_AFTER" => "45",
   "DOT_POPPER_SEED" => "7",
   "DOT_POPPER_SHOTS" => "3,12,25,38"
 }.freeze
-SHOT_SECONDS = [6, 12, 18, 26, 34, 42].freeze
+SHOT_SECONDS = [6, 12, 18, 26, 34, 42, 48].freeze
 DEADLINE = 240
 
 def capture(*command)
