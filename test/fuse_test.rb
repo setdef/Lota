@@ -231,8 +231,9 @@ class FuseTest < Minitest::Test
     RUBY
     assert_equal LOCKFILE, read("Gemfile.lock")
     assert_equal read("game", "dot", "Gemfile"), File.read(File.join(@game, "Gemfile"))
-    assert_equal <<~LOG, File.read(@log).lines.first(2).join
-      bundle lock --add-platform arm64-darwin --remove-platform x86_64-linux-gnu --add-checksums
+    assert_equal <<~LOG, File.read(@log).lines.first(3).join
+      bundle lock --remove-platform x86_64-linux-gnu
+      bundle lock --add-platform arm64-darwin --add-checksums
       bundle install
     LOG
     assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem", "my_gem-1.0.0.gem", "my_git_gem-abc123"],
@@ -250,7 +251,7 @@ class FuseTest < Minitest::Test
     capture_io { fuse.call }
 
     assert_includes read("Gemfile"), %(eval_gemfile "game/dot/Gemfile"\n\ngem "lota", "#{Lota::VERSION}"\n\ngroup :development do\n)
-    assert_equal "bundle lock --add-platform arm64-darwin --add-checksums\n", File.read(@log).lines.first
+    assert_equal ["bundle lock --add-platform arm64-darwin --add-checksums\n", "bundle install\n"], File.read(@log).lines.first(2)
     assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem"], Dir.children(project("vendor", "cache"))
     assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
   end

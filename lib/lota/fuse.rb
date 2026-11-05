@@ -158,7 +158,7 @@ module Lota
       bundle = @bundle || bundler
       check_git
       write_project(read_settings, gem, locked)
-      run(bundle, *lock_arguments(locked, platform), step: "Locking the project's gems", why: network)
+      lock_commands(locked, platform).each { |command| run(bundle, *command, step: "Locking the project's gems", why: network) }
       if locked
         run(bundle, "install", step: "Installing the game's gems and Fledge", why: "#{COMPILER} #{network('lota fuse also')}")
       else
@@ -363,16 +363,19 @@ module Lota
       end
     end
 
-    # What follows <tt>bundle</tt> to lock the project: for a game with a
-    # lockfile, which the project starts from, it adds +platform+, which
-    # Fledge's runtime takes in the form Lota's gem names it, and removes
-    # the lockfile's other platforms, whose builds the project does not
-    # hold (#copy_cache).
-    private def lock_arguments(locked, platform)
-      return ["lock", "--add-checksums"] unless locked
+    # The Bundler commands that lock the project, each as what follows
+    # <tt>bundle</tt>. A game's lockfile, which the project starts from,
+    # first loses its other platforms, whose builds the project does not
+    # hold (#copy_cache), in a command of its own, since Bundler resolves
+    # for every platform a lockfile names before it removes any when it is
+    # also asked for checksums (Bundler::CLI::Lock#run); then it gains
+    # +platform+, in the form Lota's gem names it, which Fledge's runtime
+    # takes.
+    private def lock_commands(locked, platform)
+      return [%w[lock --add-checksums]] unless locked
 
       others = locked.other_platforms(platform)
-      ["lock", "--add-platform", platform, *(others.empty? ? [] : ["--remove-platform", *others]), "--add-checksums"]
+      [*(others.empty? ? [] : [["lock", "--remove-platform", *others]]), ["lock", "--add-platform", platform, "--add-checksums"]]
     end
 
     # The game's identity: its <tt>t.identity</tt>, or the name

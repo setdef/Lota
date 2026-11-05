@@ -98,7 +98,7 @@ module Lota
 
     private def copy_cache: (String cache, Lockfile locked) -> void
 
-    private def lock_arguments: (Lockfile? locked, String platform) -> Array[String]
+    private def lock_commands: (Lockfile? locked, String platform) -> Array[Array[String]]
 
     private def identity: (Settings settings) -> String
 
