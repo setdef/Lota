@@ -406,8 +406,8 @@ void define_event(const Rice::Module &native) {
       .define_singleton_function("restart", &restart, Rice::Arg("arguments"))
       .define_singleton_function("set_modal_draw_callback", &set_modal_draw_callback,
                                  Rice::Arg("callable"))
-      .define_singleton_function("set_default_modal_draw_callback", &set_default_modal_draw_callback,
-                                 Rice::Arg("callable"))
+      .define_singleton_function("set_default_modal_draw_callback",
+                                 &set_default_modal_draw_callback, Rice::Arg("callable"))
       .define_singleton_function("quit", &quit, Rice::Arg("exit_status") = std::optional<double>());
 }
 

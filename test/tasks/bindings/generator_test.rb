@@ -845,7 +845,8 @@ class GeneratorTest < Minitest::Test
   # The rules give each bound function the Ruby name lib/ already
   # defines, so the generator and the hand-written Ruby agree. RandomGenerator
   # has no Ruby class yet, and Lota::Math draws from the math module's
-  # generator itself; and love.filesystem's init and setSource only Lota::Boot, as they serve
+  # generator itself; and love.event._setDefaultModalDrawCallback and
+  # love.filesystem's init and setSource only Lota::Boot, as they serve
   # only boot.lua.
   UNWRITTEN = %w[
     RandomGenerator:_random
@@ -853,6 +854,7 @@ class GeneratorTest < Minitest::Test
     RandomGenerator:randomNormal
     RandomGenerator:setSeed
     RandomGenerator:setState
+    love.event._setDefaultModalDrawCallback
     love.filesystem.init
     love.filesystem.setSource
     love.math._getRandomGenerator
