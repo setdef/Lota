@@ -179,6 +179,10 @@ class RakeTasksTest < Minitest::Test
     assert_includes prerequisites("lint:all"), "workflows"
   end
 
+  def test_the_lint_gate_guards_against_naming_games_that_use_lota
+    assert_includes prerequisites("lint:all"), "guard"
+  end
+
   # actionlint passes without shellcheck, so the task refuses to run
   # without it.
   def test_checking_the_workflows_needs_shellcheck

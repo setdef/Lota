@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# What tasks/guard.rb (rake lint:guard) keeps out of Lota's tracked files.
+#
+# Lota is a dependency of games. Like Fledge cannot depend on Lota, nothing
+# permanent in Lota (code, docs, tests, comments, workflows) may name or
+# depend on a game that uses Lota. This is the one list the lint reads; a
+# new consumer is one line under games.
+
+# Each name matches without regard to case, with a space, an underscore, a hyphen, an
+# apostrophe, or nothing between its words, and not inside a longer word
+# ("popper" alone and "tokras" are not matches).
+games:
+  - dot popper
+  - cross em
+  - deckbuilder
+  - tokra
+
+# Agents are ephemeral, so a file names none of them in particular. Each
+# pattern is a Ruby regular expression, matched without regard to case.
+agents:
+  - name: subagent
+    pattern: 'subagents?\b'
+  - name: an agent's identifier
+    pattern: 'agent[ -]a?(?=[0-9a-f]*\d)[0-9a-f]{8,}'
+  - name: a named agent
+    pattern: '\bthe (?:fledge|main|lota|windows|macos|linux|ci|gate|orchestrator|worker|parent|previous|earlier) agent\b'
+
+# Files the lint skips, as File.fnmatch patterns from the repository root,
+# each with the reason it is exempt.
+exempt:
+  - path: tasks/guard.yml
+    reason: this list names what it forbids
+  - path: CHANGELOG.md
+    reason: a release note records what changed, and may name who asked
+  - path: tasks/windows_kit/**
+    reason: temporary material, made to try Lota on Windows, which leaves with its experiment branches

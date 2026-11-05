@@ -44,6 +44,7 @@ A clean run takes about seven minutes, most of it compiling the engine twice and
 - `bundle exec rake bindings:generate` writes the bindings `ext/lota/bindings.rb` lists (see [Bindings](#bindings)).
 - `bundle exec rake package:native`, `package:check`, `package:install`, and `package:deliver` build and check the precompiled gem (see [Packaging](#packaging)).
 - `bundle exec rake cpp` runs `cpp:format`, `cpp:no_nolint`, and `cpp:tidy`; `rake cpp:format:fix` rewrites the layout clang-format reports. `cpp:tidy` starts a clang-tidy for each source, as many at once as the machine has cores, as LLVM's `run-clang-tidy` does, since each of Lota's sources parses Rice's headers, which one clang-tidy for all of them did one after another.
+- `bundle exec rake lint:guard` fails on a line, in any file Git tracks (stage new files first), that names a game that uses Lota or refers to a particular agent, since Lota is a dependency of games and agents are ephemeral. It prints each `file:line` with the rule. `tasks/guard.yml` is the one list it reads: the games (a new one is one line), the agent patterns, and the exempt paths, each with its reason. The changelog and the temporary Windows kit are exempt.
 - `bundle exec rake lint:workflows` checks `.github/workflows` with actionlint, and each step's script with shellcheck. Both are pinned in `mise.toml`, and the task fails without shellcheck, which actionlint would skip without a word.
 
 ## Sanitizers

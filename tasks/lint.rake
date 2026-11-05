@@ -8,6 +8,7 @@
 require "rubocop/rake_task"
 require "rubycritic/rake_task"
 require "inch/rake"
+require_relative "guard"
 
 RuboCop::RakeTask.new
 
@@ -125,7 +126,13 @@ namespace :lint do
   task docs: %w[safe_rdoc_coverage rubycritic reuse:lint]
   task code: %w[rubocop rubycritic]
   task licenses: %w[reuse:lint]
-  task all: %w[docs code licenses rbs workflows]
+  task all: %w[docs code licenses rbs workflows guard]
+
+  desc "Check that no tracked file names a game that uses Lota or a particular agent (tasks/guard.yml)"
+  task :guard do
+    message = Guard.new.report
+    abort "❌ lint:guard\n#{message}" if message
+  end
 
   # actionlint runs shellcheck over each step's script only when it finds
   # it, and passes without a word when it does not, so a missing shellcheck
