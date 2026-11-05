@@ -3,21 +3,28 @@
   SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
   SPDX-License-Identifier: AGPL-3.0-or-later
 
-  Written by fledge build (ADR 012). The name, identifier, and version
-  are the target's build settings, which fledge.yml gave.
+  The iOS kit's Info.plist, which ipad/prepare.rb fills in and fledge.yml's
+  ios host lays over Fledge's (Fledge 0.5.0, ADR 025). It starts from
+  Fledge's examples/sdl_phone copy: the scene's delegate is SDL's
+  SDLUIKitSceneDelegate, which SDL_RunApp in Host/main.m expects.
 
-  sdl_phone's copy (ADR 025), which fledge.yml's ios host lays over
-  Fledge's: the scene's delegate is SDL's SDLUIKitSceneDelegate, which
-  SDL_RunApp in Host/main.m expects, in place of Fledge's SceneDelegate.
-
-  The iPad kit's additions for Dot Popper: its display name, which has a
-  space the target's name cannot; the status bar hidden, as a game's is,
-  whatever SDL's view controller would prefer (UIRequiresFullScreen stays
-  unset, as Dot Popper's doc/ios.md asks); UIApplicationSupportsIndirectInputEvents,
-  which SDL asks for to read a mouse or trackpad (it logs "You need
-  UIApplicationSupportsIndirectInputEvents in your Info.plist for mouse
-  support" without it); and an empty UILaunchScreen, so iOS runs the app
-  at the screen's own size rather than letterboxed.
+  What the kit adds for a game:
+  - CFBundleDisplayName, the name under the icon, is the target's
+    APP_DISPLAY_NAME build setting, so it may hold spaces and any
+    character the target's name cannot.
+  - UILaunchScreen, empty, so iOS runs the app at the screen's own size
+    rather than letterboxed.
+  - UIApplicationSupportsIndirectInputEvents, which SDL asks for to read a
+    mouse or trackpad ("You need UIApplicationSupportsIndirectInputEvents
+    in your Info.plist for mouse support" without it).
+  - UIStatusBarHidden with UIViewControllerBasedStatusBarAppearance false,
+    when the workflow's hide_status_bar is true: the status bar stays
+    hidden, as a game's is, whatever SDL's view controller would prefer.
+  - The orientations the workflow's orientations input names.
+  - LotaAudioSessionCategory, which Host/main.m reads: the audio session's
+    category, set before SDL and OpenAL open the audio device.
+  UIRequiresFullScreen stays unset, so iPadOS may show the game beside
+  other apps.
 -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -25,7 +32,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Dot Popper</string>
+	<string>$(APP_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -44,12 +51,10 @@
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
-	<key>UIStatusBarHidden</key>
+@KIT_STATUS_BAR@	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+	<key>LotaAudioSessionCategory</key>
+	<string>@KIT_AUDIO_CATEGORY@</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -69,16 +74,9 @@
 	</dict>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
+@KIT_ORIENTATIONS_IPHONE@	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
+@KIT_ORIENTATIONS_IPAD@	</array>
 </dict>
 </plist>

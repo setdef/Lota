@@ -1,103 +1,103 @@
+# @DISPLAY_NAME@ for iPhone and iPad: the Xcode project
 
-# Playtesting Dot Popper on an iPad
+This folder is an Xcode project that builds @DISPLAY_NAME@ as an app for iPhone and iPad: one app, one binary, for both. The project is yours. Open it, sign it with your own Apple ID or team, put the game on your own devices, and change it as you would any Xcode project. It needs no Lota, no Fledge, no Ruby, and no XcodeGen on your Mac: everything it builds from is already inside.
 
-**Answer the questions in `ipad-results.txt` and send this file back.** It sits next to this README, and it is the only thing to send. To get the game onto the iPad, follow steps 1 to 5 below; nothing else on this page needs reading. The sections after them ("What you should see", "When something goes wrong", "After 7 days") are there if you want them.
+**If you are playtesting, answer the questions in `@RESULTS_FILE@` and send that file back.** It sits next to this README and is the only thing to send. Steps 1 to 5 below get the game onto your device in about half an hour with a free Apple ID. Everything after them is there if you want it.
 
-You have a Mac with Xcode, an Apple ID, and an iPad on a cable. This page takes Dot Popper from a CI artifact to that iPad in about half an hour, with a free Apple ID and no Lota, Fledge, Ruby, or XcodeGen on the Mac.
+## What is in this folder
 
-The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipad-kit.yml`, on `experiment/ipad-*` branches) generates with `fledge build ios` (Fledge 0.4.0, SDL's iOS host) from a Dot Popper tag (v0.8.0 by default) and Lota's checkout (0.1.3). Its program, `bin/ipad_kit`, runs Dot Popper's own `bin/dot_popper`; it adds diagnostic log lines only when CI sets `DOT_POPPER_KIT_PROBE=1`. The project is already generated, so it opens in Xcode as it is. It holds everything it builds from: the Ruby runtime (`FledgeRuby.xcframework`), Lota's engine and SDL3 compiled for the iPad and the Simulator (`FledgeExtensions.xcframework`), and the game (`fledge/app`).
+- `@APP_NAME@.xcodeproj`, the project, already generated. Open it.
+- `Host/`, the app's own code and settings: `main.m` starts SDL and runs the game's Ruby program, and `Info.plist` holds the app's name, orientations, and status bar settings.
+- `FledgeRuby.xcframework`, the Ruby runtime, for devices and for the Simulator.
+- `FledgeExtensions.xcframework`, Lota's engine and SDL3, compiled for devices and for the Simulator.
+- `fledge/`, the game itself (`fledge/app`) and the configuration that starts it.
+- `project.yml`, what XcodeGen generated the project from. You never need it; regenerating would undo your signing settings.
+- `BUILD-INFO.txt`, which names the commits, tools, and CI run that made this kit.
+- `@RESULTS_FILE@`, the playtest questions.
 
-## What CI proved, and what it did not
+The game is @GAME_REPOSITORY@ at @GAME_REF@ (commit @GAME_SHA@), folder `@GAME_PATH@`, built with Lota at commit @LOTA_SHA@ and Fledge @FLEDGE_REF@. Its program is @PROGRAM@. Its icon is @ICON@.
 
-The workflow unpacks the zip on a second, fresh runner, with no Lota, Fledge, XcodeGen, or bundle, and builds it there with `xcodebuild`: for the Simulator, and for devices with signing turned off. It then runs the Simulator build in iPad Simulators with the game's autoplay bot, and keeps screenshots and the app's log. `BUILD-INFO.txt` in the zip names the run, the commits, and the Xcode and XcodeGen versions.
+## What CI checked, and what it did not
 
-For Dot Popper 0.8.0 the run in `BUILD-INFO.txt` passes only if Xcode builds the unpacked project for the Simulator and, unsigned, for devices (Debug and Release), and the game runs in iOS Simulators of an iPad Pro 13-inch (M5), an iPad (A16), and an iPad mini (A17 Pro): on each, three launches in which the bot plays to the end and the app reports exit status 0, one more with a fake sideways tilt, and one left idle on the title for a minute. The Simulator has no accelerometer, but shows the app one joystick, so in the plain launches every Game Over must log `Dot Popper: tilt from the gamepad's right stick`, or `Dot Popper: tilt from none` in the launch that hides joysticks, and the game must go on after it; in the tilted launch Game Over logs `Dot Popper: tilt from a fake reading (DOT_POPPER_FAKE_TILT=…)`, and its screenshots show the pile rolled to one side. A separate UI test taps the screen and turns the Simulator from portrait to landscape and back.
+The workflow that made this kit (Lota's `.github/workflows/ios-kit.yml`, run @RUN_ID@, @RUN_URL@) unpacked it on a second, fresh Mac with no Lota, Fledge, XcodeGen, or Ruby gems, and built it there with `xcodebuild`: for the Simulator, and with signing turned off for devices, Debug and Release. It then ran the Simulator build in iPad and iPhone Simulators, several launches each in portrait and in landscape, and kept the screenshots and the app's log. A UI test tapped the screen and turned the Simulator from portrait to landscape and back.
 
-No one has run this app on a physical iPad, and no CI run has read a real accelerometer. The device build compiled and linked, unsigned; whether it signs, installs, runs, sounds right, and tilts the Game Over pile on the iPad is what this playtest finds out.
+No one has run this build on a physical device. The device build compiled and linked, unsigned; whether it signs, installs, runs, sounds right, and feels right on your iPhone or iPad is what you find out.
 
 ## What the Mac needs
 
-- **Xcode 26.3 or newer** (CI built and checked the kit with Xcode 26.3, 17C529, and the iOS 26.2 SDK; `BUILD-INFO.txt` names the version for each kit). The libraries inside were compiled by that Xcode, so an older Xcode may fail to link them. Xcode runs an app only on an iPad whose iPadOS it knows; if the iPad is newer, Xcode offers to download its support next to the run destination.
-- **Nothing else.** The zip holds `DotPopper.xcodeproj`, already generated. CI's check runner had no XcodeGen, no Ruby gems, and no Lota or Fledge, and built the project anyway. XcodeGen (2.x, the version in `BUILD-INFO.txt`) is needed only to regenerate the project from `project.yml`, which this playtest never does; regenerating would undo your signing settings.
+- **@XCODE@ or newer.** The libraries inside were compiled by that Xcode, so an older Xcode may fail to link them. Xcode runs an app only on a device whose iOS it knows; if your device is newer, Xcode offers to download its support next to the run destination.
+- **An Apple ID.** A free one works.
+- **A cable** for the iPhone or iPad.
 
 ## 1. Download and unpack
 
-If this README is already in an unpacked folder (such as `~/Downloads/dot-popper-ipad/`), open `DotPopper.xcodeproj` beside it and go on to step 2. Otherwise, from the Terminal, with the run's number from the workflow's page:
+If this README is already in an unpacked folder, open `@APP_NAME@.xcodeproj` beside it and go on to step 2. Otherwise, from the Terminal, with the run's number from the workflow's page:
 
 ```sh
-mkdir -p ~/DotPopperKit && cd ~/DotPopperKit
-gh run download RUN -R setdef/Lota -n dot-popper-ios-project
+mkdir -p ~/@APP_NAME@Kit && cd ~/@APP_NAME@Kit
+gh run download @RUN_ID@ -R @LOTA_REPOSITORY@ -n ios-kit
 shasum -a 256 -c SHA256SUMS
-ditto -x -k DotPopper-ios.zip .
-open DotPopper-ios/DotPopper.xcodeproj
+ditto -x -k @APP_NAME@-ios.zip .
+open @APP_NAME@-ios/@APP_NAME@.xcodeproj
 ```
 
-Or, in the browser, open the run, download `dot-popper-ios-project` under Artifacts, and double-click the zips in Finder. Finder's Archive Utility and `ditto` keep the zip's symbolic links, which the frameworks inside rely on. Avoid tools that turn links into copies or drop them.
+Or, in the browser, open the run, download `ios-kit` under Artifacts, and double-click the zips in Finder. Finder's Archive Utility and `ditto` keep the zip's symbolic links, which the frameworks inside rely on. Avoid tools that turn links into copies or drop them.
 
-## 2. Sign it with your Personal Team
+## 2. Sign it with your Apple ID
 
-1. **Sign in.** Xcode > Settings > Accounts (Apple Accounts in newer Xcode), press +, and add your Apple ID. Xcode lists a team named "YOUR NAME (Personal Team)".
-2. **Choose the team.** In the project navigator select DotPopper (the blue project icon), then the DotPopper target under Targets, then Signing & Capabilities. Turn on "Automatically manage signing" and choose your Personal Team.
-3. **Keep the identifier, or change it.** The Bundle Identifier is `com.kerricklong.DotPopper`. If Xcode says it "is not available" or "cannot be registered", someone else holds it: change it to one of your own, such as `com.kerricklong.DotPopper.playtest`, and Xcode tries again. Nothing else depends on it.
+1. **Add your Apple ID.** Xcode > Settings > Apple Accounts (Accounts in older Xcode), press +, and sign in. Xcode lists a team named "YOUR NAME (Personal Team)", or your company's team if you are in the Apple Developer Program.
+2. **Choose the team.** In the project navigator select @APP_NAME@ (the blue project icon), then the @APP_NAME@ target under Targets, then Signing & Capabilities. Turn on "Automatically manage signing" and choose your team.
+3. **Choose the bundle identifier.** It is `@IDENTIFIER@`. If Xcode says it "is not available" or "cannot be registered", another team holds it: change it to one of your own, such as `com.yourname.@APP_NAME@`, and Xcode tries again. Nothing else in the project depends on it.
 
-A free Personal Team signs for 7 days at a time, for at most 3 apps on the iPad and 10 App IDs a week (Apple, "Choosing a membership").
+A free Personal Team signs for 7 days at a time, for at most 3 apps on a device and 10 App IDs a week. A paid membership signs for a year and can ship to TestFlight and the App Store.
 
-## 3. Get the iPad ready
+## 3. Get the device ready
 
-1. **Pair it.** Plug the iPad in, unlock it, and tap Trust on "Trust This Computer?". Enter the iPad's passcode.
-2. **Turn on Developer Mode.** On the iPad: Settings > Privacy & Security > Developer Mode (at the bottom, under Security). The switch appears only after the iPad has been paired with a Mac running Xcode. Turn it on, restart the iPad, and after the restart tap Turn On and enter the passcode.
+1. **Pair it.** Plug the iPhone or iPad in, unlock it, and tap Trust on "Trust This Computer?". Enter its passcode.
+2. **Turn on Developer Mode.** On the device: Settings > Privacy & Security > Developer Mode, at the bottom. The switch appears only after the device has been paired with a Mac running Xcode. Turn it on, let the device restart, then tap Turn On and enter the passcode.
 
 ## 4. Check the scheme
 
-Product > Scheme > Edit Scheme, then Run > Arguments. Under Environment Variables there should be no `OS_ACTIVITY_DT_MODE`, with any value, `NO` and empty included. If Xcode added it, select it and press −. With that variable set, the system copies every log entry to standard error, and the Ruby runtime of Fledge 0.4.0 sends standard error back to the log, so the game would freeze in a loop of its own output. The kit's host program checks for the variable and, when it is set, leaves the game's output on its own streams instead, but the scheme is the place to keep it out.
+Product > Scheme > Edit Scheme, then Run > Arguments. Under Environment Variables there should be no `OS_ACTIVITY_DT_MODE`, with any value, `NO` and empty included. If Xcode added it, select it and press −. With that variable set, the system copies every log entry to standard error, so the host program leaves the game's output on its own streams, and Xcode's console shows it there instead of the device's log.
 
-You may add Dot Popper's own settings here, such as `DOT_POPPER_CALM` = `1` (no screen shake). Leave `DOT_POPPER_AUTOPLAY` out for a playtest: it makes a bot play.
+You may add the game's own settings here, as environment variables, if it reads any.
 
 ## 5. Run
 
-Choose the iPad as the run destination in the toolbar (the menu next to the scheme's name) and press Run (⌘R). Xcode builds the Debug configuration for the iPad, signs, installs, and launches.
+Choose the device as the run destination in the toolbar (the menu next to the scheme's name) and press Run (⌘R). Xcode builds the Debug configuration, signs, installs, and launches.
 
-The first launch may stop at "Untrusted Developer". On the iPad open Settings > General > VPN & Device Management, tap your Apple ID under Developer App, tap Trust, and press Run again.
+The first launch may stop at "Untrusted Developer". On the device open Settings > General > VPN & Device Management, tap your Apple ID under Developer App, tap Trust, and press Run again.
 
-Once installed, Dot Popper is on the Home Screen. It runs without the Mac, until the 7 days are up.
+Once installed, @DISPLAY_NAME@ is on the Home Screen. It runs without the Mac until its signature expires.
 
 ## What you should see
 
-Dot Popper fills the screen, with no status bar, in portrait and in landscape: turn the iPad and the field rebuilds. In the iPad Simulator it looked like this: the score and time in a pill at the top, orange glowing dots about a fingertip wide, purple rings where dots were popped, sparkles and "+1 +1s" on each pop, and at the end "Time!", the score, and the dots piling up at the bottom. The title screen comes first; tap to play, and tap the dots. Sound is synthesized when the game loads and mixes with other apps' audio, and the silent switch mutes it.
+@DISPLAY_NAME@ fills the screen @STATUS_BAR@. On an iPhone it turns to @IPHONE_ORIENTATIONS@; on an iPad to @IPAD_ORIENTATIONS@. Its sound category is @AUDIO@.
 
-At Game Over the dots pile up at the bottom. Tilt the iPad and the pile rolls downhill; shake it and the dots jump. The accelerometer is on only while that pile is there. A paired game controller's right stick rolls it too.
-
-One known workaround is built in. The kit's host program turns off SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), because reading joysticks through an older Lota crashed the game in the Simulator. It hides only the accelerometer posing as a joystick: the game reads the accelerometer through Lota's sensors, and a real controller is still a joystick.
+The host makes one choice LÖVE does not: it hides SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), as a guard, since reading that joystick crashed an early Lota in the Simulator. A game reads the accelerometer through `Lota::Sensor`, and a paired controller is still a joystick. Set `SDL_ACCELEROMETER_AS_JOYSTICK` = `1` in the scheme to bring it back.
 
 ## When something goes wrong
 
 What to send back, by where it fails:
 
-- **The build or signing fails in Xcode.** The red messages in the Issue navigator (⌘5), copied as text (select them, ⌘C), and the Report navigator's build log (⌘9, the newest Build, Export).
-- **The app starts and then closes, or freezes.** The log, below, and the crash report: Window > Devices and Simulators, select the iPad, Open Recent Logs (or View Device Logs), and the newest `DotPopper` entry; on the iPad itself, Settings > Privacy & Security > Analytics & Improvements > Analytics Data, the newest `DotPopper-….ips`, which the Share button sends.
-- **It runs but looks or sounds wrong.** A screenshot (the iPad's top and volume-up buttons together), which way the iPad was turned, and the log.
+- **The build or signing fails in Xcode.** The red messages in the Issue navigator (⌘5), copied as text, and the Report navigator's build log (⌘9, the newest Build, Export).
+- **The app starts and then closes, or freezes.** The log, below, and the crash report: Window > Devices and Simulators, select the device, Open Recent Logs (or View Device Logs), and the newest `@APP_NAME@` entry; on the device itself, Settings > Privacy & Security > Analytics & Improvements > Analytics Data, the newest `@APP_NAME@-….ips`, which the Share button sends.
+- **It runs but looks or sounds wrong.** A screenshot, which way the device was turned, and the log.
 
 ### Reading the log
 
-The game's output goes to the iPad's unified log under the subsystem `com.kerricklong.DotPopper` (or your identifier), category `ruby`; the host's last line, "Dot Popper exited with status N", is under category `app`. While Xcode runs the app, its console (⇧⌘C) shows these lines. Without Xcode, open Console.app on the Mac, select the iPad in the sidebar, press Start, and type `subsystem:com.kerricklong.DotPopper` in the search field. Then play until the problem shows, select the lines, and copy them.
-
-A healthy start prints, among others:
-
-```
-Dot Popper: a dot's radius is 50 points, about 8 mm
-Dot Popper: each round is logged in …/Library/Application Support/dot_popper/rounds.csv
-```
-
-Each Game Over prints where the tilt comes from. On an iPad it should be `Dot Popper: tilt from the accelerometer` (with `and the gamepad's right stick` when a controller is paired); `tilt from none` on an iPad means Lota found no accelerometer, which is worth sending back. `DOT_POPPER_PERF` = `1` in the scheme prints `Dot Popper: N frames a second, longest frame X ms (last 5 s)` every five seconds.
-
-Any line that starts `Dot Popper: could not`, `Dot Popper: drawing without`, or `Dot Popper: playing without` is the game saying something failed and it carried on. Send those.
+The game's output goes to the device's unified log under the subsystem `@IDENTIFIER@` (or your identifier), category `ruby`; the host's last line, "@DISPLAY_NAME@ exited with status N", is under category `app`. While Xcode runs the app, its console (⇧⌘C) shows these lines. Without Xcode, open Console.app on the Mac, select the device in the sidebar, press Start, and type `subsystem:@IDENTIFIER@` in the search field. Play until the problem shows, select the lines, and copy them.
 
 ### The game's saved files
 
-Dot Popper saves its best scores and `rounds.csv`, a line for each round played, in the app's Library/Application Support/dot_popper folder. To copy them to the Mac: Window > Devices and Simulators, select the iPad, select Dot Popper under Installed Apps, click the … (gear) button, and Download Container. Show the package's contents in Finder.
+The game saves in the app's container, under Library/Application Support. To copy them to the Mac: Window > Devices and Simulators, select the device, select @DISPLAY_NAME@ under Installed Apps, click the … (gear) button, and Download Container. Show the package's contents in Finder.
+
+## Making it your own
+
+The project is a normal Xcode project. Change the name under the icon in Build Settings > User-Defined > `APP_DISPLAY_NAME`, the orientations and status bar in `Host/Info.plist` or the target's General tab, the icon in `Host/Assets.xcassets`, and the audio session's category in `Info.plist`'s `LotaAudioSessionCategory` (`ambient`, `soloAmbient`, or `playback`). Archive it (Product > Archive) with a paid team to send it to TestFlight.
 
 ## After 7 days
 
-The app stops launching when its profile expires. Plug the iPad in, open the same `DotPopper.xcodeproj`, and press Run again: Xcode makes a new profile and installs over the old app. Installing over it keeps the saved scores; deleting the app from the iPad deletes them.
+With a free Personal Team the app stops launching when its profile expires. Plug the device in, open the same `@APP_NAME@.xcodeproj`, and press Run again: Xcode makes a new profile and installs over the old app, which keeps the game's saved files. Deleting the app from the device deletes them.
 
-To try a newer build of the game, download the newer kit and do steps 1, 2, and 5 again. Keep the same Bundle Identifier, so it installs over the old app and keeps one of the iPad's 3 app slots.
+To try a newer build of the game, download the newer kit and do steps 1, 2, and 5 again. Keep the same bundle identifier, so it installs over the old app and keeps one of the device's 3 app slots.

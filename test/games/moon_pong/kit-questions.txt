@@ -1,0 +1,17 @@
+1. The moon, both paddles, and the ball are on screen, with no status
+   bar, in portrait and in landscape. (y/n)
+   Answer:
+   Note:
+
+2. Touching the screen moves the bottom paddle under your finger. (y/n)
+   Answer:
+   Note:
+
+3. The Home Screen shows the name "Moon Pong ’em" and the moon icon.
+   (y/n)
+   Answer:
+   Note:
+
+4. Did anything crash, freeze, or look wrong? (describe it, and send a
+   screenshot)
+   Answer:

@@ -1,16 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 // SPDX-License-Identifier: MIT-0
 //
-// The app's entry point when SDL3 owns the screen (ADR 025), in place of
-// the Host/main.m fledge build writes. SDL_RunApp starts UIKit with SDL's
-// own delegates (src/video/uikit/SDL_uikitappdelegate.m at release-3.4.18,
-// lines 43 to 64), and once the scene connects calls run_ruby on the main
-// thread, inside the run loop (lines 354 to 420 and 481 to 489), where
-// SDL's video must run. run_ruby runs the app's Ruby program there, with
-// FledgeRuby's fledge_ruby_run_app, as Fledge's host does on a thread of
-// its own, so Ruby can call SDL directly. The main thread's stack is the
-// one the executable asks for, with -Wl,-stack_size in OTHER_LDFLAGS.
-// Info.plist names SDLUIKitSceneDelegate as the scene's delegate.
+// The app's entry point when SDL3 owns the screen (Fledge's ADR 025), in
+// place of the Host/main.m fledge build writes. SDL_RunApp starts UIKit
+// with SDL's own delegates (src/video/uikit/SDL_uikitappdelegate.m at
+// release-3.4.18, lines 43 to 64), and once the scene connects calls
+// run_ruby on the main thread, inside the run loop (lines 354 to 420 and
+// 481 to 489), where SDL's video must run. run_ruby runs the app's Ruby
+// program there, with FledgeRuby's fledge_ruby_run_app, as Fledge's host
+// does on a thread of its own, so Ruby can call SDL directly. The main
+// thread's stack is the one the executable asks for, with -Wl,-stack_size
+// in OTHER_LDFLAGS. Info.plist names SDLUIKitSceneDelegate as the scene's
+// delegate.
 @import FledgeRuby;
 @import AVFoundation;
 @import Foundation;
@@ -41,37 +42,49 @@ static int run_ruby(int argc, char *argv[]) {
     return status;
 }
 
+// The audio session's category, from Info.plist's LotaAudioSessionCategory:
+// ambient mixes with other apps' audio and the silent switch mutes it,
+// soloAmbient (the system's default) stops other apps' audio and the
+// switch mutes it, playback stops other apps' audio and plays through
+// the switch. Empty or missing leaves the system's default.
+static AVAudioSessionCategory AudioCategory(void) {
+    NSString *name = NSBundle.mainBundle.infoDictionary[@"LotaAudioSessionCategory"];
+    if ([name isEqualToString:@"ambient"]) return AVAudioSessionCategoryAmbient;
+    if ([name isEqualToString:@"soloAmbient"]) return AVAudioSessionCategorySoloAmbient;
+    if ([name isEqualToString:@"playback"]) return AVAudioSessionCategoryPlayback;
+    if (name.length > 0) os_log_error(app_log, "unknown LotaAudioSessionCategory %{public}@, kept the default", name);
+    return nil;
+}
+
 int main(int argc, char *argv[]) {
     @autoreleasepool {
         NSString *identifier = NSBundle.mainBundle.bundleIdentifier;
         app_log = os_log_create(identifier.UTF8String, "app");
         // The unified log copies every entry to standard error when the
-        // environment holds OS_ACTIVITY_DT_MODE, whatever its value; Fledge
-        // 0.4.0's runtime sends standard error back to the log, so the
-        // app would loop on its own output and freeze. As Fledge's trunk
-        // does (its CHANGELOG, Unreleased), the streams then stay with the
-        // tool that launched the app, whose console shows them.
+        // environment holds OS_ACTIVITY_DT_MODE, whatever its value, as
+        // Xcode's console and XCTest set it. Forwarding standard error to
+        // the log would then loop on the app's own output and freeze it,
+        // so the streams stay with the tool that launched the app, whose
+        // console shows them. Fledge 0.5.0's fledge_ruby_forward_output
+        // makes the same check (its runtime/mobile/apple.c); the host
+        // says so in the log, where the app's lines would otherwise be.
         if (getenv("OS_ACTIVITY_DT_MODE") != NULL) {
             os_log(app_log, "OS_ACTIVITY_DT_MODE is set, so the app's output stays on its own streams");
         } else if (fledge_ruby_forward_output(identifier.UTF8String) != 0) {
             os_log_error(app_log, "could not send the app's output to the log: %{public}s", strerror(errno));
         }
-        // WORKAROUND for a Lota bug, not a design choice: on iOS SDL
-        // makes the accelerometer a joystick by default
-        // (SDL_HINT_ACCELEROMETER_AS_JOYSTICK, which SDL also reads from
-        // this environment variable), and Dot Popper 0.5.0 reads every
-        // joystick each frame through Lota::Joystick.joysticks, which
-        // crashed Ruby within seconds in the iPad Simulator (the iPad kit's
-        // runs, gamepads.rb:20, "[BUG] Segmentation fault"). With no
-        // joystick nothing calls into that code until a real controller is
-        // paired. Remove this once Lota's joystick wrapping is fixed.
-        setenv("SDL_ACCELEROMETER_AS_JOYSTICK", "0", 1);
-        // Dot Popper's sound is ambient (its doc/ios.md): it mixes with
-        // other apps' audio and the silent switch mutes it, as
-        // AVAudioSessionCategoryAmbient does; set before SDL and OpenAL
-        // open the audio device.
+        // A guard, not LÖVE's behavior: on iOS SDL makes the accelerometer
+        // a joystick by default (SDL_HINT_ACCELEROMETER_AS_JOYSTICK, which
+        // SDL also reads from this environment variable), and LÖVE leaves
+        // it so. An early Lota crashed in the iPad Simulator while a game
+        // read that joystick every frame, so the kit hides it: a game reads
+        // the accelerometer through Lota::Sensor, and a paired controller
+        // is still a joystick. The environment wins, so a scheme's
+        // SDL_ACCELEROMETER_AS_JOYSTICK=1 brings the joystick back.
+        setenv("SDL_ACCELEROMETER_AS_JOYSTICK", "0", 0);
+        AVAudioSessionCategory category = AudioCategory();
         NSError *error = nil;
-        if (![AVAudioSession.sharedInstance setCategory:AVAudioSessionCategoryAmbient error:&error]) {
+        if (category != nil && ![AVAudioSession.sharedInstance setCategory:category error:&error]) {
             os_log_error(app_log, "could not set the audio session's category: %{public}@", error);
         }
     }

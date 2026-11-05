@@ -1,12 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Fledge's examples/sdl_phone/host/ios/project.yml (v0.4.0, trunk), less
-# its UI test target: SDL3 owns the main loop, Ruby runs inside
-# SDL_RunApp on the main thread with a 64 MB stack. The iPad kit adds
-# the target's shared scheme (scheme: {}, as Fledge's own template has),
-# so Xcode opens the project with a Run scheme that sets no environment:
-# OS_ACTIVITY_DT_MODE must stay out of it (Host/main.m).
+# The iOS kit's project.yml: Fledge's examples/sdl_phone/host/ios/project.yml
+# (v0.5.0), less its UI test target. SDL3 owns the main loop, and Ruby runs
+# inside SDL_RunApp on the main thread with a 64 MB stack. Fledge fills
+# the @@ marks; ipad/prepare.rb fills APP_DISPLAY_NAME first, the name
+# under the app's icon, which Host/Info.plist reads. The target's shared
+# scheme (scheme: {}, as Fledge's own template has) gives Xcode a Run
+# scheme that sets no environment: OS_ACTIVITY_DT_MODE stays out of it
+# (Host/main.m). One target builds for iPhone and iPad
+# (TARGETED_DEVICE_FAMILY 1,2).
 name: @@NAME@@
 options:
   deploymentTarget:
@@ -42,6 +45,7 @@ targets:
       base:
         PRODUCT_NAME: @@NAME@@
         PRODUCT_BUNDLE_IDENTIFIER: @@IDENTIFIER@@
+        APP_DISPLAY_NAME: @KIT_DISPLAY_NAME@
         MARKETING_VERSION: @@VERSION@@
         CURRENT_PROJECT_VERSION: @@VERSION@@
         INFOPLIST_FILE: Host/Info.plist

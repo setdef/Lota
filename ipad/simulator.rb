@@ -3,68 +3,66 @@
 # SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Runs Dot Popper in new iPad Simulators, as the iOS spike's simulator.rb
-# ran its game: creates and boots each iPad, installs and launches the
-# app with the game's autoplay settings (SIMCTL_CHILD_ variables, which
-# simctl passes to the app without the prefix), takes Simulator
-# screenshots every few seconds, reads the app's os_log, and copies the
-# app's data container (its save folder, the game's own shot-N.png files,
-# rounds.csv) and any crash report into OUT. Each iPad runs REPEATS
-# autoplay launches with DOT_POPPER_PERF=1, one autoplay launch with
-# DOT_POPPER_FAKE_TILT=0.6,0 (a steady sideways tilt, so the Game Over
-# pile rolls to one side), shot every 3 s around its Game Over, and one
-# idle launch. The Simulator has no accelerometer, so every Game Over of
-# the plain autoplay launches must name no accelerometer ("tilt from
-# none" in the launch without joysticks), and the game must go on after
-# it. Plain Ruby 2.6, so the runner's own /usr/bin/ruby
-# runs it with nothing installed.
+# Runs the iOS kit's app in new iPhone and iPad Simulators, for any game,
+# as the iOS spike's simulator.rb ran its game. For each device it creates
+# and boots a Simulator, installs the app, and launches it with simctl:
+# KIT_NORMAL_LAUNCHES launches with the game's smoke settings (KIT_SMOKE_ENV,
+# NAME=VALUE pairs, which simctl passes to the app as SIMCTL_CHILD_
+# variables), each for up to KIT_SMOKE_SECONDS, then one idle launch with
+# no settings at all. It takes Simulator screenshots on the wall clock,
+# reads the app's os_log, and copies the app's data container and any
+# crash report into OUT.
 #
-#   ruby simulator.rb APP_BUNDLE IDENTIFIER EXECUTABLE OUT [DEVICE_TYPE_NAME ...]
+# A launch passes when no crash report appears, no line holds [BUG] (Ruby's
+# report of a crash in itself), and the app either exits with status 0 or
+# is still running when its time is up; a normal launch's output must also
+# match KIT_SMOKE_EXPECT, a regular expression, when one is given. A game
+# that quits by itself must quit with 0; one that runs on passes by not
+# crashing.
+#
+# ORIENTATION is portrait or landscape. simctl cannot turn a device, so for
+# landscape a UI test (uitests/KitHold.m, from the xctestrun file
+# KIT_XCTESTRUN) turns it and holds it turned while the launches run.
+# With KIT_XCTESTRUN, devices whose names start with one of KIT_TOUCH_DEVICES
+# (comma-separated) also run uitests/TouchTest.m against a launch with
+# KIT_SMOKE_ENV and KIT_TOUCH_ENV, and the lines the game logged then are
+# kept.
+#
+# Each DEVICE is a list of Simulator names separated by |, the first one
+# the runtime has winning; one that starts with ? may be missing. Plain
+# Ruby 2.6, so a runner's own /usr/bin/ruby runs it with nothing installed.
+#
+#   ruby simulator.rb APP_BUNDLE IDENTIFIER EXECUTABLE OUT ORIENTATION DEVICE...
 require "fileutils"
 require "json"
 require "open3"
 require "time"
 
-bundle, identifier, executable, out, *wanted = ARGV
+bundle, identifier, executable, out, orientation, *wanted = ARGV
+abort "usage: simulator.rb APP IDENTIFIER EXECUTABLE OUT portrait|landscape DEVICE..." unless %w[portrait landscape].include?(orientation)
 FileUtils.mkdir_p(out)
 $stdout.sync = true
 
-AUTOPLAY_ENV = {
-  "DOT_POPPER_AUTOPLAY" => "1",
-  "DOT_POPPER_QUIT_AFTER" => "60",
-  "DOT_POPPER_SEED" => "7",
-  "DOT_POPPER_SHOTS" => "3,12,25,38",
-  "DOT_POPPER_KIT_PROBE" => "1",
-  "DOT_POPPER_PERF" => "1"
-}.freeze
-# The autoplay bot reaches its first Game Over 35 to 40 s into a launch
-# with seed 7 and leaves it a few seconds later: in the tilted launch the
-# Simulator's screenshots come every 3 s from 21 s, and the game's own
-# every 2 s from 30 s of game time. (The log's timestamps come several
-# seconds late, since the game's output reaches the log in batches.)
-TILT_SHOT_SECONDS = (21..57).step(3).to_a.freeze
-TILT_GAME_SHOTS = (30..50).step(2).to_a.freeze
-TILT_ENV = AUTOPLAY_ENV.reject { |key, _| key == "DOT_POPPER_PERF" }
-  .merge("DOT_POPPER_SHOTS" => TILT_GAME_SHOTS.join(","), "DOT_POPPER_FAKE_TILT" => "0.6,0").freeze
-# A launch nobody plays, left on the title screen for IDLE_SECONDS and then
-# terminated, as a player who walks away leaves it.
-IDLE_ENV = { "DOT_POPPER_SEED" => "7", "DOT_POPPER_KIT_PROBE" => "1" }.freeze
-IDLE_SECONDS = 65
-SHOT_SECONDS = [6, 15, 30, 45, 58].freeze
-DEADLINE = 240
-REPEATS = Integer(ENV.fetch("KIT_REPEATS", "3"))
-# The Simulator shows the app one joystick, which Dot Popper takes for a
-# gamepad, so its Game Over says "tilt from the gamepad's right stick".
-# The last autoplay launch asks SDL (its hints, read from the
-# environment) to leave out GameController and HIDAPI devices, so that
-# Game Over has no tilt at all and must say "tilt from none".
-PADLESS_ENV = AUTOPLAY_ENV.merge("SDL_JOYSTICK_MFI" => "0", "SDL_JOYSTICK_HIDAPI" => "0").freeze
-# Each iPad runs REPEATS autoplay launches, the last without joysticks,
-# one tilted one, then one idle launch.
-MODES = ([:autoplay] * (REPEATS - 1) + [:padless, :tilt, :idle]).freeze
-GAME_ENV = { autoplay: AUTOPLAY_ENV, padless: PADLESS_ENV, tilt: TILT_ENV, idle: IDLE_ENV }.freeze
-SHOTS = { autoplay: SHOT_SECONDS, padless: SHOT_SECONDS, tilt: TILT_SHOT_SECONDS, idle: SHOT_SECONDS }.freeze
-GAME_SHOTS = { autoplay: 4, padless: 4, tilt: TILT_GAME_SHOTS.size, idle: 0 }.freeze
+def pairs(text)
+  text.to_s.split(/\s+/).reject(&:empty?).map do |pair|
+    name, value = pair.split("=", 2)
+    abort "#{pair.inspect} is not NAME=VALUE" if value.nil? || name !~ /\A[A-Za-z_][A-Za-z0-9_]*\z/
+    abort "OS_ACTIVITY_DT_MODE freezes the app's log (Host/main.m), so the kit never sets it" if name == "OS_ACTIVITY_DT_MODE"
+    [name, value]
+  end.to_h
+end
+
+SMOKE_ENV = pairs(ENV["KIT_SMOKE_ENV"]).freeze
+TOUCH_ENV = SMOKE_ENV.merge(pairs(ENV["KIT_TOUCH_ENV"])).freeze
+EXPECT = ENV["KIT_SMOKE_EXPECT"].to_s.empty? ? nil : Regexp.new(ENV["KIT_SMOKE_EXPECT"])
+SMOKE_SECONDS = Integer(ENV.fetch("KIT_SMOKE_SECONDS", "20"))
+IDLE_SECONDS = Integer(ENV.fetch("KIT_IDLE_SECONDS", [SMOKE_SECONDS, 30].max.to_s))
+NORMAL_LAUNCHES = Integer(ENV.fetch("KIT_NORMAL_LAUNCHES", "2"))
+XCTESTRUN = ENV["KIT_XCTESTRUN"].to_s.empty? ? nil : ENV["KIT_XCTESTRUN"]
+UITESTS = ENV.fetch("KIT_UITESTS_TARGET", "#{executable}UITests")
+TOUCH_DEVICES = ENV["KIT_TOUCH_DEVICES"].to_s.split(",").map(&:strip).reject(&:empty?)
+MODES = ([:normal] * NORMAL_LAUNCHES + [:idle]).freeze
+abort "landscape needs KIT_XCTESTRUN, the UI tests that turn the device" if orientation == "landscape" && XCTESTRUN.nil?
 
 def capture(*command)
   output, status = Open3.capture2(*command)
@@ -79,18 +77,25 @@ def runtime
     .max_by { |candidate| Gem::Version.new(candidate.fetch("version")) } or raise "no iOS Simulator runtime"
 end
 
-def ipad_types(runtime, wanted)
-  types = runtime.fetch("supportedDeviceTypes").select { |candidate| candidate["productFamily"] == "iPad" }
-  puts "iPad types on #{runtime['name']}: #{types.map { |type| type['name'] }.join(', ')}"
-  chosen = wanted.map { |name| types.find { |type| type["name"] == name } }.compact
-  chosen = [types.last] if chosen.empty?
-  chosen
+def device_types(runtime, wanted)
+  types = runtime.fetch("supportedDeviceTypes")
+  %w[iPhone iPad].each do |family|
+    puts "#{family} types on #{runtime['name']}: #{types.select { |type| type['productFamily'] == family }.map { |type| type['name'] }.join(', ')}"
+  end
+  wanted.map do |group|
+    optional = group.start_with?("?")
+    names = group.sub(/\A\?/, "").split("|")
+    found = names.map { |name| types.find { |type| type["name"] == name } }.compact.first
+    raise "the runtime has none of #{names.join(', ')}" if found.nil? && !optional
+
+    puts "no #{names.join(' or ')} on this runtime; skipped" if found.nil?
+    found
+  end.compact
 end
 
 # The app's process ID, as the Simulator's launchd lists it, or nil when
-# it is not running. A Dot Popper whose Ruby program has returned stays
-# running: SDL_RunApp keeps UIKit's loop going, so a relaunch would only
-# bring the old process forward.
+# it is not running. An app whose Ruby program has returned stays
+# running: SDL_RunApp keeps UIKit's loop going.
 def app_pid(udid, identifier)
   listing, = Open3.capture2("xcrun", "simctl", "spawn", udid, "launchctl", "list")
   line = listing.lines.find { |entry| entry.include?("UIKitApplication:#{identifier}") } or return nil
@@ -98,145 +103,202 @@ def app_pid(udid, identifier)
   pid =~ /\A\d+\z/ ? Integer(pid) : nil
 end
 
-def shooter_done?(pid)
-  @finished ||= {}
-  return true if @finished[pid]
+# Whether the child process +pid+ has ended; its status is then in
+# @statuses.
+def done?(pid)
+  @statuses ||= {}
+  return true if @statuses[pid]
 
-  @finished[pid] = !Process.waitpid(pid, Process::WNOHANG).nil?
+  return false if Process.waitpid(pid, Process::WNOHANG).nil?
+
+  @statuses[pid] = $?
+  true
 end
 
+# The app's log entries since +since+, as [category, message] pairs.
 def messages(udid, since, identifier, log)
   system("xcrun", "simctl", "spawn", udid, "log", "show", "--start", since, "--style", "ndjson", "--info", "--debug",
     "--predicate", "subsystem == \"#{identifier}\"", out: log, err: File::NULL)
   File.readlines(log).map do |line|
     begin
       entry = JSON.parse(line)
-      entry.is_a?(Hash) && entry["eventMessage"] ? "#{entry['timestamp']} [#{entry['category']}] #{entry['eventMessage']}" : nil
+      entry.is_a?(Hash) && entry["eventMessage"] ? [entry["timestamp"], entry["category"], entry["eventMessage"]] : nil
     rescue JSON::ParserError
       nil
     end
   end.compact
 end
 
-# The seconds from +started+ to a log line's timestamp.
-def seconds_after(started, line)
-  (Time.parse(line[0, 31]) - started).round(1)
-rescue ArgumentError
-  nil
+def shot_times(seconds)
+  ([2, 5, 9, seconds / 2, seconds - 1].select { |time| time >= 1 && time < seconds }).uniq.sort
 end
 
-def message(line)
-  line.sub(/\A\S+ \S+ \[\w+\] /, "")
+# Takes screenshots from a process of its own, on the wall clock since
+# launch, so a slow log query never delays one; each file names the
+# second it was taken at.
+def shooter(udid, dir, times)
+  script = times.each_cons(2).inject("sleep #{times.first}; shot #{times.first}") { |text, (a, b)| "#{text}; sleep #{b - a}; shot #{b}" }
+  Process.spawn("/bin/sh", "-c",
+    "shot() { xcrun simctl io #{udid} screenshot \"#{dir}/simulator-$(printf %02d $1)s.png\" >/dev/null 2>&1; }; #{script}")
+end
+
+def crashes(executable, since)
+  Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*")).select { |crash| File.mtime(crash) >= since - 5 }
+end
+
+def launch(udid, identifier, env)
+  child = env.map { |key, value| ["SIMCTL_CHILD_#{key}", value] }.to_h
+  launched, status = Open3.capture2(child, "xcrun", "simctl", "launch", udid, identifier)
+  raise "simctl launch failed: #{launched}" unless status.success?
+
+  pid = Integer(launched[/: (\d+)\s*\z/, 1])
+  puts "  launched #{identifier} as process #{pid}#{env.empty? ? ' with no settings' : " with #{env.map { |key, value| "#{key}=#{value}" }.join(' ')}"}"
+  pid
+end
+
+# Ends a launch: terminates the app, and keeps its log, its process's
+# log, its data container, and its crash reports in +dir+. Returns the
+# app's log entries and whether the app was still running.
+def collect(udid, identifier, executable, dir, since, started, pid)
+  alive = app_pid(udid, identifier) == pid
+  system("xcrun", "simctl", "terminate", udid, identifier, out: File::NULL, err: File::NULL)
+  sleep 3
+  entries = messages(udid, since, identifier, File.join(dir, "subsystem.ndjson"))
+  File.write(File.join(dir, "subsystem.log"), entries.map { |time, category, text| "#{time} [#{category}] #{text}" }.join("\n") + "\n")
+  entries.each { |time, category, text| puts "    #{time[11, 12]} [#{category}] #{text}" }
+  File.write(File.join(dir, "process.log"), Open3.capture2e("xcrun", "simctl", "spawn", udid, "log", "show",
+    "--start", since, "--style", "compact", "--info", "--predicate", "process == \"#{executable}\"").first)
+  data, = Open3.capture2("xcrun", "simctl", "get_app_container", udid, identifier, "data")
+  FileUtils.cp_r(data.strip, File.join(dir, "data-container")) unless data.strip.empty?
+  crashes(executable, started).each { |crash| FileUtils.cp(crash, dir) }
+  [entries, alive]
+end
+
+def verdict(entries, alive, dir)
+  exits = entries.select { |_, category, _| category == "app" }.map { |_, _, text| text[/exited with status (-?\d+)/, 1] }.compact
+  bugs = entries.map(&:last).grep(/\[BUG\]/)
+  crashed = !Dir.glob(File.join(dir, "*.ips")).empty?
+  exit_status = exits.last
+  ended = exit_status ? (exit_status == "0") : alive
+  { "exit" => exit_status, "running_at_end" => alive, "crash_report" => crashed, "bug_lines" => bugs,
+    "ruby_lines" => entries.count { |_, category, _| category == "ruby" }, "clean" => !crashed && bugs.empty? && ended }
+end
+
+def start_test(udid, test, dir, env)
+  log = File.join(dir, "xcodebuild-#{test.split('/').last}.log")
+  runner = env.map { |key, value| ["TEST_RUNNER_#{key}", value] }.to_h
+  Process.spawn(runner, "xcodebuild", "test-without-building", "-xctestrun", XCTESTRUN, "-destination", "id=#{udid}",
+    "-only-testing:#{UITESTS}/#{test}", "-resultBundlePath", File.join(dir, "#{test.split('/').first}.xcresult"),
+    out: log, err: [:child, :out])
+end
+
+def wait_for(file, pid, seconds)
+  deadline = Time.now + seconds
+  until File.exist?(file)
+    return false if done?(pid) || Time.now > deadline
+
+    sleep 1
+  end
+  true
+end
+
+def wait_test(pid, seconds)
+  deadline = Time.now + seconds
+  until done?(pid)
+    if Time.now > deadline
+      Process.kill("TERM", pid)
+      Process.wait(pid)
+      return false
+    end
+    sleep 2
+  end
+  @statuses.fetch(pid).success?
 end
 
 results = {}
 os = runtime
-puts "== runtime #{os['name']} (#{os['identifier']})"
-ipad_types(os, wanted).each do |type|
+puts "== runtime #{os['name']} (#{os['identifier']}), #{orientation}"
+device_types(os, wanted).each do |type|
   name = type.fetch("name")
   slug = name.gsub(/[^A-Za-z0-9]+/, "-").sub(/-\z/, "")
-  device_dir = File.join(out, slug)
-  puts "== #{name} (#{type['identifier']})"
-  udid = capture("xcrun", "simctl", "create", "dot-popper-#{slug}", type.fetch("identifier"), os.fetch("identifier")).strip
+  device_dir = File.join(out, "#{slug}-#{orientation}")
+  FileUtils.mkdir_p(device_dir)
+  puts "== #{name} (#{type['identifier']}), #{orientation}"
+  udid = capture("xcrun", "simctl", "create", "kit-#{slug}", type.fetch("identifier"), os.fetch("identifier")).strip
   begin
     system("xcrun", "simctl", "bootstatus", udid, "-b", out: File::NULL, exception: true)
     system("xcrun", "simctl", "install", udid, bundle, exception: true)
-    previous_pids = []
+    hold = nil
+    if orientation == "landscape"
+      ready = File.join(device_dir, "hold-ready")
+      hold = start_test(udid, "KitHold/testHold", device_dir,
+        "KIT_ORIENTATION" => "landscape", "KIT_READY" => ready, "KIT_DONE" => File.join(device_dir, "hold-done"))
+      raise "#{name}: the UI test never turned the device (#{device_dir}/xcodebuild-testHold.log)" unless wait_for(ready, hold, 420)
+
+      system("xcrun", "simctl", "io", udid, "screenshot", File.join(device_dir, "turned.png"), out: File::NULL, err: File::NULL)
+    end
+    pids = []
     MODES.each.with_index(1) do |mode, attempt|
-      game_env = GAME_ENV.fetch(mode)
-      shot_seconds = SHOTS.fetch(mode)
+      env = mode == :idle ? {} : SMOKE_ENV
+      seconds = mode == :idle ? IDLE_SECONDS : SMOKE_SECONDS
       dir = File.join(device_dir, "run-#{attempt}-#{mode}")
       FileUtils.mkdir_p(dir)
+      puts "  launch #{attempt} of #{MODES.size}: #{mode}, #{seconds} s"
       since = (Time.now - 2).strftime("%Y-%m-%d %H:%M:%S")
-      env = game_env.map { |key, value| ["SIMCTL_CHILD_#{key}", value] }.to_h
-      launched, status = Open3.capture2(env, "xcrun", "simctl", "launch", udid, identifier)
-      raise "simctl launch failed: #{launched}" unless status.success?
+      pid = launch(udid, identifier, env)
+      raise "launch #{attempt} reused process #{pid}" if pids.include?(pid)
 
-      pid = Integer(launched[/: (\d+)\s*\z/, 1])
-      raise "launch #{attempt} reused process #{pid}" if previous_pids.include?(pid)
-
-      previous_pids << pid
+      pids << pid
       started = Time.now
-      puts "launched #{identifier} as process #{pid} with #{game_env.map { |key, value| "#{key}=#{value}" }.join(' ')}"
-      log = File.join(dir, "subsystem.ndjson")
-      puts "  launch #{attempt} of #{MODES.size}: #{mode}"
-      # Screenshots from a process of their own, on the wall clock since
-      # launch, so a slow log query never delays one (a Ruby thread did
-      # wait for them); each file names the second it was taken at.
-      script = shot_seconds.each_cons(2).inject("sleep #{shot_seconds.first}; shot #{shot_seconds.first}") do |text, (a, b)|
-        "#{text}; sleep #{b - a}; shot #{b}"
-      end
-      shooter = Process.spawn("/bin/sh", "-c",
-        "shot() { xcrun simctl io #{udid} screenshot \"#{dir}/simulator-$(printf %02d $1)s.png\" >/dev/null 2>&1; }; #{script}")
-      lines = []
+      shots = shooter(udid, dir, shot_times(seconds))
       loop do
-        sleep 5
-        lines = messages(udid, since, identifier, log)
-        break if lines.any? { |line| line.include?("exited with status") } && shooter_done?(shooter)
-        break if mode == :idle && Time.now - started > IDLE_SECONDS && shooter_done?(shooter)
-        break if Time.now - started > DEADLINE
-        crashes = Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*"))
-        break if crashes.any? { |crash| File.mtime(crash) >= started - 5 } && shooter_done?(shooter)
+        sleep 3
+        exited = messages(udid, since, identifier, File.join(dir, "subsystem.ndjson")).any? { |_, category, text| category == "app" && text.include?("exited with status") }
+        break if (exited || Time.now - started > seconds || !crashes(executable, started).empty?) && done?(shots)
       end
-      Process.wait(shooter) unless shooter_done?(shooter)
-      sleep 2
-      # Still running after IDLE_SECONDS is the idle launch's pass. Every
-      # launch ends here, so the next one starts a new process.
-      alive = app_pid(udid, identifier) == pid
-      system("xcrun", "simctl", "terminate", udid, identifier, out: File::NULL, err: File::NULL)
-      sleep 3
-      lines = messages(udid, since, identifier, log)
-      File.write(File.join(dir, "subsystem.log"), lines.join("\n") + "\n")
-      puts lines.map { |line| "  #{line}" }
-      File.write(File.join(dir, "process.log"), Open3.capture2e("xcrun", "simctl", "spawn", udid, "log", "show",
-        "--start", since, "--style", "compact", "--info", "--predicate", "process == \"#{executable}\"").first)
-      data, = Open3.capture2("xcrun", "simctl", "get_app_container", udid, identifier, "data")
-      data = data.strip
-      unless data.empty?
-        FileUtils.cp_r(data, File.join(dir, "data-container"))
-        puts "  data container files:"
-        Dir.glob("Library/Application Support/**/*", base: File.join(dir, "data-container")).sort.each { |path| puts "    #{path}" }
-      end
-      Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*")).each do |crash|
-        FileUtils.cp(crash, dir) if File.mtime(crash) >= started - 5
-      end
-      crashed = !Dir.glob(File.join(dir, "*.ips")).empty?
-      exited = lines.grep(/exited with status (\d+)/).last
-      game_shots = lines.count { |line| line.include?("Dot Popper: screenshot") }
-      bugs = lines.grep(/\[BUG\]/)
-      tilts = lines.grep(/Dot Popper: tilt from /)
-      perf = lines.grep(/Dot Popper: \d+ frames a second/)
-      sensor = lines.map { |line| line[/kit probe: Sensor\.sensor\?\(:accelerometer\) (.*)\z/, 1] }.compact.first
-      sticks = lines.map { |line| line[/kit probe: Joystick\.joysticks (.*)\z/, 1] }.compact.first
-      stick_count = lines.map { |line| line[/kit probe: frame 60,.*Joystick\.joystick_count (\d+)/, 1] }.compact.first
-      # With no accelerometer, the tilt is the stick's, or nothing.
-      expected_tilt = stick_count == "0" ? "Dot Popper: tilt from none" : "Dot Popper: tilt from the gamepad's right stick"
-      # What the game logged after its first Game Over, but for the host's
-      # exit line: proof that it went on past it.
-      after_game_over = tilts.empty? ? [] : lines.select { |line| line > tilts.first && !line.include?("exited with status") }
-      clean = !crashed && bugs.empty?
-      finished = !exited.nil? && exited.end_with?("status 0") && game_shots == GAME_SHOTS.fetch(mode)
-      ok = case mode
-      when :idle
-        clean && exited.nil? && alive
-      when :autoplay, :padless
-        clean && finished && !stick_count.nil? && (mode == :autoplay || stick_count == "0") && sensor == "false" &&
-          !tilts.empty? && tilts.all? { |line| line.end_with?(expected_tilt) } && !perf.empty? && !after_game_over.empty?
-      else
-        clean && finished && !tilts.empty? &&
-          tilts.all? { |line| line.include?("Dot Popper: tilt from a fake reading (DOT_POPPER_FAKE_TILT=") }
-      end
-      results["#{name} ##{attempt} #{mode}"] = { "pid" => pid, "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
-        "crash_report" => crashed, "bug_lines" => bugs, "sensor_accelerometer" => sensor,
-        "joystick_count" => stick_count, "joysticks" => sticks,
-        "tilt" => tilts.map { |line| "#{message(line)} (logged #{seconds_after(started, line)} s after launch)" },
-        "lines_after_game_over" => after_game_over.size, "perf" => perf.map { |line| message(line) }, "ok" => ok }
+      entries, alive = collect(udid, identifier, executable, dir, since, started, pid)
+      result = verdict(entries, alive, dir)
+      ruby = entries.select { |_, category, _| category == "ruby" }.map(&:last).join("\n")
+      result["expect_matched"] = (mode == :normal && EXPECT) ? !EXPECT.match(ruby).nil? : nil
+      result["ok"] = result["clean"] && result["expect_matched"] != false
+      results["#{name} #{orientation} ##{attempt} #{mode}"] = result
+      puts "  => #{result['ok'] ? 'ok' : 'FAILED'} #{result.reject { |key, _| key == 'ok' }.to_json}"
     end
+    if hold
+      FileUtils.touch(File.join(device_dir, "hold-done"))
+      results["#{name} #{orientation} hold"] = { "ok" => wait_test(hold, 180) }
+    end
+    if XCTESTRUN && TOUCH_DEVICES.any? { |prefix| name.start_with?(prefix) }
+      dir = File.join(device_dir, "touch")
+      FileUtils.mkdir_p(dir)
+      puts "  touch and rotation test"
+      ready = File.join(dir, "touch-ready")
+      test = start_test(udid, "TouchTest/testTouchAndRotation", dir,
+        "KIT_READY" => ready, "KIT_APP" => identifier, "KIT_SHOTS" => dir)
+      if wait_for(ready, test, 420)
+        since = (Time.now - 2).strftime("%Y-%m-%d %H:%M:%S")
+        started = Time.now
+        pid = launch(udid, identifier, TOUCH_ENV)
+        passed = wait_test(test, 600)
+        entries, alive = collect(udid, identifier, executable, dir, since, started, pid)
+        result = verdict(entries, alive, dir)
+        result["test_passed"] = passed
+        result["probe"] = entries.map(&:last).grep(/probe:|touch|resize/i).first(40)
+        result["ok"] = passed && result["clean"]
+      else
+        result = { "ok" => false, "error" => "the touch test never became ready (#{dir}/xcodebuild-testTouchAndRotation.log)" }
+      end
+      results["#{name} touch"] = result
+      puts "  => #{result['ok'] ? 'ok' : 'FAILED'} #{result.reject { |key, _| key == 'ok' }.to_json}"
+    end
+  rescue StandardError => e
+    puts "::error::#{name}: #{e.message}"
+    results["#{name} #{orientation} error"] = { "ok" => false, "error" => e.message }
   ensure
     system("xcrun", "simctl", "shutdown", udid, out: File::NULL, err: File::NULL)
     system("xcrun", "simctl", "delete", udid, out: File::NULL, err: File::NULL)
   end
 end
-File.write(File.join(out, "results.json"), JSON.pretty_generate(results))
+File.write(File.join(out, "results-#{orientation}.json"), JSON.pretty_generate(results))
 puts JSON.pretty_generate(results)
-exit(results.values.all? { |result| result["ok"] } ? 0 : 1)
+exit(!results.empty? && results.values.all? { |result| result["ok"] } ? 0 : 1)
