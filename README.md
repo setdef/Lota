@@ -184,9 +184,9 @@ When your game raises an error, Lota prints it with its Ruby backtrace and shows
 `lota fuse` builds your game into an app that a player runs without Ruby, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. Run it in the game's folder, or name the folder:
 
 ```console
-$ lota fuse path/to/game --identifier com.yourname.DotPopper
-dist/Dot Popper-x64-mingw-ucrt.zip
-dist/Dot Popper-x64-mingw-ucrt-setup.exe
+$ lota fuse path/to/game --identifier com.yourname.MoonPong
+dist/Moon Pong-x64-mingw-ucrt.zip
+dist/Moon Pong-x64-mingw-ucrt-setup.exe
 Built the app for x64-mingw-ucrt only. Run lota fuse on each platform you ship for.
 ```
 
@@ -208,7 +208,7 @@ To fuse a game, you need:
 
 The options:
 
-- `--identifier ID` is the reverse-DNS name macOS and Windows know the app by, such as `com.yourname.DotPopper`. Without it the app gets `com.example.<identity>`, a placeholder: replace it before you ship.
+- `--identifier ID` is the reverse-DNS name macOS and Windows know the app by, such as `com.yourname.MoonPong`. Without it the app gets `com.example.<identity>`, a placeholder: replace it before you ship.
 - `--app-version VERSION` is the app's version, such as `1.0.0`; without it, Fledge's `0.0.0`. A game's `t.version` names the version of LÖVE it was written for, so it never becomes the app's.
 - `--icon PATH` gives the app the icon files at `PATH` in the game's folder, without their extension, as Fledge takes them: `--icon icons/icon` for `icons/icon.icns` (macOS), `icons/icon.ico` (Windows), and `icons/icon-16.png` to `icons/icon-512.png` (Linux). Without it the app has no icon of its own.
 - `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
