@@ -14,7 +14,8 @@ class ThreadLovetestTest < Minitest::Test
   include NativeHelper
 
   def test_lovetests_thread_tests_pass_in_a_ruby_of_their_own
-    output, status = ruby_of_its_own(File.expand_path("tests/thread.rb", __dir__))
+    output, status = ruby_of_its_own("-r", File.expand_path("../test_helper", __dir__),
+      File.expand_path("tests/thread.rb", __dir__))
 
     assert_predicate status, :success?, output
     assert_match(/^5 runs, 26 assertions, 0 failures, 0 errors, 0 skips$/, output)

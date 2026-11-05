@@ -100,7 +100,8 @@ class ThreadTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.thread.Thread (thread.lua:83-109):
   # isRunning becomes running? (rule 8) and getError error (rule 3). The
   # bad thread's Lua adds a string to a number, which Ruby's raises
-  # TypeError for, as Lua's raises its arithmetic error.
+  # TypeError for, as Lua's raises its arithmetic error. assertEquals(nil,
+  # ...) becomes assert_nil, which Minitest asks for nil.
   def test_thread
     # create thread
     threadcode = <<~RUBY
@@ -117,7 +118,7 @@ class ThreadTest < Lovetest::TestMethod
     assert_true(thread.running?, "check started")
     thread.wait
     assert_false(thread.running?, "check finished")
-    assert_equal(nil, thread.error, "check no errors")
+    assert_nil(thread.error, "check no errors")
 
     # check an invalid thread
     badthreadcode = "b = 0\nreturn b + \"string\" + 10.to_s"
