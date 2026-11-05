@@ -34,7 +34,7 @@ module Lota
   #
   # === Example
   #
-  #   options = Lota::Fuse::Options.new(out: "dist", identifier: "com.example.DotPopper")
+  #   options = Lota::Fuse::Options.given(identifier: "com.example.DotPopper")
   #   Lota::Fuse.new("games/dot_popper", options).call
   #   # => ["/home/me/dist/Dot Popper-x86_64-linux.tar.gz", ...]
   class Fuse
@@ -54,9 +54,16 @@ module Lota
     #   default. A game's <tt>t.version</tt> names the version of LÖVE it
     #   was written for, so it never becomes the app's (ADR 002, section 5).
     class Options < ::Data.define(:out, :sign, :identifier, :app_version)
-      # Options with the defaults of anything not given.
-      def initialize(out: "dist", sign: nil, identifier: nil, app_version: nil)
-        super
+      # What each option is when <tt>lota fuse</tt> is not given it.
+      DEFAULTS = { out: "dist", sign: nil, identifier: nil, app_version: nil }.freeze
+
+      # Options with DEFAULTS for each that +given+ leaves out.
+      #
+      # === Example
+      #
+      #   Lota::Fuse::Options.given(identifier: "com.example.Pong").out # => "dist"
+      def self.given(**given)
+        new(**DEFAULTS, **given)
       end
     end
 
@@ -113,7 +120,7 @@ module Lota
     #   RubyGems installed for this platform (Fuse.installed_gem).
     # [bundle] The command that runs Bundler, as an Array of Strings: by
     #   default this Ruby's own, so the app gets the Ruby that runs this.
-    def initialize(path, options = Options.new, platform: Gem::Platform.local, gem_file: nil, bundle: nil)
+    def initialize(path, options = Options.given, platform: Gem::Platform.local, gem_file: nil, bundle: nil)
       @directory = File.expand_path(path)
       @options = options
       @platform = platform

@@ -55,6 +55,10 @@ on:
         description: The app's identifier, for lota fuse --identifier (empty for its placeholder)
         type: string
         default: ""
+      game_env:
+        description: Variables for the drawing run of game_repository's game, as NAME=VALUE separated by spaces
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -88,6 +92,7 @@ jobs:
       GEMS_RUN: ${{ inputs.gems_run }}
       GAME: ${{ inputs.game_repository && format('game-source/{0}', inputs.game_path) || 'test/games/fuse' }}
       IDENTIFIER: ${{ inputs.identifier }}
+      GAME_ENV: ${{ inputs.game_env }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -200,8 +205,9 @@ jobs:
       # llvmpipe, from the runner's MSYS2, goes beside the program, where
       # SDL's LoadLibrary("OPENGL32.DLL") finds it first, as Fledge's
       # Windows trial ran a Lota game. The game runs for 20 seconds; what it
-      # printed, a screenshot of the desktop, and the text of its windows
-      # are kept, since its shaders compile only once it draws.
+      # printed, screenshots of the desktop, and any PNG it says it saved
+      # are kept, since its shaders compile only once it draws. game_env's
+      # variables reach it; it may run 50 seconds and quit by itself.
       - name: Draw the game with Mesa's llvmpipe
         if: inputs.game_repository && matrix.platform == 'x64-mingw-ucrt'
         continue-on-error: true
@@ -235,26 +241,42 @@ jobs:
             TEMP = $env:RUNNER_TEMP; TMP = $env:RUNNER_TEMP; ALSOFT_DRIVERS = 'null'; GALLIUM_DRIVER = 'llvmpipe'
           }
           foreach ($name in $variables.Keys) { $start.Environment[$name] = $variables[$name] }
+          foreach ($pair in ($env:GAME_ENV -split '\s+' | Where-Object { $_ })) {
+            $name, $value = $pair -split '=', 2
+            $start.Environment[$name] = $value
+            Write-Host "game_env: $name=$value"
+          }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $begun = Get-Date
           $process = [Diagnostics.Process]::Start($start)
           $out = $process.StandardOutput.ReadToEndAsync()
           $err = $process.StandardError.ReadToEndAsync()
-          Start-Sleep -Seconds 12
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $bounds = [Windows.Forms.SystemInformation]::VirtualScreen
-          $bitmap = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
-          $graphics = [Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
-          $bitmap.Save((Join-Path $results 'desktop.png'), [Drawing.Imaging.ImageFormat]::Png)
-          $process.Refresh()
-          Write-Host "main window title: '$($process.MainWindowTitle)'"
-          Get-Process -Id $process.Id -ErrorAction SilentlyContinue | ForEach-Object { $_.Modules } |
-            Where-Object { $_.ModuleName -match 'opengl32|gallium|vulkan|OpenAL' } | ForEach-Object { Write-Host "loaded: $($_.FileName)" }
-          if (-not $process.WaitForExit(8000)) { $process.Kill($true); Write-Host 'still running after 20 s: stopped' }
+          foreach ($second in 5, 15, 30, 45) {
+            $wait = $begun.AddSeconds($second) - (Get-Date)
+            if ($wait.TotalMilliseconds -gt 0) { Start-Sleep -Milliseconds $wait.TotalMilliseconds }
+            if ($process.HasExited) { break }
+            $bounds = [Windows.Forms.SystemInformation]::VirtualScreen
+            $bitmap = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+            $graphics = [Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+            $bitmap.Save((Join-Path $results "desktop-$($second)s.png"), [Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose(); $bitmap.Dispose()
+            if ($second -eq 5) {
+              $process.Refresh()
+              Write-Host "main window title: '$($process.MainWindowTitle)'"
+              $process.Modules | Where-Object { $_.ModuleName -match 'opengl32|gallium|vulkan|OpenAL' } | ForEach-Object { Write-Host "loaded: $($_.FileName)" }
+            }
+          }
+          $left = 50000 - ((Get-Date) - $begun).TotalMilliseconds
+          if (-not $process.WaitForExit([Math]::Max(0, [int]$left))) { $process.Kill($true); Write-Host 'still running after 50 s: stopped' }
           $process.WaitForExit()
-          Write-Host "exit status: $($process.ExitCode)"
+          Write-Host "exit status: $($process.ExitCode) after $([int]((Get-Date) - $begun).TotalSeconds) s"
           Write-Host "--- stdout"; Write-Host $out.Result
           Write-Host "--- stderr"; Write-Host $err.Result
-          Set-Content -LiteralPath (Join-Path $results 'output.txt') -Value "$($out.Result)`n--- stderr`n$($err.Result)"
+          Set-Content -LiteralPath (Join-Path $results 'output.txt') -Value "exit status: $($process.ExitCode)`n$($out.Result)`n--- stderr`n$($err.Result)"
+          foreach ($match in [regex]::Matches("$($out.Result)`n$($err.Result)", '[A-Za-z]:[\\/][^\r\n"]*?\.png')) {
+            if (Test-Path -LiteralPath $match.Value) { Copy-Item -LiteralPath $match.Value $results; Write-Host "kept: $($match.Value)" }
+          }
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

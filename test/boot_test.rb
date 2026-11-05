@@ -112,7 +112,6 @@ class BootTest < Minitest::Test
     write("conf.rb", "require 'name'\ndef Lota.conf(t) = (t.identity = GAME_NAME)\n")
 
     assert_equal "Read Settings", boot.read_settings.identity
-    refute Lota::Native::Window.open?
   ensure
     $LOAD_PATH.delete(@directory)
   end

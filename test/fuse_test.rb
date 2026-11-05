@@ -64,7 +64,7 @@ class FuseTest < Minitest::Test
     File.chmod(0o755, path)
   end
 
-  def fuse(options = Lota::Fuse::Options.new(out: File.join(@root, "dist")), platform: PLATFORM, gem_file: @gem)
+  def fuse(options = Lota::Fuse::Options.given(out: File.join(@root, "dist")), platform: PLATFORM, gem_file: @gem)
     Lota::Fuse.new(@game, options, platform:, gem_file:, bundle: [File.join(@bin, "bundle")])
   end
 
@@ -119,7 +119,7 @@ class FuseTest < Minitest::Test
     write("vendor/sound.ogg", "the game's own")
     write("Gemfile", "gem 'lota'")
 
-    _stdout, stderr = capture_io { fuse(Lota::Fuse::Options.new(out: File.join(@root, "dist"), app_version: "1.2.3")).call }
+    _stdout, stderr = capture_io { fuse(Lota::Fuse::Options.given(out: File.join(@root, "dist"), app_version: "1.2.3")).call }
 
     assert_equal "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@game, 'Gemfile')} asks for do not reach it.\n",
       stderr
@@ -155,14 +155,28 @@ class FuseTest < Minitest::Test
     YAML
     assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
-    assert_equal %W[Gemfile fledge.yml game game/DotPopper game/DotPopper/Gemfile game/DotPopper/art
-      game/DotPopper/art/dot.png game/DotPopper/colors.rb game/DotPopper/conf.rb game/DotPopper/main.rb
-      game/DotPopper/vendor game/DotPopper/vendor/sound.ogg main.rb vendor vendor/cache
-      vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem], files.sort
+    assert_equal %W[
+      Gemfile
+      fledge.yml
+      game
+      game/DotPopper
+      game/DotPopper/Gemfile
+      game/DotPopper/art
+      game/DotPopper/art/dot.png
+      game/DotPopper/colors.rb
+      game/DotPopper/conf.rb
+      game/DotPopper/main.rb
+      game/DotPopper/vendor
+      game/DotPopper/vendor/sound.ogg
+      main.rb
+      vendor
+      vendor/cache
+      vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem
+], files.sort
   end
 
   def test_options_reach_fledge_and_fledge_yml
-    options = Lota::Fuse::Options.new(out: File.join(@root, "dist"), sign: "Developer ID Application: Me (TEAM)",
+    options = Lota::Fuse::Options.given(out: File.join(@root, "dist"), sign: "Developer ID Application: Me (TEAM)",
       identifier: "com.me.DotPopper")
 
     capture_io { fuse(options).call }
@@ -185,7 +199,7 @@ class FuseTest < Minitest::Test
   end
 
   def test_an_output_folder_inside_the_game_is_not_copied_into_it
-    options = Lota::Fuse::Options.new(out: File.join(@game, "dist"))
+    options = Lota::Fuse::Options.given(out: File.join(@game, "dist"))
     write("dist/old.zip", "an earlier build")
 
     capture_io { fuse(options).call }
@@ -241,7 +255,7 @@ class FuseTest < Minitest::Test
   end
 
   def test_the_game_folder_as_the_output_folder_is_refused
-    error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse::Options.new(out: @game)).call }
+    error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse::Options.given(out: @game)).call }
 
     assert_includes error.message, "--out can't be the game's own folder"
   end
@@ -314,8 +328,12 @@ class FuseTest < Minitest::Test
     assert_equal [".", {}], Lota::CLI::Commands::Fuse.parse([])
     assert_equal ["game", { out: "b", sign: "Me (T)", identifier: "com.me.G", app_version: "1.0" }],
       Lota::CLI::Commands::Fuse.parse(["game", "-o", "b", "--sign=Me (T)", "--identifier", "com.me.G", "--app-version=1.0"])
-    [[["ios"], "cannot build for ios yet"], [["--out"], "--out needs a value"], [["--bogus"], "unrecognized option '--bogus'"],
-     [%w[a b], "takes one game folder, but got a and b"]].each do |argv, message|
+    [
+      [["ios"], "cannot build for ios yet"],
+      [["--out"], "--out needs a value"],
+      [["--bogus"], "unrecognized option '--bogus'"],
+      [%w[a b], "takes one game folder, but got a and b"],
+].each do |argv, message|
       error = assert_raises(Lota::Fuse::Error) { Lota::CLI::Commands::Fuse.parse(argv) }
 
       assert_includes error.message, message

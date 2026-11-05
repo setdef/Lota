@@ -15,7 +15,11 @@ module Lota
 
       attr_reader app_version: String?
 
-      def self.new: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?) -> instance
+      DEFAULTS: { out: String, sign: String?, identifier: String?, app_version: String? }
+
+      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?) -> instance
+
+      def self.given: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?) -> Options
     end
 
     FLEDGE_GIT: String
