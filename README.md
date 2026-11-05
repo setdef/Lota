@@ -89,7 +89,7 @@ Lota is not on RubyGems.org. Each [GitHub release](https://github.com/setdef/Lot
 Download the gem for your platform, check it, and install it:
 
 ```sh
-version=0.1.2
+version=0.1.3
 platform=arm64-darwin   # or x86_64-linux-gnu, or aarch64-linux-gnu
 curl -LO "https://github.com/setdef/Lota/releases/download/v$version/lota-$version-$platform.gem"
 curl -LO "https://github.com/setdef/Lota/releases/download/v$version/SHA256SUMS"
@@ -98,9 +98,9 @@ gem install --local "lota-$version-$platform.gem"
 lota --version
 ```
 
-The last line prints `Lota 0.1.2`.
+The last line prints `Lota 0.1.3`.
 
-On Windows, download `lota-0.1.2-x64-mingw-ucrt.gem` (or `lota-0.1.2-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it, with RubyInstaller's Ruby.
+On Windows, download `lota-0.1.3-x64-mingw-ucrt.gem` (or `lota-0.1.3-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it, with RubyInstaller's Ruby.
 
 If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder instead, ask for the version, and install from there. Add a gem for each platform you work on; Bundler locks every platform it finds a gem for.
 
@@ -108,7 +108,7 @@ If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder in
 # Gemfile
 source "https://rubygems.org"
 
-gem "lota", "0.1.2"
+gem "lota", "0.1.3"
 ```
 
 ```sh

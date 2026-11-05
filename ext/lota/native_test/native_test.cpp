@@ -517,14 +517,13 @@ std::vector<float> floats(Rice::Array values) {
 // pushed event leaves out what SDL_SendTouch does beside it: the mouse
 // events SDL makes of the first finger (push_touch_mouse stands for those)
 // and SDL's own list of fingers, which LÖVE does not read.
-void push_finger(const std::string &phase, SDL_FingerID finger, Rice::Array values) {
+void push_finger(const std::string &phase, SDL_FingerID finger, std::vector<float> numbers) {
   const std::map<std::string, SDL_EventType> types{
       {"down", SDL_EVENT_FINGER_DOWN},
       {"motion", SDL_EVENT_FINGER_MOTION},
       {"up", SDL_EVENT_FINGER_UP},
       {"canceled", SDL_EVENT_FINGER_CANCELED},
   };
-  const std::vector<float> numbers = floats(std::move(values));
   SDL_Event event{};
   event.tfinger.type = types.at(phase);
   event.tfinger.touchID = pushed_touch_device;
@@ -1001,6 +1000,11 @@ constexpr bool sanitized() {
 
 extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
   lota::native::install_error_translation();
+  // A new wrapper for each object this bundle wraps, which the memory
+  // tests count, and none of Rice's registry, whose entries outlive the
+  // wrappers the collector found dead (lota::native::WrapperIdentities,
+  // native/binding.hpp); Rice keeps the objects it adopts there by default.
+  Rice::detail::Registries::instance.instances.mode = Rice::detail::InstanceRegistry::Mode::Off;
   Rice::Module test = Rice::define_module("LotaNativeTest");
 
   Rice::define_class_under<Confined>(test, "Confined")

@@ -120,7 +120,7 @@ Joystick::JoystickInput joystick_input(const std::string &jinputtypestr, int inp
   case Joystick::INPUT_TYPE_HAT: {
     // Hats need both a hat index and a hat value.
     jinput.hat.index = inputindex - 1;
-    const std::string &hat = required(hatstr, "hatdir");
+    const std::string hat = required(hatstr, "hatdir");
     if (!Joystick::getConstant(hat.c_str(), jinput.hat.value)) {
       raise_enum_error("joystick hat", hat);
     }
