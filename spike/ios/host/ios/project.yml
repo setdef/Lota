@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Fledge's examples/sdl_phone/host/ios/project.yml (v0.4.0, trunk), less
+# its UI test target: SDL3 owns the main loop, Ruby runs inside
+# SDL_RunApp on the main thread with a 64 MB stack.
+name: @@NAME@@
+options:
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    OTHER_LDFLAGS: -Wl,-stack_size,0x4000000
+    ENABLE_DEBUG_DYLIB: NO
+targets:
+  @@NAME@@:
+    type: application
+    platform: iOS
+    sources:
+      - path: Host
+    dependencies:
+      - framework: FledgeRuby.xcframework
+        embed: false
+      @@EXTENSIONS@@
+    postCompileScripts:
+      - name: Copy Ruby and the app
+        basedOnDependencyAnalysis: false
+        script: |
+          set -eu
+          slice=ios-arm64
+          if [ "$PLATFORM_NAME" = iphonesimulator ]; then slice=ios-arm64-simulator; fi
+          root="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/fledge"
+          rm -rf "$root"
+          ditto "$PROJECT_DIR/FledgeRuby.xcframework/$slice/lib" "$root/lib"
+          ditto "$PROJECT_DIR/FledgeRuby.xcframework/$slice/libexec" "$root/libexec"
+          ditto "$PROJECT_DIR/fledge" "$root"
+    settings:
+      base:
+        PRODUCT_NAME: @@NAME@@
+        PRODUCT_BUNDLE_IDENTIFIER: @@IDENTIFIER@@
+        MARKETING_VERSION: @@VERSION@@
+        CURRENT_PROJECT_VERSION: @@VERSION@@
+        INFOPLIST_FILE: Host/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: @@APP_ICON@@
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ARCHS: arm64
+        CLANG_ENABLE_MODULES: YES
+        CLANG_ENABLE_OBJC_ARC: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        OTHER_LDFLAGS: @@LDFLAGS@@

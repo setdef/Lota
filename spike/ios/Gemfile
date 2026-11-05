@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# The repository this app sits in, as an absolute path the workflow writes
+# (Fledge needs a folder name, not ".."); Fledge carries it as vendor/cache/lota.
+gem "lota", path: "../.."
+gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.4.0", group: :development

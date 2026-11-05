@@ -1,0 +1,5 @@
+# The iOS spike: a Lota game on SDL's iOS host (Fledge's examples/sdl_phone).
+name: LotaSpike
+identifier: com.kerricklong.lota.LotaSpike
+ios:
+  host: host/ios
