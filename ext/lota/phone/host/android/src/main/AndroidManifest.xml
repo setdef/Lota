@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  A Lota game's manifest, in place of the one fledge build android writes
+  (Fledge's lib/fledge/templates/android/src/main/AndroidManifest.xml at
+  v0.5.1), whose icon mark Fledge fills here too. It adds what
+  love-android's manifest asks of the system for LÖVE's engine: OpenGL ES
+  3.0, vibration, a full screen with no title bar, and no restart of the
+  activity when the screen turns or a keyboard comes and goes.
+
+  Back reaches the game as the key escape, and then SDL closes the app,
+  as in LÖVE. A game that decides what Back does itself adds, inside
+  <application>:
+
+    <meta-data android:name="SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON" android:value="1" />
+
+  and MainActivity then keeps Android 13 and newer from closing the app
+  through predictive back, too.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-feature android:glEsVersion="0x00030000" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <application android:label="@string/app_name"@@ICON@@>
+        <activity
+            android:name="org.setdef.fledge.host.MainActivity"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation"
+            android:launchMode="singleInstance"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
