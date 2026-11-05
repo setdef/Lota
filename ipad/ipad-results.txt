@@ -59,8 +59,9 @@ Kit build (already filled in; leave it as it is):
    Answer:
    Note:
 
-9. After one round, "Dots: sized to your screen" on the title makes the
-   dots smaller in the next round. (y/n)
+9. After one round, the title shows a two-option control labelled
+   "Dot size: Same everywhere | Fit the screen". Choosing "Fit the
+   screen" makes the dots in the next round smaller on this iPad. (y/n)
    Answer:
    Note:
 

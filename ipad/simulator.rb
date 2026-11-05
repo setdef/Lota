@@ -37,12 +37,13 @@ AUTOPLAY_ENV = {
   "DOT_POPPER_KIT_PROBE" => "1",
   "DOT_POPPER_PERF" => "1"
 }.freeze
-# The autoplay bot reaches its first Game Over 43 to 48 s into a launch
-# with seed 7 (run 42051535786) and leaves it a few seconds later: in the
-# tilted launch the Simulator's screenshots come every 3 s from 21 s, and
-# the game's own every 2 s from 36 s of game time.
+# The autoplay bot reaches its first Game Over 35 to 40 s into a launch
+# with seed 7 and leaves it a few seconds later: in the tilted launch the
+# Simulator's screenshots come every 3 s from 21 s, and the game's own
+# every 2 s from 30 s of game time. (The log's timestamps come several
+# seconds late, since the game's output reaches the log in batches.)
 TILT_SHOT_SECONDS = (21..57).step(3).to_a.freeze
-TILT_GAME_SHOTS = (36..56).step(2).to_a.freeze
+TILT_GAME_SHOTS = (30..50).step(2).to_a.freeze
 TILT_ENV = AUTOPLAY_ENV.reject { |key, _| key == "DOT_POPPER_PERF" }
   .merge("DOT_POPPER_SHOTS" => TILT_GAME_SHOTS.join(","), "DOT_POPPER_FAKE_TILT" => "0.6,0").freeze
 # A launch nobody plays, left on the title screen for IDLE_SECONDS and then
@@ -228,7 +229,7 @@ ipad_types(os, wanted).each do |type|
       results["#{name} ##{attempt} #{mode}"] = { "pid" => pid, "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
         "crash_report" => crashed, "bug_lines" => bugs, "sensor_accelerometer" => sensor,
         "joystick_count" => stick_count, "joysticks" => sticks,
-        "tilt" => tilts.map { |line| "#{message(line)} (#{seconds_after(started, line)} s after launch)" },
+        "tilt" => tilts.map { |line| "#{message(line)} (logged #{seconds_after(started, line)} s after launch)" },
         "lines_after_game_over" => after_game_over.size, "perf" => perf.map { |line| message(line) }, "ok" => ok }
     end
   ensure
