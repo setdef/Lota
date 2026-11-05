@@ -256,7 +256,7 @@ jobs:
     name: Build the project on a fresh Mac and run it in iPad Simulators
     needs: project
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       # Only the kit's harness; no Lota, no bundle, no submodules.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -316,7 +316,7 @@ jobs:
       - name: Run Dot Popper in iPad Simulators
         run: |
           app=$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/$APP_NAME.app
-          /usr/bin/ruby lota/ipad/simulator.rb "$app" "$APP_IDENTIFIER" "$APP_NAME" "$RUNNER_TEMP/simulator" \
+          KIT_REPEATS=3 /usr/bin/ruby lota/ipad/simulator.rb "$app" "$APP_IDENTIFIER" "$APP_NAME" "$RUNNER_TEMP/simulator" \
             "iPad Pro 13-inch (M5)" "iPad (A16)" "iPad mini (A17 Pro)"
 
       - name: Zip the Simulator app

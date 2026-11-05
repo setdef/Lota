@@ -56,6 +56,16 @@ int main(int argc, char *argv[]) {
         } else if (fledge_ruby_forward_output(identifier.UTF8String) != 0) {
             os_log_error(app_log, "could not send the app's output to the log: %{public}s", strerror(errno));
         }
+        // WORKAROUND for a Lota bug, not a design choice: on iOS SDL
+        // makes the accelerometer a joystick by default
+        // (SDL_HINT_ACCELEROMETER_AS_JOYSTICK, which SDL also reads from
+        // this environment variable), and Dot Popper 0.5.0 reads every
+        // joystick each frame through Lota::Joystick.joysticks, which
+        // crashed Ruby within seconds in the iPad Simulator (the iPad kit's
+        // runs, gamepads.rb:20, "[BUG] Segmentation fault"). With no
+        // joystick nothing calls into that code until a real controller is
+        // paired. Remove this once Lota's joystick wrapping is fixed.
+        setenv("SDL_ACCELEROMETER_AS_JOYSTICK", "0", 1);
         // Dot Popper's sound is ambient (its doc/ios.md): it mixes with
         // other apps' audio and the silent switch mutes it, as
         // AVAudioSessionCategoryAmbient does; set before SDL and OpenAL

@@ -27,7 +27,8 @@ if ENV["DOT_POPPER_KIT_PROBE"] == "1"
 
         puts "kit probe: frame #{frames}, Window.fullscreen #{Lota::Window.fullscreen.inspect}, " \
           "safe_area #{Lota::Window.safe_area.inspect}, Graphics.dimensions #{Lota::Graphics.dimensions.inspect}, " \
-          "dpi_scale #{Lota::Graphics.dpi_scale}, System.os #{Lota::System.os.inspect}"
+          "dpi_scale #{Lota::Graphics.dpi_scale}, System.os #{Lota::System.os.inspect}, " \
+          "Joystick.joystick_count #{Lota::Joystick.joystick_count}"
       end
     end
   end

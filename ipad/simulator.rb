@@ -30,6 +30,7 @@ GAME_ENV = {
 }.freeze
 SHOT_SECONDS = [6, 12, 18, 26, 34, 42, 48].freeze
 DEADLINE = 240
+REPEATS = Integer(ENV.fetch("KIT_REPEATS", "1"))
 
 def capture(*command)
   output, status = Open3.capture2(*command)
@@ -71,60 +72,69 @@ puts "== runtime #{os['name']} (#{os['identifier']})"
 ipad_types(os, wanted).each do |type|
   name = type.fetch("name")
   slug = name.gsub(/[^A-Za-z0-9]+/, "-").sub(/-\z/, "")
-  dir = File.join(out, slug)
-  FileUtils.mkdir_p(dir)
+  device_dir = File.join(out, slug)
   puts "== #{name} (#{type['identifier']})"
   udid = capture("xcrun", "simctl", "create", "dot-popper-#{slug}", type.fetch("identifier"), os.fetch("identifier")).strip
   begin
     system("xcrun", "simctl", "bootstatus", udid, "-b", out: File::NULL, exception: true)
     system("xcrun", "simctl", "install", udid, bundle, exception: true)
-    since = (Time.now - 2).strftime("%Y-%m-%d %H:%M:%S")
-    env = GAME_ENV.map { |key, value| ["SIMCTL_CHILD_#{key}", value] }.to_h
-    launched, status = Open3.capture2(env, "xcrun", "simctl", "launch", udid, identifier)
-    raise "simctl launch failed: #{launched}" unless status.success?
+    (1..REPEATS).each do |attempt|
+      dir = File.join(device_dir, "run-#{attempt}")
+      FileUtils.mkdir_p(dir)
+      since = (Time.now - 2).strftime("%Y-%m-%d %H:%M:%S")
+      env = GAME_ENV.map { |key, value| ["SIMCTL_CHILD_#{key}", value] }.to_h
+      launched, status = Open3.capture2(env, "xcrun", "simctl", "launch", udid, identifier)
+      raise "simctl launch failed: #{launched}" unless status.success?
 
-    pid = Integer(launched[/: (\d+)\s*\z/, 1])
-    started = Time.now
-    puts "launched #{identifier} as process #{pid} with #{GAME_ENV.map { |key, value| "#{key}=#{value}" }.join(' ')}"
-    log = File.join(dir, "subsystem.ndjson")
-    # Screenshots on their own thread, on the wall clock since launch, so
-    # a slow log query never delays one; each file names the second it
-    # was actually taken.
-    shooter = Thread.new do
-      SHOT_SECONDS.each do |second|
-        wait = started + second - Time.now
-        sleep wait if wait.positive?
-        taken = (Time.now - started).round
-        system("xcrun", "simctl", "io", udid, "screenshot", File.join(dir, format("simulator-%02ds.png", taken)),
-          out: File::NULL, err: File::NULL)
+      pid = Integer(launched[/: (\d+)\s*\z/, 1])
+      started = Time.now
+      puts "launched #{identifier} as process #{pid} with #{GAME_ENV.map { |key, value| "#{key}=#{value}" }.join(' ')}"
+      log = File.join(dir, "subsystem.ndjson")
+      puts "  attempt #{attempt} of #{REPEATS}"
+      # Screenshots on their own thread, on the wall clock since launch, so
+      # a slow log query never delays one; each file names the second it
+      # was actually taken.
+      shooter = Thread.new do
+        SHOT_SECONDS.each do |second|
+          wait = started + second - Time.now
+          sleep wait if wait.positive?
+          taken = (Time.now - started).round
+          system("xcrun", "simctl", "io", udid, "screenshot", File.join(dir, format("simulator-%02ds.png", taken)),
+            out: File::NULL, err: File::NULL)
+        end
       end
-    end
-    lines = []
-    loop do
-      sleep 5
+      lines = []
+      loop do
+        sleep 5
+        lines = messages(udid, since, identifier, log)
+        break if lines.any? { |line| line.include?("exited with status") } && !shooter.alive?
+        break if Time.now - started > DEADLINE
+        crashes = Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*"))
+        break if crashes.any? { |crash| File.mtime(crash) >= started - 5 } && !shooter.alive?
+      end
+      shooter.join
+      sleep 2
       lines = messages(udid, since, identifier, log)
-      break if lines.any? { |line| line.include?("exited with status") } && !shooter.alive?
-      break if Time.now - started > DEADLINE
+      File.write(File.join(dir, "subsystem.log"), lines.join("\n") + "\n")
+      puts lines.map { |line| "  #{line}" }
+      File.write(File.join(dir, "process.log"), Open3.capture2e("xcrun", "simctl", "spawn", udid, "log", "show",
+        "--start", since, "--style", "compact", "--info", "--predicate", "process == \"#{executable}\"").first)
+      data, = Open3.capture2("xcrun", "simctl", "get_app_container", udid, identifier, "data")
+      data = data.strip
+      unless data.empty?
+        FileUtils.cp_r(data, File.join(dir, "data-container"))
+        puts "  data container files:"
+        Dir.glob("Library/Application Support/**/*", base: File.join(dir, "data-container")).sort.each { |path| puts "    #{path}" }
+      end
+      Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*")).each do |crash|
+        FileUtils.cp(crash, dir) if File.mtime(crash) >= started - 5
+      end
+      crashed = !Dir.glob(File.join(dir, "*.ips")).empty?
+      exited = lines.grep(/exited with status (\d+)/).last
+      game_shots = lines.count { |line| line.include?("Dot Popper: screenshot") }
+      results["#{name} ##{attempt}"] = { "exit" => exited, "game_shots" => game_shots, "crash_report" => crashed,
+        "ok" => !crashed && !exited.nil? && exited.end_with?("status 0") && game_shots == 4 }
     end
-    shooter.join
-    sleep 2
-    lines = messages(udid, since, identifier, log)
-    File.write(File.join(dir, "subsystem.log"), lines.join("\n") + "\n")
-    puts lines.map { |line| "  #{line}" }
-    File.write(File.join(dir, "process.log"), Open3.capture2e("xcrun", "simctl", "spawn", udid, "log", "show",
-      "--start", since, "--style", "compact", "--info", "--predicate", "process == \"#{executable}\"").first)
-    data, = Open3.capture2("xcrun", "simctl", "get_app_container", udid, identifier, "data")
-    data = data.strip
-    unless data.empty?
-      FileUtils.cp_r(data, File.join(dir, "data-container"))
-      puts "  data container files:"
-      Dir.glob("**/*", base: File.join(dir, "data-container")).sort.each { |path| puts "    #{path}" }
-    end
-    Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*")).each { |crash| FileUtils.cp(crash, dir) }
-    exited = lines.grep(/exited with status (\d+)/).last
-    game_shots = lines.count { |line| line.include?("Dot Popper: screenshot") }
-    results[name] = { "exit" => exited, "game_shots" => game_shots,
-                      "ok" => !exited.nil? && exited.end_with?("status 0") && game_shots == 4 }
   ensure
     system("xcrun", "simctl", "shutdown", udid, out: File::NULL, err: File::NULL)
     system("xcrun", "simctl", "delete", udid, out: File::NULL, err: File::NULL)
