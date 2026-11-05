@@ -19,6 +19,10 @@ class AudioTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.audio.Source).
   TYPES = %w[Source].freeze
 
+  # The listener's settings, which Lövetest's tests change and leave
+  # changed, and which every Source in the process is heard through.
+  LISTENER = %i[volume position orientation velocity doppler_scale distance_model].freeze
+
   # Lövetest runs a module's tests in the order of their names
   # (classes/TestModule.lua:68-71), so getDistanceModel, which checks the
   # default model, runs before setDistanceModel, which leaves the last
@@ -26,7 +30,18 @@ class AudioTest < Lovetest::TestMethod
   # with the default model, as its Lua does.
   def setup
     super
-    Lota::Audio.distance_model = :inverseclamped if Lota.audio
+    return unless Lota.audio
+
+    Lota::Audio.distance_model = :inverseclamped
+    @listener = LISTENER.to_h { |name| [name, Lota::Audio.public_send(name)] }
+  end
+
+  # Each test ends with the listener it started with, so that a suite run
+  # after this one, in the same process, finds the volume, position,
+  # orientation, and velocity LÖVE starts with, not the last test's.
+  def teardown
+    @listener&.each { |name, value| Lota::Audio.public_send(:"#{name}=", value) }
+    super
   end
 
   # SPDX-SnippetBegin

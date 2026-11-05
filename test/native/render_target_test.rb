@@ -28,6 +28,7 @@ class RenderTargetTest < Minitest::Test
   def teardown
     Graphics.set_canvas
     Graphics.stencil_state = nil
+    Graphics.color = 1, 1, 1, 1
   end
 
   def pixel(texture, *readback)
@@ -275,5 +276,28 @@ class RenderTargetTest < Minitest::Test
     canvas.mipmap_filter = nil
 
     assert_equal [:none, 0.0], canvas.mipmap_filter
+  end
+end
+
+# test_readback_reads_a_rectangle draws in red and ends, and every drawing
+# after it draws in red too unless something puts the color back.
+# RenderTargetTest does after each test, so a suite that runs after it and
+# draws without setting a color draws in white. Without that, this fails
+# with a red square.
+class RenderTargetColorTest < Minitest::Test
+  def test_a_render_target_test_leaves_the_color_white_for_the_tests_after_it
+    EngineHelper.open_window
+
+    assert_predicate RenderTargetTest.new("test_readback_reads_a_rectangle").run, :passed?
+
+    canvas = Lota::Graphics::Canvas.new(2, 2)
+    canvas.render_to do
+      Lota::Graphics.clear(0, 0, 0, 1)
+      Lota::Graphics.rectangle(:fill, 0, 0, 2, 2)
+    end
+
+    assert_equal [1.0, 1.0, 1.0, 1.0], Lota::Graphics.readback_texture(canvas).pixel(0, 0)
+  ensure
+    Lota::Graphics.color = 1, 1, 1, 1
   end
 end
