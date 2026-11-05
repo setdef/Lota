@@ -25,7 +25,7 @@ on:
       dot_popper_run:
         description: A Fuse run whose fused-game-x64-mingw-ucrt artifact holds Dot Popper's zip and setup program
         type: string
-        default: "42044652259"
+        default: "42070431596"
 
 permissions:
   contents: read
@@ -36,7 +36,7 @@ defaults:
     shell: bash
 
 env:
-  DOT_POPPER_RUN: ${{ inputs.dot_popper_run || '42044652259' }}
+  DOT_POPPER_RUN: ${{ inputs.dot_popper_run || '42070431596' }}
   PLATFORM: x64-mingw-ucrt
 
 jobs:
@@ -233,14 +233,14 @@ jobs:
       # line, in the order run-kit.ps1 asks: do them, a controller, Enter to
       # start Dot Popper (which DOT_POPPER_QUIT_AFTER ends), then for each
       # check an answer and a note, and for check 7 two pasted lines and an
-      # empty one.
+      # empty one. Check 6 gets ns, which the kit writes as 'not shown'.
       - name: Write the hand checks' answers
         if: matrix.id == 'cmd-mesa'
         shell: pwsh
         run: |
           $lines = @('y', 'y', '')
-          foreach ($id in 'W1', 'W2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '11b', '11c', '12', '13', '14', '15', '16', '17') {
-            if ($id -in '10', '11b') { $lines += '4' } else { $lines += 'y' }
+          foreach ($id in 'W1', 'W2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '18', '10', '11', '11b', '11c', '12', '13', '14', '15', '16', '17') {
+            if ($id -in '10', '11b') { $lines += '4' } elseif ($id -eq '6') { $lines += 'ns' } else { $lines += 'y' }
             if ($id -eq '7') { $lines += 'Dot Popper result line one', 'line two', '' }
             $lines += 'fed by CI'
           }
