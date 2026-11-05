@@ -1265,11 +1265,8 @@ work "FreeType (Windows)",
 # src/render/direct3d*) state no notice of their own, so are SDL's, under
 # its license. None of the X11 or Wayland code compiles on Windows, so
 # neither their notices nor HPND-sell-variant are recorded. These are the
-# files the x64 build compiles; the ARM64 build, which turns SDL's OpenGL
-# off (tasks/windows_build.rb), compiles the same but for
-# include/SDL3/SDL_opengl.h and SDL_opengl_glext.h, src/render/opengl, and
-# the SSE code of yuv2rgb, so one record covers both, with Mesa's notice
-# and the Khronos Group's of SDL_opengl_glext.h more than ARM64 needs.
+# files the x64 build compiles; the ARM64 build compiles the same but for
+# the SSE code of yuv2rgb, so one record covers both.
 work "SDL (Windows)",
   sources: ["#{windows_dependencies}/libSDL3.a"],
   copyright: [

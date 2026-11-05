@@ -234,12 +234,23 @@ class WindowsBuild
     end
   end
 
-  # SDL as a static library, with iconv from SDL itself. Windows on ARM64
-  # has no opengl32.dll, which SDL always tries to open, so megasource
-  # turns SDL's OpenGL off there (its CMakeLists.txt, "In Windows, SDL
-  # always tries to open OpenGL32.dll"), and so does Lota.
+  # SDL as a static library, with iconv from SDL itself, and with OpenGL on
+  # both architectures. SDL opens opengl32.dll when a window asks for
+  # OpenGL (SDL_windowsopengl.c, DEFAULT_OPENGL) and links no import
+  # library for it, so OpenGL needs nothing of the toolchain. megasource
+  # turns SDL's OpenGL off on ARM64 (its CMakeLists.txt, "In Windows, SDL
+  # always tries to open OpenGL32.dll, which is not available in Windows
+  # ARM64"), so that LÖVE's ARM64 build reaches OpenGL ES through the
+  # ANGLE DLLs its CI ships beside love.exe (vendor/love/.github/
+  # workflows/main.yml, LOVE_EXTRA_DLLS). Lota ships no ANGLE, so there
+  # that leaves the engine Vulkan alone, and Windows 11 on ARM64 has
+  # opengl32.dll in System32, which loads in an ARM64 process, as Mesa's
+  # ARM64 build of it does. With OpenGL in, an ARM64 PC whose driver gives
+  # OpenGL 3.3 runs a game, as on x64; on one where opengl32.dll cannot
+  # load, the window fails to open with SDL's reason, as it did without
+  # OpenGL.
   private def sdl_options
-    options = %w[
+    %w[
       -DSDL_SHARED=OFF
       -DSDL_STATIC=ON
       -DSDL_TEST_LIBRARY=OFF
@@ -248,7 +259,6 @@ class WindowsBuild
       -DSDL_SYSTEM_ICONV=OFF
       -DSDL_LIBICONV=OFF
     ]
-    @arm64 ? [*options, "-DSDL_OPENGL=OFF"] : options
   end
 
   # OpenAL Soft as the DLL LÖVE's Windows build ships, OpenAL32.dll, with
