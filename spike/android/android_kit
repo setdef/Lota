@@ -1,0 +1,82 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The Android kit's program, which the spike's workflow puts beside Dot
+# Popper's bin/dot_popper and names in its fledge.yml, as the iPad kit's
+# ipad_kit does: it runs bin/dot_popper unchanged. Only with
+# DOT_POPPER_KIT_PROBE=1, which the emulator runs pass as an intent extra
+# and a launch from the launcher never has, it also logs what Lota's
+# window reports on frames 60 and 600, each touch the game receives, each
+# event the game announces, and, every 15 frames of a round, where its
+# topmost fresh dot is, so the emulator's driver can tap it.
+if ENV["DOT_POPPER_KIT_PROBE"] == "1"
+  $stdout.sync = true
+  require "lota"
+  class << Lota
+    def singleton_method_added(name)
+      super
+      kit_wrap_draw if name == :draw && !@kit_draw
+      kit_wrap_touch if name == :touchpressed && !@kit_touch
+      kit_wrap_load if name == :load && !@kit_load
+      kit_wrap_key if name == :keypressed && !@kit_key
+    end
+
+    def kit_wrap_key
+      @kit_key = true
+      key = method(:keypressed)
+      define_singleton_method(:keypressed) do |*arguments|
+        state = @kit_game&.state
+        puts "kit probe: keypressed #{arguments.map(&:inspect).join(', ')} in #{state&.class&.name&.split('::')&.last}"
+        key.call(*(key.arity.negative? ? arguments : arguments.first(key.arity)))
+      end
+    end
+
+    def kit_wrap_load
+      @kit_load = true
+      load = method(:load)
+      define_singleton_method(:load) do
+        load.call
+        game = @app.instance_variable_get(:@game)
+        game.subscribe { |event| puts "kit probe: event #{event.class.name.split('::').last}" }
+        @kit_game = game
+        puts "kit probe: subscribed to the game's events"
+      end
+    end
+
+    def kit_wrap_touch
+      @kit_touch = true
+      touch = method(:touchpressed)
+      define_singleton_method(:touchpressed) do |*arguments|
+        puts "kit probe: touchpressed #{arguments.map(&:inspect).join(', ')}"
+        touch.call(*(touch.arity.negative? ? arguments : arguments.first(touch.arity)))
+      end
+    end
+
+    def kit_wrap_draw
+      @kit_draw = true
+      draw = method(:draw)
+      frames = 0
+      define_singleton_method(:draw) do
+        draw.call
+        frames += 1
+        if [60, 600].include?(frames)
+          puts "kit probe: frame #{frames}, Window.fullscreen #{Lota::Window.fullscreen.inspect}, " \
+            "safe_area #{Lota::Window.safe_area.inspect}, Graphics.dimensions #{Lota::Graphics.dimensions.inspect}, " \
+            "pixel_dimensions #{Lota::Graphics.pixel_dimensions.inspect}, dpi_scale #{Lota::Graphics.dpi_scale}, " \
+            "System.os #{Lota::System.os.inspect}, renderer #{Lota::Graphics.renderer_info.inspect}"
+        end
+        state = @kit_game&.state
+        if (frames % 15).zero? && state.respond_to?(:round) && state.class.name.end_with?("Playing")
+          dot = state.round.dots.find(&:fresh?)
+          width, height = Lota::Graphics.dimensions
+          puts "kit probe: dot at #{dot.x.round(1)}, #{dot.y.round(1)} in #{width}x#{height}, score #{state.round.score}" if dot
+        end
+      end
+    end
+  end
+end
+
+load File.expand_path("dot_popper", __dir__)

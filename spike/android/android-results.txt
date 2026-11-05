@@ -1,0 +1,90 @@
+Dot Popper on Android: playtest results
+======================================
+
+Answer each question below, then send this file back (with the
+screenshots and the log the README asks for).
+
+Device:            OnePlus Nord N30 5G
+Android version:   13
+Date of the test:  ____________
+Kit build:         Dot Popper @@DOT_POPPER_REF@@ (@@DOT_POPPER_SHA@@), Lota @@LOTA_SHA@@,
+                   Fledge @@FLEDGE_REF@@, CI run @@RUN_URL@@
+APK:               DotPopper-debug.apk, SHA-256 @@APK_SHA256@@
+
+For each question, write y or n (or the word asked for) on the answer line,
+and anything you noticed on the note line.
+
+1. The game fills the screen in portrait and in landscape, with nothing
+   hidden under the camera cutout or the navigation bar. (y/n, plus a
+   screenshot)
+   Answer: ____
+   Note:
+
+2. Tapping a bright dot pops it right where your finger is; a popped dot
+   costs two points and two seconds and shows a dashed outline of the dot
+   it was hiding. (y/n)
+   Answer: ____
+   Note:
+
+3. Dot size under a finger with the control set to 'Standard': too small /
+   right / too big. Then, if the title shows the choice 'Smaller, more
+   room', pick it and answer the same question (write 'not shown' if there
+   is no choice).
+   With 'Standard':             ____
+   With 'Smaller, more room':   ____
+   Note:
+   Note:
+
+4. The phone gives a short buzz on a pop and a slightly longer one on a
+   wrong tap, and neither feels annoying. (y/n, plus a note)
+   Answer: ____
+   Note:
+
+5. Sound.
+   Sound plays. (y/n)                                          Answer: ____
+   Music from another app keeps playing alongside. (y/n)       Answer: ____
+   Silent and vibrate mode behave as you would expect. (y/n)   Answer: ____
+   Note:
+
+6. Back on the title leaves the app; on Your records it returns to the
+   title; during a round and at Game Over it does nothing. (y/n each)
+   On the title:      ____
+   On Your records:   ____
+   During a round:    ____
+   At Game Over:      ____
+   Note:
+
+7. Rotating the phone mid-round keeps every dot on screen. (y/n)
+   Answer: ____
+   Note:
+
+8. At Game Over, tilting rolls the dots toward the lowest edge, and a sharp
+   shake tosses them. (y/n; if wrong, say how you held the phone)
+   Answer: ____
+   Note:
+
+9. "Copy my result", then pasting into a message, gives a sensible result.
+   (y/n, plus paste it here)
+   Answer: ____
+   Pasted:
+
+10. Leaving the app (Home) and coming back mid-round: the clock stays fair,
+    with no big jump, and the game carries on. (y/n, plus a note)
+    Answer: ____
+    Note:
+
+11. Any crash, freeze, or visual glitch? (describe, plus a screenshot)
+    Answer:
+
+12. Overall feel, from 1 (bad) to 5 (great), plus a note.
+    Answer: ____
+    Note:
+
+13. At Game Over, drag a dot with your finger and let go to throw it; a tap
+    still goes back to the title. (y/n)
+    Answer: ____
+    Note:
+
+Filled in automatically on CI's x86_64 emulator, for comparison (not your
+phone):
+@@EMULATOR_SUMMARY@@

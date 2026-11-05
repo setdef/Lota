@@ -1,0 +1,6 @@
+# The Android spike: a Lota game on SDL's Android host (Fledge's
+# examples/sdl_phone), with LÖVE's GameActivity methods the engine calls.
+name: LotaSpike
+identifier: com.kerricklong.lota.LotaSpike
+android:
+  host: host/android

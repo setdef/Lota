@@ -1,0 +1,388 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The Android spike, on experiment/android-* branches only: LÖVE's
+# dependencies built for arm64-v8a and x86_64 with the NDK (rake
+# android:deps), SDL3 built shared by Fledge's examples/sdl_phone script,
+# the engine's Android source list evaluated (rake android:sources), and
+# two apps built with fledge build android (Fledge v0.5.0) and Gradle:
+# Lota's spike game and Dot Popper. Each runs on an x86_64 emulator, with
+# screenshots, injected taps, and logcat kept as artifacts; the debug APKs
+# are kept for a phone.
+name: Android spike
+
+on:
+  push:
+    branches:
+      - "experiment/android-*"
+  workflow_dispatch:
+    inputs:
+      dot_popper_ref:
+        description: Dot Popper's tag, branch, or commit (github.com/Kerrick/dot_popper)
+        type: string
+        default: v0.8.1
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MISE_DISABLE_TOOLS: ruby,rust
+  NDK_REVISION: 30.0.16248370
+  FLEDGE_REF: v0.5.0
+  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || 'v0.8.1' }}
+
+jobs:
+  build:
+    name: Build the apps for Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out vendor/love alone
+        run: git submodule update --init --depth 1 vendor/love
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+        with:
+          version: 2026.10.11
+          install_args: cmake ninja
+
+      - name: Use Java 21, install ccache, and the NDK Fledge pins
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          sudo apt-get update -qq && sudo apt-get install --assume-yes -qq ccache > /dev/null
+          # yes ends on a broken pipe once sdkmanager stops reading.
+          (yes 2> /dev/null || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_REVISION" \
+            > "$RUNNER_TEMP/sdkmanager.log" || { tail -20 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/$NDK_REVISION" >> "$GITHUB_ENV"
+          grep Pkg.Revision "$ANDROID_HOME/ndk/$NDK_REVISION/source.properties"
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+          cmake --version | head -1
+          echo "CCACHE_DIR=$HOME/.cache/lota/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/ccache
+          key: android-ccache-${{ github.sha }}
+          restore-keys: android-ccache-
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tmp/android/deps
+            vendor/sources/android
+          key: android-deps-${{ hashFiles('tasks/android_build.rb', 'tasks/windows_build.rb') }}-${{ env.NDK_REVISION }}
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/sdl3
+          key: android-sdl3-fledge-${{ env.FLEDGE_REF }}-${{ env.NDK_REVISION }}
+
+      - name: Install the bundle
+        run: |
+          echo "BUNDLE_PATH=$HOME/.cache/lota/bundle" >> "$GITHUB_ENV"
+          BUNDLE_PATH=$HOME/.cache/lota/bundle bundle install --quiet
+
+      - name: Evaluate the engine's Android source list
+        run: |
+          cp ext/lota/engine/sources_android.cmake "$RUNNER_TEMP/committed.cmake" 2>/dev/null || true
+          bundle exec rake android:sources
+          mkdir -p "$RUNNER_TEMP/out"
+          cp ext/lota/engine/sources_android.cmake "$RUNNER_TEMP/out/"
+          head -8 ext/lota/engine/sources_android.cmake
+          grep -c '\${ENGINE_SOURCE_DIR}' ext/lota/engine/sources_android.cmake
+          diff ext/lota/engine/sources_ios.cmake ext/lota/engine/sources_android.cmake | head -60 || true
+          if [ -f "$RUNNER_TEMP/committed.cmake" ]; then
+            diff "$RUNNER_TEMP/committed.cmake" ext/lota/engine/sources_android.cmake && echo "matches the committed list"
+          fi
+
+      - name: Build LÖVE's dependencies for arm64-v8a and x86_64
+        run: |
+          time bundle exec rake android:deps || { tail -80 tmp/android/deps/build.log; exit 1; }
+          for abi in arm64-v8a x86_64; do
+            echo "== $abi"; ls -la "tmp/android/deps/$abi/lib"
+            "$ANDROID_NDK_ROOT"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf -h -d "tmp/android/deps/$abi/lib/libopenal.so" \
+              | grep -E "Machine|NEEDED|SONAME"
+          done
+
+      - name: Build SDL3 shared with Fledge's script
+        run: |
+          git clone --quiet --depth 1 --branch "$FLEDGE_REF" https://github.com/setdef/Fledge "$RUNNER_TEMP/fledge"
+          if [ ! -f "$RUNNER_TEMP/sdl3/x86_64/lib/libSDL3.so" ]; then
+            "$RUNNER_TEMP/fledge/examples/sdl_phone/sdl3/build.sh" android "$RUNNER_TEMP/sdl3" > "$RUNNER_TEMP/sdl3.log" 2>&1 \
+              || { tail -60 "$RUNNER_TEMP/sdl3.log"; exit 1; }
+          fi
+          ls -la "$RUNNER_TEMP"/sdl3/*/lib/libSDL3.so
+          grep -h "SDL_MAJOR_VERSION\|SDL_MINOR_VERSION\|SDL_MICRO_VERSION" "$RUNNER_TEMP/sdl3/x86_64/include/SDL3/SDL_version.h" | head -3
+          java=spike/android/host/android/src/main/java/org/libsdl/app
+          mkdir -p "$java"
+          cp "$RUNNER_TEMP"/sdl3/work/SDL3-*/android-project/app/src/main/java/org/libsdl/app/*.java "$java/"
+          ls "$java"
+
+      # Fledge carries a path gem's whole folder into the app, so the app
+      # gets a folder with only what lota.gemspec packages.
+      - name: Make a folder of Lota's packaged files
+        run: |
+          gem=$RUNNER_TEMP/lota-gem
+          mkdir -p "$gem"
+          git ls-files -z -- exe lib sig README.rdoc CHANGELOG.md LICENSE LICENSES lota.gemspec \
+            ext/lota/extconf.rb ext/lota/CMakeLists.txt ext/lota/cmake ext/lota/engine ext/lota/native ext/lota/phone \
+            ext/lota/preload | xargs -0 -I{} cp --parents {} "$gem/"
+          cp ext/lota/engine/sources_android.cmake "$gem/ext/lota/engine/"
+          git -C "$gem" init --quiet && git -C "$gem" add --all
+          du -sh "$gem"
+          echo "LOTA_GEM=$gem" >> "$GITHUB_ENV"
+          echo "RICE_DIR=$(bundle exec ruby -e 'print Gem.loaded_specs.fetch("rice").full_gem_path')" >> "$GITHUB_ENV"
+
+      - name: Build the spike with fledge build android and Gradle
+        run: |
+          cd spike/android
+          sed -i "s|LOTA_GEM|$LOTA_GEM|" Gemfile
+          export BUNDLE_GEMFILE=$PWD/Gemfile BUNDLE_PATH=$RUNNER_TEMP/app-bundle XDG_CACHE_HOME=$RUNNER_TEMP/cache
+          bundle config set --local build.lota "--with-lota-source=$GITHUB_WORKSPACE --with-lota-sdl3=$RUNNER_TEMP/sdl3 --with-lota-android-deps=$GITHUB_WORKSPACE/tmp/android/deps --with-rice-dir=$RICE_DIR"
+          bundle lock --add-platform ruby
+          bundle install --quiet
+          time bundle exec fledge build android 2> >(tee "$RUNNER_TEMP/out/spike-fledge.log" >&2)
+          ccache --show-stats | head -12 || true
+          cd dist/LotaSpike-android
+          time ./gradlew --no-daemon --quiet assembleDebug
+          find . -name "*.apk" -exec ls -la {} +
+          cp build/outputs/apk/debug/*.apk "$RUNNER_TEMP/out/LotaSpike-debug.apk"
+
+      - name: Check out Dot Popper and lay the Android kit over it
+        run: |
+          game=$RUNNER_TEMP/dot_popper
+          git clone --quiet https://github.com/Kerrick/dot_popper.git "$game"
+          git -C "$game" -c advice.detachedHead=false checkout --quiet "$DOT_POPPER_REF"
+          echo "Dot Popper $DOT_POPPER_REF is $(git -C "$game" rev-parse HEAD)"
+          {
+            echo "DOT_POPPER_REF=$DOT_POPPER_REF"
+            echo "DOT_POPPER_SHA=$(git -C "$game" rev-parse HEAD)"
+            echo "LOTA_SHA=$GITHUB_SHA"
+            echo "FLEDGE_REF=$FLEDGE_REF"
+            echo "RUN_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$RUNNER_TEMP/out/BUILD-INFO.txt"
+          version=$(ruby -ryaml -e 'print YAML.load_file(ARGV[0]).fetch("version")' "$game/fledge.yml")
+          rm -rf "$game/vendor/cache" "$game/Gemfile.lock" "$game/mise.toml" "$game/.ruby-version"
+          mkdir -p "$game/host"
+          cp -R spike/android/host/android "$game/host/android"
+          # Dot Popper decides what Back does itself (its trunk's Escape
+          # handling), so its host asks SDL to trap Back: the opt-in the
+          # kit's README describes. The spike keeps SDL's and LÖVE's
+          # default, where Back leaves the app.
+          ruby -pi -e 'sub(/^(\s*)<activity$/) { "#{$1}<meta-data android:name=\"SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON\" android:value=\"1\" />\n#{$&}" }' \
+            "$game/host/android/src/main/AndroidManifest.xml"
+          grep -n -B1 -A1 TRAP_BACK "$game/host/android/src/main/AndroidManifest.xml"
+          cp spike/android/android_kit "$game/bin/android_kit"
+          cat > "$game/Gemfile" <<EOF
+          # frozen_string_literal: true
+
+          source "https://rubygems.org"
+
+          gem "lota", path: "$LOTA_GEM"
+          gem "fledge", git: "https://github.com/setdef/Fledge", tag: "$FLEDGE_REF", group: :development
+          EOF
+          cat > "$game/fledge.yml" <<EOF
+          name: Dot Popper
+          version: "$version"
+          publisher: Kerrick Long
+          copyright: © 2026 Kerrick Long
+          programs:
+            - path: bin/android_kit
+              kind: windowed
+              identifier: com.kerricklong.DotPopper
+              icon: icons/icon
+          android:
+            host: host/android
+          EOF
+          cat "$game/fledge.yml"
+          ls "$game/icons"
+
+      - name: Build Dot Popper with fledge build android and Gradle
+        run: |
+          cd "$RUNNER_TEMP/dot_popper"
+          export BUNDLE_GEMFILE=$PWD/Gemfile BUNDLE_PATH=$RUNNER_TEMP/app-bundle XDG_CACHE_HOME=$RUNNER_TEMP/cache
+          bundle config set --local build.lota "--with-lota-source=$GITHUB_WORKSPACE --with-lota-sdl3=$RUNNER_TEMP/sdl3 --with-lota-android-deps=$GITHUB_WORKSPACE/tmp/android/deps --with-rice-dir=$RICE_DIR"
+          bundle lock --add-platform ruby
+          bundle install --quiet
+          time bundle exec fledge build android 2> >(tee "$RUNNER_TEMP/out/dot-popper-fledge.log" >&2)
+          ccache --show-stats | head -12 || true
+          cd "dist/Dot Popper-android"
+          time ./gradlew --no-daemon --quiet assembleDebug
+          find . -name "*.apk" -exec ls -la {} +
+          cp build/outputs/apk/debug/*.apk "$RUNNER_TEMP/out/DotPopper-debug.apk"
+
+      # What a studio does with the project: build the release APK and the
+      # Android App Bundle Google Play takes, and sign both with a key of
+      # its own (a throwaway one here), with the SDK's own tools.
+      - name: Build Dot Popper's release APK and AAB and sign them with a studio's key
+        run: |
+          cd "$RUNNER_TEMP/dot_popper/dist/Dot Popper-android"
+          time ./gradlew --no-daemon --quiet assembleRelease bundleRelease
+          find build/outputs -name "*.apk" -o -name "*.aab" | xargs -d '\n' ls -la
+          tools=$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          store=$RUNNER_TEMP/studio.jks
+          keytool -genkeypair -keystore "$store" -storepass studio-pass -keypass studio-pass -alias studio \
+            -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Example Studio" > /dev/null 2>&1
+          aab=$(find build/outputs/bundle/release -name "*.aab" | head -1)
+          mkdir -p "$RUNNER_TEMP/studio"
+          cp "$aab" "$RUNNER_TEMP/studio/DotPopper-release-studio-signed.aab"
+          jarsigner -keystore "$store" -storepass studio-pass "$RUNNER_TEMP/studio/DotPopper-release-studio-signed.aab" studio > /dev/null
+          jarsigner -verify "$RUNNER_TEMP/studio/DotPopper-release-studio-signed.aab" | tail -1
+          apk=$(find build/outputs/apk/release -name "*.apk" | head -1)
+          "$tools/zipalign" -f -P 16 4 "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$store" --ks-pass pass:studio-pass --out "$RUNNER_TEMP/studio/DotPopper-release-studio-signed.apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --print-certs "$RUNNER_TEMP/studio/DotPopper-release-studio-signed.apk" | head -2
+          unzip -l "$RUNNER_TEMP/studio/DotPopper-release-studio-signed.aab" | grep -E "lib/|\.pb$" | head -20
+
+      # The Gradle project Fledge wrote, as a studio would keep it: no
+      # build outputs, links kept.
+      - name: Zip Dot Popper's Android project and the prebuilt libraries
+        run: |
+          cd "$RUNNER_TEMP/dot_popper/dist"
+          zip -qry "$RUNNER_TEMP/studio/DotPopper-android-project.zip" "Dot Popper-android" -x "*/build/*" "*/.gradle/*"
+          cd "$GITHUB_WORKSPACE/tmp/android/deps"
+          for abi in arm64-v8a x86_64; do
+            tar -czf "$RUNNER_TEMP/studio/lota-android-deps-$abi.tar.gz" "$abi/include" "$abi/lib" -C "$RUNNER_TEMP/sdl3" "$abi"
+          done
+          ls -la "$RUNNER_TEMP/out"
+
+      - name: Check the APKs
+        run: |
+          tools=$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          readelf=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf
+          cd "$RUNNER_TEMP/out"
+          for apk in LotaSpike-debug.apk DotPopper-debug.apk; do
+            echo "== $apk"
+            unzip -l "$apk" | grep -E "lib/|assets/"
+            "$tools/zipalign" -c -P 16 -v 4 "$apk" | tail -1
+            "$tools/apksigner" verify --print-certs "$apk" | head -3
+            "$tools/aapt2" dump badging "$apk" | grep -E "package:|sdkVersion|targetSdkVersion|native-code|uses-feature|uses-permission"
+            rm -rf unpacked && mkdir unpacked && unzip -q "$apk" -d unpacked
+            for so in unpacked/lib/*/*.so; do
+              echo "-- $so $(stat -c %s "$so") bytes"
+              "$readelf" -h -d -l "$so" | grep -E "Machine:|NEEDED|SONAME|LOAD" | head -12
+            done
+            "$readelf" --dyn-syms -W unpacked/lib/x86_64/libfledgeext.so | awk '$7 == "UND" {print $8}' | sort > "${apk%.apk}-undefined.txt"
+            wc -l "${apk%.apk}-undefined.txt"
+          done
+          rm -rf unpacked
+          sha256sum ./*.apk | tee SHA256SUMS; (cd "$RUNNER_TEMP/studio" && sha256sum ./* | tee SHA256SUMS)
+          cp "$GITHUB_WORKSPACE/spike/android/README.txt" .
+          ls -la
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-apks
+          path: ${{ runner.temp }}/out
+          retention-days: 30
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-studio
+          path: ${{ runner.temp }}/studio
+          retention-days: 30
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: android-build-logs
+          path: |
+            tmp/android/deps/build.log
+            ${{ runner.temp }}/sdl3.log
+            ${{ runner.temp }}/cache/**/*.log
+          retention-days: 14
+
+  emulator:
+    name: Run the apps on an x86_64 emulator, API 36
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: spike
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-apks
+          path: ${{ runner.temp }}/apks
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the spike and Dot Popper
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash spike/android/run_all.sh "${{ runner.temp }}/apks" "${{ runner.temp }}/emulator"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-emulator
+          path: ${{ runner.temp }}/emulator
+          retention-days: 30
+
+  kit:
+    name: The phone kit (Dot Popper for a OnePlus Nord N30 5G)
+    needs: [build, emulator]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: spike
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-apks
+          path: ${{ runner.temp }}/apks
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: android-emulator
+          path: ${{ runner.temp }}/emulator
+
+      - name: Assemble the kit
+        run: |
+          mkdir -p "$RUNNER_TEMP/emulator"
+          ruby spike/android/kit.rb "$RUNNER_TEMP/apks" "$RUNNER_TEMP/emulator" "$RUNNER_TEMP/kit/dot-popper-android"
+          ls -la "$RUNNER_TEMP/kit/dot-popper-android"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dot-popper-android-kit
+          path: ${{ runner.temp }}/kit
+          retention-days: 30
