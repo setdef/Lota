@@ -10,14 +10,32 @@ game" for what each platform needs installed and the exact options
 
 Things a game author should know:
 
-- `lota fuse` ships Lota and the game's folder, and does not yet honor the
-  game's own Gemfile: pure-Ruby code a game needs can be vendored into the
-  game folder, but a gem with a native extension cannot be carried by
-  `lota fuse` today (LÖVE lets a game ship native libraries beside it; this
-  is a gap). A project of your own built with Fledge can carry such gems.
-  `lota fuse` warns when a Gemfile has other gems.
+- `lota fuse` ships Lota, the game's folder, and the gems the game's
+  `Gemfile.lock` locks, at those versions, without the `development` and
+  `test` groups. It refuses a Gemfile with no `Gemfile.lock` beside it
+  (run `bundle install`), a lockfile that does not lock the platform being
+  built (run `bundle lock --add-platform PLATFORM`, with that platform's
+  `.gem` in `vendor/cache` for a gem only `vendor/cache` holds, such as
+  Lota), and a lockfile that locks another version of Lota than the one
+  running `lota fuse`. The game's Gemfile need not ask for Lota; `lota fuse`
+  adds it.
+- Pure-Ruby gems, gems from RubyGems.org, Git, a folder inside the game, and
+  the game's `vendor/cache` all ride along. A gem with a C extension and no
+  build for the platform compiles on the building computer, so that
+  computer needs a C compiler: Xcode's command line tools on macOS
+  (`xcode-select --install`), a C compiler and `make` on Linux
+  (`build-essential`), RubyInstaller's MSYS2 tools on Windows
+  (`ridk install`). Without one, `lota fuse` fails after Bundler names the
+  gem and says what to install. Build each platform's app on that platform:
+  an extension compiles for the computer it compiles on.
+- Each gem ships whole, with the license files its package holds; honoring
+  each gem's license (`bundle licenses` lists them) is the game author's
+  job, and a gem whose package leaves out its license text needs it added
+  to the notices the author ships.
 - A game folder's `.git`, `.bundle`, `vendor/bundle`, and `vendor/cache` are
-  left out of the app.
+  left out of the app's copy of the game; the gems in `vendor/cache` go to
+  the build, not the game folder. Settings in the game's `.bundle/config`
+  (such as `build.NAME` options for an extension) do not reach the build.
 - The app saves under your `t.identity`, as LÖVE's fused game does.
 - The identifier is a reverse-DNS name (`com.yourname.Game`); the default is a
   placeholder: set your own before you ship.

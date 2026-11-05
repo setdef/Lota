@@ -1,0 +1,21 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rainbow (3.0.0)
+
+PLATFORMS
+  aarch64-linux-gnu
+  aarch64-mingw-ucrt
+  arm64-darwin
+  ruby
+  x64-mingw-ucrt
+  x86_64-linux-gnu
+
+DEPENDENCIES
+  rainbow (~> 3.0)
+
+CHECKSUMS
+  rainbow (3.0.0) sha256=13ce4ffc3c94fb7a842117ecabdcdc5ff7fa27bec15ea44137b9f9abe575622d
+
+BUNDLED WITH
+  4.0.20

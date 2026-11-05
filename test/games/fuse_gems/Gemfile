@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+# A gem of pure Ruby from RubyGems.org, for lota fuse's check
+# (.github/workflows/fuse.yml). It does not ask for Lota, which lota fuse
+# adds. Gemfile.lock locks rainbow 3.0.0, older than the newest version
+# this allows, so the app's rainbow says whether lota fuse kept the game's
+# lockfile or resolved its gems anew.
+source "https://rubygems.org"
+
+gem "rainbow", "~> 3.0"
