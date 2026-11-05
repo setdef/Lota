@@ -29,11 +29,12 @@ Things a game author should know:
 
 Experimental. Lota's iOS and iPadOS build has run in the Simulator on CI and an
 Android build has run on an emulator; nothing is verified on a real device in
-Lota's own tests. Read the current state in the contributor plan
-([doc/contributors/plan/002.md](https://github.com/setdef/Lota/blob/trunk/doc/contributors/plan/002.md),
-"Phones") before promising a phone build, and tell the person plainly what has
-and has not run on real hardware. A phone build needs the platform's tools
-(Xcode for iOS, the Android NDK for Android) on a machine you build on.
+Lota's own tests. `lota fuse` builds no phone app: follow the phone guide
+([doc/guide/phones.md](https://github.com/setdef/Lota/blob/trunk/doc/guide/phones.md)),
+which builds one with Fledge from a clone of Lota, and tell the person plainly
+what has and has not run on real hardware (its last section). A phone build
+needs the platform's tools (Xcode and XcodeGen for iOS; a JDK, the Android SDK,
+and the NDK for Android) on a machine you build on.
 
 ## Licence
 

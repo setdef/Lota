@@ -226,11 +226,31 @@ class EngineSourcesTest < Minitest::Test
     assert_equal "-DCMAKE_PROJECT_INCLUDE=#{File.join(ROOT, 'tasks/engine_sources_windows.cmake')}", args.last
   end
 
+  # Android's list comes from the NDK's own toolchain file, for the ABI
+  # and API level Fledge builds first, wherever an NDK is (rake
+  # android:sources), not beside any desktop's list.
+  def test_android_evaluates_with_the_ndks_toolchain_without_luajit
+    args = EngineSources.cmake_args("android", ndk: "/ndk")
+
+    assert_equal %w[
+      -G
+      Ninja
+      -DMEGA=ON
+      -DLOVE_JIT=OFF
+      -DCMAKE_TOOLCHAIN_FILE=/ndk/build/cmake/android.toolchain.cmake
+      -DANDROID_ABI=arm64-v8a
+      -DANDROID_PLATFORM=android-26
+    ], args
+    refute(%w[macos linux windows].any? { |platform| EngineSources.generated_on(platform).include?("android") })
+  end
+
   # A generated list names no path of the machine that generated it.
   def test_label_names_the_commit_and_what_cmake_is_told_but_no_path
     assert_equal "vendor/love abc on linux with -DMEGA=ON -DLOVE_JIT=OFF", EngineSources.label("abc", "linux")
     assert_equal "vendor/love abc on windows with -DMEGA=ON -DLOVE_JIT=OFF -DMEGA_SDL3=lota_sdl3_stand_in",
       EngineSources.label("abc", "windows")
+    assert_equal "vendor/love abc on android with -DMEGA=ON -DLOVE_JIT=OFF -DANDROID_ABI=arm64-v8a " \
+      "-DANDROID_PLATFORM=android-26", EngineSources.label("abc", "android")
   end
 
   # Ruby on Windows writes each newline as CRLF in text mode.
