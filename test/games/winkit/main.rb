@@ -59,6 +59,7 @@ class Winkit
     @fps = []
     @inputs = Hash.new(0)
     @last = {}
+    @drawn = 0
   end
 
   def say(line)
@@ -85,12 +86,14 @@ class Winkit
 
     @frames << delta if @window && elapsed > 0.5
     @fps << Lota::Timer.fps while @fps.size < elapsed.floor
-    capture if !@captured && elapsed > 2
+    capture if !@captured && elapsed > 2 && @drawn > 10
   end
 
+  # The loop clears each frame with the background colour before draw,
+  # as love.run does, so the colour is set once the window opens.
   def draw
-    first_frame unless @drawn
-    Lota::Graphics.background_color = BACKGROUND
+    first_frame if @drawn.zero?
+    @drawn += 1
     Lota::Graphics.color = ORANGE
     Lota::Graphics.rectangle(:fill, 24, 24, 64, 64)
     draw_animation(Lota::Timer.time - @started)
@@ -185,6 +188,7 @@ class Winkit
     Lota::Window.title = "Winkit"
     Lota::Window.set_mode(800, 450, vsync: 1, resizable: true)
     @window = true
+    Lota::Graphics.background_color = BACKGROUND
     report_renderer
     report_display
     compile_shaders
@@ -228,7 +232,6 @@ class Winkit
   end
 
   private def first_frame
-    @drawn = true
     say "time at first frame: #{milliseconds}"
   end
 
