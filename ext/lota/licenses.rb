@@ -1362,3 +1362,64 @@ work "SDL (iOS)",
   sources: ["tmp/ios/sdl3/**"],
   copyright: framework_for("SDL3.framework").copyright,
   license: framework_for("SDL3.framework").license
+
+# Android. No gem carries these yet: Fledge links an app's extension into
+# the app's libfledgeext.so for each ABI (`fledge build android`,
+# ext/lota/phone/android.rb), with the static archives
+# engine/dependencies_android.cmake names, from which the link takes the
+# members it needs, and carries the two shared libraries it links,
+# libSDL3.so and libopenal.so, beside it, as LÖVE's own Android build
+# links them. So they are recorded here for the app's notices, and nothing
+# checks them against a link map yet. tasks/android_build.rb builds the
+# releases the Windows and Linux gems carry, from the same archives, with
+# the options the Windows build gives them, so each static archive is
+# recorded as the Windows one is; which files each Android archive
+# compiles was not read file by file. libtheoradec is linked as LÖVE's
+# Android build links it, but love.video is not bound, so, as on Windows,
+# it is not recorded until an app's link map shows a member of it.
+android_dependencies = "tmp/android/deps/*/lib"
+{
+  "zlib" => ["libz.a", "libz.so.1"],
+  "libogg" => ["libogg.a", "libogg.so.0"],
+  "libvorbis" => ["libvorbis.a", "libvorbis.so.0"],
+  "libvorbisfile" => ["libvorbisfile.a", "libvorbisfile.so.3"],
+  "libmodplug" => ["libmodplug.a", "libmodplug.so.1"],
+  "HarfBuzz" => ["libharfbuzz.a", "libharfbuzz.so"],
+}.each do |name, (archive, linux)|
+  work "#{name} (Android)",
+    sources: ["#{android_dependencies}/#{archive}"],
+    copyright: framework_for(linux).copyright,
+    license: framework_for(linux).license
+end
+
+# FreeType 2.13.3 without bzip2, as on Windows (FT_DISABLE_BZIP2).
+work "FreeType (Android)",
+  sources: ["#{android_dependencies}/libfreetype.a"],
+  copyright: framework_for("libfreetype.so.6").copyright - ["1996-2019 Julian Seward <jseward@acm.org>"],
+  license: framework_for("libfreetype.so.6").license - ["bzip2-1.0.6"]
+
+# OpenAL Soft 1.24.3 as libopenal.so, the shared library LÖVE's Android
+# build ships, which a player can replace and whose license asks for its
+# source with its object code, as on every other platform, so its record
+# names the release's archive. It is recorded as the Linux library is,
+# with the backend Android compiles and Linux does not: OpenSL ES's,
+# alc/backends/opensl.cpp, under the Apache License 2.0 with the Android
+# Open Source Project's notice (lines 1-15). The notices of the Linux
+# backends the Linux record keeps were not taken out, since the Android
+# build's files were not read one by one.
+library "libopenal.so",
+  copyright: framework_for("libopenal.so.1").copyright + ["2011 The Android Open Source Project"],
+  license: framework_for("libopenal.so.1").license + ["Apache-2.0"],
+  source: openal_soft_source
+
+# SDL as libSDL3.so, which Fledge's examples/sdl_phone/sdl3/build.sh
+# builds shared from SDL 3.4.18's release, the version whose Java classes
+# Fledge's Android host compiles, where LÖVE pins 3.4.10. It is recorded
+# as the Linux library is: SDL's license with the code of others SDL
+# compiles in. The Android build compiles SDL's Android video, audio, and
+# HIDAPI backend where Linux's compiles X11's, Wayland's, and PipeWire's;
+# their files were not read one by one, nor were 3.4.18's against
+# 3.4.10's.
+library "libSDL3.so",
+  copyright: framework_for("libSDL3.so.0").copyright,
+  license: framework_for("libSDL3.so.0").license

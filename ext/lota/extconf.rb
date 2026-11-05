@@ -27,6 +27,13 @@ if RbConfig::CONFIG.fetch("CC").match?(/-target arm64-apple-ios/)
   require_relative "phone/ios"
   return
 end
+# fledge build android runs it under an Android Ruby's rbconfig.rb, whose
+# compiler is the NDK's for an ABI (aarch64-linux-android26-clang);
+# phone/android.rb builds the extension there.
+if RbConfig::CONFIG.fetch("CC").match?(/-linux-android\d*-clang/)
+  require_relative "phone/android"
+  return
+end
 
 # The Rice lota.gemspec pins. Its headers are what the extension compiles
 # against, so the version must match what binding.hpp specializes.
