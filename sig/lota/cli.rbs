@@ -3,7 +3,7 @@
 
 module Lota
   module CLI
-    COMMANDS: Hash[String, singleton(Commands::Run)]
+    COMMANDS: Hash[String, singleton(Commands::Run) | singleton(Commands::Fuse)]
 
     def self.call: (Array[String] argv) -> void
 
@@ -16,6 +16,18 @@ module Lota
         private def self.usage: () -> String
 
         private def self.run_game: (String? path, Array[String] arguments) -> bot
+      end
+
+      module Fuse
+        PHONES: Array[String]
+
+        VALUES: Hash[String, Symbol]
+
+        def self.call: (Array[String] argv) -> void
+
+        def self.parse: (Array[String] argv) -> [String, Hash[Symbol, String]]
+
+        def self.usage: () -> String
       end
     end
   end

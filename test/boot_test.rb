@@ -107,6 +107,33 @@ class BootTest < Minitest::Test
     assert_raises(SystemExit) { boot.configure }
   end
 
+  def test_read_settings_runs_conf_rb_with_its_folder_on_the_load_path
+    write("name.rb", "GAME_NAME = 'Read Settings'\n")
+    write("conf.rb", "require 'name'\ndef Lota.conf(t) = (t.identity = GAME_NAME)\n")
+
+    assert_equal "Read Settings", boot.read_settings.identity
+  ensure
+    $LOAD_PATH.delete(@directory)
+  end
+
+  def test_read_settings_raises_what_conf_rb_raised
+    write("conf.rb", "def Lota.conf(t) = raise(ArgumentError, 'bad conf')\n")
+
+    error = assert_raises(ArgumentError) { boot.read_settings }
+
+    assert_equal "bad conf", error.message
+  ensure
+    $LOAD_PATH.delete(@directory)
+  end
+
+  # boot.lua:136-148, with Lota's name for a name left empty.
+  def test_a_folder_identity_is_its_name_as_boot_lua_makes_it
+    assert_equal "pong", Lota::Boot.folder_identity("games/pong")
+    assert_equal "dot", Lota::Boot.folder_identity("games/.dot.popper")
+    assert_equal "a_b", Lota::Boot.folder_identity("/x/a.b.love")
+    assert_equal "lotagame", Lota::Boot.folder_identity("/x/...")
+  end
+
   # LÖVE's require looks in the game's folder before anywhere else but
   # package.preload (src/modules/filesystem/wrap_Filesystem.cpp:1122-1124).
   def test_the_game_folder_goes_first_on_the_load_path_once

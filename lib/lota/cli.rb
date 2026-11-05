@@ -8,6 +8,7 @@
 require_relative "version"
 require_relative "restart"
 require_relative "cli/commands/run"
+require_relative "cli/commands/fuse"
 
 module Lota
   # Entry point for the Lota command-line interface.
@@ -18,7 +19,8 @@ module Lota
   #
   # This module dispatches to subcommands. It routes <tt>run</tt> to
   # Commands::Run, which starts a game from its folder (ADR 002, section
-  # 5; ADR 003).
+  # 5; ADR 003), and <tt>fuse</tt> to Commands::Fuse, which builds a game
+  # into an app that runs without Ruby (ADR 002, section 5).
   #
   # Use it via the +lota+ executable.
   #
@@ -28,6 +30,7 @@ module Lota
   #   lota run path/to/game
   #   cd path/to/game
   #   lota run
+  #   lota fuse path/to/game
   #
   #   # Programmatic access:
   #   Lota::CLI.call(["run", "path/to/game"])
@@ -35,6 +38,7 @@ module Lota
     # Maps command names to handler modules.
     COMMANDS = { # :nodoc:
       "run" => Commands::Run,
+      "fuse" => Commands::Fuse,
     }.freeze
 
     # Entry point for the CLI.
@@ -68,6 +72,7 @@ module Lota
 
         Commands:
           run [path] [arguments]  Run the game in path, or in the current directory
+          fuse [path] [options]   Build the game into an app that runs without Ruby
 
         Options:
           --version, -v  Show version

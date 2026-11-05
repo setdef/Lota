@@ -8,6 +8,7 @@
 
 # Runs Lota's command-line interface: lota run [PATH] [ARGUMENTS...]
 # runs the game in the folder PATH, or in the current directory, as
-# love path/to/game runs a LÖVE game. See Lota::CLI.
+# love path/to/game runs a LÖVE game, and lota fuse [PATH] builds it into
+# an app that runs without Ruby. See Lota::CLI.
 require "lota/cli"
 Lota::CLI.call(ARGV)
