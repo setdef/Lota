@@ -24,6 +24,12 @@ require "rbconfig"
 class Winkit
   ORANGE = [1.0, 0.5, 0.0, 1.0].freeze
   BACKGROUND = [0.1, 0.2, 0.6, 1.0].freeze
+  # The size the scene is drawn for. The window asks for 800x450, which
+  # Windows counts in pixels and macOS in points, so the graphics units
+  # are 800x450 on a Mac but 400x225 on Windows at 200% (SDL3's
+  # docs/README-highdpi.md; LÖVE's Window::fromPixels). Each frame
+  # scales the scene to fit the units the window has.
+  SCENE = [800, 450].freeze
   ENVIRONMENT = %w[
     RUBYOPT
     RUBYLIB
@@ -94,11 +100,10 @@ class Winkit
   def draw
     first_frame if @drawn.zero?
     @drawn += 1
-    Lota::Graphics.color = ORANGE
-    Lota::Graphics.rectangle(:fill, 24, 24, 64, 64)
-    draw_animation(Lota::Timer.time - @started)
-    Lota::Graphics.color = [1, 1, 1, 1]
-    Lota::Graphics.print(caption, 110, 24)
+    Lota::Graphics.push
+    Lota::Graphics.scale(scene_scale)
+    draw_scene
+    Lota::Graphics.pop
   end
 
   def event(name, *arguments)
@@ -208,7 +213,8 @@ class Winkit
   private def report_display
     width, height, mode = Lota::Window.mode
     say "window: #{width}x#{height} vsync=#{mode.vsync} refreshrate=#{mode.refreshrate} display=#{mode.displayindex}"
-    say "window dpi scale: #{Lota::Window.dpi_scale} native: #{Lota::Window.native_dpi_scale}"
+    say "window dpi scale: #{Lota::Window.dpi_scale} native: #{Lota::Window.native_dpi_scale} " \
+      "highdpi allowed: #{Lota::Window.high_dpi_allowed?} usedpiscale: #{mode.usedpiscale}"
     say "graphics dimensions: #{Lota::Graphics.dimensions.inspect} pixels: #{Lota::Graphics.pixel_dimensions.inspect} " \
       "dpi scale: #{Lota::Graphics.dpi_scale}"
     (1..(Lota::Window.display_count)).each do |index|
@@ -233,6 +239,20 @@ class Winkit
 
   private def first_frame
     say "time at first frame: #{milliseconds}"
+  end
+
+  # How many graphics units make one unit of SCENE: the largest scale at
+  # which the whole scene fits the window.
+  private def scene_scale
+    [Lota::Graphics.width / SCENE[0].to_f, Lota::Graphics.height / SCENE[1].to_f].min
+  end
+
+  private def draw_scene
+    Lota::Graphics.color = ORANGE
+    Lota::Graphics.rectangle(:fill, 24, 24, 64, 64)
+    draw_animation(Lota::Timer.time - @started)
+    Lota::Graphics.color = [1, 1, 1, 1]
+    Lota::Graphics.print(caption, 110, 24)
   end
 
   private def draw_animation(elapsed)
@@ -263,8 +283,8 @@ class Winkit
   private def capture
     @captured = true
     Lota::Graphics.capture_screenshot do |image|
-      scale = image.width / Lota::Graphics.width.to_f
-      say "frame: #{image.width}x#{image.height}"
+      scale = image.width / Lota::Graphics.width.to_f * scene_scale
+      say "frame: #{image.width}x#{image.height}, #{scale.round(3)} pixels to a scene unit"
       say "pixel in the orange square: #{rounded(image.pixel(56 * scale, 56 * scale))} (drawn #{ORANGE.inspect})"
       say "pixel in the corner: #{rounded(image.pixel(image.width - 3, image.height - 3))} (drawn #{BACKGROUND.inspect})"
       image.encode(:png, "frame.png")
