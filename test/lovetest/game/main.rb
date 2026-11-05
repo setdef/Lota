@@ -29,6 +29,16 @@ require_relative "../tests/filesystem"
 require_relative "../tests/physics"
 require_relative "../tests/sensor"
 
+# SPDX-SnippetBegin
+# SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+# SPDX-License-Identifier: Zlib
+#
+# Translated from Lövetest's love.threaderror
+# (vendor/love/testing/main.lua:202-203), "added so bad threads dont
+# fail": love.test.thread.Thread starts a thread that raises on purpose.
+def Lota.threaderror(thread, errorstr); end
+# SPDX-SnippetEnd
+
 def Lota.update(_dt)
   passed = Minitest.run([])
   Lota::Event.quit(passed ? 0 : 1)
