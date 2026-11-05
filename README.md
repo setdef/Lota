@@ -202,8 +202,8 @@ The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the g
 
 To fuse a game, you need:
 
-- Lota's gem for your platform, installed from the release as above. `lota fuse` puts that very gem file in the app.
-- Ruby 4.0, which the app gets a copy of: on Windows, [RubyInstaller](https://rubyinstaller.org/)'s Ruby 4.0 for x64 or ARM64; its MSYS2 tools are not needed.
+- Lota's gem for your platform, installed from the release as above. `lota fuse` puts that very gem file in the app, unless your game's `vendor/cache` holds it.
+- Ruby 4.0, which the app gets a copy of: on Windows, [RubyInstaller](https://rubyinstaller.org/)'s Ruby 4.0 for x64 or ARM64. Its MSYS2 tools are needed only for a gem that compiles (below).
 - Git, and the network: Fledge is not on RubyGems.org, so Bundler fetches it from GitHub, and Fledge downloads its runtime for your platform the first time. On Windows, install [Git for Windows](https://git-scm.com/download/win); on a Mac, `xcode-select --install` installs Git. Fledge carries what it builds installers with, NSIS among them.
 
 The options:
@@ -214,6 +214,16 @@ The options:
 - `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
 - `--out DIR` writes to `DIR` instead of `dist`.
 - `LOTA_FLEDGE_REF` names another tag or commit of Fledge to build with.
+
+If your game has a `Gemfile`, the app ships the gems its `Gemfile.lock` locks, at the versions it locks, but for the `development` and `test` groups. `lota fuse` builds from your Gemfile and lockfile, and adds Lota, if your Gemfile does not ask for it, and Fledge. Before it builds, it checks that:
+
+- a `Gemfile.lock` is beside the `Gemfile`. Run `bundle install` in the game's folder to write one.
+- the lockfile locks the platform you build on. Run `bundle lock --add-platform x64-mingw-ucrt` (or your platform) in the game's folder; a gem that only `vendor/cache` holds, such as Lota, needs that platform's `.gem` file there first.
+- the lockfile locks this version of Lota, if it locks Lota at all.
+
+Gems come from where your lockfile says: RubyGems.org, Git, a folder inside the game, or the game's `vendor/cache`, whose gems for other platforms stay out of the app. A gem with a C extension and no build for your platform compiles on your computer, twice: once as Bundler installs it, and once for the app's Ruby, as Fledge builds the app. That needs a C compiler: on macOS, Xcode's command line tools (`xcode-select --install`); on Linux, a C compiler and `make` (`sudo apt install build-essential` on Debian and Ubuntu); on Windows, RubyInstaller's MSYS2 tools (`ridk install`). Without one, `lota fuse` stops after Bundler names the gem that failed, and says what to install. An extension compiles for the computer it compiles on, which is one more reason to build each platform's app on that platform.
+
+Each gem goes into the app whole, with the license files its package holds, whatever its license. What those licenses ask of you when you give the app to people is yours to honor, as with any Ruby program you ship: `bundle licenses` lists the license each gem declares, and a gem whose package leaves out its license text, which a license such as MIT asks you to keep with every copy, needs it added to the notices you ship.
 
 What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does), or run on a phone or tablet. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
 

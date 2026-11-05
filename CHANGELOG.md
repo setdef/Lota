@@ -18,6 +18,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Physics::Contact#tangent_speed` and `#tangent_speed=`, `#destroyed?`, and the deprecated `#fixtures`; the deprecated `World#query_bounding_box`.
 - Every method of `DistanceJoint`, `FrictionJoint`, `GearJoint`, `MotorJoint`, `PrismaticJoint`, `PulleyJoint`, `RevoluteJoint`, `RopeJoint`, `WeldJoint`, and `WheelJoint` in `Lota::Physics`: their lengths, limits, motors, springs, offsets, axes, anchors, ratios, and reference angles.
 - `Lota::Physics.compute_linear_stiffness`, `compute_linear_frequency`, `compute_angular_stiffness`, and `compute_angular_frequency`.
+- `lota fuse` ships the gems a game's `Gemfile.lock` locks, at those versions: pure Ruby, from Git, from the game's `vendor/cache`, and with C extensions, which compile on the building computer.
+
+### Changed
+
+- `lota fuse` builds with Fledge 0.5.1, was 0.5.0.
+- Breaking: `lota fuse` refuses a game whose Gemfile has no `Gemfile.lock`, whose lockfile does not lock the platform it builds for, or whose lockfile locks another version of Lota; it fused a game with a Gemfile before, without the Gemfile's gems, and warned.
 
 ## [0.1.3] - 2026-11-05
 
