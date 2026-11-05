@@ -37,7 +37,9 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
+#include <pthread.h>
 #include <unistd.h>
 
 // The methods wrapped, under the names this library gives each class's own
@@ -59,6 +61,12 @@ constexpr std::string_view prefix = "lota-metal-watch: ";
 // process's or thread's, so each line of a report is written whole.
 constexpr std::size_t line_bytes = 500;
 
+// Nothing this library keeps may be destroyed while the process runs, since
+// calls into it keep arriving until the process ends: a device call from
+// code that runs at exit, after C++ has destroyed the statics made after
+// that code registered itself, and a completed handler on Metal's own
+// threads. So what it keeps has no destructor, and the objects it keeps
+// are never released.
 struct Counts {
   std::atomic<long> committed{0};
   std::atomic<long> completed{0};
@@ -66,6 +74,21 @@ struct Counts {
   std::atomic<long> waited{0};
   std::atomic<long> waited_failed{0};
 };
+static_assert(std::is_trivially_destructible_v<Counts>);
+
+// A mutex, a pthread mutex as libc++'s std::mutex is, without std::mutex's
+// destructor, which destroys the pthread mutex at exit, after which locking
+// it fails with EINVAL, which std::mutex throws, and an interposed function
+// cannot throw, so the process terminates.
+class Lock {
+public:
+  void lock() noexcept { static_cast<void>(pthread_mutex_lock(&mutex)); }
+  void unlock() noexcept { static_cast<void>(pthread_mutex_unlock(&mutex)); }
+
+private:
+  pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+};
+static_assert(std::is_trivially_destructible_v<Lock>);
 
 Counts &counts() {
   static Counts counted;
@@ -189,7 +212,7 @@ id<MTLDevice> watch(id<MTLDevice> device) {
   if (device == nil) {
     return device;
   }
-  static std::mutex lock;
+  static Lock lock;
   static NSMutableSet *const seen = [[NSMutableSet alloc] init];
   const std::scoped_lock held(lock);
   Class const type = [static_cast<NSObject *>(device) class];
