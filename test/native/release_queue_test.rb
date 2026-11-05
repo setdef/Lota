@@ -139,6 +139,19 @@ class ReleaseQueueTest < Minitest::Test
     assert_equal 0, Lota::Native.queued_releases
   end
 
+  # A TextBatch is a love.graphics object too: freed off the main thread, it
+  # waits in the queue as a Font does.
+  def test_a_text_batch_freed_off_the_main_thread_is_released_on_the_main_thread
+    font = Lota::Graphics::Font.new(8)
+    collect_garbage_off_the_main_thread do
+      on_a_finished_fiber { Lota::Graphics::TextBatch.new(font) }
+    end
+
+    assert_equal 1, Lota::Native.queued_releases
+    assert_equal 1, Lota::Native.drain_release_queue
+    assert_equal 0, Lota::Native.queued_releases
+  end
+
   # love.image may run on any thread, so its objects need no queue.
   def test_an_image_data_freed_off_the_main_thread_is_released_at_once
     texture = Lota::Graphics::Canvas.new(16, 16)

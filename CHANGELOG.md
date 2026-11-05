@@ -17,6 +17,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A `TextBatch` freed by Ruby's garbage collector on another thread is released on the main thread, as every other `love.graphics` object is; it was released where it was freed.
 - The `aarch64-mingw-ucrt` gem renders with OpenGL as well as Vulkan; its SDL was built without OpenGL.
 
 ## [0.1.2] - 2026-11-04

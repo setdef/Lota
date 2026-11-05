@@ -61,6 +61,7 @@
 #include "graphics/Quad.h"
 #include "graphics/Shader.h"
 #include "graphics/SpriteBatch.h"
+#include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
 
 // The physics classes whose wrappers keep another object alive
@@ -159,6 +160,7 @@ template <typename... Arguments> Rice::Array io_error(const char *format, Argume
 template <typename T> struct ReleasedOnMainThread : std::false_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Texture> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Font> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::TextBatch> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Quad> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Shader> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true_type {};
