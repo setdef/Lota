@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fuses test/games/macaudio, with audio on, on a macOS runner, as
+# fuse.yml fuses its game, and runs the app directly and through open -W,
+# with no ALSOFT_* variable, to see whether OpenAL Soft's CoreAudio
+# backend opens there (.github/macaudio_run.sh).
+
+name: Mac audio
+
+on:
+  push:
+    branches: ["experiment/macaudio-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  macaudio:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      PLATFORM: arm64-darwin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+
+      - name: Get Lota's gem for this platform, check it, and install it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gems="$RUNNER_TEMP/gems"
+          mkdir -p "$gems"
+          version=$(sed -n 's/^ *VERSION = "\(.*\)"$/\1/p' lib/lota/version.rb)
+          gh release download "v$version" -R "$GITHUB_REPOSITORY" -D "$gems" -p "lota-$version-$PLATFORM.gem" -p SHA256SUMS
+          (cd "$gems" && grep " lota-$version-$PLATFORM.gem\$" SHA256SUMS | shasum -a 256 --check -)
+          gem install --local "$gems"/lota-*-"$PLATFORM".gem
+
+      - name: lota fuse
+        run: |
+          ruby -I lib exe/lota fuse test/games/macaudio --out "$RUNNER_TEMP/dist" --identifier com.example.macaudiocheck
+          ls -la "$RUNNER_TEMP/dist"
+
+      - name: Run the app
+        run: |
+          archive=$(ls "$RUNNER_TEMP"/dist/*.tar.gz)
+          place="$RUNNER_TEMP/run"
+          mkdir -p "$place"
+          tar -xzf "$archive" -C "$place"
+          app=$(find "$place" -maxdepth 3 -name '*.app' | head -1)
+          echo "app: $app"
+          bash .github/macaudio_run.sh "$app" "$RUNNER_TEMP/dist/results"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: macaudio
+          path: |
+            ${{ runner.temp }}/dist/*.tar.gz
+            ${{ runner.temp }}/dist/*.dmg
+            ${{ runner.temp }}/dist/results
+          if-no-files-found: error
