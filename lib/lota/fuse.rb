@@ -53,9 +53,13 @@ module Lota
     # [app_version] String version of the app, or +nil+ for Fledge's
     #   default. A game's <tt>t.version</tt> names the version of LÖVE it
     #   was written for, so it never becomes the app's (ADR 002, section 5).
-    class Options < ::Data.define(:out, :sign, :identifier, :app_version)
+    # [icon] String path of the app's icon files in the game's folder,
+    #   without their extension, as Fledge names them (<tt>icons/icon</tt>
+    #   for <tt>icons/icon.icns</tt>, <tt>icons/icon.ico</tt>, and
+    #   <tt>icons/icon-16.png</tt> and the other sizes), or +nil+ for none.
+    class Options < ::Data.define(:out, :sign, :identifier, :app_version, :icon)
       # What each option is when <tt>lota fuse</tt> is not given it.
-      DEFAULTS = { out: "dist", sign: nil, identifier: nil, app_version: nil }.freeze
+      DEFAULTS = { out: "dist", sign: nil, identifier: nil, app_version: nil, icon: nil }.freeze
 
       # Options with DEFAULTS for each that +given+ leaves out.
       #
@@ -270,7 +274,7 @@ module Lota
       copy_game(@directory, File.join(project, GAME_FOLDER, folder))
       warn_of_gemfile
       File.write(File.join(project, "Gemfile"), gemfile)
-      File.write(File.join(project, "fledge.yml"), fledge_yml(name(settings), identity))
+      File.write(File.join(project, "fledge.yml"), fledge_yml(name(settings), identity, folder))
       File.write(File.join(project, "main.rb"), entry_script(folder))
     end
 
@@ -334,13 +338,14 @@ module Lota
       RUBY
     end
 
-    private def fledge_yml(name, identity)
+    private def fledge_yml(name, identity, folder)
       config = {
         "name" => name,
         "kind" => "windowed",
         "identifier" => @options.identifier || Fuse.placeholder_identifier(identity),
       }
       config["version"] = @options.app_version if @options.app_version
+      config["icon"] = File.join(GAME_FOLDER, folder, @options.icon) if @options.icon
       "# Written by lota fuse, which writes it again on every build.\n#{config.to_yaml}"
     end
 

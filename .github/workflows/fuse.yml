@@ -55,6 +55,14 @@ on:
         description: The app's identifier, for lota fuse --identifier (empty for its placeholder)
         type: string
         default: ""
+      icon:
+        description: The game's icon files without their extension, for lota fuse --icon (empty for none)
+        type: string
+        default: ""
+      app_version:
+        description: The app's version, for lota fuse --app-version (empty for Fledge's)
+        type: string
+        default: ""
       game_env:
         description: Variables for the drawing run of game_repository's game, as NAME=VALUE separated by spaces
         type: string
@@ -93,6 +101,8 @@ jobs:
       GAME: ${{ inputs.game_repository && format('game-source/{0}', inputs.game_path) || 'test/games/fuse' }}
       IDENTIFIER: ${{ inputs.identifier }}
       GAME_ENV: ${{ inputs.game_env }}
+      ICON: ${{ inputs.icon }}
+      APP_VERSION: ${{ inputs.app_version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -141,6 +151,8 @@ jobs:
           start=$(date +%s)
           options=(--out "$RUNNER_TEMP/dist")
           [ -z "$IDENTIFIER" ] || options+=(--identifier "$IDENTIFIER")
+          [ -z "$ICON" ] || options+=(--icon "$ICON")
+          [ -z "$APP_VERSION" ] || options+=(--app-version "$APP_VERSION")
           ruby -I lib exe/lota fuse "$GAME" "${options[@]}" | tee "$RUNNER_TEMP/fuse.out"
           echo "lota fuse took $(( $(date +%s) - start )) s"
           echo "--- the project lota fuse wrote"
@@ -247,6 +259,9 @@ jobs:
             Write-Host "game_env: $name=$value"
           }
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $icon = [Drawing.Icon]::ExtractAssociatedIcon($program.FullName)
+          $icon.ToBitmap().Save((Join-Path $results 'exe-icon.png'), [Drawing.Imaging.ImageFormat]::Png)
+          Write-Host "the program's icon: $($icon.Width)x$($icon.Height), kept as exe-icon.png"
           $begun = Get-Date
           $process = [Diagnostics.Process]::Start($start)
           $out = $process.StandardOutput.ReadToEndAsync()

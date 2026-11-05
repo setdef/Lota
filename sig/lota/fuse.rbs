@@ -15,11 +15,13 @@ module Lota
 
       attr_reader app_version: String?
 
-      DEFAULTS: { out: String, sign: String?, identifier: String?, app_version: String? }
+      attr_reader icon: String?
 
-      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?) -> instance
+      DEFAULTS: { out: String, sign: String?, identifier: String?, app_version: String?, icon: String? }
 
-      def self.given: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?) -> Options
+      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?, icon: String?) -> instance
+
+      def self.given: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?, ?icon: String?) -> Options
     end
 
     FLEDGE_GIT: String
@@ -96,7 +98,7 @@ module Lota
 
     private def gemfile: () -> String
 
-    private def fledge_yml: (String name, String identity) -> String
+    private def fledge_yml: (String name, String identity, String folder) -> String
 
     private def entry_script: (String folder) -> String
 

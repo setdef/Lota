@@ -119,7 +119,7 @@ class FuseTest < Minitest::Test
     write("vendor/sound.ogg", "the game's own")
     write("Gemfile", "gem 'lota'")
 
-    _stdout, stderr = capture_io { fuse(Lota::Fuse::Options.given(out: File.join(@root, "dist"), app_version: "1.2.3")).call }
+    _stdout, stderr = capture_io { fuse(Lota::Fuse::Options.given(out: File.join(@root, "dist"), app_version: "1.2.3", icon: "art/icon")).call }
 
     assert_equal "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@game, 'Gemfile')} asks for do not reach it.\n",
       stderr
@@ -152,6 +152,7 @@ class FuseTest < Minitest::Test
       kind: windowed
       identifier: com.example.DotPopper
       version: 1.2.3
+      icon: game/DotPopper/art/icon
     YAML
     assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
@@ -326,8 +327,9 @@ class FuseTest < Minitest::Test
     assert_equal "lota fuse: found no game folder at #{File.join(@root, 'missing')}.\n", stderr
 
     assert_equal [".", {}], Lota::CLI::Commands::Fuse.parse([])
-    assert_equal ["game", { out: "b", sign: "Me (T)", identifier: "com.me.G", app_version: "1.0" }],
-      Lota::CLI::Commands::Fuse.parse(["game", "-o", "b", "--sign=Me (T)", "--identifier", "com.me.G", "--app-version=1.0"])
+    assert_equal ["game", { out: "b", sign: "Me (T)", identifier: "com.me.G", app_version: "1.0", icon: "icons/icon" }],
+      Lota::CLI::Commands::Fuse.parse(["game", "-o", "b", "--sign=Me (T)", "--identifier", "com.me.G", "--app-version=1.0",
+        "--icon", "icons/icon"])
     [
       [["ios"], "cannot build for ios yet"],
       [["--out"], "--out needs a value"],

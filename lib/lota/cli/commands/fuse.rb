@@ -39,6 +39,7 @@ module Lota
           "--sign" => :sign,
           "--identifier" => :identifier,
           "--app-version" => :app_version,
+          "--icon" => :icon,
         }.freeze
 
         # Runs the fuse command.
@@ -108,6 +109,11 @@ module Lota
                                       placeholder: replace it before you ship)
               --app-version VERSION   The app's version, such as 1.0.0 (default:
                                       Fledge's, 0.0.0)
+              --icon PATH             The app's icon files in the game's folder,
+                                      without their extension, as Fledge takes
+                                      them: icons/icon for icons/icon.icns,
+                                      icons/icon.ico, and icons/icon-16.png to
+                                      -512.png (default: none)
               --sign IDENTITY         Sign the app with IDENTITY, as Fledge's
                                       --sign does
               --help, -h              Show this help

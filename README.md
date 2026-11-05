@@ -210,11 +210,12 @@ The options:
 
 - `--identifier ID` is the reverse-DNS name macOS and Windows know the app by, such as `com.yourname.DotPopper`. Without it the app gets `com.example.<identity>`, a placeholder: replace it before you ship.
 - `--app-version VERSION` is the app's version, such as `1.0.0`; without it, Fledge's `0.0.0`. A game's `t.version` names the version of LÖVE it was written for, so it never becomes the app's.
+- `--icon PATH` gives the app the icon files at `PATH` in the game's folder, without their extension, as Fledge takes them: `--icon icons/icon` for `icons/icon.icns` (macOS), `icons/icon.ico` (Windows), and `icons/icon-16.png` to `icons/icon-512.png` (Linux). Without it the app has no icon of its own.
 - `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
 - `--out DIR` writes to `DIR` instead of `dist`.
 - `LOTA_FLEDGE_REF` names another tag or commit of Fledge to build with.
 
-What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does), show an icon of its own, or run on a phone or tablet. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
+What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does), or run on a phone or tablet. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
 
 ## Documentation
 
