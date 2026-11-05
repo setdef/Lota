@@ -12,7 +12,9 @@ module Lota
     @fused: bool
 
     interface _Frame
-      def call: () -> top
+      def call: () -> ::Object?
+
+      def equal?: (top other) -> bool
     end
 
     @inerror: bool
