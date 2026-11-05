@@ -23,11 +23,17 @@ class ReleaseQueueTest < Minitest::Test
   Confined = LotaNativeTest::Confined
   Counted = LotaNativeTest::Counted
 
-  # Garbage earlier tests left behind is freed here, on the main thread,
-  # so each test's queue holds only what the test itself freed.
+  # Garbage earlier tests left behind is freed here, on the main thread.
+  # A wrapper can outlive this collection while a stale word on a machine
+  # stack holds its address (NativeHelper#live_wrappers); once the word is
+  # gone, the test's own collection off the main thread would free it
+  # into a queue the test counts. So each test holds every wrapper still
+  # alive until it ends, and each queue holds only what the test itself
+  # freed.
   def setup
     EngineHelper.open_window
     collect_garbage
+    @survivors = engine_wrappers
     Confined.drain_release_queue
     Lota::Native.drain_release_queue
     @generation = Counted.begin_generation

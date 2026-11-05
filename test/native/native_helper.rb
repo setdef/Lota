@@ -101,6 +101,25 @@ module NativeHelper
     ObjectSpace.each_object(klass).count { |wrapper| wrapper.generation == generation }
   end
 
+  # The namespaces of the classes that wrap engine objects, in Lota::Native
+  # and in the test extension.
+  WRAPPER_NAMESPACES = %w[Lota::Native:: LotaNativeTest::].freeze
+
+  # Every wrapper of an engine object that is alive now, from either
+  # bundle. A test that holds them knows that a collection it runs frees
+  # only wrappers it made itself. They are gathered on a finished Fiber,
+  # so no word the search leaves on this thread's machine stack keeps a
+  # wrapper made later alive (on_a_finished_fiber).
+  def engine_wrappers
+    wrappers = []
+    on_a_finished_fiber do
+      ObjectSpace.each_object(Object) do |object|
+        wrappers << object if object.class.name&.start_with?(*WRAPPER_NAMESPACES)
+      end
+    end
+    wrappers
+  end
+
   # A full collection that sweeps before it returns.
   def collect_garbage
     GC.start(full_mark: true, immediate_sweep: true)
