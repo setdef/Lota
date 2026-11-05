@@ -1,0 +1,93 @@
+Dot Popper on an iPad: playtest results
+
+Fill in the blanks after each line, on the iPad or on the Mac afterwards,
+and send this file back. Answer y or n, or pick one of the choices given.
+Leave a note on any line, as long as you like.
+
+== The iPad and the build
+
+iPad model (Settings > General > About > Model Name):
+iPadOS version (Settings > General > About > iOS Version):
+Date played:
+
+Kit build (already filled in; leave it as it is):
+@BUILD@
+
+== Questions
+
+1. The game fills the screen with no status bar, in portrait and in
+   landscape. (y/n)
+   Answer:
+   Note:
+
+2. Tapping a bright dot pops it right where your finger is. (y/n)
+   Answer:
+   Note:
+
+3. Tapping a popped dot costs two points and two seconds, and a dashed
+   outline shows the bright dot it was hiding. (y/n)
+   Answer:
+   Note:
+
+4. The dots' size under a finger. (too small / right / too big)
+   Answer:
+   Note:
+
+5. Sound.
+   a. Sound plays. (y/n)
+      Answer:
+   b. With music playing in another app, both play together. (y/n)
+      Answer:
+   c. The silent switch, or silent mode in Control Center, mutes the
+      game. (y/n)
+      Answer:
+   Note:
+
+6. Turning the iPad in the middle of a round keeps every dot on screen.
+   (y/n)
+   Answer:
+   Note:
+
+7. At Game Over, tilting the iPad rolls the dots toward the lowest edge,
+   in portrait and in landscape. (y/n; if not, say which way you held the
+   iPad and which way the dots rolled)
+   Portrait:
+   Landscape:
+   Note:
+
+8. A sharp shake at Game Over tosses the dots. (y/n)
+   Answer:
+   Note:
+
+9. After one round, "Dots: sized to your screen" on the title makes the
+   dots smaller in the next round. (y/n)
+   Answer:
+   Note:
+
+10. "Copy my result", then pasting into Notes, gives a sensible result.
+    (y/n, and paste it below)
+    Answer:
+    Pasted result:
+
+    Note:
+
+11. With the Xbox controller paired in Settings > Bluetooth:
+    a. The left stick moves a cursor. (y/n)
+       Answer:
+    b. A pops. (y/n)
+       Answer:
+    c. Start starts. (y/n)
+       Answer:
+    d. The right stick rolls the pile at Game Over. (y/n)
+       Answer:
+    Note:
+
+12. Did anything crash, freeze, or look wrong? (describe it, and send a
+    screenshot: the top and volume-up buttons together)
+    Answer:
+
+13. Overall feel, and the first impression of the person playing, in her
+    own words. (1 to 5, and a note)
+    Feel (1-5):
+    First impression:
+

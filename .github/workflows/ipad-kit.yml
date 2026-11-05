@@ -161,6 +161,18 @@ jobs:
             echo "Workflow run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$project/BUILD-INFO.txt"
           cat "$project/BUILD-INFO.txt"
+          # The one file the playtester fills in and sends back, with the
+          # build it tests already named.
+          {
+            echo "  Dot Popper $DOT_POPPER_REF, commit $DOT_POPPER_SHA (version $DOT_POPPER_VERSION)"
+            echo "  Lota $GITHUB_SHA ($GITHUB_REF_NAME)"
+            echo "  Workflow run $GITHUB_RUN_ID, $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$RUNNER_TEMP/build-lines.txt"
+          ruby -e 'template, lines, out = ARGV; text = File.read(template)
+            abort "no @BUILD@ in #{template}" unless text.include?("@BUILD@")
+            File.write(out, text.sub("@BUILD@\n", File.read(lines)))' \
+            ipad/ipad-results.txt "$RUNNER_TEMP/build-lines.txt" "$project/ipad-results.txt"
+          cat "$project/ipad-results.txt"
           du -sh "$project"/*
 
       - name: Zip the project with its symbolic links

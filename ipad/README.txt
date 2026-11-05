@@ -1,6 +1,8 @@
 
 # Playtesting Dot Popper on an iPad
 
+**Answer the questions in `ipad-results.txt` and send this file back.** It sits next to this README, and it is the only thing to send. To get the game onto the iPad, follow steps 1 to 5 below; nothing else on this page needs reading. The sections after them ("What you should see", "When something goes wrong", "After 7 days") are there if you want them.
+
 You have a Mac with Xcode, an Apple ID, and an iPad on a cable. This page takes Dot Popper from a CI artifact to that iPad in about half an hour, with a free Apple ID and no Lota, Fledge, Ruby, or XcodeGen on the Mac.
 
 The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipad-kit.yml`, on `experiment/ipad-*` branches) generates with `fledge build ios` (Fledge 0.4.0, SDL's iOS host) from a Dot Popper tag (v0.7.0 by default) and Lota's checkout (0.1.3). Its program, `bin/ipad_kit`, runs Dot Popper's own `bin/dot_popper`; it adds diagnostic log lines only when CI sets `DOT_POPPER_KIT_PROBE=1`. The project is already generated, so it opens in Xcode as it is. It holds everything it builds from: the Ruby runtime (`FledgeRuby.xcframework`), Lota's engine and SDL3 compiled for the iPad and the Simulator (`FledgeExtensions.xcframework`), and the game (`fledge/app`).
@@ -20,7 +22,7 @@ No one has run this app on a physical iPad, and no CI run has read a real accele
 
 ## 1. Download and unpack
 
-From the Terminal, with the run's number from the workflow's page:
+If this README is already in an unpacked folder (such as `~/Downloads/dot-popper-ipad/`), open `DotPopper.xcodeproj` beside it and go on to step 2. Otherwise, from the Terminal, with the run's number from the workflow's page:
 
 ```sh
 mkdir -p ~/DotPopperKit && cd ~/DotPopperKit
