@@ -825,6 +825,22 @@ module Lota
       def bodies: () -> [Body, Body]
     end
 
+    class MouseJoint
+      def set_target: (Float | Integer x, Float | Integer y) -> nil
+
+      def set_max_force: (Float | Integer f) -> nil
+
+      def max_force: () -> Float
+
+      def set_stiffness: (Float | Integer arg1) -> nil
+
+      def stiffness: () -> Float
+
+      def set_damping: (Float | Integer arg1) -> nil
+
+      def damping: () -> Float
+    end
+
     class Shape
       def get_type: () -> String
 

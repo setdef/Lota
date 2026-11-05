@@ -613,6 +613,62 @@ void w_Joint_destroy(Joint &t) {
 // Joint:isDestroyed: w_Joint_isDestroyed (wrap_Joint.cpp:161-166).
 bool w_Joint_isDestroyed(const Joint &t) { return !t.isValid(); }
 
+// MouseJoint:setTarget: w_MouseJoint_setTarget (wrap_MouseJoint.cpp:38-45).
+void w_MouseJoint_setTarget(MouseJoint &t, double x, double y) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setTarget(static_cast<float>(x), static_cast<float>(y));
+}
+
+// MouseJoint:setMaxForce: w_MouseJoint_setMaxForce (wrap_MouseJoint.cpp:54-60).
+void w_MouseJoint_setMaxForce(MouseJoint &t, double f) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxForce(static_cast<float>(f));
+}
+
+// MouseJoint:getMaxForce: w_MouseJoint_getMaxForce (wrap_MouseJoint.cpp:62-67).
+double w_MouseJoint_getMaxForce(const MouseJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxForce());
+}
+
+// MouseJoint:setStiffness: w_MouseJoint_setStiffness (wrap_MouseJoint.cpp:69-75).
+void w_MouseJoint_setStiffness(MouseJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setStiffness(static_cast<float>(arg1));
+}
+
+// MouseJoint:getStiffness: w_MouseJoint_getStiffness (wrap_MouseJoint.cpp:77-82).
+double w_MouseJoint_getStiffness(const MouseJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getStiffness());
+}
+
+// MouseJoint:setDamping: w_MouseJoint_setDamping (wrap_MouseJoint.cpp:84-90).
+void w_MouseJoint_setDamping(MouseJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setDamping(static_cast<float>(arg1));
+}
+
+// MouseJoint:getDamping: w_MouseJoint_getDamping (wrap_MouseJoint.cpp:92-97).
+double w_MouseJoint_getDamping(const MouseJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getDamping());
+}
+
 // love.physics.newWorld: w_newWorld (wrap_Physics.cpp:53-65).
 World *w_newWorld(double gx, double gy, bool sleep) {
   World *w = nullptr;
@@ -1029,6 +1085,14 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("collide_connected", &w_Joint_getCollideConnected)
       .define_method("destroy", &w_Joint_destroy)
       .define_method("bodies", &w_Joint_getBodies);
+  Rice::define_class_under<MouseJoint>(native, "MouseJoint")
+      .define_method("set_target", &w_MouseJoint_setTarget, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("set_max_force", &w_MouseJoint_setMaxForce, Rice::Arg("f"))
+      .define_method("max_force", &w_MouseJoint_getMaxForce)
+      .define_method("set_stiffness", &w_MouseJoint_setStiffness, Rice::Arg("arg1"))
+      .define_method("stiffness", &w_MouseJoint_getStiffness)
+      .define_method("set_damping", &w_MouseJoint_setDamping, Rice::Arg("arg1"))
+      .define_method("damping", &w_MouseJoint_getDamping);
   Rice::define_class_under<Shape>(native, "Shape")
       .define_method("get_type", &w_Shape_getType)
       .define_method("child_count", &w_Shape_getChildCount)

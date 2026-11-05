@@ -1045,6 +1045,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def target: () -> Array[Float]
     end
 
     class PrismaticJoint < Joint

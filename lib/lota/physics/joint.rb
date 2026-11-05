@@ -175,6 +175,88 @@ module Lota
       def self.new(body, x, y)
         from_native(Native::Physics.new_mouse_joint(body.native, x, y))
       end
+
+      # The world point the joint pulls its Body toward, as an Array of its
+      # x and y Floats, matching MouseJoint:getTarget.
+      #
+      # === Example
+      #
+      #   x, y = joint.target
+      def target
+        @native.target
+      end
+
+      # Moves the point the joint pulls its Body toward, matching
+      # MouseJoint:setTarget, whose two values rule 6 of ADR 001 makes one
+      # Array.
+      #
+      # === Example
+      #
+      #   joint.target = Lota::Mouse.position
+      def target=(target)
+        x, y = target
+        @native.set_target(x, y)
+      end
+
+      # The most force the joint pulls with, as a Float, matching
+      # MouseJoint:getMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force # => 3000.0
+      def max_force
+        @native.max_force
+      end
+
+      # Sets the most force the joint pulls with, matching
+      # MouseJoint:setMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force = 5000
+      def max_force=(force)
+        @native.set_max_force(force)
+      end
+
+      # The joint's spring stiffness, as a Float, matching
+      # MouseJoint:getStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness # => 4.5
+      def stiffness
+        @native.stiffness
+      end
+
+      # Sets the joint's spring stiffness, matching MouseJoint:setStiffness.
+      # Raises RuntimeError ("MouseJoint Stiffness must be a positive
+      # number.") for a stiffness that is not positive, as LÖVE does.
+      #
+      # === Example
+      #
+      #   joint.stiffness = 10
+      def stiffness=(stiffness)
+        @native.set_stiffness(stiffness)
+      end
+
+      # The joint's spring damping, as a Float, matching
+      # MouseJoint:getDamping.
+      #
+      # === Example
+      #
+      #   joint.damping # => 0.7
+      def damping
+        @native.damping
+      end
+
+      # Sets the joint's spring damping, matching MouseJoint:setDamping.
+      #
+      # === Example
+      #
+      #   joint.damping = 0.5
+      def damping=(damping)
+        @native.set_damping(damping)
+      end
     end
 
     # Lets two Bodies turn about a shared point, matching LÖVE's

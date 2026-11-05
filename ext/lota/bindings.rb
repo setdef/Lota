@@ -944,6 +944,15 @@ bound_by_hand "Contact:getNormal",
   reason: "passes the lua_State to Contact::getNormal, which Lota's physics patch makes fill two floats"
 bound_by_hand "Contact:getPositions",
   reason: "passes the lua_State to Contact::getPositions, which Lota's physics patch makes return a std::vector"
+generate "MouseJoint:setTarget"
+bound_by_hand "MouseJoint:getTarget",
+  reason: "passes the lua_State to MouseJoint::getTarget, which Lota's physics patch makes fill two floats"
+generate "MouseJoint:setMaxForce"
+generate "MouseJoint:getMaxForce"
+generate "MouseJoint:setStiffness"
+generate "MouseJoint:getStiffness"
+generate "MouseJoint:setDamping"
+generate "MouseJoint:getDamping"
 
 # love.sensor
 bound_by_hand "love.sensor.hasSensor",

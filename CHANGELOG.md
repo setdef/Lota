@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `Lota::Physics::MouseJoint#target=` and `#target`, `#max_force=` and `#max_force`, `#stiffness=` and `#stiffness`, and `#damping=` and `#damping`, so a game can move a mouse joint.
+
 ## [0.1.3] - 2026-11-05
 
 ### Added

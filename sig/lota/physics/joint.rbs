@@ -3,10 +3,10 @@
 
 module Lota
   module Physics
-    class Joint
+    class Joint[out N < Native::Joint = Native::Joint]
       include Object
 
-      attr_reader native: Native::Joint
+      attr_reader native: N
 
       def self.from_native: (Native::Joint native) -> instance
 
@@ -43,8 +43,24 @@ module Lota
       def self.new: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool? collide_connected) -> DistanceJoint
     end
 
-    class MouseJoint < Joint
+    class MouseJoint < Joint[Native::MouseJoint]
       def self.new: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
+
+      def target: () -> Array[Float]
+
+      def target=: ([Float | Integer, Float | Integer] target) -> void
+
+      def max_force: () -> Float
+
+      def max_force=: (Float | Integer force) -> void
+
+      def stiffness: () -> Float
+
+      def stiffness=: (Float | Integer stiffness) -> void
+
+      def damping: () -> Float
+
+      def damping=: (Float | Integer damping) -> void
     end
 
     class RevoluteJoint < Joint

@@ -962,6 +962,18 @@ Rice::Array reaction_force(Joint &joint, double dt) {
   return floats({x, y});
 }
 
+// w_MouseJoint_getTarget (wrap_MouseJoint.cpp:47-52), through
+// MouseJoint::getTarget as Lota's physics patch leaves it. LÖVE removes
+// the Joint from the stack first so that getTarget pushes onto an empty
+// one, which nothing here needs.
+Rice::Array mouse_joint_target(box2d::MouseJoint &joint) {
+  check(joint);
+  float x = 0;
+  float y = 0;
+  joint.getTarget(x, y);
+  return floats({x, y});
+}
+
 // w_Contact_getNormal and getPositions (wrap_Contact.cpp:39-49).
 Rice::Array normal(Contact &contact) {
   check(contact);
@@ -1053,7 +1065,8 @@ void define_physics(const Rice::Module &native) {
   define_engine_class<box2d::FrictionJoint, Joint>(native, "FrictionJoint");
   define_engine_class<box2d::GearJoint, Joint>(native, "GearJoint");
   define_engine_class<box2d::MotorJoint, Joint>(native, "MotorJoint");
-  define_engine_class<box2d::MouseJoint, Joint>(native, "MouseJoint");
+  define_engine_class<box2d::MouseJoint, Joint>(native, "MouseJoint")
+      .define_method("target", &mouse_joint_target);
   define_engine_class<box2d::PrismaticJoint, Joint>(native, "PrismaticJoint");
   define_engine_class<box2d::PulleyJoint, Joint>(native, "PulleyJoint");
   define_engine_class<box2d::RevoluteJoint, Joint>(native, "RevoluteJoint");
