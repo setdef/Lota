@@ -72,7 +72,7 @@ Once installed, @DISPLAY_NAME@ is on the Home Screen. It runs without the Mac un
 
 ## What you should see
 
-@DISPLAY_NAME@ fills the screen @STATUS_BAR@. On an iPhone it turns to @IPHONE_ORIENTATIONS@; on an iPad to @IPAD_ORIENTATIONS@. Its sound category is @AUDIO@.
+@DISPLAY_NAME@ fills the screen @STATUS_BAR@ (on an iPad, a game whose window is not fullscreen, `t.window.fullscreen`, may still show it). On an iPhone it turns to @IPHONE_ORIENTATIONS@; on an iPad to @IPAD_ORIENTATIONS@. Its sound category is @AUDIO@.
 
 The host makes one choice LÖVE does not: it hides SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), as a guard, since reading that joystick crashed an early Lota in the Simulator. A game reads the accelerometer through `Lota::Sensor`, and a paired controller is still a joystick. Set `SDL_ACCELEROMETER_AS_JOYSTICK` = `1` in the scheme to bring it back.
 
