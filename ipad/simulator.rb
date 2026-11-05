@@ -70,6 +70,13 @@ def app_pid(udid, identifier)
   pid =~ /\A\d+\z/ ? Integer(pid) : nil
 end
 
+def shooter_done?(pid)
+  @finished ||= {}
+  return true if @finished[pid]
+
+  @finished[pid] = !Process.waitpid(pid, Process::WNOHANG).nil?
+end
+
 def messages(udid, since, identifier, log)
   system("xcrun", "simctl", "spawn", udid, "log", "show", "--start", since, "--style", "ndjson", "--info", "--debug",
     "--predicate", "subsystem == \"#{identifier}\"", out: log, err: File::NULL)
@@ -113,29 +120,25 @@ ipad_types(os, wanted).each do |type|
       puts "launched #{identifier} as process #{pid} with #{game_env.map { |key, value| "#{key}=#{value}" }.join(' ')}"
       log = File.join(dir, "subsystem.ndjson")
       puts "  launch #{attempt} of #{MODES.size}: #{mode}"
-      # Screenshots on their own thread, on the wall clock since launch, so
-      # a slow log query never delays one; each file names the second it
-      # was actually taken.
-      shooter = Thread.new do
-        SHOT_SECONDS.each do |second|
-          wait = started + second - Time.now
-          sleep wait if wait.positive?
-          taken = (Time.now - started).round
-          system("xcrun", "simctl", "io", udid, "screenshot", File.join(dir, format("simulator-%02ds.png", taken)),
-            out: File::NULL, err: File::NULL)
-        end
+      # Screenshots from a process of their own, on the wall clock since
+      # launch, so a slow log query never delays one (a Ruby thread did
+      # wait for them); each file names the second it was taken at.
+      script = SHOT_SECONDS.each_cons(2).inject("sleep #{SHOT_SECONDS.first}; shot #{SHOT_SECONDS.first}") do |text, (a, b)|
+        "#{text}; sleep #{b - a}; shot #{b}"
       end
+      shooter = Process.spawn("/bin/sh", "-c",
+        "shot() { xcrun simctl io #{udid} screenshot \"#{dir}/simulator-$(printf %02d $1)s.png\" >/dev/null 2>&1; }; #{script}")
       lines = []
       loop do
         sleep 5
         lines = messages(udid, since, identifier, log)
-        break if lines.any? { |line| line.include?("exited with status") } && !shooter.alive?
-        break if mode == :idle && Time.now - started > IDLE_SECONDS && !shooter.alive?
+        break if lines.any? { |line| line.include?("exited with status") } && shooter_done?(shooter)
+        break if mode == :idle && Time.now - started > IDLE_SECONDS && shooter_done?(shooter)
         break if Time.now - started > DEADLINE
         crashes = Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*"))
-        break if crashes.any? { |crash| File.mtime(crash) >= started - 5 } && !shooter.alive?
+        break if crashes.any? { |crash| File.mtime(crash) >= started - 5 } && shooter_done?(shooter)
       end
-      shooter.join
+      Process.wait(shooter) unless shooter_done?(shooter)
       sleep 2
       # Still running after IDLE_SECONDS is the idle launch's pass. Every
       # launch ends here, so the next one starts a new process.
