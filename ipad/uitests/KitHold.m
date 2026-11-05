@@ -19,7 +19,7 @@
 @implementation KitHold
 
 - (void)testHold {
-    NSDictionary *env = NSProcessInfo.processInfo.environment;
+    NSDictionary<NSString *, NSString *> *env = NSProcessInfo.processInfo.environment;
     BOOL landscape = [env[@"KIT_ORIENTATION"] isEqualToString:@"landscape"];
     XCUIDevice.sharedDevice.orientation = landscape ? UIDeviceOrientationLandscapeLeft : UIDeviceOrientationPortrait;
     [NSThread sleepForTimeInterval:3];

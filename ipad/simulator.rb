@@ -61,7 +61,11 @@ NORMAL_LAUNCHES = Integer(ENV.fetch("KIT_NORMAL_LAUNCHES", "2"))
 XCTESTRUN = ENV["KIT_XCTESTRUN"].to_s.empty? ? nil : ENV["KIT_XCTESTRUN"]
 UITESTS = ENV.fetch("KIT_UITESTS_TARGET", "#{executable}UITests")
 TOUCH_DEVICES = ENV["KIT_TOUCH_DEVICES"].to_s.split(",").map(&:strip).reject(&:empty?)
-MODES = ([:normal] * NORMAL_LAUNCHES + [:idle]).freeze
+# KIT_EXTRA_LAUNCHES: more launches after those, separated by ;, each with
+# its own NAME=VALUE pairs (not KIT_SMOKE_ENV's), for up to
+# KIT_SMOKE_SECONDS, passing as an idle launch passes.
+EXTRA_ENVS = ENV["KIT_EXTRA_LAUNCHES"].to_s.split(";").map(&:strip).reject(&:empty?).map { |text| pairs(text).freeze }.freeze
+MODES = ([:normal] * NORMAL_LAUNCHES + [:idle] + [:extra] * EXTRA_ENVS.size).freeze
 abort "landscape needs KIT_XCTESTRUN, the UI tests that turn the device" if orientation == "landscape" && XCTESTRUN.nil?
 
 def capture(*command)
@@ -239,7 +243,7 @@ device_types(os, wanted).each do |type|
     end
     pids = []
     MODES.each.with_index(1) do |mode, attempt|
-      env = mode == :idle ? {} : SMOKE_ENV
+      env = { normal: SMOKE_ENV, idle: {}, extra: EXTRA_ENVS[attempt - NORMAL_LAUNCHES - 2] }.fetch(mode)
       seconds = mode == :idle ? IDLE_SECONDS : SMOKE_SECONDS
       dir = File.join(device_dir, "run-#{attempt}-#{mode}")
       FileUtils.mkdir_p(dir)
@@ -261,6 +265,8 @@ device_types(os, wanted).each do |type|
       ruby = entries.select { |_, category, _| category == "ruby" }.map(&:last).join("\n")
       result["expect_matched"] = (mode == :normal && EXPECT) ? !EXPECT.match(ruby).nil? : nil
       result["ok"] = result["clean"] && result["expect_matched"] != false
+      result["env"] = env.map { |key, value| "#{key}=#{value}" }.join(" ") if mode == :extra
+      result["output"] = entries.select { |_, category, _| category == "ruby" }.map(&:last).first(60) if mode == :extra
       results["#{name} #{orientation} ##{attempt} #{mode}"] = result
       puts "  => #{result['ok'] ? 'ok' : 'FAILED'} #{result.reject { |key, _| key == 'ok' }.to_json}"
     end

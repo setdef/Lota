@@ -51,7 +51,7 @@
 
 - (void)testTouchAndRotation {
     self.continueAfterFailure = YES;
-    NSDictionary *env = NSProcessInfo.processInfo.environment;
+    NSDictionary<NSString *, NSString *> *env = NSProcessInfo.processInfo.environment;
     XCUIDevice.sharedDevice.orientation = UIDeviceOrientationPortrait;
     [NSThread sleepForTimeInterval:2];
     [@"ready\n" writeToFile:env[@"KIT_READY"] atomically:YES encoding:NSUTF8StringEncoding error:NULL];

@@ -90,6 +90,10 @@ on:
         description: NAME=VALUE pairs added to smoke_env for the touch test's launch (CI only)
         type: string
         default: ""
+      extra_launches:
+        description: More portrait launches, separated by ;, each with its own NAME=VALUE pairs (CI only)
+        type: string
+        default: ""
       kit_questions:
         description: A text file in the repository with the playtest's questions (empty for the kit's own)
         type: string
@@ -128,6 +132,7 @@ env:
   KIT_SMOKE_ENV: ${{ github.event_name == 'push' && 'WINKIT_HIGHDPI=1' || inputs.smoke_env }}
   KIT_SMOKE_EXPECT: ${{ github.event_name == 'push' && '(?m)^exiting with 0$' || inputs.smoke_expect }}
   KIT_SMOKE_SECONDS: ${{ inputs.smoke_seconds || '20' }}
+  KIT_EXTRA_LAUNCHES: ${{ inputs.extra_launches }}
   KIT_TOUCH_ENV: ${{ github.event_name == 'push' && 'WINKIT_DPI_PROBE=1 WINKIT_SECONDS=150' || inputs.touch_env }}
   KIT_DEVICES: >-
     iPad Pro 13-inch (M5)|iPad Pro 13-inch (M4);
@@ -423,7 +428,7 @@ jobs:
           app=$products/Debug-iphonesimulator/$APP_NAME.app
           IFS=';' read -ra devices <<< "$KIT_DEVICES"
           devices=("${devices[@]# }")
-          KIT_XCTESTRUN=$(ls "$products"/*.xctestrun | head -1) \
+          KIT_EXTRA_LAUNCHES="" KIT_XCTESTRUN=$(ls "$products"/*.xctestrun | head -1) \
             /usr/bin/ruby lota/ipad/simulator.rb "$app" "$APP_IDENTIFIER" "$APP_NAME" "$RUNNER_TEMP/landscape" landscape "${devices[@]}"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -270,10 +270,37 @@ module KitPrepare
     if settings["questions"] != ""
       questions = File.join(clone, settings["questions"])
       fail!("kit_questions #{settings['questions']} is not a file in the game repository") unless File.file?(questions) && inside?(clone, questions)
-      settings["questions_text"] = File.read(questions, encoding: "UTF-8")
+      settings["questions_text"], settings["question_types"] = questionnaire(File.read(questions, encoding: "UTF-8"))
     end
     File.write(env("KIT_JSON"), JSON.pretty_generate(settings))
     puts JSON.pretty_generate(settings.except("questions_text"))
+  end
+
+  # The questions of a kit_questions file as the results file asks them,
+  # and the answer types it named. A file whose lines read
+  # "question | answer type", with # comment lines, becomes numbered
+  # questions, each with a blank for its answer and one for a note; any
+  # other file is copied as it is. y/n, rating, and choice (as
+  # "choice: a/b/c") say what to answer; text and any other type get a
+  # plain blank.
+  def questionnaire(text)
+    lines = text.lines.map(&:strip).reject { |line| line.empty? || line.start_with?("#") }
+    return [text, []] unless !lines.empty? && lines.all? { |line| line.include?("|") }
+
+    types = []
+    body = lines.each_with_index.map do |line, index|
+      question, type = line.split("|", 2).map(&:strip)
+      types << type
+      hint = case type.downcase
+      when %r{\A(y/n|yes/no)(\s*\+\s*text)?\z} then " (y/n)"
+      when "rating" then " (1 to 5)"
+      when /\Achoice:\s*(.+)\z/ then " (#{Regexp.last_match(1).split('/').map(&:strip).join(' / ')})"
+      else ""
+      end
+      "#{index + 1}. #{question}#{hint}\n   Answer:\n   Note:\n"
+    end
+    puts "kit_questions: #{lines.size} questions, answer types #{types.uniq.join(', ')}"
+    [body.join("\n"), types.uniq]
   end
 
   def orientation_prose(names)
