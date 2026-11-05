@@ -10,6 +10,8 @@
 
 #include "native/binding.hpp"
 
+#include <ruby/thread.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_set>
@@ -67,6 +69,41 @@ inline std::string class_name(const Rice::Object &value) { return rb_obj_classna
 inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 
 inline Rice::Object nil() { return {Qnil}; }
+
+// A Ruby value as the C API holds it, for the engine code that keeps
+// Ruby values (native/thread.hpp).
+using Value = VALUE;
+
+// The Ruby thread running this code, which a Ruby thread holds a Channel
+// or a Data as (native/thread.cpp, native/data.cpp).
+inline Value current_thread() { return rb_thread_current(); }
+
+// Marks +value+ for Ruby's collector, from a Marked's mark.
+inline void mark(Value value) { rb_gc_mark(value); }
+
+// Whether Ractors share +value+, as Ractor.shareable? answers. Ruby 4.0.7's
+// inline rb_ractor_shareable_p (ruby/ractor.h:248-262) declares
+// rb_ractor_shareable_p_continue inside its own body, outside the header's
+// extern "C" block, so from C++ it names a mangled symbol that no Ruby
+// exports and MinGW's lld cannot link; Ruby's method links everywhere.
+inline bool shareable(const Rice::Object &value) {
+  const Rice::Object ractor(Rice::detail::protect(rb_path2class, "Ractor"));
+  return truthy(ractor.call("shareable?", value));
+}
+
+// Runs the interrupts Ruby has pending for this thread, as Ruby does as it
+// returns from a call that released the GVL; an exception one raises
+// reaches C++ as Rice's, rather than as a longjmp through C++ frames.
+inline void check_interrupts() { Rice::detail::protect(rb_thread_check_ints); }
+
+// Calls +function+ with +data+ with the GVL released, as Ruby's own sleep
+// waits, and then runs Ruby's pending interrupts, as an exception of Rice's.
+// Nothing can cut +function+ short.
+inline void without_gvl(void *(*function)(void *), void *data) {
+  Rice::detail::protect(rb_thread_call_without_gvl, function, data,
+                        static_cast<rb_unblock_function_t *>(nullptr),
+                        static_cast<void *>(nullptr));
+}
 
 // The elements of +array+, to index with bounds checked.
 inline std::vector<Rice::Object> elements(const Rice::Array &array) {
@@ -164,15 +201,16 @@ private:
     }
   }
 
-  // Ruby's own TypedData struct, which it names without a prefix.
-  // NOLINTNEXTLINE(readability-identifier-naming)
   static constexpr rb_data_type_t TYPE = {
       .wrap_struct_name = "Lota::Native marks",
-      .function = {.dmark = &mark_all,
-                   .dfree = nullptr,
-                   .dsize = nullptr,
-                   .dcompact = nullptr,
-                   .reserved = {}},
+      .function =
+          {
+              .dmark = &mark_all,
+              .dfree = nullptr,
+              .dsize = nullptr,
+              .dcompact = nullptr,
+              .reserved = {},
+          },
       .parent = nullptr,
       .data = nullptr,
       .flags = 0,

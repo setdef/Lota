@@ -4,12 +4,11 @@
 #include "native/timer.hpp"
 
 #include "native/binding.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "timer/Timer.h"
-
-#include <ruby/thread.h>
 
 namespace lota::native {
 
@@ -27,7 +26,7 @@ void open() { open_module<Timer, Timer>(love::Module::M_TIMER); }
 bool is_open() { return love::Module::getInstance<Timer>(love::Module::M_TIMER) != nullptr; }
 
 void *sleep_without_gvl(void *data) {
-  auto *timer = love::Module::getInstance<Timer>(love::Module::M_TIMER);
+  const auto *timer = love::Module::getInstance<Timer>(love::Module::M_TIMER);
   timer->sleep(*static_cast<double *>(data));
   return nullptr;
 }
@@ -47,9 +46,7 @@ void w_sleep(double seconds) {
   if (love::Module::getInstance<Timer>(love::Module::M_TIMER) == nullptr) {
     throw love::Exception("Lota::Timer is not open.");
   }
-  Rice::detail::protect(
-      rb_thread_call_without_gvl, &sleep_without_gvl, static_cast<void *>(&seconds),
-      static_cast<rb_unblock_function_t *>(nullptr), static_cast<void *>(nullptr));
+  ruby::without_gvl(&sleep_without_gvl, static_cast<void *>(&seconds));
 }
 
 // SPDX-SnippetEnd

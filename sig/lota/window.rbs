@@ -21,7 +21,7 @@ module Lota
 
     private def self.deprecated_highdpi: (::Object value, String where) -> void
 
-    private def self.where: (Array[Thread::Backtrace::Location]? locations) -> String
+    private def self.where: (Array[::Thread::Backtrace::Location]? locations) -> String
 
     private def self.flag: (::Object? value, bool default) -> bool
 

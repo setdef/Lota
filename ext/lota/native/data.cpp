@@ -17,7 +17,6 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -92,26 +91,26 @@ public:
   }
 
   void hold(const love::Data *data) {
-    const VALUE me = rb_thread_current();
+    const ruby::Value me = ruby::current_thread();
     while (true) {
       std::uint64_t seen = 0;
       {
-        const std::scoped_lock lock(signal_.mutex);
+        const auto lock = signal_.lock();
         Held &held = held_[data];
         if (held.owner == 0 || held.owner == me) {
           held.owner = me;
           held.depth++;
           return;
         }
-        seen = signal_.changes;
+        seen = signal_.count();
       }
       signal_.wait(seen, std::nullopt);
     }
   }
 
   void release(const love::Data *data) noexcept {
-    const std::scoped_lock lock(signal_.mutex);
-    auto it = held_.find(data);
+    const auto lock = signal_.lock();
+    const auto it = held_.find(data);
     if (it == held_.end() || --it->second.depth > 0) {
       return;
     }
@@ -121,7 +120,7 @@ public:
 
 private:
   struct Held {
-    VALUE owner = 0;
+    ruby::Value owner = 0;
     int depth = 0;
   };
 
@@ -149,7 +148,7 @@ private:
 // Data (Holds), and returns what the block returns. A Ruby error the block
 // raises lets the Data go on its way out, as Lua's pcall does there, and
 // goes on.
-Rice::Object perform_atomic(love::Data &data, Rice::Array call_given) {
+Rice::Object perform_atomic(const love::Data &data, Rice::Array call_given) {
   const Rice::Array call = std::move(call_given);
   const std::vector<Rice::Object> given = ruby::elements(call);
   Rice::Object block = given.empty() ? ruby::nil() : given.front();

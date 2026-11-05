@@ -33,19 +33,20 @@ class Signal {
 public:
   using Clock = std::chrono::steady_clock;
 
-  // Guards the state of whatever holds it, and changes.
-  std::mutex mutex;
+  // Locks what the signal guards: the state of whatever holds it, and its
+  // count of changes.
+  [[nodiscard]] std::unique_lock<std::mutex> lock() { return std::unique_lock(mutex_); }
 
-  // How many changes there have been. Read and changed under mutex.
-  std::uint64_t changes = 0;
+  // How many changes there have been. Read it under lock.
+  [[nodiscard]] std::uint64_t count() const { return changes_; }
 
-  // Counts a change and wakes every waiter. Call it under mutex.
+  // Counts a change and wakes every waiter. Call it under lock.
   void changed() {
-    ++changes;
+    ++changes_;
     condition_.notify_all();
   }
 
-  // Waits, without Ruby's GVL and not under mutex, until a change after
+  // Waits, without Ruby's GVL and not under lock, until a change after
   // +seen+, until +deadline+ passes, or until Ruby interrupts this thread;
   // then runs Ruby's pending interrupts, which may raise, or run code
   // another Ractor asked this one to run, as its require does (Ruby 4.0.7,
@@ -59,6 +60,8 @@ private:
   static void *wait_without_gvl(void *data);
   static void interrupt(void *data);
 
+  std::mutex mutex_;
+  std::uint64_t changes_ = 0;
   std::condition_variable condition_;
 };
 
@@ -85,7 +88,9 @@ private:
 // waited for the mutex with its GVL held.
 class Channel final : public love::Object, public ruby::Marked {
 public:
-  static love::Type type;
+  // LÖVE's type "Channel", an Object (Channel.cpp:29), made the first time
+  // it is asked for, so its parent is made first.
+  static love::Type &type;
   static constexpr bool shareable = true;
 
   Channel();
@@ -95,11 +100,11 @@ public:
   Channel &operator=(Channel &&) = delete;
   ~Channel() override;
 
-  love::uint64 push(VALUE value);
-  bool supply(VALUE value, std::optional<double> timeout);
-  VALUE pop();
-  VALUE demand(std::optional<double> timeout);
-  VALUE peek();
+  love::uint64 push(ruby::Value value);
+  bool supply(ruby::Value value, std::optional<double> timeout);
+  ruby::Value pop();
+  ruby::Value demand(std::optional<double> timeout);
+  ruby::Value peek();
   int count();
   bool has_read(love::uint64 id);
   void clear();
@@ -120,16 +125,16 @@ private:
   template <typename Step>
   bool when_free(Step step, std::optional<Signal::Clock::time_point> deadline);
 
-  love::uint64 push_locked(VALUE value);
-  bool pop_locked(VALUE &value);
+  love::uint64 push_locked(ruby::Value value);
+  bool pop_locked(ruby::Value &value);
 
   mutable Signal signal_;
-  std::deque<VALUE> queue_;
+  std::deque<ruby::Value> queue_;
   love::uint64 sent_ = 0;
   love::uint64 received_ = 0;
 
   // The Ruby thread that holds the channel, or 0, and how many times.
-  VALUE owner_ = 0;
+  ruby::Value owner_ = 0;
   int depth_ = 0;
 };
 
@@ -149,7 +154,9 @@ private:
 // starts the Ractor and reports to it as the Ractor begins and ends.
 class Thread final : public love::Object {
 public:
-  static love::Type type;
+  // LuaThread's type, "Thread", a Threadable (LuaThread.cpp:36), made the
+  // first time it is asked for, so its parent is made first.
+  static love::Type &type;
   static constexpr bool shareable = true;
 
   Thread(std::string name, std::string code);

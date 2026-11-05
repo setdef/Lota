@@ -57,7 +57,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   // those of the modules define_module keeps on the main Ractor
   // (native/binding.hpp, ractor_safe_module), so that Lota::Thread's
   // Ractors reach the engine as LÖVE's threads do (ADR 001, section 6).
-  rb_ext_ractor_safe(true);
+  const lota::native::RactorSafety safety(true);
   // Before any binding, so that every error the engine raises reaches Ruby
   // with LÖVE's Lua names translated (native/errors.hpp).
   lota::native::install_error_translation();

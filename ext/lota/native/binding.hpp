@@ -532,8 +532,9 @@ public:
 //   by setEnabled).
 inline bool ractor_safe_module(std::string_view name) {
   static constexpr std::array<std::string_view, 11> SAFE = {
-      "audio", "data",    "event", "filesystem", "font", "image",
-      "math",  "physics", "sound", "thread",     "timer"};
+      "audio", "data",    "event", "filesystem", "font",  "image",
+      "math",  "physics", "sound", "thread",     "timer",
+  };
   return std::ranges::find(SAFE, name) != SAFE.end();
 }
 

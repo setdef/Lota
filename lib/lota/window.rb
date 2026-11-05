@@ -101,7 +101,7 @@ module Lota
       _ = refreshrate
       settings = read_window_settings(Native::WindowSettings.new, fullscreen:, fullscreentype:, vsync:, msaa:,
         stencil:, depth:, resizable:, minwidth:, minheight:, borderless:, centered:, displayindex:, display:, highdpi:,
-        usedpiscale:, x:, y:, where: where(caller_locations(1, 1)))
+        usedpiscale:, x:, y:, where: where(caller_locations(1, 2)))
       Native::Window.set_mode(width, height, settings)
     end
 
@@ -162,7 +162,7 @@ module Lota
       unless given.all?(&:nil?)
         read_window_settings(settings, fullscreen:, fullscreentype:, vsync:, msaa:, stencil:, depth:, resizable:,
           minwidth:, minheight:, borderless:, centered:, displayindex:, display:, highdpi:, usedpiscale:, x:, y:,
-          where: where(caller_locations(1, 1)))
+          where: where(caller_locations(1, 2)))
       end
       Native::Window.set_mode(w, h, settings)
     end
@@ -432,7 +432,7 @@ module Lota
     #
     #   Lota::Window.close
     def self.close
-      Deprecation.mark("Lota::Window.close", :function, :noreplacement, where: where(caller_locations(1, 1)))
+      Deprecation.mark("Lota::Window.close", :function, :noreplacement, where: where(caller_locations(1, 2)))
       Native::Window.close
     end
 

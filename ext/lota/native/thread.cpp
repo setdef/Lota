@@ -18,21 +18,22 @@
 #include <ruby/thread.h>
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <bit>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace lota::native {
 
+// What a Ruby thread waits for in Signal::wait.
 struct Signal::Waiting {
   Signal *signal;
   std::uint64_t seen;
@@ -43,9 +44,9 @@ struct Signal::Waiting {
 void *Signal::wait_without_gvl(void *data) {
   auto *waiting = static_cast<Waiting *>(data);
   Signal &signal = *waiting->signal;
-  std::unique_lock lock(signal.mutex);
+  std::unique_lock lock(signal.mutex_);
   const auto changed = [waiting, &signal] {
-    return signal.changes != waiting->seen || waiting->interrupted;
+    return signal.changes_ != waiting->seen || waiting->interrupted;
   };
   if (waiting->deadline.has_value()) {
     signal.condition_.wait_until(lock, *waiting->deadline, changed);
@@ -62,7 +63,7 @@ void Signal::interrupt(void *data) {
   auto *waiting = static_cast<Waiting *>(data);
   Signal &signal = *waiting->signal;
   {
-    const std::scoped_lock lock(signal.mutex);
+    const std::scoped_lock lock(signal.mutex_);
     waiting->interrupted = true;
   }
   signal.condition_.notify_all();
@@ -70,11 +71,11 @@ void Signal::interrupt(void *data) {
 
 void Signal::wait(std::uint64_t seen, std::optional<Clock::time_point> deadline) {
   Waiting waiting{.signal = this, .seen = seen, .deadline = deadline, .interrupted = false};
-  // The 2 form leaves the interrupts to rb_thread_check_ints, which
-  // Rice's protect turns into a C++ exception rather than a longjmp
-  // through these frames.
+  // The 2 form leaves the interrupts to check_interrupts, which Rice's
+  // protect turns into a C++ exception rather than a longjmp through
+  // these frames.
   rb_thread_call_without_gvl2(&wait_without_gvl, &waiting, &interrupt, &waiting);
-  Rice::detail::protect(rb_thread_check_ints);
+  ruby::check_interrupts();
 }
 
 namespace {
@@ -106,7 +107,21 @@ bool expired(std::optional<double> timeout) { return timeout.has_value() && !(*t
 // Ported from love::thread::Channel (vendor/love/src/modules/thread/
 // Channel.cpp:29-168).
 
-love::Type Channel::type("Channel", &love::Object::type);
+namespace {
+
+love::Type &channel_type() noexcept {
+  static love::Type type("Channel", &love::Object::type);
+  return type;
+}
+
+love::Type &thread_type() noexcept {
+  static love::Type type("Thread", &love::thread::Threadable::type);
+  return type;
+}
+
+} // namespace
+
+love::Type &Channel::type = channel_type();
 
 Channel::Channel() { ruby::Marks::instance().add(this); }
 
@@ -114,12 +129,12 @@ Channel::~Channel() { ruby::Marks::instance().remove(this); }
 
 template <typename Step>
 bool Channel::when_free(Step step, std::optional<Clock::time_point> deadline) {
-  const VALUE me = rb_thread_current();
+  const ruby::Value me = ruby::current_thread();
   while (true) {
     std::uint64_t seen = 0;
     bool held_elsewhere = false;
     {
-      const std::scoped_lock lock(signal_.mutex);
+      const auto lock = signal_.lock();
       held_elsewhere = owner_ != 0 && owner_ != me;
       if (!held_elsewhere && step()) {
         return true;
@@ -127,19 +142,19 @@ bool Channel::when_free(Step step, std::optional<Clock::time_point> deadline) {
       if (!held_elsewhere && deadline.has_value() && Clock::now() >= *deadline) {
         return false;
       }
-      seen = signal_.changes;
+      seen = signal_.count();
     }
     signal_.wait(seen, held_elsewhere ? std::nullopt : deadline);
   }
 }
 
-love::uint64 Channel::push_locked(VALUE value) {
+love::uint64 Channel::push_locked(ruby::Value value) {
   queue_.push_back(value);
   signal_.changed();
   return ++sent_;
 }
 
-bool Channel::pop_locked(VALUE &value) {
+bool Channel::pop_locked(ruby::Value &value) {
   if (queue_.empty()) {
     return false;
   }
@@ -150,7 +165,7 @@ bool Channel::pop_locked(VALUE &value) {
   return true;
 }
 
-love::uint64 Channel::push(VALUE value) {
+love::uint64 Channel::push(ruby::Value value) {
   love::uint64 id = 0;
   when_free(
       [&] {
@@ -161,7 +176,7 @@ love::uint64 Channel::push(VALUE value) {
   return id;
 }
 
-bool Channel::supply(VALUE value, std::optional<double> timeout) {
+bool Channel::supply(ruby::Value value, std::optional<double> timeout) {
   const std::optional<Clock::time_point> deadline = deadline_after(timeout);
   love::uint64 id = 0;
   bool supplied = false;
@@ -180,8 +195,8 @@ bool Channel::supply(VALUE value, std::optional<double> timeout) {
   return done && supplied;
 }
 
-VALUE Channel::pop() {
-  VALUE value = Qnil;
+ruby::Value Channel::pop() {
+  ruby::Value value = ruby::nil().value();
   when_free(
       [&] {
         pop_locked(value);
@@ -191,17 +206,17 @@ VALUE Channel::pop() {
   return value;
 }
 
-VALUE Channel::demand(std::optional<double> timeout) {
+ruby::Value Channel::demand(std::optional<double> timeout) {
   if (expired(timeout)) {
-    return Qnil;
+    return ruby::nil().value();
   }
-  VALUE value = Qnil;
+  ruby::Value value = ruby::nil().value();
   when_free([&] { return pop_locked(value); }, deadline_after(timeout));
   return value;
 }
 
-VALUE Channel::peek() {
-  VALUE value = Qnil;
+ruby::Value Channel::peek() {
+  ruby::Value value = ruby::nil().value();
   when_free(
       [&] {
         if (!queue_.empty()) {
@@ -252,7 +267,7 @@ void Channel::clear() {
 }
 
 void Channel::lock() {
-  const VALUE me = rb_thread_current();
+  const ruby::Value me = ruby::current_thread();
   when_free(
       [&] {
         owner_ = me;
@@ -263,8 +278,8 @@ void Channel::lock() {
 }
 
 void Channel::unlock() {
-  const std::scoped_lock lock(signal_.mutex);
-  if (owner_ != rb_thread_current() || depth_ == 0) {
+  const auto lock = signal_.lock();
+  if (owner_ != ruby::current_thread() || depth_ == 0) {
     return;
   }
   if (--depth_ == 0) {
@@ -276,9 +291,9 @@ void Channel::unlock() {
 // SPDX-SnippetEnd
 
 void Channel::mark() const {
-  const std::scoped_lock lock(signal_.mutex);
-  for (const VALUE value : queue_) {
-    rb_gc_mark(value);
+  const auto lock = signal_.lock();
+  for (const ruby::Value value : queue_) {
+    ruby::mark(value);
   }
 }
 
@@ -290,14 +305,13 @@ void Channel::mark() const {
 // LuaThread.cpp:36-148) and love::thread::sdl::Thread (sdl/Thread.cpp:
 // 50-105).
 
-// LuaThread's type, "Thread", is a Threadable (LuaThread.cpp:36).
-love::Type Thread::type("Thread", &love::thread::Threadable::type);
+love::Type &Thread::type = thread_type();
 
 Thread::Thread(std::string name, std::string code)
     : name_(std::move(name)), code_(std::move(code)) {}
 
 bool Thread::begin() {
-  const std::scoped_lock lock(signal_.mutex);
+  const auto lock = signal_.lock();
   if (running_) {
     return false;
   }
@@ -309,14 +323,14 @@ bool Thread::begin() {
 
 void Thread::finish(const std::optional<std::string> &error) {
   {
-    const std::scoped_lock lock(signal_.mutex);
+    const auto lock = signal_.lock();
     error_ = error.value_or("");
     has_error_ = error.has_value();
   }
   if (error.has_value()) {
     on_error(*error);
   }
-  const std::scoped_lock lock(signal_.mutex);
+  const auto lock = signal_.lock();
   running_ = false;
   signal_.changed();
 }
@@ -325,23 +339,23 @@ void Thread::wait() {
   while (true) {
     std::uint64_t seen = 0;
     {
-      const std::scoped_lock lock(signal_.mutex);
+      const auto lock = signal_.lock();
       if (!running_) {
         return;
       }
-      seen = signal_.changes;
+      seen = signal_.count();
     }
     signal_.wait(seen, std::nullopt);
   }
 }
 
 bool Thread::running() {
-  const std::scoped_lock lock(signal_.mutex);
+  const auto lock = signal_.lock();
   return running_;
 }
 
 std::optional<std::string> Thread::error() {
-  const std::scoped_lock lock(signal_.mutex);
+  const auto lock = signal_.lock();
   if (!has_error_) {
     return std::nullopt;
   }
@@ -354,8 +368,10 @@ void Thread::on_error(const std::string &error) {
     return;
   }
 
-  const std::vector<love::Variant> vargs = {love::Variant(&Thread::type, this),
-                                            love::Variant(error.c_str(), error.length())};
+  const std::vector<love::Variant> vargs = {
+      love::Variant(&Thread::type, this),
+      love::Variant(error.c_str(), error.length()),
+  };
 
   const love::StrongRef<love::event::Message> msg(new love::event::Message("threaderror", vargs),
                                                   love::Acquire::NORETAIN);
@@ -368,14 +384,17 @@ namespace {
 
 // Whether love.thread is open, as LÖVE's ThreadModule exists once
 // luaopen_love_thread made it (wrap_ThreadModule.cpp:107-128).
-std::atomic<bool> opened{false};
+std::atomic<bool> &opened() {
+  static std::atomic<bool> flag{false};
+  return flag;
+}
 
-void open() { opened = true; }
+void open() { opened() = true; }
 
-bool is_open() { return opened; }
+bool is_open() { return opened(); }
 
 void require_open() {
-  if (!opened) {
+  if (!opened()) {
     throw love::Exception("Lota::Thread is not open.");
   }
 }
@@ -405,40 +424,34 @@ Channel *get_channel(const std::string &name) {
   NamedChannels &named = named_channels();
   const std::scoped_lock lock(named.mutex);
 
-  auto it = named.channels.find(name);
+  const auto it = named.channels.find(name);
   if (it != named.channels.end()) {
     return it->second.get();
   }
 
-  auto *c = new Channel();
-  named.channels[name].set(c, love::Acquire::NORETAIN);
+  auto created = std::make_unique<Channel>();
+  Channel *c = created.get();
+  named.channels[name].set(created.release(), love::Acquire::NORETAIN);
   return c;
 }
 
 Channel *new_channel() {
   require_open();
-  return new Channel();
+  return std::make_unique<Channel>().release();
 }
 
 Thread *new_thread(const std::string &name, const std::string &code) {
   require_open();
-  return new Thread(name, code);
+  return std::make_unique<Thread>(name, code).release();
 }
 
 // SPDX-SnippetEnd
 
 // A message's value, which must be one Ractors share: Lota::Thread::Channel
 // makes it one before it gets here.
-//
-// It asks Ractor.shareable? rather than rb_ractor_shareable_p, whose inline
-// definition in Ruby 4.0.7's ruby/ractor.h (lines 248-262) declares
-// rb_ractor_shareable_p_continue inside its body, outside the header's
-// extern "C" block, so C++ names a mangled symbol no Ruby exports, which
-// fails to link with MinGW's lld.
-VALUE shareable(const Rice::Object &value) {
-  const Rice::Object ractor(Rice::detail::protect(rb_path2class, "Ractor"));
-  if (!ruby::truthy(ractor.call("shareable?", value))) {
-    throw Rice::Exception(rb_eArgError, "a Channel carries only values Ractors share");
+ruby::Value shareable(const Rice::Object &value) {
+  if (!ruby::shareable(value)) {
+    ruby::raise_argument_error("a Channel carries only values Ractors share");
   }
   return value.value();
 }
@@ -461,10 +474,9 @@ bool channel_supply(Channel &channel, Rice::Object given, std::optional<double> 
 // 56-88), which every type of LÖVE's has: an object's type and address,
 // and whether two wrap the same object.
 template <typename T> std::string to_s(T &object) {
-  std::array<char, 64> text{};
-  std::snprintf(text.data(), text.size(), "%s: %p", T::type.getName(),
-                static_cast<void *>(&object));
-  return {text.data()};
+  std::ostringstream text;
+  text << T::type.getName() << ": " << static_cast<const void *>(&object);
+  return text.str();
 }
 
 template <typename T> bool same(T &object, Rice::Object given) {
@@ -477,6 +489,11 @@ template <typename T> bool same(T &object, Rice::Object given) {
 
 // SPDX-SnippetEnd
 
+void thread_finish(Thread &thread, std::optional<std::string> given) {
+  const std::optional<std::string> error = std::move(given);
+  thread.finish(error);
+}
+
 // A number for Ruby's Hash, the same for two wrappers of one object.
 template <typename T> std::uintptr_t identity(T &object) {
   return std::bit_cast<std::uintptr_t>(&object);
@@ -485,7 +502,7 @@ template <typename T> std::uintptr_t identity(T &object) {
 } // namespace
 
 void define_thread(const Rice::Module &native) {
-  Rice::Module thread_module =
+  const Rice::Module thread_module =
       Rice::define_module_under(native, "Thread")
           .define_singleton_function("open", &open)
           .define_singleton_function("open?", &is_open)
@@ -522,9 +539,7 @@ void define_thread(const Rice::Module &native) {
       .define_method("name", &Thread::name)
       .define_method("code", &Thread::code)
       .define_method("begin", &Thread::begin)
-      .define_method(
-          "finish", [](Thread &self, std::optional<std::string> error) { self.finish(error); },
-          Rice::Arg("error") = std::optional<std::string>())
+      .define_method("finish", &thread_finish, Rice::Arg("error") = std::optional<std::string>())
       .define_method("wait", &Thread::wait)
       .define_method("running?", &Thread::running)
       .define_method("error", &Thread::error)
