@@ -9,6 +9,9 @@
 name: iOS kit, called as a game's CI calls it
 
 on:
+  push:
+    branches:
+      - "experiment/ios-kit-call-*"
   workflow_dispatch:
 
 permissions:

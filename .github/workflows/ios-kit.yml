@@ -29,6 +29,7 @@ on:
   push:
     branches:
       - "experiment/ios-kit-*"
+      - "!experiment/ios-kit-call-*"
   workflow_dispatch:
     inputs:
       game_repository:
