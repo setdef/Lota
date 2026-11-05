@@ -35,6 +35,14 @@ module Lota
       def restitution=: (Float | Integer restitution) -> void
 
       def reset_restitution: () -> nil
+
+      def tangent_speed: () -> Float
+
+      def tangent_speed=: (Float | Integer speed) -> void
+
+      def destroyed?: () -> bool
+
+      def fixtures: () -> Array[Shape?]
     end
   end
 end

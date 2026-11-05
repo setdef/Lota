@@ -161,6 +161,49 @@ module Lota
       def reset_restitution
         @native.reset_restitution
       end
+
+      # The speed of the surfaces along their tangent, as a conveyor belt
+      # moves, as a Float, matching Contact:getTangentSpeed.
+      #
+      # === Example
+      #
+      #   contact.tangent_speed # => 0.0
+      def tangent_speed
+        @native.tangent_speed
+      end
+
+      # Sets the speed of the surfaces along their tangent, matching
+      # Contact:setTangentSpeed.
+      #
+      # === Example
+      #
+      #   contact.tangent_speed = 5
+      def tangent_speed=(speed)
+        @native.set_tangent_speed(speed)
+      end
+
+      # Whether the Contact was destroyed, as it is once its Shapes stop
+      # touching or the World steps past it, matching Contact:isDestroyed.
+      #
+      # === Example
+      #
+      #   contact.destroyed? # => false
+      def destroyed?
+        @native.destroyed?
+      end
+
+      # The two Shapes, as #shapes gives them, matching Contact:getFixtures,
+      # which LÖVE 12 deprecates for Contact:getShapes and whose first use
+      # prints LÖVE's notice, with Lota's names.
+      #
+      # === Example
+      #
+      #   a, b = contact.fixtures
+      def fixtures
+        Deprecation.mark("Lota::Physics::Contact#fixtures", :method, :replaced, "Lota::Physics::Contact#shapes",
+          where: Deprecation.where(caller_locations(1, 1)))
+        shapes
+      end
     end
   end
 end

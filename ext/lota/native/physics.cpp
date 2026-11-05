@@ -6,6 +6,7 @@
 #include "native/binding.hpp"
 #include "native/ruby.hpp"
 
+#include "box2d/b2_math.h"
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/Vector.h"
@@ -563,6 +564,16 @@ Rice::Object joint_user_data(const Joint &joint) {
   return value_of(joint.getUserData());
 }
 
+// w_Body_setTransform (wrap_Body.cpp:292-303): the position, then the
+// angle, each set as LÖVE sets it, from an Array of the three numbers.
+void body_set_transform(Body &body, Rice::Array transform_given) {
+  const Rice::Array transform = std::move(transform_given);
+  check(body);
+  const auto [x, y, angle] = take<3>(numbers(transform), 0);
+  body.setPosition(x, y);
+  body.setAngle(angle);
+}
+
 // w_Body_applyForce and w_Body_applyLinearImpulse (wrap_Body.cpp:220-250
 // and 277-305): at the center of mass, waking the Body unless +rest+ is
 // false, or at a point, with +rest+ the point and that flag. The count of
@@ -962,6 +973,111 @@ Rice::Array reaction_force(Joint &joint, double dt) {
   return floats({x, y});
 }
 
+// w_PolygonShape_getPoints and w_EdgeShape_getPoints
+// (wrap_PolygonShape.cpp:35-42, wrap_EdgeShape.cpp:73-80), through
+// PolygonShape::getPoints and EdgeShape::getPoints as Lota's physics patch
+// leaves them: each vertex's x and y, in pixels.
+Rice::Array polygon_points(box2d::PolygonShape &shape) {
+  Rice::Array results;
+  for (const float value : shape.getPoints()) {
+    results.push(static_cast<double>(value), false);
+  }
+  return results;
+}
+
+Rice::Array edge_points(box2d::EdgeShape &shape) {
+  float x1 = 0;
+  float y1 = 0;
+  float x2 = 0;
+  float y2 = 0;
+  shape.getPoints(x1, y1, x2, y2);
+  return floats({x1, y1, x2, y2});
+}
+
+// w_ChainShape_getPoints (wrap_ChainShape.cpp:107-122): each of the
+// chain's vertices, scaled up to pixels. LÖVE first checks that Lua's
+// stack holds twice as many values as there are vertices, which an Array
+// does not need.
+Rice::Array chain_points(const box2d::ChainShape &shape) {
+  const b2Vec2 *verts = shape.getPoints();
+  const int count = shape.getVertexCount();
+  Rice::Array results;
+  for (const b2Vec2 &vertex : std::span<const b2Vec2>(verts, static_cast<std::size_t>(count))) {
+    const b2Vec2 v = Physics::scaleUp(vertex);
+    results.push(static_cast<double>(v.x), false);
+    results.push(static_cast<double>(v.y), false);
+  }
+  return results;
+}
+
+// The joints' getters that LÖVE pushes from inside the joint, through
+// their methods as Lota's physics patch leaves them, each filling two or
+// four floats: w_MouseJoint_getTarget (wrap_MouseJoint.cpp:47-52),
+// w_MotorJoint_getLinearOffset (wrap_MotorJoint.cpp:47-52),
+// w_PrismaticJoint_getLimits and getAxis (wrap_PrismaticJoint.cpp:
+// 160-172), w_RevoluteJoint_getLimits (wrap_RevoluteJoint.cpp:160-165),
+// w_WheelJoint_getAxis (wrap_WheelJoint.cpp:135-140), and
+// w_PulleyJoint_getGroundAnchors (wrap_PulleyJoint.cpp:38-43). LÖVE
+// removes the Joint from the stack first so that each pushes onto an empty
+// one, which nothing here needs.
+Rice::Array mouse_joint_target(box2d::MouseJoint &joint) {
+  check(joint);
+  float a = 0;
+  float b = 0;
+  joint.getTarget(a, b);
+  return floats({a, b});
+}
+
+Rice::Array motor_linear_offset(const box2d::MotorJoint &joint) {
+  check(joint);
+  float a = 0;
+  float b = 0;
+  joint.getLinearOffset(a, b);
+  return floats({a, b});
+}
+
+Rice::Array prismatic_limits(box2d::PrismaticJoint &joint) {
+  check(joint);
+  float a = 0;
+  float b = 0;
+  joint.getLimits(a, b);
+  return floats({a, b});
+}
+
+Rice::Array prismatic_axis(box2d::PrismaticJoint &joint) {
+  check(joint);
+  float a = 0;
+  float b = 0;
+  joint.getAxis(a, b);
+  return floats({a, b});
+}
+
+Rice::Array revolute_limits(box2d::RevoluteJoint &joint) {
+  check(joint);
+  float a = 0;
+  float b = 0;
+  joint.getLimits(a, b);
+  return floats({a, b});
+}
+
+Rice::Array wheel_axis(box2d::WheelJoint &joint) {
+  check(joint);
+  float a = 0;
+  float b = 0;
+  joint.getAxis(a, b);
+  return floats({a, b});
+}
+
+Rice::Array pulley_ground_anchors(box2d::PulleyJoint &joint) {
+  check(joint);
+  float x1 = 0;
+  float y1 = 0;
+  float x2 = 0;
+  float y2 = 0;
+  joint.getGroundAnchors(x1, y1, x2, y2);
+  return floats({x1, y1, x2, y2});
+}
+
 // w_Contact_getNormal and getPositions (wrap_Contact.cpp:39-49).
 Rice::Array normal(Contact &contact) {
   check(contact);
@@ -1021,6 +1137,7 @@ void define_physics(const Rice::Module &native) {
       .define_method("local_points", &local_points, Rice::Arg("coordinates"))
       .define_method("set_user_data", &body_set_user_data, Rice::Arg("value"))
       .define_method("user_data", &body_user_data)
+      .define_method("set_transform", &body_set_transform, Rice::Arg("transform"))
       .define_method("apply_force", &apply_force, Rice::Arg("fx"), Rice::Arg("fy"),
                      Rice::Arg("rest"))
       .define_method("apply_linear_impulse", &apply_linear_impulse, Rice::Arg("jx"),
@@ -1040,9 +1157,12 @@ void define_physics(const Rice::Module &native) {
       .define_method("set_user_data", &shape_set_user_data, Rice::Arg("value"))
       .define_method("user_data", &shape_user_data);
   define_engine_class<box2d::CircleShape, Shape>(native, "CircleShape");
-  define_engine_class<box2d::PolygonShape, Shape>(native, "PolygonShape");
-  define_engine_class<box2d::EdgeShape, Shape>(native, "EdgeShape");
-  define_engine_class<box2d::ChainShape, Shape>(native, "ChainShape");
+  define_engine_class<box2d::PolygonShape, Shape>(native, "PolygonShape")
+      .define_method("points", &polygon_points);
+  define_engine_class<box2d::EdgeShape, Shape>(native, "EdgeShape")
+      .define_method("points", &edge_points);
+  define_engine_class<box2d::ChainShape, Shape>(native, "ChainShape")
+      .define_method("points", &chain_points);
 
   define_engine_class<Joint>(native, "Joint")
       .define_method("anchors", &anchors)
@@ -1052,14 +1172,21 @@ void define_physics(const Rice::Module &native) {
   define_engine_class<box2d::DistanceJoint, Joint>(native, "DistanceJoint");
   define_engine_class<box2d::FrictionJoint, Joint>(native, "FrictionJoint");
   define_engine_class<box2d::GearJoint, Joint>(native, "GearJoint");
-  define_engine_class<box2d::MotorJoint, Joint>(native, "MotorJoint");
-  define_engine_class<box2d::MouseJoint, Joint>(native, "MouseJoint");
-  define_engine_class<box2d::PrismaticJoint, Joint>(native, "PrismaticJoint");
-  define_engine_class<box2d::PulleyJoint, Joint>(native, "PulleyJoint");
-  define_engine_class<box2d::RevoluteJoint, Joint>(native, "RevoluteJoint");
+  define_engine_class<box2d::MotorJoint, Joint>(native, "MotorJoint")
+      .define_method("linear_offset", &motor_linear_offset);
+  define_engine_class<box2d::MouseJoint, Joint>(native, "MouseJoint")
+      .define_method("target", &mouse_joint_target);
+  define_engine_class<box2d::PrismaticJoint, Joint>(native, "PrismaticJoint")
+      .define_method("limits", &prismatic_limits)
+      .define_method("axis", &prismatic_axis);
+  define_engine_class<box2d::PulleyJoint, Joint>(native, "PulleyJoint")
+      .define_method("ground_anchors", &pulley_ground_anchors);
+  define_engine_class<box2d::RevoluteJoint, Joint>(native, "RevoluteJoint")
+      .define_method("limits", &revolute_limits);
   define_engine_class<box2d::RopeJoint, Joint>(native, "RopeJoint");
   define_engine_class<box2d::WeldJoint, Joint>(native, "WeldJoint");
-  define_engine_class<box2d::WheelJoint, Joint>(native, "WheelJoint");
+  define_engine_class<box2d::WheelJoint, Joint>(native, "WheelJoint")
+      .define_method("axis", &wheel_axis);
 
   define_engine_class<Contact>(native, "Contact")
       .define_method("normal", &normal)
