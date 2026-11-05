@@ -3,15 +3,15 @@
 
 You have a Mac with Xcode, an Apple ID, and an iPad on a cable. This page takes Dot Popper from a CI artifact to that iPad in about half an hour, with a free Apple ID and no Lota, Fledge, Ruby, or XcodeGen on the Mac.
 
-The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipad-kit.yml`, on `experiment/ipad-*` branches) generates with `fledge build ios` (Fledge 0.4.0, SDL's iOS host) from a Dot Popper commit (trunk by default) and Lota's checkout. Its program, `bin/ipad_kit`, runs Dot Popper's own `bin/dot_popper`; it adds a diagnostic log line only when CI sets `DOT_POPPER_KIT_PROBE=1`. The project is already generated, so it opens in Xcode as it is. It holds everything it builds from: the Ruby runtime (`FledgeRuby.xcframework`), Lota's engine and SDL3 compiled for the iPad and the Simulator (`FledgeExtensions.xcframework`), and the game (`fledge/app`).
+The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipad-kit.yml`, on `experiment/ipad-*` branches) generates with `fledge build ios` (Fledge 0.4.0, SDL's iOS host) from a Dot Popper tag (v0.7.0 by default) and Lota's checkout (0.1.3). Its program, `bin/ipad_kit`, runs Dot Popper's own `bin/dot_popper`; it adds diagnostic log lines only when CI sets `DOT_POPPER_KIT_PROBE=1`. The project is already generated, so it opens in Xcode as it is. It holds everything it builds from: the Ruby runtime (`FledgeRuby.xcframework`), Lota's engine and SDL3 compiled for the iPad and the Simulator (`FledgeExtensions.xcframework`), and the game (`fledge/app`).
 
 ## What CI proved, and what it did not
 
 The workflow unpacks the zip on a second, fresh runner, with no Lota, Fledge, XcodeGen, or bundle, and builds it there with `xcodebuild`: for the Simulator, and for devices with signing turned off. It then runs the Simulator build in iPad Simulators with the game's autoplay bot, and keeps screenshots and the app's log. `BUILD-INFO.txt` in the zip names the run, the commits, and the Xcode and XcodeGen versions.
 
-For Dot Popper 0.5.1 that meant: Xcode 26.3 built the unpacked project for the Simulator and, unsigned, for devices (Debug and Release), and the game ran in iOS 26.2 Simulators of an iPad Pro 13-inch (M5), an iPad (A16), and an iPad mini (A17 Pro). The bot played to the end and the app reported exit status 0, with all four shaders, the fonts, the particles, the physics pile, and the save folder working. A separate UI test tapped the screen and turned the Simulator from portrait to landscape and back: taps started rounds, and the field and the score pill relaid themselves for each orientation.
+For Dot Popper 0.7.0 the run in `BUILD-INFO.txt` passes only if Xcode builds the unpacked project for the Simulator and, unsigned, for devices (Debug and Release), and the game runs in iOS Simulators of an iPad Pro 13-inch (M5), an iPad (A16), and an iPad mini (A17 Pro): on each, three launches in which the bot plays to the end and the app reports exit status 0, one more with a fake sideways tilt, and one left idle on the title for a minute. The Simulator has no accelerometer, so in the plain launches every Game Over must log `Dot Popper: tilt from none` and the game must go on after it; in the tilted launch Game Over logs `Dot Popper: tilt from a fake reading (DOT_POPPER_FAKE_TILT=…)`, and its screenshots show the pile rolled to one side. A separate UI test taps the screen and turns the Simulator from portrait to landscape and back.
 
-No one has run this app on a physical iPad. The device build compiled and linked, unsigned; whether it signs, installs, runs, and sounds right on the iPad is what this playtest finds out.
+No one has run this app on a physical iPad, and no CI run has read a real accelerometer. The device build compiled and linked, unsigned; whether it signs, installs, runs, sounds right, and tilts the Game Over pile on the iPad is what this playtest finds out.
 
 ## What the Mac needs
 
@@ -63,7 +63,9 @@ Once installed, Dot Popper is on the Home Screen. It runs without the Mac, until
 
 Dot Popper fills the screen, with no status bar, in portrait and in landscape: turn the iPad and the field rebuilds. In the iPad Simulator it looked like this: the score and time in a pill at the top, orange glowing dots about a fingertip wide, purple rings where dots were popped, sparkles and "+1 +1s" on each pop, and at the end "Time!", the score, and the dots piling up at the bottom. The title screen comes first; tap to play, and tap the dots. Sound is synthesized when the game loads and mixes with other apps' audio, and the silent switch mutes it.
 
-One known workaround is built in. The kit's host program turns off SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), because reading joysticks through Lota crashed the game in the Simulator; Dot Popper 0.5.1 also leaves joysticks alone on iOS. A game controller paired with the iPad does nothing in this build.
+At Game Over the dots pile up at the bottom. Tilt the iPad and the pile rolls downhill; shake it and the dots jump. The accelerometer is on only while that pile is there. A paired game controller's right stick rolls it too.
+
+One known workaround is built in. The kit's host program turns off SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), because reading joysticks through an older Lota crashed the game in the Simulator. It hides only the accelerometer posing as a joystick: the game reads the accelerometer through Lota's sensors, and a real controller is still a joystick.
 
 ## When something goes wrong
 
@@ -83,6 +85,8 @@ A healthy start prints, among others:
 Dot Popper: a dot's radius is 50 points, about 8 mm
 Dot Popper: each round is logged in …/Library/Application Support/dot_popper/rounds.csv
 ```
+
+Each Game Over prints where the tilt comes from. On an iPad it should be `Dot Popper: tilt from the accelerometer` (with `and the gamepad's right stick` when a controller is paired); `tilt from none` on an iPad means Lota found no accelerometer, which is worth sending back. `DOT_POPPER_PERF` = `1` in the scheme prints `Dot Popper: N frames a second, longest frame X ms (last 5 s)` every five seconds.
 
 Any line that starts `Dot Popper: could not`, `Dot Popper: drawing without`, or `Dot Popper: playing without` is the game saying something failed and it carried on. Send those.
 

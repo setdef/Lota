@@ -9,13 +9,20 @@
 # simctl passes to the app without the prefix), takes Simulator
 # screenshots every few seconds, reads the app's os_log, and copies the
 # app's data container (its save folder, the game's own shot-N.png files,
-# rounds.csv) and any crash report into OUT. Plain Ruby 2.6, so the
-# runner's own /usr/bin/ruby runs it with nothing installed.
+# rounds.csv) and any crash report into OUT. Each iPad runs REPEATS
+# autoplay launches with DOT_POPPER_PERF=1, one autoplay launch with
+# DOT_POPPER_FAKE_TILT=0.6,0 (a steady sideways tilt, so the Game Over
+# pile rolls to one side), shot every 3 s around its Game Over, and one
+# idle launch. The Simulator has no accelerometer, so every Game Over of
+# the plain autoplay launches must say "tilt from none", and the game
+# must go on after it. Plain Ruby 2.6, so the runner's own /usr/bin/ruby
+# runs it with nothing installed.
 #
 #   ruby simulator.rb APP_BUNDLE IDENTIFIER EXECUTABLE OUT [DEVICE_TYPE_NAME ...]
 require "fileutils"
 require "json"
 require "open3"
+require "time"
 
 bundle, identifier, executable, out, *wanted = ARGV
 FileUtils.mkdir_p(out)
@@ -26,8 +33,17 @@ AUTOPLAY_ENV = {
   "DOT_POPPER_QUIT_AFTER" => "60",
   "DOT_POPPER_SEED" => "7",
   "DOT_POPPER_SHOTS" => "3,12,25,38",
-  "DOT_POPPER_KIT_PROBE" => "1"
+  "DOT_POPPER_KIT_PROBE" => "1",
+  "DOT_POPPER_PERF" => "1"
 }.freeze
+# The autoplay bot reaches its first Game Over 35 to 40 s into a launch
+# with seed 7 and leaves it a few seconds later: in the tilted launch the
+# Simulator's screenshots come every 3 s from 21 s, and the game's own
+# every 2 s from 28 s of game time.
+TILT_SHOT_SECONDS = (21..57).step(3).to_a.freeze
+TILT_GAME_SHOTS = (28..50).step(2).to_a.freeze
+TILT_ENV = AUTOPLAY_ENV.reject { |key, _| key == "DOT_POPPER_PERF" }
+  .merge("DOT_POPPER_SHOTS" => TILT_GAME_SHOTS.join(","), "DOT_POPPER_FAKE_TILT" => "0.6,0").freeze
 # A launch nobody plays, left on the title screen for IDLE_SECONDS and then
 # terminated, as a player who walks away leaves it.
 IDLE_ENV = { "DOT_POPPER_SEED" => "7", "DOT_POPPER_KIT_PROBE" => "1" }.freeze
@@ -35,8 +51,12 @@ IDLE_SECONDS = 65
 SHOT_SECONDS = [6, 15, 30, 45, 58].freeze
 DEADLINE = 240
 REPEATS = Integer(ENV.fetch("KIT_REPEATS", "3"))
-# Each iPad runs REPEATS autoplay launches, then one idle launch.
-MODES = ([:autoplay] * REPEATS + [:idle]).freeze
+# Each iPad runs REPEATS autoplay launches, one tilted one, then one idle
+# launch.
+MODES = ([:autoplay] * REPEATS + [:tilt, :idle]).freeze
+GAME_ENV = { autoplay: AUTOPLAY_ENV, tilt: TILT_ENV, idle: IDLE_ENV }.freeze
+SHOTS = { autoplay: SHOT_SECONDS, tilt: TILT_SHOT_SECONDS, idle: SHOT_SECONDS }.freeze
+GAME_SHOTS = { autoplay: 4, tilt: TILT_GAME_SHOTS.size, idle: 0 }.freeze
 
 def capture(*command)
   output, status = Open3.capture2(*command)
@@ -90,6 +110,17 @@ def messages(udid, since, identifier, log)
   end.compact
 end
 
+# The seconds from +started+ to a log line's timestamp.
+def seconds_after(started, line)
+  (Time.parse(line[0, 31]) - started).round(1)
+rescue ArgumentError
+  nil
+end
+
+def message(line)
+  line.sub(/\A\S+ \S+ \[\w+\] /, "")
+end
+
 results = {}
 os = runtime
 puts "== runtime #{os['name']} (#{os['identifier']})"
@@ -104,7 +135,8 @@ ipad_types(os, wanted).each do |type|
     system("xcrun", "simctl", "install", udid, bundle, exception: true)
     previous_pids = []
     MODES.each.with_index(1) do |mode, attempt|
-      game_env = mode == :idle ? IDLE_ENV : AUTOPLAY_ENV
+      game_env = GAME_ENV.fetch(mode)
+      shot_seconds = SHOTS.fetch(mode)
       dir = File.join(device_dir, "run-#{attempt}-#{mode}")
       FileUtils.mkdir_p(dir)
       since = (Time.now - 2).strftime("%Y-%m-%d %H:%M:%S")
@@ -123,7 +155,7 @@ ipad_types(os, wanted).each do |type|
       # Screenshots from a process of their own, on the wall clock since
       # launch, so a slow log query never delays one (a Ruby thread did
       # wait for them); each file names the second it was taken at.
-      script = SHOT_SECONDS.each_cons(2).inject("sleep #{SHOT_SECONDS.first}; shot #{SHOT_SECONDS.first}") do |text, (a, b)|
+      script = shot_seconds.each_cons(2).inject("sleep #{shot_seconds.first}; shot #{shot_seconds.first}") do |text, (a, b)|
         "#{text}; sleep #{b - a}; shot #{b}"
       end
       shooter = Process.spawn("/bin/sh", "-c",
@@ -164,13 +196,28 @@ ipad_types(os, wanted).each do |type|
       exited = lines.grep(/exited with status (\d+)/).last
       game_shots = lines.count { |line| line.include?("Dot Popper: screenshot") }
       bugs = lines.grep(/\[BUG\]/)
-      ok = if mode == :idle
-        !crashed && bugs.empty? && exited.nil? && alive
+      tilts = lines.grep(/Dot Popper: tilt from /)
+      perf = lines.grep(/Dot Popper: \d+ frames a second/)
+      sensor = lines.map { |line| line[/kit probe: Sensor\.sensor\?\(:accelerometer\) (.*)\z/, 1] }.compact.first
+      # What the game logged after its first Game Over, but for the host's
+      # exit line: proof that it went on past it.
+      after_game_over = tilts.empty? ? [] : lines.select { |line| line > tilts.first && !line.include?("exited with status") }
+      clean = !crashed && bugs.empty?
+      finished = !exited.nil? && exited.end_with?("status 0") && game_shots == GAME_SHOTS.fetch(mode)
+      ok = case mode
+      when :idle
+        clean && exited.nil? && alive
+      when :autoplay
+        clean && finished && !tilts.empty? && tilts.all? { |line| line.end_with?("Dot Popper: tilt from none") } &&
+          !perf.empty? && !after_game_over.empty?
       else
-        !crashed && bugs.empty? && !exited.nil? && exited.end_with?("status 0") && game_shots == 4
+        clean && finished && !tilts.empty? &&
+          tilts.all? { |line| line.include?("Dot Popper: tilt from a fake reading (DOT_POPPER_FAKE_TILT=") }
       end
       results["#{name} ##{attempt} #{mode}"] = { "pid" => pid, "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
-        "crash_report" => crashed, "bug_lines" => bugs, "ok" => ok }
+        "crash_report" => crashed, "bug_lines" => bugs, "sensor_accelerometer" => sensor,
+        "tilt" => tilts.map { |line| "#{message(line)} (#{seconds_after(started, line)} s after launch)" },
+        "lines_after_game_over" => after_game_over.size, "perf" => perf.map { |line| message(line) }, "ok" => ok }
     end
   ensure
     system("xcrun", "simctl", "shutdown", udid, out: File::NULL, err: File::NULL)
