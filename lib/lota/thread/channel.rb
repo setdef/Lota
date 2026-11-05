@@ -127,7 +127,7 @@ module Lota
       def read?(id)
         raise TypeError, "wrong argument type #{id.class} (expected Integer)" unless id.is_a?(Numeric)
 
-        @native.read?(id.to_f)
+        @native.read?(id)
       end
 
       # Empties the queue, matching Channel:clear; a thread waiting in
@@ -182,7 +182,7 @@ module Lota
       # The timeout LÖVE reads when it is a number (lua_isnumber), as a
       # Float, or +nil+.
       private def seconds(timeout)
-        timeout.to_f if timeout.is_a?(Numeric)
+        Float(timeout) if timeout.is_a?(Numeric)
       end
     end
 

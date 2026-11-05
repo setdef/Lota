@@ -72,6 +72,10 @@ Bindings live in `ext/lota/native`. Each one includes `native/binding.hpp`, neve
 
 Graphics and window calls run only on the process's main thread, as LÖVE keeps `love.graphics` and `love.window` there, and raise `ThreadError` anywhere else. Ruby's garbage collector can free a wrapper on any thread, so a wrapper of a graphics or window object freed off the main thread hands its reference to a release queue, which the main thread drains with `Lota::Native.drain_release_queue` (and at exit). Every class bound from those two modules belongs in `ReleasedOnMainThread` in `binding.hpp`.
 
+### Ractors
+
+`Lota::Thread` runs each thread in a Ractor, so `Init_native` declares the extension Ractor-safe, and `define_module` in `binding.hpp` defines each LÖVE module's bindings, hand-written and generated alike, safe for every Ractor or for the main one alone, as `ractor_safe_module` lists them; a method of a module on the list's other side raises `Ractor::UnsafeError` in another Ractor. A module joins the list once nothing it binds keeps state two Ractors could change at once. Each Ractor keeps its own wrappers, in `WrapperIdentities`' Ractor-local map. A Ruby value the engine keeps alive is a `ruby::Root`, or another `ruby::Marked`, which one hidden object marks for the collector, since `rb_gc_register_address` changes one unlocked list. Code that waits releases the GVL (`Signal::wait` in `native/thread.hpp`), wakes for Ruby's interrupts, and never holds a mutex while Ruby runs, because the collector waits for every Ractor that holds its GVL. A class whose objects guard themselves, every `love::Data` among them, is `Shareable` in `binding.hpp`, and its wrappers are frozen as they are made. A test that makes a Ractor runs in a Ruby of its own (`NativeHelper#ruby_of_its_own`), because a process that made one no longer finds, in ObjectSpace, the objects other tests count.
+
 ## Packaging
 
 `bundle exec rake package:native` builds the precompiled gem for the platform it runs on, `pkg/lota-<version>-arm64-darwin.gem`, or on Linux `x86_64-linux-gnu` or `aarch64-linux-gnu`, from `rake compile`'s bundle (`tasks/native_gem.rb`).

@@ -20,7 +20,9 @@ module Lota
     # Use it to check what a canvas holds, to compare an image with the
     # one you expected, to inspect a decoded file, or to draw pixels of
     # your own. It is a Data, so it includes Lota::Data, whose #size and
-    # #string give its bytes.
+    # #string give its bytes. Like every Data it is frozen, though its
+    # pixels change, and Ractors share it, so a Lota::Thread::Channel
+    # carries it to another thread as itself.
     #
     # Its pixels read and write as LÖVE runs ImageData's methods, in the
     # LuaJIT code that takes over from their C++

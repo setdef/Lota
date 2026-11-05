@@ -537,9 +537,9 @@ module Lota
 
         def type_of?: (String name) -> bool
 
-        def push: (::Object value) -> Integer
+        def push: (::Object? value) -> Integer
 
-        def supply: (::Object value, ?Float? timeout) -> bool
+        def supply: (::Object? value, ?Float? timeout) -> bool
 
         def pop: () -> ::Object?
 
@@ -549,7 +549,7 @@ module Lota
 
         def count: () -> Integer
 
-        def read?: (Float id) -> bool
+        def read?: (Numeric id) -> bool
 
         def clear: () -> nil
 

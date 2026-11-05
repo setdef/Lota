@@ -93,7 +93,8 @@ module Lota
     def self.share(value, position, name, expected)
       return value if Ractor.shareable?(value)
 
-      if value.is_a?(Lota::Object)
+      case value
+      when Lota::Object
         raise ArgumentError, "bad argument ##{position} to '#{name}' (#{value.object_type} stays in the thread that made it)"
       end
 

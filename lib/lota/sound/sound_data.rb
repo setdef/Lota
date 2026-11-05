@@ -17,7 +17,9 @@ module Lota
     # 1, however many bits it is stored in.
     #
     # LÖVE's SoundData is a Data, so it includes Lota::Data, with Data's
-    # methods: its #size, its bytes as a #string, and more.
+    # methods: its #size, its bytes as a #string, and more. Like every Data
+    # it is frozen, though its samples change, and Ractors share it, so a
+    # Lota::Thread::Channel carries it to another thread as itself.
     #
     # === Example
     #

@@ -162,22 +162,32 @@ module Lota
       # The Ractor a thread's code runs in. :nodoc:
       module Body
         # Starts the Ractor that runs +thread+ with +arguments+, which are
-        # shareable. Ruby warns once, as the first Ractor starts, that
-        # Ractors are experimental; the warning is turned off for that
-        # moment alone, and only on the main Ractor, which makes the
-        # first. :nodoc:
+        # shareable. :nodoc:
         def self.start(thread, arguments)
           started = false
-          if Ractor.main?
-            experimental = Warning[:experimental]
-            Warning[:experimental] = false
-          end
-          ractor(thread, arguments)
+          quietly { ractor(thread, arguments) }
           started = true
         ensure
-          Warning[:experimental] = experimental if Ractor.main?
           # A Ractor that never started never ends its run.
           thread.native.finish unless started
+        end
+
+        # Runs the block with Ruby's warnings of experimental features off,
+        # on the main Ractor, and then as they were. Ruby warns once, as
+        # the main Ractor makes a program's first Ractor, that Ractors are
+        # experimental (Ruby 4.0.7, ractor.rb:229-239); a LÖVE game's
+        # threads print nothing of the kind. Another Ractor makes no first
+        # one, and may not change the setting. :nodoc:
+        private_class_method def self.quietly
+          return yield unless Ractor.main?
+
+          experimental = Warning[:experimental]
+          Warning[:experimental] = false
+          begin
+            yield
+          ensure
+            Warning[:experimental] = experimental
+          end
         end
 
         # The Ractor itself. :nodoc:

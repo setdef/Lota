@@ -19,7 +19,9 @@ module Lota
     #
     # Use it to decode an image you read yourself, or one you built in
     # memory. It is a Data, so it includes Lota::Data, whose #size and
-    # #string give its bytes back.
+    # #string give its bytes back. Like every Data it is frozen, and
+    # Ractors share it, so a Lota::Thread::Channel carries it to another
+    # thread as itself, as LÖVE's channels carry its objects.
     #
     # === Examples
     #
