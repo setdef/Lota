@@ -19,6 +19,10 @@ module Lota
 
     @func: _Frame?
 
+    @set_modal_draw_func: bool
+
+    private def set_default_modal_draw_callback: (_Frame? frame) -> void
+
     attr_reader directory: String
 
     attr_reader settings: Settings
