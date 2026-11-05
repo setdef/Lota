@@ -50,12 +50,13 @@ module CppGates
     # source every platform compiles: Objective-C and Objective-C++ on
     # macOS, a source named for Linux (<tt>dialogs_linux.cpp</tt>) on
     # Linux, one named for Windows (<tt>preload_windows.cpp</tt>) on
-    # Windows, and one named for iOS (<tt>native_ios.c</tt>) for iOS,
-    # whose build no gate runs, so clang-tidy never reads it.
+    # Windows, and one named for iOS (<tt>native_ios.c</tt>) or Android
+    # (<tt>native_android.c</tt>) for that phone, whose build no gate runs,
+    # so clang-tidy never reads it.
     def self.platform_of(path)
       return "macos" if %w[.m .mm].include?(File.extname(path))
 
-      File.basename(path, ".*")[/_(linux|windows|ios)\z/, 1]
+      File.basename(path, ".*")[/_(linux|windows|ios|android)\z/, 1]
     end
 
     # Every source and header, as absolute paths.
