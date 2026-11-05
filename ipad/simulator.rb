@@ -14,8 +14,9 @@
 # DOT_POPPER_FAKE_TILT=0.6,0 (a steady sideways tilt, so the Game Over
 # pile rolls to one side), shot every 3 s around its Game Over, and one
 # idle launch. The Simulator has no accelerometer, so every Game Over of
-# the plain autoplay launches must say "tilt from none", and the game
-# must go on after it. Plain Ruby 2.6, so the runner's own /usr/bin/ruby
+# the plain autoplay launches must name no accelerometer ("tilt from
+# none" in the launch without joysticks), and the game must go on after
+# it. Plain Ruby 2.6, so the runner's own /usr/bin/ruby
 # runs it with nothing installed.
 #
 #   ruby simulator.rb APP_BUNDLE IDENTIFIER EXECUTABLE OUT [DEVICE_TYPE_NAME ...]
@@ -36,12 +37,12 @@ AUTOPLAY_ENV = {
   "DOT_POPPER_KIT_PROBE" => "1",
   "DOT_POPPER_PERF" => "1"
 }.freeze
-# The autoplay bot reaches its first Game Over 35 to 40 s into a launch
-# with seed 7 and leaves it a few seconds later: in the tilted launch the
-# Simulator's screenshots come every 3 s from 21 s, and the game's own
-# every 2 s from 28 s of game time.
+# The autoplay bot reaches its first Game Over 43 to 48 s into a launch
+# with seed 7 (run 42051535786) and leaves it a few seconds later: in the
+# tilted launch the Simulator's screenshots come every 3 s from 21 s, and
+# the game's own every 2 s from 36 s of game time.
 TILT_SHOT_SECONDS = (21..57).step(3).to_a.freeze
-TILT_GAME_SHOTS = (28..50).step(2).to_a.freeze
+TILT_GAME_SHOTS = (36..56).step(2).to_a.freeze
 TILT_ENV = AUTOPLAY_ENV.reject { |key, _| key == "DOT_POPPER_PERF" }
   .merge("DOT_POPPER_SHOTS" => TILT_GAME_SHOTS.join(","), "DOT_POPPER_FAKE_TILT" => "0.6,0").freeze
 # A launch nobody plays, left on the title screen for IDLE_SECONDS and then
@@ -51,12 +52,18 @@ IDLE_SECONDS = 65
 SHOT_SECONDS = [6, 15, 30, 45, 58].freeze
 DEADLINE = 240
 REPEATS = Integer(ENV.fetch("KIT_REPEATS", "3"))
-# Each iPad runs REPEATS autoplay launches, one tilted one, then one idle
-# launch.
-MODES = ([:autoplay] * REPEATS + [:tilt, :idle]).freeze
-GAME_ENV = { autoplay: AUTOPLAY_ENV, tilt: TILT_ENV, idle: IDLE_ENV }.freeze
-SHOTS = { autoplay: SHOT_SECONDS, tilt: TILT_SHOT_SECONDS, idle: SHOT_SECONDS }.freeze
-GAME_SHOTS = { autoplay: 4, tilt: TILT_GAME_SHOTS.size, idle: 0 }.freeze
+# The Simulator shows the app one joystick, which Dot Popper takes for a
+# gamepad, so its Game Over says "tilt from the gamepad's right stick".
+# The last autoplay launch asks SDL (its hints, read from the
+# environment) to leave out GameController and HIDAPI devices, so that
+# Game Over has no tilt at all and must say "tilt from none".
+PADLESS_ENV = AUTOPLAY_ENV.merge("SDL_JOYSTICK_MFI" => "0", "SDL_JOYSTICK_HIDAPI" => "0").freeze
+# Each iPad runs REPEATS autoplay launches, the last without joysticks,
+# one tilted one, then one idle launch.
+MODES = ([:autoplay] * (REPEATS - 1) + [:padless, :tilt, :idle]).freeze
+GAME_ENV = { autoplay: AUTOPLAY_ENV, padless: PADLESS_ENV, tilt: TILT_ENV, idle: IDLE_ENV }.freeze
+SHOTS = { autoplay: SHOT_SECONDS, padless: SHOT_SECONDS, tilt: TILT_SHOT_SECONDS, idle: SHOT_SECONDS }.freeze
+GAME_SHOTS = { autoplay: 4, padless: 4, tilt: TILT_GAME_SHOTS.size, idle: 0 }.freeze
 
 def capture(*command)
   output, status = Open3.capture2(*command)
@@ -199,6 +206,10 @@ ipad_types(os, wanted).each do |type|
       tilts = lines.grep(/Dot Popper: tilt from /)
       perf = lines.grep(/Dot Popper: \d+ frames a second/)
       sensor = lines.map { |line| line[/kit probe: Sensor\.sensor\?\(:accelerometer\) (.*)\z/, 1] }.compact.first
+      sticks = lines.map { |line| line[/kit probe: Joystick\.joysticks (.*)\z/, 1] }.compact.first
+      stick_count = lines.map { |line| line[/kit probe: frame 60,.*Joystick\.joystick_count (\d+)/, 1] }.compact.first
+      # With no accelerometer, the tilt is the stick's, or nothing.
+      expected_tilt = stick_count == "0" ? "Dot Popper: tilt from none" : "Dot Popper: tilt from the gamepad's right stick"
       # What the game logged after its first Game Over, but for the host's
       # exit line: proof that it went on past it.
       after_game_over = tilts.empty? ? [] : lines.select { |line| line > tilts.first && !line.include?("exited with status") }
@@ -207,15 +218,16 @@ ipad_types(os, wanted).each do |type|
       ok = case mode
       when :idle
         clean && exited.nil? && alive
-      when :autoplay
-        clean && finished && !tilts.empty? && tilts.all? { |line| line.end_with?("Dot Popper: tilt from none") } &&
-          !perf.empty? && !after_game_over.empty?
+      when :autoplay, :padless
+        clean && finished && !stick_count.nil? && (mode == :autoplay || stick_count == "0") && sensor == "false" &&
+          !tilts.empty? && tilts.all? { |line| line.end_with?(expected_tilt) } && !perf.empty? && !after_game_over.empty?
       else
         clean && finished && !tilts.empty? &&
           tilts.all? { |line| line.include?("Dot Popper: tilt from a fake reading (DOT_POPPER_FAKE_TILT=") }
       end
       results["#{name} ##{attempt} #{mode}"] = { "pid" => pid, "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
         "crash_report" => crashed, "bug_lines" => bugs, "sensor_accelerometer" => sensor,
+        "joystick_count" => stick_count, "joysticks" => sticks,
         "tilt" => tilts.map { |line| "#{message(line)} (#{seconds_after(started, line)} s after launch)" },
         "lines_after_game_over" => after_game_over.size, "perf" => perf.map { |line| message(line) }, "ok" => ok }
     end

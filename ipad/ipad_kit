@@ -33,6 +33,15 @@ if ENV["DOT_POPPER_KIT_PROBE"] == "1"
             "#{e.class}: #{e.message}"
           end
           puts "kit probe: Sensor.sensor?(:accelerometer) #{accelerometer}"
+          sticks = begin
+            Lota::Joystick.joysticks.map do |stick|
+              "#{stick.name.inspect} (gamepad? #{stick.gamepad?}, type #{stick.joystick_type.inspect}, " \
+                "gamepad_type #{(stick.gamepad_type if stick.gamepad?).inspect}, guid #{stick.guid})"
+            end.join("; ")
+          rescue StandardError => e
+            "#{e.class}: #{e.message}"
+          end
+          puts "kit probe: Joystick.joysticks #{sticks.empty? ? 'none' : sticks}"
         end
         puts "kit probe: frame #{frames}, Window.fullscreen #{Lota::Window.fullscreen.inspect}, " \
           "safe_area #{Lota::Window.safe_area.inspect}, Graphics.dimensions #{Lota::Graphics.dimensions.inspect}, " \
