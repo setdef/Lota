@@ -271,11 +271,15 @@ class RulesTest < Minitest::Test
   end
 
   # ADR 001 names its rule 7 setters by Lua name alone, and setFilter is
-  # also a writer on Font, Texture, and Video.
+  # also a writer on Font, Texture, and Video. setPlaybackDevice returns
+  # false and the engine's message from a catch block (wrap_Audio.cpp:
+  # 609-628), which the parser reads since it learned try blocks, so rule
+  # 7 covers it, and ADR 001's list, which only the maintainer changes,
+  # does not name it yet.
   def test_the_report_checks_adr_001s_rule_7_list
     missing, returning_nothing, unread = Bindings::Report.new(survey).rule_7_difference
 
-    assert_empty missing
+    assert_equal %w[love.audio.setPlaybackDevice], missing
     assert_equal %w[Font:setFilter Texture:setFilter Video:setFilter], returning_nothing.sort
     assert_includes unread, "love.window.setMode"
   end

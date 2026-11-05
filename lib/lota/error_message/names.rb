@@ -758,7 +758,7 @@ Lota::ErrorMessage::NAMES = {
   "love.audio.setMixWithSystem" => "Lota::Audio.set_mix_with_system",
   "love.audio.setOrientation" => "Lota::Audio.orientation=",
   "love.audio.setOutputSpatialization" => "Lota::Audio.set_output_spatialization",
-  "love.audio.setPlaybackDevice" => "Lota::Audio.playback_device=",
+  "love.audio.setPlaybackDevice" => "Lota::Audio.set_playback_device",
   "love.audio.setPosition" => "Lota::Audio.position=",
   "love.audio.setVelocity" => "Lota::Audio.velocity=",
   "love.audio.setVolume" => "Lota::Audio.volume=",

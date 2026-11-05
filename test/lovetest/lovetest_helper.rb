@@ -114,9 +114,16 @@ module Lovetest
     # transformation as soon as love.update returns, to draw the frame
     # (vendor/love/src/modules/love/callbacks.lua:192-196). So what a test
     # translated or scaled ends with it, here as in Lövetest, and the next
-    # test starts at the origin, whether it is Lövetest's or not.
+    # test starts at the origin, whether it is Lövetest's or not. Lövetest
+    # also collects garbage after each test, "to save having to :release()
+    # anything we made in the last test" (classes/TestSuite.lua:109-110),
+    # so a File a test left open, as love.test.filesystem.openFile leaves
+    # four, is closed before the next test sets an identity, which LÖVE
+    # refuses while a file in the save directory is open
+    # (physfs/Filesystem.cpp:189-203); Ruby's collector does the same here.
     def teardown
       Lota::Graphics.origin if Lota.graphics
+      GC.start
     end
 
     # The types whose tests Lövetest names by the type, capitalized as it

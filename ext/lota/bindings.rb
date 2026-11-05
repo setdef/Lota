@@ -88,6 +88,57 @@ generate "love.audio.getVelocity"
 generate "love.audio.setDopplerScale"
 generate "love.audio.getDopplerScale"
 generate "love.audio.setDistanceModel"
+generate "love.audio.newQueueableSource"
+generate "love.audio.getMaxSceneEffects"
+generate "love.audio.getMaxSourceEffects"
+generate "love.audio.isEffectsSupported"
+generate "love.audio.setMixWithSystem"
+generate "love.audio.getPlaybackDevice"
+generate "love.audio.setPlaybackDevice"
+generate "love.audio.setOutputSpatialization"
+generate "love.audio.getOutputSpatialization"
+bound_by_hand "love.audio.getOutputSpatializationFilters",
+  reason: "fills a table in a loop, which the generator does not port; Lota returns the names as an Array"
+bound_by_hand "love.audio.getPlaybackDevices",
+  reason: "fills a table in a loop, as love.audio.getOutputSpatializationFilters"
+bound_by_hand "love.audio.getRecordingDevices",
+  reason: "fills a table with the devices in a loop; Lota returns them as an Array"
+bound_by_hand "love.audio.getActiveEffects",
+  reason: "fills a table in a loop, as love.audio.getOutputSpatializationFilters"
+bound_by_hand "love.audio.pause",
+  reason: "returns the Sources it paused as a table it fills in a loop, and reads a list of Sources as " \
+    "love.audio.play does; Lota binds the forms with no Source and with one"
+bound_by_hand "love.audio.setEffect",
+  reason: "reads its settings from a table with lua_next, each by the type its parameter has, which the " \
+    "generator does not port; Lota reads them as the pairs Lota::Audio.set_effect makes of its keywords"
+bound_by_hand "love.audio.getEffect",
+  reason: "fills in a table it is given or makes, which the generator does not port; Lota returns the " \
+    "settings as pairs, which Lota::Audio.effect makes a frozen record"
+bound_by_hand "Source:setFilter",
+  reason: "reads its settings through setFilterReadFilter, a helper the parser does not follow, as " \
+    "love.audio.setEffect reads its own"
+bound_by_hand "Source:getFilter",
+  reason: "fills in a table through getFilterWriteFilter, as love.audio.getEffect fills its own"
+bound_by_hand "Source:setEffect",
+  reason: "reads a boolean or a filter's settings, by its Lua type, through setFilterReadFilter"
+bound_by_hand "Source:getEffect",
+  reason: "returns the filter's settings through getFilterWriteFilter after whether the effect is set"
+bound_by_hand "Source:getActiveEffects",
+  reason: "fills a table in a loop, as love.audio.getActiveEffects"
+bound_by_hand "Source:queue",
+  reason: "reads a SoundData or a light userdata, and its offset and length by how many arguments it is " \
+    "given (lua_gettop); Lota binds the SoundData form, whose arguments Lota::Audio::Source#queue counts"
+bound_by_hand "RecordingDevice:start",
+  reason: "casts its channel count to int twice with C-style casts ((int) (int) luaL_optinteger), which " \
+    "clang-tidy's modernize-avoid-c-style-cast refuses"
+generate "RecordingDevice:stop"
+generate "RecordingDevice:getData"
+generate "RecordingDevice:getSampleCount"
+generate "RecordingDevice:getSampleRate"
+generate "RecordingDevice:getBitDepth"
+generate "RecordingDevice:getChannelCount"
+generate "RecordingDevice:getName"
+generate "RecordingDevice:isRecording"
 
 # love.event
 generate "love.event.pump"
@@ -127,14 +178,48 @@ bound_by_hand "love.filesystem.getInfo",
   reason: "reads its file type at a position it computes (startidx), and fills in a table it is given or makes, " \
     "which the generator does not port; Lota returns the fields, which Lota::Filesystem.info makes a frozen Data"
 bound_by_hand "love.filesystem.read",
-  reason: "reads its arguments at positions it computes (startidx), and catches the engine's exception with " \
-    "try, which the parser does not read; Lota binds the form that reads into a string"
+  reason: "reads its arguments at positions it computes (startidx); Lota binds the form that reads into a " \
+    "string"
 bound_by_hand "love.filesystem.write",
   reason: "returns w_write_or_append, a helper the parser does not follow, which reads a string or any Data " \
-    "(luax_istype) and catches the engine's exception with try; Lota binds the two forms as two functions"
+    "(luax_istype); Lota binds the two forms as two functions"
 bound_by_hand "love.filesystem.lines",
   reason: "returns an iterator, a C closure over the open File (w_File_lines_i), which the generator does " \
     "not port; Lota binds the iterator as a class whose next_line Lota::Filesystem.lines enumerates"
+generate "love.filesystem.getSource"
+generate "love.filesystem.mountFullPath"
+generate "love.filesystem.mountCommonPath"
+generate "love.filesystem.unmountFullPath"
+generate "love.filesystem.unmountCommonPath"
+generate "love.filesystem.getFullCommonPath"
+generate "love.filesystem.getWorkingDirectory"
+generate "love.filesystem.getUserDirectory"
+generate "love.filesystem.getAppdataDirectory"
+generate "love.filesystem.getSourceBaseDirectory"
+generate "love.filesystem.getRealDirectory"
+generate "love.filesystem.canonicalizeRealPath"
+generate "love.filesystem.getExecutablePath"
+generate "love.filesystem.exists"
+generate "love.filesystem.setSymlinksEnabled"
+generate "love.filesystem.areSymlinksEnabled"
+bound_by_hand "love.filesystem.getRequirePath",
+  reason: "joins the path's elements with semicolons in a loop, which the generator does not port"
+bound_by_hand "love.filesystem.setRequirePath",
+  reason: "splits its argument at semicolons in a loop (std::getline), which the generator does not port"
+bound_by_hand "love.filesystem.getCRequirePath",
+  reason: "joins the path's elements in a loop, as love.filesystem.getRequirePath"
+bound_by_hand "love.filesystem.setCRequirePath",
+  reason: "splits its argument in a loop, as love.filesystem.setRequirePath"
+bound_by_hand "love.filesystem.getDirectoryItems",
+  reason: "fills a table in a loop, which the generator does not port; Lota returns the names as an Array"
+bound_by_hand "love.filesystem.mount",
+  reason: "reads its arguments at positions it computes (startidx), as a Data, a FileData, a NativeFile, or " \
+    "a path; Lota binds the path and Data forms, which Lota::Filesystem.mount chooses between"
+bound_by_hand "love.filesystem.unmount",
+  reason: "reads its argument as a Data or a string (luax_istype); Lota binds each form, which " \
+    "Lota::Filesystem.unmount chooses between"
+bound_by_hand "love.filesystem.append",
+  reason: "returns w_write_or_append, as love.filesystem.write; Lota binds the two forms as two functions"
 
 # love.graphics
 generate "love.graphics.isActive"
@@ -669,6 +754,11 @@ generate "love.mouse.isGrabbed"
 generate "love.mouse.setRelativeMode"
 generate "love.mouse.getRelativeMode"
 generate "love.mouse.isCursorSupported"
+generate "love.mouse.getCursor"
+bound_by_hand "love.mouse.newCursor",
+  reason: "reads one image or a table of them, each converted to an ImageData through luax_convobj, and " \
+    "releases them in luax_catchexcept's cleanup; Lota::Mouse::Cursor.new makes the ImageData and binds " \
+    "the form of an Array of them"
 bound_by_hand "Cursor:getType",
   reason: "Lota::Native defines Cursor under its Mouse module, and the generator defines each class it binds " \
     "directly under Lota::Native"
@@ -1274,11 +1364,35 @@ bound_by_hand "Font:getWrap",
 bound_by_hand "Font:setFallbacks",
   reason: "reads every argument after the first as a Font, at positions it computes; Lota binds an Array " \
     "of them"
-bound_by_hand "love.filesystem.openFile",
-  reason: "returns luax_ioError's nil and message from a catch block, which the generator does not port; " \
-    "Lota returns the File, or the nil and message, as one Array (rule 4)"
+generate "love.filesystem.openFile"
 generate "File:close"
+bound_by_hand "File:getSize",
+  reason: "compares the size with the largest integer a double holds exactly, written as a number " \
+    "(0x20000000000000LL), which clang-tidy's readability-magic-numbers refuses; Lota names it"
+generate "File:open"
+generate "File:isOpen"
+bound_by_hand "File:read",
+  reason: "reads its size at a position it computes (startidx), after a container type it reads only when " \
+    "given; Lota reads the container type as a parameter that may be nil"
+bound_by_hand "File:write",
+  reason: "reads its argument as a string or a Data (lua_isstring, luax_istype); Lota binds each form"
+bound_by_hand "File:lines",
+  reason: "returns an iterator, a C closure over the File (w_File_lines_i), as love.filesystem.lines; " \
+    "Lota binds the iterator's class, which reads from the File and restores its position"
+generate "File:flush"
+generate "File:isEOF"
+bound_by_hand "File:tell",
+  reason: "compares the position with the largest integer a double holds exactly, as File:getSize does"
+bound_by_hand "File:seek",
+  reason: "compares the position with 2^53 written as a number, as File:getSize does, and casts it to " \
+    "uint64 with a C-style cast, which clang-tidy's modernize-avoid-c-style-cast refuses"
+generate "File:setBuffer"
+generate "File:getBuffer"
+generate "File:getMode"
+generate "File:getFilename"
+generate "File:getExtension"
 generate "FileData:getFilename"
+generate "FileData:getExtension"
 bound_by_hand "love.graphics.newImageFont",
   reason: "converts its arguments to a Rasterizer through luax_convobj, reading the stack at the positions it " \
     "computes; Lota::Graphics::ImageFont.new converts the image to an ImageData and binds the Rasterizer " \

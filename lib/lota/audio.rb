@@ -5,6 +5,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "audio/effect"
+require_relative "audio/filter"
+require_relative "audio/queueable_source"
+require_relative "audio/recording_device"
 require_relative "audio/source"
 
 module Lota
@@ -225,6 +229,220 @@ module Lota
     #   Lota::Audio.distance_model # => :inverseclamped
     def self.distance_model
       Native::Audio.distance_model.to_sym
+    end
+
+    # Pauses Sources, matching love.audio.pause
+    # (src/modules/audio/wrap_Audio.cpp, w_pause).
+    #
+    # With no Source, it pauses every Source playing and returns them, as
+    # an Array where LÖVE returns a table, to play again later. With one,
+    # it pauses that Source and returns +nil+. LÖVE also takes several
+    # Sources, or a table of them, which Lota does not bind yet. Raises
+    # RuntimeError when the audio module is not open.
+    #
+    # === Examples
+    #
+    #   paused = Lota::Audio.pause
+    #   paused.each(&:play)
+    #   Lota::Audio.pause(@music) # => nil
+    def self.pause(source = nil)
+      return Native::Audio.pause_source(source.native) if source
+
+      Native::Audio.pause.map { |native| Source.from_native(native) }
+    end
+
+    # Makes, changes, or removes a named effect that Sources can play
+    # through, matching love.audio.setEffect
+    # (src/modules/audio/wrap_Audio.cpp, w_setEffect), and returns whether
+    # it could (ADR 001, rule 7), as with no effects on the system.
+    #
+    # [name] String name of the effect, which Source#set_effect takes.
+    # [settings] LÖVE's table, as keywords (rule 10): +type+, one of
+    #   <tt>:chorus</tt>, <tt>:compressor</tt>, <tt>:distortion</tt>,
+    #   <tt>:echo</tt>, <tt>:equalizer</tt>, <tt>:flanger</tt>,
+    #   <tt>:reverb</tt>, and <tt>:ringmodulator</tt>, +volume+, and the
+    #   settings of the type (Lota::Audio::Effect), each a number, a
+    #   boolean, or a waveform's Symbol. With no settings, or +false+, it
+    #   removes the effect.
+    #
+    # Raises RuntimeError with LÖVE's message for settings without a
+    # +type+, a setting the type does not have, or a setting of the wrong
+    # kind, and ArgumentError for a type or waveform LÖVE does not know.
+    #
+    # === Examples
+    #
+    #   Lota::Audio.set_effect("cave", type: :reverb, decaytime: 3) # => true
+    #   Lota::Audio.set_effect("cave", false) # => true
+    def self.set_effect(name, enabled = nil, **settings)
+      raise TypeError, "wrong argument type #{enabled.class} (expected false)" unless enabled.nil? || enabled == false
+
+      Native::Audio.set_effect(name, (enabled == false) ? nil : setting_pairs(settings))
+    end
+
+    # The settings of the effect +name+, matching love.audio.getEffect
+    # (src/modules/audio/wrap_Audio.cpp, w_getEffect), as a frozen
+    # Lota::Audio::Effect, or +nil+ when there is none. LÖVE also fills in
+    # a table the caller passes; an Effect is frozen, so Lota makes a new
+    # one each time and takes no table (rule 10).
+    #
+    # === Example
+    #
+    #   Lota::Audio.effect("cave").type # => :reverb
+    def self.effect(name)
+      pairs = Native::Audio.effect(name)
+      pairs && Effect.of(pairs)
+    end
+
+    # The names of the effects set, as an Array, matching
+    # love.audio.getActiveEffects (src/modules/audio/wrap_Audio.cpp,
+    # w_getActiveEffects).
+    #
+    # === Example
+    #
+    #   Lota::Audio.active_effects # => ["cave"]
+    def self.active_effects
+      Native::Audio.active_effects
+    end
+
+    # How many effects can be set at once, matching
+    # love.audio.getMaxSceneEffects (src/modules/audio/wrap_Audio.cpp,
+    # w_getMaxSceneEffects).
+    #
+    # === Example
+    #
+    #   Lota::Audio.max_scene_effects # => 64
+    def self.max_scene_effects
+      Native::Audio.max_scene_effects
+    end
+
+    # How many effects one Source can play through at once, matching
+    # love.audio.getMaxSourceEffects (src/modules/audio/wrap_Audio.cpp,
+    # w_getMaxSourceEffects).
+    #
+    # === Example
+    #
+    #   Lota::Audio.max_source_effects # => 2
+    def self.max_source_effects
+      Native::Audio.max_source_effects
+    end
+
+    # Whether the system plays effects, matching
+    # love.audio.isEffectsSupported (src/modules/audio/wrap_Audio.cpp,
+    # w_isEffectsSupported).
+    #
+    # === Example
+    #
+    #   Lota::Audio.effects_supported? # => true
+    def self.effects_supported?
+      Native::Audio.effects_supported?
+    end
+
+    # Sets whether the game's sound mixes with other apps' sound, matching
+    # love.audio.setMixWithSystem (src/modules/audio/wrap_Audio.cpp,
+    # w_setMixWithSystem), and returns whether it could (ADR 001, rule 7):
+    # only iOS and Android can, so on the desktop it returns +false+.
+    # Lota::Boot calls it with <tt>t.audio.mixwithsystem</tt> before the
+    # audio module opens, as LÖVE's boot does.
+    #
+    # === Example
+    #
+    #   Lota::Audio.set_mix_with_system(true) # => false on the desktop
+    def self.set_mix_with_system(mix)
+      Native::Audio.set_mix_with_system(mix)
+    end
+
+    # The name of the device the game plays through, matching
+    # love.audio.getPlaybackDevice (src/modules/audio/wrap_Audio.cpp,
+    # w_getPlaybackDevice).
+    #
+    # === Example
+    #
+    #   Lota::Audio.playback_device # => "MacBook Pro Speakers"
+    def self.playback_device
+      Native::Audio.playback_device
+    end
+
+    # The names of the devices the game could play through, as an Array,
+    # matching love.audio.getPlaybackDevices
+    # (src/modules/audio/wrap_Audio.cpp, w_getPlaybackDevices).
+    #
+    # === Example
+    #
+    #   Lota::Audio.playback_devices # => ["MacBook Pro Speakers"]
+    def self.playback_devices
+      Native::Audio.playback_devices
+    end
+
+    # Plays through the device named +name+, or the system's default
+    # when +nil+ or left out, matching love.audio.setPlaybackDevice
+    # (src/modules/audio/wrap_Audio.cpp, w_setPlaybackDevice), and returns
+    # an Array (rules 4 and 7): <tt>[true]</tt>, or +false+ and LÖVE's
+    # message when it could not.
+    #
+    # === Example
+    #
+    #   Lota::Audio.set_playback_device("Headphones") # => [true]
+    def self.set_playback_device(name = nil)
+      Native::Audio.set_playback_device(name)
+    end
+
+    # The recording devices, such as microphones, as an Array of
+    # Lota::Audio::RecordingDevice, matching love.audio.getRecordingDevices
+    # (src/modules/audio/wrap_Audio.cpp, w_getRecordingDevices).
+    #
+    # === Example
+    #
+    #   Lota::Audio.recording_devices.map(&:name) # => ["MacBook Pro Microphone"]
+    def self.recording_devices
+      Native::Audio.recording_devices.map { |native| RecordingDevice.from_native(native) }
+    end
+
+    # Turns on or off playing through headphones' spatial filter, matching
+    # love.audio.setOutputSpatialization
+    # (src/modules/audio/wrap_Audio.cpp, w_setOutputSpatialization), and
+    # returns whether it could (ADR 001, rule 7).
+    #
+    # [enable] Whether to.
+    # [filter] String name of one of output_spatialization_filters, or
+    #   the system's choice when +nil+ or left out.
+    #
+    # === Example
+    #
+    #   Lota::Audio.set_output_spatialization(true) # => true
+    def self.set_output_spatialization(enable, filter = nil)
+      Native::Audio.set_output_spatialization(enable, filter)
+    end
+
+    # Whether the game plays through a spatial filter, and its name or
+    # +nil+, as an Array (rule 4), matching
+    # love.audio.getOutputSpatialization
+    # (src/modules/audio/wrap_Audio.cpp, w_getOutputSpatialization).
+    #
+    # === Example
+    #
+    #   Lota::Audio.output_spatialization # => [false, nil]
+    def self.output_spatialization
+      Native::Audio.output_spatialization
+    end
+
+    # The names of the spatial filters the system has, as an Array,
+    # matching love.audio.getOutputSpatializationFilters
+    # (src/modules/audio/wrap_Audio.cpp, w_getOutputSpatializationFilters).
+    #
+    # === Example
+    #
+    #   Lota::Audio.output_spatialization_filters # => ["Built-In HRTF"]
+    def self.output_spatialization_filters
+      Native::Audio.output_spatialization_filters
+    end
+
+    # The [name, value] pairs the engine reads an effect's or a filter's
+    # keywords as, each Symbol value a name, or +nil+ for none, as LÖVE
+    # reads no table. :nodoc:
+    def self.setting_pairs(settings)
+      return nil if settings.empty?
+
+      settings.map { |name, value| [name.name, value.is_a?(Symbol) ? value.name : value] }
     end
   end
 end

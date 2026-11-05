@@ -136,6 +136,11 @@ module Lota
       # Whether the window has no border; +false+ by default.
       attr_accessor :borderless
 
+      # The window's icon: a String name of an image file in the game's
+      # folder, or anything else Lota::Image::ImageData.new takes, or
+      # +nil+ (the default) for the system's own.
+      attr_accessor :icon
+
       # Whether the player can resize the window; +false+ by default.
       attr_accessor :resizable
 

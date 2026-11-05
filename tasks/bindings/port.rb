@@ -124,6 +124,8 @@ object:,
 "luax_checkstring" => :string,
 "lua_tostring" => :c_str,
 }.freeze
+    # A C++ null pointer, as an optional read's default.
+    NULL_POINTER = /\A(?:nullptr|NULL|0)\z/
 
     attr_reader :function, :native_name, :parameters, :self_parameter
 
@@ -389,6 +391,7 @@ object:,
         case node.kind
         when :block, :catch then kept.concat(prune(node.body))
         when :if then kept.concat(prune_if(node))
+        when :try then kept << node.with(body: prune(node.body), alternative: prune(node.alternative))
         else kept << node
         end
         break kept if ends?(kept.last)
@@ -653,6 +656,7 @@ line: node.line,
       when :expression then emit_expression(node.text)
       when :return then emit_return(node.text, last:)
       when :if then emit_if(node)
+      when :try then ["try {", *emit(node.body), "}", "catch (#{node.text}) {", *emit(node.alternative), "}"]
       else raise Unsupported, "#{@function.love_name} has a #{node.kind} in its bound form (line #{node.line})"
       end
     end
@@ -960,6 +964,11 @@ line: node.line,
       parameter = parameters.find { |candidate| candidate.index == index }
       value = if parameter.checked || (parameter.optional && call.base_name.match?(/check/))
         %(required(#{parameter.name}, "#{parameter.name}"))
+      elsif parameter.optional && STRING_READERS[call.base_name] == :c_str && NULL_POINTER.match?(call.arguments.last.strip)
+        # luaL_optstring(L, 1, nullptr) leaves a string not given a null
+        # pointer, as w_setPlaybackDevice reads its device, which no
+        # std::string can hold.
+        return "#{parameter.name}.has_value() ? #{parameter.name}->c_str() : nullptr"
       elsif parameter.optional && call.base_name.match?(/opt/)
         "#{parameter.name}.value_or(#{rewrite(call.arguments.last)})"
       elsif parameter.optional

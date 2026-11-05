@@ -7,6 +7,8 @@ module Lota
 
     def self.cursor=: (::Object? cursor) -> void
 
+    def self.cursor: () -> Cursor?
+
     def self.x: () -> Float
 
     def self.y: () -> Float

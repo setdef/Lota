@@ -8,19 +8,79 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.mouse tests (vendor/love/testing/tests/mouse.lua),
-# translated to Ruby by ADR 001's rules, for the functions Lota binds. Like
-# the graphics tests, they run in the test suite's own process
+# translated to Ruby by ADR 001's rules, all 18 of them. Like the graphics
+# tests, they run in the test suite's own process
 # (test/lovetest/mouse_test.rb) and under lota run (test/lovetest/game).
-# Those of setCursor and getCursor call a function Lota does not bind yet
-# (getCursor), so they wait for it. That of
-# getRelativeMode leaves relative mode on, which the suite's own process,
-# whose later tests move the mouse, cannot afford, so it waits until the
-# suite runs each module in a process of its own.
 class MouseTest < Lovetest::TestMethod
+  # Lövetest runs a module's tests in the order of their names
+  # (classes/TestModule.lua:68-71), so getCursor, which expects the
+  # default cursor, runs before setCursor, which leaves the hand, and
+  # getRelativeMode, which leaves relative mode on, before
+  # setRelativeMode, which turns it off at its end. Minitest runs them in
+  # random order, among the other modules' tests in the suite's own
+  # process, which move the mouse, so each test here ends with the default
+  # cursor and relative mode off, as getCursor finds them in Lövetest.
+  def teardown
+    if Lota.mouse
+      Lota::Mouse.cursor = nil
+      Lota::Mouse.set_relative_mode(false)
+    end
+    super
+  end
+
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
   #
+  # Translated to Ruby from love.test.mouse.getCursor,
+  # love.test.mouse.newCursor, and love.test.mouse.setCursor
+  # (vendor/love/testing/tests/mouse.lua:13-23 and 102-125): getCursor
+  # becomes cursor (rule 3), setCursor the writer cursor= (rule 5), whose
+  # call with no cursor is cursor = nil, isCursorSupported
+  # cursor_supported? (rule 8), and newCursor Cursor.new (rule 2), and
+  # test:skipTest Minitest's skip. Minitest refuses assert_equal with nil,
+  # so Lua's assertEquals(nil, ...) becomes assert_nil.
+  def test_get_cursor
+    cursor = Lota::Mouse.cursor
+    assert_nil(cursor, "check nil initially")
+    # try setting a cursor to check return if supported
+    if Lota::Mouse.cursor_supported?
+      Lota::Mouse.cursor = Lota::Mouse.system_cursor(:hand)
+      newcursor = Lota::Mouse.cursor
+      assert_object(newcursor)
+      Lota::Mouse.cursor = nil
+    end
+  end
+
+  def test_new_cursor
+    # new cursor might fail if not supported
+    skip("cursor not supported on this system") unless Lota::Mouse.cursor_supported?
+
+    cursor = Lota::Mouse::Cursor.new("resources/love.png", 0, 0)
+    assert_object(cursor)
+  end
+
+  def test_set_cursor
+    # cant set cursor if not supported
+    skip("cursor not supported on this system") unless Lota::Mouse.cursor_supported?
+
+    Lota::Mouse.cursor = nil
+    assert_nil(Lota::Mouse.cursor, "check reset")
+    Lota::Mouse.cursor = Lota::Mouse.system_cursor(:hand)
+    assert_object(Lota::Mouse.cursor)
+  end
+
+  # Translated to Ruby from love.test.mouse.getRelativeMode
+  # (mouse.lua:36-41): getRelativeMode becomes relative_mode (rule 3), and
+  # setRelativeMode stays set_relative_mode, as it returns whether it
+  # could (rule 7).
+  def test_get_relative_mode
+    enabled = Lota::Mouse.relative_mode
+    assert_equal(false, enabled, "check relative mode")
+    Lota::Mouse.set_relative_mode(true)
+    assert_equal(true, Lota::Mouse.relative_mode, "check enabling")
+  end
+
   # Translated to Ruby from love.test.mouse.getSystemCursor
   # (vendor/love/testing/tests/mouse.lua:45-50): getSystemCursor becomes
   # system_cursor (rule 3), with the cursor's name a symbol (rule 9). Lua's

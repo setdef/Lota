@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require "fileutils"
+
 # A home of a test run's own, for what LÖVE's filesystem saves and what
 # OpenAL Soft's wave file writer writes (test/alsoft.conf), so that a test
 # that saves starts with nothing saved and leaves nothing in yours. Each
@@ -43,13 +45,23 @@ module TestHome
     File.join(File.realpath(home), LINUX ? ".local/share" : "Library/Application Support")
   end
 
-  # Gives this process, and each program it starts, the home +home+. mise,
-  # which installs the tools the tests run (mise.toml), finds them under
-  # XDG_DATA_HOME too, unless told where they are, so on Linux it is told
-  # first, from where it would look now.
+  # The folders macOS makes in every home, which LÖVE's user common paths
+  # name (COMMONPATH_USER_DESKTOP and COMMONPATH_USER_DOCUMENTS, through
+  # src/common/apple.mm) and Lövetest's mountCommonPath test mounts, as it
+  # mounts them in the home of LÖVE's CI runner. On Linux a run keeps its
+  # own home, so they are the system's.
+  HOME_FOLDERS = %w[Desktop Documents].freeze
+
+  # Gives this process, and each program it starts, the home +home+, with
+  # the folders a home has on macOS. mise, which installs the tools the
+  # tests run (mise.toml), finds them under XDG_DATA_HOME too, unless told
+  # where they are, so on Linux it is told first, from where it would
+  # look now.
   def self.enter(home)
     if LINUX
       ENV["MISE_DATA_DIR"] ||= File.join(ENV.fetch("XDG_DATA_HOME", File.join(Dir.home, ".local/share")), "mise")
+    else
+      HOME_FOLDERS.each { |folder| FileUtils.mkdir_p(File.join(home, folder)) }
     end
     ENV.update(environment(home))
   end

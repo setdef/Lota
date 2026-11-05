@@ -7,6 +7,7 @@
 
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "image/ImageData.h"
 #include "mouse/Cursor.h"
 #include "mouse/Mouse.h"
 #include "mouse/sdl/Mouse.h"
@@ -74,6 +75,24 @@ std::string cursor_type(const Cursor &cursor) {
   return typestr;
 }
 
+// w_newCursor (wrap_Mouse.cpp:36-92): a Cursor of +images+, each an
+// ImageData, which Lota::Mouse::Cursor.new reads from an image, a file,
+// or an Array of them, with its hot spot at +hotx+ and +hoty+. The
+// Cursor's one reference goes to the Ruby wrapper.
+Cursor *new_cursor(Rice::Array images, int hotx, int hoty) {
+  const Rice::Array list = std::move(images);
+  std::vector<love::image::ImageData *> data;
+  data.reserve(list.size());
+  for (const auto item : list) {
+    data.push_back(Rice::detail::From_Ruby<love::image::ImageData *>().convert(item.value()));
+  }
+  auto *instance = love::Module::getInstance<Mouse>(love::Module::M_MOUSE);
+  if (instance == nullptr) {
+    throw love::Exception("Lota::Mouse is not open.");
+  }
+  return instance->newCursor(data, hotx, hoty);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -83,7 +102,9 @@ void define_mouse(const Rice::Module &native) {
   define_engine_class<Cursor>(mouse, "Cursor").define_method("get_type", &cursor_type);
   mouse.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
-      .define_singleton_function("down?", &is_down, Rice::Arg("buttons"));
+      .define_singleton_function("down?", &is_down, Rice::Arg("buttons"))
+      .define_singleton_function("new_cursor", &new_cursor, Rice::Arg("images"), Rice::Arg("hotx"),
+                                 Rice::Arg("hoty"), Rice::Return().takeOwnership());
 }
 
 } // namespace lota::native

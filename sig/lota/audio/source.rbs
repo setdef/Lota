@@ -82,6 +82,20 @@ module Lota
 
       def free_buffer_count: () -> Integer
 
+      def queue: (Sound::SoundData sounddata, *Integer region) -> bool
+
+      type setting = Float | Integer | bool | Symbol | String
+
+      def set_filter: (**setting settings) -> bool
+
+      def filter: () -> Filter?
+
+      def set_effect: (String name, ?bool? enabled, **setting filter) -> bool
+
+      def effect: (String name) -> ([bool] | [bool, Filter])
+
+      def active_effects: () -> Array[String]
+
       def self.numbers: (numbers value) -> Array[Float | Integer]
 
       def self.number: (::Object? value, ?(Float | Integer)? default) -> (Float | Integer)

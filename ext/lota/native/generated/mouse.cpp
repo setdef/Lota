@@ -68,6 +68,15 @@ void w_setCursor(std::optional<Cursor *> cursor) {
   instance()->setCursor(cursor_value);
 }
 
+// love.mouse.getCursor: w_getCursor (wrap_Mouse.cpp:123-133).
+Cursor *w_getCursor() {
+  Cursor *cursor = instance()->getCursor();
+  if (cursor != nullptr) {
+    return cursor;
+  }
+  return nullptr;
+}
+
 // love.mouse.isCursorSupported: w_isCursorSupported (wrap_Mouse.cpp:135-139).
 bool w_isCursorSupported() { return instance()->isCursorSupported(); }
 
@@ -158,7 +167,8 @@ void define_generated_mouse(const Rice::Module &native) {
       .define_singleton_function("grabbed?", &w_isGrabbed)
       .define_singleton_function("set_relative_mode", &w_setRelativeMode, Rice::Arg("relative"))
       .define_singleton_function("relative_mode", &w_getRelativeMode)
-      .define_singleton_function("cursor_supported?", &w_isCursorSupported);
+      .define_singleton_function("cursor_supported?", &w_isCursorSupported)
+      .define_singleton_function("cursor", &w_getCursor);
 }
 
 } // namespace lota::native

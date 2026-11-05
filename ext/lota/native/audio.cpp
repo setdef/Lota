@@ -8,6 +8,9 @@
 #include "native/ruby.hpp"
 
 #include "audio/Audio.h"
+#include "audio/Effect.h"
+#include "audio/Filter.h"
+#include "audio/RecordingDevice.h"
 #include "audio/Source.h"
 #include "audio/null/Audio.h"
 #include "audio/openal/Audio.h"
@@ -19,15 +22,21 @@
 #include <array>
 #include <cstddef>
 #include <cstdlib>
+#include <iterator>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace lota::native {
 
 namespace {
 
 using love::audio::Audio;
+using love::audio::Effect;
+using love::audio::Filter;
+using love::audio::RecordingDevice;
 using love::audio::Source;
 using love::sound::Decoder;
 using love::sound::SoundData;
@@ -227,6 +236,421 @@ void stop() { module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->stop(); }
 
 void stop_source(Source &source) { source.stop(); }
 
+// love._requestRecordingPermission (vendor/love/src/modules/love/
+// love.cpp:468-474), which boot.lua calls with t.audio.mic before the
+// audio module opens (boot.lua:342-344): whether opening a recording
+// device asks the system for the microphone, which only Android does.
+void set_request_recording_permission(bool request) {
+  love::audio::setRequestRecordingPermission(request);
+}
+
+// w_pause with no Source (wrap_Audio.cpp:184-198): pauses every Source
+// playing, and returns those it paused, as an Array where LÖVE fills a
+// table.
+Rice::Array pause() {
+  const std::vector<Source *> sources =
+      module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->pause();
+  Rice::Array paused;
+  for (Source *source : sources) {
+    paused.push(source, false);
+  }
+  return paused;
+}
+
+// w_pause with one Source (wrap_Audio.cpp:205-208).
+void pause_source(Source &source) { source.pause(); }
+
+// The names of a list LÖVE fills a table with in a loop, as an Array.
+Rice::Array names_of(const std::vector<std::string> &list) {
+  Rice::Array names;
+  for (const std::string &name : list) {
+    names.push(name, false);
+  }
+  return names;
+}
+
+// w_getRecordingDevices (wrap_Audio.cpp:333-346): the recording devices,
+// as an Array where LÖVE fills a table.
+Rice::Array recording_devices() {
+  const std::vector<RecordingDevice *> &devices =
+      module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getRecordingDevices();
+  Rice::Array list;
+  for (RecordingDevice *device : devices) {
+    list.push(device, false);
+  }
+  return list;
+}
+
+// w_getActiveEffects (wrap_Audio.cpp:511-523).
+Rice::Array active_effects() {
+  std::vector<std::string> list;
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getActiveEffects(list);
+  return names_of(list);
+}
+
+// w_getPlaybackDevices (wrap_Audio.cpp:593-607).
+Rice::Array playback_devices() {
+  std::vector<std::string> list;
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getPlaybackDevices(list);
+  return names_of(list);
+}
+
+// w_getOutputSpatializationFilters (wrap_Audio.cpp:564-576).
+Rice::Array output_spatialization_filters() {
+  std::vector<std::string> filters;
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getOutputSpatializationFilters(filters);
+  return names_of(filters);
+}
+
+// The name Lua's lua_typename gives the value Lua would hold for +value+,
+// for luax_effecterror's message: a Symbol is a name, as a string is in
+// Lua (ADR 001, rule 9), and an Array or a Hash a table.
+const char *lua_type_name(const Rice::Object &value) {
+  if (ruby::is_nil(value)) {
+    return "nil";
+  }
+  if (ruby::is_boolean(value)) {
+    return "boolean";
+  }
+  if (ruby::is_numeric(value)) {
+    return "number";
+  }
+  if (ruby::is_string(value) || ruby::is_symbol(value)) {
+    return "string";
+  }
+  if (ruby::is_array(value) || ruby::is_hash(value)) {
+    return "table";
+  }
+  return "userdata";
+}
+
+// The text of +value+, a String or a Symbol's name, or nullptr for any
+// other value, as lua_tostring gives only for a string.
+std::optional<std::string> text_of(const Rice::Object &value) {
+  if (ruby::is_symbol(value)) {
+    return ruby::symbol_name(value);
+  }
+  if (ruby::is_string(value)) {
+    return Rice::detail::From_Ruby<std::string>().convert(value.value());
+  }
+  return std::nullopt;
+}
+
+// The value of the setting named +key+ in +settings+, an Array of
+// [name, value] pairs, or nil when it has none, as lua_rawget reads a key.
+Rice::Object setting(const Rice::Array &settings, const std::string &key) {
+  for (long index = 0; index < ruby::length(settings); ++index) {
+    const Rice::Array pair(ruby::entry(settings, index));
+    if (text_of(ruby::entry(pair, 0)) == key) {
+      return ruby::entry(pair, 1);
+    }
+  }
+  return ruby::nil();
+}
+
+// Raises luax_effecterror's message (wrap_Audio.cpp:395) for the setting
+// +keystr+ of +typestr+, whose +value+ is not the +expected+ type.
+[[noreturn]] void raise_effect_error(const std::string &typestr, const std::string &keystr,
+                                     const char *expected, const Rice::Object &value) {
+  throw love::Exception("Bad parameter type for %s %s: %s expected, got %s", typestr.c_str(),
+                        keystr.c_str(), expected, lua_type_name(value));
+}
+
+// The name of the type +settings+ gives under +paramstr+, its "type",
+// which must be there, as w_setEffect and setFilterReadFilter read it
+// first (wrap_Audio.cpp:360-372, wrap_Source.cpp:363-371).
+std::string type_setting(const Rice::Array &settings, const std::string &paramstr,
+                         const char *missing) {
+  const Rice::Object value = setting(settings, paramstr);
+  if (ruby::is_nil(value)) {
+    throw love::Exception("%s", missing);
+  }
+  const std::optional<std::string> typestr = text_of(value);
+  if (!typestr.has_value()) {
+    ruby::raise_type_error("wrong argument type " + ruby::class_name(value) + " (expected Symbol)");
+  }
+  return *typestr;
+}
+
+// The settings of an Effect, read from +settings+ as w_setEffect reads
+// its table (wrap_Audio.cpp:356-445): the type, then each other setting,
+// a number, a boolean, or a waveform's name by its parameter's type. A
+// setting the type does not have raises "Invalid '...' Effect parameter".
+std::map<Effect::Parameter, float> effect_settings(const Rice::Array &settings) {
+  const char *paramstr = nullptr;
+  Effect::getConstant(Effect::EFFECT_TYPE, paramstr, Effect::TYPE_BASIC);
+  const std::string typestr = type_setting(settings, paramstr, "Effect type not specificed.");
+  Effect::Type type = Effect::TYPE_MAX_ENUM;
+  if (!Effect::getConstant(typestr.c_str(), type)) {
+    raise_enum_error("effect type", Effect::getConstants(type), typestr);
+  }
+
+  std::map<Effect::Parameter, float> params;
+  params[Effect::EFFECT_TYPE] = static_cast<float>(static_cast<int>(type));
+
+  // Iterate over the whole table, reading valid parameters and erroring on invalid ones
+  for (long index = 0; index < ruby::length(settings); ++index) {
+    const Rice::Array pair(ruby::entry(settings, index));
+    const std::string keystr = text_of(ruby::entry(pair, 0)).value_or("");
+    const Rice::Object value = ruby::entry(pair, 1);
+    Effect::Parameter param = Effect::EFFECT_TYPE;
+
+    if (!Effect::getConstant(keystr.c_str(), param, type) &&
+        !Effect::getConstant(keystr.c_str(), param, Effect::TYPE_BASIC)) {
+      throw love::Exception("Invalid '%s' Effect parameter: %s", typestr.c_str(), keystr.c_str());
+    }
+    switch (Effect::getParameterType(param)) {
+    case Effect::PARAM_FLOAT:
+      if (!ruby::is_numeric(value)) {
+        raise_effect_error(typestr, keystr, "number", value);
+      }
+      params[param] = static_cast<float>(Rice::detail::From_Ruby<double>().convert(value.value()));
+      break;
+    case Effect::PARAM_BOOL:
+      if (!ruby::is_boolean(value)) {
+        raise_effect_error(typestr, keystr, "boolean", value);
+      }
+      params[param] = ruby::is_true(value) ? 1.0F : 0.0F;
+      break;
+    case Effect::PARAM_WAVEFORM: {
+      const std::optional<std::string> paramstr = text_of(value);
+      if (!paramstr.has_value()) {
+        raise_effect_error(typestr, keystr, "string", value);
+      }
+      Effect::Waveform waveform = Effect::WAVE_MAX_ENUM;
+      if (!Effect::getConstant(paramstr->c_str(), waveform)) {
+        raise_enum_error("waveform type", *paramstr);
+      }
+      params[param] = static_cast<float>(static_cast<int>(waveform));
+      break;
+    }
+    case Effect::PARAM_TYPE:
+    case Effect::PARAM_MAX_ENUM:
+      break;
+    }
+  }
+  return params;
+}
+
+// The value above which w_getEffect pushes a boolean parameter, which
+// it holds as a float, as true (wrap_Audio.cpp:480-482).
+constexpr float BOOLEAN_THRESHOLD = 0.5F;
+
+// w_setEffect (wrap_Audio.cpp:349-447): sets the effect +namestr+ to
+// +settings+, an Array of [name, value] pairs that Lota::Audio.set_effect
+// makes of its keywords (ADR 001, rule 10), or unsets it when +settings+
+// is nil, and returns whether it could.
+bool set_effect(const std::string &namestr, const Rice::Object &settings) {
+  auto *audio = module<Audio>(love::Module::M_AUDIO, "Lota::Audio");
+  if (ruby::is_nil(settings)) {
+    return audio->unsetEffect(namestr.c_str());
+  }
+  std::map<Effect::Parameter, float> params = effect_settings(Rice::Array(settings));
+  return audio->setEffect(namestr.c_str(), params);
+}
+
+// w_getEffect (wrap_Audio.cpp:449-509): the settings of the effect
+// +namestr+ as an Array of [name, value] pairs, which
+// Lota::Audio.effect makes a frozen record (ADR 001, rule 10), or nil
+// when there is no such effect.
+Rice::Object effect(const std::string &namestr) {
+  std::map<Effect::Parameter, float> params;
+  if (!module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getEffect(namestr.c_str(), params)) {
+    return ruby::nil();
+  }
+
+  const char *keystr = nullptr;
+  const char *valstr = nullptr;
+  const auto type = static_cast<Effect::Type>(static_cast<int>(params[Effect::EFFECT_TYPE]));
+
+  Rice::Array settings;
+  for (const auto &p : params) {
+    if (!Effect::getConstant(p.first, keystr, type)) {
+      Effect::getConstant(p.first, keystr, Effect::TYPE_BASIC);
+    }
+    Rice::Array pair;
+    pair.push(std::string(keystr), false);
+    switch (Effect::getParameterType(p.first)) {
+    case Effect::PARAM_FLOAT:
+      pair.push(static_cast<double>(p.second), false);
+      break;
+    case Effect::PARAM_BOOL:
+      pair.push(p.second > BOOLEAN_THRESHOLD, false);
+      break;
+    case Effect::PARAM_WAVEFORM:
+      Effect::getConstant(static_cast<Effect::Waveform>(static_cast<int>(p.second)), valstr);
+      pair.push(std::string(valstr), false);
+      break;
+    case Effect::PARAM_TYPE:
+      Effect::getConstant(static_cast<Effect::Type>(static_cast<int>(p.second)), valstr);
+      pair.push(std::string(valstr), false);
+      break;
+    case Effect::PARAM_MAX_ENUM:
+      continue;
+    }
+    settings.push(pair, false);
+  }
+  return settings;
+}
+
+// setFilterReadFilter (wrap_Source.cpp:355-406): the settings of a
+// Filter, read from +settings+ as an Effect's are, each a number.
+std::map<Filter::Parameter, float> filter_settings(const Rice::Array &settings) {
+  const char *paramstr = nullptr;
+  Filter::getConstant(Filter::FILTER_TYPE, paramstr, Filter::TYPE_BASIC);
+  const std::string typestr = type_setting(settings, paramstr, "Filter type not specificed.");
+  Filter::Type type = Filter::TYPE_MAX_ENUM;
+  if (!Filter::getConstant(typestr.c_str(), type)) {
+    raise_enum_error("filter type", Filter::getConstants(type), typestr);
+  }
+
+  std::map<Filter::Parameter, float> params;
+  params[Filter::FILTER_TYPE] = static_cast<float>(static_cast<int>(type));
+
+  for (long index = 0; index < ruby::length(settings); ++index) {
+    const Rice::Array pair(ruby::entry(settings, index));
+    const std::string keystr = text_of(ruby::entry(pair, 0)).value_or("");
+    const Rice::Object value = ruby::entry(pair, 1);
+    Filter::Parameter param = Filter::FILTER_TYPE;
+
+    if (!Filter::getConstant(keystr.c_str(), param, type) &&
+        !Filter::getConstant(keystr.c_str(), param, Filter::TYPE_BASIC)) {
+      throw love::Exception("Invalid '%s' Effect parameter: %s", typestr.c_str(), keystr.c_str());
+    }
+    switch (Filter::getParameterType(param)) {
+    case Filter::PARAM_FLOAT:
+      if (!ruby::is_numeric(value)) {
+        raise_effect_error(typestr, keystr, "number", value);
+      }
+      params[param] = static_cast<float>(Rice::detail::From_Ruby<double>().convert(value.value()));
+      break;
+    case Filter::PARAM_TYPE:
+    case Filter::PARAM_MAX_ENUM:
+      break;
+    }
+  }
+  return params;
+}
+
+// getFilterWriteFilter (wrap_Source.cpp:408-441): +params+ as an Array of
+// [name, value] pairs.
+Rice::Array filter_pairs(std::map<Filter::Parameter, float> &params) {
+  const char *keystr = nullptr;
+  const char *valstr = nullptr;
+  const auto type = static_cast<Filter::Type>(static_cast<int>(params[Filter::FILTER_TYPE]));
+
+  Rice::Array settings;
+  for (const auto &p : params) {
+    if (!Filter::getConstant(p.first, keystr, type)) {
+      Filter::getConstant(p.first, keystr, Filter::TYPE_BASIC);
+    }
+    Rice::Array pair;
+    pair.push(std::string(keystr), false);
+    switch (Filter::getParameterType(p.first)) {
+    case Filter::PARAM_FLOAT:
+      pair.push(static_cast<double>(p.second), false);
+      break;
+    case Filter::PARAM_TYPE:
+      Filter::getConstant(static_cast<Filter::Type>(static_cast<int>(p.second)), valstr);
+      pair.push(std::string(valstr), false);
+      break;
+    case Filter::PARAM_MAX_ENUM:
+      continue;
+    }
+    settings.push(pair, false);
+  }
+  return settings;
+}
+
+// w_Source_setFilter (wrap_Source.cpp:443-455): sets +source+'s filter
+// to +settings+, or removes it when +settings+ is nil, and returns
+// whether it could.
+bool source_set_filter(Source &source, const Rice::Object &settings) {
+  if (ruby::is_nil(settings)) {
+    return source.setFilter();
+  }
+  return source.setFilter(filter_settings(Rice::Array(settings)));
+}
+
+// w_Source_getFilter (wrap_Source.cpp:457-468): +source+'s filter as
+// pairs, or nil when it has none.
+Rice::Object source_filter(Source &source) {
+  std::map<Filter::Parameter, float> params;
+  if (!source.getFilter(params)) {
+    return ruby::nil();
+  }
+  return filter_pairs(params);
+}
+
+// w_Source_setEffect (wrap_Source.cpp:470-492): with +enabled+ false,
+// unsets the effect +namestr+ on +source+; otherwise sets it, through the
+// filter +settings+ when they are given, and returns whether it could.
+bool source_set_effect(Source &source, const std::string &namestr, bool enabled,
+                       const Rice::Object &settings) {
+  if (!enabled) {
+    return source.unsetEffect(namestr.c_str());
+  }
+  if (ruby::is_nil(settings)) {
+    return source.setEffect(namestr.c_str());
+  }
+  return source.setEffect(namestr.c_str(), filter_settings(Rice::Array(settings)));
+}
+
+// w_Source_getEffect (wrap_Source.cpp:494-516): whether +source+ has the
+// effect +namestr+, and its filter's settings as pairs when it has one,
+// as one Array (ADR 001, rule 4).
+Rice::Array source_effect(Source &source, const std::string &namestr) {
+  std::map<Filter::Parameter, float> params;
+  Rice::Array results;
+  if (!source.getEffect(namestr.c_str(), params)) {
+    results.push(false, false);
+    return results;
+  }
+  results.push(true, false);
+  // No filter associated, return nil as second argument
+  if (params.empty()) {
+    return results;
+  }
+  // Return filter settings as second argument
+  results.push(filter_pairs(params), false);
+  return results;
+}
+
+// w_Source_getActiveEffects (wrap_Source.cpp:518-532).
+Rice::Array source_active_effects(Source &source) {
+  std::vector<std::string> list;
+  source.getActiveEffects(list);
+  return names_of(list);
+}
+
+// w_Source_queue with a SoundData (wrap_Source.cpp:540-566): queues the
+// +length+ bytes of +data+ from +offset+, or all of them, on +source+,
+// and returns whether it could. Lota::Audio::Source#queue reads the
+// offset and length from its arguments as w_Source_queue counts them.
+bool source_queue(Source &source, SoundData &data, double offset, std::optional<double> length) {
+  const auto start = static_cast<int>(offset);
+  const auto size = static_cast<std::size_t>(length.value_or(static_cast<double>(data.getSize())));
+  if (start < 0 || size > data.getSize() - static_cast<std::size_t>(start)) {
+    throw love::Exception("Data region out of bounds.");
+  }
+  return source.queue(std::next(static_cast<unsigned char *>(data.getData()), start), size,
+                      data.getSampleRate(), data.getBitDepth(), data.getChannelCount());
+}
+
+// w_RecordingDevice_start (wrap_RecordingDevice.cpp:35-57): starts
+// recording, with the device's own settings when +samples+ is not given,
+// and LÖVE's defaults for each setting after it left out, and returns
+// whether it started.
+bool recording_start(RecordingDevice &d, std::optional<int> samples, std::optional<int> samplerate,
+                     std::optional<int> bitdepth, std::optional<int> channels) {
+  if (!samples.has_value()) {
+    return d.start(d.getMaxSamples(), d.getSampleRate(), d.getBitDepth(), d.getChannelCount());
+  }
+  return d.start(*samples, samplerate.value_or(RecordingDevice::DEFAULT_SAMPLE_RATE),
+                 bitdepth.value_or(RecordingDevice::DEFAULT_BIT_DEPTH),
+                 channels.value_or(RecordingDevice::DEFAULT_CHANNELS));
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -236,10 +660,34 @@ void define_audio(const Rice::Module &native) {
       .define_method("seek", &source_seek, Rice::Arg("offset"),
                      Rice::Arg("unit") = std::optional<std::string>())
       .define_method("tell", &source_tell, Rice::Arg("unit") = std::optional<std::string>())
-      .define_method("duration", &source_duration,
-                     Rice::Arg("unit") = std::optional<std::string>());
+      .define_method("duration", &source_duration, Rice::Arg("unit") = std::optional<std::string>())
+      .define_method("set_filter", &source_set_filter, Rice::Arg("settings"))
+      .define_method("filter", &source_filter)
+      .define_method("set_effect", &source_set_effect, Rice::Arg("name"), Rice::Arg("enabled"),
+                     Rice::Arg("settings"))
+      .define_method("effect", &source_effect, Rice::Arg("name"))
+      .define_method("active_effects", &source_active_effects)
+      .define_method("queue", &source_queue, Rice::Arg("data"), Rice::Arg("offset"),
+                     Rice::Arg("length") = std::optional<double>());
+
+  define_engine_class<RecordingDevice>(native, "RecordingDevice")
+      .define_method("start", &recording_start, Rice::Arg("samples") = std::optional<int>(),
+                     Rice::Arg("samplerate") = std::optional<int>(),
+                     Rice::Arg("bitdepth") = std::optional<int>(),
+                     Rice::Arg("channels") = std::optional<int>());
 
   Rice::define_module_under(native, "Audio")
+      .define_singleton_function("set_request_recording_permission",
+                                 &set_request_recording_permission, Rice::Arg("request"))
+      .define_singleton_function("pause", &pause)
+      .define_singleton_function("pause_source", &pause_source, Rice::Arg("source"))
+      .define_singleton_function("recording_devices", &recording_devices)
+      .define_singleton_function("active_effects", &active_effects)
+      .define_singleton_function("playback_devices", &playback_devices)
+      .define_singleton_function("output_spatialization_filters", &output_spatialization_filters)
+      .define_singleton_function("set_effect", &set_effect, Rice::Arg("name"),
+                                 Rice::Arg("settings"))
+      .define_singleton_function("effect", &effect, Rice::Arg("name"))
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("source_type", &source_type, Rice::Arg("type"))

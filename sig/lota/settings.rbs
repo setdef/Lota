@@ -46,6 +46,8 @@ module Lota
 
       attr_accessor borderless: bool
 
+      attr_accessor icon: (Filesystem::FileData | String)?
+
       attr_accessor resizable: bool
 
       attr_accessor centered: bool

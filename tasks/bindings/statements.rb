@@ -20,12 +20,15 @@ module Bindings
     # One statement.
     #
     # [kind] :expression, :return, :block, :if, :loop, :switch, :label,
-    #   :jump (break or continue), or :catch (a luax_catchexcept lambda).
+    #   :jump (break or continue), :catch (a luax_catchexcept lambda), or
+    #   :try (a try block).
     # [text] The statement's own text: the expression, the returned value,
-    #   or the condition of an if, loop, or switch.
+    #   the condition of an if, loop, or switch, or the exception a try's
+    #   catch declares.
     # [line] The line it starts on, in its file.
     # [body] The statements inside it (a block, a branch, a loop, a lambda).
-    # [alternative] An if's else branch, or an empty Array.
+    # [alternative] An if's else branch, a try's catch block, or an empty
+    #   Array.
     class Node < Data.define(:kind, :text, :line, :body, :alternative)
       # This statement and every statement inside it, depth first.
       def each_node(&)
@@ -40,7 +43,7 @@ module Bindings
     # unbalanced bracket.
     class Unreadable < StandardError; end
 
-    KEYWORDS = %w[if for while do switch return break continue case default else].freeze
+    KEYWORDS = %w[if for while do switch return break continue case default else try].freeze
     # A declaration's type, and the declarators after it: a name, with
     # the pointer or reference marks before it and an initializer after.
     DECLARATION = /\A(?<type>(?:const\s+)?[\w:]+)\s*(?<declarators>[*&]*\s*[A-Za-z_]\w*\s*(?:=.*)?,.*)\z/m
@@ -157,6 +160,7 @@ module Bindings
         when "return" then simple(:return, index, index + "return".length, finish)
         when "break", "continue" then simple(:jump, index, index, finish)
         when "case", "default" then label(index)
+        when "try" then attempt(index, finish)
         else raise Unreadable, "#{word} without an if"
         end
       end
@@ -186,6 +190,28 @@ module Bindings
 
         header, after = parenthesized(rest + 5)
         [node(:loop, header, index, [inner].compact), @text.index(";", after) + 1]
+      end
+
+      # A try block and its one catch, as w_File_open catches the
+      # engine's exception around the call that throws it (wrap_File.cpp:
+      # 84-91).
+      private def attempt(index, finish)
+        body, after = statement(skip_space(index + 3, finish), finish)
+        rest = skip_space(after, finish)
+        raise Unreadable, "try without a catch" unless @text[rest..][/\Acatch\b/]
+
+        exception, after = parenthesized(rest + 5)
+        handler, after = statement(skip_space(after, finish), finish)
+        node = Node.new(kind: :try, text: exception, line: line(index), body: opened(body),
+          alternative: opened(handler))
+        [node, after]
+      end
+
+      # The statements of +node+, a block's own where it is one.
+      private def opened(node)
+        return [] unless node
+
+        (node.kind == :block) ? node.body : [node]
       end
 
       private def label(index)

@@ -493,6 +493,34 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # boot.lua sets the window's icon from t.window.icon before it opens the
+  # window (boot.lua:400-403), decoding the file it names with
+  # love.image.newImageData.
+  def test_a_games_icon_from_conf_is_the_windows_icon
+    logo = File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png"))
+    conf = "def Lota.conf(t)\n  t.window.icon = \"logo.png\"\nend\n"
+    main = "def Lota.load\n  icon = Lota::Window.icon\n  p [icon.width, icon.height]\n  Lota::Event.quit\nend\n"
+    in_game("logo.png" => logo, "conf.rb" => conf, "main.rb" => main) do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[64, 64]\n", output
+    end
+  end
+
+  # boot.lua asserts that love.image is loaded when an icon is set
+  # (boot.lua:401), which Lota says of its own module, and the error
+  # screen shows it.
+  def test_an_icon_without_the_image_module_shows_loves_assertion
+    conf = "def Lota.conf(t)\n  t.window.icon = \"logo.png\"\n  t.modules.image = false\nend\n"
+    in_game("conf.rb" => conf, "main.rb" => "") do |directory|
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
+
+      assert_equal 1, status.exitstatus, output
+      assert_includes output, "If an icon is set in Lota.conf, Lota::Image must be loaded."
+    end
+  end
+
   # boot.lua checks t.version once the modules are open (boot.lua:378-393):
   # a version love.isVersionCompatible refuses is printed, and, with the
   # window module open, shown in a dialog before the window opens, which

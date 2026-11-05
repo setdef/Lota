@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Audio
+    class Filter < ::Data
+      include Record
+
+      attr_reader type: Symbol?
+
+      attr_reader volume: Float?
+
+      attr_reader lowgain: Float?
+
+      attr_reader highgain: Float?
+
+      def self.new: (type: Symbol?, volume: Float?, lowgain: Float?, highgain: Float?) -> instance
+                  | (*(Symbol | Float)? values) -> instance
+
+      def self.of: (Array[[String, Float | String]] pairs) -> Filter
+    end
+  end
+end

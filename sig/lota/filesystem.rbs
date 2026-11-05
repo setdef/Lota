@@ -27,5 +27,62 @@ module Lota
 
     def self.lines: (String filename) -> Enumerator[String, void]
                   | (String filename) { (String line) -> void } -> nil
+
+    def self.enumerate_lines: (Native::Filesystem::Lines reader) -> Enumerator[String, void]
+                            | (Native::Filesystem::Lines reader) { (String line) -> void } -> nil
+
+    def self.append: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])
+
+    def self.directory_items: (String dir) -> Array[String]
+
+    def self.real_directory: (String filename) -> Array[String | nil]
+
+    def self.exists: (String path) -> bool
+
+    def self.mount: (String | Lota::Data archive, *(String | bool) rest) -> bool
+
+    private def self.mount_data: (Lota::Data data, String archivename, (String | bool)? mountpoint, (String | bool)? append) -> bool
+
+    private def self.string!: ((String | bool)? value) -> String
+
+    private def self.boolean!: ((String | bool)? value) -> bool
+
+    def self.unmount: (String | Lota::Data archive) -> bool
+
+    def self.mount_full_path: (String fullpath, String mountpoint, ?(Symbol | String)? permissions, ?bool append) -> bool
+
+    def self.unmount_full_path: (String fullpath) -> bool
+
+    def self.mount_common_path: (Symbol | String commonpath, String mountpoint, ?(Symbol | String)? permissions, ?bool append) -> bool
+
+    def self.unmount_common_path: (Symbol | String commonpath) -> bool
+
+    def self.full_common_path: (Symbol | String commonpath) -> String
+
+    def self.source: () -> String
+
+    def self.source_base_directory: () -> String
+
+    def self.working_directory: () -> String
+
+    def self.user_directory: () -> String
+
+    def self.appdata_directory: () -> String
+
+    def self.executable_path: () -> String
+
+    def self.canonicalize_real_path: (String path) -> String
+
+    def self.symlinks_enabled?: () -> bool
+
+    def self.symlinks_enabled=: (bool enable) -> void
+
+    def self.require_path: () -> String
+
+    def self.require_path=: (String path) -> void
+
+    def self.c_require_path: () -> String
+
+    def self.c_require_path=: (String path) -> void
   end
 end
