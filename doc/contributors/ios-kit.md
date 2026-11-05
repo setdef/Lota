@@ -43,21 +43,24 @@ jobs:
 
 The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Moon Pong ’em, and it runs when `experiment/ios-kit-call-*` is pushed.
 
-## Make a kit from Lota's repository
+## Lota's own checks
 
-Lota's maintainers can also dispatch the workflow in Lota's repository for a public game repository:
+Lota checks the workflow with its sample games, dispatched in its own repository:
 
 ```sh
 gh workflow run ios-kit.yml -R setdef/Lota --ref experiment/ios-kit-1 \
-  -f game_repository=OWNER/NAME -f game_ref=v1.0.0 \
-  -f "display_name=Moon Pong ’em" -f identifier=com.example.moonpong \
-  -f icon=icons/icon-*.png
-gh run watch -R setdef/Lota "$(gh run list -R setdef/Lota --workflow ios-kit.yml -L 1 --json databaseId -q '.[0].databaseId')"
+  -f game_repository=setdef/Lota -f game_ref=experiment/ios-kit-1 \
+  -f game_path=test/games/moon_pong -f program=bin/moon_pong \
+  -f "display_name=Moon Pong ’em" -f icon=test/games/moon_pong/icons \
+  -f kit_questions=test/games/moon_pong/kit-questions.txt \
+  -f smoke_env=MOON_PONG_QUIT_AFTER=12 "-f=smoke_expect=(?m)^moon pong: quitting after"
 ```
 
-When the run is green, download its `ios-kit` artifact: `gh run download RUN -R setdef/Lota -n ios-kit`. It holds `APP_NAME-ios.zip`, `kit.json` (what the run resolved from your inputs), and `SHA256SUMS`. Unpack the zip with `ditto -x -k` or Finder, which keep its symbolic links, and follow the `README.txt` inside: add your Apple ID, choose your team, set the bundle identifier, pair the device by cable, turn on Developer Mode, trust the developer, and press Run.
+Pushing to an `experiment/ios-kit-*` branch builds `test/games/winkit` from that commit, with its DPI probe in the touch test.
 
-Pushing to an `experiment/ios-kit-*` branch builds Lota's own `test/games/winkit` from that commit, as the workflow's check of itself.
+## Open the kit
+
+When the run is green, download its `ios-kit` artifact from the repository the run belongs to: `gh run download RUN -R OWNER/NAME -n ios-kit`. It holds `APP_NAME-ios.zip`, `kit.json` (what the run resolved from your inputs), and `SHA256SUMS`. Unpack the zip with `ditto -x -k` or Finder, which keep its symbolic links, and follow the `README.txt` inside: add your Apple ID, choose your team, set the bundle identifier, pair the device by cable, turn on Developer Mode, trust the developer, and press Run.
 
 ## Inputs
 
@@ -107,7 +110,7 @@ Three jobs run on `macos-15` with the newest Xcode there.
 2. **A fresh Mac, in portrait.** A second runner, with no Lota, Fledge, XcodeGen, or bundle, unpacks the zip and builds it with `xcodebuild` for the Simulator and, with signing off, for devices, Debug and Release. `ipad/check_app.rb` reads each built `Info.plist`: the display name character for character, the identifier, device family 1 and 2, the orientations, the status bar, the launch screen, the input and audio keys, and the icon. `ipad/simulator.rb` then runs the app in an iPad Pro 13-inch, an iPad (A16), an iPad mini, an iPhone 17 Pro, and an iPhone 16e when the runtime has one, all in portrait: on each, two normal launches and one idle launch, with screenshots at several times, the app's log, its data container, and any crash report. It uploads `ios-kit-simulator`.
 3. **Landscape, touch, and rotation.** A third runner adds a UI test target to a copy of the project, which the kit never holds, since its runner is a second app with a second App ID. A UI test turns each Simulator to landscape and holds it there while simctl runs the same launches. On the iPad Pro and the iPhone 17 Pro, a second UI test waits for the app, which simctl launches with `smoke_env` and `touch_env`, taps three known points in portrait, turns the device to landscape, taps two more, and turns it back, saving a screenshot at each stage. XCTest never launches the app itself, since its launch sets `OS_ACTIVITY_DT_MODE` and the game's output would miss the log. It uploads `ios-kit-touch`.
 
-`extra_launches` adds portrait launches after those, separated by `;`, each with NAME=VALUE pairs of its own rather than `smoke_env`'s, such as a replay of a saved game; their output is kept in the results file.
+`extra_launches` adds portrait launches after those, separated by `;`, each with NAME=VALUE pairs of its own rather than `smoke_env`'s, such as a replay of a saved game; their first 60 lines of output are kept in `results-portrait.json`. `touch_env` adds NAME=VALUE pairs to `smoke_env` for the touch test's launch, such as one that keeps the game running through the test or turns on a probe.
 
 A normal launch passes `smoke_env` to the app as `SIMCTL_CHILD_` variables and runs for up to `smoke_seconds` (20 by default); an idle launch has no settings and runs for 30 seconds or `smoke_seconds`, whichever is longer. A launch passes when no crash report appears, no line holds `[BUG]`, and the app either exits with status 0 or is still running when its time is up. A normal launch's output must also match `smoke_expect`, a Ruby regular expression, when you give one. So a game that quits by itself, such as through a setting in `smoke_env`, must quit with 0, and one that runs on passes by not crashing. Each job writes its verdicts to `results-portrait.json` or `results-landscape.json`.
 
@@ -136,6 +139,8 @@ probe: touch at 905.0, 1311.0 is 0.75, 0.5 of pixel_dimensions 1206x2622
 probe: touch at 603.0, 1967.0 is 0.5, 0.75 of pixel_dimensions 1206x2622
 iPhone 17 Pro, landscape:
 probe: usedpiscale=false highdpi=true Window.dpi_scale=1.0 Window.native_dpi_scale=3.0 Graphics.dpi_scale=1.0 Graphics.dimensions=[2622, 1206] Graphics.pixel_dimensions=[2622, 1206] Window.safe_area=[186, 0, 2250, 1146]
+probe: touch at 656.0, 301.0 is 0.25, 0.25 of pixel_dimensions 2622x1206
+probe: touch at 1967.0, 603.0 is 0.75, 0.5 of pixel_dimensions 2622x1206
 ```
 
 The same game with `usedpiscale` left true printed `graphics dimensions: [402, 874] pixels: [1206, 2622] dpi scale: 3.0` on the iPhone 17 Pro, and without `t.highdpi`, `graphics dimensions: [390, 844] pixels: [390, 844] dpi scale: 1.0` on the iPhone 16e.
