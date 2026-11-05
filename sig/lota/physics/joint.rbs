@@ -3,10 +3,10 @@
 
 module Lota
   module Physics
-    class Joint
+    class Joint[out N < Native::Joint = Native::Joint]
       include Object
 
-      attr_reader native: Native::Joint
+      attr_reader native: N
 
       def self.from_native: (Native::Joint native) -> instance
 
@@ -39,48 +39,242 @@ module Lota
       def self.flag: ((Float | Integer | bool)? value, bool default) -> bool
     end
 
-    class DistanceJoint < Joint
+    class DistanceJoint < Joint[Native::DistanceJoint]
       def self.new: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool? collide_connected) -> DistanceJoint
+
+      def length: () -> Float
+
+      def length=: (Float | Integer length) -> void
+
+      def stiffness: () -> Float
+
+      def stiffness=: (Float | Integer stiffness) -> void
+
+      def damping: () -> Float
+
+      def damping=: (Float | Integer damping) -> void
     end
 
-    class MouseJoint < Joint
+    class MouseJoint < Joint[Native::MouseJoint]
       def self.new: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
+
+      def target: () -> Array[Float]
+
+      def target=: ([Float | Integer, Float | Integer] target) -> void
+
+      def max_force: () -> Float
+
+      def max_force=: (Float | Integer force) -> void
+
+      def stiffness: () -> Float
+
+      def stiffness=: (Float | Integer stiffness) -> void
+
+      def damping: () -> Float
+
+      def damping=: (Float | Integer damping) -> void
     end
 
-    class RevoluteJoint < Joint
+    class RevoluteJoint < Joint[Native::RevoluteJoint]
       def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> RevoluteJoint
+
+      def joint_angle: () -> Float
+
+      def joint_speed: () -> Float
+
+      def motor_enabled?: () -> bool
+
+      def motor_enabled=: (bool enabled) -> void
+
+      def motor_speed: () -> Float
+
+      def motor_speed=: (Float | Integer speed) -> void
+
+      def max_motor_torque: () -> Float
+
+      def max_motor_torque=: (Float | Integer torque) -> void
+
+      def motor_torque: (Float | Integer inv_dt) -> Float
+
+      def limits_enabled?: () -> bool
+
+      def limits_enabled=: (bool enabled) -> void
+
+      def lower_limit: () -> Float
+
+      def lower_limit=: (Float | Integer limit) -> void
+
+      def upper_limit: () -> Float
+
+      def upper_limit=: (Float | Integer limit) -> void
+
+      def limits: () -> Array[Float]
+
+      def limits=: ([Float | Integer, Float | Integer] limits) -> void
+
+      def reference_angle: () -> Float
     end
 
-    class FrictionJoint < Joint
+    class FrictionJoint < Joint[Native::FrictionJoint]
       def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> FrictionJoint
+
+      def max_force: () -> Float
+
+      def max_force=: (Float | Integer force) -> void
+
+      def max_torque: () -> Float
+
+      def max_torque=: (Float | Integer torque) -> void
     end
 
-    class WeldJoint < Joint
+    class WeldJoint < Joint[Native::WeldJoint]
       def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> WeldJoint
+
+      def stiffness: () -> Float
+
+      def stiffness=: (Float | Integer stiffness) -> void
+
+      def damping: () -> Float
+
+      def damping=: (Float | Integer damping) -> void
+
+      def reference_angle: () -> Float
     end
 
-    class PrismaticJoint < Joint
+    class PrismaticJoint < Joint[Native::PrismaticJoint]
       def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> PrismaticJoint
+
+      def joint_translation: () -> Float
+
+      def joint_speed: () -> Float
+
+      def motor_enabled?: () -> bool
+
+      def motor_enabled=: (bool enabled) -> void
+
+      def motor_speed: () -> Float
+
+      def motor_speed=: (Float | Integer speed) -> void
+
+      def max_motor_force: () -> Float
+
+      def max_motor_force=: (Float | Integer force) -> void
+
+      def motor_force: (Float | Integer inv_dt) -> Float
+
+      def limits_enabled?: () -> bool
+
+      def limits_enabled=: (bool enabled) -> void
+
+      def lower_limit: () -> Float
+
+      def lower_limit=: (Float | Integer limit) -> void
+
+      def upper_limit: () -> Float
+
+      def upper_limit=: (Float | Integer limit) -> void
+
+      def limits: () -> Array[Float]
+
+      def limits=: ([Float | Integer, Float | Integer] limits) -> void
+
+      def axis: () -> Array[Float]
+
+      def reference_angle: () -> Float
     end
 
-    class WheelJoint < Joint
+    class WheelJoint < Joint[Native::WheelJoint]
       def self.new: (Body body1, Body body2, *(Float | Integer | bool | nil) arguments) -> WheelJoint
+
+      def joint_translation: () -> Float
+
+      def joint_speed: () -> Float
+
+      def motor_enabled?: () -> bool
+
+      def motor_enabled=: (bool enabled) -> void
+
+      def motor_speed: () -> Float
+
+      def motor_speed=: (Float | Integer speed) -> void
+
+      def max_motor_torque: () -> Float
+
+      def max_motor_torque=: (Float | Integer torque) -> void
+
+      def motor_torque: (Float | Integer inv_dt) -> Float
+
+      def spring_stiffness: () -> Float
+
+      def spring_stiffness=: (Float | Integer stiffness) -> void
+
+      def spring_damping: () -> Float
+
+      def spring_damping=: (Float | Integer damping) -> void
+
+      def stiffness: () -> Float
+
+      def stiffness=: (Float | Integer stiffness) -> void
+
+      def damping: () -> Float
+
+      def damping=: (Float | Integer damping) -> void
+
+      def axis: () -> Array[Float]
     end
 
-    class PulleyJoint < Joint
+    class PulleyJoint < Joint[Native::PulleyJoint]
       def self.new: (Body body1, Body body2, Float | Integer gx1, Float | Integer gy1, Float | Integer gx2, Float | Integer gy2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer) ratio, ?bool? collide_connected) -> PulleyJoint
+
+      def ground_anchors: () -> Array[Float]
+
+      def length_a: () -> Float
+
+      def length_b: () -> Float
+
+      def ratio: () -> Float
     end
 
-    class GearJoint < Joint
+    class GearJoint < Joint[Native::GearJoint]
       def self.new: (Joint joint1, Joint joint2, ?(Float | Integer) ratio, ?bool? collide_connected) -> GearJoint
+
+      def ratio: () -> Float
+
+      def ratio=: (Float | Integer ratio) -> void
+
+      def joints: () -> Array[Joint?]
     end
 
-    class RopeJoint < Joint
+    class RopeJoint < Joint[Native::RopeJoint]
       def self.new: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_length, ?bool? collide_connected) -> RopeJoint
+
+      def max_length: () -> Float
+
+      def max_length=: (Float | Integer length) -> void
     end
 
-    class MotorJoint < Joint
+    class MotorJoint < Joint[Native::MotorJoint]
       def self.new: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool? collide_connected) -> MotorJoint
+
+      def linear_offset: () -> Array[Float]
+
+      def linear_offset=: ([Float | Integer, Float | Integer] offset) -> void
+
+      def angular_offset: () -> Float
+
+      def angular_offset=: (Float | Integer offset) -> void
+
+      def max_force: () -> Float
+
+      def max_force=: (Float | Integer force) -> void
+
+      def max_torque: () -> Float
+
+      def max_torque=: (Float | Integer torque) -> void
+
+      def correction_factor: () -> Float
+
+      def correction_factor=: (Float | Integer factor) -> void
     end
   end
 end

@@ -161,6 +161,65 @@ module Lota
         from_native(Native::Physics.new_distance_joint(body1.native, body2.native, x1, y1, x2, y2,
           flag(collide_connected, false)))
       end
+
+      # The distance the joint keeps between its anchors, in pixels, as a
+      # Float, matching DistanceJoint:getLength.
+      #
+      # === Example
+      #
+      #   joint.length # => 14.142
+      def length
+        @native.length
+      end
+
+      # Sets the distance the joint keeps between its anchors, matching
+      # DistanceJoint:setLength.
+      #
+      # === Example
+      #
+      #   joint.length = 50
+      def length=(length)
+        @native.set_length(length)
+      end
+
+      # The joint's spring stiffness, as a Float, matching
+      # DistanceJoint:getStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness # => 0.0
+      def stiffness
+        @native.stiffness
+      end
+
+      # Sets the joint's spring stiffness, matching
+      # DistanceJoint:setStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness = 10
+      def stiffness=(stiffness)
+        @native.set_stiffness(stiffness)
+      end
+
+      # The joint's spring damping, as a Float, matching
+      # DistanceJoint:getDamping.
+      #
+      # === Example
+      #
+      #   joint.damping # => 0.0
+      def damping
+        @native.damping
+      end
+
+      # Sets the joint's spring damping, matching DistanceJoint:setDamping.
+      #
+      # === Example
+      #
+      #   joint.damping = 0.5
+      def damping=(damping)
+        @native.set_damping(damping)
+      end
     end
 
     # Drags a Body toward a target, matching LÖVE's MouseJoint.
@@ -174,6 +233,88 @@ module Lota
       #   Lota::Physics::MouseJoint.new(body, 10, 10)
       def self.new(body, x, y)
         from_native(Native::Physics.new_mouse_joint(body.native, x, y))
+      end
+
+      # The world point the joint pulls its Body toward, as an Array of its
+      # x and y Floats, matching MouseJoint:getTarget.
+      #
+      # === Example
+      #
+      #   x, y = joint.target
+      def target
+        @native.target
+      end
+
+      # Moves the point the joint pulls its Body toward, matching
+      # MouseJoint:setTarget, whose two values rule 6 of ADR 001 makes one
+      # Array.
+      #
+      # === Example
+      #
+      #   joint.target = Lota::Mouse.position
+      def target=(target)
+        x, y = target
+        @native.set_target(x, y)
+      end
+
+      # The most force the joint pulls with, as a Float, matching
+      # MouseJoint:getMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force # => 3000.0
+      def max_force
+        @native.max_force
+      end
+
+      # Sets the most force the joint pulls with, matching
+      # MouseJoint:setMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force = 5000
+      def max_force=(force)
+        @native.set_max_force(force)
+      end
+
+      # The joint's spring stiffness, as a Float, matching
+      # MouseJoint:getStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness # => 4.5
+      def stiffness
+        @native.stiffness
+      end
+
+      # Sets the joint's spring stiffness, matching MouseJoint:setStiffness.
+      # Raises RuntimeError ("MouseJoint Stiffness must be a positive
+      # number.") for a stiffness that is not positive, as LÖVE does.
+      #
+      # === Example
+      #
+      #   joint.stiffness = 10
+      def stiffness=(stiffness)
+        @native.set_stiffness(stiffness)
+      end
+
+      # The joint's spring damping, as a Float, matching
+      # MouseJoint:getDamping.
+      #
+      # === Example
+      #
+      #   joint.damping # => 0.7
+      def damping
+        @native.damping
+      end
+
+      # Sets the joint's spring damping, matching MouseJoint:setDamping.
+      #
+      # === Example
+      #
+      #   joint.damping = 0.5
+      def damping=(damping)
+        @native.set_damping(damping)
       end
     end
 
@@ -195,6 +336,186 @@ module Lota
         from_native(Native::Physics.new_revolute_joint(body1.native, body2.native, anchors, flag(collide, false),
           angle))
       end
+
+      # How far the second Body has turned against the first, in radians, as a
+      # Float, matching RevoluteJoint:getJointAngle.
+      #
+      # === Example
+      #
+      #   joint.joint_angle # => 0.0
+      def joint_angle
+        @native.joint_angle
+      end
+
+      # How fast the second Body turns against the first, in radians a second,
+      # as a Float, matching RevoluteJoint:getJointSpeed.
+      #
+      # === Example
+      #
+      #   joint.joint_speed # => 0.0
+      def joint_speed
+        @native.joint_speed
+      end
+
+      # Whether the joint's motor runs, matching RevoluteJoint:isMotorEnabled.
+      #
+      # === Example
+      #
+      #   joint.motor_enabled? # => false
+      def motor_enabled?
+        @native.motor_enabled?
+      end
+
+      # Starts or stops the joint's motor, matching
+      # RevoluteJoint:setMotorEnabled.
+      #
+      # === Example
+      #
+      #   joint.motor_enabled = true
+      def motor_enabled=(enabled)
+        @native.set_motor_enabled(enabled)
+      end
+
+      # The speed the joint's motor drives at, as a Float, matching
+      # RevoluteJoint:getMotorSpeed.
+      #
+      # === Example
+      #
+      #   joint.motor_speed # => 0.0
+      def motor_speed
+        @native.motor_speed
+      end
+
+      # Sets the speed the joint's motor drives at, matching
+      # RevoluteJoint:setMotorSpeed.
+      #
+      # === Example
+      #
+      #   joint.motor_speed = 2
+      def motor_speed=(speed)
+        @native.set_motor_speed(speed)
+      end
+
+      # The most torque the joint's motor applies, as a Float, matching
+      # RevoluteJoint:getMaxMotorTorque.
+      #
+      # === Example
+      #
+      #   joint.max_motor_torque # => 0.0
+      def max_motor_torque
+        @native.max_motor_torque
+      end
+
+      # Sets the most torque the joint's motor applies, matching
+      # RevoluteJoint:setMaxMotorTorque.
+      #
+      # === Example
+      #
+      #   joint.max_motor_torque = 100
+      def max_motor_torque=(torque)
+        @native.set_max_motor_torque(torque)
+      end
+
+      # The torque the joint's motor applied over a step, given the inverse of
+      # its length in seconds, as a Float, matching
+      # RevoluteJoint:getMotorTorque.
+      #
+      # === Example
+      #
+      #   joint.motor_torque(60) # => 0.0
+      def motor_torque(inv_dt)
+        @native.motor_torque(inv_dt)
+      end
+
+      # Whether the joint holds its Bodies within its limits, matching
+      # RevoluteJoint:areLimitsEnabled.
+      #
+      # === Example
+      #
+      #   joint.limits_enabled? # => false
+      def limits_enabled?
+        @native.limits_enabled?
+      end
+
+      # Turns the joint's limits on or off, matching
+      # RevoluteJoint:setLimitsEnabled.
+      #
+      # === Example
+      #
+      #   joint.limits_enabled = true
+      def limits_enabled=(enabled)
+        @native.set_limits_enabled(enabled)
+      end
+
+      # The joint's lower limit, as a Float, matching
+      # RevoluteJoint:getLowerLimit.
+      #
+      # === Example
+      #
+      #   joint.lower_limit # => 0.0
+      def lower_limit
+        @native.lower_limit
+      end
+
+      # Sets the joint's lower limit, matching RevoluteJoint:setLowerLimit.
+      #
+      # === Example
+      #
+      #   joint.lower_limit = -1
+      def lower_limit=(limit)
+        @native.set_lower_limit(limit)
+      end
+
+      # The joint's upper limit, as a Float, matching
+      # RevoluteJoint:getUpperLimit.
+      #
+      # === Example
+      #
+      #   joint.upper_limit # => 0.0
+      def upper_limit
+        @native.upper_limit
+      end
+
+      # Sets the joint's upper limit, matching RevoluteJoint:setUpperLimit.
+      #
+      # === Example
+      #
+      #   joint.upper_limit = 1
+      def upper_limit=(limit)
+        @native.set_upper_limit(limit)
+      end
+
+      # The joint's lower and upper limits, as an Array of two Floats,
+      # matching RevoluteJoint:getLimits.
+      #
+      # === Example
+      #
+      #   lower, upper = joint.limits
+      def limits
+        @native.limits
+      end
+
+      # Sets the joint's lower and upper limits at once, matching
+      # RevoluteJoint:setLimits, whose two values rule 6 of ADR 001 makes one
+      # Array.
+      #
+      # === Example
+      #
+      #   joint.limits = -1, 1
+      def limits=(limits)
+        lower, upper = limits
+        @native.set_limits(lower, upper)
+      end
+
+      # The angle between the two Bodies the joint holds as its rest, in
+      # radians, as a Float, matching RevoluteJoint:getReferenceAngle.
+      #
+      # === Example
+      #
+      #   joint.reference_angle # => 0.0
+      def reference_angle
+        @native.reference_angle
+      end
     end
 
     # Slows two Bodies' movement against each other, matching LÖVE's
@@ -211,6 +532,46 @@ module Lota
         anchors, collide = Joint.anchored(arguments, 2)
         from_native(Native::Physics.new_friction_joint(body1.native, body2.native, anchors, flag(collide, false)))
       end
+
+      # The most force the joint applies, as a Float, matching
+      # FrictionJoint:getMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force # => 0.0
+      def max_force
+        @native.max_force
+      end
+
+      # Sets the most force the joint applies, matching
+      # FrictionJoint:setMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force = 100
+      def max_force=(force)
+        @native.set_max_force(force)
+      end
+
+      # The most torque the joint applies, as a Float, matching
+      # FrictionJoint:getMaxTorque.
+      #
+      # === Example
+      #
+      #   joint.max_torque # => 0.0
+      def max_torque
+        @native.max_torque
+      end
+
+      # Sets the most torque the joint applies, matching
+      # FrictionJoint:setMaxTorque.
+      #
+      # === Example
+      #
+      #   joint.max_torque = 100
+      def max_torque=(torque)
+        @native.set_max_torque(torque)
+      end
     end
 
     # Holds two Bodies together, matching LÖVE's WeldJoint.
@@ -225,6 +586,53 @@ module Lota
       def self.new(body1, body2, *arguments)
         anchors, collide, angle = Joint.anchored(arguments, 2)
         from_native(Native::Physics.new_weld_joint(body1.native, body2.native, anchors, flag(collide, false), angle))
+      end
+
+      # The joint's spring stiffness, as a Float, matching
+      # WeldJoint:getStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness # => 0.0
+      def stiffness
+        @native.stiffness
+      end
+
+      # Sets the joint's spring stiffness, matching WeldJoint:setStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness = 10
+      def stiffness=(stiffness)
+        @native.set_stiffness(stiffness)
+      end
+
+      # The joint's spring damping, as a Float, matching WeldJoint:getDamping.
+      #
+      # === Example
+      #
+      #   joint.damping # => 0.0
+      def damping
+        @native.damping
+      end
+
+      # Sets the joint's spring damping, matching WeldJoint:setDamping.
+      #
+      # === Example
+      #
+      #   joint.damping = 0.5
+      def damping=(damping)
+        @native.set_damping(damping)
+      end
+
+      # The angle between the two Bodies the joint holds as its rest, in
+      # radians, as a Float, matching WeldJoint:getReferenceAngle.
+      #
+      # === Example
+      #
+      #   joint.reference_angle # => 0.0
+      def reference_angle
+        @native.reference_angle
       end
     end
 
@@ -245,6 +653,197 @@ module Lota
         from_native(Native::Physics.new_prismatic_joint(body1.native, body2.native, anchors, flag(collide, false),
           angle))
       end
+
+      # How far the second Body has slid along the axis, in pixels, as a
+      # Float, matching PrismaticJoint:getJointTranslation.
+      #
+      # === Example
+      #
+      #   joint.joint_translation # => 0.0
+      def joint_translation
+        @native.joint_translation
+      end
+
+      # How fast the second Body slides along the axis, as a Float, matching
+      # PrismaticJoint:getJointSpeed.
+      #
+      # === Example
+      #
+      #   joint.joint_speed # => 0.0
+      def joint_speed
+        @native.joint_speed
+      end
+
+      # Whether the joint's motor runs, matching
+      # PrismaticJoint:isMotorEnabled.
+      #
+      # === Example
+      #
+      #   joint.motor_enabled? # => false
+      def motor_enabled?
+        @native.motor_enabled?
+      end
+
+      # Starts or stops the joint's motor, matching
+      # PrismaticJoint:setMotorEnabled.
+      #
+      # === Example
+      #
+      #   joint.motor_enabled = true
+      def motor_enabled=(enabled)
+        @native.set_motor_enabled(enabled)
+      end
+
+      # The speed the joint's motor drives at, as a Float, matching
+      # PrismaticJoint:getMotorSpeed.
+      #
+      # === Example
+      #
+      #   joint.motor_speed # => 0.0
+      def motor_speed
+        @native.motor_speed
+      end
+
+      # Sets the speed the joint's motor drives at, matching
+      # PrismaticJoint:setMotorSpeed.
+      #
+      # === Example
+      #
+      #   joint.motor_speed = 2
+      def motor_speed=(speed)
+        @native.set_motor_speed(speed)
+      end
+
+      # The most force the joint's motor applies, as a Float, matching
+      # PrismaticJoint:getMaxMotorForce.
+      #
+      # === Example
+      #
+      #   joint.max_motor_force # => 0.0
+      def max_motor_force
+        @native.max_motor_force
+      end
+
+      # Sets the most force the joint's motor applies, matching
+      # PrismaticJoint:setMaxMotorForce.
+      #
+      # === Example
+      #
+      #   joint.max_motor_force = 100
+      def max_motor_force=(force)
+        @native.set_max_motor_force(force)
+      end
+
+      # The force the joint's motor applied over a step, given the inverse of
+      # its length in seconds, as a Float, matching
+      # PrismaticJoint:getMotorForce.
+      #
+      # === Example
+      #
+      #   joint.motor_force(60) # => 0.0
+      def motor_force(inv_dt)
+        @native.motor_force(inv_dt)
+      end
+
+      # Whether the joint holds its Bodies within its limits, matching
+      # PrismaticJoint:areLimitsEnabled.
+      #
+      # === Example
+      #
+      #   joint.limits_enabled? # => false
+      def limits_enabled?
+        @native.limits_enabled?
+      end
+
+      # Turns the joint's limits on or off, matching
+      # PrismaticJoint:setLimitsEnabled.
+      #
+      # === Example
+      #
+      #   joint.limits_enabled = true
+      def limits_enabled=(enabled)
+        @native.set_limits_enabled(enabled)
+      end
+
+      # The joint's lower limit, as a Float, matching
+      # PrismaticJoint:getLowerLimit.
+      #
+      # === Example
+      #
+      #   joint.lower_limit # => 0.0
+      def lower_limit
+        @native.lower_limit
+      end
+
+      # Sets the joint's lower limit, matching PrismaticJoint:setLowerLimit.
+      #
+      # === Example
+      #
+      #   joint.lower_limit = -1
+      def lower_limit=(limit)
+        @native.set_lower_limit(limit)
+      end
+
+      # The joint's upper limit, as a Float, matching
+      # PrismaticJoint:getUpperLimit.
+      #
+      # === Example
+      #
+      #   joint.upper_limit # => 0.0
+      def upper_limit
+        @native.upper_limit
+      end
+
+      # Sets the joint's upper limit, matching PrismaticJoint:setUpperLimit.
+      #
+      # === Example
+      #
+      #   joint.upper_limit = 1
+      def upper_limit=(limit)
+        @native.set_upper_limit(limit)
+      end
+
+      # The joint's lower and upper limits, as an Array of two Floats,
+      # matching PrismaticJoint:getLimits.
+      #
+      # === Example
+      #
+      #   lower, upper = joint.limits
+      def limits
+        @native.limits
+      end
+
+      # Sets the joint's lower and upper limits at once, matching
+      # PrismaticJoint:setLimits, whose two values rule 6 of ADR 001 makes one
+      # Array.
+      #
+      # === Example
+      #
+      #   joint.limits = -1, 1
+      def limits=(limits)
+        lower, upper = limits
+        @native.set_limits(lower, upper)
+      end
+
+      # The axis the Bodies slide along, as an Array of its unit vector's x
+      # and y in the World's frame, matching PrismaticJoint:getAxis.
+      #
+      # === Example
+      #
+      #   ax, ay = joint.axis
+      def axis
+        @native.axis
+      end
+
+      # The angle between the two Bodies the joint holds as its rest, in
+      # radians, as a Float, matching PrismaticJoint:getReferenceAngle.
+      #
+      # === Example
+      #
+      #   joint.reference_angle # => 0.0
+      def reference_angle
+        @native.reference_angle
+      end
     end
 
     # Lets a Body roll on another, as a wheel on a car, matching LÖVE's
@@ -261,6 +860,183 @@ module Lota
       def self.new(body1, body2, *arguments)
         anchors, collide = Joint.anchored(arguments, 4)
         from_native(Native::Physics.new_wheel_joint(body1.native, body2.native, anchors, flag(collide, false)))
+      end
+
+      # How far the wheel has moved along the axis, in pixels, as a Float,
+      # matching WheelJoint:getJointTranslation.
+      #
+      # === Example
+      #
+      #   joint.joint_translation # => 0.0
+      def joint_translation
+        @native.joint_translation
+      end
+
+      # How fast the wheel moves along the axis, as a Float, matching
+      # WheelJoint:getJointSpeed.
+      #
+      # === Example
+      #
+      #   joint.joint_speed # => 0.0
+      def joint_speed
+        @native.joint_speed
+      end
+
+      # Whether the joint's motor runs, matching WheelJoint:isMotorEnabled.
+      #
+      # === Example
+      #
+      #   joint.motor_enabled? # => false
+      def motor_enabled?
+        @native.motor_enabled?
+      end
+
+      # Starts or stops the joint's motor, matching
+      # WheelJoint:setMotorEnabled.
+      #
+      # === Example
+      #
+      #   joint.motor_enabled = true
+      def motor_enabled=(enabled)
+        @native.set_motor_enabled(enabled)
+      end
+
+      # The speed the joint's motor drives at, as a Float, matching
+      # WheelJoint:getMotorSpeed.
+      #
+      # === Example
+      #
+      #   joint.motor_speed # => 0.0
+      def motor_speed
+        @native.motor_speed
+      end
+
+      # Sets the speed the joint's motor drives at, matching
+      # WheelJoint:setMotorSpeed.
+      #
+      # === Example
+      #
+      #   joint.motor_speed = 2
+      def motor_speed=(speed)
+        @native.set_motor_speed(speed)
+      end
+
+      # The most torque the joint's motor applies, as a Float, matching
+      # WheelJoint:getMaxMotorTorque.
+      #
+      # === Example
+      #
+      #   joint.max_motor_torque # => 0.0
+      def max_motor_torque
+        @native.max_motor_torque
+      end
+
+      # Sets the most torque the joint's motor applies, matching
+      # WheelJoint:setMaxMotorTorque.
+      #
+      # === Example
+      #
+      #   joint.max_motor_torque = 100
+      def max_motor_torque=(torque)
+        @native.set_max_motor_torque(torque)
+      end
+
+      # The torque the joint's motor applied over a step, given the inverse of
+      # its length in seconds, as a Float, matching WheelJoint:getMotorTorque.
+      #
+      # === Example
+      #
+      #   joint.motor_torque(60) # => 0.0
+      def motor_torque(inv_dt)
+        @native.motor_torque(inv_dt)
+      end
+
+      # The suspension's spring stiffness, as #stiffness gives it, as a Float,
+      # matching WheelJoint:getSpringStiffness.
+      #
+      # === Example
+      #
+      #   joint.spring_stiffness # => 0.0
+      def spring_stiffness
+        @native.spring_stiffness
+      end
+
+      # Sets the suspension's spring stiffness, as #stiffness= does, matching
+      # WheelJoint:setSpringStiffness.
+      #
+      # === Example
+      #
+      #   joint.spring_stiffness = 10
+      def spring_stiffness=(stiffness)
+        @native.set_spring_stiffness(stiffness)
+      end
+
+      # The suspension's spring damping, as #damping gives it, as a Float,
+      # matching WheelJoint:getSpringDamping.
+      #
+      # === Example
+      #
+      #   joint.spring_damping # => 0.0
+      def spring_damping
+        @native.spring_damping
+      end
+
+      # Sets the suspension's spring damping, as #damping= does, matching
+      # WheelJoint:setSpringDamping.
+      #
+      # === Example
+      #
+      #   joint.spring_damping = 0.5
+      def spring_damping=(damping)
+        @native.set_spring_damping(damping)
+      end
+
+      # The joint's spring stiffness, as a Float, matching
+      # WheelJoint:getStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness # => 0.0
+      def stiffness
+        @native.stiffness
+      end
+
+      # Sets the joint's spring stiffness, matching WheelJoint:setStiffness.
+      #
+      # === Example
+      #
+      #   joint.stiffness = 10
+      def stiffness=(stiffness)
+        @native.set_stiffness(stiffness)
+      end
+
+      # The joint's spring damping, as a Float, matching
+      # WheelJoint:getDamping.
+      #
+      # === Example
+      #
+      #   joint.damping # => 0.0
+      def damping
+        @native.damping
+      end
+
+      # Sets the joint's spring damping, matching WheelJoint:setDamping.
+      #
+      # === Example
+      #
+      #   joint.damping = 0.5
+      def damping=(damping)
+        @native.set_damping(damping)
+      end
+
+      # The axis the wheel moves along, as an Array of its unit vector's x and
+      # y in the World's frame, matching WheelJoint:getAxis.
+      #
+      # === Example
+      #
+      #   ax, ay = joint.axis
+      def axis
+        @native.axis
       end
     end
 
@@ -280,6 +1056,47 @@ module Lota
         from_native(Native::Physics.new_pulley_joint(body1.native, body2.native, gx1, gy1, gx2, gy2, x1, y1, x2, y2,
           ratio, flag(collide_connected, true)))
       end
+
+      # Where the rope hangs from, in the World's coordinates, as an Array of
+      # the first anchor's x and y and the second's, matching
+      # PulleyJoint:getGroundAnchors.
+      #
+      # === Example
+      #
+      #   x1, y1, x2, y2 = joint.ground_anchors
+      def ground_anchors
+        @native.ground_anchors
+      end
+
+      # The length of the rope from the first ground anchor to the first Body,
+      # in pixels, as a Float, matching PulleyJoint:getLengthA.
+      #
+      # === Example
+      #
+      #   joint.length_a # => 10.0
+      def length_a
+        @native.length_a
+      end
+
+      # The length of the rope from the second ground anchor to the second
+      # Body, in pixels, as a Float, matching PulleyJoint:getLengthB.
+      #
+      # === Example
+      #
+      #   joint.length_b # => 10.0
+      def length_b
+        @native.length_b
+      end
+
+      # How much the second side moves for each unit the first does, as a
+      # Float, matching PulleyJoint:getRatio.
+      #
+      # === Example
+      #
+      #   joint.ratio # => 1.0
+      def ratio
+        @native.ratio
+      end
     end
 
     # Links two Joints, so one drives the other, matching LÖVE's GearJoint.
@@ -294,6 +1111,36 @@ module Lota
       def self.new(joint1, joint2, ratio = 1, collide_connected = nil)
         from_native(Native::Physics.new_gear_joint(joint1.native, joint2.native, ratio,
           flag(collide_connected, false)))
+      end
+
+      # How far the second joint moves for each unit the first moves, as a
+      # Float, matching GearJoint:getRatio.
+      #
+      # === Example
+      #
+      #   joint.ratio # => 1.0
+      def ratio
+        @native.ratio
+      end
+
+      # Sets how far the second joint moves for each unit the first moves,
+      # matching GearJoint:setRatio.
+      #
+      # === Example
+      #
+      #   joint.ratio = 2
+      def ratio=(ratio)
+        @native.set_ratio(ratio)
+      end
+
+      # The two Joints the gear links, as an Array, matching
+      # GearJoint:getJoints.
+      #
+      # === Example
+      #
+      #   first, second = gear.joints
+      def joints
+        @native.joints.map { |joint| Physics.joint(joint) }
       end
     end
 
@@ -310,6 +1157,26 @@ module Lota
         from_native(Native::Physics.new_rope_joint(body1.native, body2.native, x1, y1, x2, y2, max_length,
           flag(collide_connected, false)))
       end
+
+      # The most the joint lets its anchors apart, in pixels, as a Float,
+      # matching RopeJoint:getMaxLength.
+      #
+      # === Example
+      #
+      #   joint.max_length # => 50.0
+      def max_length
+        @native.max_length
+      end
+
+      # Sets the most the joint lets its anchors apart, matching
+      # RopeJoint:setMaxLength.
+      #
+      # === Example
+      #
+      #   joint.max_length = 80
+      def max_length=(length)
+        @native.set_max_length(length)
+      end
     end
 
     # Moves one Body relative to another, matching LÖVE's MotorJoint.
@@ -324,6 +1191,109 @@ module Lota
       def self.new(body1, body2, correction_factor = nil, collide_connected = nil)
         from_native(Native::Physics.new_motor_joint(body1.native, body2.native, correction_factor,
           flag(collide_connected, false)))
+      end
+
+      # The offset the joint drives the second Body to, in the first Body's
+      # frame, as an Array of its x and y, matching
+      # MotorJoint:getLinearOffset.
+      #
+      # === Example
+      #
+      #   x, y = joint.linear_offset
+      def linear_offset
+        @native.linear_offset
+      end
+
+      # Sets the offset the joint drives the second Body to, matching
+      # MotorJoint:setLinearOffset, whose two values rule 6 of ADR 001 makes
+      # one Array.
+      #
+      # === Example
+      #
+      #   joint.linear_offset = 10, 0
+      def linear_offset=(offset)
+        x, y = offset
+        @native.set_linear_offset(x, y)
+      end
+
+      # The angle the joint turns the second Body to, relative to the first,
+      # in radians, as a Float, matching MotorJoint:getAngularOffset.
+      #
+      # === Example
+      #
+      #   joint.angular_offset # => 0.0
+      def angular_offset
+        @native.angular_offset
+      end
+
+      # Sets the angle the joint turns the second Body to, matching
+      # MotorJoint:setAngularOffset.
+      #
+      # === Example
+      #
+      #   joint.angular_offset = Math::PI
+      def angular_offset=(offset)
+        @native.set_angular_offset(offset)
+      end
+
+      # The most force the joint applies, as a Float, matching
+      # MotorJoint:getMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force # => 0.0
+      def max_force
+        @native.max_force
+      end
+
+      # Sets the most force the joint applies, matching
+      # MotorJoint:setMaxForce.
+      #
+      # === Example
+      #
+      #   joint.max_force = 100
+      def max_force=(force)
+        @native.set_max_force(force)
+      end
+
+      # The most torque the joint applies, as a Float, matching
+      # MotorJoint:getMaxTorque.
+      #
+      # === Example
+      #
+      #   joint.max_torque # => 0.0
+      def max_torque
+        @native.max_torque
+      end
+
+      # Sets the most torque the joint applies, matching
+      # MotorJoint:setMaxTorque.
+      #
+      # === Example
+      #
+      #   joint.max_torque = 100
+      def max_torque=(torque)
+        @native.set_max_torque(torque)
+      end
+
+      # How much of the error in position the joint corrects each step, from 0
+      # to 1, as a Float, matching MotorJoint:getCorrectionFactor.
+      #
+      # === Example
+      #
+      #   joint.correction_factor # => 0.3
+      def correction_factor
+        @native.correction_factor
+      end
+
+      # Sets how much of the error in position the joint corrects each step,
+      # matching MotorJoint:setCorrectionFactor.
+      #
+      # === Example
+      #
+      #   joint.correction_factor = 0.5
+      def correction_factor=(factor)
+        @native.set_correction_factor(factor)
       end
     end
 
