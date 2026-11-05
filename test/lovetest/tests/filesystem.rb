@@ -390,6 +390,14 @@ class FilesystemTest < Lovetest::TestMethod
     assert_true(mount4, "check mount userappdata")
     assert_true(mount6, "check mount userdocuments")
     assert_false(ok, "check mount invalid common path fails")
+  ensure
+    # Lövetest leaves these mounted for the few tests after it; Minitest
+    # runs the whole suite's tests after it in one process, in random
+    # order, so the translation unmounts what it mounted, as Lövetest's
+    # own unmountCommonPath test, commented out (lines 423-453), would.
+    %i[appdocuments userhome userappdata userdesktop userdocuments].each do |path|
+      Lota::Filesystem.unmount_common_path(path)
+    end
   end
 
   # Translated to Ruby from love.test.filesystem.openFile

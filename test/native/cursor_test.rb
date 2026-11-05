@@ -51,7 +51,7 @@ class CursorTest < Minitest::Test
   # wrap_Mouse.cpp:74-75) and makes an image cursor of it, as it does of an
   # ImageData given, or of a table of them (w_newCursor).
   def test_a_cursor_is_made_of_an_image_its_file_or_an_array_of_them
-    skip("cursor not supported on this system") unless Lota::Mouse.cursor_supported?
+    skip("cursors not supported here") unless Lota::Mouse.cursor_supported?
 
     logo = "resources/love.png" # in the game folder, test/lovetest
     image = Lota::Image::ImageData.new(logo)

@@ -284,8 +284,11 @@ module Lota
     #   Lota::Filesystem.lines("level1.txt") do |row|
     #     @rows << row
     #   end
-    def self.lines(filename, &)
-      enumerate_lines(Native::Filesystem::Lines.new(filename), &)
+    def self.lines(filename, &block)
+      reader = Native::Filesystem::Lines.new(filename)
+      return enumerate_lines(reader) unless block
+
+      enumerate_lines(reader, &block)
     end
 
     # The lines +reader+ reads, as an Enumerator, or each given to the

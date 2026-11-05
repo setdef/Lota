@@ -271,8 +271,11 @@ module Lota
       # === Example
       #
       #   file.lines.to_a # => ["ada 120"]
-      def lines(&)
-        Filesystem.enumerate_lines(Native::Filesystem::Lines.of_file(@native), &)
+      def lines(&block)
+        reader = Native::Filesystem::Lines.of_file(@native)
+        return Filesystem.enumerate_lines(reader) unless block
+
+        Filesystem.enumerate_lines(reader, &block)
       end
     end
   end
