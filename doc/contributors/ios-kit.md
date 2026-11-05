@@ -7,13 +7,45 @@
 
 Apple permits no generic player app on iOS, so a Lota game reaches an iPhone or iPad the way a LÖVE game does: as an Xcode project that someone opens, signs, and runs. The newcomer and the studio both need that project (plan 002, "Two ends of shipping a game"). The studio needs it most: it ships a game as an app of its own, so it opens the project, brands it, signs it with its own team, and builds it from source.
 
-Making that project by hand takes Lota built for two iOS slices, SDL3 built static, Fledge's Ruby runtime, an SDL host program, and XcodeGen. The iOS kit workflow does all of that on CI for any public repository that holds a Lota game, checks the result in iPhone and iPad Simulators, and hands you a zip. You need a Mac with Xcode and an Apple ID; you need no Ruby, Lota, Fledge, or XcodeGen.
+Making that project by hand takes Lota built for two iOS slices, SDL3 built static, Fledge's Ruby runtime, an SDL host program, and XcodeGen. The iOS kit workflow does all of that on CI for a repository that holds a Lota game, checks the result in iPhone and iPad Simulators, and hands you a zip. Lota builds the kit; you run it, in your own game's CI. To open the kit you need a Mac with Xcode and an Apple ID, and no Ruby, Lota, Fledge, or XcodeGen.
 
-The workflow is `.github/workflows/ios-kit.yml`, with its scripts in `ipad/`, on the throwaway branches `experiment/ios-kit-*`, while the iOS route is an experiment.
+The workflow is `.github/workflows/ios-kit.yml`, with its scripts in `ipad/`, on the throwaway branches `experiment/ios-kit-*`, while the iOS route is an experiment. Lota checks it with its own sample games, `test/games/winkit` and `test/games/moon_pong`.
 
-## Make a kit
+## Run it in your game's CI
 
-Dispatch the workflow with your game's repository:
+Add one workflow to your game's repository. It calls Lota's as a reusable workflow, so your CI copies no scripts: it names Lota's ref twice, in `uses` and in `lota_ref`, and the two must match.
+
+```yaml
+# .github/workflows/ios-kit.yml in your game's repository
+name: iOS kit
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  ios-kit:
+    uses: setdef/Lota/.github/workflows/ios-kit.yml@experiment/ios-kit-1
+    with:
+      lota_ref: experiment/ios-kit-1
+      game_repository: ${{ github.repository }}
+      game_ref: ${{ github.sha }}
+      display_name: "Moon Pong ’em"
+      identifier: com.example.moonpong
+      icon: icons/icon-*.png
+      smoke_env: MOON_PONG_QUIT_AFTER=12
+```
+
+The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Moon Pong ’em, and it runs when `experiment/ios-kit-call-*` is pushed.
+
+## Make a kit from Lota's repository
+
+Lota's maintainers can also dispatch the workflow in Lota's repository for a public game repository:
 
 ```sh
 gh workflow run ios-kit.yml -R setdef/Lota --ref experiment/ios-kit-1 \
@@ -29,9 +61,10 @@ Pushing to an `experiment/ios-kit-*` branch builds Lota's own `test/games/winkit
 
 ## Inputs
 
-Every input but `game_repository` has a default.
+Every input but `game_repository`, and `lota_ref` in a call, has a default.
 
-- **`game_repository`**, `OWNER/NAME` of a public GitHub repository. The workflow fetches it without credentials, so a private one fails at checkout.
+- **`game_repository`**, `OWNER/NAME` of the game's GitHub repository: in your own CI, `${{ github.repository }}`. The run's token checks it out, so it reads your own repository even when it is private, and any public one.
+- **`lota_ref`**, in a call from your CI, the ref of Lota your `uses` line names. Dispatched in Lota's repository, it defaults to the run's own commit.
 - **`game_ref`**, a tag, branch, or commit; empty for the default branch.
 - **`game_path`**, the game's folder in the repository, the one with `main.rb`; `.` by default.
 - **`display_name`**, the name under the icon (`CFBundleDisplayName`). It may hold spaces and any Unicode, such as a typographic apostrophe; it travels as the target's `APP_DISPLAY_NAME` build setting, through `project.yml`, XcodeGen, and Xcode's Info.plist processing. Empty takes the repository's name.

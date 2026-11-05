@@ -97,14 +97,19 @@ def device_types(runtime, wanted)
   end.compact
 end
 
-# The app's process ID, as the Simulator's launchd lists it, or nil when
-# it is not running. An app whose Ruby program has returned stays
-# running: SDL_RunApp keeps UIKit's loop going.
-def app_pid(udid, identifier)
-  listing, = Open3.capture2("xcrun", "simctl", "spawn", udid, "launchctl", "list")
-  line = listing.lines.find { |entry| entry.include?("UIKitApplication:#{identifier}") } or return nil
-  pid = line.split.first
-  pid =~ /\A\d+\z/ ? Integer(pid) : nil
+# Whether the process +pid+ simctl launched still runs. A Simulator's apps
+# are processes of the Mac's, so the Mac's own kill(2) answers; the
+# Simulator's launchctl list, which an earlier harness read, sometimes
+# left out an app that was still printing, while a UI test held the
+# device turned. An app whose Ruby program has returned stays running:
+# SDL_RunApp keeps UIKit's loop going.
+def running?(pid)
+  Process.kill(0, pid)
+  true
+rescue Errno::ESRCH
+  false
+rescue Errno::EPERM
+  true
 end
 
 # Whether the child process +pid+ has ended; its status is then in
@@ -164,7 +169,7 @@ end
 # log, its data container, and its crash reports in +dir+. Returns the
 # app's log entries and whether the app was still running.
 def collect(udid, identifier, executable, dir, since, started, pid)
-  alive = app_pid(udid, identifier) == pid
+  alive = running?(pid)
   system("xcrun", "simctl", "terminate", udid, identifier, out: File::NULL, err: File::NULL)
   sleep 3
   entries = messages(udid, since, identifier, File.join(dir, "subsystem.ndjson"))
