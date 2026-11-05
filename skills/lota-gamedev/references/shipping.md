@@ -37,7 +37,7 @@ Things a game author should know:
   the build, not the game folder. Settings in the game's `.bundle/config`
   (such as `build.NAME` options for an extension) do not reach the build.
 - The app saves under your `t.identity`, as LÖVE's fused game does.
-- The identifier is a reverse-DNS name (`com.yourname.Game`); the default is a
+- The identifier is a reverse-DNS name (`com.example.Game`); the default is a
   placeholder: set your own before you ship.
 - Unsigned apps trigger Windows SmartScreen and macOS Gatekeeper prompts; that
   is expected until you sign.

@@ -443,7 +443,7 @@ module Lota
     #
     # === Example
     #
-    #   Lota::Boot.folder_identity("games/.dot.popper") # => "dot"
+    #   Lota::Boot.folder_identity("games/.sample.game") # => "sample"
     def self.folder_identity(directory)
       identity = File.basename(directory).sub(/\A\.+/, "").sub(/\.[^.]+\z/, "").tr(".", "_")
       identity.empty? ? "lotagame" : identity

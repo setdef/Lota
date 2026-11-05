@@ -20,7 +20,7 @@ module Lota
     #
     # === Example
     #
-    #   locked = Lota::Fuse::Lockfile.read("games/moon_pong/Gemfile.lock")
+    #   locked = Lota::Fuse::Lockfile.read("games/sample_game/Gemfile.lock")
     #   locked.platforms                    # => ["arm64-darwin", "x86_64-linux-gnu"]
     #   locked.versions("lota")             # => ["0.1.3"]
     #   locked.covers?("x64-mingw-ucrt")    # => false

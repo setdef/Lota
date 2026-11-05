@@ -24,7 +24,7 @@ module Lota
       # === Example
       #
       #   lota fuse
-      #   lota fuse path/to/game --identifier com.example.MoonPong
+      #   lota fuse path/to/game --identifier com.example.SampleGame
       #   lota fuse path/to/game --out builds --sign "Developer ID Application: NAME (TEAM)"
       module Fuse
         # The words Fledge reads as a phone, which Lota cannot build for
@@ -104,7 +104,7 @@ module Lota
               --out DIR, -o DIR       Write the app, and the project it is built
                                       from, to DIR (default: dist)
               --identifier ID         The reverse-DNS name the system knows the
-                                      app by, such as com.yourname.YourGame
+                                      app by, such as com.example.YourGame
                                       (default: com.example.IDENTITY, a
                                       placeholder: replace it before you ship)
               --app-version VERSION   The app's version, such as 1.0.0 (default:
