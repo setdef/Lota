@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The Windows kit, on experiment/windows-kit-* and experiment/winkit-*
+# branches only: a folder the maintainer unzips on a real Windows PC and
+# double-clicks (tasks/windows_kit/). The build job fuses
+# test/games/winkit with lota fuse and Lota's release gem for
+# x64-mingw-ucrt, as fuse.yml does, and zips the kit, which holds no
+# game made with Lota. The test jobs then run that zip as he would,
+# unzipped, with every file marked as downloaded from the internet: through
+# run-kit.cmd (Windows PowerShell 5.1) from Downloads under a folder with
+# a space, and through pwsh 7 under a folder with a space and a letter
+# outside ASCII, each with Mesa's llvmpipe beside the apps so they draw;
+# and through run-kit.cmd with no Mesa, where the runner's GPU-less
+# Windows refuses the renderer, which the kit must report and go past.
+# tasks/windows_kit/check-results.ps1 checks what each left.
+
+name: Windows kit
+
+on:
+  push:
+    branches: ["experiment/windows-kit-*", "experiment/winkit-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PLATFORM: x64-mingw-ucrt
+
+jobs:
+  build:
+    name: Build the kit
+    runs-on: windows-2025
+    timeout-minutes: 30
+    outputs:
+      kit: ${{ steps.assemble.outputs.kit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Parse the kit's scripts in Windows PowerShell 5.1 and pwsh 7, and check they are ASCII
+        shell: pwsh
+        run: |
+          $bad = 0
+          foreach ($file in 'run-kit.ps1', 'check-results.ps1') {
+            $path = (Resolve-Path "tasks/windows_kit/$file").Path
+            if ([IO.File]::ReadAllBytes($path) | Where-Object { $_ -gt 127 }) { Write-Host "::error::$file has bytes outside ASCII"; $bad++ }
+            foreach ($exe in 'powershell.exe', 'pwsh') {
+              $command = "`$e = `$null; [void][Management.Automation.Language.Parser]::ParseFile('$path', [ref]`$null, [ref]`$e); `$e | ForEach-Object { `$_.ToString() }; exit @(`$e).Count"
+              & $exe -NoProfile -NonInteractive -Command $command
+              Write-Host "$exe parses ${file}: $LASTEXITCODE errors"
+              if ($LASTEXITCODE -ne 0) { $bad++ }
+            }
+          }
+          exit $bad
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+          windows-toolchain: none
+
+      - name: Get Lota's release gem for this platform, check it, and install it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gems="$RUNNER_TEMP/gems"
+          mkdir -p "$gems"
+          version=$(sed -n 's/^ *VERSION = "\(.*\)"$/\1/p' lib/lota/version.rb)
+          gh release download "v$version" -R "$GITHUB_REPOSITORY" -D "$gems" -p "lota-$version-$PLATFORM.gem" -p SHA256SUMS
+          (cd "$gems" && grep " lota-$version-$PLATFORM.gem\$" SHA256SUMS | sha256sum --check -)
+          gem install --local "$gems"/lota-*-"$PLATFORM".gem
+          gem list lota
+
+      - name: lota fuse test/games/winkit
+        run: |
+          ruby -I lib exe/lota fuse test/games/winkit --out "$RUNNER_TEMP/dist"
+          ls -la "$RUNNER_TEMP/dist"
+
+      - name: Assemble and zip the kit
+        id: assemble
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format 'yyyy-MM-dd'
+          $name = "lota-windows-kit-$date"
+          $kit = Join-Path $env:RUNNER_TEMP "kit\$name"
+          $apps = Join-Path $kit 'apps'
+          New-Item -ItemType Directory -Force $apps | Out-Null
+          $winkit = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/dist" -Filter 'Winkit-*.zip' | Select-Object -First 1
+          Copy-Item $winkit.FullName -Destination $apps
+          $lotaVersion = (Select-String -LiteralPath lib/lota/version.rb -Pattern 'VERSION = "(.*)"').Matches[0].Groups[1].Value
+          $commit = $env:GITHUB_SHA.Substring(0, 7)
+          $crlf = { param($from, $to, $replace) $t = [IO.File]::ReadAllText($from) -replace "`r?`n", "`r`n"; foreach ($k in $replace.Keys) { $t = $t.Replace($k, $replace[$k]) }; [IO.File]::WriteAllText($to, $t, [Text.UTF8Encoding]::new($false)) }
+          $fill = @{ '@LOTA_VERSION@' = $lotaVersion; '@BUILT@' = $date; '@COMMIT@' = $commit }
+          foreach ($file in 'run-kit.cmd', 'run-kit.ps1', 'README.txt') { & $crlf "tasks/windows_kit/$file" (Join-Path $kit $file) $fill }
+          $info = @("kit: $name", "built: $(Get-Date -Format o)", "lota: $lotaVersion, commit $env:GITHUB_SHA, run $env:GITHUB_RUN_ID",
+            "winkit: $($winkit.Name)")
+          [IO.File]::WriteAllText((Join-Path $kit 'kit-info.txt'), (($info -join "`r`n") + "`r`n"), [Text.UTF8Encoding]::new($false))
+          $sums = Get-ChildItem -LiteralPath $kit -Recurse -File | Sort-Object FullName | ForEach-Object {
+            "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.FullName.Substring($kit.Length + 1).Replace('\', '/'))"
+          }
+          [IO.File]::WriteAllText((Join-Path $kit 'SHA256SUMS'), (($sums -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
+          Get-Content (Join-Path $kit 'SHA256SUMS')
+          Get-Content (Join-Path $kit 'kit-info.txt')
+          $out = Join-Path $env:RUNNER_TEMP 'out'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          $zip = Join-Path $out "$name.zip"
+          Compress-Archive -LiteralPath $kit -DestinationPath $zip
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "kit: $zip, $((Get-Item $zip).Length) bytes, sha256 $hash"
+          "$hash  $name.zip" | Set-Content -LiteralPath "$zip.sha256" -NoNewline
+          "kit=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lota-windows-kit
+          path: |
+            ${{ runner.temp }}/out/*.zip
+            ${{ runner.temp }}/out/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+
+  test:
+    name: Test the kit (${{ matrix.name }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: run-kit.cmd, PowerShell 5.1, Mesa, Downloads, answers on stdin
+            id: cmd-mesa
+            launcher: cmd
+            mode: mesa
+            arguments: -HoldSeconds 8 -NullAudio -MesaDir "%RUNNER_TEMP%\mesa" < "%RUNNER_TEMP%\answers.txt"
+            check: -Mode mesa -Held -Answered
+          - name: pwsh 7, Mesa, a folder outside ASCII
+            id: pwsh-mesa
+            launcher: pwsh
+            mode: mesa
+            arguments: ""
+            check: -Mode mesa
+          - name: run-kit.cmd, PowerShell 5.1, no GPU
+            id: cmd-nogpu
+            launcher: cmd
+            mode: nogpu
+            arguments: -Unattended
+            check: -Mode nogpu
+    runs-on: windows-2025
+    timeout-minutes: 40
+    env:
+      KIT_NAME: ${{ needs.build.outputs.kit }}
+      MODE: ${{ matrix.mode }}
+      TEST_ID: ${{ matrix.id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lota-windows-kit
+          path: ${{ runner.temp }}/download
+
+      # As fuse.yml's draw step: Mesa's software OpenGL from the runner's
+      # MSYS2, which the kit copies beside each app when asked to.
+      - name: Get Mesa's llvmpipe
+        if: matrix.mode == 'mesa'
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-ucrt-x86_64-mesa | Out-Host
+          $mesa = Join-Path $env:RUNNER_TEMP 'mesa'
+          New-Item -ItemType Directory -Force $mesa | Out-Null
+          $bin = 'C:\msys64\ucrt64\bin'
+          foreach ($pattern in 'opengl32.dll', 'libgallium_wgl.dll', 'libffi-*.dll', 'libgcc_s_seh-1.dll', 'libiconv-2.dll', 'libintl-8.dll',
+              'libLLVM*.dll', 'libSPIRV-Tools*.dll', 'libstdc++-6.dll', 'libsystre-0.dll', 'libtre-5.dll', 'libwinpthread-1.dll',
+              'libxml2*.dll', 'libzstd.dll', 'zlib1.dll') {
+            Get-ChildItem -LiteralPath $bin -Filter $pattern | Copy-Item -Destination $mesa
+          }
+          Get-ChildItem $mesa | ForEach-Object { Write-Host $_.Name }
+
+      # Unzipped as Explorer's Extract All would leave it, every file
+      # marked as downloaded (Zone.Identifier, ZoneId=3), the zip too.
+      - name: Unzip the kit where the maintainer might
+        shell: pwsh
+        run: |
+          $places = @{
+            'cmd-mesa' = Join-Path $env:USERPROFILE 'Downloads\lota kit test'
+            'pwsh-mesa' = Join-Path $env:RUNNER_TEMP ("Lota Kit " + [char]0xFC + " test")
+            'cmd-nogpu' = Join-Path $env:RUNNER_TEMP 'kit with spaces'
+          }
+          $place = $places[$env:TEST_ID]
+          New-Item -ItemType Directory -Force $place | Out-Null
+          $zip = Join-Path $place "$env:KIT_NAME.zip"
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "download\$env:KIT_NAME.zip") -Destination $zip
+          $mark = "[ZoneTransfer]`r`nZoneId=3`r`nReferrerUrl=https://github.com/`r`nHostUrl=https://github.com/kit.zip"
+          Set-Content -LiteralPath $zip -Stream Zone.Identifier -Value $mark
+          Expand-Archive -LiteralPath $zip -DestinationPath $place
+          $kit = Join-Path $place $env:KIT_NAME
+          Get-ChildItem -LiteralPath $kit -Recurse -File | ForEach-Object { Set-Content -LiteralPath $_.FullName -Stream Zone.Identifier -Value $mark }
+          Get-ChildItem -LiteralPath $kit -Recurse -File | ForEach-Object { Write-Host "$($_.FullName) $($_.Length)" }
+          "KIT=$kit" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "kit at: $kit"
+
+      # The answers a person would type, one per line, in the order
+      # run-kit.ps1 asks: whether to start, then for each hand check an
+      # answer and a note. A stray answer comes before each, which the kit
+      # must refuse and ask again rather than take for a no; W3's answer is
+      # an empty line, which skips it.
+      - name: Write the answers
+        if: matrix.id == 'cmd-mesa'
+        shell: pwsh
+        run: |
+          $lines = @('x', 'y', 'maybe', 'y', 'fed by CI', 'k', 'n', 'fed by CI', 'q', '', 'fed by CI')
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'answers.txt'), (($lines -join "`r`n") + "`r`n"))
+          Get-Content (Join-Path $env:RUNNER_TEMP 'answers.txt')
+
+      - name: Run the kit through run-kit.cmd
+        if: matrix.launcher == 'cmd'
+        shell: cmd
+        env:
+          LOTA_KIT_NO_PAUSE: "1"
+        run: |
+          call "%KIT%\run-kit.cmd" ${{ matrix.arguments }}
+          echo run-kit.cmd exit status %errorlevel%
+
+      - name: Run the kit through pwsh 7
+        if: matrix.launcher == 'pwsh'
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion
+          pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $env:KIT 'run-kit.ps1') -Unattended -NullAudio -MesaDir (Join-Path $env:RUNNER_TEMP 'mesa')
+          Write-Host "run-kit.ps1 exit status $LASTEXITCODE"
+
+      - name: Show results.txt
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem -LiteralPath (Join-Path $env:KIT 'results') -Recurse | ForEach-Object { Write-Host "$($_.FullName) $($_.Length)" }
+          Get-ChildItem -LiteralPath (Join-Path $env:KIT 'results') -Recurse -Filter results.txt | ForEach-Object { Get-Content -LiteralPath $_.FullName -Encoding UTF8 }
+
+      - name: Check the results
+        shell: pwsh
+        run: |
+          & ./tasks/windows_kit/check-results.ps1 -Kit $env:KIT ${{ matrix.check }}
+          exit $LASTEXITCODE
+
+      - name: Keep the results
+        if: always()
+        shell: pwsh
+        run: |
+          $keep = Join-Path $env:RUNNER_TEMP 'keep'
+          New-Item -ItemType Directory -Force $keep | Out-Null
+          Copy-Item -LiteralPath (Join-Path $env:KIT 'results') -Destination $keep -Recurse -ErrorAction SilentlyContinue
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-${{ matrix.id }}
+          path: ${{ runner.temp }}/keep
+          if-no-files-found: warn
