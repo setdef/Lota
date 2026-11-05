@@ -76,7 +76,8 @@ run_open() {
 
 run_direct direct-window
 run_direct direct-nowindow MACAUDIO_WINDOW=0
-run_direct direct-coreaudio MACAUDIO_WINDOW=0 ALSOFT_DRIVERS=coreaudio
+run_direct direct-core MACAUDIO_WINDOW=0 ALSOFT_DRIVERS=core ALSOFT_LOGLEVEL=3
+run_direct direct-default-log MACAUDIO_WINDOW=0 ALSOFT_LOGLEVEL=3
 run_direct direct-null MACAUDIO_WINDOW=0 ALSOFT_DRIVERS=null
 echo "=== direct-clean-env (as fuse.yml, without ALSOFT_DRIVERS)"
 (cd / && run_direct direct-clean-env -i PATH=/nonexistent HOME="$HOME" MACAUDIO_WINDOW=0)
