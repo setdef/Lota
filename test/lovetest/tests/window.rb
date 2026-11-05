@@ -26,6 +26,37 @@ class WindowTest < Lovetest::TestMethod
   # other test of Lota sets an icon.
   i_suck_and_my_tests_are_order_dependent!
 
+  # The window as test/lovetest/conf.rb opens it, which every other suite
+  # in the process expects: 360 by 240, resizable, with a depth and a
+  # stencil buffer, in pixels.
+  MODE = { fullscreen: false, resizable: true, depth: true, stencil: true, usedpiscale: false }.freeze
+
+  # Lövetest's window tests end with the window in the mode their last
+  # call left, and the process has only the one window, so each test here
+  # ends by putting back what it may have changed: setMode starts from
+  # WindowSettings' defaults, not the window's (wrap_Window.cpp:141-144),
+  # so after its test the window has no depth buffer and uses the DPI
+  # scale, updateMode's test ends by asking for no depth buffer, and the
+  # tests of display sleep leave it enabled, which LÖVE starts disabled
+  # (sdl/Window.cpp:93). The window is made again only when its mode
+  # differs.
+  def setup
+    super
+    @display_sleep_enabled = Lota::Window.display_sleep_enabled? if Lota.window
+  end
+
+  def teardown
+    if Lota.window
+      width, height, flags = Lota::Window.mode
+      unless [width, height, flags.to_h.slice(*MODE.keys)] == [360, 240, MODE]
+        Lota::Window.set_mode(360, 240, **MODE)
+      end
+      sleeping = Lota::Window.display_sleep_enabled?
+      Lota::Window.display_sleep_enabled = @display_sleep_enabled unless sleeping == @display_sleep_enabled
+    end
+    super
+  end
+
   # Lets frames go by until the block is true, for at most ten seconds, and
   # returns whether it was. Lövetest lets ten go by (waitFrames(10)) and
   # then checks, which suffices when a frame takes its sixtieth of a
