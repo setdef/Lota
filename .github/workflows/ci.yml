@@ -188,8 +188,16 @@ jobs:
       #
       # A dry run may go on past a failing gate, but never on a tag (the
       # ignore_gate_failures input).
+      #
+      # The gate ends a lane that runs past its budget, which it derives
+      # from this step's 55 minutes, after printing what the lane was doing
+      # (Gate::LANE_TIMEOUT in tasks/gate.rb), so a check that hangs fails
+      # with its processes' stacks printed instead of being stopped here
+      # with nothing printed. The steps before this one have taken under
+      # two minutes, and those after a failed gate under one, within the
+      # job's 60.
       - name: Run the gate
-        timeout-minutes: 40
+        timeout-minutes: 55
         continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
         env:
           A: --verbose

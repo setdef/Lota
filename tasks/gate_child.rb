@@ -9,7 +9,13 @@
 # prepared (comma separated) and then the tasks to run. The prepared tasks
 # are cleared, since they have run, so that this process does not build or
 # fix again what another check's process is also using.
+#
+# Its output goes out as it is written, not when a buffer fills, so that
+# what the gate shows of a check that hangs is what it has done so far.
 require "rake"
+
+$stdout.sync = true
+$stderr.sync = true
 
 application = Rake.application
 prepared, *tasks = ARGV
