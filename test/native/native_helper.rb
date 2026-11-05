@@ -70,6 +70,18 @@ module NativeHelper
       flunk "#{feature} is not loaded"
   end
 
+  # Runs Ruby, with warnings on, on +arguments+ in a process of its own
+  # that loads Lota as this one did, the sanitized bundle under rake
+  # test:native among them, and returns its output and Process::Status.
+  # A test that makes a Ractor makes it there: once a process has made
+  # one, ObjectSpace no longer finds the objects other tests count
+  # (physics_callbacks_test.rb).
+  def ruby_of_its_own(*, environment: {})
+    native = File.dirname(File.dirname(loaded("lota/native")))
+    load_path = [native, File.join(ROOT, "lib")].uniq.join(File::PATH_SEPARATOR)
+    capture2e(environment, RbConfig.ruby, "-w", "-I#{load_path}", *)
+  end
+
   # Runs the block on a thread of its own and waits for it. Ruby's
   # collector also treats any word on a thread's machine stack that looks
   # like an object as a reference, so an object the block made can outlive

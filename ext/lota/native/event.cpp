@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/ruby.hpp"
+#include "native/thread.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -66,7 +67,9 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // Ruby wrapper (WrapperIdentities, native/binding.hpp), as luax_pushtype
 // pushes the one userdata Lua keeps for it; the only ones LÖVE's event
 // module puts in a message are joysticks (event/sdl/Event.cpp:618-757),
-// and Lota's own love.event functions put none there yet.
+// and a thread that ended with an error (LuaThread::onError, which
+// Lota's Thread ports, native/thread.cpp), and Lota's own love.event
+// functions put none there yet.
 const Variant::SharedTable *push_value(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
@@ -91,6 +94,10 @@ const Variant::SharedTable *push_value(Rice::Array &result, const Variant &varia
   case Variant::TABLE:
     return data.table;
   case Variant::LOVEOBJECT:
+    if (data.objectproxy.type != nullptr && data.objectproxy.type->isa(Thread::type)) {
+      result.push(dynamic_cast<Thread *>(data.objectproxy.object), false);
+      break;
+    }
     if (data.objectproxy.type == nullptr ||
         !data.objectproxy.type->isa(love::joystick::Joystick::type)) {
       throw love::Exception("Lota cannot pass this event's arguments to Ruby yet.");

@@ -47,6 +47,9 @@
 #undef KEY_EXECUTE
 #endif
 
+#include <ruby/ractor.h>
+
+#include "common/Data.h"
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/Object.h" // IWYU pragma: export
@@ -71,6 +74,8 @@
 #include "physics/box2d/Shape.h"
 #include "physics/box2d/World.h"
 
+#include <algorithm>
+#include <array>
 #include <bit>
 #include <concepts>
 #include <cstddef>
@@ -80,6 +85,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>
@@ -170,6 +176,19 @@ template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true
 template <> struct ReleasedOnMainThread<love::graphics::Buffer> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Mesh> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::ParticleSystem> : std::true_type {};
+
+// Whether Ractors share the wrappers of engine objects of class T (ADR
+// 001, section 6): a love::Data, which guards its bytes with LÖVE's own
+// lock (src/common/Data.h), or a class of Lota's that says it guards
+// itself, with a static member +shareable+, as Lota's Channel and Thread
+// do. Their Ruby type is RUBY_TYPED_FROZEN_SHAREABLE and each wrapper is
+// frozen, so Ruby shares it between Ractors rather than refusing it, and
+// its methods keep working under the object's own lock. Wrappers of every
+// other class stay in the Ractor that made them.
+template <typename T> struct Shareable {
+  static constexpr bool value =
+      std::derived_from<T, love::Data> || requires { requires T::shareable; };
+};
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.
@@ -294,9 +313,16 @@ Base *open_module(love::Module::ModuleType type) {
 //
 // Init_native turns it on for Lota::Native. Another bundle, such as the
 // test extension, makes a new wrapper each time it wraps an object, once
-// it turns Rice's registry off itself. A WeakMap is not shareable, and only the main Ractor
-// reaches it: Lota::Native does not declare itself Ractor-safe yet (ADR
-// 001, section 6), so Ruby lets no other Ractor call into it.
+// it turns Rice's registry off itself.
+//
+// Each Ractor keeps a map of its own, in its Ractor-local storage, as each
+// of LÖVE's threads keeps the userdata of its own Lua state. A WeakMap is
+// not shareable, and neither are most wrappers, so one map for every
+// Ractor would hand one Ractor's wrapper to another, and two Ractors would
+// change one Hash at once. So the same object read in two Ractors has a
+// wrapper in each, as it has a userdata in each of LÖVE's Lua states, and
+// LÖVE's == compares the objects they wrap (w__eq, src/common/runtime.cpp:
+// 82-88), as Lota's Channel and Thread do.
 class WrapperIdentities {
 public:
   static WrapperIdentities &instance() {
@@ -311,30 +337,30 @@ public:
   ~WrapperIdentities() = default;
 
   // Starts keeping each wrapper's identity, and stops Rice's registry
-  // from keeping any, since its stale entries are what this replaces.
+  // from keeping any, since its stale entries are what this replaces. It
+  // runs in Init_native, on the main Ractor, before any other exists.
   void keep() {
-    if (map_ != Qnil) {
+    if (kept_) {
       return;
     }
     Rice::detail::Registries::instance.instances.mode = Rice::detail::InstanceRegistry::Mode::Off;
-    const VALUE weak_map = Rice::detail::protect(rb_path2class, "ObjectSpace::WeakMap");
-    map_ = Rice::detail::protect(rb_class_new_instance, 0, static_cast<const VALUE *>(nullptr),
-                                 weak_map);
-    rb_gc_register_address(&map_);
+    key_ = rb_ractor_local_storage_value_newkey();
+    kept_ = true;
   }
 
-  // The live wrapper of +object+, or Qnil.
+  // The live wrapper of +object+ in this Ractor, or Qnil.
   [[nodiscard]] VALUE find(love::Object *object) const {
-    if (map_ == Qnil) {
+    if (!kept_) {
       return Qnil;
     }
-    return Rice::Object(map_).call("[]", key(object)).value();
+    return Rice::Object(map()).call("[]", key(object)).value();
   }
 
-  // Remembers +wrapper+ as the wrapper of +object+ while it lives.
+  // Remembers +wrapper+ as the wrapper of +object+ in this Ractor while it
+  // lives.
   void remember(love::Object *object, VALUE wrapper) const {
-    if (map_ != Qnil) {
-      Rice::Object(map_).call("[]=", key(object), Rice::Object(wrapper));
+    if (kept_) {
+      Rice::Object(map()).call("[]=", key(object), Rice::Object(wrapper));
     }
   }
 
@@ -345,7 +371,22 @@ private:
     return {ULL2NUM(std::bit_cast<std::uintptr_t>(object))};
   }
 
-  VALUE map_ = Qnil;
+  // This Ractor's map, made the first time the Ractor wraps an object.
+  // Ractor-local storage marks it.
+  [[nodiscard]] VALUE map() const {
+    VALUE map = Qnil;
+    if (rb_ractor_local_storage_value_lookup(key_, &map) && !NIL_P(map)) {
+      return map;
+    }
+    const VALUE weak_map = Rice::detail::protect(rb_path2class, "ObjectSpace::WeakMap");
+    map = Rice::detail::protect(rb_class_new_instance, 0, static_cast<const VALUE *>(nullptr),
+                                weak_map);
+    rb_ractor_local_storage_value_set(key_, map);
+    return map;
+  }
+
+  rb_ractor_local_key_t key_ = nullptr;
+  bool kept_ = false;
 };
 
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
@@ -427,19 +468,69 @@ private:
 template <EngineObject T, typename Base = void>
 Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *name) {
   T::type.init();
-  return Rice::define_class_under<T, Base>(parent, name)
-      .define_method("object_type",
-                     [](const T & /*self*/) { return std::string(T::type.getName()); })
-      .define_method(
-          "type_of?",
-          [](const T & /*self*/, const std::string &type_name) {
-            const love::Type *type = love::Type::byName(type_name.c_str());
-            return type != nullptr && T::type.isa(*type);
-          },
-          Rice::Arg("name"));
+  Rice::Data_Type<T> klass =
+      Rice::define_class_under<T, Base>(parent, name)
+          .define_method("object_type",
+                         [](const T & /*self*/) { return std::string(T::type.getName()); })
+          .define_method(
+              "type_of?",
+              [](const T & /*self*/, const std::string &type_name) {
+                const love::Type *type = love::Type::byName(type_name.c_str());
+                return type != nullptr && T::type.isa(*type);
+              },
+              Rice::Arg("name"));
+  if constexpr (Shareable<T>::value) {
+    Rice::Data_Type<T>::ruby_data_type()->flags |= RUBY_TYPED_FROZEN_SHAREABLE;
+  }
+  return klass;
 }
 
 // SPDX-SnippetEnd
+
+// Whether +wrapper+, a wrapper of an engine object, is one Ractors share
+// (Shareable): Lota freezes each as it makes it (wrap_engine_object), so
+// Ruby counts it shareable from the start.
+inline bool shareable_type(const rb_data_type_t *type) {
+  return (type->flags & RUBY_TYPED_FROZEN_SHAREABLE) != 0;
+}
+
+// Sets whether the methods defined while it lives may be called from a
+// Ractor other than the main one (rb_ext_ractor_safe, Ruby 4.0.7,
+// load.c:1259-1263), and turns it back on when it ends, as Init_native
+// leaves it. Ruby reads the setting as each method is defined
+// (vm_method.c:955-975), and raises Ractor::UnsafeError when another
+// Ractor calls one defined without it (vm_insnhelper.c:3555-3563).
+class RactorSafety {
+public:
+  explicit RactorSafety(bool safe) { rb_ext_ractor_safe(safe); }
+  RactorSafety(const RactorSafety &) = delete;
+  RactorSafety(RactorSafety &&) = delete;
+  RactorSafety &operator=(const RactorSafety &) = delete;
+  RactorSafety &operator=(RactorSafety &&) = delete;
+  ~RactorSafety() { rb_ext_ractor_safe(true); }
+};
+
+// Whether LÖVE's module +name+ (its folder in src/modules) is bound for
+// every Ractor, as LÖVE lets every thread load it, or for the main Ractor
+// alone (ADR 001, section 6). LÖVE keeps love.window and love.graphics
+// off every thread but the main one (vendor/love/src/modules/thread/
+// LuaThread.cpp:72-73), and so does Lota. The others are bound for the
+// main Ractor alone until their bindings are shown safe to call from
+// another at once, the process-wide state they keep among them; a game's
+// thread that calls one meets Ractor::UnsafeError.
+inline bool ractor_safe_module(std::string_view name) {
+  static constexpr std::array<std::string_view, 9> SAFE = {
+      "data", "event", "filesystem", "image", "math", "physics", "sound", "thread", "timer"};
+  return std::ranges::find(SAFE, name) != SAFE.end();
+}
+
+// Defines LÖVE's module +name+'s bindings with +define+, safe for every
+// Ractor or for the main one, as ractor_safe_module says.
+template <typename Define>
+void define_module(std::string_view name, Define define, const Rice::Module &native) {
+  const RactorSafety safety(ractor_safe_module(name));
+  define(native);
+}
 
 // Pins the singleton class of +module+, and of every module and class
 // among its constants and theirs, so that GC.compact never moves one. Rice
@@ -544,6 +635,9 @@ VALUE wrap_engine_object(U *data, bool isOwner) {
   }
   const std::pair<VALUE, rb_data_type_t *> type = Registries::instance.types.figureType(*data);
   const VALUE wrapped = wrap(type.first, type.second, data, isOwner);
+  if (lota::native::shareable_type(type.second)) {
+    rb_obj_freeze(wrapped);
+  }
   identities.remember(data, wrapped);
   return wrapped;
 }

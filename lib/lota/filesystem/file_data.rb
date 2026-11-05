@@ -41,7 +41,7 @@ module Lota
       def self.from_native(native)
         file_data = allocate
         file_data.instance_variable_set(:@native, native)
-        file_data
+        file_data.freeze
       end
 
       # Copies +contents+ into a new FileData named +name+, matching
@@ -60,6 +60,7 @@ module Lota
       #   Lota::Filesystem::FileData.new(File.binread("hit.png"), "hit.png")
       def initialize(contents, name)
         @native = Native::Filesystem.new_file_data(contents, name)
+        freeze
       end
 
       # Makes this FileData, a copy of +source+ by Ruby's +clone+ or
@@ -74,6 +75,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The file's name, matching FileData:getFilename

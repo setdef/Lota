@@ -918,6 +918,18 @@ class GeneratorTest < Minitest::Test
     refute BindingsHelper.generator.files.key?("ext/lota/native/generated/names.hpp")
   end
 
+  # Each module's generated bindings are defined through define_module,
+  # which makes them safe for every Ractor or for the main one alone as
+  # native/binding.hpp says, so a module LÖVE keeps on its main thread is
+  # kept on the main Ractor whoever wrote its bindings.
+  def test_each_modules_bindings_are_defined_with_its_ractor_safety
+    header = BindingsHelper.generator.files.fetch("ext/lota/native/generated/bindings.hpp")
+
+    assert_includes header, %(define_module("graphics", &define_generated_graphics, native);)
+    assert_includes header, %(define_module("math", &define_generated_math, native);)
+    refute_match(/^define_generated_\w+\(native\);/, header)
+  end
+
   def test_the_committed_bindings_match_the_generator
     assert_empty BindingsHelper.generator.problems
   end

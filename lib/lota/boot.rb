@@ -38,7 +38,7 @@ module Lota
     # yet. :nodoc:
     MODULES = {
       data: -> { Native::Data.open },
-      thread: nil,
+      thread: -> { Native::Thread.open },
       timer: -> { Native::Timer.open },
       event: -> { Native::Event.open },
       keyboard: -> { Native::Keyboard.open },

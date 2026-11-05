@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Thread
+    class Channel
+      include Object
+
+      attr_reader native: Native::Thread::Channel
+
+      def self.from_native: (Native::Thread::Channel native) -> Channel
+
+      def initialize: () -> void
+
+      def push: (::Object? value) -> Integer
+
+      def supply: (::Object? value, ?::Object? timeout) -> bool
+
+      def pop: () -> ::Object?
+
+      def demand: (?::Object? timeout) -> ::Object?
+
+      def peek: () -> ::Object?
+
+      def count: () -> Integer
+
+      def read?: (::Object id) -> bool
+
+      def clear: () -> nil
+
+      def perform_atomic: [T] (*::Object? arguments) { (Channel channel, *::Object? arguments) -> T } -> T
+
+      def ==: (::Object other) -> bool
+
+      alias eql? ==
+
+      def hash: () -> Integer
+
+      def to_s: () -> String
+
+      private def seconds: (::Object? timeout) -> Float?
+    end
+  end
+end
