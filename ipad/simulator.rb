@@ -21,16 +21,22 @@ bundle, identifier, executable, out, *wanted = ARGV
 FileUtils.mkdir_p(out)
 $stdout.sync = true
 
-GAME_ENV = {
+AUTOPLAY_ENV = {
   "DOT_POPPER_AUTOPLAY" => "1",
-  "DOT_POPPER_QUIT_AFTER" => "45",
+  "DOT_POPPER_QUIT_AFTER" => "60",
   "DOT_POPPER_SEED" => "7",
   "DOT_POPPER_SHOTS" => "3,12,25,38",
   "DOT_POPPER_KIT_PROBE" => "1"
 }.freeze
-SHOT_SECONDS = [6, 12, 18, 26, 34, 42, 48].freeze
+# A launch nobody plays, left on the title screen for IDLE_SECONDS and then
+# terminated, as a player who walks away leaves it.
+IDLE_ENV = { "DOT_POPPER_SEED" => "7", "DOT_POPPER_KIT_PROBE" => "1" }.freeze
+IDLE_SECONDS = 65
+SHOT_SECONDS = [6, 15, 30, 45, 58].freeze
 DEADLINE = 240
-REPEATS = Integer(ENV.fetch("KIT_REPEATS", "1"))
+REPEATS = Integer(ENV.fetch("KIT_REPEATS", "3"))
+# Each iPad runs REPEATS autoplay launches, then one idle launch.
+MODES = ([:autoplay] * REPEATS + [:idle]).freeze
 
 def capture(*command)
   output, status = Open3.capture2(*command)
@@ -78,19 +84,20 @@ ipad_types(os, wanted).each do |type|
   begin
     system("xcrun", "simctl", "bootstatus", udid, "-b", out: File::NULL, exception: true)
     system("xcrun", "simctl", "install", udid, bundle, exception: true)
-    (1..REPEATS).each do |attempt|
-      dir = File.join(device_dir, "run-#{attempt}")
+    MODES.each.with_index(1) do |mode, attempt|
+      game_env = mode == :idle ? IDLE_ENV : AUTOPLAY_ENV
+      dir = File.join(device_dir, "run-#{attempt}-#{mode}")
       FileUtils.mkdir_p(dir)
       since = (Time.now - 2).strftime("%Y-%m-%d %H:%M:%S")
-      env = GAME_ENV.map { |key, value| ["SIMCTL_CHILD_#{key}", value] }.to_h
+      env = game_env.map { |key, value| ["SIMCTL_CHILD_#{key}", value] }.to_h
       launched, status = Open3.capture2(env, "xcrun", "simctl", "launch", udid, identifier)
       raise "simctl launch failed: #{launched}" unless status.success?
 
       pid = Integer(launched[/: (\d+)\s*\z/, 1])
       started = Time.now
-      puts "launched #{identifier} as process #{pid} with #{GAME_ENV.map { |key, value| "#{key}=#{value}" }.join(' ')}"
+      puts "launched #{identifier} as process #{pid} with #{game_env.map { |key, value| "#{key}=#{value}" }.join(' ')}"
       log = File.join(dir, "subsystem.ndjson")
-      puts "  attempt #{attempt} of #{REPEATS}"
+      puts "  launch #{attempt} of #{MODES.size}: #{mode}"
       # Screenshots on their own thread, on the wall clock since launch, so
       # a slow log query never delays one; each file names the second it
       # was actually taken.
@@ -108,12 +115,16 @@ ipad_types(os, wanted).each do |type|
         sleep 5
         lines = messages(udid, since, identifier, log)
         break if lines.any? { |line| line.include?("exited with status") } && !shooter.alive?
+        break if mode == :idle && Time.now - started > IDLE_SECONDS && !shooter.alive?
         break if Time.now - started > DEADLINE
         crashes = Dir.glob(File.join(Dir.home, "Library/Logs/DiagnosticReports/#{executable}*"))
         break if crashes.any? { |crash| File.mtime(crash) >= started - 5 } && !shooter.alive?
       end
       shooter.join
       sleep 2
+      # Still running after IDLE_SECONDS is the idle launch's pass; then end it.
+      alive = Open3.capture2("xcrun", "simctl", "spawn", udid, "launchctl", "list").first.include?(identifier)
+      system("xcrun", "simctl", "terminate", udid, identifier, out: File::NULL, err: File::NULL) if mode == :idle
       lines = messages(udid, since, identifier, log)
       File.write(File.join(dir, "subsystem.log"), lines.join("\n") + "\n")
       puts lines.map { |line| "  #{line}" }
@@ -132,8 +143,14 @@ ipad_types(os, wanted).each do |type|
       crashed = !Dir.glob(File.join(dir, "*.ips")).empty?
       exited = lines.grep(/exited with status (\d+)/).last
       game_shots = lines.count { |line| line.include?("Dot Popper: screenshot") }
-      results["#{name} ##{attempt}"] = { "exit" => exited, "game_shots" => game_shots, "crash_report" => crashed,
-        "ok" => !crashed && !exited.nil? && exited.end_with?("status 0") && game_shots == 4 }
+      bugs = lines.grep(/\[BUG\]/)
+      ok = if mode == :idle
+        !crashed && bugs.empty? && exited.nil? && alive
+      else
+        !crashed && bugs.empty? && !exited.nil? && exited.end_with?("status 0") && game_shots == 4
+      end
+      results["#{name} ##{attempt} #{mode}"] = { "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
+        "crash_report" => crashed, "bug_lines" => bugs, "ok" => ok }
     end
   ensure
     system("xcrun", "simctl", "shutdown", udid, out: File::NULL, err: File::NULL)

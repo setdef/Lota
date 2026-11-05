@@ -20,7 +20,7 @@ on:
       dot_popper_ref:
         description: Dot Popper's tag, branch, or commit (github.com/Kerrick/dot_popper)
         type: string
-        default: trunk
+        default: v0.5.1
       identifier:
         description: The app's bundle identifier
         type: string
@@ -35,7 +35,7 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || 'trunk' }}
+  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || 'v0.5.1' }}
   APP_IDENTIFIER: ${{ inputs.identifier || 'com.kerricklong.DotPopper' }}
   APP_NAME: DotPopper
 

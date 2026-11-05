@@ -59,7 +59,9 @@ Once installed, Dot Popper is on the Home Screen. It runs without the Mac, until
 
 ## What you should see
 
-Dot Popper fills the screen, with no status bar, in portrait and in landscape: turn the iPad and the field rebuilds. The title screen comes first; tap to play, and tap the dots. Sound is synthesized when the game loads and mixes with other apps' audio, and the silent switch mutes it.
+Dot Popper fills the screen, with no status bar, in portrait and in landscape: turn the iPad and the field rebuilds. In the iPad Simulator it looked like this: the score and time in a pill at the top, orange glowing dots about a fingertip wide, purple rings where dots were popped, sparkles and "+1 +1s" on each pop, and at the end "Time!", the score, and the dots piling up at the bottom. The title screen comes first; tap to play, and tap the dots. Sound is synthesized when the game loads and mixes with other apps' audio, and the silent switch mutes it.
+
+One known workaround is built in. The kit's host program turns off SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), because reading joysticks through Lota crashed the game in the Simulator; Dot Popper 0.5.1 also leaves joysticks alone on iOS. A game controller paired with the iPad does nothing in this build.
 
 ## When something goes wrong
 
