@@ -12,7 +12,8 @@
 # quits with 3; the check reads that it ran fused and saved under its
 # identity alone, where LÖVE's fused game saves (ADR 003, section 8).
 #
-# The gems are Lota 0.1.2's release, checked against its SHA256SUMS, or,
+# The gems are the release of the version this checkout is (lib/lota/version.rb),
+# which lota fuse pins, checked against its SHA256SUMS, or,
 # run by hand with gems_run, the lota-PLATFORM artifacts of a CI run,
 # checked against their .sha256 files. lota fuse runs from this checkout
 # (ruby -I lib), and ships the installed gem it finds, as a developer's
@@ -36,7 +37,7 @@ on:
   workflow_dispatch:
     inputs:
       gems_run:
-        description: A CI run whose lota-PLATFORM artifacts to fuse with (empty for Lota 0.1.2's release)
+        description: A CI run whose lota-PLATFORM artifacts to fuse with (empty for the release of this checkout's version)
         type: string
         default: ""
       game_repository:
@@ -140,8 +141,9 @@ jobs:
             gh run download "$GEMS_RUN" -R "$GITHUB_REPOSITORY" -n "lota-$PLATFORM" -D "$gems"
             (cd "$gems" && sum --check ./*.sha256)
           else
-            gh release download v0.1.2 -R "$GITHUB_REPOSITORY" -D "$gems" -p "lota-0.1.2-$PLATFORM.gem" -p SHA256SUMS
-            (cd "$gems" && grep " lota-0.1.2-$PLATFORM.gem\$" SHA256SUMS | sum --check -)
+            version=$(sed -n 's/^ *VERSION = "\(.*\)"$/\1/p' lib/lota/version.rb)
+            gh release download "v$version" -R "$GITHUB_REPOSITORY" -D "$gems" -p "lota-$version-$PLATFORM.gem" -p SHA256SUMS
+            (cd "$gems" && grep " lota-$version-$PLATFORM.gem\$" SHA256SUMS | sum --check -)
           fi
           gem install --local "$gems"/lota-*-"$PLATFORM".gem
           gem list lota
