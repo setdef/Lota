@@ -337,7 +337,7 @@ class AudioTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.audio.RecordingDevice
   # (audio.lua:12-54), which skips as Lövetest does: on a GitHub runner,
   # whose OpenAL Soft plays into the wave writer, as this suite's does on
-  # every computer (Lovetest::WAVE_WRITER), and where there is no
+  # every computer (Lovetest::PLAYBACK_ONLY), and where there is no
   # recording device. getRecordingDevices becomes
   # recording_devices (rule 3), whose table is an Array; the device's
   # getters drop get (rule 3), and isRecording becomes recording? (rule
@@ -345,7 +345,7 @@ class AudioTest < Lovetest::TestMethod
   # assert_includes.
   def test_recording_device
     # skip recording device on runners, they cant emulate it
-    skip("cant emulate recording devices in CI") if Lovetest::GITHUB_RUNNER || Lovetest::WAVE_WRITER
+    skip("cant emulate recording devices in CI") if Lovetest::GITHUB_RUNNER || Lovetest::PLAYBACK_ONLY
 
     # check devices first
     devices = Lota::Audio.recording_devices

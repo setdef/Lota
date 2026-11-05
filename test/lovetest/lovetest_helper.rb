@@ -70,16 +70,17 @@ module Lovetest
   # GitHub says to Lota's with GITHUB_ACTIONS.
   GITHUB_RUNNER = ENV["GITHUB_ACTIONS"] == "true"
 
-  # Whether the tests' OpenAL Soft plays into its wave file writer alone,
-  # as test/alsoft.conf has it play on every computer, and as LÖVE's CI
-  # has Lövetest play on its runners (vendor/love/testing/resources/
-  # alsoft.conf): a driver that cannot record, which is why Lövetest's
-  # recording test skips on a runner ("cant emulate recording devices in
-  # CI"). Without a driver that records, LÖVE still lists one recording
-  # device, which cannot start (doc/contributors/upstream/009.md).
-  WAVE_WRITER = begin
+  # Whether the tests' OpenAL Soft plays through a driver that cannot
+  # record: its wave file writer, as test/alsoft.conf has it play on every
+  # computer and as LÖVE's CI has Lövetest play on its runners
+  # (vendor/love/testing/resources/alsoft.conf), or its null driver, as
+  # the package check's runs play (tasks/alsoft.conf). That is why
+  # Lövetest's recording test skips on a runner ("cant emulate recording
+  # devices in CI"). Without a driver that records, LÖVE still lists one
+  # recording device, which cannot start (doc/contributors/upstream/009.md).
+  PLAYBACK_ONLY = begin
     conf = ENV.fetch("ALSOFT_CONF", "")
-    File.file?(conf) && File.read(conf).match?(/^\s*drivers\s*=\s*wave\s*$/)
+    File.file?(conf) && File.read(conf).match?(/^\s*drivers\s*=\s*(?:wave|null)\s*$/)
   end
 
   # Lövetest's love.test.windowmode (vendor/love/testing/classes/
