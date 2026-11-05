@@ -33,6 +33,7 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 - Research before designing: read the LÖVE source and the relevant ADR in `doc/contributors/adr/` first.
 - Root-cause every fix. If you cannot explain why a change fixed the symptom, it is not a fix.
 - Write tests first. A test must fail if the code it covers is deleted or mutated, and must exercise real collaborators, not stubs that hide missing behavior. Where LÖVE's behavior is the contract, the story's acceptance test (Plan 001) is the test: a fixture someone else wrote, behaving as it does in LÖVE.
+- Lota is a dependency of games, so the dependency points one way: nothing on trunk (code, tests, docs, comments, examples, CI) names or depends on a game that uses Lota. Examples use Lota's own sample names, such as "Sample Game". Temporary material, such as the Windows kit and experiment branches, is exempt, and history may mention a game. Likewise nothing on trunk refers to a particular agent; agents are ephemeral.
 - Never edit `vendor/love`. Engine changes go in patch files in this repository (ADR 001, section 2), and every patch needs a reason it cannot be avoided.
 - Design in the spirit of Kent Beck (small steps, Implementation Patterns), Freeman & Pryce (tests drive interfaces), Sandi Metz (duplication over the wrong abstraction), Rebecca Wirfs-Brock (responsibility-driven roles), Martin Fowler (refactor in behavior-preserving steps), and Matz (programmer happiness). Write prose in the style of `doc/contributors/documentation_style.md`.
 
