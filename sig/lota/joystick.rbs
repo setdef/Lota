@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Joystick
+    def self.joysticks: () -> Array[Joystick]
+
+    def self.joystick_count: () -> Integer
+
+    def self.background_events=: (bool enable) -> void
+
+    def self.background_events?: () -> bool
+
+    def self.set_gamepad_mapping: (String guid, Symbol | String button, Symbol | String inputtype, Integer inputindex, ?(Symbol | String)? hatdir) -> bool
+
+    def self.load_gamepad_mappings: (String mappings) -> nil
+
+    def self.save_gamepad_mappings: (?String? filename) -> String
+
+    def self.gamepad_mapping_string: (String guid) -> String?
+  end
+end

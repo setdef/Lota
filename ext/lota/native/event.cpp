@@ -11,6 +11,7 @@
 #include "common/Variant.h"
 #include "event/Event.h"
 #include "event/sdl/Event.h"
+#include "joystick/Joystick.h"
 
 #include <bit>
 #include <cstddef>
@@ -61,9 +62,11 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // gives. A light userdata, such as a touch's id, becomes the Integer its
 // pointer holds, and a value of unknown type, which love.event.restart and
 // a modal draw callback make of a function, becomes nil, as
-// luax_pushvariant's default pushes. Engine objects come only from modules
-// Lota does not open yet (love.joystick, love.filesystem), and Lota's own
-// love.event functions do not put them in a message yet.
+// luax_pushvariant's default pushes. An engine object becomes the Ruby
+// wrapper Rice keeps for it, as luax_pushtype pushes the one userdata Lua
+// keeps for it; the only ones LÖVE's event module puts in a message are
+// joysticks (event/sdl/Event.cpp:618-757), and Lota's own love.event
+// functions put none there yet.
 const Variant::SharedTable *push_value(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
@@ -87,6 +90,13 @@ const Variant::SharedTable *push_value(Rice::Array &result, const Variant &varia
     break;
   case Variant::TABLE:
     return data.table;
+  case Variant::LOVEOBJECT:
+    if (data.objectproxy.type == nullptr ||
+        !data.objectproxy.type->isa(love::joystick::Joystick::type)) {
+      throw love::Exception("Lota cannot pass this event's arguments to Ruby yet.");
+    }
+    result.push(dynamic_cast<love::joystick::Joystick *>(data.objectproxy.object), false);
+    break;
   case Variant::NIL:
   case Variant::UNKNOWN:
     result.push(Rice::Object(), false);

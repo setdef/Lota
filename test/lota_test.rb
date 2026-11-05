@@ -34,9 +34,12 @@ class LotaTest < Minitest::Test
       timer: Lota::Timer,
       event: Lota::Event,
       window: Lota::Window,
+      joystick: Lota::Joystick,
       keyboard: Lota::Keyboard,
+      touch: Lota::Touch,
       font: Lota::Font,
       system: Lota::System,
+      sensor: Lota::Sensor,
       physics: Lota::Physics,
       data: Lota::Data,
     }

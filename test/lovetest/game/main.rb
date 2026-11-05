@@ -14,8 +14,10 @@ require_relative "../tests/audio"
 require_relative "../tests/sound"
 require_relative "../tests/image"
 require_relative "../tests/graphics"
+require_relative "../tests/joystick"
 require_relative "../tests/keyboard"
 require_relative "../tests/mouse"
+require_relative "../tests/touch"
 require_relative "../tests/math"
 require_relative "../tests/event"
 require_relative "../tests/system"
@@ -24,6 +26,7 @@ require_relative "../tests/lota"
 require_relative "../tests/window"
 require_relative "../tests/filesystem"
 require_relative "../tests/physics"
+require_relative "../tests/sensor"
 
 def Lota.update(_dt)
   passed = Minitest.run([])

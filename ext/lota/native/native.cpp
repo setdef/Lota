@@ -14,12 +14,14 @@
 #include "native/generated/bindings.hpp"
 #include "native/graphics.hpp"
 #include "native/image.hpp"
+#include "native/joystick.hpp"
 #include "native/keyboard.hpp"
 #include "native/math.hpp"
 #include "native/mouse.hpp"
 #include "native/particle_system.hpp"
 #include "native/physics.hpp"
 #include "native/random_generator.hpp"
+#include "native/sensor.hpp"
 #include "native/shader.hpp"
 #include "native/sound.hpp"
 #include "native/system.hpp"
@@ -69,8 +71,10 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_timer(native);
   lota::native::define_event(native);
   lota::native::define_keyboard(native);
+  lota::native::define_joystick(native);
   lota::native::define_mouse(native);
   lota::native::define_touch(native);
+  lota::native::define_sensor(native);
   lota::native::define_sound(native);
   lota::native::define_audio(native);
   lota::native::define_system(native);

@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Touch
+    def self.touches: (?(Symbol | String)? filter) -> Array[Integer]
+
+    def self.position: (Integer id) -> [Float, Float]
+
+    def self.pressure: (Integer id) -> Float
+
+    def self.device_type: (Integer id) -> Symbol
+
+    def self.mouse?: (Integer id) -> bool
+
+    private def self.touch_id: (::Object id) -> Integer
+  end
+end

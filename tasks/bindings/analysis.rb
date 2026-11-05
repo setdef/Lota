@@ -104,6 +104,7 @@ module Bindings
       "luaL_checkany" => :any,
       "luax_convobj" => :converted,
       "luax_pconvobj" => :converted,
+      "luax_checktouchid" => :touch_id,
     }.freeze
     TESTS = %w[
       lua_isnoneornil

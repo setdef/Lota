@@ -14,10 +14,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `lota fuse [path]`, which builds a game folder with Fledge into an app for this computer's platform that runs without Ruby, with `--out`, `--identifier`, `--app-version`, `--icon`, and `--sign`; `Lota::Boot#read_settings` and `Lota::Boot.folder_identity`, which it reads a game's name and identity with.
 - Experimental: under Fledge's `fledge build ios`, the source gem builds LÖVE's engine and the extension as static archives for the iOS device and Simulator, from a clone of Lota named with `--with-lota-source`, SDL3 built by `rake ios:sdl3` (`--with-lota-sdl3`), and Rice (`--with-rice-dir`); audio uses Apple's OpenAL framework there, as LÖVE's iOS build does.
+- `Lota::Touch`, translating `love.touch`: `touches` (the ids of the fingers down, as Integers, optionally of one device type), `position`, `pressure`, `device_type`, and `mouse?`; boot opens it unless `t.modules.touch = false`, and `lota.touch` returns it.
+- `Lota::Joystick`, translating `love.joystick`: `joysticks`, `joystick_count`, `background_events=` and `background_events?`, and the gamepad mapping database's `set_gamepad_mapping`, `load_gamepad_mappings`, `save_gamepad_mappings`, and `gamepad_mapping_string`; boot opens it unless `t.modules.joystick = false`, and `lota.joystick` returns it.
+- `Lota::Joystick::Joystick`, LÖVE's `Joystick`, with every method of `wrap_Joystick.cpp`, its gamepad's buttons, axes, mappings, vibration, player index, and sensors among them. The joystick and gamepad callbacks (`joystickadded`, `joystickremoved`, `joystickpressed`, `joystickreleased`, `joystickaxis`, `joystickhat`, `gamepadpressed`, `gamepadreleased`, `gamepadaxis`, `joysticksensorupdated`) receive it, the same object each time.
+- `Lota::Sensor`, translating `love.sensor`: `sensor?`, `enabled?`, `enabled=` (of a type and a setting), `data`, and `get_name`, which keeps LÖVE's prefix while rule 3's `name` would replace `Module#name`; boot opens it unless `t.modules.sensor = false`, and `lota.sensor` returns it.
 
 ### Fixed
 
 - A `TextBatch` freed by Ruby's garbage collector on another thread is released on the main thread, as every other `love.graphics` object is; it was released where it was freed.
+- The error screen stops every joystick's vibration and all audio, as LÖVE's does.
 - The `aarch64-mingw-ucrt` gem renders with OpenGL as well as Vulkan; its SDL was built without OpenGL.
 
 ## [0.1.2] - 2026-11-04

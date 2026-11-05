@@ -23,10 +23,10 @@
 # ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
 # header, ruby.h, does not export them, so misc-include-cleaner cannot be
 # satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 199,
+allow "ext/lota/native_test/native_test.cpp", line: 204,
   reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
     "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 217,
+allow "ext/lota/native_test/native_test.cpp", line: 222,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
     "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."
@@ -40,7 +40,7 @@ allow "ext/lota/native_test/native_test.cpp", line: 217,
 # Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
 # (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
 # through the cast is defined; only the cast can reach it.
-allow "ext/lota/native_test/native_test.cpp", line: 394,
+allow "ext/lota/native_test/native_test.cpp", line: 399,
   reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
     "the test-only key hold must write it, which only a const_cast can do."
 
@@ -50,8 +50,18 @@ allow "ext/lota/native_test/native_test.cpp", line: 394,
 # LÖVE's own luax_pushvariant reads the union the same way. Reading the
 # bytes some other way (memcpy) would only hide the same access from the
 # check.
-allow "ext/lota/native/event.cpp", lines: [71, 97],
+allow "ext/lota/native/event.cpp", lines: [74, 107],
   reason: "love::Variant exposes its value only as a union tagged by getType(); there is no other accessor."
+
+# love::joystick::Joystick::JoystickInput, which setGamepadMapping takes
+# and getGamepadMapping returns, keeps an input's axis, button, or hat in
+# an anonymous union tagged by its type, and has no accessor but the union
+# itself (vendor/love/src/modules/joystick/Joystick.h:177-190). LÖVE's own
+# wrap_JoystickModule.cpp and wrap_Joystick.cpp fill and read it the same
+# way, in a switch on the type, as Lota's two ports do.
+allow "ext/lota/native/joystick.cpp", lines: [86, 96, 112, 132, 253, 271],
+  reason: "Joystick::JoystickInput exposes its axis, button, and hat only as a union tagged by its type; " \
+    "there is no other accessor."
 
 # love::graphics::Shader::UniformInfo keeps a uniform's components or
 # matrix size, and the memory its values go to, in anonymous unions

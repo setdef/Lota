@@ -8,8 +8,10 @@
 
 namespace lota::native {
 
-// Binds love::touch::setTrackpadTouch, which boot.lua calls before any
-// module opens, as a module function of <native>::Touch.
+// Binds the touch module's opening, love.touch.getTouches, and
+// love::touch::setTrackpadTouch, which boot.lua calls before any module
+// opens, as module functions of <native>::Touch; the generator binds the
+// rest of love.touch beside them.
 void define_touch(const Rice::Module &native);
 
 } // namespace lota::native

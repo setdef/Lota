@@ -8,6 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../lovetest/unseen_desktop"
+require "json"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
@@ -153,7 +154,7 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 90630 - (3 * 32 * 32) + 1 : 90630
+    assertions = skipped ? 90667 - (3 * 32 * 32) + 1 : 90667
     # Lövetest skips its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
     # manager (test/lovetest/tests/window.rb), seven tests of 13 checks,
@@ -167,7 +168,12 @@ class LotaRunTest < Minitest::Test
     # each pixel; its ShaderStorageBuffer test makes one more, and skips
     # instead where the renderer lacks GLSL 4.
     assertions += 172 + (2 * 64 * 64) + (supported.glsl4 ? 1 : 0)
-    skips = UnseenDesktop.skips((on_linux_runner ? 14 : 7) + (supported.glsl4 ? 0 : 1))
+    # Its isEnabled, getName, and getData sensor tests skip where the
+    # machine has neither an accelerometer nor a gyroscope, and otherwise
+    # check each it has ten times (test/lovetest/tests/sensor.rb).
+    sensors = %i[accelerometer gyroscope].count { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
+    assertions += 10 * sensors
+    skips = UnseenDesktop.skips((on_linux_runner ? 14 : 7) + (supported.glsl4 ? 0 : 1) + (sensors.zero? ? 3 : 0))
     # On a desktop macOS does not draw, the isOccluded test skips before
     # its one assertion (test/lovetest/unseen_desktop.rb).
     assertions -= 1 if UnseenDesktop.on?
@@ -181,7 +187,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^255 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
+    assert_match(/^268 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -603,6 +609,55 @@ class LotaRunTest < Minitest::Test
 
       assert_predicate status, :success?, output
       assert_equal "#{[self.class.save_directory('kleleatoms', fused: true), true].inspect}\n", output
+    end
+  end
+
+  # A game that reads fingers and the mouse together, as one that runs on
+  # a tablet and a desktop does, finds a touch and a mouse at one point of
+  # the window at one position, in Lota::Graphics.width's units, whether
+  # high DPI is on or off: LÖVE scales a touchscreen's position across the
+  # window by the window's size in those units (normalizedToDPICoords,
+  # vendor/love/src/modules/event/sdl/Event.cpp:62-77), and a mouse's
+  # position in the window's own coordinates into them
+  # (windowToDPICoords, lines 330-384). The game pushes the finger and the
+  # click SDL would send (LotaNativeTest.push_finger and push_mouse_click)
+  # from its load callback, and prints what its callbacks received. Where
+  # the display has more pixels than points, high DPI doubles the pixels
+  # and leaves the units alone; without it, a unit is a pixel.
+  def test_a_touch_and_a_mouse_share_the_graphics_units_with_high_dpi_on_and_off
+    main = <<~RUBY
+      require "json"
+      require "lota_native_test"
+      def Lota.load
+        w, h = LotaNativeTest.window_size
+        LotaNativeTest.push_finger("down", 7, [0.25, 0.5, 0, 0, 1])
+        LotaNativeTest.push_mouse_click(true, [w * 0.25, h * 0.5])
+      end
+      def Lota.touchpressed(id, x, y) = (@touch = [x, y])
+      def Lota.mousepressed(x, y, _button, istouch) = (@mouse = [x, y, istouch])
+      def Lota.update(_dt)
+        @frames = (@frames || 0) + 1
+        return unless (@touch && @mouse) || @frames > 60
+
+        puts JSON.generate([Lota::Window.dpi_scale, Lota::Graphics.width, Lota::Graphics.pixel_width,
+          @touch && Lota::Window.to_pixels(@touch.first), @touch, @mouse])
+        Lota::Event.quit
+      end
+    RUBY
+    [true, false].each do |highdpi|
+      in_game("conf.rb" => "def Lota.conf(t) = (t.highdpi = #{highdpi})\n", "main.rb" => main) do |directory|
+        output, status = lota_run(directory, preload: QUIT_ON_ERROR)
+
+        assert_predicate status, :success?, output
+        scale, width, pixel_width, touch_pixel_x, touch, mouse = JSON.parse(output.lines.last)
+        refute_nil touch, "highdpi #{highdpi}: no touchpressed in 60 frames: #{output}"
+        refute_nil mouse, "highdpi #{highdpi}: no mousepressed in 60 frames: #{output}"
+        assert_equal [touch, false], [mouse.take(2), mouse.last], "highdpi #{highdpi}: #{output}"
+        assert_in_delta width * 0.25, touch.first, 1e-6, "highdpi #{highdpi}: #{output}"
+        assert_in_delta pixel_width * 0.25, touch_pixel_x, 1e-6, "highdpi #{highdpi}: #{output}"
+        assert_equal (width * scale).round, pixel_width, "highdpi #{highdpi}: #{output}"
+        assert_in_delta 1.0, scale, 1e-9, "a unit is a pixel without high DPI" unless highdpi
+      end
     end
   end
 

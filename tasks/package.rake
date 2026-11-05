@@ -67,6 +67,8 @@ PACKAGE_GAME = PackageCheck::Game.new(
 # gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0
 # only when every test passed; the output rules out a run of no tests.
+LOVETEST_SKIPS = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 14 : 7)
+
 LOVETEST_GAME = PackageCheck::Game.new(
   name: "test/lovetest/game",
   folder: "test/lovetest/game",
@@ -78,8 +80,11 @@ LOVETEST_GAME = PackageCheck::Game.new(
   # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,
   # system.rb, and event.rb), and, on a GitHub runner on Linux, seven
   # window tests more (window.rb), and, on a desktop macOS does not draw,
-  # the isOccluded test (test/lovetest/unseen_desktop.rb).
-  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, #{UnseenDesktop.skips((ENV['GITHUB_ACTIONS'] == 'true' && RUBY_PLATFORM.include?('linux')) ? 14 : 7)} skips$/m,
+  # the isOccluded test (test/lovetest/unseen_desktop.rb). Its isEnabled,
+  # getName, and getData sensor tests skip together where the machine has
+  # neither an accelerometer nor a gyroscope (test/lovetest/tests/
+  # sensor.rb), which only the game itself asks, so either count passes.
+  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, (?:#{LOVETEST_SKIPS}|#{LOVETEST_SKIPS + 3}) skips$/m,
   status: 0,
   # Lövetest's love.mouse.setGrabbed test passes only for a window with
   # keyboard focus, for which SDL grabs the mouse (SDL 3.4.10,

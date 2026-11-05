@@ -19,6 +19,7 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	font.cpp
 	graphics.cpp
 	image.cpp
+	joystick.cpp
 	keyboard.cpp
 	math.cpp
 	mouse.cpp
@@ -26,6 +27,7 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	particle_system.cpp
 	physics.cpp
 	random_generator.cpp
+	sensor.cpp
 	shader.cpp
 	sound.cpp
 	system.cpp

@@ -173,6 +173,7 @@ module Lota
         integer &&= Native::Graphics.open? if name == :resize
         integer ? argument.to_i : argument
       when Array then Variant.ruby(argument)
+      when Native::Joystick::Joystick then Joystick::Joystick.from_native(argument)
       else
         argument
       end
@@ -501,8 +502,11 @@ module Lota
         Mouse.set_relative_mode(false)
         Mouse.cursor = nil if Mouse.cursor_supported?
       end
-      # LÖVE also stops every joystick's vibration and all audio here
-      # (lines 250-256); Lota has no love.joystick or love.audio yet.
+      if Native::Joystick.open?
+        # Stop all joystick vibrations.
+        Joystick.joysticks.each(&:set_vibration)
+      end
+      Audio.stop if Native::Audio.open?
 
       Graphics.reset
       Graphics.font = Graphics::Font.new(15)
