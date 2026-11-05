@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-05
+
 ### Added
 
 - `lota fuse [path]`, which builds a game folder with Fledge into an app for this computer's platform that runs without Ruby, with `--out`, `--identifier`, `--app-version`, `--icon`, and `--sign`; `Lota::Boot#read_settings` and `Lota::Boot.folder_identity`, which it reads a game's name and identity with.
