@@ -9,7 +9,9 @@ The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipa
 
 The workflow unpacks the zip on a second, fresh runner, with no Lota, Fledge, XcodeGen, or bundle, and builds it there with `xcodebuild`: for the Simulator, and for devices with signing turned off. It then runs the Simulator build in iPad Simulators with the game's autoplay bot, and keeps screenshots and the app's log. `BUILD-INFO.txt` in the zip names the run, the commits, and the Xcode and XcodeGen versions.
 
-No one has run this app on a physical iPad. The device build compiled and linked, unsigned; whether it signs, installs, and runs on the iPad is what this playtest finds out.
+For Dot Popper 0.5.1 that meant: Xcode 26.3 built the unpacked project for the Simulator and, unsigned, for devices (Debug and Release), and the game ran in iOS 26.2 Simulators of an iPad Pro 13-inch (M5), an iPad (A16), and an iPad mini (A17 Pro). The bot played to the end and the app reported exit status 0, with all four shaders, the fonts, the particles, the physics pile, and the save folder working. A separate UI test tapped the screen and turned the Simulator from portrait to landscape and back: taps started rounds, and the field and the score pill relaid themselves for each orientation.
+
+No one has run this app on a physical iPad. The device build compiled and linked, unsigned; whether it signs, installs, runs, and sounds right on the iPad is what this playtest finds out.
 
 ## What the Mac needs
 
