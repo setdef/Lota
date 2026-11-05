@@ -21,6 +21,10 @@ on:
         description: Dot Popper's tag, branch, or commit (github.com/Kerrick/dot_popper)
         type: string
         default: v0.5.1
+      project_run:
+        description: Check the dot-popper-ios-project artifact of this earlier run instead of building one (empty to build)
+        type: string
+        default: ""
       identifier:
         description: The app's bundle identifier
         type: string
@@ -28,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 defaults:
   run:
@@ -42,6 +47,7 @@ env:
 jobs:
   project:
     name: Dot Popper's Xcode project
+    if: ${{ !inputs.project_run }}
     runs-on: macos-15
     timeout-minutes: 120
     steps:
@@ -179,6 +185,7 @@ jobs:
   touch:
     name: Touch and rotation in an iPad Simulator (CI-only UI test)
     needs: project
+    if: ${{ !cancelled() && (needs.project.result == 'success' || inputs.project_run) }}
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -192,6 +199,8 @@ jobs:
         with:
           name: dot-popper-ios-project
           path: ${{ runner.temp }}/download
+          run-id: ${{ inputs.project_run || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Select the newest Xcode and install XcodeGen
         run: |
@@ -255,6 +264,7 @@ jobs:
   verify:
     name: Build the project on a fresh Mac and run it in iPad Simulators
     needs: project
+    if: ${{ !cancelled() && (needs.project.result == 'success' || inputs.project_run) }}
     runs-on: macos-15
     timeout-minutes: 150
     steps:
@@ -269,6 +279,8 @@ jobs:
         with:
           name: dot-popper-ios-project
           path: ${{ runner.temp }}/download
+          run-id: ${{ inputs.project_run || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Select the newest Xcode
         run: |

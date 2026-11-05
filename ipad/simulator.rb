@@ -59,6 +59,17 @@ def ipad_types(runtime, wanted)
   chosen
 end
 
+# The app's process ID, as the Simulator's launchd lists it, or nil when
+# it is not running. A Dot Popper whose Ruby program has returned stays
+# running: SDL_RunApp keeps UIKit's loop going, so a relaunch would only
+# bring the old process forward.
+def app_pid(udid, identifier)
+  listing, = Open3.capture2("xcrun", "simctl", "spawn", udid, "launchctl", "list")
+  line = listing.lines.find { |entry| entry.include?("UIKitApplication:#{identifier}") } or return nil
+  pid = line.split.first
+  pid =~ /\A\d+\z/ ? Integer(pid) : nil
+end
+
 def messages(udid, since, identifier, log)
   system("xcrun", "simctl", "spawn", udid, "log", "show", "--start", since, "--style", "ndjson", "--info", "--debug",
     "--predicate", "subsystem == \"#{identifier}\"", out: log, err: File::NULL)
@@ -84,6 +95,7 @@ ipad_types(os, wanted).each do |type|
   begin
     system("xcrun", "simctl", "bootstatus", udid, "-b", out: File::NULL, exception: true)
     system("xcrun", "simctl", "install", udid, bundle, exception: true)
+    previous_pids = []
     MODES.each.with_index(1) do |mode, attempt|
       game_env = mode == :idle ? IDLE_ENV : AUTOPLAY_ENV
       dir = File.join(device_dir, "run-#{attempt}-#{mode}")
@@ -94,6 +106,9 @@ ipad_types(os, wanted).each do |type|
       raise "simctl launch failed: #{launched}" unless status.success?
 
       pid = Integer(launched[/: (\d+)\s*\z/, 1])
+      raise "launch #{attempt} reused process #{pid}" if previous_pids.include?(pid)
+
+      previous_pids << pid
       started = Time.now
       puts "launched #{identifier} as process #{pid} with #{game_env.map { |key, value| "#{key}=#{value}" }.join(' ')}"
       log = File.join(dir, "subsystem.ndjson")
@@ -122,9 +137,11 @@ ipad_types(os, wanted).each do |type|
       end
       shooter.join
       sleep 2
-      # Still running after IDLE_SECONDS is the idle launch's pass; then end it.
-      alive = Open3.capture2("xcrun", "simctl", "spawn", udid, "launchctl", "list").first.include?(identifier)
-      system("xcrun", "simctl", "terminate", udid, identifier, out: File::NULL, err: File::NULL) if mode == :idle
+      # Still running after IDLE_SECONDS is the idle launch's pass. Every
+      # launch ends here, so the next one starts a new process.
+      alive = app_pid(udid, identifier) == pid
+      system("xcrun", "simctl", "terminate", udid, identifier, out: File::NULL, err: File::NULL)
+      sleep 3
       lines = messages(udid, since, identifier, log)
       File.write(File.join(dir, "subsystem.log"), lines.join("\n") + "\n")
       puts lines.map { |line| "  #{line}" }
@@ -149,7 +166,7 @@ ipad_types(os, wanted).each do |type|
       else
         !crashed && bugs.empty? && !exited.nil? && exited.end_with?("status 0") && game_shots == 4
       end
-      results["#{name} ##{attempt} #{mode}"] = { "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
+      results["#{name} ##{attempt} #{mode}"] = { "pid" => pid, "exit" => exited, "running_at_end" => alive, "game_shots" => game_shots,
         "crash_report" => crashed, "bug_lines" => bugs, "ok" => ok }
     end
   ensure
