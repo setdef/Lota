@@ -7,6 +7,12 @@
 if(NOT CMAKE_HOST_APPLE)
 	return()
 endif()
+# A toolchain file names the target, its SDK, and its deployment target:
+# an iOS slice's, which Fledge hands extconf.rb in CMAKE_TOOLCHAIN_FILE
+# (its ADR 027), or which tasks/ios_build.rb writes.
+if(CMAKE_TOOLCHAIN_FILE OR DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
+	return()
+endif()
 
 # Every love-apple-dependencies binary is built for macOS 11.0 (LC_BUILD_VERSION
 # minos 11.0), and this SDK's libc++ warns below 11.0, although LÖVE's Xcode

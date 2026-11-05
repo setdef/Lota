@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - `lota fuse [path]`, which builds a game folder with Fledge into an app for this computer's platform that runs without Ruby, with `--out`, `--identifier`, `--app-version`, `--icon`, and `--sign`; `Lota::Boot#read_settings` and `Lota::Boot.folder_identity`, which it reads a game's name and identity with.
+- Experimental: under Fledge's `fledge build ios`, the source gem builds LÖVE's engine and the extension as static archives for the iOS device and Simulator, from a clone of Lota named with `--with-lota-source`, SDL3 built by `rake ios:sdl3` (`--with-lota-sdl3`), and Rice (`--with-rice-dir`); audio uses Apple's OpenAL framework there, as LÖVE's iOS build does.
 
 ### Fixed
 
