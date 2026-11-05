@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The iPad kit's program, which the kit's workflow puts beside Dot
+# Popper's bin/dot_popper and names in its fledge.yml: it runs
+# bin/dot_popper unchanged. Only with DOT_POPPER_KIT_PROBE=1, which CI's
+# Simulator runs set and a launch from the Home Screen never has, it also
+# logs what Lota's window reports on frames 60, 600, and 2400, wrapping the
+# game's Lota.draw as main.rb defines it.
+if ENV["DOT_POPPER_KIT_PROBE"] == "1"
+  require "lota"
+  class << Lota
+    def singleton_method_added(name)
+      super
+      return unless name == :draw && !@kit_probe
+
+      @kit_probe = true
+      draw = method(:draw)
+      frames = 0
+      define_singleton_method(:draw) do
+        draw.call
+        frames += 1
+        next unless [60, 600, 2400].include?(frames)
+
+        puts "kit probe: frame #{frames}, Window.fullscreen #{Lota::Window.fullscreen.inspect}, " \
+          "safe_area #{Lota::Window.safe_area.inspect}, Graphics.dimensions #{Lota::Graphics.dimensions.inspect}, " \
+          "dpi_scale #{Lota::Graphics.dpi_scale}, System.os #{Lota::System.os.inspect}"
+      end
+    end
+  end
+end
+
+load File.expand_path("dot_popper", __dir__)

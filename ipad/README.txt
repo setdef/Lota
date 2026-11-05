@@ -3,7 +3,7 @@
 
 You have a Mac with Xcode, an Apple ID, and an iPad on a cable. This page takes Dot Popper from a CI artifact to that iPad in about half an hour, with a free Apple ID and no Lota, Fledge, Ruby, or XcodeGen on the Mac.
 
-The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipad-kit.yml`, on `experiment/ipad-*` branches) generates with `fledge build ios` (Fledge 0.4.0, SDL's iOS host) from Dot Popper's tag and Lota's checkout. The project is already generated, so it opens in Xcode as it is. It holds everything it builds from: the Ruby runtime (`FledgeRuby.xcframework`), Lota's engine and SDL3 compiled for the iPad and the Simulator (`FledgeExtensions.xcframework`), and the game (`fledge/app`).
+The kit is an Xcode project that the "iPad kit" workflow (`.github/workflows/ipad-kit.yml`, on `experiment/ipad-*` branches) generates with `fledge build ios` (Fledge 0.4.0, SDL's iOS host) from a Dot Popper commit (trunk by default) and Lota's checkout. Its program, `bin/ipad_kit`, runs Dot Popper's own `bin/dot_popper`; it adds a diagnostic log line only when CI sets `DOT_POPPER_KIT_PROBE=1`. The project is already generated, so it opens in Xcode as it is. It holds everything it builds from: the Ruby runtime (`FledgeRuby.xcframework`), Lota's engine and SDL3 compiled for the iPad and the Simulator (`FledgeExtensions.xcframework`), and the game (`fledge/app`).
 
 ## What CI proved, and what it did not
 
@@ -13,8 +13,8 @@ No one has run this app on a physical iPad. The device build compiled and linked
 
 ## What the Mac needs
 
-- **Xcode**, the version in `BUILD-INFO.txt` or newer. Xcode runs an app only on an iPad whose iPadOS it knows; if the iPad is newer, Xcode offers to download its support next to the run destination.
-- **Nothing else.** The zip holds `DotPopper.xcodeproj`, already generated. XcodeGen is needed only to regenerate the project from `project.yml`, which this playtest never does.
+- **Xcode 26.3 or newer** (CI built and checked the kit with Xcode 26.3, 17C529, and the iOS 26.2 SDK; `BUILD-INFO.txt` names the version for each kit). The libraries inside were compiled by that Xcode, so an older Xcode may fail to link them. Xcode runs an app only on an iPad whose iPadOS it knows; if the iPad is newer, Xcode offers to download its support next to the run destination.
+- **Nothing else.** The zip holds `DotPopper.xcodeproj`, already generated. CI's check runner had no XcodeGen, no Ruby gems, and no Lota or Fledge, and built the project anyway. XcodeGen (2.x, the version in `BUILD-INFO.txt`) is needed only to regenerate the project from `project.yml`, which this playtest never does; regenerating would undo your signing settings.
 
 ## 1. Download and unpack
 

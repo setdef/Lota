@@ -20,7 +20,7 @@ on:
       dot_popper_ref:
         description: Dot Popper's tag, branch, or commit (github.com/Kerrick/dot_popper)
         type: string
-        default: 2895b2d5d24f71d70983e4cc8a9b2172174544a3
+        default: trunk
       identifier:
         description: The app's bundle identifier
         type: string
@@ -35,7 +35,7 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || '2895b2d5d24f71d70983e4cc8a9b2172174544a3' }}
+  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || 'trunk' }}
   APP_IDENTIFIER: ${{ inputs.identifier || 'com.kerricklong.DotPopper' }}
   APP_NAME: DotPopper
 
@@ -91,6 +91,7 @@ jobs:
           rm -rf "$game/vendor/cache" "$game/Gemfile.lock" "$game/mise.toml" "$game/.ruby-version"
           mkdir -p "$game/host"
           cp -R ipad/host/ios "$game/host/ios"
+          cp ipad/ipad_kit "$game/bin/ipad_kit"
           cat > "$game/Gemfile" <<EOF
           # frozen_string_literal: true
 
@@ -101,14 +102,16 @@ jobs:
           EOF
           cat > "$game/fledge.yml" <<EOF
           # The iPad kit's fledge.yml for fledge build ios (Fledge 0.4.0): one
-          # program, bin/dot_popper, which boots the game folder as a fused
-          # Lota game; SDL's iOS host in host/ios.
+          # program, bin/ipad_kit, which runs bin/dot_popper (it boots the
+          # game folder as a fused Lota game) and, only with
+          # DOT_POPPER_KIT_PROBE=1, logs what Lota's window reports; SDL's
+          # iOS host in host/ios.
           name: $APP_NAME
           version: "$version"
           publisher: Kerrick Long
           copyright: © 2026 Kerrick Long
           programs:
-            - path: bin/dot_popper
+            - path: bin/ipad_kit
               kind: windowed
               identifier: $APP_IDENTIFIER
               icon: icons/icon

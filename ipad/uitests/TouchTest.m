@@ -42,7 +42,7 @@
     self.continueAfterFailure = YES;
     XCUIDevice.sharedDevice.orientation = UIDeviceOrientationPortrait;
     XCUIApplication *app = [XCUIApplication new];
-    app.launchEnvironment = @{@"DOT_POPPER_SEED": @"7"};
+    app.launchEnvironment = @{@"DOT_POPPER_SEED": @"7", @"DOT_POPPER_KIT_PROBE": @"1"};
     [app launch];
     [NSThread sleepForTimeInterval:10];
     [self shot:@"touch-1-portrait-title"];
