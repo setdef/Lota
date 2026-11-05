@@ -1099,7 +1099,7 @@ $HandChecks = @(
   @('3', 'yn', 'Dragging the window to a different size in the middle of a round keeps every dot on screen.'),
   @('4', 'yn', 'With headphones, a pop on the left side of the screen sounds from the left, and one on the right from the right.'),
   @('5', 'yn', 'M, or the speaker icon on the title, mutes the sound, and it stays muted after quitting and starting again.'),
-  @('6', 'yn', "After one round, the title shows 'Dots: same size everywhere'. Clicking it switches to 'sized to your screen', and the dots in the next round are bigger on this large screen."),
+  @('6', 'yn', "After one round, the title shows a two-option control labelled 'Dot size: Same everywhere | Fit the screen'. Choosing 'Fit the screen' makes the dots in the next round bigger on this large screen."),
   @('7', 'paste', "'Copy my result' on Game Over, then pasting into Notepad, gives a sensible two- or three-line result."),
   @('8', 'yn', "'Your records' opens a screen of bests and totals, and a click goes back."),
   @('9', 'yn', 'Text and lines look sharp, not blurry, at your display scale.'),
