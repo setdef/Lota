@@ -32,4 +32,5 @@ jobs:
       kit_questions: test/games/moon_pong/kit-questions.txt
       smoke_env: MOON_PONG_QUIT_AFTER=12
       smoke_expect: "(?m)^moon pong: quitting after"
+      touch_env: MOON_PONG_QUIT_AFTER=120
       extra_launches: MOON_PONG_QUIT_AFTER=3;MOON_PONG_QUIT_AFTER=4 MOON_PONG_EXTRA=1

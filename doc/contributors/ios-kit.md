@@ -39,6 +39,7 @@ jobs:
       identifier: com.example.moonpong
       icon: icons/icon-*.png
       smoke_env: MOON_PONG_QUIT_AFTER=12
+      touch_env: MOON_PONG_QUIT_AFTER=120
 ```
 
 The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Moon Pong ’em, and it runs when `experiment/ios-kit-call-*` is pushed.
