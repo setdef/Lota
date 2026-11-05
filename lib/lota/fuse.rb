@@ -98,6 +98,11 @@ module Lota
     # Names Windows reserves for devices, which no folder may take.
     RESERVED = /\A(con|prn|aux|nul|com\d|lpt\d)(\..*)?\z/i
 
+    # The folders of a game that its app leaves out, as Fledge leaves them
+    # out of a project it builds (its README, Usage): its Git repository
+    # and Bundler's, which hold no game.
+    LEFT_OUT = %w[.git .bundle vendor/bundle vendor/cache].freeze
+
     # Prepares to fuse the game in the folder +path+.
     #
     # [path] String path of the game's folder.
@@ -249,9 +254,19 @@ module Lota
       FileUtils.mkdir_p(File.join(project, "vendor", "cache"))
       FileUtils.cp(gem, File.join(project, "vendor", "cache", File.basename(gem)))
       copy_game(@directory, File.join(project, GAME_FOLDER, folder))
+      warn_of_gemfile
       File.write(File.join(project, "Gemfile"), gemfile)
       File.write(File.join(project, "fledge.yml"), fledge_yml(name(settings), identity))
       File.write(File.join(project, "main.rb"), entry_script(folder))
+    end
+
+    # Says that a game's own Gemfile does not reach its app: the project
+    # Fuse writes has a Gemfile of its own, which asks for Lota and Fledge
+    # alone.
+    private def warn_of_gemfile
+      return unless File.file?(File.join(@directory, "Gemfile"))
+
+      warn "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@directory, 'Gemfile')} asks for do not reach it."
     end
 
     # The game's identity: its <tt>t.identity</tt>, or the name
@@ -273,13 +288,13 @@ module Lota
       (title.empty? || title == UNTITLED) ? File.basename(@directory) : title
     end
 
-    # Copies the game's files, but not its Git repository or the folder
-    # this build writes to, should it be inside the game's folder.
+    # Copies the game's files, but not the folders of LEFT_OUT or the
+    # folder this build writes to, should it be inside the game's folder.
     private def copy_game(from, to)
       FileUtils.mkdir_p(to)
       Dir.each_child(from) do |child|
         source = File.join(from, child)
-        next if child == ".git" || source == out
+        next if source == out || LEFT_OUT.any? { |name| source == File.join(@directory, name) }
 
         target = File.join(to, child)
         if File.directory?(source)

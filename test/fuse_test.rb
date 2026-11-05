@@ -113,8 +113,16 @@ class FuseTest < Minitest::Test
     write("colors.rb", "COLORS = 'Dot Popper'\n")
     write("art/dot.png", "png")
     write(".git/HEAD", "ref")
+    write(".bundle/config", "BUNDLE_FROZEN: true")
+    write("vendor/cache/lota-0.1.2-x64-mingw-ucrt.gem", "a gem for Bundler")
+    write("vendor/bundle/gems/x.rb", "a gem Bundler installed")
+    write("vendor/sound.ogg", "the game's own")
+    write("Gemfile", "gem 'lota'")
 
-    capture_io { fuse(Lota::Fuse::Options.new(out: File.join(@root, "dist"), app_version: "1.2.3")).call }
+    _stdout, stderr = capture_io { fuse(Lota::Fuse::Options.new(out: File.join(@root, "dist"), app_version: "1.2.3")).call }
+
+    assert_equal "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@game, 'Gemfile')} asks for do not reach it.\n",
+      stderr
 
     assert_equal <<~RUBY, read("Gemfile")
       # frozen_string_literal: true
@@ -147,8 +155,9 @@ class FuseTest < Minitest::Test
     YAML
     assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
-    assert_equal %w[Gemfile fledge.yml game game/DotPopper game/DotPopper/art game/DotPopper/art/dot.png
-      game/DotPopper/colors.rb game/DotPopper/conf.rb game/DotPopper/main.rb main.rb vendor vendor/cache
+    assert_equal %w[Gemfile fledge.yml game game/DotPopper game/DotPopper/Gemfile game/DotPopper/art
+      game/DotPopper/art/dot.png game/DotPopper/colors.rb game/DotPopper/conf.rb game/DotPopper/main.rb
+      game/DotPopper/vendor game/DotPopper/vendor/sound.ogg main.rb vendor vendor/cache
       vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem], files.sort
   end
 

@@ -38,6 +38,8 @@ module Lota
 
     RESERVED: Regexp
 
+    LEFT_OUT: Array[String]
+
     @directory: String
 
     @options: Options
@@ -77,6 +79,8 @@ module Lota
     private def executable: (String name) -> String?
 
     private def write_project: (Settings settings, String gem) -> void
+
+    private def warn_of_gemfile: () -> void
 
     private def identity: (Settings settings) -> String
 
