@@ -76,11 +76,26 @@ module NativeHelper
   # A test that makes a Ractor makes it there: once a process has made
   # one, ObjectSpace no longer finds the objects other tests count
   # (physics_callbacks_test.rb).
+  #
+  # Under AddressSanitizer on macOS, Ruby raising in a Ractor's thread makes
+  # ASan print, once, that it ignores __asan_handle_no_return for a stack it
+  # cannot size, and that false reports may follow (google/sanitizers#189):
+  # a notice of three lines, not a report. It is taken out of the output;
+  # a report of ASan's own, an "ERROR: AddressSanitizer", stays, and ends
+  # the process with a failing status.
   def ruby_of_its_own(*, environment: {})
     native = File.dirname(File.dirname(loaded("lota/native")))
     load_path = [native, File.join(ROOT, "lib")].uniq.join(File::PATH_SEPARATOR)
-    capture2e(environment, RbConfig.ruby, "-w", "-I#{load_path}", *)
+    output, status = capture2e(environment, RbConfig.ruby, "-w", "-I#{load_path}", *)
+    [output.gsub(ASAN_NO_RETURN_NOTICE, ""), status]
   end
+
+  # The notice ruby_of_its_own takes out of a sanitized run's output.
+  ASAN_NO_RETURN_NOTICE = Regexp.new(
+    "==\\d+==WARNING: ASan is ignoring requested __asan_handle_no_return: .*\n" \
+      "False positive error reports may follow\n" \
+      "For details see #{Regexp.escape('https://github.com/google/sanitizers/issues/189')}\n"
+  )
 
   # Runs the block on a thread of its own and waits for it. Ruby's
   # collector also treats any word on a thread's machine stack that looks
