@@ -649,9 +649,15 @@ bool recording_start(RecordingDevice &d, std::optional<int> samples, std::option
   if (!samples.has_value()) {
     return d.start(d.getMaxSamples(), d.getSampleRate(), d.getBitDepth(), d.getChannelCount());
   }
-  return d.start(*samples, samplerate.value_or(RecordingDevice::DEFAULT_SAMPLE_RATE),
-                 bitdepth.value_or(RecordingDevice::DEFAULT_BIT_DEPTH),
-                 channels.value_or(RecordingDevice::DEFAULT_CHANNELS));
+  // RecordingDevice declares its defaults in its class and defines them
+  // nowhere, so they are copied here, as luaL_optinteger copies them,
+  // rather than bound to value_or's reference, which would need a
+  // definition to link against where the compiler does not inline them.
+  constexpr int default_rate = RecordingDevice::DEFAULT_SAMPLE_RATE;
+  constexpr int default_depth = RecordingDevice::DEFAULT_BIT_DEPTH;
+  constexpr int default_channels = RecordingDevice::DEFAULT_CHANNELS;
+  return d.start(*samples, samplerate.value_or(default_rate), bitdepth.value_or(default_depth),
+                 channels.value_or(default_channels));
 }
 
 // SPDX-SnippetEnd
