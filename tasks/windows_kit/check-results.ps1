@@ -73,6 +73,7 @@ if ($Mode -eq 'mesa') {
   Check 'frame times' ($text -match 'frames: \d+ after the first half second, ms average=')
   Check 'dot popper played and quit with 0' ($status['dotpopper'] -eq 'PASS' -and $status['dotpopper-noshaders'] -eq 'PASS')
   Check "dot popper's rounds.csv" ($text -match '--- rounds\.csv')
+  Check "dot popper's frame pacing lines (DOT_POPPER_PERF)" ($text -match 'Dot Popper: \d+ frames a second, longest frame' -and $text -match 'frame pacing every 5 s: ')
   Check "dot popper's own screenshots" (@(Get-ChildItem -LiteralPath $folder -Filter 'dotpopper-shot-*.png').Count -ge 1)
 } else {
   Check 'winkit reported no GPU' ($status['winkit'] -eq 'NO-GPU' -and $text -match 'window: refused' -and $text -match 'Unable to create renderer')

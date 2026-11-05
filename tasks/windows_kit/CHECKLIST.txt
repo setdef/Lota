@@ -66,7 +66,9 @@ B. Dot Popper with a mouse (about 2 minutes)
 11. Quit, start it again: it is still muted?                       [ ]
     (Press M again to unmute.)
 12. Escape quits?                                                  [ ]
-13. Any stutter, tearing, or a slow first frame you noticed?
+13. After the first round, the title screen offers a dot-size
+    switch, and switching it changes the dots' size?               [ ]
+14. Any stutter, tearing, or a slow first frame you noticed?
     Notes:
 
 
@@ -74,14 +76,16 @@ C. Dot Popper with a controller (skip without one; about 2 minutes)
 -------------------------------------------------------------------
 Which controller (for example Xbox Wireless, DualSense)?
 Notes:
-14. Moving a stick makes a cursor (reticle) appear?                [ ]
-15. A pops the dot under the reticle?                              [ ]
-16. The right trigger pops too?                                    [ ]
-17. Start starts a round, and continues after one?                 [ ]
-18. X opens "Your records"?                                        [ ]
-19. Back (View) mutes?                                             [ ]
-20. Cursor speed, 1 (too slow) to 5 (too fast), 3 is right:  ____
-21. Dead zone, 1 (drifts by itself) to 5 (sticky, needs a big
+15. Moving a stick makes a cursor (reticle) appear?                [ ]
+16. A pops the dot under the reticle?                              [ ]
+17. The right trigger pops too?                                    [ ]
+18. Start starts a round, and continues after one?                 [ ]
+19. X opens "Your records"?                                        [ ]
+20. Back (View) mutes?                                             [ ]
+21. At Game Over, pushing the right stick makes the pile of dots
+    roll that way?                                                 [ ]
+22. Cursor speed, 1 (too slow) to 5 (too fast), 3 is right:  ____
+23. Dead zone, 1 (drifts by itself) to 5 (sticky, needs a big
     push), 3 is right:  ____
 Notes:
 

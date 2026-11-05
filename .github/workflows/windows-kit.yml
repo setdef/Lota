@@ -25,7 +25,7 @@ on:
       dot_popper_run:
         description: A Fuse run whose fused-game-x64-mingw-ucrt artifact holds Dot Popper's zip and setup program
         type: string
-        default: "42036417530"
+        default: "42044652259"
 
 permissions:
   contents: read
@@ -36,7 +36,7 @@ defaults:
     shell: bash
 
 env:
-  DOT_POPPER_RUN: ${{ inputs.dot_popper_run || '42036417530' }}
+  DOT_POPPER_RUN: ${{ inputs.dot_popper_run || '42044652259' }}
   PLATFORM: x64-mingw-ucrt
 
 jobs:

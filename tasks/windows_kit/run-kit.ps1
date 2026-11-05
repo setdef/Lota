@@ -834,7 +834,7 @@ function Get-PopperFiles([string] $Label) {
   $save = Join-Path $env:APPDATA 'dot_popper'
   if (-not (Test-Path -LiteralPath $save)) { Out-Result "no $save"; return }
   Out-Lines "$save after $Label" (Get-ChildItem -LiteralPath $save -Force | ForEach-Object { "{0,10} {1} {2}" -f $_.Length, $_.LastWriteTime.ToString('s'), $_.Name })
-  foreach ($name in 'rounds.csv', 'lifetime.txt', 'best_score.txt', 'sound.txt', 'taught.txt') {
+  foreach ($name in 'rounds.csv', 'lifetime.txt', 'best_score.txt', 'sound.txt', 'taught.txt', 'dot_size.txt') {
     $file = Join-Path $save $name
     if (Test-Path -LiteralPath $file) { Out-Lines $name (Get-Content -LiteralPath $file -Encoding UTF8) }
   }
@@ -856,15 +856,18 @@ function Test-Popper($r) {
     return
   }
   if ($r.Code -ne 0) { Set-Step 'FAIL' "exit status $(Format-Code $r.Code)"; return }
-  $first = @($r.Out -split "`r?`n")[0]
-  Set-Step 'PASS' "quit by itself with 0; window after $($r.WindowMs) ms; first line: $first"
+  $lines = @($r.Out -split "`r?`n")
+  $perf = @($lines | Where-Object { $_ -match 'frames a second, longest frame' } | ForEach-Object { $_ -replace '^Dot Popper: ', '' })
+  $note = "quit by itself with 0; window after $($r.WindowMs) ms; first line: $($lines[0])"
+  if ($perf.Count) { $note += "; frame pacing every 5 s: $($perf -join ' | ')" }
+  Set-Step 'PASS' $note
 }
 
 Invoke-Step 'dotpopper' 'Dot Popper playing itself for 45 seconds' {
   $before = Join-Path $env:APPDATA 'dot_popper'
   if (Test-Path -LiteralPath $before) { Out-Lines "$before before the run" (Get-ChildItem -LiteralPath $before -Force | ForEach-Object { $_.Name }) }
   else { Out-Result "$before does not exist before the run" }
-  $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '45'; DOT_POPPER_SHOTS = '3,12,25,38' }
+  $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_PERF = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '45'; DOT_POPPER_SHOTS = '3,12,25,38' }
   $r = Invoke-Child -Label 'dotpopper' -FilePath $PopperExe -Environment $environment -ShotsAt @(12, 30) -TimeoutSeconds 75 -Sample -WatchDialog
   Out-Child $r
   Get-PopperFiles 'dotpopper'
@@ -872,7 +875,7 @@ Invoke-Step 'dotpopper' 'Dot Popper playing itself for 45 seconds' {
 }
 
 Invoke-Step 'dotpopper-noshaders' 'Dot Popper for 15 seconds with its shaders off' {
-  $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '15'; DOT_POPPER_NO_SHADERS = '1'; DOT_POPPER_SHOTS = $null }
+  $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_PERF = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '15'; DOT_POPPER_NO_SHADERS = '1'; DOT_POPPER_SHOTS = $null }
   $r = Invoke-Child -Label 'dotpopper-noshaders' -FilePath $PopperExe -Environment $environment -ShotsAt @(8) -TimeoutSeconds 40 -Sample -WatchDialog
   Out-Child $r
   Test-Popper $r
@@ -925,7 +928,7 @@ Invoke-Step 'install' "Dot Popper's setup program: install, start, reinstall, un
   $link = @(Get-PopperShortcuts | Where-Object { $_.FullName -like "$([Environment]::GetFolderPath('Programs'))*" })[0]
   if ($link) {
     $saved = @{}
-    $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '10'; DOT_POPPER_SHOTS = $null }
+    $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_PERF = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '10'; DOT_POPPER_SHOTS = $null }
     foreach ($name in $environment.Keys) { $saved[$name] = [Environment]::GetEnvironmentVariable($name); [Environment]::SetEnvironmentVariable($name, $environment[$name]) }
     try {
       $launched = Get-Date
