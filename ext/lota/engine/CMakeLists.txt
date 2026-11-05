@@ -6,8 +6,11 @@
 # lists its wrap_*.cpp files, so none links without Lua. The sources come
 # from a list `rake engine:sources` generates from LÖVE's CMakeLists.txt.
 
-# rake engine:sources generates each platform's list on that platform.
-if(APPLE)
+# rake engine:sources generates each platform's list on that platform, and
+# iOS's on macOS, which has Xcode's iOS SDKs.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_ios.cmake)
+elseif(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_macos.cmake)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_linux.cmake)
@@ -15,7 +18,7 @@ elseif(MINGW)
 	# Windows, with MinGW (ADR 002, section 4).
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_windows.cmake)
 else()
-	message(FATAL_ERROR "Lota builds its engine on macOS, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
+	message(FATAL_ERROR "Lota builds its engine for macOS, iOS, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
 endif()
 
 # Lota's patches of LÖVE's engine, each applied to a copy of the files it
@@ -116,7 +119,9 @@ if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	target_compile_options(lota_engine PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-includenew>)
 endif()
 
-if(APPLE)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_ios.cmake)
+elseif(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_macos.cmake)
 elseif(MINGW)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_windows.cmake)

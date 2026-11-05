@@ -69,6 +69,16 @@ class EngineSources
     raise Failure, "Lota builds its engine on macOS, Linux, and Windows with MinGW only, not #{host_os}"
   end
 
+  # What aims CMake at iOS: its own cross-compiling (cmake-toolchains(7),
+  # "Cross Compiling for iOS"), for the arm64 Simulator.
+  IOS_ARGS = %w[-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64].freeze
+
+  # The platforms whose lists are generated on a host of +platform+: its
+  # own, and on macOS also iOS, whose SDKs come with Xcode.
+  def self.generated_on(platform)
+    (platform == "macos") ? %w[macos ios] : [platform]
+  end
+
   # What CMake is told when it evaluates LÖVE's tree for +platform+.
   # MEGA=ON takes LÖVE's dependencies as given rather than looking for
   # them (vendor/love/CMakeLists.txt:115-166), since the evaluation builds
@@ -76,8 +86,12 @@ class EngineSources
   # expects megasource's luajit target, which does not exist here, so
   # LuaJIT is turned off; it chooses only which Lua LÖVE links, never which
   # of LÖVE's sources compile, and the engine leaves Lua out anyway.
+  # For iOS, CMake's own cross-compiling for iOS aims it at the arm64
+  # Simulator, whose sources are a device's too: LÖVE's CMakeLists.txt
+  # chooses them by CMAKE_SYSTEM_NAME alone (lines 298-318).
   def self.cmake_args(platform)
     return %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF] if platform == "linux"
+    return %w[-G Ninja -DMEGA=ON] + IOS_ARGS if platform == "ios"
     # On Windows LÖVE's install rules name megasource's SDL3 target
     # (vendor/love/CMakeLists.txt:2053), so the evaluation defines a
     # stand-in for it (engine_sources_windows.cmake).

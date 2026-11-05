@@ -9,7 +9,7 @@
 # bindings:generate), listed by the generator itself.
 include(${CMAKE_CURRENT_SOURCE_DIR}/generated/sources.cmake)
 
-add_library(lota_native MODULE
+add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	${LOTA_GENERATED_SOURCES}
 	audio.cpp
 	buffer.cpp

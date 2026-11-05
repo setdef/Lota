@@ -21,34 +21,42 @@ ENGINE = CMakeBuild.new(source: "ext/lota", build: ENGINE_BUILD)
 
 # The engine's source list is evaluated for the host platform
 # (ext/lota/engine/sources_macos.cmake on macOS, sources_linux.cmake on
-# Linux), so each platform's list is checked on that platform.
+# Linux), so each platform's list is checked on that platform, and iOS's
+# (sources_ios.cmake) on macOS, beside macOS's.
 ENGINE_PLATFORM = EngineSources.platform(RbConfig::CONFIG["host_os"])
-ENGINE_SOURCES_FILE = "ext/lota/engine/sources_#{ENGINE_PLATFORM}.cmake"
-ENGINE_SOURCES_ARGS = EngineSources.cmake_args(ENGINE_PLATFORM)
-ENGINE_SOURCES = EngineSources.new(
-  source: "vendor/love", build: "tmp/engine/sources/#{ENGINE_PLATFORM}", cmake_args: ENGINE_SOURCES_ARGS,
-  label: EngineSources.label(`git -C vendor/love rev-parse HEAD`.strip, ENGINE_PLATFORM)
-)
+ENGINE_LOVE_COMMIT = `git -C vendor/love rev-parse HEAD`.strip
+ENGINE_SOURCE_LISTS = EngineSources.generated_on(ENGINE_PLATFORM).to_h do |platform|
+  sources = EngineSources.new(
+    source: "vendor/love", build: "tmp/engine/sources/#{platform}", cmake_args: EngineSources.cmake_args(platform),
+    label: EngineSources.label(ENGINE_LOVE_COMMIT, platform)
+  )
+  ["ext/lota/engine/sources_#{platform}.cmake", sources]
+end.freeze
+ENGINE_SOURCES_FILE, ENGINE_SOURCES = ENGINE_SOURCE_LISTS.first
 
 namespace :engine do
-  desc "Regenerate the engine's source list from vendor/love"
+  desc "Regenerate the engine's source lists from vendor/love"
   task :sources do
-    ENGINE_SOURCES.write(ENGINE_SOURCES_FILE)
-    puts "✅ Wrote #{ENGINE_SOURCES_FILE}"
+    ENGINE_SOURCE_LISTS.each do |file, sources|
+      sources.write(file)
+      puts "✅ Wrote #{file}"
+    end
   end
 
   namespace :sources do
-    desc "Fail if the engine's source list differs from what vendor/love generates"
+    desc "Fail if an engine source list differs from what vendor/love generates"
     task :check do
-      problems = ENGINE_SOURCES.problems(ENGINE_SOURCES_FILE)
-      abort <<~ERROR if problems.any?
-        ❌ #{ENGINE_SOURCES_FILE} does not match vendor/love:
-        #{problems.map { |line| "  #{line}" }.join("\n")}
+      ENGINE_SOURCE_LISTS.each do |file, sources|
+        problems = sources.problems(file)
+        abort <<~ERROR if problems.any?
+          ❌ #{file} does not match vendor/love:
+          #{problems.map { |line| "  #{line}" }.join("\n")}
 
-        Review the change, then run `bundle exec rake engine:sources` to regenerate it.
-      ERROR
+          Review the change, then run `bundle exec rake engine:sources` to regenerate it.
+        ERROR
 
-      puts "✅ #{ENGINE_SOURCES_FILE} matches vendor/love"
+        puts "✅ #{file} matches vendor/love"
+      end
     end
   end
 end

@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Experimental: under Fledge's `fledge build ios`, the source gem builds LÖVE's engine and the extension as static archives for the iOS device and Simulator, from a clone of Lota named with `--with-lota-source`, SDL3 built by `rake ios:sdl3` (`--with-lota-sdl3`), and Rice (`--with-rice-dir`); audio uses Apple's OpenAL framework there, as LÖVE's iOS build does.
+
 ### Fixed
 
 - The `aarch64-mingw-ucrt` gem renders with OpenGL as well as Vulkan; its SDL was built without OpenGL.
