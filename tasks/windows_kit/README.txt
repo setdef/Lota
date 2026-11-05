@@ -113,7 +113,7 @@ that the kit itself stops a program that hangs; Winkit started
 normally, with a minimal environment, with a Ruby programmer's
 variables set, from a folder named with letters outside English, for
 45 seconds to measure smoothness, through Explorer's way of starting
-programs, closed with its X button, ended as Task Manager ends it, and
+programs, from the Command Prompt, closed with its X button, ended as Task Manager ends it, and
 through a junction and a symbolic link; Dot Popper playing itself with
 and without its glow effects; where the games saved; and Windows'
 own records of crashes and of Defender. Steps never tested on a real

@@ -83,7 +83,7 @@ class Winkit
     elapsed = Lota::Timer.time - @started
     return finish(4) if elapsed >= (@window ? @seconds : 1)
 
-    @frames << delta if elapsed > 0.5
+    @frames << delta if @window && elapsed > 0.5
     @fps << Lota::Timer.fps while @fps.size < elapsed.floor
     capture if !@captured && elapsed > 2
   end

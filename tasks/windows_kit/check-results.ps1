@@ -32,7 +32,7 @@ $text = [IO.File]::ReadAllText($file, [Text.Encoding]::UTF8)
 Write-Host "results.txt: $((Get-Item -LiteralPath $file).Length) bytes"
 
 $steps = 'motw', 'checksums', 'system', 'computerinfo', 'timeout', 'unpack', 'winkit', 'winkit-warm', 'winkit-rubyenv',
-  'winkit-unicode', 'winkit-pacing', 'winkit-shell', 'winkit-close', 'winkit-kill', 'winkit-links', 'winkit-summary',
+  'winkit-unicode', 'winkit-pacing', 'winkit-shell', 'winkit-cmd', 'winkit-close', 'winkit-kill', 'winkit-links', 'winkit-summary',
   'dotpopper', 'dotpopper-noshaders', 'install', 'saves', 'events'
 if ($Held) { $steps += 'hold' }
 $status = @{}
@@ -43,6 +43,8 @@ foreach ($step in $steps) {
   if ($end.Success) { $status[$step] = $end.Groups[1].Value; Write-Host "  $step -> $($status[$step])" }
 }
 Check 'a summary' ($text -match '(?m)^=== SUMMARY')
+$failedSteps = @($status.Keys | Where-Object { $status[$_] -eq 'FAIL' })
+Check "no step failed ($($failedSteps -join ', '))" ($failedSteps.Count -eq 0)
 Check 'no step failed with an exception' (-not ($text -match '(?m)^where: '))
 
 Check 'the timeout stopped the hanging child' ($status['timeout'] -eq 'PASS' -and $text -match 'result: timeout after 3 s, killed; exit status .*; gone afterwards: True')
@@ -62,7 +64,7 @@ $zip = Join-Path (Join-Path $Kit 'results') "$($folders[0].Name).zip"
 Check 'the results zip' ((Test-Path -LiteralPath $zip) -and (Get-Item -LiteralPath $zip).Length -gt 10000)
 
 if ($Mode -eq 'mesa') {
-  foreach ($step in 'winkit', 'winkit-warm', 'winkit-rubyenv', 'winkit-unicode', 'winkit-pacing', 'winkit-shell', 'winkit-close') {
+  foreach ($step in 'winkit', 'winkit-warm', 'winkit-rubyenv', 'winkit-unicode', 'winkit-pacing', 'winkit-shell', 'winkit-cmd', 'winkit-close', 'winkit-links') {
     Check "$step drew and read its frame back" ($status[$step] -eq 'PASS')
   }
   Check 'winkit drew with llvmpipe' ($text -match 'renderer: OpenGL [^\r\n]*llvmpipe')
@@ -75,7 +77,7 @@ if ($Mode -eq 'mesa') {
 } else {
   Check 'winkit reported no GPU' ($status['winkit'] -eq 'NO-GPU' -and $text -match 'window: refused' -and $text -match 'Unable to create renderer')
   Check 'the summary says so in plain words' ($text -match 'could not open a window with the graphics they need')
-  Check 'dot popper did not hang the kit' ($status['dotpopper'] -in 'NO-GPU', 'FAIL')
+  Check "dot popper's error dialog was read and closed" ($status['dotpopper'] -eq 'NO-GPU' -and $text -match "error dialog 'Initialization error', killed")
 }
 if ($Installed) {
   Check 'the installer installed, ran, and uninstalled' ($status['install'] -eq 'PASS')

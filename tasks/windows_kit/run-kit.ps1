@@ -719,7 +719,7 @@ Invoke-Step 'winkit-rubyenv' "Winkit with a Ruby developer's variables set" {
   $r = Invoke-Winkit 'winkit-rubyenv' $WinkitExe -Environment $environment
   [void]$WinkitRuns.Add($r)
   Test-Winkit $r
-  if ($script:StepStatus -ne 'FAIL' -and $r.Out -notmatch 'env RUBYOPT: -rnonexistent') { Set-Step 'FAIL' 'the app did not see RUBYOPT' }
+  if ($script:StepStatus -ne 'FAIL' -and $r.Out -notmatch 'env RUBYOPT: [^\r\n]*-rnonexistent') { Set-Step 'FAIL' 'the app did not see RUBYOPT' }
 }
 
 Invoke-Step 'winkit-unicode' 'Winkit from a folder named with spaces and letters outside ASCII' {
@@ -765,6 +765,14 @@ Invoke-Step 'winkit-shell' 'Winkit started through the shell, as a double-click 
   }
 }
 
+Invoke-Step 'winkit-cmd' 'Winkit started from the Command Prompt (cmd.exe)' {
+  $cmd = Join-Path $env:SystemRoot 'System32\cmd.exe'
+  $r = Invoke-Child -Label 'winkit-cmd' -FilePath $cmd -Arguments "/d /c `"`"$WinkitExe`"`"" -WorkingDirectory $Work -TimeoutSeconds 40 -Sample
+  Out-Child $r
+  Copy-Frame 'winkit-cmd'
+  Test-Winkit $r
+}
+
 Invoke-Step 'winkit-close' "Winkit's window closed as its X button closes it" {
   $r = Invoke-Child -Label 'winkit-close' -FilePath $WinkitExe -Arguments '--seconds=30' -CloseAt 5 -TimeoutSeconds 30
   Out-Child $r
@@ -792,6 +800,9 @@ Invoke-Step 'winkit-links' 'Winkit through a junction and a symbolic link' {
   } catch { $statuses += "junction: could not run ($($_.Exception.Message))"; $script:StepStatus = 'FAIL' }
   $junctionStatus = $script:StepStatus
   $symlink = Join-Path $links 'Winkit-link.exe'
+  # Windows looks for a DLL beside the path a program was started by, so
+  # Mesa (CI only) goes beside the link too.
+  Copy-Mesa $links
   try {
     New-Item -ItemType SymbolicLink -Path $symlink -Target $WinkitExe -ErrorAction Stop | Out-Null
     $r = Invoke-Winkit 'winkit-symlink' $symlink
@@ -804,6 +815,7 @@ Invoke-Step 'winkit-links' 'Winkit through a junction and a symbolic link' {
   foreach ($link in $symlink, $junction) {
     if (Test-Path -LiteralPath $link) { try { [IO.Directory]::Delete($link) } catch { Remove-Item -LiteralPath $link -Force -ErrorAction SilentlyContinue } }
   }
+  Remove-Mesa $links
   Set-Step $script:StepStatus ($statuses -join '; ')
 }
 
@@ -834,7 +846,12 @@ function Get-PopperFiles([string] $Label) {
 
 function Test-Popper($r) {
   if ($r.Result -ne 'exited') {
-    if ($r.Result -like 'error dialog*') { Set-Step 'NO-GPU' "it showed an error dialog: $((@($r.Texts) | Select-Object -Last 3) -join ' ')" }
+    if ($r.Result -like 'error dialog*') {
+      $message = @($r.Texts | Where-Object { $_ -match '^\s+child \[Static\] \S' } | ForEach-Object { $_ -replace '^\s+child \[Static\] ', '' })
+      $status = 'FAIL'
+      if (($message -join ' ') -match 'Unable to create renderer') { $status = 'NO-GPU' }
+      Set-Step $status "it showed an error dialog: $($message -join ' ')"
+    }
     else { Set-Step 'FAIL' $r.Result }
     return
   }
