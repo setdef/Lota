@@ -125,6 +125,36 @@ module NativeHelper
     GC.start(full_mark: true, immediate_sweep: true)
   end
 
+  # Asserts that +read+, which returns the wrapper of one engine object
+  # each time, never returns a wrapper Ruby's collector has found dead.
+  #
+  # Each round reads the object once on a finished Fiber, which drops the
+  # wrapper, then runs a full collection that marks and leaves the sweep
+  # for later, as Ruby's collector does between frames of a game, and
+  # reads the object again. A wrapper the marking found dead is freed
+  # whenever the sweep reaches its page, even if Ruby holds it again by
+  # then, so a read that returns it hands Ruby an object about to be
+  # freed. The round knows the first wrapper by its object_id and asks an
+  # ObjectSpace::WeakMap, which the collector clears of the objects it
+  # finds dead before it sweeps, whether it survived the marking.
+  def assert_never_reads_back_a_dead_wrapper(rounds: 100, &read)
+    rounds.times do |round|
+      dropped = ObjectSpace::WeakMap.new
+      id = nil
+      on_a_finished_fiber do
+        wrapper = read.call
+        id = wrapper.object_id
+        dropped[0] = wrapper
+      end
+      GC.start(full_mark: true, immediate_sweep: false)
+      returned_dropped = read.call.object_id == id
+      survived = dropped.key?(0)
+      collect_garbage
+      refute returned_dropped && !survived,
+        "round #{round} read back the wrapper the collector had found dead and would then free"
+    end
+  end
+
   # A full collection on a thread that is not the main thread, so every
   # wrapper it frees is freed off the main thread. The collector stays off
   # until then, so nothing frees those wrappers on this thread first.

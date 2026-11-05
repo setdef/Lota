@@ -15,6 +15,8 @@ require_relative "../engine_helper"
 # count; the arguments LÖVE passes on to a query's and a ray's function;
 # and the errors LÖVE raises.
 class PhysicsBindingsTest < Minitest::Test
+  include NativeHelper
+
   Physics = Lota::Physics
 
   def setup
@@ -35,6 +37,16 @@ class PhysicsBindingsTest < Minitest::Test
     assert_same @world, @body.world
     assert_same @body, @world.bodies.first
     assert_instance_of Physics::CircleShape, @world.shapes_in_area(-10, -10, 10, 10).first
+  end
+
+  # A game that reads its World's Bodies each frame and keeps none of
+  # them drops each frame's wrappers. getBodies must not hand a frame a
+  # wrapper the collector has already found dead, which it then frees
+  # while the frame uses it (NativeHelper#assert_never_reads_back_a_dead_wrapper).
+  def test_bodies_never_returns_a_wrapper_the_collector_found_dead
+    @body = nil
+
+    assert_never_reads_back_a_dead_wrapper { @world.native.bodies.first }
   end
 
   # A Lua reference keeps the user data while the Body lives, however long
