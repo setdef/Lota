@@ -39,7 +39,7 @@ class FuseTest < Minitest::Test
     SH
     fake("fledge", <<~SH)
       echo "fledge $* in $(pwd) with $BUNDLE_GEMFILE" >> "#{@log}"
-      echo "$3/Dot Popper-arm64-darwin.app"
+      echo "$3/Moon Pong-arm64-darwin.app"
     SH
     fake("git", "exit 0\n")
     @path = ENV.fetch("PATH", nil)
@@ -81,8 +81,8 @@ class FuseTest < Minitest::Test
     stdout, = capture_io { paths = fuse.call }
 
     dist = File.join(@root, "dist")
-    assert_equal ["#{dist}/Dot Popper-arm64-darwin.app"], paths
-    assert_equal "#{dist}/Dot Popper-arm64-darwin.app\n", stdout
+    assert_equal ["#{dist}/Moon Pong-arm64-darwin.app"], paths
+    assert_equal "#{dist}/Moon Pong-arm64-darwin.app\n", stdout
     assert_equal <<~LOG, File.read(@log)
       bundle lock --add-checksums
       bundle install
@@ -106,11 +106,11 @@ class FuseTest < Minitest::Test
       def Lota.conf(t)
         t.title = "Ignored for the window's"
         t.window.title = COLORS
-        t.identity = "DotPopper"
+        t.identity = "MoonPong"
         t.version = "12.0"
       end
     RUBY
-    write("colors.rb", "COLORS = 'Dot Popper'\n")
+    write("colors.rb", "COLORS = 'Moon Pong'\n")
     write("art/dot.png", "png")
     write(".git/HEAD", "ref")
     write(".bundle/config", "BUNDLE_FROZEN: true")
@@ -140,19 +140,19 @@ class FuseTest < Minitest::Test
       # frozen_string_literal: true
 
       # Written by lota fuse, which writes it again on every build. Starts
-      # the game in game/DotPopper as a fused game, as a shipped game starts.
+      # the game in game/MoonPong as a fused game, as a shipped game starts.
       RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
       require "lota"
-      exit Lota::Boot.new(File.join(__dir__, "game", "DotPopper"), ARGV, fused: true).call
+      exit Lota::Boot.new(File.join(__dir__, "game", "MoonPong"), ARGV, fused: true).call
     RUBY
     assert_equal <<~YAML, read("fledge.yml")
       # Written by lota fuse, which writes it again on every build.
       ---
-      name: Dot Popper
+      name: Moon Pong
       kind: windowed
-      identifier: com.example.DotPopper
+      identifier: com.example.MoonPong
       version: 1.2.3
-      icon: game/DotPopper/art/icon
+      icon: game/MoonPong/art/icon
     YAML
     assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
@@ -160,15 +160,15 @@ class FuseTest < Minitest::Test
       Gemfile
       fledge.yml
       game
-      game/DotPopper
-      game/DotPopper/Gemfile
-      game/DotPopper/art
-      game/DotPopper/art/dot.png
-      game/DotPopper/colors.rb
-      game/DotPopper/conf.rb
-      game/DotPopper/main.rb
-      game/DotPopper/vendor
-      game/DotPopper/vendor/sound.ogg
+      game/MoonPong
+      game/MoonPong/Gemfile
+      game/MoonPong/art
+      game/MoonPong/art/dot.png
+      game/MoonPong/colors.rb
+      game/MoonPong/conf.rb
+      game/MoonPong/main.rb
+      game/MoonPong/vendor
+      game/MoonPong/vendor/sound.ogg
       main.rb
       vendor
       vendor/cache
@@ -178,12 +178,12 @@ class FuseTest < Minitest::Test
 
   def test_options_reach_fledge_and_fledge_yml
     options = Lota::Fuse.options(out: File.join(@root, "dist"), sign: "Developer ID Application: Me (TEAM)",
-      identifier: "com.me.DotPopper")
+      identifier: "com.me.MoonPong")
 
     capture_io { fuse(options).call }
 
     assert_includes File.read(@log), "fledge build --out #{File.join(@root, 'dist')} --sign Developer ID Application: Me (TEAM) in"
-    assert_includes read("fledge.yml"), "identifier: com.me.DotPopper\n"
+    assert_includes read("fledge.yml"), "identifier: com.me.MoonPong\n"
   end
 
   def test_the_fledge_ref_can_be_named_in_the_environment
@@ -211,8 +211,8 @@ class FuseTest < Minitest::Test
   end
 
   def test_identities_become_folder_names_every_system_takes
-    assert_equal "DotPopper", Lota::Fuse.folder_name("DotPopper")
-    assert_equal "Dot Popper_ Deluxe_2", Lota::Fuse.folder_name("Dot Popper: Deluxe/2")
+    assert_equal "MoonPong", Lota::Fuse.folder_name("MoonPong")
+    assert_equal "Moon Pong_ Deluxe_2", Lota::Fuse.folder_name("Moon Pong: Deluxe/2")
     assert_equal "a_b_c_d_e_f_g_h", Lota::Fuse.folder_name("a<b>c\"d\\e|f?g*h")
     assert_equal "tab_", Lota::Fuse.folder_name("tab\t")
     assert_equal "game", Lota::Fuse.folder_name("game. .")
@@ -227,13 +227,13 @@ class FuseTest < Minitest::Test
 
     capture_io { fuse.call }
 
-    assert_path_exists project("game", "Dot_Popper", "main.rb")
-    assert_includes read("fledge.yml"), "identifier: com.example.Dot-Popper\n"
+    assert_path_exists project("game", "Moon_Pong", "main.rb")
+    assert_includes read("fledge.yml"), "identifier: com.example.Moon-Pong\n"
   end
 
   def test_placeholder_identifiers_are_identifiers_fledge_takes
-    assert_equal "com.example.dot-popper", Lota::Fuse.placeholder_identifier("dot_popper")
-    assert_equal "com.example.Dot-Popper-2", Lota::Fuse.placeholder_identifier("--Dot Popper! 2--")
+    assert_equal "com.example.moon-pong", Lota::Fuse.placeholder_identifier("moon_pong")
+    assert_equal "com.example.Moon-Pong-2", Lota::Fuse.placeholder_identifier("--Moon Pong! 2--")
     assert_equal "com.example.lotagame", Lota::Fuse.placeholder_identifier("ドット")
     assert_equal 112, Lota::Fuse.placeholder_identifier("a" * 200).length
   end

@@ -24,7 +24,7 @@ module Lota
       # === Example
       #
       #   lota fuse
-      #   lota fuse path/to/game --identifier com.example.DotPopper
+      #   lota fuse path/to/game --identifier com.example.MoonPong
       #   lota fuse path/to/game --out builds --sign "Developer ID Application: NAME (TEAM)"
       module Fuse
         # The words Fledge reads as a phone, which Lota cannot build for

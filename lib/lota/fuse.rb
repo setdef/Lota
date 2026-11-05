@@ -34,9 +34,9 @@ module Lota
   #
   # === Example
   #
-  #   options = Lota::Fuse.options(identifier: "com.example.DotPopper")
-  #   Lota::Fuse.new("games/dot_popper", options).call
-  #   # => ["/home/me/dist/Dot Popper-x86_64-linux.tar.gz", ...]
+  #   options = Lota::Fuse.options(identifier: "com.example.MoonPong")
+  #   Lota::Fuse.new("games/moon_pong", options).call
+  #   # => ["/home/me/dist/Moon Pong-x86_64-linux.tar.gz", ...]
   class Fuse
     # The error Fuse raises when it cannot build, with a message for the
     # person who ran it.
@@ -190,7 +190,7 @@ module Lota
     #
     # === Example
     #
-    #   Lota::Fuse.folder_name("Dot Popper: Deluxe") # => "Dot Popper_ Deluxe"
+    #   Lota::Fuse.folder_name("Moon Pong: Deluxe") # => "Moon Pong_ Deluxe"
     def self.folder_name(identity)
       name = identity.gsub(UNSAFE, "_").sub(/[. ]+\z/, "")
       name = "#{name}_" if RESERVED.match?(name)
@@ -203,7 +203,7 @@ module Lota
     #
     # === Example
     #
-    #   Lota::Fuse.placeholder_identifier("dot_popper") # => "com.example.dot-popper"
+    #   Lota::Fuse.placeholder_identifier("moon_pong") # => "com.example.moon-pong"
     def self.placeholder_identifier(identity)
       part = identity.gsub(/[^A-Za-z0-9]+/, "-").gsub(/\A-+|-+\z/, "")[0, 100].to_s.delete_suffix("-")
       "#{IDENTIFIER_PREFIX}.#{part.empty? ? 'lotagame' : part}"

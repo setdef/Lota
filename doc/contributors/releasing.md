@@ -9,7 +9,7 @@ A game that depends on Lota installs it as a gem, and Lota's gem compiles nothin
 
 ## When to cut a release
 
-Cut one when a downstream project, such as Deckbuilder or a game, needs something on trunk that no release has yet. Tag a commit where every platform's gate and delivery passed. A release that lists a platform is a promise that its gem works there, so CI publishes nothing when any platform fails, rather than a release missing one.
+Cut one when a downstream project, such as a game, needs something on trunk that no release has yet. Tag a commit where every platform's gate and delivery passed. A release that lists a platform is a promise that its gem works there, so CI publishes nothing when any platform fails, rather than a release missing one.
 
 ## Versions before 1.0
 
