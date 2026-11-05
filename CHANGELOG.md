@@ -10,6 +10,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `Lota::Physics::MouseJoint#target=` and `#target`, `#max_force=` and `#max_force`, `#stiffness=` and `#stiffness`, and `#damping=` and `#damping`, so a game can move a mouse joint.
+- `Lota::Physics::Body#awake=`, `#active=`, `#transform` and `#transform=`, `#kinematic_state` and `#kinematic_state=`, `#angular_velocity=`, `#angular_damping=`, `#inertia=`, `#local_vector`, `#linear_velocity_from_world_point`, `#linear_velocity_from_local_point`, and the deprecated `#fixtures`.
+- `Lota::Physics::Shape#filter_data=` and the deprecated `#shape`; `CircleShape#radius=`, `#point`, and `#point=`; `PolygonShape#points` and `#validate`; `EdgeShape#points`, `#next_vertex`, and `#previous_vertex` and their writers; `ChainShape#points`, `#point`, `#vertex_count`, `#next_vertex`, and `#previous_vertex` and their writers, and the deprecated `#child_edge`.
+- `Lota::Physics::Contact#tangent_speed` and `#tangent_speed=`, `#destroyed?`, and the deprecated `#fixtures`; the deprecated `World#query_bounding_box`.
+- Every method of `DistanceJoint`, `FrictionJoint`, `GearJoint`, `MotorJoint`, `PrismaticJoint`, `PulleyJoint`, `RevoluteJoint`, `RopeJoint`, `WeldJoint`, and `WheelJoint` in `Lota::Physics`: their lengths, limits, motors, springs, offsets, axes, anchors, ratios, and reference angles.
+- `Lota::Physics.compute_linear_stiffness`, `compute_linear_frequency`, `compute_angular_stiffness`, and `compute_angular_frequency`.
+
 ## [0.1.3] - 2026-11-05
 
 ### Added

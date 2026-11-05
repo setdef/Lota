@@ -324,6 +324,20 @@ module Lota
         @native.query_shapes_in_area(x1, y1, x2, y2, [call, *arguments])
       end
 
+      # #query_shapes_in_area by its old name, matching
+      # World:queryBoundingBox, which LÖVE 12 renames
+      # World:queryShapesInArea; its first use prints LÖVE's notice, with
+      # Lota's names.
+      #
+      # === Example
+      #
+      #   world.query_bounding_box(0, 0, 100, 100) { |shape| found << shape }
+      def query_bounding_box(x1, y1, x2, y2, *, &)
+        Deprecation.mark("Lota::Physics::World#query_bounding_box", :method, :renamed,
+          "Lota::Physics::World#query_shapes_in_area", where: Deprecation.where(caller_locations(1, 1)))
+        query_shapes_in_area(x1, y1, x2, y2, *, &)
+      end
+
       # Calls the block with each Shape the ray from +x1+, +y1+ to +x2+,
       # +y2+ hits, matching World:rayCast, whose function becomes the block
       # (ADR 001, rule 12).

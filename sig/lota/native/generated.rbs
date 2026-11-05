@@ -695,6 +695,14 @@ module Lota
       def self.new_rope_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_length, ?bool collide_connected) -> RopeJoint
 
       def self.meter: () -> Integer
+
+      def self.compute_linear_stiffness: (Float | Integer frequency, Float | Integer damping_ratio, Body body1, ?Body? argument4) -> [Float, Float]
+
+      def self.compute_linear_frequency: (Float | Integer stiffness, Float | Integer damping, Body body1, ?Body? argument4) -> [Float, Float]
+
+      def self.compute_angular_stiffness: (Float | Integer frequency, Float | Integer damping_ratio, Body body1, ?Body? argument4) -> [Float, Float]
+
+      def self.compute_angular_frequency: (Float | Integer stiffness, Float | Integer damping, Body body1, ?Body? argument4) -> [Float, Float]
     end
 
     class Body
@@ -785,6 +793,54 @@ module Lota
       def world: () -> World
 
       def shape: () -> Shape?
+
+      def transform: () -> [Float, Float, Float]
+
+      def kinematic_state: () -> [Float, Float, Float, Float, Float, Float]
+
+      def set_kinematic_state: (Float | Integer x, Float | Integer y, Float | Integer a, Float | Integer dx, Float | Integer dy, Float | Integer da) -> nil
+
+      def set_angular_velocity: (Float | Integer arg1) -> nil
+
+      def set_inertia: (Float | Integer i) -> nil
+
+      def set_angular_damping: (Float | Integer arg1) -> nil
+
+      def local_vector: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def linear_velocity_from_world_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def linear_velocity_from_local_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def set_active: (bool b) -> nil
+
+      def set_awake: (bool b) -> nil
+    end
+
+    class ChainShape
+      def set_next_vertex: (Float | Integer x, Float | Integer y) -> nil
+
+      def set_previous_vertex: (Float | Integer x, Float | Integer y) -> nil
+
+      def next_vertex: () -> [Float, Float]
+
+      def previous_vertex: () -> [Float, Float]
+
+      def child_edge: (Integer index) -> EdgeShape
+
+      def vertex_count: () -> Integer
+
+      def point: (Integer index) -> [Float, Float]
+    end
+
+    class CircleShape
+      def radius: () -> Float
+
+      def set_radius: (Float | Integer r) -> nil
+
+      def point: () -> [Float, Float]
+
+      def set_point: (Float | Integer x, Float | Integer y) -> nil
     end
 
     class Contact
@@ -809,6 +865,54 @@ module Lota
       def reset_restitution: () -> nil
 
       def shapes: () -> [Shape, Shape]
+
+      def set_tangent_speed: (Float | Integer speed) -> nil
+
+      def tangent_speed: () -> Float
+
+      def destroyed?: () -> bool
+    end
+
+    class DistanceJoint
+      def set_length: (Float | Integer arg1) -> nil
+
+      def length: () -> Float
+
+      def set_stiffness: (Float | Integer arg1) -> nil
+
+      def stiffness: () -> Float
+
+      def set_damping: (Float | Integer arg1) -> nil
+
+      def damping: () -> Float
+    end
+
+    class EdgeShape
+      def set_next_vertex: (Float | Integer x, Float | Integer y) -> nil
+
+      def set_previous_vertex: (Float | Integer x, Float | Integer y) -> nil
+
+      def next_vertex: () -> [Float, Float]
+
+      def previous_vertex: () -> [Float, Float]
+    end
+
+    class FrictionJoint
+      def set_max_force: (Float | Integer arg1) -> nil
+
+      def max_force: () -> Float
+
+      def set_max_torque: (Float | Integer arg1) -> nil
+
+      def max_torque: () -> Float
+    end
+
+    class GearJoint
+      def set_ratio: (Float | Integer arg1) -> nil
+
+      def ratio: () -> Float
+
+      def joints: () -> [Joint, Joint]
     end
 
     class Joint
@@ -823,6 +927,132 @@ module Lota
       def destroy: () -> nil
 
       def bodies: () -> [Body, Body]
+    end
+
+    class MotorJoint
+      def set_linear_offset: (Float | Integer x, Float | Integer y) -> nil
+
+      def set_angular_offset: (Float | Integer arg1) -> nil
+
+      def angular_offset: () -> Float
+
+      def set_max_force: (Float | Integer arg1) -> nil
+
+      def max_force: () -> Float
+
+      def set_max_torque: (Float | Integer arg1) -> nil
+
+      def max_torque: () -> Float
+
+      def set_correction_factor: (Float | Integer arg1) -> nil
+
+      def correction_factor: () -> Float
+    end
+
+    class MouseJoint
+      def set_target: (Float | Integer x, Float | Integer y) -> nil
+
+      def set_max_force: (Float | Integer f) -> nil
+
+      def max_force: () -> Float
+
+      def set_stiffness: (Float | Integer arg1) -> nil
+
+      def stiffness: () -> Float
+
+      def set_damping: (Float | Integer arg1) -> nil
+
+      def damping: () -> Float
+    end
+
+    class PolygonShape
+      def validate: () -> bool
+    end
+
+    class PrismaticJoint
+      def joint_translation: () -> Float
+
+      def joint_speed: () -> Float
+
+      def set_motor_enabled: (bool arg1) -> nil
+
+      def motor_enabled?: () -> bool
+
+      def set_max_motor_force: (Float | Integer arg1) -> nil
+
+      def set_motor_speed: (Float | Integer arg1) -> nil
+
+      def motor_speed: () -> Float
+
+      def motor_force: (Float | Integer inv_dt) -> Float
+
+      def max_motor_force: () -> Float
+
+      def set_limits_enabled: (bool arg1) -> nil
+
+      def limits_enabled?: () -> bool
+
+      def set_upper_limit: (Float | Integer arg1) -> nil
+
+      def set_lower_limit: (Float | Integer arg1) -> nil
+
+      def set_limits: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def lower_limit: () -> Float
+
+      def upper_limit: () -> Float
+
+      def reference_angle: () -> Float
+    end
+
+    class PulleyJoint
+      def length_a: () -> Float
+
+      def length_b: () -> Float
+
+      def ratio: () -> Float
+    end
+
+    class RevoluteJoint
+      def joint_angle: () -> Float
+
+      def joint_speed: () -> Float
+
+      def set_motor_enabled: (bool arg1) -> nil
+
+      def motor_enabled?: () -> bool
+
+      def set_max_motor_torque: (Float | Integer arg1) -> nil
+
+      def set_motor_speed: (Float | Integer arg1) -> nil
+
+      def motor_speed: () -> Float
+
+      def motor_torque: (Float | Integer dt) -> Float
+
+      def max_motor_torque: () -> Float
+
+      def set_limits_enabled: (bool arg1) -> nil
+
+      def limits_enabled?: () -> bool
+
+      def set_upper_limit: (Float | Integer arg1) -> nil
+
+      def set_lower_limit: (Float | Integer arg1) -> nil
+
+      def set_limits: (Float | Integer arg1, Float | Integer arg2) -> nil
+
+      def lower_limit: () -> Float
+
+      def upper_limit: () -> Float
+
+      def reference_angle: () -> Float
+    end
+
+    class RopeJoint
+      def max_length: () -> Float
+
+      def set_max_length: (Float | Integer arg1) -> nil
     end
 
     class Shape
@@ -861,6 +1091,56 @@ module Lota
       def body: () -> Body?
 
       def filter_data: () -> [Integer, Integer, Integer]
+
+      def set_filter_data: (Integer argument1, Integer argument2, Integer argument3) -> nil
+    end
+
+    class WeldJoint
+      def set_stiffness: (Float | Integer arg1) -> nil
+
+      def stiffness: () -> Float
+
+      def set_damping: (Float | Integer arg1) -> nil
+
+      def damping: () -> Float
+
+      def reference_angle: () -> Float
+    end
+
+    class WheelJoint
+      def joint_translation: () -> Float
+
+      def joint_speed: () -> Float
+
+      def set_motor_enabled: (bool arg1) -> nil
+
+      def motor_enabled?: () -> bool
+
+      def set_motor_speed: (Float | Integer arg1) -> nil
+
+      def motor_speed: () -> Float
+
+      def set_max_motor_torque: (Float | Integer arg1) -> nil
+
+      def max_motor_torque: () -> Float
+
+      def motor_torque: (Float | Integer dt) -> Float
+
+      def set_spring_stiffness: (Float | Integer arg1) -> nil
+
+      def spring_stiffness: () -> Float
+
+      def set_spring_damping: (Float | Integer arg1) -> nil
+
+      def spring_damping: () -> Float
+
+      def set_stiffness: (Float | Integer arg1) -> nil
+
+      def stiffness: () -> Float
+
+      def set_damping: (Float | Integer arg1) -> nil
+
+      def damping: () -> Float
     end
 
     class World
