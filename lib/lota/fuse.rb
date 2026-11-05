@@ -77,10 +77,10 @@ module Lota
     # Where Bundler fetches Fledge from, which is not on RubyGems.org.
     FLEDGE_GIT = "https://github.com/setdef/Fledge"
 
-    # The Git commit or tag of Fledge the project builds with: the first
-    # commit whose check of a gem's DLLs takes the System32 libraries
-    # Lota's Windows engine imports. No tag holds it yet.
-    FLEDGE_REF = "c20a6293091bef9ef19a18c7fd2c0cb7042b2fd0"
+    # The Git tag of Fledge the project builds with: the first release whose
+    # check of a gem's DLLs takes the System32 libraries Lota's Windows
+    # engine imports (Fledge 0.5.0).
+    FLEDGE_REF = "v0.5.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.
