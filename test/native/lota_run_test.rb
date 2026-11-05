@@ -46,11 +46,16 @@ class LotaRunTest < Minitest::Test
   # lota_native_test, last on the load path. +environment+ changes the
   # run's environment from this process's.
   def lota_run(*, preload: nil, environment: {})
+    capture2e(environment, RbConfig.ruby, "-w", "-I#{run_load_path}", *(preload && "-r#{preload}"),
+      File.join(ROOT, "exe/lota"), "run", *)
+  end
+
+  # The load path of a run: the extension this process loaded, Lota's
+  # lib, and the test extension, last.
+  def run_load_path
     native = File.dirname(File.dirname(loaded("lota/native")))
     native_test = File.dirname(loaded("lota_native_test"))
-    load_path = [native, File.join(ROOT, "lib"), native_test].uniq.join(File::PATH_SEPARATOR)
-    capture2e(environment, RbConfig.ruby, "-w", "-I#{load_path}", *(preload && "-r#{preload}"), File.join(ROOT, "exe/lota"),
-      "run", *)
+    [native, File.join(ROOT, "lib"), native_test].uniq.join(File::PATH_SEPARATOR)
   end
 
   def game(name)
@@ -267,6 +272,136 @@ class LotaRunTest < Minitest::Test
       assert_match(%r{\AError: #{Regexp.escape(directory)}/main.rb:2:in 'Lota.errorhandler': worse \(RuntimeError\)\n},
         output)
       refute_includes output, "broken"
+    end
+  end
+
+  # A game's line that says whether the frame it is in runs inside
+  # Lota::Event.pump, as a frame the event module's modal draw runs does,
+  # and asks for the system's live resize redraw during the next pump
+  # (LotaNativeTest.request_modal_draw) on the frame +ask+ names.
+  MODAL_FRAME = <<~RUBY
+    require "lota_native_test"
+
+    def modal_frame(name, count, ask)
+      inside = caller_locations.any? { |location| location.label == "Lota::Event.pump" }
+      puts "\#{name} \#{count}\#{' inside pump' if inside}"
+      LotaNativeTest.request_modal_draw if count == ask
+    end
+  RUBY
+
+  # boot.lua hands each new frame of love.run to the event module
+  # (boot.lua:507-514, love.event._setDefaultModalDrawCallback), whose
+  # modal draw runs it while the system resizes the window
+  # (event/sdl/Event.cpp:100-103, event/Event.cpp:108-130): the frame runs
+  # again inside the pump of the frame under way, and draws.
+  def test_the_frame_draws_while_the_system_resizes_the_window
+    in_game("main.rb" => <<~RUBY) do |directory|
+      #{MODAL_FRAME}
+      def Lota.draw
+        @frames = (@frames || 0) + 1
+        modal_frame("draw", @frames, 1)
+        Lota::Event.quit(3) if @frames == 3
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_equal "draw 1\ndraw 2 inside pump\ndraw 3\n", output
+      assert_equal 3, status.exitstatus, output
+    end
+  end
+
+  # The frame is called as LÖVE's drawCallback calls it, with no error
+  # handler of boot.lua's around it (wrap_Event.cpp:161-193), so what it
+  # raises inside the modal draw comes out of the pump that ran it, after
+  # the callback's name (event/sdl/Event.cpp:172-182), and reaches the
+  # game's error handler from there.
+  def test_an_error_the_frame_raises_while_the_window_is_resized_comes_out_of_the_pump
+    in_game("main.rb" => <<~RUBY) do |directory|
+      #{MODAL_FRAME}
+      def Lota.draw
+        @frames = (@frames || 0) + 1
+        modal_frame("draw", @frames, 1)
+        raise "broken" if @frames == 2
+      end
+      def Lota.errorhandler(error)
+        puts "handled \#{error.class} \#{error.message}"
+        -> { 4 }
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_equal "draw 1\ndraw 2 inside pump\nhandled RuntimeError Error in modal draw callback: broken\n", output
+      assert_equal 4, status.exitstatus, output
+    end
+  end
+
+  # Once love.run has returned its frame, boot.lua hands every new frame
+  # to the event module, the error handler's too (boot.lua:497-500 and
+  # 510-514).
+  def test_the_error_handlers_frame_draws_while_the_system_resizes_the_window
+    in_game("main.rb" => <<~RUBY) do |directory|
+      #{MODAL_FRAME}
+      def Lota.update(dt) = raise("broken")
+      def Lota.errorhandler(error)
+        frames = 0
+        lambda do
+          Lota::Event.pump
+          modal_frame("handler", frames += 1, 1)
+          frames == 3 ? 5 : nil
+        end
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_equal "handler 1\nhandler 2 inside pump\nhandler 3\n", output
+      assert_equal 5, status.exitstatus, output
+    end
+  end
+
+  # When love.init or love.run fails, boot.lua hands no frame to the event
+  # module, the error handler's neither (boot.lua:471 and 490-500).
+  def test_the_error_handlers_frame_is_not_handed_on_when_the_game_failed_to_start
+    in_game("main.rb" => <<~RUBY) do |directory|
+      #{MODAL_FRAME}
+      def Lota.load(*) = raise("broken")
+      def Lota.errorhandler(error)
+        frames = 0
+        lambda do
+          Lota::Event.pump
+          modal_frame("handler", frames += 1, 1)
+          frames == 3 ? 5 : nil
+        end
+      end
+    RUBY
+      output, status = lota_run(directory)
+
+      assert_equal "handler 1\nhandler 2\nhandler 3\n", output
+      assert_equal 5, status.exitstatus, output
+    end
+  end
+
+  # LÖVE's event module goes with the Lua state when boot.lua's root
+  # function returns (love.cpp, runlove), and the frame it holds with it,
+  # so once call has returned no frame of the game is drawn, though Lota's
+  # module stays open.
+  def test_the_frame_is_not_drawn_once_the_game_has_ended
+    in_game("main.rb" => <<~RUBY) do |directory|
+      #{MODAL_FRAME}
+      def Lota.draw
+        @frames = (@frames || 0) + 1
+        modal_frame("draw", @frames, 0)
+        Lota::Event.quit(3)
+      end
+    RUBY
+      output, status = capture2e({}, RbConfig.ruby, "-w", "-I#{run_load_path}", "-rlota", "-e", <<~RUBY, directory)
+        status = Lota::Boot.new(ARGV.first).call
+        LotaNativeTest.request_modal_draw
+        Lota::Event.pump
+        exit status
+      RUBY
+
+      assert_equal "draw 1\n", output
+      assert_equal 3, status.exitstatus, output
     end
   end
 

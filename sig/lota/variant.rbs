@@ -19,6 +19,8 @@ module Lota
 
     def self.tokens: (::Object? value) -> Array[token]
 
+    def self.results: (::Object? values) -> [Array[token], Array[token]]
+
     def self.value?: (::Object? value) -> bool
 
     def self.ruby: (native value) -> value
