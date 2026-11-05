@@ -24,3 +24,8 @@ SPDX-License-Identifier = "AGPL-3.0-or-later"
 path = 'tasks/windows_kit/*.txt'
 SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = 'skills/**'
+SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-License-Identifier = "CC-BY-SA-4.0"

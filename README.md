@@ -226,6 +226,7 @@ What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a q
 | [Translating LÖVE code](doc/guide/translating.md) | Every naming rule, and how Lota differs from Lua where Ruby has no equivalent |
 | [LÖVE's wiki](https://love2d.org/wiki/Main_Page) | What each function does. Look up a Lota method under its LÖVE name |
 | [CHANGELOG](CHANGELOG.md) | What changed in each release |
+| [Agent skill](skills/lota-gamedev/SKILL.md) | A skill for coding agents that write Lota games: where the API is documented, what differs on phones, and how to test and ship. It is in the installed gem (`gem contents lota \| grep SKILL.md`), and `gh skill install setdef/Lota lota-gamedev` or `npx skills add setdef/Lota` installs it from a release |
 | [Releases](https://github.com/setdef/Lota/releases) | The gems and their checksums |
 
 ## Reporting problems

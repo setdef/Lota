@@ -35,6 +35,7 @@ Gem::Specification.new do |spec|
     exe
     lib
     sig
+    skills
     README.rdoc
     CHANGELOG.md
     LICENSE

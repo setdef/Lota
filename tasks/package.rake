@@ -138,6 +138,7 @@ def packages
         exe
         lib
         sig
+        skills
         README.rdoc
         CHANGELOG.md
         LICENSE
