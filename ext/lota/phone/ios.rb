@@ -68,4 +68,6 @@ libraries, flags = File.readlines(File.join(build, "phone_link.txt"), chomp: tru
   .partition { |line| line.end_with?(".a") }
 $LOCAL_LIBS << " #{(archives + libraries).shelljoin}"
 $libs << " #{flags.shelljoin}"
+# Android's entry point sits beside this one (phone/native_android.c).
+$srcs = ["native_ios.c"]
 create_makefile("lota/native", __dir__)
