@@ -604,7 +604,9 @@ Invoke-Step 'system' 'Recording facts about this computer' {
     if ($best) { Out-Result "default audio output (the one made default last): $($best.Name)" } else { Out-Result 'default audio output: none active' }
   } catch { Out-Result "audio outputs: $($_.Exception.Message)" }
   $pads = @(Get-CimInstance Win32_PnPEntity | Where-Object {
-      $_.PNPClass -eq 'XnaComposite' -or $_.PNPClass -eq 'XboxComposite' -or "$($_.Name)" -match 'game ?pad|controller|xbox|joystick|dualsense|dualshock|gamepad'
+      $_.PNPClass -in 'XnaComposite', 'XboxComposite' -or ($_.PNPClass -in 'HIDClass', 'USB', 'Bluetooth' -and
+        "$($_.Name)" -match 'game|xbox|joystick|gamepad|dualsense|dualshock|wireless controller|pro controller|8bitdo' -and
+        "$($_.Name)" -notmatch 'host controller|root hub')
     })
   if ($pads.Count) { foreach ($pad in $pads) { Out-Result "controller: $($pad.Name) [$($pad.PNPClass)] $($pad.Status) $($pad.DeviceID)" } }
   else { Out-Result 'controllers: none found' }
@@ -958,8 +960,12 @@ Invoke-Step 'install' "Dot Popper's setup program: install, start, reinstall, un
       foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
     }
   } else { $notes += 'no Start menu shortcut found' }
-  # Installing again while the installed game runs, at its title screen.
+  # Installing again while the installed game runs, at its title screen
+  # (with no DOT_POPPER_QUIT_AFTER the kit's own environment might hold).
+  $quitAfter = $env:DOT_POPPER_QUIT_AFTER
+  Remove-Item Env:\DOT_POPPER_QUIT_AFTER -ErrorAction SilentlyContinue
   $game = Start-Process -FilePath $installed -PassThru
+  if ($quitAfter) { $env:DOT_POPPER_QUIT_AFTER = $quitAfter }
   Start-Sleep -Seconds 3
   $r = Invoke-Child -Label 'setup-while-running' -FilePath $Setup.FullName -Arguments '/S' -TimeoutSeconds 120
   Out-Child $r
