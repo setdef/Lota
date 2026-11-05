@@ -517,14 +517,13 @@ std::vector<float> floats(Rice::Array values) {
 // pushed event leaves out what SDL_SendTouch does beside it: the mouse
 // events SDL makes of the first finger (push_touch_mouse stands for those)
 // and SDL's own list of fingers, which LÖVE does not read.
-void push_finger(const std::string &phase, SDL_FingerID finger, Rice::Array values) {
+void push_finger(const std::string &phase, SDL_FingerID finger, std::vector<float> numbers) {
   const std::map<std::string, SDL_EventType> types{
       {"down", SDL_EVENT_FINGER_DOWN},
       {"motion", SDL_EVENT_FINGER_MOTION},
       {"up", SDL_EVENT_FINGER_UP},
       {"canceled", SDL_EVENT_FINGER_CANCELED},
   };
-  const std::vector<float> numbers = floats(std::move(values));
   SDL_Event event{};
   event.tfinger.type = types.at(phase);
   event.tfinger.touchID = pushed_touch_device;
