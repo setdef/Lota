@@ -190,6 +190,13 @@ module Lota
       "#{IDENTIFIER_PREFIX}.#{part.empty? ? 'lotagame' : part}"
     end
 
+    # The name of the platform in PLATFORMS that +platform+ is, such as
+    # <tt>"arm64-darwin"</tt> for this Mac's <tt>arm64-darwin-24</tt>, or
+    # +nil+ when Lota has no gem for it.
+    def self.platform_name(platform)
+      PLATFORMS.find { |name| Gem::Platform.new(name) === platform }
+    end
+
     # The Fledge ref the project's Gemfile names: FLEDGE_REF, or the one
     # FLEDGE_REF_VARIABLE names.
     def self.fledge_ref(env = ENV.to_h)
@@ -214,7 +221,7 @@ module Lota
     end
 
     private def check_platform
-      return if PLATFORMS.any? { |name| Gem::Platform.new(name) === @platform }
+      return if Fuse.platform_name(@platform)
 
       raise Error, "Lota has no gem for #{@platform}, so it cannot fuse a game here. " \
         "It builds on #{PLATFORMS.join(', ')}."

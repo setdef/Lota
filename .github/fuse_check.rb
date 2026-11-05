@@ -22,7 +22,7 @@ checks = {
   "it saved a file" => output.include?("saved: true\n"),
   "it saves under its identity alone" => File.basename(directory) == "FuseCheck" &&
     !directory.split(%r{[/\\]}).include?("Lota"),
-  "it played its sound" => output.match?(/^\w+: 1 source playing$/),
+  "it played its sound" => output.match?(/^[\w ]+: 1 source playing$/),
 }
 checks.each { |check, passed| puts "#{passed ? 'ok' : 'FAILED'}: #{check}" }
 puts "yjit: #{output[/^yjit: (.*)$/, 1]}"

@@ -155,7 +155,7 @@ class FuseTest < Minitest::Test
     YAML
     assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
-    assert_equal %w[Gemfile fledge.yml game game/DotPopper game/DotPopper/Gemfile game/DotPopper/art
+    assert_equal %W[Gemfile fledge.yml game game/DotPopper game/DotPopper/Gemfile game/DotPopper/art
       game/DotPopper/art/dot.png game/DotPopper/colors.rb game/DotPopper/conf.rb game/DotPopper/main.rb
       game/DotPopper/vendor game/DotPopper/vendor/sound.ogg main.rb vendor vendor/cache
       vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem], files.sort
@@ -244,6 +244,13 @@ class FuseTest < Minitest::Test
     error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse::Options.new(out: @game)).call }
 
     assert_includes error.message, "--out can't be the game's own folder"
+  end
+
+  def test_a_platform_is_named_as_lota_names_its_gem
+    assert_equal "arm64-darwin", Lota::Fuse.platform_name(Gem::Platform.new("arm64-darwin-24"))
+    assert_equal "x86_64-linux-gnu", Lota::Fuse.platform_name(Gem::Platform.new("x86_64-linux"))
+    assert_equal "x64-mingw-ucrt", Lota::Fuse.platform_name(Gem::Platform.new("x64-mingw-ucrt"))
+    assert_nil Lota::Fuse.platform_name(Gem::Platform.new("x86_64-linux-musl"))
   end
 
   def test_a_platform_lota_has_no_gem_for_is_refused

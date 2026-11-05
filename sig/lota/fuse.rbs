@@ -64,6 +64,8 @@ module Lota
 
     def self.placeholder_identifier: (String identity) -> String
 
+    def self.platform_name: (Gem::Platform platform) -> String?
+
     def self.fledge_ref: (?Hash[String, String] env) -> String
 
     private def check_game: () -> void
