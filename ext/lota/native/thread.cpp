@@ -429,8 +429,15 @@ Thread *new_thread(const std::string &name, const std::string &code) {
 
 // A message's value, which must be one Ractors share: Lota::Thread::Channel
 // makes it one before it gets here.
+//
+// It asks Ractor.shareable? rather than rb_ractor_shareable_p, whose inline
+// definition in Ruby 4.0.7's ruby/ractor.h (lines 248-262) declares
+// rb_ractor_shareable_p_continue inside its body, outside the header's
+// extern "C" block, so C++ names a mangled symbol no Ruby exports, which
+// fails to link with MinGW's lld.
 VALUE shareable(const Rice::Object &value) {
-  if (!rb_ractor_shareable_p(value.value())) {
+  const Rice::Object ractor(Rice::detail::protect(rb_path2class, "Ractor"));
+  if (!ruby::truthy(ractor.call("shareable?", value))) {
     throw Rice::Exception(rb_eArgError, "a Channel carries only values Ractors share");
   }
   return value.value();

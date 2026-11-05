@@ -512,15 +512,28 @@ public:
 
 // Whether LÖVE's module +name+ (its folder in src/modules) is bound for
 // every Ractor, as LÖVE lets every thread load it, or for the main Ractor
-// alone (ADR 001, section 6). LÖVE keeps love.window and love.graphics
-// off every thread but the main one (vendor/love/src/modules/thread/
-// LuaThread.cpp:72-73), and so does Lota. The others are bound for the
-// main Ractor alone until their bindings are shown safe to call from
-// another at once, the process-wide state they keep among them; a game's
-// thread that calls one meets Ractor::UnsafeError.
+// alone (ADR 001, section 6), where another Ractor that calls it meets
+// Ractor::UnsafeError. LÖVE keeps love.window and love.graphics off every
+// thread but the main one (vendor/love/src/modules/thread/LuaThread.cpp:
+// 72-73), and so does Lota. Lota also keeps on the main Ractor the
+// modules LÖVE lets threads use but whose code is not safe there:
+//
+// - keyboard, mouse, and system call SDL functions that SDL says should
+//   be called only on the main thread: 14 in SDL_keyboard.h (text input,
+//   the screen keyboard), 24 in SDL_mouse.h (cursors, warping, grabbing,
+//   relative mode), 11 in SDL_clipboard.h, and SDL_OpenURL in SDL_misc.h
+//   (SDL 3.4.10).
+// - joystick, touch, and sensor read state LÖVE keeps without a lock and
+//   the main thread's event pump changes: JoystickModule's joysticks
+//   (joystick/sdl/JoystickModule.h:75-82, changed by event/sdl/
+//   Event.cpp:716-728 as devices come and go), Touch's touches
+//   (touch/sdl/Touch.h:59, changed by Event.cpp:416 on every finger
+//   event), and Sensor's open sensors (sensor/sdl/Sensor.h:57, changed
+//   by setEnabled).
 inline bool ractor_safe_module(std::string_view name) {
-  static constexpr std::array<std::string_view, 9> SAFE = {
-      "data", "event", "filesystem", "image", "math", "physics", "sound", "thread", "timer"};
+  static constexpr std::array<std::string_view, 11> SAFE = {
+      "audio", "data",    "event", "filesystem", "font", "image",
+      "math",  "physics", "sound", "thread",     "timer"};
   return std::ranges::find(SAFE, name) != SAFE.end();
 }
 

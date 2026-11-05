@@ -25,7 +25,8 @@ class ThreadTest < Minitest::Test
     Lota::Native::Filesystem.open
     Lota::Native::Filesystem.init($PROGRAM_NAME)
     Lota::Native::Filesystem.set_source(#{GAME.dump})
-    %i[Data Thread Timer Event Math Physics Image Sound].each { |name| Lota::Native.const_get(name).open }
+    %i[Data Thread Timer Event Math Physics Image Sound Font].each { |name| Lota::Native.const_get(name).open }
+    Lota::Native::Audio.open
     $stdout.sync = true
     CHANNEL = Lota::Thread.channel("out")
     def run_thread(code, *arguments)
@@ -65,15 +66,18 @@ class ThreadTest < Minitest::Test
         world.update(1)
         GC.start
         out.push(body.y > 0)
+        source = Lota::Audio::Source.new(Lota::Sound::SoundData.new(441, 44_100, 16, 1))
+        out.push([Lota::Audio.volume, source.play, Lota::Native::Font.open?])
+        source.stop
       CODE
       Lota::Math.random_seed = 3
       puts CHANNEL.pop == Lota::Math.random(1000)
       p CHANNEL.pop
       puts CHANNEL.pop == File.binread(#{File.join(GAME, 'conf.rb').dump}).bytesize
-      p CHANNEL.pop, CHANNEL.pop, CHANNEL.pop
+      p CHANNEL.pop, CHANNEL.pop, CHANNEL.pop, CHANNEL.pop
     RUBY
 
-    assert_equal "true\n[3.0, 4.0]\ntrue\n\"abc\"\nFloat\ntrue\n", output
+    assert_equal "true\n[3.0, 4.0]\ntrue\n\"abc\"\nFloat\ntrue\n[1.0, true, true]\n", output
   end
 
   # LÖVE keeps love.graphics and love.window off its threads
@@ -85,6 +89,12 @@ class ThreadTest < Minitest::Test
       run_thread(<<~CODE)
         out = Lota::Thread.channel("out")
         out.push([Lota.graphics, Lota.window, Lota.thread == Lota::Thread])
+        [-> { Lota::Graphics.dimensions }, -> { Lota::Window.title }].each do |call|
+          call.call
+          out.push(:called)
+        rescue RuntimeError => e
+          out.push(e.message)
+        end
         [-> { Lota::Native::Graphics.open? }, -> { Lota::Native::Window.open? }, -> { Lota::Native::Keyboard.open? }].each do |call|
           call.call
           out.push(:called)
@@ -92,10 +102,17 @@ class ThreadTest < Minitest::Test
           out.push(e.class.name)
         end
       CODE
-      4.times { p CHANNEL.pop }
+      6.times { p CHANNEL.pop }
     RUBY
 
-    assert_equal "[nil, nil, true]\n#{%("Ractor::UnsafeError"\n) * 3}", output
+    assert_equal <<~OUTPUT, output
+      [nil, nil, true]
+      "The Lota::Graphics module cannot be used in thread code."
+      "The Lota::Window module cannot be used in thread code."
+      "Ractor::UnsafeError"
+      "Ractor::UnsafeError"
+      "Ractor::UnsafeError"
+    OUTPUT
   end
 
   # Each Ractor keeps the wrappers of its own engine objects: one for each
@@ -276,6 +293,49 @@ class ThreadTest < Minitest::Test
     assert_match(/\Aworker\.rb:2:in .*: bad \(ArgumentError\)$/, lines[8])
     assert_equal [":threaderror\n", "true\n", "true\n", "true\n"], lines[9, 4]
     assert_match(/\AThread error \(Thread: 0x\h+\)\n\nworker.rb:2/, lines[13..].join)
+  end
+
+  # A thread that sleeps in Lota::Timer.sleep lets go of its GVL, so a
+  # collection the main Ractor starts meanwhile, which waits for every
+  # Ractor that holds one, ends long before the sleep does.
+  def test_a_sleeping_thread_does_not_hold_up_the_collector
+    output = run_script(<<~RUBY)
+      sleeper = Lota::Thread::Thread.new("Lota::Thread.channel('out').push(:sleeping)\\nLota::Timer.sleep(2)\\n")
+      sleeper.start
+      CHANNEL.demand
+      sleep 0.1
+      start = Lota::Timer.time
+      GC.start
+      p Lota::Timer.time - start < 1
+      sleeper.wait
+    RUBY
+
+    assert_equal "true\n", output
+  end
+
+  # Two threads that hold one Data with perform_atomic take turns, and a
+  # block that collects garbage while the other thread waits for the Data
+  # ends: the waiting thread waits without its GVL, which the collector
+  # would otherwise wait for while it waited for the Data, for good.
+  def test_perform_atomic_takes_turns_and_a_collection_inside_it_ends
+    output = run_script(<<~RUBY)
+      data = Lota::Filesystem::FileData.new("bytes", "shared.bin")
+      other = Lota::Thread::Thread.new(<<~CODE)
+        Lota::Thread.channel("started").push(:ok)
+        ARGV.first.perform_atomic { Lota::Thread.channel("out").push(:other) }
+      CODE
+      data.perform_atomic do
+        other.start(data)
+        Lota::Thread.channel("started").demand
+        sleep 0.2
+        GC.start
+        CHANNEL.push(:first)
+      end
+      other.wait
+      p CHANNEL.pop, CHANNEL.pop
+    RUBY
+
+    assert_equal ":first\n:other\n", output
   end
 
   # Ruby warns once, as a process makes its first Ractor, that Ractors are

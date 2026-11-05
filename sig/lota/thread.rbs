@@ -10,5 +10,7 @@ module Lota
     def self.channel: (String name) -> Channel
 
     def self.share: [T] (T value, Integer position, String name, String expected) -> T
+
+    def self.main_thread_only: (Module mod) -> void
   end
 end

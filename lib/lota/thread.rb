@@ -25,12 +25,16 @@ module Lota
   # passes its objects.
   #
   # A thread's code may use every module but Lota::Graphics and
-  # Lota::Window, which LÖVE keeps on the main thread, and
-  # Lota::Audio, Lota::Font, Lota::Joystick, Lota::Keyboard, Lota::Mouse,
-  # Lota::Sensor, Lota::System, and Lota::Touch, which Lota keeps on the
-  # main thread for now. Calling one of those from a thread raises
-  # Ractor::UnsafeError, and in a thread <tt>lota.graphics</tt> and
-  # <tt>lota.window</tt> are +nil+.
+  # Lota::Window, which LÖVE keeps on the main thread: in a thread
+  # <tt>lota.graphics</tt> and <tt>lota.window</tt> are +nil+, and their
+  # functions raise RuntimeError with LÖVE's message, "The Lota::Graphics
+  # module cannot be used in thread code." Lota also keeps
+  # Lota::Joystick, Lota::Keyboard, Lota::Mouse, Lota::Sensor,
+  # Lota::System, and Lota::Touch on the main thread, which LÖVE lets
+  # threads use: they call SDL functions SDL allows only on the main
+  # thread, or read state LÖVE keeps without a lock and the main thread's
+  # event pump changes (ext/lota/native/binding.hpp, ractor_safe_module).
+  # Calling one from a thread raises Ractor::UnsafeError.
   #
   # Ruby calls Ractors experimental and warns once, as a program makes its
   # first; Lota turns that warning off while it makes a thread's Ractor,
@@ -103,6 +107,30 @@ module Lota
       rescue Ractor::Error, TypeError, ArgumentError
         raise ArgumentError, "bad argument ##{position} to '#{name}' (#{expected})"
       end
+    end
+
+    # Keeps the functions of +mod+, Lota::Graphics or Lota::Window, on the
+    # main Ractor, as LÖVE keeps love.graphics and love.window off its
+    # threads: in a thread's code each raises RuntimeError with LÖVE's
+    # message (luax_module_threaderror, src/common/runtime.cpp:1067-1072,
+    # which LuaThread.cpp:72-73 makes those modules' loader there), naming
+    # the Lota module. The bindings under them are Ractor-unsafe as well
+    # (ext/lota/native/binding.hpp), so whatever reaches them another way
+    # raises Ractor::UnsafeError. The functions are defined from a String,
+    # so that every Ractor may call them. :nodoc:
+    def self.main_thread_only(mod)
+      message = "The #{mod.name} module cannot be used in thread code."
+      guard = ::Module.new
+      mod.singleton_methods(false).each do |name|
+        guard.module_eval(<<~RUBY, __FILE__, __LINE__ + 1)
+          def #{name}(...)
+            raise #{message.dump} unless Ractor.main?
+
+            super
+          end
+        RUBY
+      end
+      mod.singleton_class.prepend(guard)
     end
 
     # SPDX-SnippetEnd

@@ -19,10 +19,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Every method of `DistanceJoint`, `FrictionJoint`, `GearJoint`, `MotorJoint`, `PrismaticJoint`, `PulleyJoint`, `RevoluteJoint`, `RopeJoint`, `WeldJoint`, and `WheelJoint` in `Lota::Physics`: their lengths, limits, motors, springs, offsets, axes, anchors, ratios, and reference angles.
 - `Lota::Physics.compute_linear_stiffness`, `compute_linear_frequency`, `compute_angular_stiffness`, and `compute_angular_frequency`.
 - Experimental: `Lota::Thread`, translating `love.thread` on Ruby's Ractors: `Lota::Thread.channel(name)`, `Lota::Thread::Channel` (`new`, `push`, `supply`, `pop`, `demand`, `peek`, `count`, `read?`, `clear`, `perform_atomic`), and `Lota::Thread::Thread` (`new` of Ruby code, a game's file, or a Data; `start`, whose arguments the code reads from `ARGV`; `wait`, `running?`, `error`); boot opens it unless `t.modules.thread = false`, `lota.thread` returns it, and a thread's error reaches `Lota.threaderror`, whose default raises it. A Channel carries values Ractors share, and frozen copies of any other.
-- The modules `love.thread` lets a thread use are callable from any Ractor: `Lota::Data`, `Lota::Event`, `Lota::Filesystem`, `Lota::Image`, `Lota::Math`, `Lota::Physics`, `Lota::Sound`, `Lota::Thread`, and `Lota::Timer`; the rest raise `Ractor::UnsafeError` there, and `lota.graphics` and `lota.window` are `nil` there.
+- A thread may call `Lota::Audio`, `Lota::Data`, `Lota::Event`, `Lota::Filesystem`, `Lota::Font`, `Lota::Image`, `Lota::Math`, `Lota::Physics`, `Lota::Sound`, `Lota::Thread`, and `Lota::Timer`. `Lota::Graphics` and `Lota::Window` raise LÖVE's "cannot be used in thread code" there, and `lota.graphics` and `lota.window` are `nil`; `Lota::Joystick`, `Keyboard`, `Mouse`, `Sensor`, `System`, and `Touch`, which call SDL's main-thread functions or read state the event pump changes, raise `Ractor::UnsafeError`.
 
 ### Changed
 
+- `Lota::Timer.sleep` lets other Ruby threads, and Ruby's collector, run while it sleeps.
+- `Lota::Data#perform_atomic` keeps out every other thread's `perform_atomic` of the Data, in any Ractor, but no longer holds LÖVE's mutex while its block runs.
 - Every `FileData`, `ImageData`, and `SoundData`, and the engine object it wraps, is frozen and shareable between Ractors.
 
 ## [0.1.3] - 2026-11-05

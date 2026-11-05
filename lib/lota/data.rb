@@ -69,7 +69,12 @@ module Lota
     #
     # [arguments] Anything, passed on to the block.
     #
-    # The Data's lock is let go when the block returns or raises.
+    # The Data is let go when the block returns or raises. Every other
+    # thread's perform_atomic of the Data, in any Ractor, waits for it, as
+    # in LÖVE; LÖVE also holds the Data's own mutex meanwhile, which Lota
+    # does not hold while Ruby runs, since a Ractor that waited for it
+    # could stop Ruby's collector for good, so the C++ of Lota::Graphics
+    # and Lota::Font that takes that mutex is not kept out.
     #
     # === Example
     #

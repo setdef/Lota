@@ -69,8 +69,10 @@ Lota's; the LÖVE function is in the RDoc.
 - `Lota::Thread` (LÖVE's `love.thread`) is experimental: a thread is a
   Ractor whose code reads its arguments from `ARGV`, a Channel carries only
   values Ractors share and frozen copies of others, and a thread may call
-  only `Lota::Data`, `Event`, `Filesystem`, `Image`, `Math`, `Physics`,
-  `Sound`, `Thread`, and `Timer`; the rest raise `Ractor::UnsafeError`.
+  `Lota::Audio`, `Data`, `Event`, `Filesystem`, `Font`, `Image`, `Math`,
+  `Physics`, `Sound`, `Thread`, and `Timer`; `Graphics` and `Window` raise
+  LÖVE's "cannot be used in thread code", and `Joystick`, `Keyboard`,
+  `Mouse`, `Sensor`, `System`, and `Touch` raise `Ractor::UnsafeError`.
 - A `NoMethodError` on a LÖVE function usually means it is not bound.
 
 **Ruby-specific**
