@@ -86,22 +86,26 @@ ipad_types(os, wanted).each do |type|
     started = Time.now
     puts "launched #{identifier} as process #{pid} with #{GAME_ENV.map { |key, value| "#{key}=#{value}" }.join(' ')}"
     log = File.join(dir, "subsystem.ndjson")
-    shots = SHOT_SECONDS.dup
-    lines = []
-    loop do
-      sleep 1
-      elapsed = Time.now - started
-      if shots.first && elapsed >= shots.first
-        second = shots.shift
-        system("xcrun", "simctl", "io", udid, "screenshot", File.join(dir, format("simulator-%02ds.png", second)),
+    # Screenshots on their own thread, on the wall clock since launch, so
+    # a slow log query never delays one; each file names the second it
+    # was actually taken.
+    shooter = Thread.new do
+      SHOT_SECONDS.each do |second|
+        wait = started + second - Time.now
+        sleep wait if wait.positive?
+        taken = (Time.now - started).round
+        system("xcrun", "simctl", "io", udid, "screenshot", File.join(dir, format("simulator-%02ds.png", taken)),
           out: File::NULL, err: File::NULL)
       end
-      next unless (elapsed.to_i % 3).zero?
-
-      lines = messages(udid, since, identifier, log)
-      break if lines.any? { |line| line.include?("exited with status") } && shots.empty?
-      break if elapsed > DEADLINE
     end
+    lines = []
+    loop do
+      sleep 5
+      lines = messages(udid, since, identifier, log)
+      break if lines.any? { |line| line.include?("exited with status") } && !shooter.alive?
+      break if Time.now - started > DEADLINE
+    end
+    shooter.join
     sleep 2
     lines = messages(udid, since, identifier, log)
     File.write(File.join(dir, "subsystem.log"), lines.join("\n") + "\n")
