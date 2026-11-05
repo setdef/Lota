@@ -440,7 +440,8 @@ constexpr float BOOLEAN_THRESHOLD = 0.5F;
 // +settings+, an Array of [name, value] pairs that Lota::Audio.set_effect
 // makes of its keywords (ADR 001, rule 10), or unsets it when +settings+
 // is nil, and returns whether it could.
-bool set_effect(const std::string &namestr, const Rice::Object &settings) {
+bool set_effect(const std::string &namestr, Rice::Object given) {
+  const Rice::Object settings = std::move(given);
   auto *audio = module<Audio>(love::Module::M_AUDIO, "Lota::Audio");
   if (ruby::is_nil(settings)) {
     return audio->unsetEffect(namestr.c_str());
@@ -565,7 +566,8 @@ Rice::Array filter_pairs(std::map<Filter::Parameter, float> &params) {
 // w_Source_setFilter (wrap_Source.cpp:443-455): sets +source+'s filter
 // to +settings+, or removes it when +settings+ is nil, and returns
 // whether it could.
-bool source_set_filter(Source &source, const Rice::Object &settings) {
+bool source_set_filter(Source &source, Rice::Object given) {
+  const Rice::Object settings = std::move(given);
   if (ruby::is_nil(settings)) {
     return source.setFilter();
   }
@@ -586,7 +588,8 @@ Rice::Object source_filter(Source &source) {
 // unsets the effect +namestr+ on +source+; otherwise sets it, through the
 // filter +settings+ when they are given, and returns whether it could.
 bool source_set_effect(Source &source, const std::string &namestr, bool enabled,
-                       const Rice::Object &settings) {
+                       Rice::Object given) {
+  const Rice::Object settings = std::move(given);
   if (!enabled) {
     return source.unsetEffect(namestr.c_str());
   }

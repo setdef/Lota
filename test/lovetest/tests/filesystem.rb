@@ -395,13 +395,19 @@ class FilesystemTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.filesystem.openFile
   # (filesystem.lua:458-464): openFile becomes open_file (rule 13), whose
   # File comes in an Array (rule 4), never nil itself, as Lua's first
-  # result is not when it opens.
+  # result is not when it opens. Lövetest leaves the four Files for its
+  # collectgarbage after the test to close (classes/TestSuite.lua:
+  # 109-110), and LÖVE refuses a new identity while one is open
+  # (physfs/Filesystem.cpp:189-203). Ruby's collector scans the stack
+  # conservatively, so a word left there can keep a File alive past it,
+  # and the translation closes them itself once the test is done with
+  # them.
   def test_open_file
-    assert_not_nil(Lota::Filesystem.open_file("file2.txt", :w).first)
-    assert_not_nil(Lota::Filesystem.open_file("file2.txt", :r).first)
-    assert_not_nil(Lota::Filesystem.open_file("file2.txt", :a).first)
-    assert_not_nil(Lota::Filesystem.open_file("file2.txt", :c).first)
+    files = %i[w r a c].map { |mode| Lota::Filesystem.open_file("file2.txt", mode).first }
+    files.each { |file| assert_not_nil(file) }
     Lota::Filesystem.remove("file2.txt")
+  ensure
+    files&.each { |file| file&.close }
   end
 
   # Translated to Ruby from love.test.filesystem.newFileData

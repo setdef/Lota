@@ -70,6 +70,18 @@ module Lovetest
   # GitHub says to Lota's with GITHUB_ACTIONS.
   GITHUB_RUNNER = ENV["GITHUB_ACTIONS"] == "true"
 
+  # Whether the tests' OpenAL Soft plays into its wave file writer alone,
+  # as test/alsoft.conf has it play on every computer, and as LÖVE's CI
+  # has Lövetest play on its runners (vendor/love/testing/resources/
+  # alsoft.conf): a driver that cannot record, which is why Lövetest's
+  # recording test skips on a runner ("cant emulate recording devices in
+  # CI"). Without a driver that records, LÖVE still lists one recording
+  # device, which cannot start (doc/contributors/upstream/009.md).
+  WAVE_WRITER = begin
+    conf = ENV.fetch("ALSOFT_CONF", "")
+    File.file?(conf) && File.read(conf).match?(/^\s*drivers\s*=\s*wave\s*$/)
+  end
+
   # Lövetest's love.test.windowmode (vendor/love/testing/classes/
   # TestSuite.lua:25): whether the tests run with a window, which they
   # always do in Lota, as in Lövetest unless it is told otherwise.
@@ -117,10 +129,10 @@ module Lovetest
     # test starts at the origin, whether it is Lövetest's or not. Lövetest
     # also collects garbage after each test, "to save having to :release()
     # anything we made in the last test" (classes/TestSuite.lua:109-110),
-    # so a File a test left open, as love.test.filesystem.openFile leaves
-    # four, is closed before the next test sets an identity, which LÖVE
-    # refuses while a file in the save directory is open
-    # (physfs/Filesystem.cpp:189-203); Ruby's collector does the same here.
+    # and Ruby's collector does the same here, though, scanning the stack
+    # conservatively, it may keep an object a word on the stack still
+    # names, so a test that leaves a File open closes it itself
+    # (tests/filesystem.rb, test_open_file).
     def teardown
       Lota::Graphics.origin if Lota.graphics
       GC.start
