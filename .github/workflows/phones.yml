@@ -1,0 +1,314 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The phone route, as doc/guide/phones.md tells a game developer to take
+# it, run on Lota's own test/games/phone: from this checkout, with its
+# submodules, it builds what the phone build links (SDL3 for iOS with
+# rake ios:sdl3; LÖVE's other dependencies for Android with rake
+# android:deps, and SDL3 with Fledge's script), makes a folder of the
+# files Lota's gem packages, lays out a Fledge project with Lota's phone
+# hosts (ext/lota/phone/host), and runs fledge build ios and fledge build
+# android, each step the guide's command.
+#
+# iOS, on macos-15 with the newest Xcode there: the Xcode project is built
+# for the Simulator and, unsigned, for devices, Debug and Release, and
+# archived unsigned; the Simulator build runs in an iPhone and an iPad
+# Simulator (.github/phones/ios_simulator.sh). Android, on ubuntu-24.04:
+# the Gradle project is built as a debug APK, a release APK, and an
+# Android App Bundle, which are signed with a key made for the run, as a
+# studio signs with its own; the debug APK runs on an x86_64 emulator of
+# API 36, with a tap and Back (.github/phones/android_emulator.sh). Nothing
+# here runs on a phone or tablet, signs with an Apple team, or exports an
+# IPA, and no runner can boot an arm64 Android emulator, so arm64-v8a is
+# built and never run.
+#
+# It runs on a push to an experiment/phones-* branch and by hand.
+
+name: Phones
+
+on:
+  push:
+    branches: ["experiment/phones-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MISE_DISABLE_TOOLS: ruby,rust
+  FLEDGE_REF: v0.5.1
+  NDK_REVISION: 30.0.16248370
+  APP_NAME: PhoneCheck
+  APP_IDENTIFIER: com.example.PhoneCheck
+
+jobs:
+  ios:
+    name: iOS and iPadOS, in the Simulator
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+        with:
+          version: 2026.10.11
+          install_args: cmake ninja
+
+      - name: Select the newest Xcode and install XcodeGen
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name "Xcode_*.app" | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen --version
+          cmake --version | head -1
+
+      - name: Install Lota's bundle and build SDL3 for iOS
+        run: |
+          bundle install --quiet
+          bundle exec rake ios:sdl3
+
+      - &gem_folder
+        name: Make a folder of the files Lota's gem packages
+        run: |
+          rm -rf tmp/phone
+          mkdir -p tmp/phone
+          gem build lota.gemspec --output tmp/phone/lota.gem
+          gem unpack tmp/phone/lota.gem --target tmp/phone
+          gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
+          du -sh tmp/phone/lota
+
+      - &project
+        name: Lay out the game's phone project
+        run: |
+          project=$RUNNER_TEMP/$APP_NAME
+          mkdir -p "$project/game"
+          cp -R test/games/phone "$project/game/$APP_NAME"
+          cp -R tmp/phone/lota/ext/lota/phone/host "$project/host"
+          cat > "$project/main.rb" <<'RUBY'
+          # frozen_string_literal: true
+
+          # Starts the game in game/PhoneCheck as a fused game, as lota fuse's
+          # entry script does.
+          RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
+          require "lota"
+          exit Lota::Boot.new(File.join(__dir__, "game", "PhoneCheck"), ARGV, fused: true).call
+          RUBY
+          cat > "$project/Gemfile" <<RUBY
+          # frozen_string_literal: true
+
+          source "https://rubygems.org"
+
+          gem "lota", path: "$GITHUB_WORKSPACE/tmp/phone/lota"
+          gem "fledge", git: "https://github.com/setdef/Fledge", tag: "$FLEDGE_REF", group: :development
+          RUBY
+          cat > "$project/fledge.yml" <<YAML
+          name: $APP_NAME
+          identifier: $APP_IDENTIFIER
+          version: 1.0.0
+          ios:
+            host: host/ios
+          android:
+            host: host/android
+          YAML
+          echo "PROJECT=$project" >> "$GITHUB_ENV"
+          cat "$project/Gemfile" "$project/fledge.yml"
+
+      - name: Build the Xcode project with fledge build ios
+        run: |
+          rice=$(bundle info rice --path)
+          cd "$PROJECT"
+          export BUNDLE_GEMFILE=$PROJECT/Gemfile
+          bundle config set --local build.lota \
+            "--with-lota-source=$GITHUB_WORKSPACE --with-lota-sdl3=$GITHUB_WORKSPACE/tmp/ios/sdl3 --with-rice-dir=$rice"
+          bundle lock --add-platform ruby
+          bundle install --quiet
+          bundle exec fledge --version
+          time bundle exec fledge build ios
+          ls -la "dist/$APP_NAME-ios"
+
+      - name: Build for the Simulator and, unsigned, for devices, and archive
+        run: |
+          cd "$PROJECT/dist/$APP_NAME-ios"
+          mkdir -p "$RUNNER_TEMP/logs"
+          for build in "Debug iphonesimulator" "Debug iphoneos" "Release iphoneos"; do
+            read -r configuration sdk <<< "$build"
+            log=$RUNNER_TEMP/logs/xcodebuild-$configuration-$sdk.log
+            xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$APP_NAME" -configuration "$configuration" -sdk "$sdk" \
+              -derivedDataPath build build CODE_SIGNING_ALLOWED=NO > "$log" 2>&1 || { tail -80 "$log"; exit 1; }
+            grep -E "BUILD (SUCCEEDED|FAILED)" "$log"
+          done
+          xcodebuild archive -project "$APP_NAME.xcodeproj" -scheme "$APP_NAME" -destination "generic/platform=iOS" \
+            -archivePath "build/$APP_NAME.xcarchive" CODE_SIGNING_ALLOWED=NO > "$RUNNER_TEMP/logs/archive.log" 2>&1 \
+            || { tail -80 "$RUNNER_TEMP/logs/archive.log"; exit 1; }
+          grep -E "ARCHIVE (SUCCEEDED|FAILED)" "$RUNNER_TEMP/logs/archive.log"
+          for app in build/Build/Products/*/"$APP_NAME.app" "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app"; do
+            echo "== $app"
+            xcrun vtool -show-build "$app/$APP_NAME" | head -8
+            du -sh "$app"
+          done
+
+      - name: Run the game in iPhone and iPad Simulators
+        run: |
+          bash .github/phones/ios_simulator.sh \
+            "$PROJECT/dist/$APP_NAME-ios/build/Build/Products/Debug-iphonesimulator/$APP_NAME.app" "$APP_IDENTIFIER" \
+            "$RUNNER_TEMP/simulator" "iPhone 17 Pro" "iPad Pro 13-inch (M5)"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: phones-ios
+          path: |
+            ${{ runner.temp }}/simulator
+            ${{ runner.temp }}/logs
+          retention-days: 30
+
+  android:
+    name: Android, built
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+        with:
+          version: 2026.10.11
+          install_args: cmake ninja
+
+      - name: Use Java 21 and install the NDK
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          # yes ends on a broken pipe once sdkmanager stops reading.
+          (yes 2> /dev/null || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_REVISION" \
+            > "$RUNNER_TEMP/sdkmanager.log" || { tail -20 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/$NDK_REVISION" >> "$GITHUB_ENV"
+          grep Pkg.Revision "$ANDROID_HOME/ndk/$NDK_REVISION/source.properties"
+
+      - name: Install Lota's bundle, check the engine's Android sources, and build LÖVE's dependencies
+        run: |
+          bundle install --quiet
+          bundle exec rake android:sources:check
+          time bundle exec rake android:deps || { tail -80 tmp/android/deps/build.log; exit 1; }
+
+      - name: Build SDL3 for Android with Fledge's script
+        run: |
+          git clone --quiet --depth 1 --branch "$FLEDGE_REF" https://github.com/setdef/Fledge "$RUNNER_TEMP/fledge"
+          echo "FLEDGE=$RUNNER_TEMP/fledge" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/fledge/examples/sdl_phone/sdl3/build.sh" android tmp/android/sdl3 > "$RUNNER_TEMP/sdl3.log" 2>&1 \
+            || { tail -60 "$RUNNER_TEMP/sdl3.log"; exit 1; }
+          ls -la tmp/android/sdl3/*/lib/libSDL3.so
+
+      - *gem_folder
+
+      - *project
+
+      - name: Add SDL's Java classes to the host, and OpenAL Soft's licence and source to the app
+        run: |
+          cp -R "$FLEDGE/examples/sdl_phone/host/android/src/main/java/org/libsdl" "$PROJECT/host/android/src/main/java/org/"
+          mkdir -p "$PROJECT/licenses"
+          cp ext/lota/licenses/LICENSE-LGPL-2.0-or-later.txt vendor/sources/android/openal-soft-1.24.3.tar.bz2 "$PROJECT/licenses/"
+
+      - name: Build the Gradle project with fledge build android
+        run: |
+          rice=$(bundle info rice --path)
+          cd "$PROJECT"
+          export BUNDLE_GEMFILE=$PROJECT/Gemfile
+          bundle config set --local build.lota \
+            "--with-lota-source=$GITHUB_WORKSPACE --with-lota-sdl3=$GITHUB_WORKSPACE/tmp/android/sdl3 --with-lota-android-deps=$GITHUB_WORKSPACE/tmp/android/deps --with-rice-dir=$rice"
+          bundle lock --add-platform ruby
+          bundle install --quiet
+          bundle exec fledge --version
+          time bundle exec fledge build android
+          ls -la "dist/$APP_NAME-android"
+
+      - name: Build a debug APK, a release APK, and an App Bundle, and sign the release with a studio's key
+        run: |
+          cd "$PROJECT/dist/$APP_NAME-android"
+          time ./gradlew --no-daemon --quiet assembleDebug assembleRelease bundleRelease
+          find build/outputs \( -name "*.apk" -o -name "*.aab" \) -exec ls -la {} +
+          tools=$ANDROID_HOME/build-tools/$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -printf "%f\n" | sort -V | tail -1)
+          out=$RUNNER_TEMP/apks
+          mkdir -p "$out"
+          keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" -storepass phone-check -keypass phone-check \
+            -alias release -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Phone Check" > /dev/null 2>&1
+          "$tools/zipalign" -f -P 16 4 build/outputs/apk/release/*-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-pass pass:phone-check \
+            --out "$out/$APP_NAME-release.apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --print-certs "$out/$APP_NAME-release.apk" | head -2
+          cp build/outputs/bundle/release/*.aab "$out/$APP_NAME-release.aab"
+          jarsigner -keystore "$RUNNER_TEMP/release.jks" -storepass phone-check "$out/$APP_NAME-release.aab" release > /dev/null
+          jarsigner -verify "$out/$APP_NAME-release.aab" | tail -1
+          cp build/outputs/apk/debug/*.apk "$out/$APP_NAME-debug.apk"
+          for apk in "$out"/*.apk; do
+            echo "== $apk"
+            "$tools/zipalign" -c -P 16 4 "$apk" && echo "aligned for 16 KB pages"
+            unzip -l "$apk" | grep -E "lib/"
+            "$tools/aapt2" dump badging "$apk" | grep -E "package:|sdkVersion|targetSdkVersion|native-code"
+          done
+          unzip -l "$out/$APP_NAME-release.aab" | grep -E "lib/"
+          # The app's files are the asset fledge.zip; OpenAL Soft's licence
+          # and source must be among them.
+          unzip -p "$out/$APP_NAME-release.apk" assets/fledge.zip > "$RUNNER_TEMP/fledge.zip"
+          unzip -l "$RUNNER_TEMP/fledge.zip" | grep -E "licenses/(LICENSE-LGPL-2.0-or-later.txt|openal-soft-1.24.3.tar.bz2)$" \
+            | tee "$RUNNER_TEMP/carried.txt"
+          [ "$(wc -l < "$RUNNER_TEMP/carried.txt")" -eq 2 ] || { echo "::error::the app does not carry OpenAL Soft's licence and source"; exit 1; }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phones-android
+          path: ${{ runner.temp }}/apks
+          retention-days: 30
+
+  android-emulator:
+    name: Android, on an x86_64 emulator of API 36
+    needs: android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/phones
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: phones-android
+          path: ${{ runner.temp }}/apks
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the game
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash .github/phones/android_emulator.sh "${{ runner.temp }}/apks/PhoneCheck-debug.apk" com.example.PhoneCheck "${{ runner.temp }}/emulator"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: phones-android-emulator
+          path: ${{ runner.temp }}/emulator
+          retention-days: 30

@@ -29,3 +29,8 @@ SPDX-License-Identifier = "CC-BY-SA-4.0"
 path = 'skills/**'
 SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = ["test/games/moon_pong/icons/*.png", "test/games/moon_pong/kit-questions.txt"]
+SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-License-Identifier = "CC0-1.0"

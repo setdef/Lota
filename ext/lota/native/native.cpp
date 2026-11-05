@@ -51,6 +51,8 @@ std::size_t queued_releases() { return lota::native::ReleaseQueue::instance().si
 // Ruby calls this when it loads the bundle (require "lota/native"). It is
 // the only symbol the bundle exports (cmake/LotaExtension.cmake).
 extern "C" __attribute__((visibility("default"))) void Init_native() {
+  // Before any binding can ask whether it runs there (native/binding.hpp).
+  lota::native::record_main_thread();
   // Before any binding, so that every error the engine raises reaches Ruby
   // with LÖVE's Lua names translated (native/errors.hpp).
   lota::native::install_error_translation();
