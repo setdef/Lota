@@ -223,7 +223,7 @@ class FuseTest < Minitest::Test
   end
 
   def test_an_unsafe_identity_saves_under_itself_from_a_safe_folder
-    write("conf.rb", "def Lota.conf(t) = (t.identity = 'Dot/Popper')\n")
+    write("conf.rb", "def Lota.conf(t) = (t.identity = 'Moon/Pong')\n")
 
     capture_io { fuse.call }
 
