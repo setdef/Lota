@@ -1,7 +1,7 @@
 version = 1
 
 [[annotations]]
-path = 'Gemfile.lock'
+path = ['Gemfile.lock', 'test/games/*/Gemfile.lock']
 SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
 SPDX-License-Identifier = "CC0-1.0"
 

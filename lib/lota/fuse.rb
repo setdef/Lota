@@ -8,6 +8,7 @@
 require "fileutils"
 require "rbconfig"
 require "yaml"
+require_relative "fuse/lockfile"
 
 module Lota
   # Turns a game folder into an app a player runs without Ruby, as LÖVE
@@ -29,6 +30,15 @@ module Lota
   # runtime has it and boots the game fused, locks the bundle, and runs
   # <tt>fledge build</tt>. Fledge builds for the computer it runs on, so
   # each platform's app is built on that platform.
+  #
+  # A game with a Gemfile ships the gems it locks. Its Gemfile.lock must
+  # lock this platform and, if it locks Lota, this version of it
+  # (Lockfile). The project's Gemfile evaluates the game's, and adds Lota
+  # if the game's does not ask for it, and Fledge; the project starts from
+  # the game's lockfile, locked for this platform alone, and from the
+  # gems in the game's <tt>vendor/cache</tt> but those built for other
+  # platforms, so Bundler keeps the versions the game was made with and
+  # Fledge ships them, compiling those with extensions for its runtime.
   #
   # Use it through <tt>lota fuse</tt>.
   #
@@ -77,10 +87,10 @@ module Lota
     # Where Bundler fetches Fledge from, which is not on RubyGems.org.
     FLEDGE_GIT = "https://github.com/setdef/Fledge"
 
-    # The Git tag of Fledge the project builds with: the first release whose
-    # check of a gem's DLLs takes the System32 libraries Lota's Windows
-    # engine imports (Fledge 0.5.0).
-    FLEDGE_REF = "v0.5.0"
+    # The Git tag of Fledge the project builds with. Fledge 0.5.0 was the
+    # first release whose check of a gem's DLLs takes the System32
+    # libraries Lota's Windows engine imports; 0.5.1 changes only phones.
+    FLEDGE_REF = "v0.5.1"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.
@@ -142,15 +152,28 @@ module Lota
     # build stands in the way, saying which.
     def call
       check_game
-      check_platform
+      platform = lota_platform
+      locked = read_lockfile(platform)
       gem = @gem_file || Fuse.installed_gem(@platform)
       bundle = @bundle || bundler
       check_git
-      write_project(read_settings, gem)
-      run(bundle, "lock", "--add-checksums", step: "Locking the project's gems")
-      run(bundle, "install", step: "Installing Fledge")
+      write_project(read_settings, gem, locked)
+      lock_commands(locked, platform).each { |command| run(bundle, *command, step: "Locking the project's gems", why: network) }
+      if locked
+        run(bundle, "install", step: "Installing the game's gems and Fledge", why: "#{COMPILER} #{network('lota fuse also')}")
+      else
+        run(bundle, "install", step: "Installing Fledge", why: network)
+      end
       build(bundle)
     end
+
+    # What Fuse says when the game's gems do not install: Bundler names
+    # the gem that failed, and the usual reason is a gem with a C
+    # extension on a computer with no compiler, which Fledge needs too, to
+    # compile the gem for its runtime (its README, Gems).
+    COMPILER = "Bundler says above which gem and why. A gem with a C extension compiles on this computer, which needs a " \
+      "C compiler: on macOS, Xcode's command line tools (xcode-select --install); on Linux, a C compiler and make " \
+      "(sudo apt install build-essential on Debian and Ubuntu); on Windows, RubyInstaller's MSYS2 tools (ridk install)."
 
     # The folder Fledge writes the app to, as an absolute path.
     def out
@@ -243,11 +266,42 @@ module Lota
       raise Error, "#{File.join(@directory, 'conf.rb')} raised #{e.class}: #{e.message}"
     end
 
-    private def check_platform
-      return if Fuse.platform_name(@platform)
+    # The platform of PLATFORMS this computer is. Raises Error when Lota has
+    # no gem for it.
+    private def lota_platform
+      name = Fuse.platform_name(@platform)
+      return name if name
 
       raise Error, "Lota has no gem for #{@platform}, so it cannot fuse a game here. " \
         "It builds on #{PLATFORMS.join(', ')}."
+    end
+
+    # The game's Gemfile.lock, read, or +nil+ for a game without a Gemfile.
+    # Raises Error when there is a Gemfile but no lockfile, or the lockfile
+    # does not lock +platform+, or locks a Lota other than this one.
+    private def read_lockfile(platform)
+      gemfile = File.join(@directory, "Gemfile")
+      return unless File.file?(gemfile)
+
+      path = "#{gemfile}.lock"
+      unless File.file?(path)
+        raise Error, "#{gemfile} has no Gemfile.lock beside it, so lota fuse can't tell which versions of its gems the game " \
+          "runs with. Run bundle install in #{@directory}, then fuse again."
+      end
+      Lockfile.read(path).tap { |locked| check_lockfile(locked, path, platform) }
+    end
+
+    private def check_lockfile(locked, path, platform)
+      unless locked.covers?(platform)
+        raise Error, "#{path} locks no gems for #{platform}, the platform this app is built for. Run bundle lock " \
+          "--add-platform #{platform} in #{@directory}, with each gem that platform needs in its vendor/cache, then fuse again."
+      end
+      versions = locked.versions("lota")
+      return if (versions - [VERSION]).empty?
+
+      raise Error, "#{path} locks lota #{versions.join(', ')}, and this is lota fuse #{VERSION}. Fuse the game with the Lota it " \
+        "locks, or move it to #{VERSION}: put lota-#{VERSION}-#{platform}.gem in its vendor/cache and run bundle update lota " \
+        "in #{@directory}."
     end
 
     private def check_git
@@ -277,26 +331,51 @@ module Lota
       nil
     end
 
-    private def write_project(settings, gem)
+    private def write_project(settings, gem, locked)
       identity = identity(settings)
       folder = Fuse.folder_name(identity)
       FileUtils.rm_rf(project)
-      FileUtils.mkdir_p(File.join(project, "vendor", "cache"))
-      FileUtils.cp(gem, File.join(project, "vendor", "cache", File.basename(gem)))
+      cache = File.join(project, "vendor", "cache")
+      FileUtils.mkdir_p(cache)
+      copy_cache(cache, locked) if locked
+      lota = File.join(cache, File.basename(gem))
+      FileUtils.cp(gem, lota) unless File.exist?(lota)
       copy_game(@directory, File.join(project, GAME_FOLDER, folder))
-      warn_of_gemfile
-      File.write(File.join(project, "Gemfile"), gemfile)
+      FileUtils.cp(File.join(@directory, "Gemfile.lock"), File.join(project, "Gemfile.lock")) if locked
+      File.write(File.join(project, "Gemfile"), gemfile(folder, locked))
       File.write(File.join(project, "fledge.yml"), fledge_yml(name(settings), identity, folder))
       File.write(File.join(project, "main.rb"), entry_script(folder))
     end
 
-    # Says that a game's own Gemfile does not reach its app: the project
-    # Fuse writes has a Gemfile of its own, which asks for Lota and Fledge
-    # alone.
-    private def warn_of_gemfile
-      return unless File.file?(File.join(@directory, "Gemfile"))
+    # Copies the game's <tt>vendor/cache</tt> to +cache+, the project's,
+    # but for the builds +locked+ locks for platforms other than this one,
+    # which Bundler would keep in the project's lockfile without a
+    # checksum, and which Fledge refuses (its README, "A gem that only
+    # vendor/cache holds"). A build of Lota the game holds is the one the
+    # project ships, since its lockfile may hold that build's checksum.
+    private def copy_cache(cache, locked)
+      from = File.join(@directory, "vendor", "cache")
+      return unless File.directory?(from)
 
-      warn "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@directory, 'Gemfile')} asks for do not reach it."
+      others = locked.other_builds(lota_platform)
+      Dir.each_child(from) do |child|
+        FileUtils.cp_r(File.join(from, child), cache, preserve: true) unless others.include?(child)
+      end
+    end
+
+    # The Bundler commands that lock the project, each as what follows
+    # <tt>bundle</tt>. A game's lockfile, which the project starts from,
+    # first loses its other platforms, whose builds the project does not
+    # hold (#copy_cache), in a command of its own, since Bundler resolves
+    # for every platform a lockfile names before it removes any when it is
+    # also asked for checksums (Bundler::CLI::Lock#run); then it gains
+    # +platform+, in the form Lota's gem names it, which Fledge's runtime
+    # takes.
+    private def lock_commands(locked, platform)
+      return [%w[lock --add-checksums]] unless locked
+
+      others = locked.other_platforms(platform)
+      [*(others.empty? ? [] : [["lock", "--remove-platform", *others]]), ["lock", "--add-platform", platform, "--add-checksums"]]
     end
 
     # The game's identity: its <tt>t.identity</tt>, or the name
@@ -335,16 +414,19 @@ module Lota
       end
     end
 
-    private def gemfile
+    # The project's Gemfile: the game's, evaluated where the game's copy
+    # is, so that its paths are read from there, or else a source of
+    # gems; then Lota, unless the game's asks for it; then Fledge.
+    private def gemfile(folder, locked)
+      game = locked ? "eval_gemfile #{"#{GAME_FOLDER}/#{folder}/Gemfile".inspect}" : 'source "https://rubygems.org"'
+      lota = locked&.depends_on?("lota") ? "" : %(gem "lota", "#{VERSION}"\n\n)
       <<~RUBY
         # frozen_string_literal: true
 
         # Written by lota fuse, which writes it again on every build.
-        source "https://rubygems.org"
+        #{game}
 
-        gem "lota", "#{VERSION}"
-
-        group :development do
+        #{lota}group :development do
           gem "fledge", git: "#{FLEDGE_GIT}", ref: "#{Fuse.fledge_ref}"
         end
       RUBY
@@ -377,12 +459,17 @@ module Lota
 
     # Runs +arguments+ after the Bundler command in the project, with an
     # environment that names the project's Gemfile and none of the bundle
-    # this program may run in. Raises Error, naming +step+, if it fails.
-    private def run(bundle, *arguments, step:)
+    # this program may run in. Raises Error, naming +step+ and saying +why+
+    # it may have failed, if it fails.
+    private def run(bundle, *arguments, step:, why:)
       return if system(environment, *bundle, *arguments, chdir: project)
 
-      raise Error, "#{step} failed (bundle #{arguments.join(' ')} in #{project}). " \
-        "lota fuse needs the network, to fetch Fledge from #{FLEDGE_GIT} at #{Fuse.fledge_ref}."
+      raise Error, "#{step} failed (bundle #{arguments.join(' ')} in #{project}). #{why}"
+    end
+
+    # Why a step that fetches Fledge may fail, said of +subject+.
+    private def network(subject = "lota fuse")
+      "#{subject} needs the network, to fetch Fledge from #{FLEDGE_GIT} at #{Fuse.fledge_ref}."
     end
 
     # Runs <tt>fledge build</tt> in the project, printing each path it

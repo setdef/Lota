@@ -3,27 +3,48 @@
 
 # lota fuse, for real, on each platform Lota ships a gem for (ADR 002,
 # section 5): on a runner of that platform it installs Lota's gem for it,
-# fuses test/games/fuse with this commit's lota fuse, which fetches Fledge
-# from Git and runs fledge build, then unpacks the app it built under a
-# folder named with a space, and runs it with no Ruby on its PATH and an
-# environment of only the system's own variables. The game opens no
-# window, since a runner has no GPU, plays a sound through OpenAL Soft's
-# null backend, since it has no audio device either, saves a file, and
+# fuses a game with this commit's lota fuse, which fetches Fledge from Git
+# and runs fledge build, then unpacks the app it built under a folder
+# named with a space, and runs it with no Ruby on its PATH and an
+# environment of only the system's own variables. Each game opens no
+# window, since a runner has no GPU, plays a sound, saves a file, and
 # quits with 3; the check reads that it ran fused and saved under its
 # identity alone, where LÖVE's fused game saves (ADR 003, section 8).
+#
+# Three games are fused on every platform: test/games/fuse, with no
+# Gemfile; test/games/fuse_gems, whose Gemfile asks for a gem of pure Ruby
+# and whose committed Gemfile.lock locks an older version than the
+# Gemfile allows, which the app must load; and test/games/fuse_native,
+# whose Gemfile asks for Lota, from the game's vendor/cache, and for
+# fast_blank, whose C extension compiles on the runner with the compiler
+# it has: Xcode's command line tools on macOS, GCC on Ubuntu, and the
+# MSYS2 toolchain setup-ruby installs on Windows (UCRT64 on x64,
+# CLANGARM64 on ARM64). Its lockfile is written here, as the game's
+# developer writes one, once Lota's gem is in its vendor/cache.
+#
+# On Linux and Windows the sound plays through OpenAL Soft's null backend,
+# since those runners have no audio device. A macOS runner has a virtual
+# one, so there the app runs as a player's would, without ALSOFT_DRIVERS,
+# and the check reads OpenAL Soft's log (ALSOFT_LOGLEVEL=3) for CoreAudio,
+# its backend named core, and a device opened through it.
+#
+# Another job fuses test/games/fuse_native in a container that has Ruby
+# and no compiler, and checks that lota fuse fails there and says what to
+# install, as a developer without one sees it.
 #
 # The gems are the release of the version this checkout is (lib/lota/version.rb),
 # which lota fuse pins, checked against its SHA256SUMS, or,
 # run by hand with gems_run, the lota-PLATFORM artifacts of a CI run,
 # checked against their .sha256 files. lota fuse runs from this checkout
 # (ruby -I lib), and ships the installed gem it finds, as a developer's
-# would. What each job built is kept as an artifact, fused-PLATFORM: the
-# archive a player unpacks, and on Windows the setup program, on macOS the
-# disk image, on Linux the AppImage.
+# would. What each job built is kept as an artifact, fused-GAME-PLATFORM:
+# the archive a player unpacks, and on Windows the setup program, on
+# macOS the disk image, on Linux the AppImage.
 #
 # Run by hand with game_repository, it fuses that public repository's
 # game instead, with identifier for its --identifier, and keeps what it
-# built without running it, since a game that draws needs a GPU.
+# built as fused-game-PLATFORM without running it, since a game that
+# draws needs a GPU.
 #
 # Linux builds on Ubuntu 24.04, since Fledge's Linux runtime needs glibc
 # 2.39 (its README, Compatibility), which Lota's gem, built on 22.04 for
@@ -79,11 +100,11 @@ defaults:
 
 jobs:
   fuse:
-    name: Fuse (${{ matrix.platform }})
+    name: Fuse ${{ matrix.game }} (${{ matrix.target.platform }})
     strategy:
       fail-fast: false
       matrix:
-        include:
+        target:
           - runner: macos-15
             platform: arm64-darwin
           - runner: ubuntu-24.04
@@ -94,12 +115,15 @@ jobs:
             platform: x64-mingw-ucrt
           - runner: windows-11-arm
             platform: aarch64-mingw-ucrt
-    runs-on: ${{ matrix.runner }}
+        # The games in test/games, or game_repository's, called game.
+        game: ${{ fromJSON(inputs.game_repository && '["game"]' || '["fuse", "fuse_gems", "fuse_native"]') }}
+    runs-on: ${{ matrix.target.runner }}
     timeout-minutes: 30
     env:
-      PLATFORM: ${{ matrix.platform }}
+      PLATFORM: ${{ matrix.target.platform }}
       GEMS_RUN: ${{ inputs.gems_run }}
-      GAME: ${{ inputs.game_repository && format('game-source/{0}', inputs.game_path) || 'test/games/fuse' }}
+      GAME_NAME: ${{ matrix.game }}
+      GAME: ${{ inputs.game_repository && format('game-source/{0}', inputs.game_path) || format('test/games/{0}', matrix.game) }}
       IDENTIFIER: ${{ inputs.identifier }}
       GAME_ENV: ${{ inputs.game_env }}
       ICON: ${{ inputs.icon }}
@@ -125,10 +149,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install --assume-yes libgl1 libegl1
 
+      # A game whose gems are pure Ruby needs no MSYS2 on Windows, as the
+      # README says; one with a gem to compile, or another repository's,
+      # gets the toolchain setup-ruby installs, which RubyInstaller in
+      # Fledge's runtime finds through MSYS2_PATH, as Fledge's own CI
+      # points it there.
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: "4.0"
-          windows-toolchain: none
+          windows-toolchain: ${{ (matrix.game == 'fuse' || matrix.game == 'fuse_gems') && 'none' || 'default' }}
+
+      - name: Point RubyInstaller at setup-ruby's MSYS2
+        if: runner.os == 'Windows' && matrix.game != 'fuse' && matrix.game != 'fuse_gems'
+        run: echo "MSYS2_PATH=$RI_DEVKIT" >> "$GITHUB_ENV"
 
       - name: Get Lota's gem for this platform, check it, and install it
         env:
@@ -147,6 +180,16 @@ jobs:
           fi
           gem install --local "$gems"/lota-*-"$PLATFORM".gem
           gem list lota
+
+      # As the README's Installation has a game with a Gemfile take Lota:
+      # its gem in the game's vendor/cache, then the bundle locked.
+      - name: Lock the game's gems, as its developer would
+        if: matrix.game == 'fuse_native'
+        run: |
+          mkdir -p "$GAME/vendor/cache"
+          cp "$RUNNER_TEMP"/gems/lota-*-"$PLATFORM".gem "$GAME/vendor/cache/"
+          (cd "$GAME" && BUNDLE_GEMFILE="$PWD/Gemfile" bundle lock)
+          cat "$GAME/Gemfile.lock"
 
       - name: lota fuse
         run: |
@@ -171,13 +214,24 @@ jobs:
           mkdir -p "$place" "$RUNNER_TEMP/empty"
           tar -xzf "$archive" -C "$place"
           root="$place/$(basename "$archive" .tar.gz)"
-          if [ "$RUNNER_OS" = macOS ]; then program="$root/Fuse Check.app/Contents/MacOS/Fuse Check"; else program="$root/Fuse Check"; fi
+          # Fledge names the archive NAME-PLATFORM, with Linux's platform
+          # without -gnu.
+          name=$(basename "$root"); name="${name%-"${PLATFORM%-gnu}"}"
+          if [ "$RUNNER_OS" = macOS ]; then
+            program="$root/$name.app/Contents/MacOS/$name"
+            audio=(ALSOFT_LOGLEVEL=3)
+            backend=("$RUNNER_TEMP/run.err" core)
+          else
+            program="$root/$name"
+            audio=(ALSOFT_DRIVERS=null)
+            backend=()
+          fi
           set +e
-          (cd / && env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" ALSOFT_DRIVERS=null "$program" > "$RUNNER_TEMP/run.out" 2> "$RUNNER_TEMP/run.err")
+          (cd / && env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" "${audio[@]}" "$program" > "$RUNNER_TEMP/run.out" 2> "$RUNNER_TEMP/run.err")
           status=$?
           set -e
           echo "exit status: $status"; echo "--- stdout"; cat "$RUNNER_TEMP/run.out"; echo "--- stderr"; cat "$RUNNER_TEMP/run.err"
-          ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/run.out"
+          ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/run.out" "$GAME_NAME" "${backend[@]}"
 
       - name: Run the app on Windows, with no Ruby on its PATH
         if: runner.os == 'Windows' && !inputs.game_repository
@@ -187,7 +241,8 @@ jobs:
           $place = Join-Path $env:RUNNER_TEMP 'run\My Games'
           New-Item -ItemType Directory -Force $place | Out-Null
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $place
-          $program = Join-Path (Join-Path $place $zip.BaseName) 'Fuse Check.exe'
+          $name = $zip.BaseName -replace "-$([regex]::Escape($env:PLATFORM))$", ''
+          $program = Join-Path (Join-Path $place $zip.BaseName) "$name.exe"
           $system = $env:SystemRoot
           $start = [Diagnostics.ProcessStartInfo]::new($program)
           $start.UseShellExecute = $false
@@ -205,13 +260,13 @@ jobs:
           $process = [Diagnostics.Process]::Start($start)
           $out = $process.StandardOutput.ReadToEndAsync()
           $err = $process.StandardError.ReadToEndAsync()
-          if (-not $process.WaitForExit(120000)) { $process.Kill($true); throw 'Fuse Check.exe still ran after 120 s' }
+          if (-not $process.WaitForExit(120000)) { $process.Kill($true); throw "$name.exe still ran after 120 s" }
           $process.WaitForExit()
           Set-Content -LiteralPath "$env:RUNNER_TEMP/run.out" -Value $out.Result -NoNewline
           Write-Host "exit status: $($process.ExitCode)"
           Write-Host "--- stdout"; Write-Host $out.Result
           Write-Host "--- stderr"; Write-Host $err.Result
-          ruby .github/fuse_check.rb $process.ExitCode "$env:RUNNER_TEMP/run.out"
+          ruby .github/fuse_check.rb $process.ExitCode "$env:RUNNER_TEMP/run.out" $env:GAME_NAME
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Another repository's game draws, and a runner has no GPU and only
@@ -223,7 +278,7 @@ jobs:
       # are kept, since its shaders compile only once it draws. game_env's
       # variables reach it; it may run 50 seconds and quit by itself.
       - name: Draw the game with Mesa's llvmpipe
-        if: inputs.game_repository && matrix.platform == 'x64-mingw-ucrt'
+        if: inputs.game_repository && matrix.target.platform == 'x64-mingw-ucrt'
         continue-on-error: true
         shell: pwsh
         run: |
@@ -298,7 +353,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: fused-${{ inputs.game_repository && 'game-' || '' }}${{ matrix.platform }}
+          name: fused-${{ matrix.game }}-${{ matrix.target.platform }}
           path: |
             ${{ runner.temp }}/dist/*.zip
             ${{ runner.temp }}/dist/*.tar.gz
@@ -308,3 +363,55 @@ jobs:
             ${{ runner.temp }}/dist/fuse-project/Gemfile.lock
             ${{ runner.temp }}/dist/draw
           if-no-files-found: error
+
+  # A developer with Ruby and no compiler fuses a game with a gem to
+  # compile: Ruby's own Debian image, which has no C compiler or make,
+  # with only Git and the OpenGL libraries Lota loads added. lota fuse must
+  # fail, after Bundler names the gem, and say what to install.
+  no-compiler:
+    name: Fuse fuse_native with no compiler (x86_64-linux-gnu)
+    if: ${{ !inputs.game_repository }}
+    runs-on: ubuntu-24.04
+    container: ruby:4.0-slim@sha256:22cfdec4c490b9e7e4913527a126ddc34bf30cf5432711f70eb1aa4b3ac388a5
+    timeout-minutes: 15
+    env:
+      GAME: test/games/fuse_native
+    steps:
+      - name: Install Git and OpenGL's libraries, and no compiler
+        run: |
+          apt-get update
+          apt-get install --assume-yes --no-install-recommends git ca-certificates curl libgl1 libegl1
+          for tool in cc gcc clang make; do
+            if command -v "$tool"; then echo "::error::the container has $tool"; exit 1; fi
+          done
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get Lota's gem for this platform, check it, install it, and lock the game's gems
+        run: |
+          version=$(sed -n 's/^ *VERSION = "\(.*\)"$/\1/p' lib/lota/version.rb)
+          gem="lota-$version-x86_64-linux-gnu.gem"
+          gems="$RUNNER_TEMP/gems"
+          mkdir -p "$gems"
+          release="https://github.com/$GITHUB_REPOSITORY/releases/download/v$version"
+          curl --fail --location --silent --show-error -o "$gems/$gem" "$release/$gem"
+          curl --fail --location --silent --show-error -o "$gems/SHA256SUMS" "$release/SHA256SUMS"
+          (cd "$gems" && grep " $gem\$" SHA256SUMS | sha256sum --check -)
+          gem install --local "$gems/$gem"
+          mkdir -p "$GAME/vendor/cache"
+          cp "$gems/$gem" "$GAME/vendor/cache/"
+          (cd "$GAME" && BUNDLE_GEMFILE="$PWD/Gemfile" bundle lock)
+
+      - name: lota fuse fails and says what to install
+        run: |
+          set +e
+          ruby -I lib exe/lota fuse "$GAME" --out "$RUNNER_TEMP/dist" > "$RUNNER_TEMP/fuse.out" 2> "$RUNNER_TEMP/fuse.err"
+          status=$?
+          set -e
+          echo "exit status: $status"; echo "--- stdout"; cat "$RUNNER_TEMP/fuse.out"; echo "--- stderr"; cat "$RUNNER_TEMP/fuse.err"
+          [ "$status" = 1 ] || { echo "::error::lota fuse exited with $status, not 1"; exit 1; }
+          grep -F "fast_blank" "$RUNNER_TEMP/fuse.out" "$RUNNER_TEMP/fuse.err"
+          grep -F "lota fuse: Installing the game's gems and Fledge failed" "$RUNNER_TEMP/fuse.err"
+          grep -F "A gem with a C extension compiles on this computer, which needs a C compiler" "$RUNNER_TEMP/fuse.err"

@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Fuse
+    class Lockfile < ::Data
+      class Spec < ::Data
+        attr_reader name: String
+
+        attr_reader version: String
+
+        attr_reader platform: String?
+
+        def self.new: (name: String, version: String, platform: String?) -> instance
+
+        def file_name: () -> String
+      end
+
+      attr_reader platforms: Array[String]
+
+      attr_reader dependencies: Array[String]
+
+      attr_reader specs: Array[Spec]
+
+      def self.new: (platforms: Array[String], dependencies: Array[String], specs: Array[Spec]) -> instance
+
+      SPEC: Regexp
+
+      RUBY: String
+
+      def self.read: (String path) -> Lockfile
+
+      def self.parse: (String text) -> Lockfile
+
+      def self.section: (String text, String title) -> Array[String]
+
+      def versions: (String name) -> Array[String]
+
+      def depends_on?: (String name) -> bool
+
+      def covers?: (String platform) -> bool
+
+      def other_platforms: (String platform) -> Array[String]
+
+      def other_builds: (String platform) -> Array[String]
+    end
+  end
+end

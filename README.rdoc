@@ -18,7 +18,9 @@ it loads, so installing it builds nothing:
   lota fuse path/to/game
 
 The last builds the game, with Fledge, into an app for this computer's
-platform that a player runs without Ruby; it needs Git and the network.
+platform that a player runs without Ruby, with the gems its Gemfile.lock
+locks; it needs Git and the network, and a C compiler for a gem whose
+extension compiles.
 
 On Linux, a game needs a desktop with X11 or Wayland and OpenGL, as a
 LÖVE game does. The Windows gems are new: their continuous integration
