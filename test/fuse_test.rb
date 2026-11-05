@@ -117,12 +117,10 @@ class FuseTest < Minitest::Test
     write("vendor/cache/lota-0.1.2-x64-mingw-ucrt.gem", "a gem for Bundler")
     write("vendor/bundle/gems/x.rb", "a gem Bundler installed")
     write("vendor/sound.ogg", "the game's own")
-    write("Gemfile", "gem 'lota'")
 
     _stdout, stderr = capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), app_version: "1.2.3", icon: "art/icon")).call }
 
-    assert_equal "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@game, 'Gemfile')} asks for do not reach it.\n",
-      stderr
+    assert_empty stderr
 
     assert_equal <<~RUBY, read("Gemfile")
       # frozen_string_literal: true
@@ -161,7 +159,6 @@ class FuseTest < Minitest::Test
       fledge.yml
       game
       game/MoonPong
-      game/MoonPong/Gemfile
       game/MoonPong/art
       game/MoonPong/art/dot.png
       game/MoonPong/colors.rb
@@ -174,6 +171,161 @@ class FuseTest < Minitest::Test
       vendor/cache
       vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem
 ], files.sort
+  end
+
+  # A Gemfile.lock as Bundler writes one, for a game that asks for Lota,
+  # rainbow (pure Ruby), and fast_blank (a C extension), with Lota from
+  # the game's vendor/cache for two platforms.
+  LOCKFILE = <<~LOCK
+    GEM
+      remote: https://rubygems.org/
+      specs:
+        fast_blank (1.0.1)
+        lota (#{Lota::VERSION}-arm64-darwin)
+        lota (#{Lota::VERSION}-x86_64-linux-gnu)
+        rainbow (3.0.0)
+
+    PLATFORMS
+      arm64-darwin
+      x86_64-linux-gnu
+
+    DEPENDENCIES
+      fast_blank
+      lota (= #{Lota::VERSION})
+      rainbow (~> 3.0)
+
+    CHECKSUMS
+      fast_blank (1.0.1) sha256=269fc30414fed4e6403bc4a49081e1ea539f8b9226e59276ed1efaefabaa17ea
+      lota (#{Lota::VERSION}-arm64-darwin)
+      lota (#{Lota::VERSION}-x86_64-linux-gnu)
+      rainbow (3.0.0) sha256=0000000000000000000000000000000000000000000000000000000000000000
+
+    BUNDLED WITH
+      4.0.20
+  LOCK
+
+  def write_bundle(lockfile = LOCKFILE)
+    write("Gemfile", %(source "https://rubygems.org"\ngem "lota", "#{Lota::VERSION}"\ngem "rainbow", "~> 3.0"\ngem "fast_blank"\n))
+    write("Gemfile.lock", lockfile)
+    write("vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem", "the game's own Lota")
+    write("vendor/cache/lota-#{Lota::VERSION}-x86_64-linux-gnu.gem", "Lota for another platform")
+    write("vendor/cache/my_gem-1.0.0.gem", "a gem only vendor/cache holds")
+    write("vendor/cache/my_git_gem-abc123/my_git_gem.gemspec", "a git gem bundle cache --all keeps")
+  end
+
+  def test_a_game_with_a_gemfile_takes_its_gems_and_lockfile_to_the_app
+    write_bundle
+
+    _stdout, stderr = capture_io { fuse.call }
+
+    assert_empty stderr
+    assert_equal <<~RUBY, read("Gemfile")
+      # frozen_string_literal: true
+
+      # Written by lota fuse, which writes it again on every build.
+      eval_gemfile "game/dot/Gemfile"
+
+      group :development do
+        gem "fledge", git: "https://github.com/setdef/Fledge", ref: "#{Lota::Fuse::FLEDGE_REF}"
+      end
+    RUBY
+    assert_equal LOCKFILE, read("Gemfile.lock")
+    assert_equal read("game", "dot", "Gemfile"), File.read(File.join(@game, "Gemfile"))
+    assert_equal <<~LOG, File.read(@log).lines.first(2).join
+      bundle lock --add-platform arm64-darwin --remove-platform x86_64-linux-gnu --add-checksums
+      bundle install
+    LOG
+    assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem", "my_gem-1.0.0.gem", "my_git_gem-abc123"],
+      Dir.children(project("vendor", "cache")).sort
+    assert_equal "the game's own Lota", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+    assert_equal "a git gem bundle cache --all keeps", read("vendor", "cache", "my_git_gem-abc123", "my_git_gem.gemspec")
+    refute_path_exists project("game", "dot", "vendor", "cache")
+  end
+
+  def test_a_game_whose_gemfile_does_not_ask_for_lota_gets_it_from_the_project
+    lockfile = LOCKFILE.gsub(/^ +lota .*\n/, "").sub("x86_64-linux-gnu\n", "ruby\n")
+    write("Gemfile", %(source "https://rubygems.org"\ngem "rainbow"\n))
+    write("Gemfile.lock", lockfile)
+
+    capture_io { fuse.call }
+
+    assert_includes read("Gemfile"), %(eval_gemfile "game/dot/Gemfile"\n\ngem "lota", "#{Lota::VERSION}"\n\ngroup :development do\n)
+    assert_equal "bundle lock --add-platform arm64-darwin --add-checksums\n", File.read(@log).lines.first
+    assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem"], Dir.children(project("vendor", "cache"))
+    assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+  end
+
+  def test_a_gemfile_without_a_lockfile_is_refused
+    write("Gemfile", "gem 'rainbow'\n")
+
+    error = assert_raises(Lota::Fuse::Error) { fuse.call }
+
+    assert_equal "#{File.join(@game, 'Gemfile')} has no Gemfile.lock beside it, so lota fuse can't tell which versions of its " \
+      "gems the game runs with. Run bundle install in #{@game}, then fuse again.", error.message
+    refute_path_exists project
+  end
+
+  def test_a_lockfile_without_this_platform_is_refused
+    write_bundle
+
+    error = assert_raises(Lota::Fuse::Error) { fuse(platform: "x64-mingw-ucrt").call }
+
+    assert_equal "#{File.join(@game, 'Gemfile.lock')} locks no gems for x64-mingw-ucrt, the platform this app is built for. " \
+      "Run bundle lock --add-platform x64-mingw-ucrt in #{@game}, with each gem that platform needs in its vendor/cache, " \
+      "then fuse again.", error.message
+    refute_path_exists project
+  end
+
+  def test_a_lockfile_with_another_lota_is_refused
+    write_bundle(LOCKFILE.gsub("lota (#{Lota::VERSION}", "lota (0.0.9"))
+
+    error = assert_raises(Lota::Fuse::Error) { fuse.call }
+
+    assert_equal "#{File.join(@game, 'Gemfile.lock')} locks lota 0.0.9, and this is lota fuse #{Lota::VERSION}. Fuse the game " \
+      "with the Lota it locks, or move it to #{Lota::VERSION}: put lota-#{Lota::VERSION}-arm64-darwin.gem in its vendor/cache " \
+      "and run bundle update lota in #{@game}.", error.message
+    refute_path_exists project
+  end
+
+  def test_a_failed_install_of_the_games_gems_says_what_a_compiler_needs
+    write_bundle
+    fake("bundle", %(echo "bundle $*" >> "#{@log}"; [ "$1" != install ]\n))
+
+    error = assert_raises(Lota::Fuse::Error) { fuse.call }
+
+    assert_equal "Installing the game's gems and Fledge failed (bundle install in #{project}). Bundler says above which gem " \
+      "and why. A gem with a C extension compiles on this computer, which needs a C compiler: on macOS, Xcode's command line " \
+      "tools (xcode-select --install); on Linux, a C compiler and make (sudo apt install build-essential on Debian and Ubuntu); " \
+      "on Windows, RubyInstaller's MSYS2 tools (ridk install). lota fuse also needs the network, to fetch Fledge from " \
+      "https://github.com/setdef/Fledge at #{Lota::Fuse::FLEDGE_REF}.", error.message
+  end
+
+  def test_a_lockfile_is_read_as_bundler_writes_it
+    locked = Lota::Fuse::Lockfile.parse(LOCKFILE.sub("  fast_blank\n", "  fast_blank!\n"))
+
+    assert_equal %w[arm64-darwin x86_64-linux-gnu], locked.platforms
+    assert_equal %w[fast_blank lota rainbow], locked.dependencies
+    assert_equal [Lota::VERSION], locked.versions("lota")
+    assert_equal ["3.0.0"], locked.versions("rainbow")
+    assert_empty locked.versions("fledge")
+    assert locked.depends_on?("lota")
+    refute locked.depends_on?("fledge")
+    assert locked.covers?("arm64-darwin")
+    refute locked.covers?("aarch64-linux-gnu")
+    assert_equal ["x86_64-linux-gnu"], locked.other_platforms("arm64-darwin")
+    assert_equal ["lota-#{Lota::VERSION}-x86_64-linux-gnu.gem"], locked.other_builds("arm64-darwin")
+    assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem"], locked.other_builds("x86_64-linux-gnu")
+  end
+
+  def test_a_lockfile_covers_a_platform_by_any_name_rubygems_matches_and_by_ruby
+    versioned = Lota::Fuse::Lockfile.parse("PLATFORMS\n  arm64-darwin-24\n  x86_64-linux\n  java\n")
+
+    assert versioned.covers?("arm64-darwin")
+    assert versioned.covers?("x86_64-linux-gnu")
+    refute versioned.covers?("x64-mingw-ucrt")
+    assert_equal %w[x86_64-linux java], versioned.other_platforms("arm64-darwin")
+    assert Lota::Fuse::Lockfile.parse("PLATFORMS\n  ruby\n").covers?("x64-mingw-ucrt")
+    assert_empty Lota::Fuse::Lockfile.parse("PLATFORMS\n  ruby\n  x64-mingw-ucrt").other_platforms("x64-mingw-ucrt")
   end
 
   def test_options_reach_fledge_and_fledge_yml
