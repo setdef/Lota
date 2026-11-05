@@ -20,7 +20,7 @@ require "tmpdir"
 class FuseTest < Minitest::Test
   include CallbackHelper
 
-  PLATFORM = Gem::Platform.new("arm64-darwin")
+  PLATFORM = "arm64-darwin"
 
   def setup
     super
@@ -64,7 +64,7 @@ class FuseTest < Minitest::Test
     File.chmod(0o755, path)
   end
 
-  def fuse(options = Lota::Fuse::Options.given(out: File.join(@root, "dist")), platform: PLATFORM, gem_file: @gem)
+  def fuse(options = Lota::Fuse.options(out: File.join(@root, "dist")), platform: PLATFORM, gem_file: @gem)
     Lota::Fuse.new(@game, options, platform:, gem_file:, bundle: [File.join(@bin, "bundle")])
   end
 
@@ -119,7 +119,7 @@ class FuseTest < Minitest::Test
     write("vendor/sound.ogg", "the game's own")
     write("Gemfile", "gem 'lota'")
 
-    _stdout, stderr = capture_io { fuse(Lota::Fuse::Options.given(out: File.join(@root, "dist"), app_version: "1.2.3", icon: "art/icon")).call }
+    _stdout, stderr = capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), app_version: "1.2.3", icon: "art/icon")).call }
 
     assert_equal "lota fuse: the app ships Lota's gem alone; the gems #{File.join(@game, 'Gemfile')} asks for do not reach it.\n",
       stderr
@@ -177,7 +177,7 @@ class FuseTest < Minitest::Test
   end
 
   def test_options_reach_fledge_and_fledge_yml
-    options = Lota::Fuse::Options.given(out: File.join(@root, "dist"), sign: "Developer ID Application: Me (TEAM)",
+    options = Lota::Fuse.options(out: File.join(@root, "dist"), sign: "Developer ID Application: Me (TEAM)",
       identifier: "com.me.DotPopper")
 
     capture_io { fuse(options).call }
@@ -200,7 +200,7 @@ class FuseTest < Minitest::Test
   end
 
   def test_an_output_folder_inside_the_game_is_not_copied_into_it
-    options = Lota::Fuse::Options.given(out: File.join(@game, "dist"))
+    options = Lota::Fuse.options(out: File.join(@game, "dist"))
     write("dist/old.zip", "an earlier build")
 
     capture_io { fuse(options).call }
@@ -256,34 +256,56 @@ class FuseTest < Minitest::Test
   end
 
   def test_the_game_folder_as_the_output_folder_is_refused
-    error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse::Options.given(out: @game)).call }
+    error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse.options(out: @game)).call }
 
     assert_includes error.message, "--out can't be the game's own folder"
   end
 
   def test_a_platform_is_named_as_lota_names_its_gem
-    assert_equal "arm64-darwin", Lota::Fuse.platform_name(Gem::Platform.new("arm64-darwin-24"))
-    assert_equal "x86_64-linux-gnu", Lota::Fuse.platform_name(Gem::Platform.new("x86_64-linux"))
-    assert_equal "x64-mingw-ucrt", Lota::Fuse.platform_name(Gem::Platform.new("x64-mingw-ucrt"))
-    assert_nil Lota::Fuse.platform_name(Gem::Platform.new("x86_64-linux-musl"))
+    assert_equal "arm64-darwin", Lota::Fuse.platform_name("arm64-darwin-24")
+    assert_equal "x86_64-linux-gnu", Lota::Fuse.platform_name("x86_64-linux")
+    assert_equal "aarch64-linux-gnu", Lota::Fuse.platform_name("aarch64-linux-gnu")
+    assert_equal "x64-mingw-ucrt", Lota::Fuse.platform_name("x64-mingw-ucrt")
+    assert_nil Lota::Fuse.platform_name("x86_64-linux-musl")
+    assert_nil Lota::Fuse.platform_name("x86_64-darwin-24")
+    assert_equal Gem::Platform.local.to_s, Lota::Fuse.this_platform
   end
 
   def test_a_platform_lota_has_no_gem_for_is_refused
     %w[x86_64-darwin x86_64-linux-musl x86-mingw32].each do |name|
-      error = assert_raises(Lota::Fuse::Error) { fuse(platform: Gem::Platform.new(name)).call }
+      error = assert_raises(Lota::Fuse::Error) { fuse(platform: name).call }
 
       assert_includes error.message, "Lota has no gem for #{name}"
     end
     refute_path_exists @log
   end
 
-  def test_no_installed_gem_for_the_platform_is_refused
-    platform = Gem::Platform.new("aarch64-mingw-ucrt")
-    skip "a Lota gem for #{platform} is installed" unless Gem::Specification.find_all_by_name("lota").none? { |s| s.platform.to_s == platform.to_s }
+  # RubyGems keeps each gem file it installs in the cache folder of the
+  # folder it installed it in, which is where lota fuse takes Lota's from.
+  def test_the_installed_gem_comes_from_rubygems_cache
+    with_gem_path do |home|
+      error = assert_raises(Lota::Fuse::Error) { fuse(gem_file: nil).call }
+      assert_includes error.message, "found no installed lota-#{Lota::VERSION} gem for arm64-darwin"
 
-    error = assert_raises(Lota::Fuse::Error) { fuse(platform:, gem_file: nil).call }
+      cached = File.join(home, "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+      FileUtils.mkdir_p(File.dirname(cached))
+      File.write(cached, "the installed gem")
+      File.write(File.join(home, "cache", "lota-#{Lota::VERSION}-x64-mingw-ucrt.gem"), "another platform's")
 
-    assert_includes error.message, "found no installed lota-#{Lota::VERSION} gem for aarch64-mingw-ucrt"
+      assert_equal cached, Lota::Fuse.installed_gem("arm64-darwin-24")
+      capture_io { fuse(gem_file: nil).call }
+
+      assert_equal "the installed gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+    end
+  end
+
+  def with_gem_path
+    home = File.join(@root, "gems")
+    previous = { "GEM_HOME" => Gem.dir, "GEM_PATH" => Gem.path.join(File::PATH_SEPARATOR) }
+    Gem.paths = { "GEM_HOME" => home, "GEM_PATH" => home }
+    yield home
+  ensure
+    Gem.paths = previous if previous
   end
 
   def test_no_git_is_refused_before_anything_is_written
@@ -328,8 +350,17 @@ class FuseTest < Minitest::Test
 
     assert_equal [".", {}], Lota::CLI::Commands::Fuse.parse([])
     assert_equal ["game", { out: "b", sign: "Me (T)", identifier: "com.me.G", app_version: "1.0", icon: "icons/icon" }],
-      Lota::CLI::Commands::Fuse.parse(["game", "-o", "b", "--sign=Me (T)", "--identifier", "com.me.G", "--app-version=1.0",
-        "--icon", "icons/icon"])
+      Lota::CLI::Commands::Fuse.parse([
+        "game",
+        "-o",
+        "b",
+        "--sign=Me (T)",
+        "--identifier",
+        "com.me.G",
+        "--app-version=1.0",
+        "--icon",
+        "icons/icon",
+])
     [
       [["ios"], "cannot build for ios yet"],
       [["--out"], "--out needs a value"],

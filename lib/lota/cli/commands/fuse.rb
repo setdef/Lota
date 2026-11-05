@@ -53,8 +53,8 @@ module Lota
 
           path, options = parse(argv)
           require "lota"
-          paths = Lota::Fuse.new(path, Lota::Fuse::Options.given(**options)).call
-          puts "Built #{paths.empty? ? 'nothing' : 'the app'} for #{Lota::Fuse.platform_name(Gem::Platform.local)} only. " \
+          paths = Lota::Fuse.new(path, Lota::Fuse.options(**options)).call
+          puts "Built #{paths.empty? ? 'nothing' : 'the app'} for #{Lota::Fuse.platform_name(Lota::Fuse.this_platform)} only. " \
             "Run lota fuse on each platform you ship for."
         rescue Lota::Fuse::Error => e
           warn "lota fuse: #{e.message}"

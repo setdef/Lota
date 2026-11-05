@@ -34,7 +34,7 @@ module Lota
   #
   # === Example
   #
-  #   options = Lota::Fuse::Options.given(identifier: "com.example.DotPopper")
+  #   options = Lota::Fuse.options(identifier: "com.example.DotPopper")
   #   Lota::Fuse.new("games/dot_popper", options).call
   #   # => ["/home/me/dist/Dot Popper-x86_64-linux.tar.gz", ...]
   class Fuse
@@ -57,18 +57,21 @@ module Lota
     #   without their extension, as Fledge names them (<tt>icons/icon</tt>
     #   for <tt>icons/icon.icns</tt>, <tt>icons/icon.ico</tt>, and
     #   <tt>icons/icon-16.png</tt> and the other sizes), or +nil+ for none.
+    #
+    # Make one with Fuse.options, which fills in DEFAULT_OPTIONS.
     class Options < ::Data.define(:out, :sign, :identifier, :app_version, :icon)
-      # What each option is when <tt>lota fuse</tt> is not given it.
-      DEFAULTS = { out: "dist", sign: nil, identifier: nil, app_version: nil, icon: nil }.freeze
+    end
 
-      # Options with DEFAULTS for each that +given+ leaves out.
-      #
-      # === Example
-      #
-      #   Lota::Fuse::Options.given(identifier: "com.example.Pong").out # => "dist"
-      def self.given(**given)
-        new(**DEFAULTS, **given)
-      end
+    # What each of Options is when <tt>lota fuse</tt> is not given it.
+    DEFAULT_OPTIONS = { out: "dist", sign: nil, identifier: nil, app_version: nil, icon: nil }.freeze
+
+    # Options with DEFAULT_OPTIONS for each that +given+ leaves out.
+    #
+    # === Example
+    #
+    #   Lota::Fuse.options(identifier: "com.example.Pong").out # => "dist"
+    def self.options(**given)
+      Options.new(**DEFAULT_OPTIONS, **given)
     end
 
     # Where Bundler fetches Fledge from, which is not on RubyGems.org.
@@ -118,13 +121,14 @@ module Lota
     #
     # [path] String path of the game's folder.
     # [options] The Options <tt>lota fuse</tt> was given.
-    # [platform] The Gem::Platform to build for, which is this computer's,
-    #   since Fledge builds for the computer it runs on.
+    # [platform] The String RubyGems platform to build for, which is this
+    #   computer's (Fuse.this_platform), since Fledge builds for the
+    #   computer it runs on.
     # [gem_file] String path of the Lota gem to ship, or +nil+ for the one
     #   RubyGems installed for this platform (Fuse.installed_gem).
     # [bundle] The command that runs Bundler, as an Array of Strings: by
     #   default this Ruby's own, so the app gets the Ruby that runs this.
-    def initialize(path, options = Options.given, platform: Gem::Platform.local, gem_file: nil, bundle: nil)
+    def initialize(path, options = Fuse.options, platform: Fuse.this_platform, gem_file: nil, bundle: nil)
       @directory = File.expand_path(path)
       @options = options
       @platform = platform
@@ -158,15 +162,19 @@ module Lota
       File.join(out, PROJECT_FOLDER)
     end
 
+    # This computer's RubyGems platform, such as <tt>"arm64-darwin-24"</tt>.
+    def self.this_platform
+      Gem.platforms.last.to_s
+    end
+
     # The path of the Lota gem of this version that RubyGems installed for
-    # +platform+, as RubyGems keeps it in its cache. Raises Error when
-    # there is none, as when Lota runs from its own source.
+    # +platform+, from the cache in each of RubyGems' folders where it
+    # keeps the gem files it installed. Raises Error when there is none, as
+    # when Lota runs from its own source.
     def self.installed_gem(platform)
-      spec = Gem::Specification.find_all_by_name("lota", VERSION).find do |candidate|
-        gem_platform = candidate.platform
-        gem_platform.is_a?(Gem::Platform) && gem_platform === platform && File.file?(candidate.cache_file)
-      end
-      return spec.cache_file if spec
+      name = "lota-#{VERSION}-#{platform_name(platform)}.gem"
+      found = Gem.path.map { |folder| File.join(folder, "cache", name) }.find { |file| File.file?(file) }
+      return found if found
 
       raise Error, "found no installed lota-#{VERSION} gem for #{platform}. Install Lota's gem for this platform " \
         "from its release (gem install lota-#{VERSION}-PLATFORM.gem) and run lota fuse from it."
@@ -201,11 +209,15 @@ module Lota
       "#{IDENTIFIER_PREFIX}.#{part.empty? ? 'lotagame' : part}"
     end
 
-    # The name of the platform in PLATFORMS that +platform+ is, such as
-    # <tt>"arm64-darwin"</tt> for this Mac's <tt>arm64-darwin-24</tt>, or
+    # The name of the platform in PLATFORMS that the RubyGems platform
+    # +platform+ is, such as <tt>"arm64-darwin"</tt> for a Mac's
+    # <tt>"arm64-darwin-24"</tt> and <tt>"x86_64-linux-gnu"</tt> for
+    # <tt>"x86_64-linux"</tt>, as RubyGems matches a gem's platform, or
     # +nil+ when Lota has no gem for it.
     def self.platform_name(platform)
-      PLATFORMS.find { |name| Gem::Platform.new(name) === platform }
+      PLATFORMS.find do |name|
+        platform == name || platform.start_with?("#{name}-") || platform == name.delete_suffix("-gnu")
+      end
     end
 
     # The Fledge ref the project's Gemfile names: FLEDGE_REF, or the one
@@ -248,7 +260,7 @@ module Lota
     # This Ruby's own Bundler.
     private def bundler
       [RbConfig.ruby, Gem.bin_path("bundler", "bundle")]
-    rescue Gem::GemNotFoundException
+    rescue Gem::LoadError
       raise Error, "found no Bundler for #{RbConfig.ruby}; install it with gem install bundler."
     end
 
@@ -344,9 +356,11 @@ module Lota
         "kind" => "windowed",
         "identifier" => @options.identifier || Fuse.placeholder_identifier(identity),
       }
-      config["version"] = @options.app_version if @options.app_version
-      config["icon"] = File.join(GAME_FOLDER, folder, @options.icon) if @options.icon
-      "# Written by lota fuse, which writes it again on every build.\n#{config.to_yaml}"
+      version = @options.app_version
+      config["version"] = version if version
+      icon = @options.icon
+      config["icon"] = File.join(GAME_FOLDER, folder, icon) if icon
+      "# Written by lota fuse, which writes it again on every build.\n#{YAML.dump(config)}"
     end
 
     private def entry_script(folder)
@@ -375,15 +389,18 @@ module Lota
     # reports, and returns them.
     private def build(bundle)
       command = [*bundle, "exec", "fledge", "build", "--out", out]
-      command.push("--sign", @options.sign) if @options.sign
-      paths = IO.popen(environment, command, chdir: project) do |io|
-        io.each_line.map do |line|
-          $stdout.puts line
-          line.chomp
-        end
+      sign = @options.sign
+      command.push("--sign", sign) if sign
+      reader, writer = IO.pipe
+      pid = spawn(environment, *command, chdir: project, out: writer)
+      writer.close
+      paths = reader.each_line.map do |line|
+        $stdout.puts line
+        line.chomp
       end
-      status = Process.last_status
-      raise Error, "fledge build failed (exit status #{status&.exitstatus})." unless status&.success?
+      reader.close
+      _, status = Process.wait2(pid)
+      raise Error, "fledge build failed (exit status #{status.exitstatus})." unless status.success?
 
       paths
     end
