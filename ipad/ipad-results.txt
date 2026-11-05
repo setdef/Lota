@@ -59,9 +59,9 @@ Kit build (already filled in; leave it as it is):
    Answer:
    Note:
 
-9. After one round, the title shows a two-option control labelled
-   "Dot size: Same everywhere | Fit the screen". Choosing "Fit the
-   screen" makes the dots in the next round smaller on this iPad. (y/n)
+9. After one round, the title shows 'Dot size: Standard | Smaller, more
+   room' (or no choice at all on an 11-inch iPad). Picking the second
+   option makes the next round's dots smaller. (y/n/not shown)
    Answer:
    Note:
 
@@ -91,4 +91,9 @@ Kit build (already filled in; leave it as it is):
     own words. (1 to 5, and a note)
     Feel (1-5):
     First impression:
+
+14. At Game Over, drag a dot with your finger and let go to throw it; a
+    tap still goes back to the title. (y/n)
+    Answer:
+    Note:
 

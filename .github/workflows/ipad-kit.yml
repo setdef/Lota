@@ -20,7 +20,7 @@ on:
       dot_popper_ref:
         description: Dot Popper's tag, branch, or commit (github.com/Kerrick/dot_popper)
         type: string
-        default: v0.8.0
+        default: v0.8.1
       project_run:
         description: Check the dot-popper-ios-project artifact of this earlier run instead of building one (empty to build)
         type: string
@@ -40,7 +40,7 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || 'v0.8.0' }}
+  DOT_POPPER_REF: ${{ inputs.dot_popper_ref || 'v0.8.1' }}
   APP_IDENTIFIER: ${{ inputs.identifier || 'com.kerricklong.DotPopper' }}
   APP_NAME: DotPopper
 
