@@ -1,0 +1,33 @@
+1. The game fills the screen, in portrait and in landscape, as it
+   should. (y/n)
+   Answer:
+   Note:
+
+2. A touch lands where your finger is. (y/n)
+   Answer:
+   Note:
+
+3. Turning the device keeps everything on screen. (y/n)
+   Answer:
+   Note:
+
+4. Sound plays, and the silent switch does what README.txt says it
+   should. (y/n)
+   Answer:
+   Note:
+
+5. The name and icon under the app on the Home Screen are right. (y/n)
+   Answer:
+   Note:
+
+6. It runs smoothly, with no stutter. (y/n)
+   Answer:
+   Note:
+
+7. Did anything crash, freeze, or look wrong? (describe it, and send a
+   screenshot: on a device with Face ID, the side and volume-up buttons
+   together; with a Home button, the top or side button and Home)
+   Answer:
+
+8. Anything else.
+   Answer:

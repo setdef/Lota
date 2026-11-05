@@ -20,7 +20,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 ### Compared with other ways to make a game in Ruby
 
 - **[Gosu](https://www.libgosu.org/)** and **[Ruby2D](https://www.ruby2d.com/)** are Ruby gems with APIs of their own. Lota uses LÖVE's API, so LÖVE's wiki, tutorials, and example games apply once you translate the calls.
-- **[DragonRuby Game Toolkit](https://dragonruby.org/)** has free and paid tiers, ships its own Ruby runtime, and exports games to the web, desktops, and (on its Pro tier) phones. Lota runs on the Ruby 4.0 you install, with your usual gems, and runs on desktops only so far.
+- **[DragonRuby Game Toolkit](https://dragonruby.org/)** has free and paid tiers, ships its own Ruby runtime, and exports games to the web, desktops, and (on its Pro tier) phones. Lota runs on the Ruby 4.0 you install, with your usual gems. Its gems are for desktops; a phone build is experimental, and compiles from source.
 - **[LÖVE](https://love2d.org)** itself runs games written in Lua. Lota runs the same engine with Ruby in place of Lua.
 
 ## A first game
@@ -78,7 +78,7 @@ An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left 
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
 - On Windows, CI installs the gem and runs a game that opens no window and plays a sound, and a manual workflow (`fuse.yml`) runs such a game from an app `lota fuse` built. GitHub's Windows runners have no GPU, so nothing has yet tested drawing, input, or a real audio device on Windows, or `lota run`'s Windows save folder below, which comes from reading the code.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
-- Phones and tablets (iOS, iPadOS, and Android) are planned, and Lota does not build for them yet.
+- Phones and tablets (iOS, iPadOS, and Android) have no gem yet. A game builds for them, experimentally, with Fledge and a clone of Lota, which compiles LÖVE's engine for the phone: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has the steps. Such a build has run in the iOS Simulator and on an Android emulator, and on no real phone or tablet yet.
 
 Lota binds LÖVE's graphics, window, keyboard, mouse, touch, joystick and gamepad, sensor, timer, system, event, and physics modules nearly whole, and parts of its filesystem, audio, sound, image, data, font, and math modules. It does not yet bind video or threads. A game that calls a function Lota has not bound stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
 
@@ -184,9 +184,9 @@ When your game raises an error, Lota prints it with its Ruby backtrace and shows
 `lota fuse` builds your game into an app that a player runs without Ruby, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. Run it in the game's folder, or name the folder:
 
 ```console
-$ lota fuse path/to/game --identifier com.yourname.MoonPong
-dist/Moon Pong-x64-mingw-ucrt.zip
-dist/Moon Pong-x64-mingw-ucrt-setup.exe
+$ lota fuse path/to/game --identifier com.example.SampleGame
+dist/Sample Game-x64-mingw-ucrt.zip
+dist/Sample Game-x64-mingw-ucrt-setup.exe
 Built the app for x64-mingw-ucrt only. Run lota fuse on each platform you ship for.
 ```
 
@@ -208,14 +208,14 @@ To fuse a game, you need:
 
 The options:
 
-- `--identifier ID` is the reverse-DNS name macOS and Windows know the app by, such as `com.yourname.MoonPong`. Without it the app gets `com.example.<identity>`, a placeholder: replace it before you ship.
+- `--identifier ID` is the reverse-DNS name macOS and Windows know the app by, such as `com.example.SampleGame` (`com.example.` stands for a domain of yours). Without it the app gets `com.example.<identity>`, a placeholder: replace it before you ship.
 - `--app-version VERSION` is the app's version, such as `1.0.0`; without it, Fledge's `0.0.0`. A game's `t.version` names the version of LÖVE it was written for, so it never becomes the app's.
 - `--icon PATH` gives the app the icon files at `PATH` in the game's folder, without their extension, as Fledge takes them: `--icon icons/icon` for `icons/icon.icns` (macOS), `icons/icon.ico` (Windows), and `icons/icon-16.png` to `icons/icon-512.png` (Linux). Without it the app has no icon of its own.
 - `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
 - `--out DIR` writes to `DIR` instead of `dist`.
 - `LOTA_FLEDGE_REF` names another tag or commit of Fledge to build with.
 
-What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does), or run on a phone or tablet. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
+What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does). `lota fuse` builds no phone app; [the phone guide](doc/guide/phones.md) builds one with Fledge directly. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
 
 ## Documentation
 
@@ -224,6 +224,7 @@ What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a q
 | `ri Lota::Graphics.rectangle` | The API reference for any class or method, installed with the gem. Most entries name the LÖVE function they translate |
 | [`lib/`](lib) | The same reference in the source, for reading on GitHub. Lota does not host its API docs online yet |
 | [Translating LÖVE code](doc/guide/translating.md) | Every naming rule, and how Lota differs from Lua where Ruby has no equivalent |
+| [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) | The experimental phone build: what you need, the commands for the Simulator, the emulator, devices, the App Store, and Google Play, the notices an app carries, and what has run |
 | [LÖVE's wiki](https://love2d.org/wiki/Main_Page) | What each function does. Look up a Lota method under its LÖVE name |
 | [CHANGELOG](CHANGELOG.md) | What changed in each release |
 | [Agent skill](skills/lota-gamedev/SKILL.md) | A skill for coding agents that write Lota games: where the API is documented, what differs on phones, and how to test and ship. It is in the installed gem (`gem contents lota \| grep SKILL.md`), and `gh skill install setdef/Lota lota-gamedev` or `npx skills add setdef/Lota` installs it from a release |
