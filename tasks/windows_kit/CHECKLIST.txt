@@ -1,0 +1,92 @@
+LOTA WINDOWS KIT: HAND CHECKLIST (optional, about 5 to 10 minutes)
+==================================================================
+
+Do this after run-kit.cmd has finished. Open this file in Notepad, put
+an x between the brackets [x] for yes, leave [ ] for no, and type
+anything you saw after "Notes:". Copy any message text word for word
+if you can (or take a screenshot with Win+Shift+S and paste it into the
+results folder). Skip anything you cannot do. Save the file and send it
+back with the results zip.
+
+Your screen(s): how many monitors, and their scale in Settings >
+System > Display (for example 150%)?
+Notes:
+
+
+A. Windows' warnings (about 2 minutes)
+--------------------------------------
+1. When you first double-clicked run-kit.cmd, did a blue "Windows
+   protected your PC" box appear?                                  [ ]
+   What did it say, and what did you click?
+   Notes:
+
+2. In the kit folder, open work\smartscreen and double-click
+   "Dot Popper-x64-mingw-ucrt-setup.exe" (a copy marked as downloaded
+   from the internet).
+   a. A blue "Windows protected your PC" box appeared?             [ ]
+      Its exact text (and the publisher it names):
+      Notes:
+      Clicks needed to go on (e.g. More info > Run anyway):
+      Notes:
+   b. A "User Account Control" box asking for an administrator?    [ ]
+   c. Defender or another antivirus said something?                [ ]
+      Notes:
+   d. In the installer: the folder it offers (copy it):
+      Notes:
+   e. A "desktop shortcut" option is offered, and is UNticked?     [ ]
+   f. Install finished without errors?                             [ ]
+   g. Dot Popper starts from the Start menu (type "Dot Popper")?   [ ]
+   h. No black console window opened with it?                      [ ]
+   i. The taskbar shows Dot Popper's own icon and name?            [ ]
+   j. In Task Manager (Ctrl+Shift+Esc), the name it is listed as:
+      Notes:
+   Keep it installed for part C, then uninstall it in
+   Settings > Apps > Installed apps > Dot Popper > Uninstall.
+   k. The uninstall finished, and Dot Popper is gone from the Start
+      menu?                                                        [ ]
+
+3. In the kit folder, open work\dotpopper\Dot Popper-x64-mingw-ucrt and
+   double-click "Dot Popper.exe".
+   a. It starts with no warning and no console window?             [ ]
+   b. Any error box? Copy its text:
+      Notes:
+
+
+B. Dot Popper with a mouse (about 2 minutes)
+--------------------------------------------
+4. Clicking dots near all four edges of the window pops them?      [ ]
+5. F11 switches fullscreen on and off, and the field refits?       [ ]
+6. Alt+Enter does the same?                                        [ ]
+7. Resizing the window during a round keeps every dot on screen?   [ ]
+8. Only with two monitors of different scale: dragging the window
+   to the other monitor keeps the text sharp?                      [ ]
+9. With headphones or speakers: a pop on the left of the window
+   sounds from the left, on the right from the right?              [ ]
+10. M mutes, and so does clicking the speaker icon?                [ ]
+11. Quit, start it again: it is still muted?                       [ ]
+    (Press M again to unmute.)
+12. Escape quits?                                                  [ ]
+13. Any stutter, tearing, or a slow first frame you noticed?
+    Notes:
+
+
+C. Dot Popper with a controller (skip without one; about 2 minutes)
+-------------------------------------------------------------------
+Which controller (for example Xbox Wireless, DualSense)?
+Notes:
+14. Moving a stick makes a cursor (reticle) appear?                [ ]
+15. A pops the dot under the reticle?                              [ ]
+16. The right trigger pops too?                                    [ ]
+17. Start starts a round, and continues after one?                 [ ]
+18. X opens "Your records"?                                        [ ]
+19. Back (View) mutes?                                             [ ]
+20. Cursor speed, 1 (too slow) to 5 (too fast), 3 is right:  ____
+21. Dead zone, 1 (drifts by itself) to 5 (sticky, needs a big
+    push), 3 is right:  ____
+Notes:
+
+
+D. Anything else
+----------------
+Anything odd: error boxes, crashes, sounds, the screen going black?
+Notes:
