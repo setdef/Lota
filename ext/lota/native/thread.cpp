@@ -35,10 +35,10 @@ namespace lota::native {
 
 // What a Ruby thread waits for in Signal::wait.
 struct Signal::Waiting {
-  Signal *signal;
-  std::uint64_t seen;
+  Signal *signal = nullptr;
+  std::uint64_t seen = 0;
   std::optional<Clock::time_point> deadline;
-  bool interrupted;
+  bool interrupted = false;
 };
 
 void *Signal::wait_without_gvl(void *data) {

@@ -120,17 +120,19 @@ module Lota
     # so that every Ractor may call them. :nodoc:
     def self.main_thread_only(mod)
       message = "The #{mod.name} module cannot be used in thread code."
-      guard = ::Module.new
+      functions = mod.singleton_class
       mod.singleton_methods(false).each do |name|
-        guard.module_eval(<<~RUBY, __FILE__, __LINE__ + 1)
+        unguarded = :"__main_thread_#{name}"
+        functions.alias_method(unguarded, name)
+        mod.private_class_method(unguarded)
+        functions.module_eval(<<~RUBY, __FILE__, __LINE__ + 1)
           def #{name}(...)
             raise #{message.dump} unless Ractor.main?
 
-            super
+            __send__(#{unguarded.inspect}, ...)
           end
         RUBY
       end
-      mod.singleton_class.prepend(guard)
     end
 
     # SPDX-SnippetEnd

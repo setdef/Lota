@@ -14,7 +14,7 @@ module Lota
 
       def self.source: (String | Lota::Data code) -> [String, String]
 
-      def self.file: (String filename) -> [String, String]
+      private def self.file: (String filename) -> [String, String]
 
       def start: (*::Object? arguments) -> bool
 
@@ -35,13 +35,13 @@ module Lota
       module Body
         def self.start: (Thread thread, Array[::Object?] arguments) -> void
 
-        def self.quietly: [T] () { () -> T } -> T
+        private def self.quietly: [T] () { () -> T } -> T
 
-        def self.ractor: (Thread thread, Array[::Object?] arguments) -> Ractor
+        private def self.ractor: (Thread thread, Array[::Object?] arguments) -> Ractor
 
         def self.run: (Thread thread, Array[::Object?] arguments) -> nil
 
-        def self.file: (String name) -> String
+        private def self.file: (String name) -> String
       end
     end
   end
