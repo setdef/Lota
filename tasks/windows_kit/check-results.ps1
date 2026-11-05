@@ -9,13 +9,17 @@
 # drawing (mesa) or reporting that it could not (nogpu). Not part of the
 # kit. Exits 1 when any check fails.
 #
-#   check-results.ps1 -Kit FOLDER -Mode mesa|nogpu [-Installed] [-Held]
+#   check-results.ps1 -Kit FOLDER -Mode mesa|nogpu [-Installed] [-Held] [-Answered]
+#
+# -Answered expects the hand checks answered from the lines the workflow
+# fed on standard input; without it, each must say NOT ASKED.
 
 param(
   [Parameter(Mandatory = $true)] [string] $Kit,
   [Parameter(Mandatory = $true)] [ValidateSet('mesa', 'nogpu')] [string] $Mode,
   [switch] $Installed,
-  [switch] $Held
+  [switch] $Held,
+  [switch] $Answered
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +39,7 @@ $steps = 'motw', 'checksums', 'system', 'computerinfo', 'timeout', 'unpack', 'wi
   'winkit-unicode', 'winkit-pacing', 'winkit-shell', 'winkit-cmd', 'winkit-close', 'winkit-kill', 'winkit-links', 'winkit-summary',
   'dotpopper', 'dotpopper-noshaders', 'install', 'saves', 'events'
 if ($Held) { $steps += 'hold' }
+$steps += 'hand'
 $status = @{}
 foreach ($step in $steps) {
   $begin = $text.Contains("=== STEP ${step}: ")
@@ -85,7 +90,17 @@ if ($Installed) {
 } else {
   Check 'the installer was skipped' ($status['install'] -eq 'SKIP')
 }
-if ($Held) { Check 'the hands-on test ran' ($status['hold'] -in 'PASS', 'NO-GPU' -and $text -match 'inputs seen: ') }
+if ($Held) { Check 'the input test ran' ($status['hold'] -in 'PASS', 'NO-GPU' -and $text -match 'inputs seen: ') }
+Check 'a HAND CHECKS section with every question' ($text -match '(?m)^HAND CHECKS' -and $text -match '(?m)^\[W1\] ' -and $text -match '(?m)^\[17\] ')
+if ($Answered) {
+  Check 'the hand-play run of Dot Popper ran and quit' ($text -match 'run: dotpopper-hand' -and $text -match "(?s)run: dotpopper-hand.*?result: exited")
+  Check 'the answers fed on standard input landed in results.txt' (([regex]::Matches($text, '(?m)^  note: fed by CI')).Count -eq 21 -and -not ($text -match 'NOT ASKED'))
+  Check 'the pasted result landed' ($text -match '(?m)^  pasted: Dot Popper result line one \| line two\r?$')
+  Check 'the ratings landed' ($text -match '(?m)^\[10\] [^\r\n]*\r?\n  answer: 4\r?$')
+  Check 'the controller block was asked' ($text -match '(?m)^\[16\] [^\r\n]*\r?\n  answer: y\r?$')
+} else {
+  Check 'the hand checks were not asked, and say so' ($status['hand'] -eq 'SKIP' -and $text -match '(?m)^\[1\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)')
+}
 
 Write-Host "$failed checks failed"
 exit ([int]($failed -gt 0))

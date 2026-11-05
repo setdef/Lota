@@ -461,10 +461,25 @@ function Copy-Frame([string] $Label) {
   }
 }
 
+# One line the person types, or $null when no one can answer: with
+# -Unattended, or once redirected input has ended. Input redirected from
+# a file (CI) is read line by line and echoed, as if typed.
+$script:InputEnded = $false
+function Read-Answer([string] $Prompt) {
+  if ($Unattended -or $script:InputEnded) { return $null }
+  if ([Console]::IsInputRedirected) {
+    Write-Host -NoNewline "$Prompt "
+    $line = [Console]::In.ReadLine()
+    if ($null -eq $line) { $script:InputEnded = $true; Write-Host '(no more input)'; return $null }
+    Write-Host $line
+    return $line
+  }
+  return (Read-Host $Prompt)
+}
+
 function Ask([string] $Question) {
-  if ($Unattended) { return $false }
-  $answer = Read-Host "$Question [y/N]"
-  return ($answer -match '^\s*y')
+  $answer = Read-Answer "$Question [y/N]"
+  return ("$answer" -match '^\s*y')
 }
 
 # ------------------------------------------------------------------ start
@@ -682,15 +697,6 @@ Invoke-Step 'unpack' 'Unpacking the apps into the work folder' {
   Copy-Mesa $script:WinkitRoot
   Copy-Mesa $script:PopperRoot
   $script:WinkitBefore = Get-Snapshot $script:WinkitRoot
-  # A copy of the setup program with the download mark it came with, for
-  # CHECKLIST.txt's SmartScreen question; only made when it had one.
-  $zone = Get-Zone $script:Setup.FullName
-  $smart = Join-Path $Work 'smartscreen'
-  New-Item -ItemType Directory -Force -Path $smart | Out-Null
-  $copy = Join-Path $smart $script:Setup.Name
-  Copy-Item -LiteralPath $script:Setup.FullName -Destination $copy
-  Set-Content -LiteralPath $copy -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3`r`nHostUrl=https://github.com/"
-  Out-Result "a copy of the setup program marked as downloaded from the internet (ZoneId=3), for CHECKLIST.txt: $copy (the original's mark was: $zone)"
 }
 
 function Invoke-Winkit([string] $Label, [string] $Exe, [string] $Arguments = '', [hashtable] $Environment = @{}, [switch] $CleanEnvironment, [int[]] $ShotsAt = @(), [int] $TimeoutSeconds = 40) {
@@ -1055,32 +1061,133 @@ function Save-Zip {
 Write-Summary
 try { Save-Zip } catch { Write-Host "Could not zip the results: $($_.Exception.Message)" }
 
+Write-Host ''
+Write-Host 'The automatic part is done, and its results are zipped. You can use the computer again.'
+
 $hold = $HoldSeconds
-if ($hold -le 0 -and -not $Unattended) {
+if ($hold -le 0 -and -not $Unattended -and -not $script:InputEnded) {
   Write-Host ''
-  Write-Host 'Optional hands-on test (1 minute): a window opens for 60 seconds. In it, move the mouse, click,'
+  Write-Host 'Optional input test (1 minute): a window opens for 60 seconds. In it, move the mouse, click,'
   Write-Host 'press a few keys, and, if you have a controller, press its buttons and move its sticks.'
-  if (Ask 'Do the hands-on test now?') { $hold = 60 }
+  if (Ask 'Do the input test now?') { $hold = 60 }
 }
 if ($hold -gt 0) {
-  Invoke-Step 'hold' 'Hands-on: the input Winkit saw' {
+  Invoke-Step 'hold' 'Input test: the input Winkit saw' {
     $r = Invoke-Child -Label 'hold' -FilePath $WinkitExe -Arguments "--hold=$hold" -ShotsAt @(5) -TimeoutSeconds ($hold + 30)
     Out-Child $r
     Copy-Frame 'hold'
     Test-Winkit $r
     if ($r.Out -match 'inputs seen: ([^\r\n]*)') { $script:StepNote = "$($script:StepNote); inputs seen: $($Matches[1])" }
   }
-  Write-Summary
-  try { Save-Zip } catch { Write-Host "Could not zip the results: $($_.Exception.Message)" }
 }
+
+# ------------------------------------------------------------ hand checks
+
+# Each check: an id, the kind of answer (yn, rating, paste), and the
+# words. Every answer goes into results.txt as it is typed.
+$HandChecks = @(
+  @('W1', 'yn', "When you first double-clicked run-kit.cmd, a blue 'Windows protected your PC' box appeared. (If yes, type in the note what it said and what you clicked.)"),
+  @('W2', 'yn', 'Some other warning appeared while the kit ran: an antivirus, User Account Control, or an error box. (If yes, type what it said in the note.)'),
+  @('1', 'yn', 'Clicking a bright dot near each of the four screen edges pops it.'),
+  @('2', 'yn', 'F11 toggles fullscreen, Alt+Enter toggles fullscreen, and the dots stay on screen each time.'),
+  @('3', 'yn', 'Dragging the window to a different size in the middle of a round keeps every dot on screen.'),
+  @('4', 'yn', 'With headphones, a pop on the left side of the screen sounds from the left, and one on the right from the right.'),
+  @('5', 'yn', 'M, or the speaker icon on the title, mutes the sound, and it stays muted after quitting and starting again.'),
+  @('6', 'yn', "After one round, the title shows 'Dots: same size everywhere'. Clicking it switches to 'sized to your screen', and the dots in the next round are bigger on this large screen."),
+  @('7', 'paste', "'Copy my result' on Game Over, then pasting into Notepad, gives a sensible two- or three-line result."),
+  @('8', 'yn', "'Your records' opens a screen of bests and totals, and a click goes back."),
+  @('9', 'yn', 'Text and lines look sharp, not blurry, at your display scale.'),
+  @('10', 'rating', 'Overall: how does it feel? 1 (bad) to 5 (great).')
+)
+$PadChecks = @(
+  @('11', 'yn', 'Moving the left stick shows a cursor that moves smoothly.'),
+  @('11b', 'rating', 'The cursor speed: 1 (much too slow) to 5 (much too fast), 3 is right.'),
+  @('11c', 'yn', 'The dead zone is OK: the cursor does not drift by itself, and a small push moves it.'),
+  @('12', 'yn', 'A pops the dot under the cursor; the right trigger does too.'),
+  @('13', 'yn', 'Start begins a round and continues after Game Over.'),
+  @('14', 'yn', 'X on the title opens Your records; B goes back.'),
+  @('15', 'yn', 'The shoulder buttons switch the dot size on the title.'),
+  @('16', 'yn', 'At Game Over, the right stick rolls the pile of dots in the direction pushed.'),
+  @('17', 'yn', 'Moving the mouse hides the cursor again.')
+)
+
+function Write-CheckList($Checks) {
+  foreach ($check in $Checks) { Write-Host ("  [{0}] {1}" -f $check[0], $check[2]) }
+}
+
+function Ask-Check($Check, [string] $Why) {
+  $id = $Check[0]
+  $kind = $Check[1]
+  Out-Result "[$id] $($Check[2])"
+  if ($Why) { Out-Result "  answer: NOT ASKED ($Why)"; return }
+  Write-Host ''
+  Write-Host ("[{0}] {1}" -f $id, $Check[2])
+  $prompt = '  y / n / skip (Enter skips):'
+  if ($kind -eq 'rating') { $prompt = '  1 to 5 / skip (Enter skips):' }
+  $answer = Read-Answer $prompt
+  if ($null -eq $answer) { Out-Result '  answer: NOT ASKED (non-interactive)'; return }
+  if (-not $answer.Trim()) { $answer = 'skip' }
+  Out-Result "  answer: $($answer.Trim())"
+  if ($kind -eq 'paste') {
+    Write-Host '  Paste the result here (Ctrl+V or right-click), then press Enter on an empty line:'
+    $pasted = @()
+    for ($i = 0; $i -lt 12; $i++) {
+      $line = Read-Answer '  >'
+      if ($null -eq $line -or -not $line.Trim()) { break }
+      $pasted += $line
+    }
+    Out-Result "  pasted: $($pasted -join ' | ')"
+  }
+  $note = Read-Answer '  Note (optional; Enter for none):'
+  if ($note) { Out-Result "  note: $note" }
+}
+
+Invoke-Step 'hand' 'Hand checks: Dot Popper played by hand, and your answers' {
+  Out-Result 'HAND CHECKS'
+  $why = ''
+  if ($Unattended -or $script:InputEnded) { $why = 'non-interactive' }
+  else {
+    Write-Host ''
+    Write-Host '================ Hand checks (about 10 minutes, optional) ================'
+    Write-Host 'The kit starts Dot Popper for you. Play it and try the things listed below, then quit it'
+    Write-Host 'with Escape. After you quit, the kit asks about each one here, so you can answer then.'
+    Write-Host ''
+    Write-CheckList $HandChecks
+    if (-not (Ask 'Do the hand checks now?')) { $why = 'declined' }
+    if ($script:InputEnded) { $why = 'non-interactive' }
+  }
+  $pad = $false
+  if (-not $why) {
+    $pad = Ask 'Do you have a controller connected?'
+    Out-Result "controller connected (his answer): $pad"
+    if ($pad) {
+      Write-Host 'Also try these with the controller:'
+      Write-CheckList $PadChecks
+    }
+    [void](Read-Answer 'Press Enter to start Dot Popper.')
+    Write-Host 'Dot Popper is running. Quit it with Escape when you are done (the kit waits up to 20 minutes).'
+    $environment = @{ DOT_POPPER_AUTOPLAY = $null; DOT_POPPER_SEED = $null; DOT_POPPER_SHOTS = $null; DOT_POPPER_NO_SHADERS = $null; DOT_POPPER_PERF = '1' }
+    $r = Invoke-Child -Label 'dotpopper-hand' -FilePath $PopperExe -Environment $environment -TimeoutSeconds 1200 -WatchDialog
+    Out-Child $r
+    Get-PopperFiles 'dotpopper-hand'
+    Write-Host 'Thank you. Now the questions.'
+  }
+  foreach ($check in $HandChecks) { Ask-Check $check $why }
+  if ($pad) { foreach ($check in $PadChecks) { Ask-Check $check '' } }
+  elseif (-not $why) { foreach ($check in $PadChecks) { Ask-Check $check 'no controller' } }
+  else { foreach ($check in $PadChecks) { Ask-Check $check $why } }
+  if ($why) { Set-Step 'SKIP' "not asked ($why)" } else { Set-Step 'INFO' 'answered' }
+}
+
+Write-Summary
+try { Save-Zip } catch { Write-Host "Could not zip the results: $($_.Exception.Message)" }
 
 Write-Host ''
 Write-Host 'Done. You can use the computer again.'
 Write-Host "Results folder: $ResultsDir"
 if (Test-Path -LiteralPath $ResultsZip) {
   Write-Host "Please send this one file back: $ResultsZip"
-  Write-Host '(and CHECKLIST.txt from the kit folder too, if you filled it in).'
-  if (-not $Unattended) { try { Start-Process -FilePath 'explorer.exe' -ArgumentList "/select,`"$ResultsZip`"" } catch { } }
+  if (-not $Unattended -and -not [Console]::IsInputRedirected) { try { Start-Process -FilePath 'explorer.exe' -ArgumentList "/select,`"$ResultsZip`"" } catch { } }
 } else {
   Write-Host 'The zip could not be made: please zip the results folder above and send it.'
 }

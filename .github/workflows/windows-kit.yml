@@ -120,7 +120,7 @@ jobs:
           $commit = $env:GITHUB_SHA.Substring(0, 7)
           $crlf = { param($from, $to, $replace) $t = [IO.File]::ReadAllText($from) -replace "`r?`n", "`r`n"; foreach ($k in $replace.Keys) { $t = $t.Replace($k, $replace[$k]) }; [IO.File]::WriteAllText($to, $t, [Text.UTF8Encoding]::new($false)) }
           $fill = @{ '@LOTA_VERSION@' = $lotaVersion; '@DOT_POPPER_VERSION@' = $popperVersion; '@DOT_POPPER_RUN@' = $env:DOT_POPPER_RUN; '@BUILT@' = $date; '@COMMIT@' = $commit }
-          foreach ($file in 'run-kit.cmd', 'run-kit.ps1', 'README.txt', 'CHECKLIST.txt') { & $crlf "tasks/windows_kit/$file" (Join-Path $kit $file) $fill }
+          foreach ($file in 'run-kit.cmd', 'run-kit.ps1', 'README.txt') { & $crlf "tasks/windows_kit/$file" (Join-Path $kit $file) $fill }
           $info = @("kit: $name", "built: $(Get-Date -Format o)", "lota: $lotaVersion, commit $env:GITHUB_SHA, run $env:GITHUB_RUN_ID",
             "winkit: $($winkit.Name)", "dot popper: $popperVersion from Fuse run $env:DOT_POPPER_RUN ($($popper.Name), $($setup.Name))")
           [IO.File]::WriteAllText((Join-Path $kit 'kit-info.txt'), (($info -join "`r`n") + "`r`n"), [Text.UTF8Encoding]::new($false))
@@ -155,12 +155,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: run-kit.cmd, PowerShell 5.1, Mesa, Downloads
+          - name: run-kit.cmd, PowerShell 5.1, Mesa, Downloads, answers on stdin
             id: cmd-mesa
             launcher: cmd
             mode: mesa
-            arguments: -Unattended -Install yes -HoldSeconds 8 -NullAudio -MesaDir "%RUNNER_TEMP%\mesa"
-            check: -Mode mesa -Installed -Held
+            arguments: -Install yes -HoldSeconds 8 -NullAudio -MesaDir "%RUNNER_TEMP%\mesa" < "%RUNNER_TEMP%\answers.txt"
+            check: -Mode mesa -Installed -Held -Answered
           - name: pwsh 7, Mesa, a folder outside ASCII
             id: pwsh-mesa
             launcher: pwsh
@@ -229,11 +229,30 @@ jobs:
           "KIT=$kit" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "kit at: $kit"
 
+      # The answers a person would type into the hand checks, one per
+      # line, in the order run-kit.ps1 asks: do them, a controller, Enter to
+      # start Dot Popper (which DOT_POPPER_QUIT_AFTER ends), then for each
+      # check an answer and a note, and for check 7 two pasted lines and an
+      # empty one.
+      - name: Write the hand checks' answers
+        if: matrix.id == 'cmd-mesa'
+        shell: pwsh
+        run: |
+          $lines = @('y', 'y', '')
+          foreach ($id in 'W1', 'W2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '11b', '11c', '12', '13', '14', '15', '16', '17') {
+            if ($id -in '10', '11b') { $lines += '4' } else { $lines += 'y' }
+            if ($id -eq '7') { $lines += 'Dot Popper result line one', 'line two', '' }
+            $lines += 'fed by CI'
+          }
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'answers.txt'), (($lines -join "`r`n") + "`r`n"))
+          Get-Content (Join-Path $env:RUNNER_TEMP 'answers.txt')
+
       - name: Run the kit through run-kit.cmd
         if: matrix.launcher == 'cmd'
         shell: cmd
         env:
           LOTA_KIT_NO_PAUSE: "1"
+          DOT_POPPER_QUIT_AFTER: "8"
         run: |
           call "%KIT%\run-kit.cmd" ${{ matrix.arguments }}
           echo run-kit.cmd exit status %errorlevel%
