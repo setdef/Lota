@@ -126,9 +126,20 @@ module Lota
     # Lota::Event.restart (callbacks.lua:177-187), ends the game with
     # status 0 and makes #restart? true; <tt>lota run</tt> then starts the
     # game again (Lota::Restart). Raises TypeError, before anything ends,
-    # for a restart value that cannot cross into the new process. LÖVE also
-    # hands each new frame to the event module, to draw while the system
-    # holds the window modal (lines 511-514); Lota does not bind that yet.
+    # for a restart value that cannot cross into the new process.
+    #
+    # Once Lota.run has returned its frame, each new frame, the error
+    # handler's too, goes to the event module before it first runs, as
+    # boot.lua hands it to love.event._setDefaultModalDrawCallback (lines
+    # 510-514). While the system holds the window in a loop of its own, as
+    # Windows does while the player drags its title bar or edge, the event
+    # module runs that frame from inside the pump, so the game keeps
+    # drawing (Lota::Event.modal_draw_callback=, which a game's own
+    # callable overrides). The frame is called there with no error
+    # handling of boot's: what it raises comes out of that pump, and so
+    # reaches the error handler from the frame the pump is in. When call
+    # returns the event module lets go of the frame, as LÖVE's goes with
+    # its Lua state.
     #
     # === Example
     #
@@ -139,15 +150,32 @@ module Lota
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
       @inerror = false
+      @set_modal_draw_func = false
       @func = method(:earlyinit)
+      prev_func = nil #: _Frame?
 
       while (func = @func)
+        if @set_modal_draw_func && Native::Event.open? && !func.equal?(prev_func)
+          prev_func = func
+          set_default_modal_draw_callback(func)
+        end
         _, retval = protect { func.call }
         Native.drain_release_queue
         return finish(retval) if retval
       end
 
       1
+    ensure
+      set_default_modal_draw_callback(nil) if Native::Event.open?
+    end
+
+    # Makes +frame+, or none for +nil+, what the event module runs while
+    # the system holds the window modal, as
+    # love.event._setDefaultModalDrawCallback does
+    # (src/modules/event/wrap_Event.cpp:223-244), its results read as the
+    # results of a game's modal draw callback are (Lota::Variant.results).
+    private def set_default_modal_draw_callback(frame)
+      Native::Event.set_default_modal_draw_callback(frame && -> { Variant.results(frame.call) })
     end
 
     # Whether the game ended by asking to restart, once call has returned.
@@ -260,7 +288,10 @@ module Lota
       # NOTE: We can't assign to @func directly, as we'd
       # overwrite the result of handle_error with nil on error
       result, main = protect { Lota.run }
-      @func = main if result
+      if result
+        @func = main
+        @set_modal_draw_func = true
+      end
       # boot.lua prints an error raised in the error handler here (lines
       # 502-503), when Lua could not call deferErrhand for it; handle_error
       # has always printed it already.

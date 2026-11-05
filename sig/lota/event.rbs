@@ -25,7 +25,5 @@ module Lota
     type callable = ::Object & _Callable
 
     def self.modal_draw_callback=: (callable? callable) -> void
-
-    private def self.results: (::Object? values) -> [Array[Variant::token], Array[Variant::token]]
   end
 end

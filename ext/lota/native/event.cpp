@@ -383,6 +383,15 @@ void set_modal_draw_callback(Rice::Object given) {
   event().setModalDrawData(modal_draw_data(callable));
 }
 
+// w__setDefaultModalDrawCallback (wrap_Event.cpp:223-244): the function
+// the event module calls in that loop when the game has set none, which
+// boot.lua makes each new frame of love.run (boot.lua:510-514) and
+// Lota::Boot makes each new frame of its loop, or none.
+void set_default_modal_draw_callback(Rice::Object given) {
+  const Rice::Object callable = std::move(given);
+  event().setDefaultModalDrawData(modal_draw_data(callable));
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -397,6 +406,8 @@ void define_event(const Rice::Module &native) {
       .define_singleton_function("restart", &restart, Rice::Arg("arguments"))
       .define_singleton_function("set_modal_draw_callback", &set_modal_draw_callback,
                                  Rice::Arg("callable"))
+      .define_singleton_function("set_default_modal_draw_callback",
+                                 &set_default_modal_draw_callback, Rice::Arg("callable"))
       .define_singleton_function("quit", &quit, Rice::Arg("exit_status") = std::optional<double>());
 }
 

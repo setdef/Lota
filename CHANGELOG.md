@@ -25,6 +25,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `lota fuse` builds with Fledge 0.5.1, was 0.5.0.
 - Breaking: `lota fuse` refuses a game whose Gemfile has no `Gemfile.lock`, whose lockfile does not lock the platform it builds for, or whose lockfile locks another version of Lota; it fused a game with a Gemfile before, without the Gemfile's gems, and warned.
 
+### Fixed
+
+- A game keeps drawing while the system holds its window in a loop of its own, as Windows does while the player drags or resizes it: `Lota::Boot` hands each new frame to the event module's modal draw, as LÖVE's boot does, unless the game set `Lota::Event.modal_draw_callback=`.
+
 ## [0.1.3] - 2026-11-05
 
 ### Added
