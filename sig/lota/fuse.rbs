@@ -90,6 +90,10 @@ module Lota
 
     private def check_git: () -> void
 
+    private def write_notices: (String gem) -> void
+
+    private def gem_folder: (String name) -> String
+
     private def bundler: () -> Array[String]
 
     private def executable: (String name) -> String?
@@ -119,5 +123,13 @@ module Lota
     private def build: (Array[String] bundle) -> Array[String]
 
     private def environment: () -> Hash[String, String?]
+  end
+end
+
+module Gem
+  class Package
+    def self.new: (String gem) -> Package
+
+    def extract_files: (String destination_dir, ?String pattern) -> void
   end
 end

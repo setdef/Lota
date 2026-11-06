@@ -29,6 +29,18 @@
 #
 # The bundle matches its files against these entries in order, so a
 # library comes before LÖVE, whose own sources surround it.
+#
+# An app that lota fuse builds names what its gem carries in its notices
+# (Lota::Notices), from the manifest NativeGem writes into the gem from
+# these entries (Licensing#notices): each by its `title`, where the
+# record's name is not what the notices call it, with its `version` where
+# it is known, and with the `credit` its license asks a product's
+# documentation to carry.
+
+# The version of LÖVE at the pinned commit
+# (vendor/love/src/common/version.h:28), which an app's notices give for
+# LÖVE's own code and Lota's patches of it.
+love_version = File.read(File.expand_path("../../vendor/love/src/common/version.h", __dir__))[/LOVE_VERSION_STRING "(.+)"/, 1]
 
 # Lota's own C++ (LICENSE). Its ports of LÖVE's code are Zlib snippets,
 # which LÖVE's entry covers.
@@ -288,7 +300,8 @@ work "PhysicsFS's LZMA SDK",
 work "PhysicsFS",
   sources: ["vendor/love/src/libraries/physfs/**"],
   copyright: ["2001-2022 Ryan C. Gordon <icculus@icculus.org> and others"],
-  license: ["Zlib"]
+  license: ["Zlib"],
+  version: "3.2.0"
 
 # dr_flac and dr_mp3, which love.sound's FLAC and MP3 decoders compile in
 # (src/modules/sound/lullaby/FLACDecoder.h and MP3Decoder.h). Each offers
@@ -322,7 +335,8 @@ work "dr_libs",
 work "Wuff",
   sources: ["vendor/love/src/libraries/Wuff/**"],
   copyright: ["2012-2013 Boolsheet"],
-  license: ["Unlicense"]
+  license: ["Unlicense"],
+  version: "0.0.0.2"
 
 # Noise1234, which LÖVE compiles but the bundle does not link yet: the
 # bundle reads only its headers' declarations, so the gem does not carry
@@ -339,7 +353,8 @@ work "Noise1234",
 work "Noto Sans",
   sources: ["vendor/love/src/modules/font/NotoSans-Regular.ttf.gzip.h"],
   copyright: ["2019 Google Inc. All Rights Reserved."],
-  license: ["OFL-1.1"]
+  license: ["OFL-1.1"],
+  version: "2.001"
 
 # The Vulkan renderer LÖVE builds everywhere but on Apple's systems
 # (vendor/love/CMakeLists.txt:656-709), which the bundle carries on Linux,
@@ -378,7 +393,8 @@ work "Vulkan Memory Allocator",
 work "Box2D",
   sources: ["vendor/love/src/libraries/box2d/**"],
   copyright: ["2019 Erin Catto", "2020 Erin Catto"],
-  license: ["MIT"]
+  license: ["MIT"],
+  version: "2.4.0"
 
 # LÖVE's physics module as Lota's physics patch changes it
 # (ext/lota/engine/physics.patch), which CMake writes into the build tree
@@ -388,7 +404,8 @@ work "Box2D",
 work "LÖVE's patched physics module",
   sources: ["tmp/*/build/patched/love/src/modules/physics/**"],
   copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
-  license: ["Zlib"]
+  license: ["Zlib"],
+  title: "LÖVE #{love_version}'s physics module, as Lota's physics patch changes it"
 
 # LÖVE's graphics/Mesh.cpp as Lota's Mesh patch changes it
 # (ext/lota/engine/mesh.patch), which CMake writes into the build tree and
@@ -398,7 +415,8 @@ work "LÖVE's patched physics module",
 work "LÖVE's patched Mesh",
   sources: ["tmp/*/build/patched/love/src/modules/graphics/Mesh.cpp"],
   copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
-  license: ["Zlib"]
+  license: ["Zlib"],
+  title: "LÖVE #{love_version}'s graphics/Mesh.cpp, as Lota's Mesh patch changes it"
 
 # LÖVE's own sources (vendor/love/license.txt:6-9). Its bundled libraries
 # in src/libraries are works of their own, above; one the list lacks
@@ -406,7 +424,19 @@ work "LÖVE's patched Mesh",
 work "LÖVE",
   sources: ["vendor/love/src/common/**", "vendor/love/src/modules/**"],
   copyright: ["2006-2026 LOVE Development Team"],
-  license: ["Zlib"]
+  license: ["Zlib"],
+  version: love_version
+
+# FreeType's license asks a product that uses it to credit it in its
+# documentation (LICENSE-FTL.txt, "Introduction", lines 35-56: the words
+# it encourages, with <year> the year of the FreeType version used; and
+# section 2, lines 116-120: a disclaimer "that the software is based in
+# part of the work of the FreeType Team"), so an app's notices carry these
+# words, with the year of the release each platform's FreeType is.
+freetype_credit = lambda do |year|
+  "Portions of this software are copyright © #{year} The FreeType Project (www.freetype.org). All rights reserved. " \
+    "This software is based in part of the work of the FreeType Team."
+end
 
 # macOS. The frameworks the gem carries in lib/lota/frameworks come
 # prebuilt from love-apple-dependencies, whose history holds the binaries
@@ -494,7 +524,9 @@ framework "SDL3.framework",
     "2017 Sean Barrett",
     "2010-2013 Rich Geldreich <richgel99@gmail.com>",
   ],
-  license: ["Zlib", "BSD-3-Clause", "MIT", "Apache-2.0", "MIT OR Unlicense", "Unlicense"]
+  license: ["Zlib", "BSD-3-Clause", "MIT", "Apache-2.0", "MIT OR Unlicense", "Unlicense"],
+  title: "SDL",
+  version: "3.4.10"
 
 # FreeType 2.11.1 (Headers/freetype.h:4741-4743; every header is byte for
 # byte the VER-2-11-1 tag's), built by its CMakeLists.txt with
@@ -545,7 +577,10 @@ framework "freetype.framework",
     "2001-2015 Francesco Zappa Nardelli",
     "1990, 1994, 1998 The Open Group",
   ],
-  license: ["FTL", "MIT", "MIT-open-group"]
+  license: ["FTL", "MIT", "MIT-open-group"],
+  title: "FreeType",
+  version: "2.11.1",
+  credit: freetype_credit.call(2021)
 
 # HarfBuzz 6.0.0 (Resources/Info.plist; its headers are byte for byte the
 # 6.0.0 tag's, commit afcae83a064843d71d47624bc162e121cc56c08b), built by
@@ -591,7 +626,9 @@ framework "harfbuzz.framework",
     "Microsoft Corporation",
     "2022 Unicode, Inc.",
   ],
-  license: ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-DFS-2016"]
+  license: ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-DFS-2016"],
+  title: "HarfBuzz",
+  version: "6.0.0"
 
 # libvorbis 1.3.7 (Resources/Info.plist; its headers are byte for byte
 # the v1.3.7 tag's, https://github.com/xiph/vorbis), which love.sound's Ogg
@@ -611,7 +648,9 @@ framework "vorbis.framework",
     "1994-2015 by the Xiph.Org Foundation",
     "1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin",
   ],
-  license: ["BSD-3-Clause", "TU-Berlin-1.0"]
+  license: ["BSD-3-Clause", "TU-Berlin-1.0"],
+  title: "libvorbis",
+  version: "1.3.7"
 
 # libogg 1.3.4, which libvorbis loads. Its Resources/Info.plist says 1.1.4,
 # as the macosx/Info.plist of libogg's own Xcode project said in every
@@ -628,7 +667,9 @@ framework "vorbis.framework",
 # Info.plist gives, which the gem carries, is recorded too.
 framework "ogg.framework",
   copyright: ["2002, Xiph.org Foundation", "1994-2018 by the Xiph.Org Foundation", "1994-2009 Xiph.Org Foundation"],
-  license: ["BSD-3-Clause"]
+  license: ["BSD-3-Clause"],
+  title: "libogg",
+  version: "1.3.4"
 
 # libmodplug, which love.sound's tracker module decoder links
 # (src/modules/sound/lullaby/ModPlugDecoder.h), from no release: its
@@ -665,7 +706,8 @@ framework "libmodplug.framework",
     "1996-2000 Jake Stine of Divine Entertainment",
     "2006 Peter Grootswagers <pgrootswagers@planet.nl>",
   ],
-  license: ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"]
+  license: ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"],
+  title: "libmodplug"
 
 # The release archive of OpenAL Soft 1.24.3, which the gem carries beside
 # its library on every platform (the record's `source`, below and in the
@@ -811,7 +853,9 @@ framework "OpenAL-Soft.framework",
     "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
   ],
   license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
-  source: openal_soft_source
+  source: openal_soft_source,
+  title: "OpenAL Soft",
+  version: "1.24.3"
 
 # Linux. The libraries the gem carries in lib/lota/libraries, which
 # love-appimage-source's Makefile builds from each release's source, at
@@ -960,7 +1004,9 @@ library "libSDL3.so.0",
     "Unlicense",
     "MIT OR Unlicense",
     "LicenseRef-SDL-libm-Public-Domain",
-  ]
+  ],
+  title: "SDL",
+  version: "3.4.10"
 
 # FreeType 2.13.3 (the Makefile's FT_VERSION), which offers the FreeType
 # License or GPL-2.0 (LICENSE.TXT); Lota uses it under the FreeType License
@@ -993,7 +1039,10 @@ library "libfreetype.so.6",
     "2009, 2023 Red Hat, Inc.",
     "1996-2019 Julian Seward <jseward@acm.org>",
   ],
-  license: ["FTL", "MIT", "MIT-open-group", "MIT-Modern-Variant", "bzip2-1.0.6"]
+  license: ["FTL", "MIT", "MIT-open-group", "MIT-Modern-Variant", "bzip2-1.0.6"],
+  title: "FreeType",
+  version: "2.13.3",
+  credit: freetype_credit.call(2024)
 
 # HarfBuzz 10.1.0 (the Makefile's HARFBUZZ_BRANCH, tag 10.1.0, commit
 # 9ef44a2d67ac870c1f7f671f6dc98d08a2579865), which compiles everything in
@@ -1030,7 +1079,9 @@ library "libharfbuzz.so",
     "Microsoft Corporation",
     "2024 Unicode, Inc.",
   ],
-  license: ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-3.0"]
+  license: ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-3.0"],
+  title: "HarfBuzz",
+  version: "10.1.0"
 
 # OpenAL Soft 1.24.3 (the Makefile's OPENAL_BRANCH, tag 1.24.3, commit
 # dc7d7054a5b4f3bec1dc23a42fd616a0847af948, whose files are the release
@@ -1072,7 +1123,9 @@ library "libopenal.so.1",
     "2004 the University Corporation for Atmospheric Research (\"UCAR\")",
   ],
   license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
-  source: openal_soft_source
+  source: openal_soft_source,
+  title: "OpenAL Soft",
+  version: "1.24.3"
 
 # libmodplug 0.8.8.5 (the Makefile's LIBMODPLUG_VERSION): its COPYING puts
 # it in the public domain, as each of its own files does
@@ -1096,7 +1149,9 @@ library "libmodplug.so.1",
     "1996-2000 Jake Stine of Divine Entertainment",
     "2006 Peter Grootswagers <pgrootswagers@planet.nl>",
   ],
-  license: ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"]
+  license: ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"],
+  title: "libmodplug",
+  version: "0.8.8.5"
 
 # libvorbisfile and libvorbis, from libvorbis 1.3.7 (the Makefile's
 # LIBVORBIS_VERSION): its COPYING, BSD-3-Clause, which its files point to
@@ -1106,7 +1161,9 @@ library "libmodplug.so.1",
 # TU-Berlin-1.0.
 library "libvorbisfile.so.3",
   copyright: ["2002-2020 Xiph.org Foundation", "1994-2015 by the Xiph.Org Foundation"],
-  license: ["BSD-3-Clause"]
+  license: ["BSD-3-Clause"],
+  title: "libvorbisfile",
+  version: "1.3.7"
 
 library "libvorbis.so.0",
   copyright: [
@@ -1114,7 +1171,9 @@ library "libvorbis.so.0",
     "1994-2015 by the Xiph.Org Foundation",
     "1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin",
   ],
-  license: ["BSD-3-Clause", "TU-Berlin-1.0"]
+  license: ["BSD-3-Clause", "TU-Berlin-1.0"],
+  title: "libvorbis",
+  version: "1.3.7"
 
 # libogg 1.3.5 (the Makefile's LIBOGG_VERSION), which libvorbis needs: its
 # COPYING, BSD-3-Clause, which the files it compiles point to
@@ -1128,7 +1187,9 @@ library "libogg.so.0",
     "1994-2007 by the Xiph.Org Foundation",
     "1994-2002 by the Xiph.Org Foundation",
   ],
-  license: ["BSD-3-Clause"]
+  license: ["BSD-3-Clause"],
+  title: "libogg",
+  version: "1.3.5"
 
 # zlib 1.3 (the Makefile's ZLIB_BRANCH, tag v1.3, commit
 # 09155eaa2f9270dc4ed1fa13e2b4b2613e6e4851), which LÖVE and FreeType link:
@@ -1136,7 +1197,9 @@ library "libogg.so.0",
 # (adler32.c:1-4, and the same in each), the zlib License's text.
 library "libz.so.1",
   copyright: ["1995-2023 Jean-loup Gailly and Mark Adler"],
-  license: ["Zlib"]
+  license: ["Zlib"],
+  title: "zlib",
+  version: "1.3"
 
 # Windows. The one DLL the gem carries in lib/lota/libraries, which
 # tasks/windows_build.rb builds from its release's source archive; every
@@ -1193,7 +1256,9 @@ library "OpenAL32.dll",
     "2010 Lockless Inc.",
   ],
   license: ["LGPL-2.0-or-later", "BSD-3-Clause", "MIT", "LicenseRef-PFFFT"],
-  source: openal_soft_source
+  source: openal_soft_source,
+  title: "OpenAL Soft",
+  version: "1.24.3"
 
 # The libraries the Windows bundle links statically: every one LÖVE links
 # but OpenAL Soft, from the archives tasks/windows_build.rb installs, at
@@ -1218,10 +1283,13 @@ windows_dependencies = "tmp/dependencies/installdir/lib"
   "libmodplug" => ["libmodplug.a", "libmodplug.so.1"],
   "HarfBuzz" => ["libharfbuzz.a", "libharfbuzz.so"],
 }.each do |name, (archive, linux)|
+  recorded = framework_for(linux)
   work "#{name} (Windows)",
     sources: ["#{windows_dependencies}/#{archive}"],
-    copyright: framework_for(linux).copyright,
-    license: framework_for(linux).license
+    copyright: recorded.copyright,
+    license: recorded.license,
+    title: recorded.notice_name,
+    version: recorded.version
 end
 
 # FreeType 2.13.3, recorded as on Linux but for bzip2, which
@@ -1231,7 +1299,10 @@ end
 work "FreeType (Windows)",
   sources: ["#{windows_dependencies}/libfreetype.a"],
   copyright: framework_for("libfreetype.so.6").copyright - ["1996-2019 Julian Seward <jseward@acm.org>"],
-  license: framework_for("libfreetype.so.6").license - ["bzip2-1.0.6"]
+  license: framework_for("libfreetype.so.6").license - ["bzip2-1.0.6"],
+  title: "FreeType",
+  version: framework_for("libfreetype.so.6").version,
+  credit: framework_for("libfreetype.so.6").credit
 
 # SDL 3.4.10, under its own license, as on Linux and macOS, with the code
 # of others the Windows build compiles in, each under the license its
@@ -1315,7 +1386,9 @@ work "SDL (Windows)",
     "MIT OR Unlicense",
     "SunPro",
     "LicenseRef-SDL-libm-Public-Domain",
-  ]
+  ],
+  title: "SDL",
+  version: "3.4.10"
 
 # iOS and iPadOS. No gem carries these: an app's extension is linked
 # into the app by Fledge (`fledge build ios`, ext/lota/phone/ios.rb),
@@ -1345,10 +1418,14 @@ work "SDL (Windows)",
   "libogg" => ["ogg", "ogg.framework"],
   "libmodplug" => ["modplug", "libmodplug.framework"],
 }.each do |name, (xcframework, framework)|
+  recorded = framework_for(framework)
   work "#{name} (iOS)",
     sources: ["vendor/love-apple-dependencies/iOS/libraries/#{xcframework}.xcframework/**"],
-    copyright: framework_for(framework).copyright,
-    license: framework_for(framework).license
+    copyright: recorded.copyright,
+    license: recorded.license,
+    title: recorded.notice_name,
+    version: recorded.version,
+    credit: recorded.credit
 end
 
 # SDL 3.4.10, LÖVE's version and the SDL3.framework's above, built static
@@ -1361,7 +1438,9 @@ end
 work "SDL (iOS)",
   sources: ["tmp/ios/sdl3/**"],
   copyright: framework_for("SDL3.framework").copyright,
-  license: framework_for("SDL3.framework").license
+  license: framework_for("SDL3.framework").license,
+  title: "SDL",
+  version: "3.4.10"
 
 # Android. No gem carries these yet: Fledge links an app's extension into
 # the app's libfledgeext.so for each ABI (`fledge build android`,

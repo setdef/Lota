@@ -378,6 +378,164 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
     }.each { |name, licenses| assert_equal licenses, record.framework_for(name).license, name }
   end
 
+  # The manifest NativeGem writes for the notices of an app (Lota::Notices)
+  # names each work the bundle carries but Lota's own, whose statement the
+  # notices always make on their own, by its title, with its version where
+  # the record gives one or the gem it comes from has one, and each
+  # framework as a library of its own, with its source archive.
+  def test_the_notices_manifest_names_each_carried_work_and_framework_but_lotas_own
+    licensing = Licensing.new("record.rb")
+    licensing.work("Lota", sources: ["ext/**"], copyright: ["2026 K"], license: ["AGPL-3.0-or-later"])
+    licensing.work("Rice", gem: "rice", sources: ["include/**"], copyright: ["2025 R"], license: ["BSD-2-Clause"])
+    licensing.work("zlib (Windows)", title: "zlib", version: "1.3", sources: ["z/**"], copyright: ["1995 J"], license: ["Zlib"])
+    licensing.framework("X.framework", title: "X", version: "1.0", credit: "Portions are X's.", copyright: ["2026 X"],
+      license: ["LGPL-2.0-or-later"], source: {
+url: "https://example.com/x-1.0.tar.bz2",
+sha256: "ab",
+path: "vendor/sources/x-1.0.tar.bz2",
+copyright: ["2026 X"],
+license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
+})
+    manifest = licensing.notices(bundle: "lib/lota/native.bundle", works: licensing.works,
+      companions: { "lib/lota/preload.so" => licensing.works.take(1) },
+      frameworks: { "X.framework" => "lib/lota/frameworks/X.framework" })
+
+    assert_equal [
+      {
+"name" => "Rice",
+"version" => Gem::Specification.find_by_name("rice").version.to_s,
+"license" => ["BSD-2-Clause"],
+"copyright" => ["2025 R"],
+"credit" => nil,
+"file" => "lib/lota/native.bundle",
+"separate" => false,
+"source" => nil,
+},
+      {
+"name" => "zlib",
+"version" => "1.3",
+"license" => ["Zlib"],
+"copyright" => ["1995 J"],
+"credit" => nil,
+"file" => "lib/lota/native.bundle",
+"separate" => false,
+"source" => nil,
+},
+      {
+"name" => "X",
+"version" => "1.0",
+"license" => ["LGPL-2.0-or-later"],
+"copyright" => ["2026 X"],
+"credit" => "Portions are X's.",
+"file" => "lib/lota/frameworks/X.framework",
+"separate" => true,
+"source" => {
+"file" => "sources/x-1.0.tar.bz2",
+"url" => "https://example.com/x-1.0.tar.bz2",
+"sha256" => "ab",
+"license" => ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
+},
+},
+], manifest.fetch("components")
+  end
+
+  # A work whose license is pending has none to name, so a gem that
+  # carries one has no notices to write.
+  def test_a_pending_work_has_no_notice
+    licensing = Licensing.new("record.rb")
+    licensing.work("Font", sources: ["f/**"], copyright: ["2019 F"], pending: "OFL-1.1")
+
+    error = assert_raises(Licensing::Invalid) { licensing.notices(bundle: "b", works: licensing.works, frameworks: {}) }
+    assert_equal "Font's license is pending, so the notices cannot name it", error.message
+  end
+
+  # What each platform's gem carries, as NativeGem hands it to #notices:
+  # the bundle's works and each library's path, from the real record.
+  def platform_notices(works:, frameworks:, bundle: "lib/lota/native.bundle")
+    record.notices(bundle:, works: works.map { |name| record.works.find { |work| work.name == name } },
+      frameworks:).fetch("components").to_h { |component| [component.fetch("name"), component] }
+  end
+
+  def test_the_real_records_notices_name_each_platforms_libraries_their_versions_and_freetypes_credit
+    macos = platform_notices(works: ["LÖVE", "Box2D"], frameworks: %w[
+      SDL3
+      freetype
+      harfbuzz
+      vorbis
+      ogg
+      libmodplug
+      OpenAL-Soft
+].to_h { |name| ["#{name}.framework", "lib/lota/frameworks/#{name}.framework"] })
+    linux = platform_notices(works: ["LÖVE"], bundle: "lib/lota/native.so", frameworks: %w[
+      libSDL3.so.0
+      libfreetype.so.6
+      libharfbuzz.so
+      libopenal.so.1
+      libmodplug.so.1
+      libvorbisfile.so.3
+      libvorbis.so.0
+      libogg.so.0
+      libz.so.1
+]
+      .to_h { |name| [name, "lib/lota/libraries/#{name}"] })
+    windows = platform_notices(works: ["LÖVE", "SDL (Windows)", "FreeType (Windows)", "zlib (Windows)"], bundle: "lib/lota/native.so",
+      frameworks: { "OpenAL32.dll" => "lib/lota/libraries/OpenAL32.dll" })
+    ios = platform_notices(works: ["LÖVE", "SDL (iOS)", "FreeType (iOS)", "libogg (iOS)"], bundle: "Lota", frameworks: {})
+    love = File.read(File.join(ROOT, "vendor/love/src/common/version.h"))[/LOVE_VERSION_STRING "(.+)"/, 1]
+
+    [macos, linux, windows, ios].each do |components|
+      assert_equal love, components.fetch("LÖVE").fetch("version")
+      assert_equal "3.4.10", components.fetch("SDL").fetch("version")
+      assert_includes components.fetch("FreeType").fetch("license"), "FTL"
+      assert_match(/\APortions of this software are copyright © 20\d\d The FreeType Project \(www\.freetype\.org\)\. All rights reserved\. This software is based in part of the work of the FreeType Team\.\z/,
+        components.fetch("FreeType").fetch("credit"))
+    end
+    assert_equal ["2.11.1", "2.13.3", "2.13.3", "2.11.1"], [macos, linux, windows, ios].map { |c| c.fetch("FreeType").fetch("version") }
+    assert_equal ["2021", "2024", "2024", "2021"], [macos, linux, windows, ios].map { |c| c.fetch("FreeType").fetch("credit")[/© (\d+)/, 1] }
+    assert_equal "1.3.4", macos.fetch("libogg").fetch("version")
+    assert_equal "1.3.5", linux.fetch("libogg").fetch("version")
+    assert_equal "1.3", windows.fetch("zlib").fetch("version")
+    assert_equal "2.4.0", macos.fetch("Box2D").fetch("version")
+    assert_nil macos.fetch("libmodplug").fetch("version")
+    assert_equal "0.8.8.5", linux.fetch("libmodplug").fetch("version")
+    refute windows.fetch("FreeType").fetch("separate")
+    assert linux.fetch("FreeType").fetch("separate")
+  end
+
+  # OpenAL Soft ships, with its source, on macOS, Linux, and Windows; an
+  # iOS app plays through Apple's OpenAL, so its notices name neither.
+  def test_the_real_records_notices_carry_openal_softs_source_only_where_it_ships
+    {
+      "OpenAL-Soft.framework" => "lib/lota/frameworks/OpenAL-Soft.framework",
+      "libopenal.so.1" => "lib/lota/libraries/libopenal.so.1",
+      "OpenAL32.dll" => "lib/lota/libraries/OpenAL32.dll",
+    }.each do |name, path|
+      openal = platform_notices(works: [], frameworks: { name => path }).fetch("OpenAL Soft")
+
+      assert_equal "1.24.3", openal.fetch("version")
+      assert openal.fetch("separate")
+      assert_includes openal.fetch("license"), "LGPL-2.0-or-later"
+      assert_equal({
+"file" => "sources/openal-soft-1.24.3.tar.bz2",
+"url" => "https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2",
+"sha256" => "cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892",
+"license" => record.framework_for(name).source.license,
+}, openal.fetch("source"))
+    end
+    ios = platform_notices(works: [
+      "LÖVE",
+      "SDL (iOS)",
+      "FreeType (iOS)",
+      "HarfBuzz (iOS)",
+      "libvorbis (iOS)",
+      "libogg (iOS)",
+      "libmodplug (iOS)",
+], bundle: "Lota", frameworks: {})
+
+    assert_empty ios.values.filter_map { |component| component.fetch("source") }
+    assert_empty ios.values.select { |component| component.fetch("license").any? { |license| license.include?("LGPL") } }
+  end
+
   def test_a_framework_the_record_lacks_is_unrecorded
     error = assert_raises(Licensing::Unrecorded) { Licensing.new("record.rb").framework_for("Y.framework") }
 

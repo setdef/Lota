@@ -7,6 +7,8 @@ target :lib do
   signature "sig"
   library "strscan"
   library "fileutils"
+  library "json"
+  library "tmpdir"
   library "yaml"
   check "lib"
 end

@@ -10,6 +10,10 @@
 # window, since a runner has no GPU, plays a sound, saves a file, and
 # quits with 3; the check reads that it ran fused and saved under its
 # identity alone, where LÖVE's fused game saves (ADR 003, section 8).
+# Every app's notices are checked in the archive a player unpacks: the
+# NOTICES.txt lota fuse writes, with Lota's own license statement, each
+# library the gem carries, FreeType's credit, OpenAL Soft's source
+# archive, and every path it names in the app.
 #
 # Three games are fused on every platform: test/games/fuse, with no
 # Gemfile; test/games/fuse_gems, whose Gemfile asks for a gem of pure Ruby
@@ -203,8 +207,34 @@ jobs:
           echo "--- the project lota fuse wrote"
           project="$RUNNER_TEMP/dist/fuse-project"
           for file in Gemfile Gemfile.lock fledge.yml main.rb; do echo "=== $file"; cat "$project/$file"; done
+          echo "=== NOTICES.txt"; head -c 4000 "$project/NOTICES.txt"; echo
           find "$project" -path "$project/vendor" -prune -o -type f -print
           ls -la "$RUNNER_TEMP/dist"
+
+      # The notices lota fuse wrote into the app (Lota::Notices), read from
+      # the archive a player unpacks: in the folder that holds the app's
+      # app folder, which on macOS is the bundle's Contents/Resources.
+      - name: Check the app's notices on macOS or Linux
+        if: runner.os != 'Windows'
+        run: |
+          archive=$(ls "$RUNNER_TEMP"/dist/*.tar.gz)
+          place="$RUNNER_TEMP/notices"
+          mkdir -p "$place"
+          tar -xzf "$archive" -C "$place"
+          base=$(basename "$archive" .tar.gz)
+          root="$place/$base"
+          [ "$RUNNER_OS" != macOS ] || root="$root/${base%-"$PLATFORM"}.app/Contents/Resources"
+          ruby .github/fuse_check.rb notices "$root" "$PLATFORM"
+
+      - name: Check the app's notices on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/dist" -Filter '*.zip' | Select-Object -First 1
+          $place = Join-Path $env:RUNNER_TEMP 'notices'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $place
+          ruby .github/fuse_check.rb notices (Join-Path $place $zip.BaseName) $env:PLATFORM
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run the app on macOS or Linux, with no Ruby on its PATH
         if: runner.os != 'Windows' && !inputs.game_repository

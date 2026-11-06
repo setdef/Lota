@@ -8,6 +8,8 @@
 require_relative "tree_helper"
 require_relative "../../tasks/native_gem"
 require "digest"
+require "json"
+require "lota/notices"
 require "stringio"
 require "rubygems/package"
 
@@ -179,8 +181,37 @@ class NativeGemTest < Minitest::Test
     assert_includes toml, %("GPL-3.0-or-later WITH Bison-exception-2.2")
     assert_includes toml, %("Unlicense OR MIT-0")
     assert_includes toml, %(path = "sources/openal-soft-1.24.3.tar.bz2")
+    assert_includes toml, %([[annotations]]\npath = "notices.json"\nprecedence = "override"\n)
     assert_includes toml, %("2012-2013 Boolsheet")
     assert_empty toml.lines.grep(/\A#   /)
+  end
+
+  # The gem carries the manifest lota fuse writes an app's notices from
+  # (Lota::Notices): the works the linker put in the bundle, but Lota's
+  # own, and each framework or library, OpenAL Soft's with its source
+  # archive, and Lota::Notices reads it and the gem's LICENSES whole.
+  def test_the_gem_carries_the_manifest_of_its_notices
+    manifest = JSON.parse(File.read(File.join(unpacked, "notices.json")))
+    components = manifest.fetch("components").to_h { |component| [component.fetch("name"), component] }
+    names = CARRIED.map { |name| self.class.licensing.framework_for(name).notice_name }
+
+    assert_includes spec.files, "notices.json"
+    assert_empty names - components.keys
+    %w[LÖVE Rice LodePNG Box2D PhysicsFS].each do |name|
+      assert_equal BUNDLE, components.fetch(name).fetch("file"), name
+      refute components.fetch(name).fetch("separate"), name
+    end
+    refute_includes components.keys, "Lota"
+    openal = components.fetch("OpenAL Soft")
+    assert_equal "#{DIRECTORY}/#{OPENAL}", openal.fetch("file")
+    assert openal.fetch("separate")
+    assert_equal "sources/openal-soft-1.24.3.tar.bz2", openal.fetch("source").fetch("file")
+    assert File.file?(File.join(unpacked, openal.fetch("source").fetch("file")))
+    assert_includes components.fetch("FreeType").fetch("credit"), "The FreeType Project (www.freetype.org)"
+    components.each_value { |component| assert File.exist?(File.join(unpacked, component.fetch("file"))), component.fetch("file") }
+
+    notices = Lota::Notices.read(unpacked, platform: FORMAT.platform, gem_folder: "gems/lota")
+    assert_includes notices.text, "\nOpenAL Soft 1.24.3\n"
   end
 
   # OpenAL Soft's license, the GNU Library General Public License, asks

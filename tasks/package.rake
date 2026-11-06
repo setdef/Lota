@@ -154,7 +154,7 @@ def packages
         ext/lota/phone
         ext/lota/preload
       ],
-      native_packaged: [NativeGem::REUSE_TOML, Licensing::SOURCES],
+      native_packaged: [NativeGem::REUSE_TOML, Licensing::SOURCES, Licensing::NOTICES],
       extension: "lib/lota/native",
       native: native_gem,
       refusal: "Install Lota's precompiled gem instead, which RubyGems chooses",

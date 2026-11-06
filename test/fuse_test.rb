@@ -7,7 +7,9 @@
 
 require_relative "test_helper"
 require_relative "callback_helper"
+require "json"
 require "lota/cli"
+require "rubygems/package"
 require "tmpdir"
 
 # lota fuse writes a Fledge project for a game folder and runs fledge
@@ -17,10 +19,80 @@ require "tmpdir"
 # fledge on PATH records its arguments and folder and reports a path, as
 # Fledge reports each file it writes. Everything lota fuse writes is real
 # and read back as written. The real build is CI's fuse experiment's.
+#
+# Each Lota gem here is a real gem file, with what lota fuse reads from
+# the gem it ships, the manifest of its notices and its license texts, as
+# NativeGem writes them, and a file that tells one copy from another.
 class FuseTest < Minitest::Test
   include CallbackHelper
 
   PLATFORM = "arm64-darwin"
+
+  ROOT = File.expand_path("..", __dir__)
+
+  # What the manifest of each gem here names: one work compiled into the
+  # extension and OpenAL Soft beside it, with its source.
+  COMPONENTS = [
+    {
+"name" => "LÖVE",
+"version" => "12.0",
+"license" => ["Zlib"],
+"copyright" => ["2006-2026 LOVE Development Team"],
+"credit" => nil,
+"file" => "lib/lota/native.bundle",
+"separate" => false,
+"source" => nil,
+},
+    {
+"name" => "OpenAL Soft",
+"version" => "1.24.3",
+"license" => ["LGPL-2.0-or-later"],
+"copyright" => ["2009 by Chris Robinson."],
+"credit" => nil,
+"file" => "lib/lota/frameworks/OpenAL-Soft.framework",
+"separate" => true,
+"source" => {
+"file" => "sources/openal-soft-1.24.3.tar.bz2",
+"url" => "https://openal-soft.org/x.tar.bz2",
+"sha256" => "ab",
+"license" => ["LGPL-2.0-or-later"],
+},
+},
+].freeze
+
+  # Writes a Lota gem for +platform+ at +path+, whose marker.txt holds
+  # +marker+, with no manifest if +manifest+ is false.
+  def lota_gem(path, marker, platform: PLATFORM, manifest: true)
+    Dir.mktmpdir("lota-fuse-gem") do |dir|
+      files = { "marker.txt" => marker }
+      files["notices.json"] = JSON.generate("components" => COMPONENTS) if manifest
+      %w[AGPL-3.0-or-later Zlib].each { |id| files["LICENSES/#{id}.txt"] = File.read(File.join(ROOT, "LICENSES/#{id}.txt")) }
+      files["LICENSES/LGPL-2.0-or-later.txt"] = File.read(File.join(ROOT, "ext/lota/licenses/LICENSE-LGPL-2.0-or-later.txt"))
+      files.each do |name, content|
+        FileUtils.mkdir_p(File.dirname(File.join(dir, name)))
+        File.write(File.join(dir, name), content)
+      end
+      spec = Gem::Specification.new do |gem|
+        gem.name = "lota"
+        gem.version = Lota::VERSION
+        gem.platform = Gem::Platform.new(platform)
+        gem.summary = "A Lota gem for lota fuse's tests"
+        gem.authors = ["Lota's tests"]
+        gem.files = files.keys
+      end
+      FileUtils.mkdir_p(File.dirname(path))
+      Dir.chdir(dir) { Gem::Package.build(spec, true, false, path) }
+    end
+    path
+  end
+
+  # The marker.txt of the Lota gem at +path+.
+  def marker(path)
+    Dir.mktmpdir("lota-fuse-marker") do |dir|
+      Gem::Package.new(path).extract_files(dir, "marker.txt")
+      File.read(File.join(dir, "marker.txt"))
+    end
+  end
 
   def setup
     super
@@ -31,8 +103,7 @@ class FuseTest < Minitest::Test
     @log = File.join(@root, "log")
     FileUtils.mkdir_p([@game, @bin])
     write("main.rb", "def Lota.load(_arguments) = nil\n")
-    @gem = File.join(@root, "lota-#{Lota::VERSION}-arm64-darwin.gem")
-    File.write(@gem, "not really a gem")
+    @gem = lota_gem(File.join(@root, "lota-#{Lota::VERSION}-arm64-darwin.gem"), "not really Lota")
     fake("bundle", <<~SH)
       echo "bundle $*" >> "#{@log}"
       if [ "$1" = exec ]; then shift; exec "$@"; fi
@@ -152,10 +223,11 @@ class FuseTest < Minitest::Test
       version: 1.2.3
       icon: game/SampleGame/art/icon
     YAML
-    assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+    assert_equal "not really Lota", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
     assert_equal %W[
       Gemfile
+      NOTICES.txt
       fledge.yml
       game
       game/SampleGame
@@ -207,7 +279,7 @@ class FuseTest < Minitest::Test
   def write_bundle(lockfile = LOCKFILE)
     write("Gemfile", %(source "https://rubygems.org"\ngem "lota", "#{Lota::VERSION}"\ngem "rainbow", "~> 3.0"\ngem "fast_blank"\n))
     write("Gemfile.lock", lockfile)
-    write("vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem", "the game's own Lota")
+    lota_gem(File.join(@game, "vendor/cache/lota-#{Lota::VERSION}-arm64-darwin.gem"), "the game's own Lota")
     write("vendor/cache/lota-#{Lota::VERSION}-x86_64-linux-gnu.gem", "Lota for another platform")
     write("vendor/cache/my_gem-1.0.0.gem", "a gem only vendor/cache holds")
     write("vendor/cache/my_git_gem-abc123/my_git_gem.gemspec", "a git gem bundle cache --all keeps")
@@ -238,7 +310,7 @@ class FuseTest < Minitest::Test
     LOG
     assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem", "my_gem-1.0.0.gem", "my_git_gem-abc123"],
       Dir.children(project("vendor", "cache")).sort
-    assert_equal "the game's own Lota", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+    assert_equal "the game's own Lota", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
     assert_equal "a git gem bundle cache --all keeps", read("vendor", "cache", "my_git_gem-abc123", "my_git_gem.gemspec")
     refute_path_exists project("game", "sample", "vendor", "cache")
   end
@@ -253,7 +325,7 @@ class FuseTest < Minitest::Test
     assert_includes read("Gemfile"), %(eval_gemfile "game/sample/Gemfile"\n\ngem "lota", "#{Lota::VERSION}"\n\ngroup :development do\n)
     assert_equal ["bundle lock --add-platform arm64-darwin --add-checksums\n", "bundle install\n"], File.read(@log).lines.first(2)
     assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem"], Dir.children(project("vendor", "cache"))
-    assert_equal "not really a gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+    assert_equal "not really Lota", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
   end
 
   def test_a_gemfile_without_a_lockfile_is_refused
@@ -441,14 +513,13 @@ class FuseTest < Minitest::Test
       assert_includes error.message, "found no installed lota-#{Lota::VERSION} gem for arm64-darwin"
 
       cached = File.join(home, "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
-      FileUtils.mkdir_p(File.dirname(cached))
-      File.write(cached, "the installed gem")
+      lota_gem(cached, "the installed gem")
       File.write(File.join(home, "cache", "lota-#{Lota::VERSION}-x64-mingw-ucrt.gem"), "another platform's")
 
       assert_equal cached, Lota::Fuse.installed_gem("arm64-darwin-24")
       capture_io { fuse(gem_file: nil).call }
 
-      assert_equal "the installed gem", read("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem")
+      assert_equal "the installed gem", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
     end
   end
 
@@ -459,6 +530,45 @@ class FuseTest < Minitest::Test
     yield home
   ensure
     Gem.paths = previous if previous
+  end
+
+  # The app's notices come from the Lota gem it ships, and name where
+  # Fledge puts that gem: in the runtime's gem folder for this Ruby's ABI.
+  def test_the_project_holds_the_notices_of_the_lota_gem_it_ships
+    capture_io { fuse.call }
+
+    notices = read("NOTICES.txt")
+    gem = "lib/ruby/gems/#{RbConfig::CONFIG['ruby_version']}/gems/lota-#{Lota::VERSION}-arm64-darwin"
+    assert notices.start_with?("Notices for Lota #{Lota::VERSION} and the libraries it ships\n\n" \
+      "lota fuse wrote this file as it built this app for arm64-darwin.")
+    assert_includes notices, "Lota #{Lota::VERSION}\n  Copyright 2026 Kerrick Long <me@kerricklong.com>\n" \
+      "  License: AGPL-3.0-or-later, the GNU Affero General Public License, version 3 or any later version\n"
+    assert_includes notices, "  In this app: #{gem}\n"
+    assert_includes notices, "Compiled into Lota's extension, #{gem}/lib/lota/native.bundle:\n\nLÖVE 12.0\n"
+    assert_includes notices, "  Source: #{gem}/sources/openal-soft-1.24.3.tar.bz2\n"
+    assert_includes notices, "\n==== LGPL-2.0-or-later ====\n"
+  end
+
+  # On Windows Fledge's runtime keeps its gems in its ruby folder.
+  def test_a_windows_apps_notices_name_the_gem_in_the_runtimes_ruby_folder
+    gem = lota_gem(File.join(@root, "lota-#{Lota::VERSION}-x64-mingw-ucrt.gem"), "Windows", platform: "x64-mingw-ucrt")
+
+    capture_io { fuse(platform: "x64-mingw-ucrt", gem_file: gem).call }
+
+    assert_includes read("NOTICES.txt"), "  In this app: ruby\\lib\\ruby\\gems\\#{RbConfig::CONFIG['ruby_version']}\\gems\\" \
+      "lota-#{Lota::VERSION}-x64-mingw-ucrt\n"
+  end
+
+  # A Lota gem without the manifest gives the app no notices, so lota
+  # fuse builds nothing with it.
+  def test_a_lota_gem_without_its_notices_is_refused_before_the_build
+    lota_gem(@gem, "an older Lota", manifest: false)
+
+    error = assert_raises(Lota::Fuse::Error) { capture_io { fuse.call } }
+
+    assert_equal "lota fuse writes the app's NOTICES.txt from the Lota gem it ships, and lota-#{Lota::VERSION}-arm64-darwin.gem " \
+      "cannot give them: the gem has no notices.json. Fuse with a Lota gem that carries its notices.", error.message
+    refute_includes File.read(@log), "fledge build"
   end
 
   def test_no_git_is_refused_before_anything_is_written
