@@ -56,6 +56,8 @@ How to run it (about 20 minutes, half of it hands-off)
    things on the list, and quit it with Escape. Then the black window
    asks about each thing, one at a time:
      - type y (yes), n (no), or just press Enter to skip;
+     - where it also offers "not shown", type ns (or not shown) if
+       the thing it asks about never appeared;
      - where it asks for a number, type 1 to 5;
      - after each answer you may type a note, or press Enter for none;
      - for "Copy my result", paste it into the black window (Ctrl+V or

@@ -92,14 +92,21 @@ if ($Installed) {
 }
 if ($Held) { Check 'the input test ran' ($status['hold'] -in 'PASS', 'NO-GPU' -and $text -match 'inputs seen: ') }
 Check 'a HAND CHECKS section with every question' ($text -match '(?m)^HAND CHECKS' -and $text -match '(?m)^\[W1\] ' -and $text -match '(?m)^\[17\] ')
+Check 'check 6 asks about the Dot size choice, with not shown' ($text -match "(?m)^\[6\] After one round, if the title shows a Dot size choice, [^\r\n]*write 'not shown'\.\)\r?$")
+$at9 = $text.IndexOf("`n[9] Text and lines")
+$at18 = $text.IndexOf("`n[18] At Game Over, hold and drag a dot to pull it, then let go to throw it; a plain click still goes back to the title. (y/n)")
+$at10 = $text.IndexOf("`n[10] Overall")
+Check "check 18, the throw at Game Over, is asked after 9 and before 10 ($at9, $at18, $at10)" ($at9 -ge 0 -and $at9 -lt $at18 -and $at18 -lt $at10)
 if ($Answered) {
   Check 'the hand-play run of Dot Popper ran and quit' ($text -match 'run: dotpopper-hand' -and $text -match "(?s)run: dotpopper-hand.*?result: exited")
-  Check 'the answers fed on standard input landed in results.txt' (([regex]::Matches($text, '(?m)^  note: fed by CI')).Count -eq 21 -and -not ($text -match 'NOT ASKED'))
+  Check 'the answers fed on standard input landed in results.txt' (([regex]::Matches($text, '(?m)^  note: fed by CI')).Count -eq 22 -and -not ($text -match 'NOT ASKED'))
   Check 'the pasted result landed' ($text -match '(?m)^  pasted: Dot Popper result line one \| line two\r?$')
   Check 'the ratings landed' ($text -match '(?m)^\[10\] [^\r\n]*\r?\n  answer: 4\r?$')
+  Check "ns for check 6 was written as 'not shown'" ($text -match '(?m)^\[6\] [^\r\n]*\r?\n  answer: not shown\r?$')
+  Check 'check 18 was answered' ($text -match '(?m)^\[18\] [^\r\n]*\r?\n  answer: y\r?$')
   Check 'the controller block was asked' ($text -match '(?m)^\[16\] [^\r\n]*\r?\n  answer: y\r?$')
 } else {
-  Check 'the hand checks were not asked, and say so' ($status['hand'] -eq 'SKIP' -and $text -match '(?m)^\[1\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)')
+  Check 'the hand checks were not asked, and say so' ($status['hand'] -eq 'SKIP' -and $text -match '(?m)^\[1\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)' -and $text -match '(?m)^\[18\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)')
 }
 
 Write-Host "$failed checks failed"

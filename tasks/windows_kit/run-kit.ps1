@@ -1089,8 +1089,11 @@ if ($hold -gt 0) {
 
 # ------------------------------------------------------------ hand checks
 
-# Each check: an id, the kind of answer (yn, rating, paste), and the
-# words. Every answer goes into results.txt as it is typed.
+# Each check: an id, the kind of answer (yn; yns, which also takes 'not
+# shown' or ns; rating; paste), and the words. Ids are those of Dot
+# Popper's play session, so 18 is asked before 10, which stays last.
+# Every answer goes into results.txt as it is typed, but for ns, which is
+# written as 'not shown'.
 $HandChecks = @(
   @('W1', 'yn', "When you first double-clicked run-kit.cmd, a blue 'Windows protected your PC' box appeared. (If yes, type in the note what it said and what you clicked.)"),
   @('W2', 'yn', 'Some other warning appeared while the kit ran: an antivirus, User Account Control, or an error box. (If yes, type what it said in the note.)'),
@@ -1099,10 +1102,11 @@ $HandChecks = @(
   @('3', 'yn', 'Dragging the window to a different size in the middle of a round keeps every dot on screen.'),
   @('4', 'yn', 'With headphones, a pop on the left side of the screen sounds from the left, and one on the right from the right.'),
   @('5', 'yn', 'M, or the speaker icon on the title, mutes the sound, and it stays muted after quitting and starting again.'),
-  @('6', 'yn', "After one round, the title shows a two-option control labelled 'Dot size: Same everywhere | Fit the screen'. Choosing 'Fit the screen' makes the dots in the next round bigger on this large screen."),
+  @('6', 'yns', "After one round, if the title shows a Dot size choice, picking the second option changes the drifting dots' size, and the next round's dots match. (If no Dot size choice appears, this window is already near the standard size; write 'not shown'.)"),
   @('7', 'paste', "'Copy my result' on Game Over, then pasting into Notepad, gives a sensible two- or three-line result."),
   @('8', 'yn', "'Your records' opens a screen of bests and totals, and a click goes back."),
   @('9', 'yn', 'Text and lines look sharp, not blurry, at your display scale.'),
+  @('18', 'yn', 'At Game Over, hold and drag a dot to pull it, then let go to throw it; a plain click still goes back to the title. (y/n)'),
   @('10', 'rating', 'Overall: how does it feel? 1 (bad) to 5 (great).')
 )
 $PadChecks = @(
@@ -1130,9 +1134,11 @@ function Ask-Check($Check, [string] $Why) {
   Write-Host ("[{0}] {1}" -f $id, $Check[2])
   $prompt = '  y / n / skip (Enter skips):'
   if ($kind -eq 'rating') { $prompt = '  1 to 5 / skip (Enter skips):' }
+  if ($kind -eq 'yns') { $prompt = '  y / n / not shown (or ns) / skip (Enter skips):' }
   $answer = Read-Answer $prompt
   if ($null -eq $answer) { Out-Result '  answer: NOT ASKED (non-interactive)'; return }
   if (-not $answer.Trim()) { $answer = 'skip' }
+  if ($kind -eq 'yns' -and $answer.Trim() -match '^(ns|not\s+shown)$') { $answer = 'not shown' }
   Out-Result "  answer: $($answer.Trim())"
   if ($kind -eq 'paste') {
     Write-Host '  Paste the result here (Ctrl+V or right-click), then press Enter on an empty line:'
