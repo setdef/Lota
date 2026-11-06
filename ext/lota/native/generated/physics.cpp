@@ -10,19 +10,30 @@
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 
+#include "box2d/b2_body.h"
+#include "box2d/b2_math.h"
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "physics/box2d/Body.h"
+#include "physics/box2d/ChainShape.h"
+#include "physics/box2d/CircleShape.h"
 #include "physics/box2d/Contact.h"
 #include "physics/box2d/DistanceJoint.h"
+#include "physics/box2d/EdgeShape.h"
+#include "physics/box2d/FrictionJoint.h"
 #include "physics/box2d/GearJoint.h"
 #include "physics/box2d/Joint.h"
 #include "physics/box2d/MotorJoint.h"
 #include "physics/box2d/MouseJoint.h"
 #include "physics/box2d/Physics.h"
+#include "physics/box2d/PolygonShape.h"
+#include "physics/box2d/PrismaticJoint.h"
 #include "physics/box2d/PulleyJoint.h"
+#include "physics/box2d/RevoluteJoint.h"
 #include "physics/box2d/RopeJoint.h"
 #include "physics/box2d/Shape.h"
+#include "physics/box2d/WeldJoint.h"
+#include "physics/box2d/WheelJoint.h"
 #include "physics/box2d/World.h"
 
 #include <array>
@@ -96,6 +107,21 @@ Rice::Array w_Body_getPosition(Body &t) {
   return results;
 }
 
+// Body:getTransform: w_Body_getTransform (wrap_Body.cpp:73-84).
+Rice::Array w_Body_getTransform(Body &t) {
+  Rice::Array results;
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  float x_o{};
+  float y_o{};
+  t.getPosition(x_o, y_o);
+  results.push(static_cast<double>(x_o), false);
+  results.push(static_cast<double>(y_o), false);
+  results.push(static_cast<double>(t.getAngle()), false);
+  return results;
+}
+
 // Body:getLinearVelocity: w_Body_getLinearVelocity (wrap_Body.cpp:86-96).
 Rice::Array w_Body_getLinearVelocity(Body &t) {
   Rice::Array results;
@@ -144,6 +170,26 @@ double w_Body_getAngularVelocity(const Body &t) {
     throw love::Exception("Attempt to use destroyed body.");
   }
   return static_cast<double>(t.getAngularVelocity());
+}
+
+// Body:getKinematicState: w_Body_getKinematicState (wrap_Body.cpp:129-142).
+Rice::Array w_Body_getKinematicState(const Body &t) {
+  Rice::Array results;
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  b2Vec2 pos_o{};
+  b2Vec2 vel_o{};
+  float a_o{};
+  float da_o{};
+  t.getKinematicState(pos_o, a_o, vel_o, da_o);
+  results.push(static_cast<double>(pos_o.x), false);
+  results.push(static_cast<double>(pos_o.y), false);
+  results.push(static_cast<double>(a_o), false);
+  results.push(static_cast<double>(vel_o.x), false);
+  results.push(static_cast<double>(vel_o.y), false);
+  results.push(static_cast<double>(da_o), false);
+  return results;
 }
 
 // Body:getMass: w_Body_getMass (wrap_Body.cpp:144-149).
@@ -252,12 +298,31 @@ void w_Body_setAngle(Body &t, double arg1) {
   t.setAngle(static_cast<float>(arg1));
 }
 
+// Body:setAngularVelocity: w_Body_setAngularVelocity (wrap_Body.cpp:322-328).
+void w_Body_setAngularVelocity(Body &t, double arg1) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  t.setAngularVelocity(static_cast<float>(arg1));
+}
+
 // Body:setPosition: w_Body_setPosition (wrap_Body.cpp:330-337).
 void w_Body_setPosition(Body &t, double arg1, double arg2) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
   t.setPosition(static_cast<float>(arg1), static_cast<float>(arg2));
+}
+
+// Body:setKinematicState: w_Body_setKinematicState (wrap_Body.cpp:339-350).
+void w_Body_setKinematicState(Body &t, double x, double y, double a, double dx, double dy,
+                              double da) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  t.setKinematicState(b2Vec2(static_cast<float>(x), static_cast<float>(y)), static_cast<float>(a),
+                      b2Vec2(static_cast<float>(dx), static_cast<float>(dy)),
+                      static_cast<float>(da));
 }
 
 // Body:resetMassData: w_Body_resetMassData (wrap_Body.cpp:352-357).
@@ -283,6 +348,22 @@ void w_Body_setMass(Body &t, double m) {
     throw love::Exception("Attempt to use destroyed body.");
   }
   t.setMass(static_cast<float>(m));
+}
+
+// Body:setInertia: w_Body_setInertia (wrap_Body.cpp:378-384).
+void w_Body_setInertia(Body &t, double i) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  t.setInertia(static_cast<float>(i));
+}
+
+// Body:setAngularDamping: w_Body_setAngularDamping (wrap_Body.cpp:386-392).
+void w_Body_setAngularDamping(Body &t, double arg1) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  t.setAngularDamping(static_cast<float>(arg1));
 }
 
 // Body:setLinearDamping: w_Body_setLinearDamping (wrap_Body.cpp:394-400).
@@ -353,6 +434,50 @@ Rice::Array w_Body_getLocalPoint(Body &t, double x, double y) {
   return results;
 }
 
+// Body:getLocalVector: w_Body_getLocalVector (wrap_Body.cpp:469-481).
+Rice::Array w_Body_getLocalVector(Body &t, double x, double y) {
+  Rice::Array results;
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  float x_o{};
+  float y_o{};
+  t.getLocalVector(static_cast<float>(x), static_cast<float>(y), x_o, y_o);
+  results.push(static_cast<double>(x_o), false);
+  results.push(static_cast<double>(y_o), false);
+  return results;
+}
+
+// Body:getLinearVelocityFromWorldPoint: w_Body_getLinearVelocityFromWorldPoint
+// (wrap_Body.cpp:490-502).
+Rice::Array w_Body_getLinearVelocityFromWorldPoint(Body &t, double x, double y) {
+  Rice::Array results;
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  float x_o{};
+  float y_o{};
+  t.getLinearVelocityFromWorldPoint(static_cast<float>(x), static_cast<float>(y), x_o, y_o);
+  results.push(static_cast<double>(x_o), false);
+  results.push(static_cast<double>(y_o), false);
+  return results;
+}
+
+// Body:getLinearVelocityFromLocalPoint: w_Body_getLinearVelocityFromLocalPoint
+// (wrap_Body.cpp:504-516).
+Rice::Array w_Body_getLinearVelocityFromLocalPoint(Body &t, double x, double y) {
+  Rice::Array results;
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  float x_o{};
+  float y_o{};
+  t.getLinearVelocityFromLocalPoint(static_cast<float>(x), static_cast<float>(y), x_o, y_o);
+  results.push(static_cast<double>(x_o), false);
+  results.push(static_cast<double>(y_o), false);
+  return results;
+}
+
 // Body:isBullet: w_Body_isBullet (wrap_Body.cpp:518-523).
 bool w_Body_isBullet(const Body &t) {
   if (t.body == nullptr) {
@@ -399,6 +524,22 @@ bool w_Body_isSleepingAllowed(const Body &t) {
     throw love::Exception("Attempt to use destroyed body.");
   }
   return t.isSleepingAllowed();
+}
+
+// Body:setActive: w_Body_setActive (wrap_Body.cpp:562-568).
+void w_Body_setActive(Body &t, bool b) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  t.setEnabled(b);
+}
+
+// Body:setAwake: w_Body_setAwake (wrap_Body.cpp:570-576).
+void w_Body_setAwake(Body &t, bool b) {
+  if (t.body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  t.setAwake(b);
 }
 
 // Body:setFixedRotation: w_Body_setFixedRotation (wrap_Body.cpp:578-584).
@@ -460,6 +601,86 @@ void w_Body_destroy(Body &t) {
 
 // Body:isDestroyed: w_Body_isDestroyed (wrap_Body.cpp:661-666).
 bool w_Body_isDestroyed(const Body &b) { return b.body == nullptr; }
+
+// ChainShape:setNextVertex: w_ChainShape_setNextVertex (wrap_ChainShape.cpp:37-44).
+void w_ChainShape_setNextVertex(ChainShape &c, double x, double y) {
+  c.setNextVertex(static_cast<float>(x), static_cast<float>(y));
+}
+
+// ChainShape:setPreviousVertex: w_ChainShape_setPreviousVertex (wrap_ChainShape.cpp:46-53).
+void w_ChainShape_setPreviousVertex(ChainShape &c, double x, double y) {
+  c.setPreviousVertex(static_cast<float>(x), static_cast<float>(y));
+}
+
+// ChainShape:getChildEdge: w_ChainShape_getChildEdge (wrap_ChainShape.cpp:55-65).
+EdgeShape *w_ChainShape_getChildEdge(const ChainShape &c, int index) {
+  EdgeShape *e = nullptr;
+  e = c.getChildEdge((index - 1));
+  return e;
+}
+
+// ChainShape:getVertexCount: w_ChainShape_getVertexCount (wrap_ChainShape.cpp:67-74).
+int w_ChainShape_getVertexCount(const ChainShape &c) {
+  int count = 0;
+  count = c.getVertexCount();
+  return count;
+}
+
+// ChainShape:getPoint: w_ChainShape_getPoint (wrap_ChainShape.cpp:76-85).
+Rice::Array w_ChainShape_getPoint(const ChainShape &c, int index) {
+  Rice::Array results;
+  b2Vec2 v{};
+  v = c.getPoint((index - 1));
+  results.push(static_cast<double>(v.x), false);
+  results.push(static_cast<double>(v.y), false);
+  return results;
+}
+
+// ChainShape:getNextVertex: w_ChainShape_getNextVertex (wrap_ChainShape.cpp:87-95).
+Rice::Array w_ChainShape_getNextVertex(const ChainShape &c) {
+  Rice::Array results;
+  b2Vec2 v{};
+  v = c.getNextVertex();
+  results.push(static_cast<double>(v.x), false);
+  results.push(static_cast<double>(v.y), false);
+  return results;
+}
+
+// ChainShape:getPreviousVertex: w_ChainShape_getPreviousVertex (wrap_ChainShape.cpp:97-105).
+Rice::Array w_ChainShape_getPreviousVertex(const ChainShape &c) {
+  Rice::Array results;
+  b2Vec2 v{};
+  v = c.getPreviousVertex();
+  results.push(static_cast<double>(v.x), false);
+  results.push(static_cast<double>(v.y), false);
+  return results;
+}
+
+// CircleShape:getRadius: w_CircleShape_getRadius (wrap_CircleShape.cpp:35-42).
+double w_CircleShape_getRadius(const CircleShape &c) {
+  float r = 0;
+  r = c.getRadius();
+  return static_cast<double>(r);
+}
+
+// CircleShape:setRadius: w_CircleShape_setRadius (wrap_CircleShape.cpp:44-50).
+void w_CircleShape_setRadius(CircleShape &c, double r) { c.setRadius(static_cast<float>(r)); }
+
+// CircleShape:getPoint: w_CircleShape_getPoint (wrap_CircleShape.cpp:52-60).
+Rice::Array w_CircleShape_getPoint(const CircleShape &c) {
+  Rice::Array results;
+  float x{};
+  float y{};
+  c.getPoint(x, y);
+  results.push(static_cast<double>(x), false);
+  results.push(static_cast<double>(y), false);
+  return results;
+}
+
+// CircleShape:setPoint: w_CircleShape_setPoint (wrap_CircleShape.cpp:62-67).
+void w_CircleShape_setPoint(CircleShape &c, double x, double y) {
+  c.setPoint(static_cast<float>(x), static_cast<float>(y));
+}
 
 // Contact:getFriction: w_Contact_getFriction (wrap_Contact.cpp:51-56).
 double w_Contact_getFriction(Contact &t) {
@@ -533,6 +754,22 @@ void w_Contact_resetRestitution(Contact &t) {
   t.resetRestitution();
 }
 
+// Contact:setTangentSpeed: w_Contact_setTangentSpeed (wrap_Contact.cpp:117-123).
+void w_Contact_setTangentSpeed(Contact &t, double speed) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed contact.");
+  }
+  t.setTangentSpeed(static_cast<float>(speed));
+}
+
+// Contact:getTangentSpeed: w_Contact_getTangentSpeed (wrap_Contact.cpp:125-130).
+double w_Contact_getTangentSpeed(Contact &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed contact.");
+  }
+  return static_cast<double>(t.getTangentSpeed());
+}
+
 // Contact:getChildren: w_Contact_getChildren (wrap_Contact.cpp:132-140).
 Rice::Array w_Contact_getChildren(Contact &t) {
   Rice::Array results;
@@ -558,6 +795,150 @@ Rice::Array w_Contact_getShapes(Contact &t) {
   t.getShapes(a, b);
   results.push(a, false);
   results.push(b, false);
+  return results;
+}
+
+// Contact:isDestroyed: w_Contact_isDestroyed (wrap_Contact.cpp:160-165).
+bool w_Contact_isDestroyed(Contact &c) { return !c.isValid(); }
+
+// DistanceJoint:setLength: w_DistanceJoint_setLength (wrap_DistanceJoint.cpp:38-44).
+void w_DistanceJoint_setLength(DistanceJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLength(static_cast<float>(arg1));
+}
+
+// DistanceJoint:getLength: w_DistanceJoint_getLength (wrap_DistanceJoint.cpp:46-51).
+double w_DistanceJoint_getLength(const DistanceJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getLength());
+}
+
+// DistanceJoint:setStiffness: w_DistanceJoint_setStiffness (wrap_DistanceJoint.cpp:53-59).
+void w_DistanceJoint_setStiffness(DistanceJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setStiffness(static_cast<float>(arg1));
+}
+
+// DistanceJoint:getStiffness: w_DistanceJoint_getStiffness (wrap_DistanceJoint.cpp:61-66).
+double w_DistanceJoint_getStiffness(const DistanceJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getStiffness());
+}
+
+// DistanceJoint:setDamping: w_DistanceJoint_setDamping (wrap_DistanceJoint.cpp:68-74).
+void w_DistanceJoint_setDamping(DistanceJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setDamping(static_cast<float>(arg1));
+}
+
+// DistanceJoint:getDamping: w_DistanceJoint_getDamping (wrap_DistanceJoint.cpp:76-81).
+double w_DistanceJoint_getDamping(const DistanceJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getDamping());
+}
+
+// EdgeShape:setNextVertex: w_EdgeShape_setNextVertex (wrap_EdgeShape.cpp:35-42).
+void w_EdgeShape_setNextVertex(EdgeShape &t, double x, double y) {
+  t.setNextVertex(static_cast<float>(x), static_cast<float>(y));
+}
+
+// EdgeShape:setPreviousVertex: w_EdgeShape_setPreviousVertex (wrap_EdgeShape.cpp:44-51).
+void w_EdgeShape_setPreviousVertex(EdgeShape &t, double x, double y) {
+  t.setPreviousVertex(static_cast<float>(x), static_cast<float>(y));
+}
+
+// EdgeShape:getNextVertex: w_EdgeShape_getNextVertex (wrap_EdgeShape.cpp:53-61).
+Rice::Array w_EdgeShape_getNextVertex(const EdgeShape &t) {
+  Rice::Array results;
+  b2Vec2 v{};
+  v = t.getNextVertex();
+  results.push(static_cast<double>(v.x), false);
+  results.push(static_cast<double>(v.y), false);
+  return results;
+}
+
+// EdgeShape:getPreviousVertex: w_EdgeShape_getPreviousVertex (wrap_EdgeShape.cpp:63-71).
+Rice::Array w_EdgeShape_getPreviousVertex(const EdgeShape &t) {
+  Rice::Array results;
+  b2Vec2 v{};
+  v = t.getPreviousVertex();
+  results.push(static_cast<double>(v.x), false);
+  results.push(static_cast<double>(v.y), false);
+  return results;
+}
+
+// FrictionJoint:setMaxForce: w_FrictionJoint_setMaxForce (wrap_FrictionJoint.cpp:39-45).
+void w_FrictionJoint_setMaxForce(FrictionJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxForce(static_cast<float>(arg1));
+}
+
+// FrictionJoint:getMaxForce: w_FrictionJoint_getMaxForce (wrap_FrictionJoint.cpp:47-52).
+double w_FrictionJoint_getMaxForce(const FrictionJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxForce());
+}
+
+// FrictionJoint:setMaxTorque: w_FrictionJoint_setMaxTorque (wrap_FrictionJoint.cpp:54-60).
+void w_FrictionJoint_setMaxTorque(FrictionJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxTorque(static_cast<float>(arg1));
+}
+
+// FrictionJoint:getMaxTorque: w_FrictionJoint_getMaxTorque (wrap_FrictionJoint.cpp:62-67).
+double w_FrictionJoint_getMaxTorque(const FrictionJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxTorque());
+}
+
+// GearJoint:setRatio: w_GearJoint_setRatio (wrap_GearJoint.cpp:39-45).
+void w_GearJoint_setRatio(GearJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setRatio(static_cast<float>(arg1));
+}
+
+// GearJoint:getRatio: w_GearJoint_getRatio (wrap_GearJoint.cpp:47-52).
+double w_GearJoint_getRatio(const GearJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getRatio());
+}
+
+// GearJoint:getJoints: w_GearJoint_getJoints (wrap_GearJoint.cpp:54-68).
+Rice::Array w_GearJoint_getJoints(const GearJoint &t) {
+  Rice::Array results;
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  Joint *j1 = nullptr;
+  Joint *j2 = nullptr;
+  j1 = t.getJointA();
+  j2 = t.getJointB();
+  results.push(j1, false);
+  results.push(j2, false);
   return results;
 }
 
@@ -612,6 +993,134 @@ void w_Joint_destroy(Joint &t) {
 
 // Joint:isDestroyed: w_Joint_isDestroyed (wrap_Joint.cpp:161-166).
 bool w_Joint_isDestroyed(const Joint &t) { return !t.isValid(); }
+
+// MotorJoint:setLinearOffset: w_MotorJoint_setLinearOffset (wrap_MotorJoint.cpp:38-45).
+void w_MotorJoint_setLinearOffset(MotorJoint &t, double x, double y) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLinearOffset(static_cast<float>(x), static_cast<float>(y));
+}
+
+// MotorJoint:setAngularOffset: w_MotorJoint_setAngularOffset (wrap_MotorJoint.cpp:53-59).
+void w_MotorJoint_setAngularOffset(MotorJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setAngularOffset(static_cast<float>(arg1));
+}
+
+// MotorJoint:getAngularOffset: w_MotorJoint_getAngularOffset (wrap_MotorJoint.cpp:61-66).
+double w_MotorJoint_getAngularOffset(const MotorJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getAngularOffset());
+}
+
+// MotorJoint:setMaxForce: w_MotorJoint_setMaxForce (wrap_MotorJoint.cpp:68-74).
+void w_MotorJoint_setMaxForce(MotorJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxForce(static_cast<float>(arg1));
+}
+
+// MotorJoint:getMaxForce: w_MotorJoint_getMaxForce (wrap_MotorJoint.cpp:76-81).
+double w_MotorJoint_getMaxForce(const MotorJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxForce());
+}
+
+// MotorJoint:setMaxTorque: w_MotorJoint_setMaxTorque (wrap_MotorJoint.cpp:83-89).
+void w_MotorJoint_setMaxTorque(MotorJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxTorque(static_cast<float>(arg1));
+}
+
+// MotorJoint:getMaxTorque: w_MotorJoint_getMaxTorque (wrap_MotorJoint.cpp:91-96).
+double w_MotorJoint_getMaxTorque(const MotorJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxTorque());
+}
+
+// MotorJoint:setCorrectionFactor: w_MotorJoint_setCorrectionFactor (wrap_MotorJoint.cpp:98-104).
+void w_MotorJoint_setCorrectionFactor(MotorJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setCorrectionFactor(static_cast<float>(arg1));
+}
+
+// MotorJoint:getCorrectionFactor: w_MotorJoint_getCorrectionFactor (wrap_MotorJoint.cpp:106-111).
+double w_MotorJoint_getCorrectionFactor(const MotorJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getCorrectionFactor());
+}
+
+// MouseJoint:setTarget: w_MouseJoint_setTarget (wrap_MouseJoint.cpp:38-45).
+void w_MouseJoint_setTarget(MouseJoint &t, double x, double y) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setTarget(static_cast<float>(x), static_cast<float>(y));
+}
+
+// MouseJoint:setMaxForce: w_MouseJoint_setMaxForce (wrap_MouseJoint.cpp:54-60).
+void w_MouseJoint_setMaxForce(MouseJoint &t, double f) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxForce(static_cast<float>(f));
+}
+
+// MouseJoint:getMaxForce: w_MouseJoint_getMaxForce (wrap_MouseJoint.cpp:62-67).
+double w_MouseJoint_getMaxForce(const MouseJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxForce());
+}
+
+// MouseJoint:setStiffness: w_MouseJoint_setStiffness (wrap_MouseJoint.cpp:69-75).
+void w_MouseJoint_setStiffness(MouseJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setStiffness(static_cast<float>(arg1));
+}
+
+// MouseJoint:getStiffness: w_MouseJoint_getStiffness (wrap_MouseJoint.cpp:77-82).
+double w_MouseJoint_getStiffness(const MouseJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getStiffness());
+}
+
+// MouseJoint:setDamping: w_MouseJoint_setDamping (wrap_MouseJoint.cpp:84-90).
+void w_MouseJoint_setDamping(MouseJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setDamping(static_cast<float>(arg1));
+}
+
+// MouseJoint:getDamping: w_MouseJoint_getDamping (wrap_MouseJoint.cpp:92-97).
+double w_MouseJoint_getDamping(const MouseJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getDamping());
+}
 
 // love.physics.newWorld: w_newWorld (wrap_Physics.cpp:53-65).
 World *w_newWorld(double gx, double gy, bool sleep) {
@@ -736,6 +1245,436 @@ void w_setMeter(double arg1) { Physics::setMeter(static_cast<float>(arg1)); }
 // love.physics.getMeter: w_getMeter (wrap_Physics.cpp:790-794).
 long long w_getMeter() { return static_cast<long long>(Physics::getMeter()); }
 
+// love.physics.computeLinearStiffness: w_computeLinearStiffness (wrap_Physics.cpp:796-815).
+Rice::Array w_computeLinearStiffness(double frequency, double damping_ratio, const Body *body1,
+                                     std::optional<Body *> argument4) {
+  Rice::Array results;
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (argument4.has_value() && argument4.value()->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  b2Body *other = nullptr;
+  if (!argument4.has_value()) {
+    other = body1->getWorld()->getGroundBody();
+  } else {
+    other = required(argument4, "argument4")->body;
+  }
+  float stiffness{};
+  float damping{};
+  Physics::computeLinearStiffness(stiffness, damping, static_cast<float>(frequency),
+                                  static_cast<float>(damping_ratio), body1->body, other);
+  results.push(static_cast<double>(stiffness), false);
+  results.push(static_cast<double>(damping), false);
+  return results;
+}
+
+// love.physics.computeLinearFrequency: w_computeLinearFrequency (wrap_Physics.cpp:817-836).
+Rice::Array w_computeLinearFrequency(double stiffness, double damping, const Body *body1,
+                                     std::optional<Body *> argument4) {
+  Rice::Array results;
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (argument4.has_value() && argument4.value()->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  b2Body *other = nullptr;
+  if (!argument4.has_value()) {
+    other = body1->getWorld()->getGroundBody();
+  } else {
+    other = required(argument4, "argument4")->body;
+  }
+  float frequency{};
+  float dampingRatio{};
+  Physics::computeLinearFrequency(frequency, dampingRatio, static_cast<float>(stiffness),
+                                  static_cast<float>(damping), body1->body, other);
+  results.push(static_cast<double>(frequency), false);
+  results.push(static_cast<double>(dampingRatio), false);
+  return results;
+}
+
+// love.physics.computeAngularStiffness: w_computeAngularStiffness (wrap_Physics.cpp:838-857).
+Rice::Array w_computeAngularStiffness(double frequency, double damping_ratio, const Body *body1,
+                                      std::optional<Body *> argument4) {
+  Rice::Array results;
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (argument4.has_value() && argument4.value()->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  b2Body *other = nullptr;
+  if (!argument4.has_value()) {
+    other = body1->getWorld()->getGroundBody();
+  } else {
+    other = required(argument4, "argument4")->body;
+  }
+  float stiffness{};
+  float damping{};
+  Physics::computeAngularStiffness(stiffness, damping, static_cast<float>(frequency),
+                                   static_cast<float>(damping_ratio), body1->body, other);
+  results.push(static_cast<double>(stiffness), false);
+  results.push(static_cast<double>(damping), false);
+  return results;
+}
+
+// love.physics.computeAngularFrequency: w_computeAngularFrequency (wrap_Physics.cpp:859-878).
+Rice::Array w_computeAngularFrequency(double stiffness, double damping, const Body *body1,
+                                      std::optional<Body *> argument4) {
+  Rice::Array results;
+  if (body1->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  if (argument4.has_value() && argument4.value()->body == nullptr) {
+    throw love::Exception("Attempt to use destroyed body.");
+  }
+  b2Body *other = nullptr;
+  if (!argument4.has_value()) {
+    other = body1->getWorld()->getGroundBody();
+  } else {
+    other = required(argument4, "argument4")->body;
+  }
+  float frequency{};
+  float dampingRatio{};
+  Physics::computeAngularFrequency(frequency, dampingRatio, static_cast<float>(stiffness),
+                                   static_cast<float>(damping), body1->body, other);
+  results.push(static_cast<double>(frequency), false);
+  results.push(static_cast<double>(dampingRatio), false);
+  return results;
+}
+
+// PolygonShape:validate: w_PolygonShape_validate (wrap_PolygonShape.cpp:44-51).
+bool w_PolygonShape_validate(const PolygonShape &t) {
+  bool valid = false;
+  valid = t.validate();
+  return valid;
+}
+
+// PrismaticJoint:getJointTranslation: w_PrismaticJoint_getJointTranslation
+// (wrap_PrismaticJoint.cpp:39-44).
+double w_PrismaticJoint_getJointTranslation(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getJointTranslation());
+}
+
+// PrismaticJoint:getJointSpeed: w_PrismaticJoint_getJointSpeed (wrap_PrismaticJoint.cpp:46-51).
+double w_PrismaticJoint_getJointSpeed(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getJointSpeed());
+}
+
+// PrismaticJoint:setMotorEnabled: w_PrismaticJoint_setMotorEnabled (wrap_PrismaticJoint.cpp:53-59).
+void w_PrismaticJoint_setMotorEnabled(PrismaticJoint &t, bool arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMotorEnabled(arg1);
+}
+
+// PrismaticJoint:isMotorEnabled: w_PrismaticJoint_isMotorEnabled (wrap_PrismaticJoint.cpp:61-66).
+bool w_PrismaticJoint_isMotorEnabled(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return t.isMotorEnabled();
+}
+
+// PrismaticJoint:setMaxMotorForce: w_PrismaticJoint_setMaxMotorForce
+// (wrap_PrismaticJoint.cpp:68-74).
+void w_PrismaticJoint_setMaxMotorForce(PrismaticJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxMotorForce(static_cast<float>(arg1));
+}
+
+// PrismaticJoint:setMotorSpeed: w_PrismaticJoint_setMotorSpeed (wrap_PrismaticJoint.cpp:76-82).
+void w_PrismaticJoint_setMotorSpeed(PrismaticJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMotorSpeed(static_cast<float>(arg1));
+}
+
+// PrismaticJoint:getMotorSpeed: w_PrismaticJoint_getMotorSpeed (wrap_PrismaticJoint.cpp:84-89).
+double w_PrismaticJoint_getMotorSpeed(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMotorSpeed());
+}
+
+// PrismaticJoint:getMotorForce: w_PrismaticJoint_getMotorForce (wrap_PrismaticJoint.cpp:91-97).
+double w_PrismaticJoint_getMotorForce(const PrismaticJoint &t, double inv_dt) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMotorForce(static_cast<float>(inv_dt)));
+}
+
+// PrismaticJoint:getMaxMotorForce: w_PrismaticJoint_getMaxMotorForce
+// (wrap_PrismaticJoint.cpp:99-104).
+double w_PrismaticJoint_getMaxMotorForce(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxMotorForce());
+}
+
+// PrismaticJoint:setLimitsEnabled: w_PrismaticJoint_setLimitsEnabled
+// (wrap_PrismaticJoint.cpp:106-112).
+void w_PrismaticJoint_setLimitsEnabled(PrismaticJoint &t, bool arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLimitsEnabled(arg1);
+}
+
+// PrismaticJoint:areLimitsEnabled: w_PrismaticJoint_areLimitsEnabled
+// (wrap_PrismaticJoint.cpp:114-119).
+bool w_PrismaticJoint_areLimitsEnabled(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return t.areLimitsEnabled();
+}
+
+// PrismaticJoint:setUpperLimit: w_PrismaticJoint_setUpperLimit (wrap_PrismaticJoint.cpp:121-127).
+void w_PrismaticJoint_setUpperLimit(PrismaticJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setUpperLimit(static_cast<float>(arg1));
+}
+
+// PrismaticJoint:setLowerLimit: w_PrismaticJoint_setLowerLimit (wrap_PrismaticJoint.cpp:129-135).
+void w_PrismaticJoint_setLowerLimit(PrismaticJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLowerLimit(static_cast<float>(arg1));
+}
+
+// PrismaticJoint:setLimits: w_PrismaticJoint_setLimits (wrap_PrismaticJoint.cpp:137-144).
+void w_PrismaticJoint_setLimits(PrismaticJoint &t, double arg1, double arg2) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLimits(static_cast<float>(arg1), static_cast<float>(arg2));
+}
+
+// PrismaticJoint:getLowerLimit: w_PrismaticJoint_getLowerLimit (wrap_PrismaticJoint.cpp:146-151).
+double w_PrismaticJoint_getLowerLimit(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getLowerLimit());
+}
+
+// PrismaticJoint:getUpperLimit: w_PrismaticJoint_getUpperLimit (wrap_PrismaticJoint.cpp:153-158).
+double w_PrismaticJoint_getUpperLimit(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getUpperLimit());
+}
+
+// PrismaticJoint:getReferenceAngle: w_PrismaticJoint_getReferenceAngle
+// (wrap_PrismaticJoint.cpp:174-179).
+double w_PrismaticJoint_getReferenceAngle(const PrismaticJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getReferenceAngle());
+}
+
+// PulleyJoint:getLengthA: w_PulleyJoint_getLengthA (wrap_PulleyJoint.cpp:45-50).
+double w_PulleyJoint_getLengthA(const PulleyJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getLengthA());
+}
+
+// PulleyJoint:getLengthB: w_PulleyJoint_getLengthB (wrap_PulleyJoint.cpp:52-57).
+double w_PulleyJoint_getLengthB(const PulleyJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getLengthB());
+}
+
+// PulleyJoint:getRatio: w_PulleyJoint_getRatio (wrap_PulleyJoint.cpp:59-64).
+double w_PulleyJoint_getRatio(const PulleyJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getRatio());
+}
+
+// RevoluteJoint:getJointAngle: w_RevoluteJoint_getJointAngle (wrap_RevoluteJoint.cpp:39-44).
+double w_RevoluteJoint_getJointAngle(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getJointAngle());
+}
+
+// RevoluteJoint:getJointSpeed: w_RevoluteJoint_getJointSpeed (wrap_RevoluteJoint.cpp:46-51).
+double w_RevoluteJoint_getJointSpeed(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getJointSpeed());
+}
+
+// RevoluteJoint:setMotorEnabled: w_RevoluteJoint_setMotorEnabled (wrap_RevoluteJoint.cpp:53-59).
+void w_RevoluteJoint_setMotorEnabled(RevoluteJoint &t, bool arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMotorEnabled(arg1);
+}
+
+// RevoluteJoint:isMotorEnabled: w_RevoluteJoint_isMotorEnabled (wrap_RevoluteJoint.cpp:61-66).
+bool w_RevoluteJoint_isMotorEnabled(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return t.isMotorEnabled();
+}
+
+// RevoluteJoint:setMaxMotorTorque: w_RevoluteJoint_setMaxMotorTorque
+// (wrap_RevoluteJoint.cpp:68-74).
+void w_RevoluteJoint_setMaxMotorTorque(RevoluteJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxMotorTorque(static_cast<float>(arg1));
+}
+
+// RevoluteJoint:setMotorSpeed: w_RevoluteJoint_setMotorSpeed (wrap_RevoluteJoint.cpp:76-82).
+void w_RevoluteJoint_setMotorSpeed(RevoluteJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMotorSpeed(static_cast<float>(arg1));
+}
+
+// RevoluteJoint:getMotorSpeed: w_RevoluteJoint_getMotorSpeed (wrap_RevoluteJoint.cpp:84-89).
+double w_RevoluteJoint_getMotorSpeed(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMotorSpeed());
+}
+
+// RevoluteJoint:getMotorTorque: w_RevoluteJoint_getMotorTorque (wrap_RevoluteJoint.cpp:91-97).
+double w_RevoluteJoint_getMotorTorque(const RevoluteJoint &t, double dt) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMotorTorque(static_cast<float>(dt)));
+}
+
+// RevoluteJoint:getMaxMotorTorque: w_RevoluteJoint_getMaxMotorTorque
+// (wrap_RevoluteJoint.cpp:99-104).
+double w_RevoluteJoint_getMaxMotorTorque(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxMotorTorque());
+}
+
+// RevoluteJoint:setLimitsEnabled: w_RevoluteJoint_setLimitsEnabled
+// (wrap_RevoluteJoint.cpp:106-112).
+void w_RevoluteJoint_setLimitsEnabled(RevoluteJoint &t, bool arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLimitsEnabled(arg1);
+}
+
+// RevoluteJoint:areLimitsEnabled: w_RevoluteJoint_areLimitsEnabled
+// (wrap_RevoluteJoint.cpp:114-119).
+bool w_RevoluteJoint_areLimitsEnabled(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return t.areLimitsEnabled();
+}
+
+// RevoluteJoint:setUpperLimit: w_RevoluteJoint_setUpperLimit (wrap_RevoluteJoint.cpp:121-127).
+void w_RevoluteJoint_setUpperLimit(RevoluteJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setUpperLimit(static_cast<float>(arg1));
+}
+
+// RevoluteJoint:setLowerLimit: w_RevoluteJoint_setLowerLimit (wrap_RevoluteJoint.cpp:129-135).
+void w_RevoluteJoint_setLowerLimit(RevoluteJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLowerLimit(static_cast<float>(arg1));
+}
+
+// RevoluteJoint:setLimits: w_RevoluteJoint_setLimits (wrap_RevoluteJoint.cpp:137-144).
+void w_RevoluteJoint_setLimits(RevoluteJoint &t, double arg1, double arg2) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setLimits(static_cast<float>(arg1), static_cast<float>(arg2));
+}
+
+// RevoluteJoint:getLowerLimit: w_RevoluteJoint_getLowerLimit (wrap_RevoluteJoint.cpp:146-151).
+double w_RevoluteJoint_getLowerLimit(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getLowerLimit());
+}
+
+// RevoluteJoint:getUpperLimit: w_RevoluteJoint_getUpperLimit (wrap_RevoluteJoint.cpp:153-158).
+double w_RevoluteJoint_getUpperLimit(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getUpperLimit());
+}
+
+// RevoluteJoint:getReferenceAngle: w_RevoluteJoint_getReferenceAngle
+// (wrap_RevoluteJoint.cpp:167-172).
+double w_RevoluteJoint_getReferenceAngle(const RevoluteJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getReferenceAngle());
+}
+
+// RopeJoint:getMaxLength: w_RopeJoint_getMaxLength (wrap_RopeJoint.cpp:38-43).
+double w_RopeJoint_getMaxLength(const RopeJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxLength());
+}
+
+// RopeJoint:setMaxLength: w_RopeJoint_setMaxLength (wrap_RopeJoint.cpp:45-51).
+void w_RopeJoint_setMaxLength(RopeJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxLength(static_cast<float>(arg1));
+}
+
 // Shape:getType: w_Shape_getType (wrap_Shape.cpp:65-72).
 std::string w_Shape_getType(const Shape &t) {
   const char *type = "";
@@ -821,6 +1760,15 @@ bool w_Shape_testPoint(const Shape &t, double x, double y, std::optional<double>
   return result;
 }
 
+// Shape:setFilterData: w_Shape_setFilterData (wrap_Shape.cpp:226-235).
+void w_Shape_setFilterData(Shape &t, int argument1, int argument2, int argument3) {
+  std::array<int, 3> v{};
+  v.at(0) = argument1;
+  v.at(1) = argument2;
+  v.at(2) = argument3;
+  t.setFilterData(v.data());
+}
+
 // Shape:getFilterData: w_Shape_getFilterData (wrap_Shape.cpp:237-246).
 Rice::Array w_Shape_getFilterData(Shape &t) {
   Rice::Array results;
@@ -847,6 +1795,150 @@ void w_Shape_destroy(Shape &t) { t.destroy(); }
 
 // Shape:isDestroyed: w_Shape_isDestroyed (wrap_Shape.cpp:344-349).
 bool w_Shape_isDestroyed(const Shape &f) { return !f.isValid(); }
+
+// WeldJoint:setStiffness: w_WeldJoint_setStiffness (wrap_WeldJoint.cpp:38-44).
+void w_WeldJoint_setStiffness(WeldJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setStiffness(static_cast<float>(arg1));
+}
+
+// WeldJoint:getStiffness: w_WeldJoint_getStiffness (wrap_WeldJoint.cpp:46-51).
+double w_WeldJoint_getStiffness(const WeldJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getStiffness());
+}
+
+// WeldJoint:setDamping: w_WeldJoint_setDamping (wrap_WeldJoint.cpp:53-59).
+void w_WeldJoint_setDamping(WeldJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setDamping(static_cast<float>(arg1));
+}
+
+// WeldJoint:getDamping: w_WeldJoint_getDamping (wrap_WeldJoint.cpp:61-66).
+double w_WeldJoint_getDamping(const WeldJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getDamping());
+}
+
+// WeldJoint:getReferenceAngle: w_WeldJoint_getReferenceAngle (wrap_WeldJoint.cpp:68-73).
+double w_WeldJoint_getReferenceAngle(const WeldJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getReferenceAngle());
+}
+
+// WheelJoint:getJointTranslation: w_WheelJoint_getJointTranslation (wrap_WheelJoint.cpp:38-43).
+double w_WheelJoint_getJointTranslation(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getJointTranslation());
+}
+
+// WheelJoint:getJointSpeed: w_WheelJoint_getJointSpeed (wrap_WheelJoint.cpp:45-50).
+double w_WheelJoint_getJointSpeed(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getJointSpeed());
+}
+
+// WheelJoint:setMotorEnabled: w_WheelJoint_setMotorEnabled (wrap_WheelJoint.cpp:52-58).
+void w_WheelJoint_setMotorEnabled(WheelJoint &t, bool arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMotorEnabled(arg1);
+}
+
+// WheelJoint:isMotorEnabled: w_WheelJoint_isMotorEnabled (wrap_WheelJoint.cpp:60-65).
+bool w_WheelJoint_isMotorEnabled(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return t.isMotorEnabled();
+}
+
+// WheelJoint:setMotorSpeed: w_WheelJoint_setMotorSpeed (wrap_WheelJoint.cpp:67-73).
+void w_WheelJoint_setMotorSpeed(WheelJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMotorSpeed(static_cast<float>(arg1));
+}
+
+// WheelJoint:getMotorSpeed: w_WheelJoint_getMotorSpeed (wrap_WheelJoint.cpp:75-80).
+double w_WheelJoint_getMotorSpeed(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMotorSpeed());
+}
+
+// WheelJoint:setMaxMotorTorque: w_WheelJoint_setMaxMotorTorque (wrap_WheelJoint.cpp:82-88).
+void w_WheelJoint_setMaxMotorTorque(WheelJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setMaxMotorTorque(static_cast<float>(arg1));
+}
+
+// WheelJoint:getMaxMotorTorque: w_WheelJoint_getMaxMotorTorque (wrap_WheelJoint.cpp:90-95).
+double w_WheelJoint_getMaxMotorTorque(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMaxMotorTorque());
+}
+
+// WheelJoint:getMotorTorque: w_WheelJoint_getMotorTorque (wrap_WheelJoint.cpp:97-103).
+double w_WheelJoint_getMotorTorque(const WheelJoint &t, double dt) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getMotorTorque(static_cast<float>(dt)));
+}
+
+// WheelJoint:setSpringStiffness: w_WheelJoint_setStiffness (wrap_WheelJoint.cpp:105-111).
+void w_WheelJoint_setStiffness(WheelJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setStiffness(static_cast<float>(arg1));
+}
+
+// WheelJoint:getSpringStiffness: w_WheelJoint_getStiffness (wrap_WheelJoint.cpp:113-118).
+double w_WheelJoint_getStiffness(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getStiffness());
+}
+
+// WheelJoint:setSpringDamping: w_WheelJoint_setDamping (wrap_WheelJoint.cpp:120-126).
+void w_WheelJoint_setDamping(WheelJoint &t, double arg1) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  t.setDamping(static_cast<float>(arg1));
+}
+
+// WheelJoint:getSpringDamping: w_WheelJoint_getDamping (wrap_WheelJoint.cpp:128-133).
+double w_WheelJoint_getDamping(const WheelJoint &t) {
+  if (!t.isValid()) {
+    throw love::Exception("Attempt to use destroyed joint.");
+  }
+  return static_cast<double>(t.getDamping());
+}
 
 // World:setGravity: w_World_setGravity (wrap_World.cpp:86-93).
 void w_World_setGravity(World &t, double arg1, double arg2) {
@@ -960,7 +2052,21 @@ void define_generated_physics(const Rice::Module &native) {
                                  Rice::Arg("x2"), Rice::Arg("y2"), Rice::Arg("max_length"),
                                  Rice::Arg("collide_connected") = false,
                                  Rice::Return().takeOwnership())
-      .define_singleton_function("meter", &w_getMeter);
+      .define_singleton_function("meter", &w_getMeter)
+      .define_singleton_function("compute_linear_stiffness", &w_computeLinearStiffness,
+                                 Rice::Arg("frequency"), Rice::Arg("damping_ratio"),
+                                 Rice::Arg("body1"),
+                                 Rice::Arg("argument4") = std::optional<Body *>())
+      .define_singleton_function("compute_linear_frequency", &w_computeLinearFrequency,
+                                 Rice::Arg("stiffness"), Rice::Arg("damping"), Rice::Arg("body1"),
+                                 Rice::Arg("argument4") = std::optional<Body *>())
+      .define_singleton_function("compute_angular_stiffness", &w_computeAngularStiffness,
+                                 Rice::Arg("frequency"), Rice::Arg("damping_ratio"),
+                                 Rice::Arg("body1"),
+                                 Rice::Arg("argument4") = std::optional<Body *>())
+      .define_singleton_function("compute_angular_frequency", &w_computeAngularFrequency,
+                                 Rice::Arg("stiffness"), Rice::Arg("damping"), Rice::Arg("body1"),
+                                 Rice::Arg("argument4") = std::optional<Body *>());
   Rice::define_class_under<Body>(native, "Body")
       .define_method("x", &w_Body_getX)
       .define_method("y", &w_Body_getY)
@@ -1009,7 +2115,37 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("destroyed?", &w_Body_isDestroyed)
       .define_method("destroy", &w_Body_destroy)
       .define_method("world", &w_Body_getWorld)
-      .define_method("shape", &w_Body_getShape);
+      .define_method("shape", &w_Body_getShape)
+      .define_method("transform", &w_Body_getTransform)
+      .define_method("kinematic_state", &w_Body_getKinematicState)
+      .define_method("set_kinematic_state", &w_Body_setKinematicState, Rice::Arg("x"),
+                     Rice::Arg("y"), Rice::Arg("a"), Rice::Arg("dx"), Rice::Arg("dy"),
+                     Rice::Arg("da"))
+      .define_method("set_angular_velocity", &w_Body_setAngularVelocity, Rice::Arg("arg1"))
+      .define_method("set_inertia", &w_Body_setInertia, Rice::Arg("i"))
+      .define_method("set_angular_damping", &w_Body_setAngularDamping, Rice::Arg("arg1"))
+      .define_method("local_vector", &w_Body_getLocalVector, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("linear_velocity_from_world_point", &w_Body_getLinearVelocityFromWorldPoint,
+                     Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("linear_velocity_from_local_point", &w_Body_getLinearVelocityFromLocalPoint,
+                     Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("set_active", &w_Body_setActive, Rice::Arg("b"))
+      .define_method("set_awake", &w_Body_setAwake, Rice::Arg("b"));
+  Rice::define_class_under<ChainShape>(native, "ChainShape")
+      .define_method("set_next_vertex", &w_ChainShape_setNextVertex, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("set_previous_vertex", &w_ChainShape_setPreviousVertex, Rice::Arg("x"),
+                     Rice::Arg("y"))
+      .define_method("next_vertex", &w_ChainShape_getNextVertex)
+      .define_method("previous_vertex", &w_ChainShape_getPreviousVertex)
+      .define_method("child_edge", &w_ChainShape_getChildEdge, Rice::Arg("index"),
+                     Rice::Return().takeOwnership())
+      .define_method("vertex_count", &w_ChainShape_getVertexCount)
+      .define_method("point", &w_ChainShape_getPoint, Rice::Arg("index"));
+  Rice::define_class_under<CircleShape>(native, "CircleShape")
+      .define_method("radius", &w_CircleShape_getRadius)
+      .define_method("set_radius", &w_CircleShape_setRadius, Rice::Arg("r"))
+      .define_method("point", &w_CircleShape_getPoint)
+      .define_method("set_point", &w_CircleShape_setPoint, Rice::Arg("x"), Rice::Arg("y"));
   Rice::define_class_under<Contact>(native, "Contact")
       .define_method("children", &w_Contact_getChildren)
       .define_method("touching?", &w_Contact_isTouching)
@@ -1021,7 +2157,32 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("restitution", &w_Contact_getRestitution)
       .define_method("set_restitution", &w_Contact_setRestitution, Rice::Arg("r"))
       .define_method("reset_restitution", &w_Contact_resetRestitution)
-      .define_method("shapes", &w_Contact_getShapes);
+      .define_method("shapes", &w_Contact_getShapes)
+      .define_method("set_tangent_speed", &w_Contact_setTangentSpeed, Rice::Arg("speed"))
+      .define_method("tangent_speed", &w_Contact_getTangentSpeed)
+      .define_method("destroyed?", &w_Contact_isDestroyed);
+  Rice::define_class_under<DistanceJoint>(native, "DistanceJoint")
+      .define_method("set_length", &w_DistanceJoint_setLength, Rice::Arg("arg1"))
+      .define_method("length", &w_DistanceJoint_getLength)
+      .define_method("set_stiffness", &w_DistanceJoint_setStiffness, Rice::Arg("arg1"))
+      .define_method("stiffness", &w_DistanceJoint_getStiffness)
+      .define_method("set_damping", &w_DistanceJoint_setDamping, Rice::Arg("arg1"))
+      .define_method("damping", &w_DistanceJoint_getDamping);
+  Rice::define_class_under<EdgeShape>(native, "EdgeShape")
+      .define_method("set_next_vertex", &w_EdgeShape_setNextVertex, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("set_previous_vertex", &w_EdgeShape_setPreviousVertex, Rice::Arg("x"),
+                     Rice::Arg("y"))
+      .define_method("next_vertex", &w_EdgeShape_getNextVertex)
+      .define_method("previous_vertex", &w_EdgeShape_getPreviousVertex);
+  Rice::define_class_under<FrictionJoint>(native, "FrictionJoint")
+      .define_method("set_max_force", &w_FrictionJoint_setMaxForce, Rice::Arg("arg1"))
+      .define_method("max_force", &w_FrictionJoint_getMaxForce)
+      .define_method("set_max_torque", &w_FrictionJoint_setMaxTorque, Rice::Arg("arg1"))
+      .define_method("max_torque", &w_FrictionJoint_getMaxTorque);
+  Rice::define_class_under<GearJoint>(native, "GearJoint")
+      .define_method("set_ratio", &w_GearJoint_setRatio, Rice::Arg("arg1"))
+      .define_method("ratio", &w_GearJoint_getRatio)
+      .define_method("joints", &w_GearJoint_getJoints);
   Rice::define_class_under<Joint>(native, "Joint")
       .define_method("get_type", &w_Joint_getType)
       .define_method("destroyed?", &w_Joint_isDestroyed)
@@ -1029,6 +2190,71 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("collide_connected", &w_Joint_getCollideConnected)
       .define_method("destroy", &w_Joint_destroy)
       .define_method("bodies", &w_Joint_getBodies);
+  Rice::define_class_under<MotorJoint>(native, "MotorJoint")
+      .define_method("set_linear_offset", &w_MotorJoint_setLinearOffset, Rice::Arg("x"),
+                     Rice::Arg("y"))
+      .define_method("set_angular_offset", &w_MotorJoint_setAngularOffset, Rice::Arg("arg1"))
+      .define_method("angular_offset", &w_MotorJoint_getAngularOffset)
+      .define_method("set_max_force", &w_MotorJoint_setMaxForce, Rice::Arg("arg1"))
+      .define_method("max_force", &w_MotorJoint_getMaxForce)
+      .define_method("set_max_torque", &w_MotorJoint_setMaxTorque, Rice::Arg("arg1"))
+      .define_method("max_torque", &w_MotorJoint_getMaxTorque)
+      .define_method("set_correction_factor", &w_MotorJoint_setCorrectionFactor, Rice::Arg("arg1"))
+      .define_method("correction_factor", &w_MotorJoint_getCorrectionFactor);
+  Rice::define_class_under<MouseJoint>(native, "MouseJoint")
+      .define_method("set_target", &w_MouseJoint_setTarget, Rice::Arg("x"), Rice::Arg("y"))
+      .define_method("set_max_force", &w_MouseJoint_setMaxForce, Rice::Arg("f"))
+      .define_method("max_force", &w_MouseJoint_getMaxForce)
+      .define_method("set_stiffness", &w_MouseJoint_setStiffness, Rice::Arg("arg1"))
+      .define_method("stiffness", &w_MouseJoint_getStiffness)
+      .define_method("set_damping", &w_MouseJoint_setDamping, Rice::Arg("arg1"))
+      .define_method("damping", &w_MouseJoint_getDamping);
+  Rice::define_class_under<PolygonShape>(native, "PolygonShape")
+      .define_method("validate", &w_PolygonShape_validate);
+  Rice::define_class_under<PrismaticJoint>(native, "PrismaticJoint")
+      .define_method("joint_translation", &w_PrismaticJoint_getJointTranslation)
+      .define_method("joint_speed", &w_PrismaticJoint_getJointSpeed)
+      .define_method("set_motor_enabled", &w_PrismaticJoint_setMotorEnabled, Rice::Arg("arg1"))
+      .define_method("motor_enabled?", &w_PrismaticJoint_isMotorEnabled)
+      .define_method("set_max_motor_force", &w_PrismaticJoint_setMaxMotorForce, Rice::Arg("arg1"))
+      .define_method("set_motor_speed", &w_PrismaticJoint_setMotorSpeed, Rice::Arg("arg1"))
+      .define_method("motor_speed", &w_PrismaticJoint_getMotorSpeed)
+      .define_method("motor_force", &w_PrismaticJoint_getMotorForce, Rice::Arg("inv_dt"))
+      .define_method("max_motor_force", &w_PrismaticJoint_getMaxMotorForce)
+      .define_method("set_limits_enabled", &w_PrismaticJoint_setLimitsEnabled, Rice::Arg("arg1"))
+      .define_method("limits_enabled?", &w_PrismaticJoint_areLimitsEnabled)
+      .define_method("set_upper_limit", &w_PrismaticJoint_setUpperLimit, Rice::Arg("arg1"))
+      .define_method("set_lower_limit", &w_PrismaticJoint_setLowerLimit, Rice::Arg("arg1"))
+      .define_method("set_limits", &w_PrismaticJoint_setLimits, Rice::Arg("arg1"),
+                     Rice::Arg("arg2"))
+      .define_method("lower_limit", &w_PrismaticJoint_getLowerLimit)
+      .define_method("upper_limit", &w_PrismaticJoint_getUpperLimit)
+      .define_method("reference_angle", &w_PrismaticJoint_getReferenceAngle);
+  Rice::define_class_under<PulleyJoint>(native, "PulleyJoint")
+      .define_method("length_a", &w_PulleyJoint_getLengthA)
+      .define_method("length_b", &w_PulleyJoint_getLengthB)
+      .define_method("ratio", &w_PulleyJoint_getRatio);
+  Rice::define_class_under<RevoluteJoint>(native, "RevoluteJoint")
+      .define_method("joint_angle", &w_RevoluteJoint_getJointAngle)
+      .define_method("joint_speed", &w_RevoluteJoint_getJointSpeed)
+      .define_method("set_motor_enabled", &w_RevoluteJoint_setMotorEnabled, Rice::Arg("arg1"))
+      .define_method("motor_enabled?", &w_RevoluteJoint_isMotorEnabled)
+      .define_method("set_max_motor_torque", &w_RevoluteJoint_setMaxMotorTorque, Rice::Arg("arg1"))
+      .define_method("set_motor_speed", &w_RevoluteJoint_setMotorSpeed, Rice::Arg("arg1"))
+      .define_method("motor_speed", &w_RevoluteJoint_getMotorSpeed)
+      .define_method("motor_torque", &w_RevoluteJoint_getMotorTorque, Rice::Arg("dt"))
+      .define_method("max_motor_torque", &w_RevoluteJoint_getMaxMotorTorque)
+      .define_method("set_limits_enabled", &w_RevoluteJoint_setLimitsEnabled, Rice::Arg("arg1"))
+      .define_method("limits_enabled?", &w_RevoluteJoint_areLimitsEnabled)
+      .define_method("set_upper_limit", &w_RevoluteJoint_setUpperLimit, Rice::Arg("arg1"))
+      .define_method("set_lower_limit", &w_RevoluteJoint_setLowerLimit, Rice::Arg("arg1"))
+      .define_method("set_limits", &w_RevoluteJoint_setLimits, Rice::Arg("arg1"), Rice::Arg("arg2"))
+      .define_method("lower_limit", &w_RevoluteJoint_getLowerLimit)
+      .define_method("upper_limit", &w_RevoluteJoint_getUpperLimit)
+      .define_method("reference_angle", &w_RevoluteJoint_getReferenceAngle);
+  Rice::define_class_under<RopeJoint>(native, "RopeJoint")
+      .define_method("max_length", &w_RopeJoint_getMaxLength)
+      .define_method("set_max_length", &w_RopeJoint_setMaxLength, Rice::Arg("arg1"));
   Rice::define_class_under<Shape>(native, "Shape")
       .define_method("get_type", &w_Shape_getType)
       .define_method("child_count", &w_Shape_getChildCount)
@@ -1050,7 +2276,33 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("set_group_index", &w_Shape_setGroupIndex, Rice::Arg("i"))
       .define_method("destroy", &w_Shape_destroy)
       .define_method("body", &w_Shape_getBody)
-      .define_method("filter_data", &w_Shape_getFilterData);
+      .define_method("filter_data", &w_Shape_getFilterData)
+      .define_method("set_filter_data", &w_Shape_setFilterData, Rice::Arg("argument1"),
+                     Rice::Arg("argument2"), Rice::Arg("argument3"));
+  Rice::define_class_under<WeldJoint>(native, "WeldJoint")
+      .define_method("set_stiffness", &w_WeldJoint_setStiffness, Rice::Arg("arg1"))
+      .define_method("stiffness", &w_WeldJoint_getStiffness)
+      .define_method("set_damping", &w_WeldJoint_setDamping, Rice::Arg("arg1"))
+      .define_method("damping", &w_WeldJoint_getDamping)
+      .define_method("reference_angle", &w_WeldJoint_getReferenceAngle);
+  Rice::define_class_under<WheelJoint>(native, "WheelJoint")
+      .define_method("joint_translation", &w_WheelJoint_getJointTranslation)
+      .define_method("joint_speed", &w_WheelJoint_getJointSpeed)
+      .define_method("set_motor_enabled", &w_WheelJoint_setMotorEnabled, Rice::Arg("arg1"))
+      .define_method("motor_enabled?", &w_WheelJoint_isMotorEnabled)
+      .define_method("set_motor_speed", &w_WheelJoint_setMotorSpeed, Rice::Arg("arg1"))
+      .define_method("motor_speed", &w_WheelJoint_getMotorSpeed)
+      .define_method("set_max_motor_torque", &w_WheelJoint_setMaxMotorTorque, Rice::Arg("arg1"))
+      .define_method("max_motor_torque", &w_WheelJoint_getMaxMotorTorque)
+      .define_method("motor_torque", &w_WheelJoint_getMotorTorque, Rice::Arg("dt"))
+      .define_method("set_spring_stiffness", &w_WheelJoint_setStiffness, Rice::Arg("arg1"))
+      .define_method("spring_stiffness", &w_WheelJoint_getStiffness)
+      .define_method("set_spring_damping", &w_WheelJoint_setDamping, Rice::Arg("arg1"))
+      .define_method("spring_damping", &w_WheelJoint_getDamping)
+      .define_method("set_stiffness", &w_WheelJoint_setStiffness, Rice::Arg("arg1"))
+      .define_method("stiffness", &w_WheelJoint_getStiffness)
+      .define_method("set_damping", &w_WheelJoint_setDamping, Rice::Arg("arg1"))
+      .define_method("damping", &w_WheelJoint_getDamping);
   Rice::define_class_under<World>(native, "World")
       .define_method("body_count", &w_World_getBodyCount)
       .define_method("translate_origin", &w_World_translateOrigin, Rice::Arg("arg1"),

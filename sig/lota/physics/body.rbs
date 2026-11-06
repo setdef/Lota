@@ -28,6 +28,14 @@ module Lota
 
       def angle=: (Float | Integer angle) -> void
 
+      def transform: () -> [Float, Float, Float]
+
+      def transform=: ([Float | Integer, Float | Integer, Float | Integer] transform) -> void
+
+      def kinematic_state: () -> [Float, Float, Float, Float, Float, Float]
+
+      def kinematic_state=: ([Float | Integer, Float | Integer, Float | Integer, Float | Integer, Float | Integer, Float | Integer] state) -> void
+
       def get_type: () -> Symbol
 
       def set_type: (Symbol | String type) -> void
@@ -35,6 +43,10 @@ module Lota
       def active?: () -> bool
 
       def awake?: () -> bool
+
+      def active=: (bool active) -> void
+
+      def awake=: (bool awake) -> void
 
       def bullet?: () -> bool
 
@@ -56,6 +68,8 @@ module Lota
 
       def shapes: () -> Array[Shape?]
 
+      def fixtures: () -> Array[Shape?]
+
       def joints: () -> Array[Joint?]
 
       def contacts: () -> Array[Contact]
@@ -74,11 +88,19 @@ module Lota
 
       def world_vector: (Float | Integer x, Float | Integer y) -> Array[Float]
 
+      def local_vector: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def linear_velocity_from_world_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
+      def linear_velocity_from_local_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
+
       def mass: () -> Float
 
       def mass=: (Float | Integer mass) -> void
 
       def inertia: () -> Float
+
+      def inertia=: (Float | Integer inertia) -> void
 
       def mass_data: () -> Array[Float]
 
@@ -90,7 +112,11 @@ module Lota
 
       def angular_damping: () -> Float
 
+      def angular_damping=: (Float | Integer damping) -> void
+
       def angular_velocity: () -> Float
+
+      def angular_velocity=: (Float | Integer velocity) -> void
 
       def gravity_scale: () -> Float
 

@@ -546,6 +546,93 @@ class GeneratorTest < Minitest::Test
     assert_includes port("Quad:getLayer").definition, "int w_Quad_getLayer(const Quad &quad) {\nreturn quad.getLayer() + 1;"
   end
 
+  # w_Body_getKinematicState pushes the fields of two b2Vec2s, a struct
+  # Box2D declares with its export macro (struct B2_API b2Vec2,
+  # b2_math.h:42), whose floats the port reads as LÖVE's own classes'.
+  def test_a_field_of_a_struct_declared_with_an_export_macro_has_its_type
+    code = port("Body:getKinematicState").definition
+
+    assert_includes code, "results.push(static_cast<double>(pos_o.x), false);"
+    assert_includes code, "results.push(static_cast<double>(da_o), false);"
+    assert_match(/-> \[Float, Float, Float, Float, Float, Float\]\z/, port("Body:getKinematicState").rbs)
+  end
+
+  # w_computeLinearStiffness reads its second Body only when one is given
+  # (wrap_Physics.cpp:805-808), so luax_checkbody's check of it is made
+  # only then, and never reaches into an empty optional.
+  def test_an_object_read_only_when_given_is_checked_only_when_given
+    list = Bindings::BindingList.new
+    list.generate("love.physics.computeLinearStiffness")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/physics.cpp")
+
+    assert_includes code, "if (argument4.has_value() && argument4.value()->body == nullptr) {"
+    assert_includes code, "if (body1->body == nullptr) {"
+  end
+
+  # Box2D's types are named in the headers that declare them with its
+  # export macro, as clang-tidy's misc-include-cleaner asks: b2Body in
+  # b2_body.h, b2Vec2 in b2_math.h. A Body read only for its methods and
+  # its fields' values is const, as clang-tidy's misc-const-correctness
+  # asks of w_computeLinearStiffness's first.
+  def test_box2d_types_take_their_headers_and_a_body_read_only_is_const
+    list = Bindings::BindingList.new
+    list.generate("love.physics.computeLinearStiffness")
+    list.generate("Body:getKinematicState")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/physics.cpp")
+
+    assert_includes code, %(#include "box2d/b2_body.h")
+    assert_includes code, %(#include "box2d/b2_math.h")
+    assert_includes code, "double damping_ratio, const Body *body1,"
+  end
+
+  # LÖVE registers w_WheelJoint_setStiffness as both setSpringStiffness
+  # and setStiffness (wrap_WheelJoint.cpp:153-157): the file defines the
+  # C++ function once, and binds it under both names.
+  def test_a_function_two_lua_names_share_is_defined_once
+    list = Bindings::BindingList.new
+    list.generate("WheelJoint:setSpringStiffness")
+    list.generate("WheelJoint:setStiffness")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/physics.cpp")
+
+    assert_equal 1, code.scan("void w_WheelJoint_setStiffness(").size
+    assert_includes code, '.define_method("set_spring_stiffness", &w_WheelJoint_setStiffness'
+    assert_includes code, '.define_method("set_stiffness", &w_WheelJoint_setStiffness'
+  end
+
+  # luax_pushjoint pushes a Joint as the class its type names, or nil
+  # (wrap_Joint.cpp:44-76), as Rice wraps a Joint pointer, so
+  # w_GearJoint_getJoints returns its two Joints as engine objects.
+  def test_a_joint_pushed_by_luax_pushjoint_is_an_engine_object
+    port = port("GearJoint:getJoints")
+
+    assert_includes port.definition, "results.push(j1, false);"
+    assert_match(/-> \[Joint, Joint\]\z/, port.rbs)
+  end
+
+  # w_CircleShape_setPoint reads both its numbers inside the engine call,
+  # with one reader, so each takes the name of the engine's parameter its
+  # own read is passed as (CircleShape.h:75, setPoint(float x, float y)).
+  def test_reads_inside_one_engine_call_take_their_own_parameters_names
+    assert_includes port("CircleShape:setPoint").definition,
+      "void w_CircleShape_setPoint(CircleShape &c, double x, double y) {"
+  end
+
+  # luax_markdeprecated prints a notice naming the game's line that called
+  # the function, which only Ruby knows, so the port leaves the mark out
+  # and Lota's Ruby makes it: each function the list generates whose wrap
+  # function marks itself deprecated is marked by its Ruby name in lib.
+  def test_a_deprecated_function_is_marked_by_the_ruby_that_calls_its_port
+    refute_includes port("ChainShape:getChildEdge").definition, "markdeprecated"
+    lib = Dir[File.join(ROOT, "lib/**/*.rb")].map { |path| File.read(path) }.join
+    deprecated = BindingsHelper.list.generated.map { |binding| entry(binding.love_name) }.select { |found| found.analysis.deprecation }
+
+    refute_empty deprecated
+    deprecated.each do |found|
+      assert_includes lib, "Deprecation.mark(#{found.translation.ruby_name.dump}",
+        "#{found.function.love_name} marks itself deprecated, so its Ruby must mark it"
+    end
+  end
+
   # w_Shape_getFilterData fills a C array, which the port declares as a
   # std::array, as clang-tidy's modernize-avoid-c-arrays asks, passes by
   # its data(), and reads with at().

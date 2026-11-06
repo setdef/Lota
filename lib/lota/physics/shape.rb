@@ -229,6 +229,31 @@ module Lota
         @native.filter_data
       end
 
+      # Sets the category bits, the mask bits, and the group at once,
+      # matching Shape:setFilterData, whose three Integers rule 6 of ADR
+      # 001 makes one Array.
+      #
+      # === Example
+      #
+      #   shape.filter_data = 1, 65535, 0
+      def filter_data=(filter_data)
+        categories, mask, group = filter_data
+        @native.set_filter_data(categories, mask, group)
+      end
+
+      # The Shape itself, matching Fixture:getShape, which LÖVE 12 keeps on
+      # Shape now that a Shape is its own fixture, deprecated with no
+      # replacement; its first use prints LÖVE's notice, with Lota's names.
+      #
+      # === Example
+      #
+      #   shape.shape.equal?(shape) # => true
+      def shape
+        Deprecation.mark("Lota::Physics::Shape#shape", :method, :noreplacement, nil,
+          where: Deprecation.where(caller_locations(1, 1)))
+        self
+      end
+
       # Whether the point +x+, +y+ is inside the Shape, matching
       # Shape:testPoint: where its Body is, or, given an angle and a point,
       # with the Shape placed at +x+, +y+ turned by +angle+ and +px+, +py+
@@ -366,6 +391,37 @@ module Lota
         end
         from_native(native)
       end
+
+      # Sets the circle's radius, matching CircleShape:setRadius.
+      #
+      # === Example
+      #
+      #   circle.radius = 30
+      def radius=(radius)
+        @native.set_radius(radius)
+      end
+
+      # The circle's center in its Body's frame, as an Array of its x and
+      # y, matching CircleShape:getPoint.
+      #
+      # === Example
+      #
+      #   x, y = circle.point
+      def point
+        @native.point
+      end
+
+      # Moves the circle's center in its Body's frame, matching
+      # CircleShape:setPoint, whose two values rule 6 of ADR 001 makes one
+      # Array.
+      #
+      # === Example
+      #
+      #   circle.point = 5, 0
+      def point=(point)
+        x, y = point
+        @native.set_point(x, y)
+      end
     end
 
     # A convex polygon of up to eight vertices, matching LÖVE's
@@ -390,6 +446,26 @@ module Lota
       def self.new(body, *coordinates)
         from_native(Native::Physics.new_polygon_shape(body.native, coordinates.flatten))
       end
+
+      # Each vertex's x and y, in its Body's frame, as one Array, matching
+      # PolygonShape:getPoints.
+      #
+      # === Example
+      #
+      #   x1, y1, x2, y2, x3, y3 = triangle.points
+      def points
+        @native.points
+      end
+
+      # Whether the polygon is convex, as Box2D needs it to be, matching
+      # PolygonShape:validate.
+      #
+      # === Example
+      #
+      #   triangle.validate # => true
+      def validate
+        @native.validate
+      end
     end
 
     # A line segment, matching LÖVE's EdgeShape
@@ -411,6 +487,59 @@ module Lota
       #   Lota::Physics::EdgeShape.new(body, 0, 0, 10, 10)
       def self.new(body, x1, y1, x2, y2, *neighbors)
         from_native(Native::Physics.new_edge_shape(body.native, [x1, y1, x2, y2, *neighbors]))
+      end
+
+      # The edge's two points in its Body's frame, as an Array of the first
+      # one's x and y and the second's, matching EdgeShape:getPoints.
+      #
+      # === Example
+      #
+      #   x1, y1, x2, y2 = edge.points
+      def points
+        @native.points
+      end
+
+      # The vertex after the edge, which smooths collisions along a run of
+      # edges, as an Array of its x and y, matching EdgeShape:getNextVertex.
+      #
+      # === Example
+      #
+      #   x, y = edge.next_vertex
+      def next_vertex
+        @native.next_vertex
+      end
+
+      # Sets the vertex after the edge, matching EdgeShape:setNextVertex,
+      # whose two values rule 6 of ADR 001 makes one Array.
+      #
+      # === Example
+      #
+      #   edge.next_vertex = 20, 10
+      def next_vertex=(vertex)
+        x, y = vertex
+        @native.set_next_vertex(x, y)
+      end
+
+      # The vertex before the edge, as an Array of its x and y, matching
+      # EdgeShape:getPreviousVertex.
+      #
+      # === Example
+      #
+      #   x, y = edge.previous_vertex
+      def previous_vertex
+        @native.previous_vertex
+      end
+
+      # Sets the vertex before the edge, matching
+      # EdgeShape:setPreviousVertex, whose two values rule 6 of ADR 001
+      # makes one Array.
+      #
+      # === Example
+      #
+      #   edge.previous_vertex = -10, 0
+      def previous_vertex=(vertex)
+        x, y = vertex
+        @native.set_previous_vertex(x, y)
       end
     end
 
@@ -437,6 +566,95 @@ module Lota
       #   Lota::Physics::ChainShape.new(body, false, [0, 0, 10, 0, 10, 10])
       def self.new(body, loop, *coordinates)
         from_native(Native::Physics.new_chain_shape(body.native, loop, coordinates.flatten))
+      end
+
+      # Each vertex's x and y, in its Body's frame, as one Array, matching
+      # ChainShape:getPoints.
+      #
+      # === Example
+      #
+      #   chain.points # => [0.0, 0.0, 10.0, 0.0, 10.0, 10.0]
+      def points
+        @native.points
+      end
+
+      # How many vertices the chain has, as an Integer, matching
+      # ChainShape:getVertexCount.
+      #
+      # === Example
+      #
+      #   chain.vertex_count # => 3
+      def vertex_count
+        @native.vertex_count
+      end
+
+      # Vertex +index+, counting from 1, as an Array of its x and y,
+      # matching ChainShape:getPoint. Raises RuntimeError ("Physics error:
+      # index out of bounds") for an index the chain does not have.
+      #
+      # === Example
+      #
+      #   x, y = chain.point(1)
+      def point(index)
+        @native.point(index)
+      end
+
+      # Edge +index+ of the chain, counting from 1, as a new EdgeShape on no
+      # Body, matching ChainShape:getChildEdge, which LÖVE 12 deprecates with
+      # no replacement; its first use prints LÖVE's notice, with Lota's
+      # names.
+      #
+      # === Example
+      #
+      #   chain.child_edge(1).points # => [0.0, 0.0, 10.0, 0.0]
+      def child_edge(index)
+        Deprecation.mark("Lota::Physics::ChainShape#child_edge", :method, :noreplacement, nil,
+          where: Deprecation.where(caller_locations(1, 1)))
+        EdgeShape.from_native(@native.child_edge(index))
+      end
+
+      # The vertex after the chain's last, as an Array of its x and y,
+      # matching ChainShape:getNextVertex.
+      #
+      # === Example
+      #
+      #   x, y = chain.next_vertex
+      def next_vertex
+        @native.next_vertex
+      end
+
+      # Sets the vertex after the chain's last, matching
+      # ChainShape:setNextVertex, whose two values rule 6 of ADR 001 makes
+      # one Array.
+      #
+      # === Example
+      #
+      #   chain.next_vertex = 20, 10
+      def next_vertex=(vertex)
+        x, y = vertex
+        @native.set_next_vertex(x, y)
+      end
+
+      # The vertex before the chain's first, as an Array of its x and y,
+      # matching ChainShape:getPreviousVertex.
+      #
+      # === Example
+      #
+      #   x, y = chain.previous_vertex
+      def previous_vertex
+        @native.previous_vertex
+      end
+
+      # Sets the vertex before the chain's first, matching
+      # ChainShape:setPreviousVertex, whose two values rule 6 of ADR 001
+      # makes one Array.
+      #
+      # === Example
+      #
+      #   chain.previous_vertex = -10, 0
+      def previous_vertex=(vertex)
+        x, y = vertex
+        @native.set_previous_vertex(x, y)
       end
     end
 

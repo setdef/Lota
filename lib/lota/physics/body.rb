@@ -136,6 +136,49 @@ module Lota
         @native.set_angle(angle)
       end
 
+      # The position and the angle, as an Array of the x, the y, and the
+      # angle in radians, matching Body:getTransform.
+      #
+      # === Example
+      #
+      #   x, y, angle = body.transform
+      def transform
+        @native.transform
+      end
+
+      # Moves and turns the Body, matching Body:setTransform, whose three
+      # values rule 6 of ADR 001 makes one Array.
+      #
+      # === Example
+      #
+      #   body.transform = 5, 5, Math::PI / 2
+      def transform=(transform)
+        x, y, angle = transform
+        @native.set_transform([x, y, angle])
+      end
+
+      # The position, the angle, the linear velocity, and the angular
+      # velocity, as an Array of six Floats, matching Body:getKinematicState.
+      #
+      # === Example
+      #
+      #   x, y, angle, vx, vy, spin = body.kinematic_state
+      def kinematic_state
+        @native.kinematic_state
+      end
+
+      # Sets the position, the angle, the linear velocity, and the angular
+      # velocity at once, matching Body:setKinematicState, whose six values
+      # rule 6 of ADR 001 makes one Array.
+      #
+      # === Example
+      #
+      #   body.kinematic_state = 0, 0, 0, 10, 0, 1
+      def kinematic_state=(state)
+        x, y, angle, dx, dy, da = state
+        @native.set_kinematic_state(x, y, angle, dx, dy, da)
+      end
+
       # Whether the Body is static, dynamic, or kinematic, as a Symbol,
       # matching Body:getType (ADR 001, rules 9 and 16).
       #
@@ -173,6 +216,26 @@ module Lota
       #   body.awake? # => true
       def awake?
         @native.awake?
+      end
+
+      # Sets whether the Body takes part in the World, matching
+      # Body:setActive, which calls the engine's Body::setEnabled. An
+      # inactive Body neither moves nor collides.
+      #
+      # === Example
+      #
+      #   body.active = false
+      def active=(active)
+        @native.set_active(active)
+      end
+
+      # Wakes the Body, or puts it to sleep, matching Body:setAwake.
+      #
+      # === Example
+      #
+      #   body.awake = true
+      def awake=(awake)
+        @native.set_awake(awake)
       end
 
       # Whether the Body is a bullet, checked for collisions between steps,
@@ -266,6 +329,19 @@ module Lota
       #   body.shapes.size # => 1
       def shapes
         @native.shapes.map { |shape| Physics.shape(shape) }
+      end
+
+      # The Body's Shapes, as #shapes gives them, matching
+      # Body:getFixtures, which LÖVE 12 deprecates for Body:getShapes and
+      # whose first use prints LÖVE's notice, with Lota's names.
+      #
+      # === Example
+      #
+      #   body.fixtures.size # => 1
+      def fixtures
+        Deprecation.mark("Lota::Physics::Body#fixtures", :method, :replaced, "Lota::Physics::Body#shapes",
+          where: Deprecation.where(caller_locations(1, 1)))
+        shapes
       end
 
       # The Joints attached to the Body, as an Array, matching
@@ -364,6 +440,37 @@ module Lota
         @native.world_vector(x, y)
       end
 
+      # The world vector +x+, +y+ in the Body's own frame, as an Array of
+      # its x and y, matching Body:getLocalVector.
+      #
+      # === Example
+      #
+      #   vx, vy = body.local_vector(1, 0)
+      def local_vector(x, y)
+        @native.local_vector(x, y)
+      end
+
+      # The velocity of the Body's point at the world point +x+, +y+, as
+      # an Array of its x and y, matching
+      # Body:getLinearVelocityFromWorldPoint.
+      #
+      # === Example
+      #
+      #   vx, vy = body.linear_velocity_from_world_point(10, 0)
+      def linear_velocity_from_world_point(x, y)
+        @native.linear_velocity_from_world_point(x, y)
+      end
+
+      # The velocity of the Body's point at +x+, +y+ in its own frame, as an
+      # Array of its x and y, matching Body:getLinearVelocityFromLocalPoint.
+      #
+      # === Example
+      #
+      #   vx, vy = body.linear_velocity_from_local_point(10, 0)
+      def linear_velocity_from_local_point(x, y)
+        @native.linear_velocity_from_local_point(x, y)
+      end
+
       # The mass, as a Float, matching Body:getMass.
       #
       # === Example
@@ -389,6 +496,17 @@ module Lota
       #   body.inertia # => 5.3
       def inertia
         @native.inertia
+      end
+
+      # Sets the rotational inertia, matching Body:setInertia, which keeps
+      # the mass and the center of mass and marks the mass data as the
+      # game's own.
+      #
+      # === Example
+      #
+      #   body.inertia = 50
+      def inertia=(inertia)
+        @native.set_inertia(inertia)
       end
 
       # The center of mass, the mass, and the inertia, as an Array of four
@@ -443,6 +561,16 @@ module Lota
         @native.angular_damping
       end
 
+      # Sets how fast the Body's spin slows, matching
+      # Body:setAngularDamping.
+      #
+      # === Example
+      #
+      #   body.angular_damping = 0.5
+      def angular_damping=(damping)
+        @native.set_angular_damping(damping)
+      end
+
       # How fast the Body turns, in radians a second, as a Float, matching
       # Body:getAngularVelocity.
       #
@@ -451,6 +579,16 @@ module Lota
       #   body.angular_velocity # => 0.0
       def angular_velocity
         @native.angular_velocity
+      end
+
+      # Sets how fast the Body spins, in radians a second, matching
+      # Body:setAngularVelocity.
+      #
+      # === Example
+      #
+      #   body.angular_velocity = Math::PI
+      def angular_velocity=(velocity)
+        @native.set_angular_velocity(velocity)
       end
 
       # How much gravity the Body feels, as a Float, matching

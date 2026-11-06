@@ -77,6 +77,80 @@ module Lota
       Native::Physics.distance(shape1.native, shape2.native)
     end
 
+    # The linear stiffness and damping that give a spring between +body1+ and
+    # +body2+ the +frequency+, in hertz, and the +damping_ratio+, as an Array
+    # of two Floats, matching love.physics.computeLinearStiffness
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_computeLinearStiffness).
+    #
+    # [body2] The other Lota::Physics::Body, or +nil+ for the World's
+    #   ground, as LÖVE takes none.
+    #
+    # Raises RuntimeError ("Attempt to use destroyed body.") for a
+    # destroyed Body.
+    #
+    # === Example
+    #
+    #   stiffness, damping = Lota::Physics.compute_linear_stiffness(5, 0.7, body)
+    def self.compute_linear_stiffness(frequency, damping_ratio, body1, body2 = nil)
+      Native::Physics.compute_linear_stiffness(frequency, damping_ratio, body1.native, body2&.native)
+    end
+
+    # The frequency, in hertz, and the damping ratio of a spring of linear
+    # +stiffness+ and +damping+ between +body1+ and +body2+, as an Array of
+    # two Floats, the inverse of #compute_linear_stiffness, matching
+    # love.physics.computeLinearFrequency
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_computeLinearFrequency).
+    #
+    # [body2] The other Lota::Physics::Body, or +nil+ for the World's
+    #   ground, as LÖVE takes none.
+    #
+    # Raises RuntimeError ("Attempt to use destroyed body.") for a
+    # destroyed Body.
+    #
+    # === Example
+    #
+    #   frequency, ratio = Lota::Physics.compute_linear_frequency(joint.stiffness, joint.damping, body)
+    def self.compute_linear_frequency(stiffness, damping, body1, body2 = nil)
+      Native::Physics.compute_linear_frequency(stiffness, damping, body1.native, body2&.native)
+    end
+
+    # The angular stiffness and damping that give a spring turning +body1+
+    # against +body2+ the +frequency+, in hertz, and the +damping_ratio+, as
+    # an Array of two Floats, matching love.physics.computeAngularStiffness
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_computeAngularStiffness).
+    #
+    # [body2] The other Lota::Physics::Body, or +nil+ for the World's
+    #   ground, as LÖVE takes none.
+    #
+    # Raises RuntimeError ("Attempt to use destroyed body.") for a
+    # destroyed Body.
+    #
+    # === Example
+    #
+    #   stiffness, damping = Lota::Physics.compute_angular_stiffness(5, 0.7, body)
+    def self.compute_angular_stiffness(frequency, damping_ratio, body1, body2 = nil)
+      Native::Physics.compute_angular_stiffness(frequency, damping_ratio, body1.native, body2&.native)
+    end
+
+    # The frequency, in hertz, and the damping ratio of a spring of angular
+    # +stiffness+ and +damping+ turning +body1+ against +body2+, as an Array
+    # of two Floats, the inverse of #compute_angular_stiffness, matching
+    # love.physics.computeAngularFrequency
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_computeAngularFrequency).
+    #
+    # [body2] The other Lota::Physics::Body, or +nil+ for the World's
+    #   ground, as LÖVE takes none.
+    #
+    # Raises RuntimeError ("Attempt to use destroyed body.") for a
+    # destroyed Body.
+    #
+    # === Example
+    #
+    #   frequency, ratio = Lota::Physics.compute_angular_frequency(joint.stiffness, joint.damping, body)
+    def self.compute_angular_frequency(stiffness, damping, body1, body2 = nil)
+      Native::Physics.compute_angular_frequency(stiffness, damping, body1.native, body2&.native)
+    end
+
     # The Lota::Physics::Shape that wraps +native+, of its own class, or
     # +nil+. :nodoc:
     def self.shape(native)

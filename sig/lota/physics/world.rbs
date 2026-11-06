@@ -62,6 +62,8 @@ module Lota
 
       def query_shapes_in_area: [T] (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *T arguments) { (Shape?, *T) -> ::Object? } -> nil
 
+      def query_bounding_box: [T] (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *T arguments) { (Shape?, *T) -> ::Object? } -> nil
+
       def ray_cast: [T] (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *T arguments) { (Shape?, *(Float | T)) -> (Float | Integer) } -> nil
 
       def ray_cast_any: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?Integer? mask) -> Array[Shape? | Float]

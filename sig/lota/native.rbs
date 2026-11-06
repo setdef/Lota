@@ -927,6 +927,8 @@ module Lota
       def apply_force: (Float | Integer fx, Float | Integer fy, Array[Float | Integer | bool | nil] rest) -> nil
 
       def apply_linear_impulse: (Float | Integer jx, Float | Integer jy, Array[Float | Integer | bool | nil] rest) -> nil
+
+      def set_transform: (Array[Float | Integer] transform) -> nil
     end
 
     class Shape
@@ -973,6 +975,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def points: () -> Array[Float]
     end
 
     class EdgeShape < Shape
@@ -981,6 +985,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def points: () -> Array[Float]
     end
 
     class ChainShape < Shape
@@ -989,6 +995,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def points: () -> Array[Float]
     end
 
     class Joint
@@ -1037,6 +1045,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def linear_offset: () -> Array[Float]
     end
 
     class MouseJoint < Joint
@@ -1045,6 +1055,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def target: () -> Array[Float]
     end
 
     class PrismaticJoint < Joint
@@ -1053,6 +1065,10 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def limits: () -> Array[Float]
+
+      def axis: () -> Array[Float]
     end
 
     class PulleyJoint < Joint
@@ -1061,6 +1077,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def ground_anchors: () -> Array[Float]
     end
 
     class RevoluteJoint < Joint
@@ -1069,6 +1087,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def limits: () -> Array[Float]
     end
 
     class RopeJoint < Joint
@@ -1093,6 +1113,8 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def axis: () -> Array[Float]
     end
 
     class Contact
