@@ -19,6 +19,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Every method of `DistanceJoint`, `FrictionJoint`, `GearJoint`, `MotorJoint`, `PrismaticJoint`, `PulleyJoint`, `RevoluteJoint`, `RopeJoint`, `WeldJoint`, and `WheelJoint` in `Lota::Physics`: their lengths, limits, motors, springs, offsets, axes, anchors, ratios, and reference angles.
 - `Lota::Physics.compute_linear_stiffness`, `compute_linear_frequency`, `compute_angular_stiffness`, and `compute_angular_frequency`.
 - `lota fuse` ships the gems a game's `Gemfile.lock` locks, at those versions: pure Ruby, from Git, from the game's `vendor/cache`, and with C extensions, which compile on the building computer.
+- Experimental: under Fledge's `fledge build android`, the source gem builds LÖVE's engine and the extension for Android's arm64-v8a and x86_64 into the app's `libfledgeext.so`, from a clone of Lota named with `--with-lota-source`, LÖVE's dependencies built by `rake android:deps` (`--with-lota-android-deps`), SDL3 built shared by Fledge's `examples/sdl_phone/sdl3/build.sh` (`--with-lota-sdl3`), and Rice (`--with-rice-dir`); OpenAL Soft ships beside it as `libopenal.so`, with its OpenSL ES backend.
+- Phone hosts in the gem, `ext/lota/phone/host/ios` and `ext/lota/phone/host/android`, which a game's Fledge project copies and names under `ios: host:` and `android: host:`: SDL's startup files, the Android Activity methods LÖVE's engine calls, and an opt-in for a game to handle Android's Back itself.
 
 ### Changed
 

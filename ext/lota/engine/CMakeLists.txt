@@ -10,6 +10,9 @@
 # iOS's on macOS, which has Xcode's iOS SDKs.
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_ios.cmake)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+	# rake android:sources evaluates it where the NDK is.
+	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_android.cmake)
 elseif(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_macos.cmake)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -18,7 +21,7 @@ elseif(MINGW)
 	# Windows, with MinGW (ADR 002, section 4).
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_windows.cmake)
 else()
-	message(FATAL_ERROR "Lota builds its engine for macOS, iOS, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
+	message(FATAL_ERROR "Lota builds its engine for macOS, iOS, Android, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
 endif()
 
 # Lota's patches of LÖVE's engine, each applied to a copy of the files it
@@ -121,6 +124,8 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_ios.cmake)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_android.cmake)
 elseif(APPLE)
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_macos.cmake)
 elseif(MINGW)
