@@ -60,6 +60,14 @@ if(APPLE)
 	target_link_options(lota_loopback PRIVATE -F${lota_loopback_libraries} "SHELL:-framework OpenAL-Soft"
 		"LINKER:-rpath,@executable_path/../Frameworks"
 		"LINKER:-rpath,@loader_path/${lota_loopback_relative}")
+
+	# liblota_metal_watch (metal_watch.mm), which reports the Metal command
+	# buffers that fail in either engine (test/parity/parity_helper.rb,
+	# Parity::METAL_WATCH). It links Metal, whose device functions it
+	# interposes.
+	add_library(lota_metal_watch SHARED metal_watch.mm)
+	lota_harness_library(lota_metal_watch)
+	target_link_options(lota_metal_watch PRIVATE "SHELL:-framework Metal" "SHELL:-framework Foundation")
 else()
 	# The reference love and Lota both load the OpenAL Soft that `rake
 	# dependencies` built (tasks/dependencies.rb), which the dynamic linker

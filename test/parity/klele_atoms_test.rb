@@ -143,7 +143,7 @@ class KleleAtomsTest < Minitest::Test
 
   def test_the_translation_matches_love_frame_by_frame
     assert_predicate lota.output.status, :success?, lota.output.text
-    assert_nil lota.mismatch, "first differing frame: #{lota.mismatch}"
+    assert_nil lota.mismatch, lota.mismatch_message
     assert_equal FRAMES, lota.compared
     assert_equal love.output.text, lota.output.text
   end
