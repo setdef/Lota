@@ -71,8 +71,10 @@
 #include "physics/box2d/Shape.h"
 #include "physics/box2d/World.h"
 
+#include <bit>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -80,6 +82,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #ifdef __APPLE__
@@ -266,44 +269,83 @@ Base *open_module(love::Module::ModuleType type) {
   return std::make_unique<Opened>().release();
 }
 
-// A wrapper that keeps its entry in Rice's instance registry at its
-// current address. The registry finds the wrapper of an engine object by
-// the wrapper's VALUE, which is its address (rice/detail/InstanceRegistry.hpp),
-// and Lota has it track every wrapper (Init_native, native.cpp).
-// GC.compact moves objects, then calls each typed object's dcompact so
-// that it can update the addresses it holds with rb_gc_location (Ruby
-// 4.0, include/ruby/internal/gc.h:202-210), but Rice's types have no
-// dcompact (Rice 4.12.0, rice/Data_Type.ipp:55-61): once a wrapper moved,
-// reading its engine object back returned whatever then lay at the old
-// address. So each wrapper gives the type it is wrapped as a dcompact
-// that moves its entry along with it, before any compaction can move it.
-class RegisteredWrapper : public Rice::detail::WrapperBase {
+// The one Ruby wrapper of each engine object while that wrapper lives, as
+// LÖVE pushes one Lua userdata for each object (luax_pushtype looks the
+// object up in its REGISTRY_OBJECTS table, vendor/love/src/common/
+// runtime.cpp:647-690), so the same Body or Joystick read back twice is
+// the same Ruby object, as Lua's == sees it.
+//
+// It must forget a wrapper the moment Ruby's collector finds it dead,
+// not when the collector frees it. Ruby sweeps lazily: a collection marks
+// every live object, then frees the rest page by page while the program
+// runs on, so a wrapper found dead can sit unswept for many frames. Rice's
+// own InstanceRegistry (Rice 4.12.0, rice/detail/InstanceRegistry.ipp:
+// 6-31) is a std::map that neither marks its VALUEs nor learns of their
+// death before the wrapper's dfree erases them, so a lookup in that window
+// handed back a wrapper about to be freed, and the sweep then freed it
+// while Ruby held it again: a game that read its joysticks every frame
+// crashed seconds in, in method lookup on the freed object's class.
+// Ruby's ObjectSpace::WeakMap drops each object the marking found dead
+// before the sweep begins, and moves its values along when GC.compact
+// moves them, which is what an identity map needs. It is keyed by the
+// object's love::Object address, as an Integer, which a WeakMap compares
+// by identity; Integers of that size are immediates, so equal ones are
+// identical.
+//
+// Init_native turns it on for Lota::Native. Another bundle, such as the
+// test extension, makes a new wrapper each time it wraps an object, once
+// it turns Rice's registry off itself. A WeakMap is not shareable, and only the main Ractor
+// reaches it: Lota::Native does not declare itself Ractor-safe yet (ADR
+// 001, section 6), so Ruby lets no other Ractor call into it.
+class WrapperIdentities {
 public:
-  explicit RegisteredWrapper(rb_data_type_t *rb_data_type) : WrapperBase(rb_data_type) {
-    rb_data_type->function.dcompact = &relocate;
+  static WrapperIdentities &instance() {
+    static WrapperIdentities identities;
+    return identities;
   }
 
-protected:
-  // What the registry holds this wrapper under: the engine object, as
-  // Rice's wrap gave it (rice/detail/Wrapper.ipp:267-280).
-  [[nodiscard]] virtual void *registered_object() const noexcept = 0;
+  WrapperIdentities(const WrapperIdentities &) = delete;
+  WrapperIdentities(WrapperIdentities &&) = delete;
+  WrapperIdentities &operator=(const WrapperIdentities &) = delete;
+  WrapperIdentities &operator=(WrapperIdentities &&) = delete;
+  ~WrapperIdentities() = default;
 
-private:
-  // The typed data is the WrapperBase Rice wrapped (Wrapper.ipp:274-275),
-  // and every wrapper of a type whose dcompact this is, is one of these.
-  static void relocate(void *data) {
-    const auto *wrapper =
-        dynamic_cast<const RegisteredWrapper *>(static_cast<Rice::detail::WrapperBase *>(data));
-    if (wrapper == nullptr) {
+  // Starts keeping each wrapper's identity, and stops Rice's registry
+  // from keeping any, since its stale entries are what this replaces.
+  void keep() {
+    if (map_ != Qnil) {
       return;
     }
-    void *object = wrapper->registered_object();
-    auto &instances = Rice::detail::Registries::instance.instances;
-    const VALUE registered = instances.lookup(object, true);
-    if (registered != Qnil) {
-      instances.add(object, rb_gc_location(registered), true);
+    Rice::detail::Registries::instance.instances.mode = Rice::detail::InstanceRegistry::Mode::Off;
+    const VALUE weak_map = Rice::detail::protect(rb_path2class, "ObjectSpace::WeakMap");
+    map_ = Rice::detail::protect(rb_class_new_instance, 0, static_cast<const VALUE *>(nullptr),
+                                 weak_map);
+    rb_gc_register_address(&map_);
+  }
+
+  // The live wrapper of +object+, or Qnil.
+  [[nodiscard]] VALUE find(love::Object *object) const {
+    if (map_ == Qnil) {
+      return Qnil;
+    }
+    return Rice::Object(map_).call("[]", key(object)).value();
+  }
+
+  // Remembers +wrapper+ as the wrapper of +object+ while it lives.
+  void remember(love::Object *object, VALUE wrapper) const {
+    if (map_ != Qnil) {
+      Rice::Object(map_).call("[]=", key(object), Rice::Object(wrapper));
     }
   }
+
+private:
+  WrapperIdentities() = default;
+
+  static Rice::Object key(love::Object *object) {
+    return {ULL2NUM(std::bit_cast<std::uintptr_t>(object))};
+  }
+
+  VALUE map_ = Qnil;
 };
 
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
@@ -315,27 +357,26 @@ private:
 // :58), so this destructor runs when Ruby collects the object. The reference is LÖVE's
 // own love::StrongRef, which retains or adopts as it is told and releases
 // when destroyed, exactly as LÖVE's C++ holds objects.
-template <EngineObject T> class ObjectWrapper : public RegisteredWrapper {
+template <EngineObject T> class ObjectWrapper : public Rice::detail::WrapperBase {
   static_assert(!std::is_const_v<T>,
                 "love::Object counts references in non-const retain() and release(), so "
                 "bind functions that return engine objects as non-const pointers");
 
 public:
   ObjectWrapper(rb_data_type_t *rb_data_type, T *object, love::Acquire acquire)
-      : RegisteredWrapper(rb_data_type),
-        companion_(Companion<T>::of(*object), love::Acquire::RETAIN), reference_(object, acquire) {}
+      : WrapperBase(rb_data_type), companion_(Companion<T>::of(*object), love::Acquire::RETAIN),
+        reference_(object, acquire) {}
 
   ObjectWrapper(const ObjectWrapper &) = delete;
   ObjectWrapper(ObjectWrapper &&) = delete;
   ObjectWrapper &operator=(const ObjectWrapper &) = delete;
   ObjectWrapper &operator=(ObjectWrapper &&) = delete;
 
-  // As Rice's own wrappers do (rice/detail/Wrapper.ipp:117-135), forget
-  // the instance before letting it go; reference_ then releases it. Off the
-  // main thread, an object of a main-thread module first joins the release
-  // queue, which retains it, so reference_'s release cannot be the last.
+  // reference_ releases the object. Off the main thread, an object of a
+  // main-thread module first joins the release queue, which retains it, so
+  // reference_'s release cannot be the last. WrapperIdentities forgot this
+  // wrapper when the collector found it dead, before it was freed.
   ~ObjectWrapper() override {
-    Rice::detail::Registries::instance.instances.remove(reference_.get());
     if constexpr (ReleasedOnMainThread<T>::value) {
       if (!on_main_thread()) {
         ReleaseQueue::instance().push(reference_.get());
@@ -352,9 +393,6 @@ public:
     }
     return reference_.get();
   }
-
-protected:
-  [[nodiscard]] void *registered_object() const noexcept override { return reference_.get(); }
 
 private:
   // Declared first, so it is released after reference_.
@@ -473,6 +511,90 @@ class Wrapper<T> : public WrapperBase {
   static_assert(!lota::native::EngineObject<T>,
                 "engine objects cross into Ruby by pointer, never by value or as an "
                 "owned reference; bind a function that returns T*");
+};
+
+// The wrapper of the engine object +data+, which a binding returns or
+// Rice::Array#push appends: the one it already has, while that lives
+// (lota::native::WrapperIdentities), or a new one, made as Rice's own
+// To_Ruby<T*> makes it (Rice 4.12.0, rice/Data_Object.ipp:209-252): an
+// object of the Ruby class of the object's dynamic type, wrapping it with
+// Wrapper<T*>, above (detail::wrap, rice/detail/Wrapper.ipp:267-280, which
+// asks Rice's registry first, and finds nothing there once it is off).
+// +isOwner+ says the caller passes on a reference of its own, which the
+// new wrapper adopts; an existing wrapper already holds one, so that
+// reference is released instead, keeping the memory rule's one reference
+// for each wrapper.
+template <typename U>
+  requires lota::native::EngineObject<U>
+VALUE wrap_engine_object(U *data, bool isOwner) {
+  // ObjectWrapper says so too, but GCC stops at the const errors below
+  // before it instantiates the wrapper.
+  static_assert(!std::is_const_v<U>,
+                "love::Object counts references in non-const retain() and release(), so "
+                "bind functions that return engine objects as non-const pointers");
+  if (data == nullptr) {
+    return Qnil;
+  }
+  const auto &identities = lota::native::WrapperIdentities::instance();
+  if (const VALUE found = identities.find(data); found != Qnil) {
+    if (isOwner) {
+      data->release();
+    }
+    return found;
+  }
+  const std::pair<VALUE, rb_data_type_t *> type = Registries::instance.types.figureType(*data);
+  const VALUE wrapped = wrap(type.first, type.second, data, isOwner);
+  identities.remember(data, wrapped);
+  return wrapped;
+}
+
+// Converts an engine object a binding returns by pointer, the way LÖVE's
+// API returns them, adopting it when the function is bound with
+// Return().takeOwnership().
+template <typename T>
+  requires lota::native::EngineObject<T>
+class To_Ruby<T *> {
+public:
+  To_Ruby() = default;
+  explicit To_Ruby(Arg *arg) : arg_(arg) {}
+
+  template <typename U> VALUE convert(U *data) {
+    return wrap_engine_object(data, arg_ != nullptr && arg_->isOwner());
+  }
+
+private:
+  Arg *arg_ = nullptr;
+};
+
+// The same, for a pointer Rice::Array#push is given as an lvalue, as a
+// loop over a std::vector of engine objects gives it (Rice's own,
+// rice/Data_Object.ipp:254-302).
+template <typename T>
+  requires lota::native::EngineObject<T>
+class To_Ruby<T *&> {
+public:
+  To_Ruby() = default;
+  explicit To_Ruby(Arg *arg) : arg_(arg) {}
+
+  template <typename U> VALUE convert(U *data) {
+    return wrap_engine_object(data, arg_ != nullptr && arg_->isOwner());
+  }
+
+private:
+  Arg *arg_ = nullptr;
+};
+
+// Converts an engine object a binding returns by reference, which C++
+// keeps, so the wrapper retains it, as Wrapper<T &> does (Rice's own,
+// rice/Data_Object.ipp:146-178).
+template <typename T>
+  requires lota::native::EngineObject<T>
+class To_Ruby<T &> {
+public:
+  To_Ruby() = default;
+  explicit To_Ruby(Arg * /*arg*/) {}
+
+  template <typename U> VALUE convert(U &data) { return wrap_engine_object(&data, false); }
 };
 
 } // namespace Rice::detail

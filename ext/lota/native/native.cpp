@@ -55,12 +55,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   // with LÖVE's Lua names translated (native/errors.hpp).
   lota::native::install_error_translation();
   // One Ruby wrapper for each engine object while it lives, as LÖVE pushes
-  // one Lua userdata for each (luax_pushtype looks the object up in its
-  // REGISTRY_OBJECTS table, vendor/love/src/common/runtime.cpp:647-690), so the same
-  // Body, Shape, or Joint read back twice is the same object, as Lua's ==
-  // sees it. Rice tracks only the objects it adopts by default
-  // (rice/detail/InstanceRegistry.hpp, Mode::Owned).
-  Rice::detail::Registries::instance.instances.mode = Rice::detail::InstanceRegistry::Mode::All;
+  // one Lua userdata for each (native/binding.hpp, WrapperIdentities).
+  lota::native::WrapperIdentities::instance().keep();
   Rice::Module native = Rice::define_module_under(Rice::define_module("Lota"), "Native");
   lota::native::define_random_generator(native);
   lota::native::define_math(native);

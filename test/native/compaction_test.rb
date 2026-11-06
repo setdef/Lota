@@ -10,8 +10,9 @@ require_relative "../engine_helper"
 
 # Ruby's compaction (GC.compact) moves objects to new addresses. Rice
 # finds a bound function by the address of the class it was defined on
-# (rice/detail/NativeRegistry.hpp) and the wrapper of an engine object by
-# that wrapper's address (rice/detail/InstanceRegistry.hpp), so both must
+# (rice/detail/NativeRegistry.hpp), and Lota finds the wrapper of an
+# engine object in an ObjectSpace::WeakMap whose values are wrappers'
+# addresses (WrapperIdentities, ext/lota/native/binding.hpp), so both must
 # hold after any compaction a game, or a test, asks for.
 class CompactionTest < Minitest::Test
   def setup

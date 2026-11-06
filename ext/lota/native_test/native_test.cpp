@@ -1000,6 +1000,11 @@ constexpr bool sanitized() {
 
 extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
   lota::native::install_error_translation();
+  // A new wrapper for each object this bundle wraps, which the memory
+  // tests count, and none of Rice's registry, whose entries outlive the
+  // wrappers the collector found dead (lota::native::WrapperIdentities,
+  // native/binding.hpp); Rice keeps the objects it adopts there by default.
+  Rice::detail::Registries::instance.instances.mode = Rice::detail::InstanceRegistry::Mode::Off;
   Rice::Module test = Rice::define_module("LotaNativeTest");
 
   Rice::define_class_under<Confined>(test, "Confined")

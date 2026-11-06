@@ -62,11 +62,11 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // gives. A light userdata, such as a touch's id, becomes the Integer its
 // pointer holds, and a value of unknown type, which love.event.restart and
 // a modal draw callback make of a function, becomes nil, as
-// luax_pushvariant's default pushes. An engine object becomes the Ruby
-// wrapper Rice keeps for it, as luax_pushtype pushes the one userdata Lua
-// keeps for it; the only ones LÖVE's event module puts in a message are
-// joysticks (event/sdl/Event.cpp:618-757), and Lota's own love.event
-// functions put none there yet.
+// luax_pushvariant's default pushes. An engine object becomes its one
+// Ruby wrapper (WrapperIdentities, native/binding.hpp), as luax_pushtype
+// pushes the one userdata Lua keeps for it; the only ones LÖVE's event
+// module puts in a message are joysticks (event/sdl/Event.cpp:618-757),
+// and Lota's own love.event functions put none there yet.
 const Variant::SharedTable *push_value(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
