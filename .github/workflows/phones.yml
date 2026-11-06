@@ -224,23 +224,17 @@ jobs:
           bundle lock --add-platform ruby
           bundle install --quiet
           bundle exec fledge --version
-          time bundle exec fledge build android
+          time bundle exec fledge build android 2>&1 | tee "$RUNNER_TEMP/fledge-android.log"
           ls -la "dist/$APP_NAME-android"
 
-      - name: Show that each ABI's engine compiled the patched Vulkan Graphics.cpp
+      # Lota's Vulkan present patch applies only to Android's engine build;
+      # each ABI's must compile the patched copy in place of LÖVE's file.
+      - name: Check that each ABI's engine compiled the patched Vulkan Graphics.cpp
         run: |
-          found=0
-          while IFS= read -r ninja; do
-            build=$(dirname "$ninja")
-            patched=$build/patched/love/src/modules/graphics/vulkan/Graphics.cpp
-            echo "== $build"
-            grep -n -A2 "^#ifdef LOVE_ANDROID" "$patched" | grep -n "VK_SUBOPTIMAL_KHR" || true
-            grep -c "patched/love/src/modules/graphics/vulkan/Graphics.cpp" "$ninja" \
-              "$build/compile_commands.json" 2> /dev/null || true
-            find "$build" -path "*patched*vulkan/Graphics.cpp.o" -exec ls -la {} +
-            found=$((found + 1))
-          done < <(find "$PROJECT" "$HOME" -name build.ninja -path "*lota-build/build.ninja" 2> /dev/null)
-          echo "lota-build trees found: $found"
+          grep -c "patched/love/src/modules/graphics/vulkan/Graphics.cpp.o" "$RUNNER_TEMP/fledge-android.log" \
+            | tee "$RUNNER_TEMP/patched.txt"
+          [ "$(cat "$RUNNER_TEMP/patched.txt")" -ge 2 ] || { echo "::error::an ABI compiled LÖVE's unpatched Vulkan Graphics.cpp"; exit 1; }
+          ! grep -E "vendor/love/src/modules/graphics/vulkan/Graphics\.cpp\.o" "$RUNNER_TEMP/fledge-android.log"
 
       - name: Build a debug APK, a release APK, and an App Bundle, and sign the release with a studio's key
         run: |
