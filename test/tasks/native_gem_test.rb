@@ -263,6 +263,32 @@ class NativeGemTest < Minitest::Test
       assert_equal LIBRARIES.map { |name| "libraries/#{name}" }, FORMAT.dependencies(bundle)
       assert_empty FORMAT.escapes(bundle, unpacked)
     end
+
+    # Each library the bundle and the libraries it carries need is one of
+    # those libraries or one of the system's the gem may rely on
+    # (NativeFormat::ELF::SYSTEM), which libmvec, glibc's vector math, is
+    # not: libvorbis on x86_64 needs it unless its build keeps GCC from
+    # calling it.
+    def test_every_library_the_gem_needs_is_one_it_carries_or_one_the_system_may_provide
+      needed = [BUNDLE, *LIBRARIES.map { |name| "#{DIRECTORY}/#{name}" }].flat_map do |path|
+        FORMAT.needed(File.join(unpacked, path))
+      end
+
+      assert_empty needed.uniq - LIBRARIES - NativeFormat::ELF::SYSTEM
+    end
+
+    # A carried library that needs a system library outside that list,
+    # as libvorbis built with GCC's vector math needs libmvec, would not
+    # load from the gem on every system, and fails the package check.
+    def test_a_library_needing_a_system_library_the_gem_may_not_rely_on_escapes_it
+      in_tree do |work|
+        copy = File.join(work, "gem")
+        FileUtils.cp_r(unpacked, copy)
+        run!(copy, "patchelf", "--add-needed", "libmvec.so.1", File.join(DIRECTORY, "libvorbis.so.0"))
+
+        assert_equal ["libmvec.so.1 resolves outside #{copy}"], FORMAT.escapes(File.join(copy, BUNDLE), copy)
+      end
+    end
   else
     # RubyGems warns on every symlink it packages, so the framework ships
     # as the one version directory its install name names, with no headers.
@@ -282,6 +308,34 @@ class NativeGemTest < Minitest::Test
 
       assert_equal ["@loader_path/frameworks"], rpaths
       assert_equal FRAMEWORKS.map { |name| "frameworks/#{name}" }, FORMAT.dependencies(bundle)
+      assert_empty FORMAT.escapes(bundle, unpacked)
+    end
+
+    # dyld looks for what a framework loads through @rpath in that
+    # framework's own rpaths first, so vorbis's /Library/Frameworks, as
+    # love-apple-dependencies built it, would let an ogg.framework
+    # installed there shadow the gem's. Every rpath the gem keeps is
+    # relative to its binary.
+    def test_no_binary_in_the_gem_keeps_an_rpath_that_is_not_relative_to_it
+      binaries = [BUNDLE, *FRAMEWORKS.map { |name| "lib/lota/frameworks/#{name}/Versions/A/#{File.basename(name, '.framework')}" }]
+      rpaths = binaries.to_h do |path|
+        [path, FORMAT.otool("-l", File.join(unpacked, path)).scan(/^\s+path (\S+) \(offset \d+\)$/).flatten]
+      end
+
+      assert_equal({}, rpaths.transform_values { |paths| paths.grep_v(%r{\A@loader_path/}) }.reject { |_, paths| paths.empty? })
+      assert_equal ["@loader_path/Frameworks"], rpaths.fetch("#{SDL3}/SDL3")
+    end
+
+    # A framework with an rpath outside the gem fails the package check.
+    def test_a_framework_with_an_rpath_outside_the_gem_escapes_it
+      in_tree do |work|
+        copy = File.join(work, "gem")
+        FileUtils.cp_r(unpacked, copy)
+        run!(copy, "install_name_tool", "-add_rpath", "/Library/Frameworks",
+          "lib/lota/frameworks/vorbis.framework/Versions/A/vorbis")
+
+        assert_equal ["rpath /Library/Frameworks of vorbis"], FORMAT.escapes(File.join(copy, BUNDLE), copy)
+      end
     end
 
     def test_every_signature_verifies_strictly_once_unpacked

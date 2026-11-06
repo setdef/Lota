@@ -119,15 +119,6 @@ class PackageCheckTest < Minitest::Test
         assert_equal LIBRARIES.first(7).map { |name| "#{name} resolves outside #{dir}" }, escapes
       end
     end
-
-    # glibc's libraries and GCC's C++ runtime come from the system, and
-    # every other library from the gem.
-    def test_only_glibc_and_the_cpp_runtime_are_the_systems
-      %w[libc.so.6 libm.so.6 libmvec.so.1 libstdc++.so.6 libgcc_s.so.1 ld-linux-aarch64.so.1 ld-linux-x86-64.so.2].each do |name|
-        assert_match NativeFormat::ELF::SYSTEM, name
-      end
-      %w[libSDL3.so.0 libz.so.1 libX11.so.6 libasan.so.6].each { |name| refute_match NativeFormat::ELF::SYSTEM, name }
-    end
   else
     # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
     # Soft to play sound, and libmodplug and libvorbis to decode it, which
@@ -154,11 +145,14 @@ class PackageCheckTest < Minitest::Test
     end
 
     # From lib/, the frameworks resolve into vendor/, outside the directory
-    # a gem would be; from the repository root, they resolve inside.
+    # a gem would be; from the repository root, they resolve inside, but
+    # for the rpaths love-apple-dependencies built two of them with, which
+    # are not relative to them and which the gem build removes.
     def test_a_library_that_resolves_outside_the_gem_escapes_it
       assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{File.join(ROOT, 'lib')}" },
-        MACHO.escapes(BUNDLE, File.join(ROOT, "lib"))
-      assert_empty MACHO.escapes(BUNDLE, ROOT)
+        MACHO.escapes(BUNDLE, File.join(ROOT, "lib")).grep_v(/\Arpath /)
+      assert_equal ["rpath @executable_path/../Frameworks of SDL3", "rpath /Library/Frameworks of vorbis"],
+        MACHO.escapes(BUNDLE, ROOT)
     end
 
     def test_a_library_no_rpath_resolves_escapes_the_gem
@@ -168,6 +162,19 @@ class PackageCheckTest < Minitest::Test
         assert_equal FRAMEWORKS.map { |library| "@rpath/#{library} resolves outside #{dir}" },
           MACHO.escapes(File.join(dir, File.basename(BUNDLE)), dir)
       end
+    end
+  end
+
+  # glibc's libraries and GCC's C++ runtime come from the system, as the
+  # manylinux policy lets them, and every other library from the gem.
+  # libmvec is glibc's too, but the policy leaves it out, so a packager
+  # that checks against it refuses a gem that needs it.
+  def test_only_glibc_and_the_cpp_runtime_that_manylinux_allows_are_the_systems
+    %w[libc.so.6 libm.so.6 libstdc++.so.6 libgcc_s.so.1 ld-linux-aarch64.so.1 ld-linux-x86-64.so.2].each do |name|
+      assert_includes NativeFormat::ELF::SYSTEM, name
+    end
+    %w[libmvec.so.1 libc.so.7 libSDL3.so.0 libz.so.1 libX11.so.6 libasan.so.6].each do |name|
+      refute_includes NativeFormat::ELF::SYSTEM, name
     end
   end
 
