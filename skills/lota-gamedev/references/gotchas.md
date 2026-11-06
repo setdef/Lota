@@ -38,6 +38,11 @@ Lota's; the LÖVE function is in the RDoc.
   you afterward instead of assuming the size you asked for.
 
 **Input devices**
+- Text input starts off on every platform, as in LÖVE 12 on SDL 3 (LÖVE 11
+  on SDL 2 started it on desktops): `Lota.textinput` gets nothing until the
+  game sets `Lota::Keyboard.text_input = true`, though `keypressed` arrives.
+  Turn it on in `Lota.load` or when a text field gains focus, and off when
+  the field loses it, since on a phone it shows the on-screen keyboard.
 - Gamepads: use `Lota.joystickadded` / `joystickremoved` and keep the joysticks
   they hand you; ask `joystick.gamepad?` first. An accelerometer or a
   simulator may appear as a joystick.

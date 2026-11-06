@@ -16,7 +16,7 @@ require_relative "../lovetest_helper"
 class KeyboardTest < Lovetest::TestMethod
   def teardown
     Lota::Keyboard.key_repeat = false
-    Lota::Keyboard.text_input = true
+    Lota::Keyboard.text_input = false
     super
   end
 

@@ -71,7 +71,8 @@ class LotaRunTest < Minitest::Test
   end
 
   # conf.rb sizes and titles the window; main.rb reads them back in load,
-  # then each callback prints its name. The first draw asks to quit, the
+  # with whether text input is on, which LÖVE leaves off until a game asks
+  # (Lota::Keyboard.text_input=), then each callback prints its name. The first draw asks to quit, the
   # quit callback refuses once, and the second request ends the game with
   # the status given on the command line.
   def test_callbacks_run_in_loves_order_and_the_game_exits_with_its_status
@@ -82,6 +83,7 @@ class LotaRunTest < Minitest::Test
       main
       load ["7"] ["#{game('order')}", "7"]
       window 320x200 Order
+      text input false
       update Float
       draw
       quit 1

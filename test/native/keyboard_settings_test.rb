@@ -26,7 +26,7 @@ class KeyboardSettingsTest < Minitest::Test
   def teardown
     SCANCODES.each_value { |scancode| LotaNativeTest.hold(scancode, false) }
     Lota::Keyboard.key_repeat = false
-    Lota::Keyboard.text_input = true
+    Lota::Keyboard.text_input = false
   end
 
   def test_a_scancode_is_down_while_held
@@ -149,5 +149,22 @@ class KeyboardSettingsTest < Minitest::Test
     %i[numlock capslock scrolllock mode].each do |modifier|
       assert_includes [true, false], Lota::Keyboard.modifier_active?(modifier), modifier.to_s
     end
+  end
+end
+
+# KeyboardSettingsTest ends each test with text input off, as a window
+# opens with it (Lota::Keyboard.text_input=), so that a test run after it,
+# in the same process, finds it as a game starts. Without that, this
+# fails with text input on, where the test it runs left it.
+class KeyboardSettingsTextInputTest < Minitest::Test
+  def test_a_keyboard_settings_test_leaves_text_input_off
+    EngineHelper.open_window
+    Lota::Keyboard.text_input = false
+
+    assert_predicate KeyboardSettingsTest.new("test_text_input_follows_the_writer").run, :passed?
+
+    refute_predicate Lota::Keyboard, :text_input?
+  ensure
+    Lota::Keyboard.text_input = false
   end
 end
