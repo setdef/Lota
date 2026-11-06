@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  A Lota game's Info.plist, which fledge.yml's ios host lays over the one
+  fledge build ios writes. It starts from Fledge's
+  examples/sdl_phone/host/ios/Host/Info.plist at v0.5.1: the scene's
+  delegate is SDL's SDLUIKitSceneDelegate, which SDL_RunApp in
+  Host/main.m expects. It adds what a game asks of iOS:
+
+  - UILaunchScreen, empty, so iOS runs the app at the screen's own size
+    rather than letterboxed.
+  - UIApplicationSupportsIndirectInputEvents, which SDL asks for to read a
+    mouse or trackpad ("You need UIApplicationSupportsIndirectInputEvents
+    in your Info.plist for mouse support" without it).
+  - UIStatusBarHidden, with UIViewControllerBasedStatusBarAppearance
+    false, so the status bar stays hidden, as a game's usually is.
+  - LotaAudioSessionCategory, which Host/main.m reads: the audio session's
+    category, set before SDL and OpenAL open the audio device. ambient
+    mixes with other apps' audio and the silent switch mutes it;
+    soloAmbient and playback stop other apps' audio, and playback plays
+    through the switch.
+
+  The name under the icon is the target's name; change CFBundleDisplayName
+  for another. The orientations are Fledge's: an iPhone turns to portrait
+  and both landscapes, an iPad to all four. UIRequiresFullScreen stays
+  unset, so iPadOS may show the game beside other apps.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>LotaAudioSessionCategory</key>
+	<string>ambient</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default</string>
+					<key>UISceneDelegateClassName</key>
+					<string>SDLUIKitSceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>
