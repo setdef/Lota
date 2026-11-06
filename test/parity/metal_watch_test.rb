@@ -79,6 +79,23 @@ class MetalWatchTest < Minitest::Test
       assert_equal "lota-metal-watch: 0 command buffers committed, 1 completed, 1 failed; 3 waited on, " \
         "2 of them not completed\n", reports[3]
     end
+
+    # Exit-time code may still ask Metal for a device after the watch's
+    # own first call has registered whatever C++ destroys at exit, as the
+    # frameworks a game links may (the handler registered first runs
+    # last). The watch keeps working through the end of the process.
+    def test_a_device_made_as_the_process_exits_is_watched_like_any_other
+      output = watched(<<~RUBY)
+        LotaNativeTest.create_metal_device_at_exit
+        LotaNativeTest.create_metal_device
+        puts "made"
+      RUBY
+
+      assert_predicate output.status, :success?, output.text + output.diagnostics
+      assert_equal "made\n", output.text
+      assert_equal "lota-metal-watch: 0 command buffers committed, 0 completed, 0 failed; 0 waited on, " \
+        "0 of them not completed\n", output.diagnostics
+    end
   end
 
   def test_the_watch_is_loaded_only_where_the_engine_draws_with_metal
