@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- `lota fuse` builds with Fledge 0.6.0, was 0.5.1.
+
 ### Fixed
 
 - A release's Windows gems are delivered again: the license record no longer reads LÖVE's version file, which the jobs that deliver a gem do not check out. The tag v0.2.1 was pushed and published nothing for this.

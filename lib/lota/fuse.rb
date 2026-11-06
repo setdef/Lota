@@ -100,8 +100,10 @@ module Lota
 
     # The Git tag of Fledge the project builds with. Fledge 0.5.0 was the
     # first release whose check of a gem's DLLs takes the System32
-    # libraries Lota's Windows engine imports; 0.5.1 changes only phones.
-    FLEDGE_REF = "v0.5.1"
+    # libraries Lota's Windows engine imports; 0.5.1 changes only phones,
+    # and 0.6.0 adds what a store listing asks of an app (a description, a
+    # license file) without changing how the project builds.
+    FLEDGE_REF = "v0.6.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.
