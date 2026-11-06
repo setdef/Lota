@@ -3,9 +3,9 @@
 
 module Lota
   class Notices
-    type json = String | bool | Array[String] | Hash[String, json] | nil
+    type entry = { "name" => String, "version" => String?, "license" => Array[String], "copyright" => Array[String], "credit" => String?, "file" => String, "separate" => bool, "source" => source_entry? }
 
-    type entry = Hash[String, json]
+    type source_entry = { "file" => String, "url" => String, "sha256" => String, "license" => Array[String] }
 
     class Error < StandardError
     end
@@ -58,8 +58,6 @@ module Lota
       attr_reader license: Array[String]
 
       def self.new: (file: String, url: String, sha256: String, license: Array[String]) -> instance
-
-      def self.from: (entry entry) -> Source
     end
 
     def self.read: (String dir, platform: String, gem_folder: String) -> Notices

@@ -77,22 +77,22 @@ module Lota
     #   Lota's extension, which compiles it in.
     # [source] The Source of its code the gem carries, or +nil+.
     class Component < ::Data.define(:name, :version, :license, :copyright, :credit, :file, :separate, :source)
-      # The Component a manifest's entry describes, a Hash from JSON.
-      def self.from(entry)
-        name = entry.fetch("name") #: String
-        version = entry["version"] #: String?
-        license = entry.fetch("license") #: Array[String]
-        copyright = entry.fetch("copyright") #: Array[String]
-        credit = entry["credit"] #: String?
-        file = entry.fetch("file") #: String
-        source = entry["source"] #: Hash[String, json]?
-        new(name:, version:, license:, copyright:, credit:, file:, separate: entry.fetch("separate") == true,
-          source: source && Source.from(source))
-      end
-
       # Its name, then its version when known.
+      #
+      # === Example
+      #
+      #   component.title # => "OpenAL Soft 1.24.3"
       def title
         [name, version].compact.join(" ")
+      end
+
+      # The Component a manifest's entry describes, a Hash from JSON.
+      def self.from(entry)
+        source = entry["source"]
+        new(name: entry.fetch("name"), version: entry["version"], license: entry.fetch("license"),
+          copyright: entry.fetch("copyright"), credit: entry["credit"], file: entry.fetch("file"),
+          separate: entry.fetch("separate") == true, source: source && Source.new(file: source.fetch("file"),
+            url: source.fetch("url"), sha256: source.fetch("sha256"), license: source.fetch("license")))
       end
     end
 
@@ -103,14 +103,6 @@ module Lota
     # [sha256] Its SHA-256, in hexadecimal.
     # [license] The SPDX license expressions of everything in it.
     class Source < ::Data.define(:file, :url, :sha256, :license)
-      # The Source a manifest's entry describes, a Hash from JSON.
-      def self.from(entry)
-        file = entry.fetch("file") #: String
-        url = entry.fetch("url") #: String
-        sha256 = entry.fetch("sha256") #: String
-        license = entry.fetch("license") #: Array[String]
-        new(file:, url:, sha256:, license:)
-      end
     end
 
     # The Notices of the gem unpacked in +dir+, from its MANIFEST and the
