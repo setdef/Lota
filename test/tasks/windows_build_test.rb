@@ -67,12 +67,14 @@ class WindowsBuildTest < Minitest::Test
     assert_equal [[openal.url, openal.sha256]], source.map { |archive| [archive.url, archive.sha256] }
   end
 
-  def test_arm64_leaves_out_sdls_opengl_and_the_winpthread_clang_does_not_have
+  # Windows on ARM64 has opengl32.dll, as x64 does, so SDL is built the
+  # same for both, with OpenGL.
+  def test_arm64_builds_sdl_as_x64_does_and_leaves_out_the_winpthread_clang_does_not_have
     x64 = WindowsBuild.new(sources: "s", root: "r", arm64: false)
     arm64 = WindowsBuild.new(sources: "s", root: "r", arm64: true)
 
-    refute_includes x64.options("SDL"), "-DSDL_OPENGL=OFF"
-    assert_includes arm64.options("SDL"), "-DSDL_OPENGL=OFF"
+    assert_equal x64.options("SDL"), arm64.options("SDL")
+    refute(arm64.options("SDL").any? { |option| option.start_with?("-DSDL_OPENGL") })
     assert_includes x64.options("OpenAL Soft"), "-DALSOFT_STATIC_WINPTHREAD=ON"
     refute_includes arm64.options("OpenAL Soft"), "-DALSOFT_STATIC_WINPTHREAD=ON"
   end
