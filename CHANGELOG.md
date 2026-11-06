@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Experimental: under Fledge's `fledge build android`, the source gem builds LÖVE's engine and the extension for Android's arm64-v8a and x86_64 into the app's `libfledgeext.so`, from a clone of Lota named with `--with-lota-source`, LÖVE's dependencies built by `rake android:deps` (`--with-lota-android-deps`), SDL3 built shared by Fledge's `examples/sdl_phone/sdl3/build.sh` (`--with-lota-sdl3`), and Rice (`--with-rice-dir`); OpenAL Soft ships beside it as `libopenal.so`, with its OpenSL ES backend.
+
 ## [0.1.3] - 2026-11-05
 
 ### Added
