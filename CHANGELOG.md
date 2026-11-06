@@ -21,6 +21,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- An engine object read back that a game had kept no reference to, such as each of `World#bodies` or `Body#shapes` read every frame, no longer comes back as the wrapper Ruby's garbage collector had already found dead, which the collector then freed while the game used it and crashed it.
 - A `TextBatch` freed by Ruby's garbage collector on another thread is released on the main thread, as every other `love.graphics` object is; it was released where it was freed.
 - The error screen stops every joystick's vibration and all audio, as LÖVE's does.
 - The `aarch64-mingw-ucrt` gem renders with OpenGL as well as Vulkan; its SDL was built without OpenGL.

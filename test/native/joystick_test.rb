@@ -21,6 +21,7 @@ require_relative "../callback_helper"
 # reports into messages.
 class JoystickEventsTest < Minitest::Test
   include CallbackHelper
+  include NativeHelper
 
   CALLBACKS = %i[
     joystickadded
@@ -262,6 +263,18 @@ class JoystickEventsTest < Minitest::Test
     assert_equal "Invalid gamepad mappings.", error.message
   ensure
     Lota::Filesystem.remove("lota-mappings.txt")
+  end
+
+  # A game that polls the joysticks each frame and keeps none of them
+  # drops each frame's wrappers, and the collector finds them dead in
+  # some frame and frees them in a later one. getJoysticks must not hand
+  # a frame a wrapper the collector has found dead: it would be freed
+  # while the frame uses it.
+  def test_joysticks_never_returns_a_wrapper_the_collector_found_dead
+    attach(gamepad: true)
+    Lota.run.call
+
+    assert_never_reads_back_a_dead_wrapper { Lota::Native::Joystick.joysticks.last }
   end
 
   def test_lota_joystick_is_the_module
