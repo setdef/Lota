@@ -22,15 +22,45 @@ class GateTest < Minitest::Test
     task(:bad) { puts "bad output"; abort "bad failed" }
     task(:needs_built => :built) { puts "needs built" }
     task(:display) { puts "display \#{ENV.fetch('DISPLAY', 'none')}" }
+    task(:hang) do
+      File.write("child.pid", spawn("sleep", "20").to_s)
+      File.write("hang.pid", Process.pid.to_s)
+      puts "hang began"
+      $stdout.flush
+      sleep 20
+    end
+    task(:orphan) do
+      spawn("sleep", "20")
+      puts "orphan exited"
+    end
   RUBY
 
-  def gate(root, lanes, jobs: lanes.size, displays: [])
+  def gate(root, lanes, jobs: lanes.size, displays: [], **)
     write(root, "Rakefile", RAKEFILE)
     out = StringIO.new
-    [Gate.new(prepared: %w[built], lanes:, jobs:, displays:, root:, out:), out]
+    [Gate.new(prepared: %w[built], lanes:, jobs:, displays:, root:, out:, **), out]
   end
 
   def check(*tasks) = Gate::Check.of(*tasks)
+
+  def gone?(pid)
+    Process.kill(0, pid)
+    false
+  rescue Errno::ESRCH
+    true
+  end
+
+  def eventually_gone?(pid)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
+    sleep 0.05 until gone?(pid) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+    gone?(pid)
+  end
+
+  def timed
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    yield
+    Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+  end
 
   def test_prints_each_check_whole_in_declared_order_with_timings
     in_tree do |root|
@@ -99,6 +129,78 @@ class GateTest < Minitest::Test
 
       assert_equal ["display :97", "display :96", "display #{ENV.fetch('DISPLAY', 'none')}"],
         out.string.scan(/^display .*$/)
+    end
+  end
+
+  # The live log says when each check starts and ends as it happens, apart
+  # from the output the report holds, and says the budget.
+  def test_prints_each_start_and_end_as_it_happens
+    in_tree do |root|
+      gate, out = gate(root, [[check("slow")], [check("ok")]], lane_timeout: 30)
+      gate.run { nil }
+
+      report = out.string
+
+      assert_match(/^gate \d\d:\d\d:\d\d: every lane must end within 30 s of the gate's start/, report)
+      assert_match(/^gate \d\d:\d\d:\d\d: ▶ slow started \(lane 1\)$/, report)
+      assert_match(/^gate \d\d:\d\d:\d\d: ✅ ok ended \(lane 2, \d+ s, passed\)$/, report)
+      assert_operator report.index("slow ended (lane 1"), :<, report.index("✅ gate: slow")
+      assert_operator report.index("ok ended"), :<, report.index("slow ended")
+    end
+  end
+
+  # While checks run, the live log names each, with its lane and how long
+  # it has run, at every heartbeat.
+  def test_a_heartbeat_names_the_checks_still_running
+    in_tree do |root|
+      gate, out = gate(root, [[check("slow")], [check("ok")]], heartbeat: 0.3)
+      gate.run { nil }
+
+      assert_match(/^gate \d\d:\d\d:\d\d: still running: slow \(lane 1, \d+ s\)$/, out.string)
+    end
+  end
+
+  # A check still running when its lane's budget runs out is timed out:
+  # its output so far, its processes, and their stacks are printed, its
+  # process group is ended, and the gate fails, while the other lanes are
+  # untouched.
+  def test_a_check_past_the_budget_is_timed_out_after_its_diagnostics
+    in_tree do |root|
+      gate, out = gate(root, [[check("hang"), check("quick")], [check("ok")]], lane_timeout: 2, sample_seconds: 1)
+      error = nil
+      seconds = timed { error = assert_raises(Gate::Failure) { gate.run { nil } } }
+
+      report = out.string
+
+      assert_equal "gate failed: hang (timed out)", error.message
+      assert_operator seconds, :<, 15
+      assert_match(/⏰ hang TIMED OUT \(lane 1\) after \d+ s, past the budget of 2 s from the gate's start/, report)
+      assert_match(/output of hang so far.*hang began/m, report)
+      assert_match(/processes of hang.*PID\s+PPID\s+PGID.*gate_child\.rb.*sleep 20/m, report)
+      assert_match(/stack of #{File.read(File.join(root, 'hang.pid'))} /, report)
+      assert_match(/ended the process group of hang/, report)
+      assert_match(/⏰ gate: hang \(\d+ s\) TIMED OUT/, report)
+      assert_match(/hang\s+\d+ s\s+TIMED OUT/, report)
+      assert_match(/✅ gate: ok/, report)
+      assert eventually_gone?(Integer(File.read(File.join(root, "hang.pid"))))
+      assert eventually_gone?(Integer(File.read(File.join(root, "child.pid"))))
+      refute_path_exists File.join(root, "quick.at")
+    end
+  end
+
+  # A check whose process has exited, but which left a process holding its
+  # output open, would keep the gate waiting for the end of that output;
+  # the watchdog times it out too, and says which it was.
+  def test_a_check_whose_output_stays_open_after_it_exits_is_timed_out
+    in_tree do |root|
+      gate, out = gate(root, [[check("orphan")]], lane_timeout: 2, sample_seconds: 1)
+      error = nil
+      seconds = timed { error = assert_raises(Gate::Failure) { gate.run { nil } } }
+
+      assert_equal "gate failed: orphan (timed out)", error.message
+      assert_operator seconds, :<, 15
+      assert_match(/its process exited with status 0, but a process it started still holds its output open/, out.string)
+      assert_match(/output of orphan so far.*orphan exited/m, out.string)
     end
   end
 end

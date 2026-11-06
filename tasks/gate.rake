@@ -28,6 +28,13 @@ require_relative "gate"
 # LOTA_GATE_DISPLAYS lists, separated by spaces, an X display for each lane
 # in the order below, so that on Linux no lane's windows open over
 # another's (tasks/gate.rb); CI's Linux gate starts them.
+#
+# The gate says when each check starts and ends as it happens, and every
+# LOTA_GATE_HEARTBEAT seconds (Gate::HEARTBEAT unless set) which are still
+# running. LOTA_GATE_LANE_TIMEOUT is the seconds from the gate's start by
+# which every lane must end (Gate::LANE_TIMEOUT unless set); a check still
+# running then is timed out, after the gate prints its output so far, its
+# processes, and their stacks.
 GATE_PREPARE = %w[lint:fix engine compile].freeze
 GATE_LANES = [
   [Gate::Check.of("test:shard:rake_tasks"), Gate::Check.of("package:check"), Gate::Check.of("package:install")],
@@ -41,7 +48,10 @@ desc "Run the gate's checks in lanes, after fixing, engine, and compile"
 task :gate do
   jobs = Integer(ENV.fetch("LOTA_GATE_JOBS", GATE_LANES.size))
   displays = ENV.fetch("LOTA_GATE_DISPLAYS", "").split
-  Gate.new(prepared: GATE_PREPARE, lanes: GATE_LANES, jobs:, displays:).run { |name| Rake::Task[name].invoke }
+  lane_timeout = Float(ENV.fetch("LOTA_GATE_LANE_TIMEOUT", Gate::LANE_TIMEOUT))
+  heartbeat = Float(ENV.fetch("LOTA_GATE_HEARTBEAT", Gate::HEARTBEAT))
+  Gate.new(prepared: GATE_PREPARE, lanes: GATE_LANES, jobs:, displays:, lane_timeout:, heartbeat:)
+    .run { |name| Rake::Task[name].invoke }
 rescue Gate::Failure => e
   abort "❌ #{e.message}"
 end

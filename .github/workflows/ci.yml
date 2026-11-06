@@ -188,11 +188,19 @@ jobs:
       #
       # A dry run may go on past a failing gate, but never on a tag (the
       # ignore_gate_failures input).
+      #
+      # GitHub ends this step at 40 minutes and prints nothing of a check
+      # that was still running, whose output the gate holds. The gate ends
+      # any check still running 38 minutes after it starts, printing first
+      # what it has printed, its processes, and their stacks
+      # (tasks/gate.rb), which leaves the two minutes those take. The
+      # slowest healthy gate here has taken about 36 minutes.
       - name: Run the gate
         timeout-minutes: 40
         continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
         env:
           A: --verbose
+          LOTA_GATE_LANE_TIMEOUT: "2280"
         run: bundle exec rake
 
       # The gate starts with lint:fix, which corrects RuboCop offenses and
@@ -474,12 +482,15 @@ jobs:
 
       # The gate's test:parity builds the reference love from vendor/love
       # with love-appimage-source's Makefile, as LÖVE's own Linux CI does,
-      # beside the dependencies.
+      # beside the dependencies. As on macOS, the gate ends a check still
+      # running two minutes before GitHub would end the step, after
+      # printing what it can of it.
       - name: Run the gate
         timeout-minutes: 100
         continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
         env:
           A: --verbose
+          LOTA_GATE_LANE_TIMEOUT: "5880"
         run: bundle exec rake
 
       - name: Fail if the gate changed a file
