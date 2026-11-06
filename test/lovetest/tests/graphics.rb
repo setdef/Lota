@@ -33,14 +33,28 @@ class GraphicsTest < Lovetest::TestMethod
   # culling hides, so each test starts with the default cull mode too.
   def setup
     super
-    if Lota.graphics
-      Lota::Graphics.color = 1, 1, 1, 1
-      Lota::Graphics.mesh_cull_mode = :none
-    end
+    restore_defaults
     return unless Lota.window
 
     _width, _height, flags = Lota::Window.mode
     Lota::Window.update_mode(depth: true, stencil: true) unless flags.depth && flags.stencil
+  end
+
+  # Each test ends with the defaults as well, so that the suite run after
+  # this one, in the same process, does not start with what the last test
+  # here left: after getMeshCullMode, back culling hides the meshes that
+  # BufferTest draws and reads back.
+  def teardown
+    super
+    restore_defaults
+  end
+
+  # Sets the color and the mesh cull mode to LÖVE's defaults.
+  def restore_defaults
+    return unless Lota.graphics
+
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.mesh_cull_mode = :none
   end
 
   # SPDX-SnippetBegin
