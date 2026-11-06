@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-06
+
 ### Added
 
 - `Lota::Filesystem.append`, `directory_items`, `real_directory`, `exists`, `mount` (of a path, a `Lota::Data`, or a `FileData`) and `unmount`, `mount_full_path` and `unmount_full_path`, `mount_common_path` and `unmount_common_path`, `full_common_path`, `source`, `source_base_directory`, `working_directory`, `user_directory`, `appdata_directory`, `executable_path`, `canonicalize_real_path`, `symlinks_enabled?` and `symlinks_enabled=`, and `require_path` and `c_require_path` and their writers, which Ruby's `require` does not read.
