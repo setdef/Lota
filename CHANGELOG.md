@@ -19,6 +19,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Audio::RecordingDevice`, with `start`, `stop`, `data`, `sample_count`, `sample_rate`, `bit_depth`, `channel_count`, `name`, and `recording?`.
 - Boot passes `t.audio.mixwithsystem` and `t.audio.mic` to the engine before the audio module opens, and sets the window's icon from `t.window.icon`, as LÖVE's boot does.
 - `Lota::Mouse.cursor`, translating `love.mouse.getCursor`, and `Lota::Mouse::Cursor.new`, translating `love.mouse.newCursor`, of an image or an Array of them.
+- Experimental: under Fledge's `fledge build android`, the source gem builds LÖVE's engine and the extension for Android's arm64-v8a and x86_64 into the app's `libfledgeext.so`, from a clone of Lota named with `--with-lota-source`, LÖVE's dependencies, SDL 3.4.10 among them, built by `rake android:deps` (`--with-lota-android-deps`), and Rice (`--with-rice-dir`); SDL and OpenAL Soft ship beside it as `libSDL3.so` and `libopenal.so`, the latter with its OpenSL ES backend.
+- Phone hosts in the gem, `ext/lota/phone/host/ios` and `ext/lota/phone/host/android`, which a game's Fledge project copies and names under `ios: host:` and `android: host:`: SDL's startup files, SDL 3.4.10's Java classes, the Android Activity methods LÖVE's engine calls, and an opt-in for a game to handle Android's Back itself.
 
 ## [0.2.0] - 2026-11-05
 

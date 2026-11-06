@@ -68,9 +68,9 @@ class CppGatesTest < Minitest::Test
 
   def test_files_on_a_platform_leaves_out_another_platforms_sources
     in_tree do |root|
-      %w[ext/a.cpp ext/b_linux.cpp ext/c.mm ext/d.m ext/e_linux.hpp ext/f_windows.cpp ext/g_ios.c].each do |path|
-        write(root, path)
-      end
+      %w[
+        ext/a.cpp ext/b_linux.cpp ext/c.mm ext/d.m ext/e_linux.hpp ext/f_windows.cpp ext/g_ios.c ext/h_android.c
+      ].each { |path| write(root, path) }
       git_stage(root)
 
       macos = CppGates::Files.new(root:, platform: "macos")
@@ -81,7 +81,25 @@ class CppGatesTest < Minitest::Test
       assert_equal(%w[ext/a.cpp ext/f_windows.cpp].map { |path| File.join(root, path) }, windows.sources)
       assert_equal(%w[ext/a.cpp ext/g_ios.c].map { |path| File.join(root, path) },
         CppGates::Files.new(root:, platform: "ios").sources)
+      assert_equal(%w[ext/a.cpp ext/h_android.c].map { |path| File.join(root, path) },
+        CppGates::Files.new(root:, platform: "android").sources)
       assert_equal macos.all, linux.all
+    end
+  end
+
+  # The iOS host's Host/main.m keeps the name Fledge's file has, which it
+  # replaces in an app's Xcode project, so its folder, not its name, says
+  # it is iOS's: Objective-C that no macOS build compiles.
+  def test_the_ios_hosts_objective_c_is_ios_not_macos
+    in_tree do |root|
+      %w[ext/a.cpp ext/lota/phone/host/ios/Host/main.m ext/c.m].each { |path| write(root, path) }
+      git_stage(root)
+
+      assert_equal(%w[ext/a.cpp ext/c.m].map { |path| File.join(root, path) },
+        CppGates::Files.new(root:, platform: "macos").sources)
+      assert_equal(%w[ext/a.cpp ext/lota/phone/host/ios/Host/main.m].map { |path| File.join(root, path) },
+        CppGates::Files.new(root:, platform: "ios").sources)
+      assert_equal "ios", CppGates::Files.platform_of("ext/lota/phone/host/ios/Host/main.m")
     end
   end
 
