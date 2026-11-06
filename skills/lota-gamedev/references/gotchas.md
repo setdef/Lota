@@ -53,6 +53,13 @@ Lota's; the LÖVE function is in the RDoc.
   handling it. iOS has no Back key.
 - A program that returns on iOS leaves the app on its last frame.
 
+**Renderer**
+- LÖVE 12 tries Vulkan first on Windows, Linux, and Android, and does not fall
+  back to OpenGL if Vulkan finds no usable GPU when the window opens (it
+  raises "Failed to initialize graphics"). A game that may run on such a
+  machine sets `t.graphics.excluderenderers = [:vulkan]` in `conf.rb`, as
+  a LÖVE game does in `conf.lua`.
+
 **Audio, files, shaders**
 - With no audio device, LÖVE prints `Could not open device.` and plays nothing.
 - Saves go where `Lota::Filesystem.save_directory` says, under your
