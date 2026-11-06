@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
+#include <cstdlib>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -47,6 +48,7 @@
 #include <unistd.h>
 // O_RDONLY, which macOS's SDK declares in sys/fcntl.h and glibc in fcntl.h.
 #ifdef __APPLE__
+#include <CoreFoundation/CFBase.h>
 #include <sys/fcntl.h>
 #else
 #include <fcntl.h>
@@ -64,6 +66,11 @@ extern "C" __attribute__((weak_import)) long lota_loopback_render(const char *pa
 // Its status is an MTLCommandBufferStatus, an NSUInteger (MTLCommandBuffer.h).
 extern "C" __attribute__((weak_import)) void
 lota_metal_watch_check(int waited, unsigned long status, long code);
+// Metal's MTLCreateSystemDefaultDevice (Metal/MTLDevice.h), which this C++
+// file declares as returning the device as a Core Foundation reference, the
+// caller's to release, and finds the same way, so that the watch, when
+// loaded, interposes its calls.
+extern "C" __attribute__((weak_import)) CFTypeRef MTLCreateSystemDefaultDevice();
 #else
 extern "C" __attribute__((weak)) long lota_loopback_render(const char *path, double dt);
 #endif
@@ -700,6 +707,36 @@ void check_metal_command_buffer(bool waited, unsigned long status, long code) {
   }
   lota_metal_watch_check(waited ? 1 : 0, status, code);
 }
+
+// Makes Metal's default device, as LÖVE's Metal graphics does
+// (vendor/love/src/modules/graphics/metal/Graphics.mm:293-309), and
+// releases it. Raises where Metal is not loaded.
+void create_metal_device() {
+  if (MTLCreateSystemDefaultDevice == nullptr) {
+    throw std::runtime_error("Metal is not loaded");
+  }
+  const CFTypeRef device = MTLCreateSystemDefaultDevice();
+  if (device != nullptr) {
+    CFRelease(device);
+  }
+}
+
+// Has the process make Metal's default device again as it exits, from a
+// handler std::atexit runs after every exit-time destructor and handler
+// registered after this call, as a framework's own exit-time code may.
+void create_metal_device_at_exit() {
+  if (MTLCreateSystemDefaultDevice == nullptr) {
+    throw std::runtime_error("Metal is not loaded");
+  }
+  if (std::atexit([] {
+        const CFTypeRef device = MTLCreateSystemDefaultDevice();
+        if (device != nullptr) {
+          CFRelease(device);
+        }
+      }) != 0) {
+    throw std::runtime_error("std::atexit could not register the handler");
+  }
+}
 #endif
 
 // Takes the arguments Lota::Native::Graphics.rectangle takes, converted by
@@ -824,6 +861,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
 #ifdef __APPLE__
       .define_module_function("check_metal_command_buffer", &check_metal_command_buffer,
                               Rice::Arg("waited"), Rice::Arg("status"), Rice::Arg("code"))
+      .define_module_function("create_metal_device", &create_metal_device)
+      .define_module_function("create_metal_device_at_exit", &create_metal_device_at_exit)
 #endif
       .define_module_function("press_return_on_dialogs",
                               &lota::native_test::press_return_on_dialogs)
