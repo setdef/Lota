@@ -118,9 +118,16 @@ module Lota
     #   appears, in the window's coordinates, which tells an on-screen
     #   keyboard or an input method where to show itself.
     #
-    # The window turns text input on while it is open on a computer, and
-    # turns it off on a phone until a game asks, as SDL does. It changes
-    # nothing while no window is open. Raises ArgumentError for a
+    # Text input starts off, on a computer as on a phone, so a game that
+    # wants the +textinput+ callback turns it on, in its +load+ or when a
+    # text field gains focus. LÖVE turns it on only when a game asks
+    # (src/modules/keyboard/sdl/Keyboard.cpp, Keyboard::setTextInput),
+    # and SDL 3, unlike SDL 2, no longer turns it on for a new window
+    # (SDL 3.4.10, docs/README-migration.md, SDL_keyboard.h), so a game
+    # written for LÖVE 11 that never asks receives no text, though
+    # +keypressed+ still arrives. Turning it on may show an on-screen
+    # keyboard or an input method. It changes nothing while no window is
+    # open. Raises ArgumentError for a
     # rectangle of fewer than four numbers, and RuntimeError when the
     # keyboard module is not open.
     #
@@ -139,13 +146,14 @@ module Lota
 
     # Whether text input is on, matching love.keyboard.hasTextInput
     # (src/modules/keyboard/wrap_Keyboard.cpp, w_hasTextInput). It is
-    # +false+ while no window is open.
+    # +false+ while no window is open, and +false+ when a window opens,
+    # until the game turns it on with text_input=.
     #
     # Raises RuntimeError when the keyboard module is not open.
     #
     # === Example
     #
-    #   Lota::Keyboard.text_input? # => true
+    #   Lota::Keyboard.text_input? # => false
     def self.text_input?
       Native::Keyboard.text_input?
     end
