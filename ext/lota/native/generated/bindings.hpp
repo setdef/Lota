@@ -8,6 +8,8 @@
 // Defines every generated binding (ext/lota/native/generated/*.cpp)
 // on Lota::Native. native.cpp calls define_generated after the
 // hand-written bindings, so the classes those define already exist.
+// Each module's are defined safe for the Ractors define_module says
+// (native/binding.hpp, ractor_safe_module).
 
 #ifndef LOTA_NATIVE_GENERATED_BINDINGS_HPP
 #define LOTA_NATIVE_GENERATED_BINDINGS_HPP
@@ -34,22 +36,22 @@ void define_generated_touch(const Rice::Module &native);
 void define_generated_window(const Rice::Module &native);
 
 inline void define_generated(const Rice::Module &native) {
-  define_generated_audio(native);
-  define_generated_data(native);
-  define_generated_event(native);
-  define_generated_filesystem(native);
-  define_generated_graphics(native);
-  define_generated_image(native);
-  define_generated_joystick(native);
-  define_generated_keyboard(native);
-  define_generated_math(native);
-  define_generated_mouse(native);
-  define_generated_physics(native);
-  define_generated_sound(native);
-  define_generated_system(native);
-  define_generated_timer(native);
-  define_generated_touch(native);
-  define_generated_window(native);
+  define_module("audio", &define_generated_audio, native);
+  define_module("data", &define_generated_data, native);
+  define_module("event", &define_generated_event, native);
+  define_module("filesystem", &define_generated_filesystem, native);
+  define_module("graphics", &define_generated_graphics, native);
+  define_module("image", &define_generated_image, native);
+  define_module("joystick", &define_generated_joystick, native);
+  define_module("keyboard", &define_generated_keyboard, native);
+  define_module("math", &define_generated_math, native);
+  define_module("mouse", &define_generated_mouse, native);
+  define_module("physics", &define_generated_physics, native);
+  define_module("sound", &define_generated_sound, native);
+  define_module("system", &define_generated_system, native);
+  define_module("timer", &define_generated_timer, native);
+  define_module("touch", &define_generated_touch, native);
+  define_module("window", &define_generated_window, native);
 }
 
 } // namespace lota::native

@@ -48,7 +48,7 @@ module Lota
 
       private def self.debugname_of: (String? debugname) -> String
 
-      private def self.mark_deprecated_uses: (Native::Shader native, Thread::Backtrace::Location? location) -> void
+      private def self.mark_deprecated_uses: (Native::Shader native, ::Thread::Backtrace::Location? location) -> void
 
       private def self.transform_glsl_error_messages: (String message) -> String
 
@@ -56,7 +56,7 @@ module Lota
 
       def warnings: () -> String
 
-      def self.compute: (source first, Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
+      def self.compute: (source first, ::Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
 
       def buffer_format: (String name) -> Array[BufferFormat]
 

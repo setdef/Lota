@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Thread
+    CHANNEL_EXPECTED: String
+
+    START_EXPECTED: String
+
+    def self.channel: (String name) -> Channel
+
+    def self.share: [T] (T value, Integer position, String name, String expected) -> T
+
+    def self.main_thread_only: (Module mod) -> void
+  end
+end

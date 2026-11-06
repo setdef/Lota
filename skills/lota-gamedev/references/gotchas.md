@@ -65,7 +65,14 @@ Lota's; the LÖVE function is in the RDoc.
   applies the last; on iOS set the audio session in the app's host instead:
   Ambient mixes with other apps and obeys the silent switch).
 - Part of `love.physics` (for example some `Body` and `MouseJoint` setters),
-  video, and `Lota::Thread` and channels (LÖVE's `love.thread`).
+  and video.
+- `Lota::Thread` (LÖVE's `love.thread`) is experimental: a thread is a
+  Ractor whose code reads its arguments from `ARGV`, a Channel carries only
+  values Ractors share and frozen copies of others, and a thread may call
+  `Lota::Audio`, `Data`, `Event`, `Filesystem`, `Font`, `Image`, `Math`,
+  `Physics`, `Sound`, `Thread`, and `Timer`; `Graphics` and `Window` raise
+  LÖVE's "cannot be used in thread code", and `Joystick`, `Keyboard`,
+  `Mouse`, `Sensor`, `System`, and `Touch` raise `Ractor::UnsafeError`.
 - A `NoMethodError` on a LÖVE function usually means it is not bound.
 
 **Ruby-specific**

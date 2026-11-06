@@ -517,6 +517,82 @@ module Lota
       def self.open: () -> nil
 
       def self.open?: () -> bool
+
+      def self.sleep: (Float | Integer seconds) -> nil
+    end
+
+    module Thread
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.channel: (String name) -> Channel
+
+      def self.new_channel: () -> Channel
+
+      def self.new_thread: (String name, String code) -> Thread
+
+      class Channel
+        def self.cpp_class: () -> String
+
+        def object_type: () -> String
+
+        def type_of?: (String name) -> bool
+
+        def push: (::Object? value) -> Integer
+
+        def supply: (::Object? value, ?Float? timeout) -> bool
+
+        def pop: () -> ::Object?
+
+        def demand: (?Float? timeout) -> ::Object?
+
+        def peek: () -> ::Object?
+
+        def count: () -> Integer
+
+        def read?: (Numeric id) -> bool
+
+        def clear: () -> nil
+
+        def lock: () -> nil
+
+        def unlock: () -> nil
+
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def hash: () -> Integer
+      end
+
+      class Thread
+        def self.cpp_class: () -> String
+
+        def object_type: () -> String
+
+        def type_of?: (String name) -> bool
+
+        def name: () -> String
+
+        def code: () -> String
+
+        def begin: () -> bool
+
+        def finish: (?String? error) -> nil
+
+        def wait: () -> nil
+
+        def running?: () -> bool
+
+        def error: () -> String?
+
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def hash: () -> Integer
+      end
     end
 
     module Event

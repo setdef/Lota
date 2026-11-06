@@ -34,7 +34,7 @@ module Lota
 
       def self.new: (name | Array[declaration] format, ::Object content, ?vertex: boolish, ?index: boolish, ?texel: boolish, ?shaderstorage: boolish, ?indirectarguments: boolish, ?usage: name?, ?debugname: String?) -> GraphicsBuffer
 
-      def self.create: (Thread::Backtrace::Location? location, name | Array[declaration] format, ::Object content, ?vertex: boolish, ?index: boolish, ?texel: boolish, ?shaderstorage: boolish, ?indirectarguments: boolish, ?usage: name?, ?debugname: String?) -> GraphicsBuffer
+      def self.create: (::Thread::Backtrace::Location? location, name | Array[declaration] format, ::Object content, ?vertex: boolish, ?index: boolish, ?texel: boolish, ?shaderstorage: boolish, ?indirectarguments: boolish, ?usage: name?, ?debugname: String?) -> GraphicsBuffer
 
       def self.declarations: (::Object format, bool location) -> Array[[String, String, Integer, Integer?]]
 

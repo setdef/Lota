@@ -20,6 +20,21 @@ class TimerClockTest < Minitest::Test
     EngineHelper.open_window
   end
 
+  # Lota::Timer.sleep lets go of Ruby's GVL, as Ruby's own sleep does, so
+  # another thread runs while it sleeps, and so, in another Ractor, does
+  # Ruby's collector (test/native/thread_test.rb).
+  def test_sleep_lets_other_threads_run
+    counted = 0
+    counter = Thread.new { loop { counted += 1 } }
+    Thread.pass until counted.positive?
+    before = counted
+    Lota::Timer.sleep(0.2)
+    during = counted - before
+    counter.kill.join
+
+    assert_operator during, :>, 1000
+  end
+
   def test_time_counts_seconds_and_only_moves_forward
     before = Lota::Timer.time
     Lota::Timer.sleep(0.02)

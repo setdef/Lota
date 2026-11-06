@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Thread
+    class Thread
+      include Object
+
+      attr_reader native: Native::Thread::Thread
+
+      def self.from_native: (Native::Thread::Thread native) -> Thread
+
+      def initialize: (String | Lota::Data code) -> void
+
+      def self.source: (String | Lota::Data code) -> [String, String]
+
+      private def self.file: (String filename) -> [String, String]
+
+      def start: (*::Object? arguments) -> bool
+
+      def wait: () -> nil
+
+      def error: () -> String?
+
+      def running?: () -> bool
+
+      def ==: (::Object other) -> bool
+
+      alias eql? ==
+
+      def hash: () -> Integer
+
+      def to_s: () -> String
+
+      module Body
+        def self.start: (Thread thread, Array[::Object?] arguments) -> void
+
+        private def self.quietly: [T] () { () -> T } -> T
+
+        private def self.ractor: (Thread thread, Array[::Object?] arguments) -> Ractor
+
+        def self.run: (Thread thread, Array[::Object?] arguments) -> nil
+
+        private def self.file: (String name) -> String
+      end
+    end
+  end
+end

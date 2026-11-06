@@ -10,7 +10,11 @@
 
 #include "native/binding.hpp"
 
+#include <ruby/thread.h>
+
+#include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace lota::native::ruby {
@@ -66,6 +70,41 @@ inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 
 inline Rice::Object nil() { return {Qnil}; }
 
+// A Ruby value as the C API holds it, for the engine code that keeps
+// Ruby values (native/thread.hpp).
+using Value = VALUE;
+
+// The Ruby thread running this code, which a Ruby thread holds a Channel
+// or a Data as (native/thread.cpp, native/data.cpp).
+inline Value current_thread() { return rb_thread_current(); }
+
+// Marks +value+ for Ruby's collector, from a Marked's mark.
+inline void mark(Value value) { rb_gc_mark(value); }
+
+// Whether Ractors share +value+, as Ractor.shareable? answers. Ruby 4.0.7's
+// inline rb_ractor_shareable_p (ruby/ractor.h:248-262) declares
+// rb_ractor_shareable_p_continue inside its own body, outside the header's
+// extern "C" block, so from C++ it names a mangled symbol that no Ruby
+// exports and MinGW's lld cannot link; Ruby's method links everywhere.
+inline bool shareable(const Rice::Object &value) {
+  const Rice::Object ractor(Rice::detail::protect(rb_path2class, "Ractor"));
+  return truthy(ractor.call("shareable?", value));
+}
+
+// Runs the interrupts Ruby has pending for this thread, as Ruby does as it
+// returns from a call that released the GVL; an exception one raises
+// reaches C++ as Rice's, rather than as a longjmp through C++ frames.
+inline void check_interrupts() { Rice::detail::protect(rb_thread_check_ints); }
+
+// Calls +function+ with +data+ with the GVL released, as Ruby's own sleep
+// waits, and then runs Ruby's pending interrupts, as an exception of Rice's.
+// Nothing can cut +function+ short.
+inline void without_gvl(void *(*function)(void *), void *data) {
+  Rice::detail::protect(rb_thread_call_without_gvl, function, data,
+                        static_cast<rb_unblock_function_t *>(nullptr),
+                        static_cast<void *>(nullptr));
+}
+
 // The elements of +array+, to index with bounds checked.
 inline std::vector<Rice::Object> elements(const Rice::Array &array) {
   std::vector<Rice::Object> values;
@@ -84,28 +123,127 @@ inline std::vector<Rice::Object> elements(const Rice::Array &array) {
   throw Rice::Exception(rb_eArgError, "%s", message.c_str());
 }
 
+// Something the engine holds that holds Ruby values, which Ruby's garbage
+// collector must see however long the engine keeps it (Marks, below).
+class Marked {
+public:
+  Marked() = default;
+  Marked(const Marked &) = delete;
+  Marked(Marked &&) = delete;
+  Marked &operator=(const Marked &) = delete;
+  Marked &operator=(Marked &&) = delete;
+
+  // Marks the Ruby values it holds. It runs while Ruby collects, when no
+  // Ractor runs Ruby code, so it must neither allocate nor call Ruby.
+  virtual void mark() const = 0;
+
+protected:
+  ~Marked() = default;
+};
+
+// The roots of Ruby's garbage collector that live in the engine, in every
+// Ractor at once: one hidden object, which Init_native makes and Ruby
+// marks on every collection, marks each Marked object there is.
+//
+// rb_gc_register_address, which roots one address, is not for this: it
+// links the address into one list the whole VM shares, with no lock
+// (Ruby 4.0.7, gc.c:3444-3488), so two Ractors that root values at once
+// corrupt it, and a lock of Lota's own around it could not help, for it
+// allocates, and a collection that started there would wait for the
+// other Ractor, which waits for the lock. Here the lock guards a set that
+// only C++ allocates for, so whoever holds it never waits on Ruby, and the
+// collector, which stops every Ractor first, takes it only once no
+// Ractor's Ruby code does.
+class Marks {
+public:
+  static Marks &instance() {
+    static Marks marks;
+    return marks;
+  }
+
+  Marks(const Marks &) = delete;
+  Marks(Marks &&) = delete;
+  Marks &operator=(const Marks &) = delete;
+  Marks &operator=(Marks &&) = delete;
+  ~Marks() = default;
+
+  // Makes the object Ruby marks them from, once, from Init_native, on the
+  // main Ractor. Ruby never frees it.
+  void install() {
+    if (installed_) {
+      return;
+    }
+    const VALUE marker = rb_data_typed_object_wrap(0, this, &TYPE);
+    rb_gc_register_mark_object(marker);
+    installed_ = true;
+  }
+
+  void add(const Marked *marked) {
+    const std::scoped_lock lock(mutex_);
+    marked_.insert(marked);
+  }
+
+  // It may run while Ruby collects another object whose release destroys
+  // +marked+, and allocates nothing.
+  void remove(const Marked *marked) noexcept {
+    const std::scoped_lock lock(mutex_);
+    marked_.erase(marked);
+  }
+
+private:
+  Marks() = default;
+
+  static void mark_all(void *data) {
+    auto *marks = static_cast<Marks *>(data);
+    const std::scoped_lock lock(marks->mutex_);
+    for (const Marked *marked : marks->marked_) {
+      marked->mark();
+    }
+  }
+
+  static constexpr rb_data_type_t TYPE = {
+      .wrap_struct_name = "Lota::Native marks",
+      .function =
+          {
+              .dmark = &mark_all,
+              .dfree = nullptr,
+              .dsize = nullptr,
+              .dcompact = nullptr,
+              .reserved = {},
+          },
+      .parent = nullptr,
+      .data = nullptr,
+      .flags = 0,
+  };
+
+  std::mutex mutex_;
+  std::unordered_set<const Marked *> marked_;
+  bool installed_ = false;
+};
+
 // A Ruby value that stays alive while this object does: a root of Ruby's
 // garbage collector, as a Lua reference keeps its value in the registry.
-// Its destructor only unregisters the address, which allocates nothing, so
-// it may run while Ruby collects another object whose release destroys
-// this one.
-class Root {
+// It may be made and destroyed in any Ractor (Marks), and its destructor
+// allocates nothing, so it may run while Ruby collects another object
+// whose release destroys this one. The value is pinned, so GC.compact
+// never moves it, as rb_gc_register_address pinned it before.
+class Root final : public Marked {
 public:
-  explicit Root(const Rice::Object &value) : value_(value.value()) {
-    rb_gc_register_address(&value_);
-  }
+  explicit Root(const Rice::Object &value) : value_(value.value()) { Marks::instance().add(this); }
 
   Root(const Root &) = delete;
   Root(Root &&) = delete;
   Root &operator=(const Root &) = delete;
   Root &operator=(Root &&) = delete;
 
-  ~Root() { rb_gc_unregister_address(&value_); }
+  ~Root() { Marks::instance().remove(this); }
 
   [[nodiscard]] Rice::Object value() const { return {value_}; }
 
   // Lets the value go, while this object lives on.
   void clear() { value_ = Qnil; }
+
+  void mark() const override { rb_gc_mark(value_); }
 
 private:
   VALUE value_;

@@ -17,7 +17,9 @@ module Lota
     # 1, however many bits it is stored in.
     #
     # LÖVE's SoundData is a Data, so it includes Lota::Data, with Data's
-    # methods: its #size, its bytes as a #string, and more.
+    # methods: its #size, its bytes as a #string, and more. Like every Data
+    # it is frozen, though its samples change, and Ractors share it, so a
+    # Lota::Thread::Channel carries it to another thread as itself.
     #
     # === Example
     #
@@ -36,7 +38,7 @@ module Lota
       def self.from_native(native)
         sound_data = allocate
         sound_data.instance_variable_set(:@native, native)
-        sound_data
+        sound_data.freeze
       end
 
       # Makes a SoundData, matching love.sound.newSoundData
@@ -85,6 +87,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # How many channels the sound has, as an Integer: 1 for mono, 2 for

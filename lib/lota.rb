@@ -53,6 +53,7 @@ require_relative "lota/image"
 require_relative "lota/font"
 require_relative "lota/graphics"
 require_relative "lota/timer"
+require_relative "lota/thread"
 require_relative "lota/keyboard"
 require_relative "lota/joystick"
 require_relative "lota/mouse"
@@ -69,6 +70,11 @@ require_relative "lota/settings"
 require_relative "lota/callbacks"
 require_relative "lota/info"
 require_relative "lota/boot"
+
+# LÖVE keeps love.graphics and love.window off its threads, and so does
+# Lota::Thread, with LÖVE's message.
+Lota::Thread.main_thread_only(Lota::Graphics)
+Lota::Thread.main_thread_only(Lota::Window)
 
 # The lowercase spelling of each module, so that a LÖVE tutorial's
 # love.graphics becomes lota.graphics and nothing else changes (ADR 003,
@@ -138,13 +144,25 @@ module Lota
     Font if Native::Font.open?
   end
 
-  # Lota::Graphics, as love.graphics, or +nil+ when the module is not open.
+  # Lota::Graphics, as love.graphics, or +nil+ when the module is not open,
+  # and in a thread's code (Lota::Thread), as love.graphics is nil in a
+  # LÖVE thread, which LÖVE keeps it from loading (src/modules/thread/
+  # LuaThread.cpp:72-73).
   #
   # === Example
   #
   #   lota.graphics.clear(0, 0, 0)
   def self.graphics
-    Graphics if Native::Graphics.open?
+    Graphics if Ractor.main? && Native::Graphics.open?
+  end
+
+  # Lota::Thread, as love.thread, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.thread.channel("results")
+  def self.thread
+    Thread if Native::Thread.open?
   end
 
   # Lota::Data, as love.data, or +nil+ when the module is not open.
@@ -267,13 +285,14 @@ module Lota
     System if Native::System.open?
   end
 
-  # Lota::Window, as love.window, or +nil+ when the module is not open.
+  # Lota::Window, as love.window, or +nil+ when the module is not open,
+  # and in a thread's code, as love.window is nil in a LÖVE thread.
   #
   # === Example
   #
   #   lota.window.title = "Asteroids"
   def self.window
-    Window if Native::Window.open?
+    Window if Ractor.main? && Native::Window.open?
   end
 end
 

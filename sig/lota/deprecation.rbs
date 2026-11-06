@@ -5,6 +5,8 @@ module Lota
   module Deprecation
     API_TYPES: Hash[Symbol, String]
 
+    MAIN_THREAD_GUARDS: String
+
     DEPRECATION_TYPES: Array[Symbol]
 
     class Info < Struct[Symbol | Integer | String]
@@ -27,7 +29,7 @@ module Lota
 
     self.@output: bool
 
-    def self.where: (Array[Thread::Backtrace::Location]? locations) -> String
+    def self.where: (Array[::Thread::Backtrace::Location]? locations) -> String
 
     def self.mark: (String name, Symbol api, ?Symbol type, ?String? replacement, ?where: String) -> nil
 

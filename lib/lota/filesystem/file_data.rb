@@ -19,7 +19,9 @@ module Lota
     #
     # Use it to decode an image you read yourself, or one you built in
     # memory. It is a Data, so it includes Lota::Data, whose #size and
-    # #string give its bytes back.
+    # #string give its bytes back. Like every Data it is frozen, and
+    # Ractors share it, so a Lota::Thread::Channel carries it to another
+    # thread as itself, as LÖVE's channels carry its objects.
     #
     # === Examples
     #
@@ -41,7 +43,7 @@ module Lota
       def self.from_native(native)
         file_data = allocate
         file_data.instance_variable_set(:@native, native)
-        file_data
+        file_data.freeze
       end
 
       # Copies +contents+ into a new FileData named +name+, matching
@@ -60,6 +62,7 @@ module Lota
       #   Lota::Filesystem::FileData.new(File.binread("hit.png"), "hit.png")
       def initialize(contents, name)
         @native = Native::Filesystem.new_file_data(contents, name)
+        freeze
       end
 
       # Makes this FileData, a copy of +source+ by Ruby's +clone+ or
@@ -74,6 +77,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The file's name, matching FileData:getFilename

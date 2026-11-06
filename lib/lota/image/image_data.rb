@@ -20,7 +20,9 @@ module Lota
     # Use it to check what a canvas holds, to compare an image with the
     # one you expected, to inspect a decoded file, or to draw pixels of
     # your own. It is a Data, so it includes Lota::Data, whose #size and
-    # #string give its bytes.
+    # #string give its bytes. Like every Data it is frozen, though its
+    # pixels change, and Ractors share it, so a Lota::Thread::Channel
+    # carries it to another thread as itself.
     #
     # Its pixels read and write as LÖVE runs ImageData's methods, in the
     # LuaJIT code that takes over from their C++
@@ -51,7 +53,7 @@ module Lota
       def self.from_native(native)
         image_data = allocate
         image_data.instance_variable_set(:@native, native)
-        image_data
+        image_data.freeze
       end
 
       # Makes an ImageData, matching love.image.newImageData
@@ -93,6 +95,7 @@ module Lota
         when String then Native::Image.new_image_data(Native::Filesystem.file_data(source))
         else Native::Image.new_image_data(source.native)
         end
+        freeze
       end
 
       # Makes this ImageData, a copy of +source+ by Ruby's +clone+ or
@@ -108,6 +111,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The width in pixels, as an Integer, matching ImageData:getWidth as
