@@ -44,6 +44,30 @@ class LinuxBuildTest < Minitest::Test
     assert_equal prerequisites.sort, LinuxBuild::LIBRARIES.sort
   end
 
+  # libvorbis's configure puts -ffast-math in its CFLAGS on Linux
+  # (configure.ac:133-189), under which glibc's headers declare vector
+  # versions of sin, cos, and acosf (bits/math-vector.h) and GCC on x86_64
+  # vectorizes loops into calls to libmvec, which the gem may not rely on.
+  # The make command LinuxBuild runs gives that configure, and only it,
+  # CFLAGS that take back what the headers read, __FAST_MATH__; libogg's,
+  # whose rule the libvorbis rule's prerequisites reach, keeps its own.
+  # make runs recipes that call $(MAKE) even in a dry run, so those run as
+  # true, in build directories made for them.
+  def test_only_libvorbiss_configure_is_given_cflags_that_keep_libmvec_out
+    in_tree do |dir|
+      linux = LinuxBuild.new(makefile: MAKEFILE, sources: File.join(dir, "sources"), root: dir)
+      files = linux.variables("LIBOGG_FILE", "LIBVORBIS_FILE")
+      files.each_value { |name| FileUtils.mkdir_p(File.join(dir, name, "build")) }
+      output, = Open3.capture2e(*linux.make_command(dir, "--dry-run", "MAKE=true", "installdir/lib/libvorbis.so"),
+        chdir: dir)
+      configures = output.lines.grep(%r{\Acd \S+/build && .*\.\./configure }).to_h { |line| [line[%r{\Acd ([^/]+)/}, 1], line] }
+
+      assert_equal files.values_at("LIBOGG_FILE", "LIBVORBIS_FILE").sort, configures.keys.sort, output
+      assert_includes configures.fetch(files.fetch("LIBVORBIS_FILE")), "&& CFLAGS=-U__FAST_MATH__ LDFLAGS="
+      refute_includes configures.fetch(files.fetch("LIBOGG_FILE")), "CFLAGS"
+    end
+  end
+
   # A Makefile with the real one's download variables, whose rules make
   # each download and each library by writing a file, and love from
   # love2d-$(LOVE_BRANCH), logging each target to make.log.

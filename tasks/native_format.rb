@@ -49,7 +49,8 @@ module NativeFormat
 
   # Mach-O, on macOS: the bundle loads frameworks through @rpath, and the
   # gem carries each in lib/lota/frameworks, as the one version directory
-  # its install name names, thinned to arm64 and signed again.
+  # its install name names, thinned to arm64, with only the rpaths
+  # relative to it, and signed again.
   class MachO
     # The platform the precompiled gem is for: Apple Silicon.
     PLATFORM = "arm64-darwin"
@@ -104,11 +105,18 @@ module NativeFormat
     end
 
     # Why +bundle+ would not load from inside +gem_dir+ alone: each rpath
-    # that is not relative to the bundle, and each library it loads through
-    # @rpath that no rpath resolves inside +gem_dir+.
+    # of it or of a framework it loads that is not relative to its binary,
+    # and each library it loads through @rpath that no rpath resolves
+    # inside +gem_dir+. dyld looks for what a framework loads through
+    # @rpath in the framework's own rpaths first, then in those of what
+    # loaded it, so an rpath such as vorbis's /Library/Frameworks would let
+    # an ogg.framework installed there shadow the gem's.
     def escapes(bundle, gem_dir)
       inside = File.join(File.realpath(gem_dir), "")
-      absolute = rpaths(bundle).reject { |rpath| rpath.start_with?("#{RELATIVE}/") }.map { |rpath| "rpath #{rpath}" }
+      binaries = [bundle] + dependencies(bundle).map { |relative| binary(File.expand_path(relative, File.dirname(bundle))) }
+      absolute = binaries.flat_map do |binary|
+        outside_rpaths(binary).map { |rpath| "rpath #{rpath} of #{File.basename(binary)}" }
+      end.uniq
       unresolved = rpath_libraries(bundle).reject do |name|
         relative_rpaths(bundle).any? do |rpath|
           path = File.join(File.dirname(bundle), rpath, name)
@@ -129,8 +137,10 @@ module NativeFormat
     # Copies the framework at +source+ into +stage+, at +relative+ (the
     # gem's framework directory) and its own name: its version directory
     # alone, without the symlinks around it, on which RubyGems warns,
-    # without its headers, and with only its arm64 code, signed again.
-    # Returns the files it staged, relative to +stage+.
+    # without its headers, with only its arm64 code, and without the
+    # rpaths that are not relative to it (#escapes), such as the
+    # /Library/Frameworks love-apple-dependencies' vorbis was built with,
+    # signed again. Returns the files it staged, relative to +stage+.
     def stage_library(stage, relative, source)
       name = File.basename(source)
       version = File.join(relative, name, VERSION)
@@ -142,6 +152,8 @@ module NativeFormat
       if NativeFormat.run!("lipo", "-archs", binary).split.size > 1
         NativeFormat.run!("lipo", binary, "-thin", "arm64", "-output", binary)
       end
+      outside = outside_rpaths(binary)
+      NativeFormat.run!("install_name_tool", *outside.flat_map { |rpath| ["-delete_rpath", rpath] }, binary) if outside.any?
       sign(target)
       files(stage, version, name)
     end
@@ -230,6 +242,20 @@ module NativeFormat
       rpaths(binary).filter_map { |rpath| rpath.delete_prefix("#{RELATIVE}/") if rpath.start_with?("#{RELATIVE}/") }
     end
 
+    # The rpaths of +binary+ that are not relative to it: absolute ones,
+    # and ones relative to the executable, which is Ruby, outside the gem.
+    private def outside_rpaths(binary)
+      rpaths(binary).reject { |rpath| rpath.start_with?("#{RELATIVE}/") }
+    end
+
+    # The binary of +path+, as #dependencies names it: a framework's, in
+    # its version directory, or the file itself.
+    private def binary(path)
+      return path unless path.end_with?(".framework")
+
+      File.join(path, VERSION, File.basename(path, ".framework"))
+    end
+
     # The names +binary+ needs through @rpath, once each, though otool
     # lists a library once for each architecture of a universal binary. A
     # library's own install name is among them.
@@ -254,12 +280,27 @@ module NativeFormat
     # What a relative rpath starts with.
     RELATIVE = "$ORIGIN"
 
-    # The libraries every glibc system has, which the gem relies on rather
-    # than carries: glibc's own, libmvec among them, the vector math GCC's
-    # vectorized loops call on x86_64, and GCC's C++ runtime, which LÖVE's
-    # AppImage relies on too (its appimage-prepare step copies only what its
-    # installdir built).
-    SYSTEM = /\A(?:(?:libc|libm|libmvec|libdl|libpthread|librt|libutil|libstdc\+\+|libgcc_s)\.so\.\d+|ld-linux-[\w-]+\.so\.\d+)\z/
+    # The libraries the gem relies on the system for rather than carries,
+    # by soname: glibc's and GCC's C++ runtime, which LÖVE's AppImage
+    # relies on too (its appimage-prepare step copies only what its
+    # installdir built). Each is one the manylinux policy lets a binary
+    # need (PEP 600, and auditwheel's policy list), which packagers such as
+    # Fledge check a gem's libraries against, or the dynamic linker. glibc
+    # ships libmvec too, the vector math GCC's vectorized loops call on
+    # x86_64, but the policy leaves it out, so LinuxBuild keeps libvorbis
+    # from needing it (LinuxBuild::OVERRIDES).
+    SYSTEM = %w[
+      libc.so.6
+      libm.so.6
+      libdl.so.2
+      libpthread.so.0
+      librt.so.1
+      libutil.so.1
+      libstdc++.so.6
+      libgcc_s.so.1
+      ld-linux-x86-64.so.2
+      ld-linux-aarch64.so.1
+    ].freeze
 
     # Where the system's libraries are, which a run may load from.
     SYSTEM_DIRECTORIES = %w[/lib/ /lib64/ /usr/lib/ /usr/lib64/ /usr/local/lib/].freeze
@@ -311,7 +352,7 @@ module NativeFormat
       binaries.flat_map do |binary|
         absolute = runpath(binary).reject { |rpath| rpath.start_with?(RELATIVE) }
           .map { |rpath| "rpath #{rpath} of #{File.basename(binary)}" }
-        unresolved = needed(binary).reject { |name| SYSTEM.match?(name) }.reject do |name|
+        unresolved = (needed(binary) - SYSTEM).reject do |name|
           path = resolve(binary, name)
           path && File.realpath(path).start_with?(inside)
         end

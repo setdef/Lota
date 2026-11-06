@@ -33,10 +33,12 @@ require "tmpdir"
 #   LÖVE out there (its "Checkout LÖVE" step), and runs the rule that
 #   builds love.
 #
-# Two things differ from LÖVE's CI, neither in what is compiled: LÖVE is
-# vendor/love's commit, rather than a fresh clone; and the steps that pack
-# love into an AppImage are left out, since the harness runs love from the
-# installdir, as the AppImage's own AppRun runs it (love.sh). Everything
+# Three things differ from LÖVE's CI. LÖVE is vendor/love's commit, rather
+# than a fresh clone; the steps that pack love into an AppImage are left
+# out, since the harness runs love from the installdir, as the AppImage's
+# own AppRun runs it (love.sh); and libvorbis is configured so that it
+# does not need glibc's libmvec (OVERRIDES), which make reads after the
+# Makefile (#make_command), since the Makefile is LÖVE's. Everything
 # builds with the CMake the Makefile downloads, 3.30.4, as on LÖVE's CI;
 # CMake 4's FindZLIB, for one, cannot read the relative ZLIB_ROOT the
 # Makefile gives LÖVE's configure.
@@ -73,6 +75,33 @@ class LinuxBuild
 
   # The rule that builds love.
   LOVE = "installdir/bin/love"
+
+  # What Lota changes in how the Makefile builds, as a makefile make reads
+  # after it.
+  #
+  # libvorbis 1.3.7's configure builds it with -O3 -ffast-math on Linux
+  # (configure.ac:187-190), which defines __FAST_MATH__, under which
+  # glibc's headers on x86_64 declare vector versions of sin, cos, and
+  # acosf (bits/math-vector.h:27-64). GCC then vectorizes the loops of
+  # _ve_envelope_init, vorbis_lpc_to_lsp, and vorbis_lsp_to_curve into
+  # calls to them, so libvorbis needs libmvec, which the manylinux policy
+  # does not let a gem rely on (NativeFormat::ELF::SYSTEM). The configure
+  # appends the CFLAGS it is given to its own (configure.ac:107 and 221), so
+  # -U__FAST_MATH__ takes back only that macro: the headers declare
+  # nothing, and GCC calls libm's sin, cos, and acosf, with -ffast-math
+  # still on for everything else. On arm64, where glibc 2.35 declares no
+  # vector math, libvorbis compiles to the same code either way; on
+  # x86_64 it decodes Lövetest's and the fixture games' Ogg files to the
+  # same samples, byte for byte, as with libmvec.
+  #
+  # make passes a target's variables on to its prerequisites, so libogg's
+  # configure, which the libvorbis rule's prerequisites reach, keeps the
+  # Makefile's own. Neither line needs GNU make 3.82's private, which
+  # macOS's make, 3.81, lacks.
+  OVERRIDES = <<~MAKE
+    $(LIBVORBIS_FILE)/build/Makefile: override CONFIGURE := CFLAGS=-U__FAST_MATH__ $(CONFIGURE)
+    $(LIBOGG_FILE)/build/Makefile: override CONFIGURE := $(CONFIGURE)
+  MAKE
 
   # [makefile] love-appimage-source's Makefile, in its checkout.
   # [sources] Where #fetch downloads (vendor/sources/linux).
@@ -198,6 +227,14 @@ class LinuxBuild
     end
   end
 
+  # The command that runs the Makefile's +targets+ in +dir+, with
+  # OVERRIDES, which it writes there, read after it.
+  def make_command(dir, *targets)
+    overrides = File.join(dir, "lota-overrides.mk")
+    File.write(overrides, OVERRIDES)
+    ["make", "-f", @makefile, "-f", overrides, *targets]
+  end
+
   # Runs the block until it does not fail, ATTEMPTS times at most. A
   # download the Makefile left half made, such as a clone, is made again,
   # since make removes nothing it failed to make, so each attempt starts
@@ -255,7 +292,7 @@ class LinuxBuild
 
   # Runs the Makefile's +targets+ in +dir+, logging to +log+.
   private def make(dir, log, *targets)
-    command = ["make", "-f", @makefile, *targets]
+    command = make_command(dir, *targets)
     say "Running make #{targets.join(' ')} in #{dir} (log: #{log})"
     File.open(log, "a") do |file|
       file.puts("$ #{command.join(' ')}")

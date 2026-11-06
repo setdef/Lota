@@ -38,17 +38,21 @@ require_relative "source_archive"
 # - On macOS, the frameworks go in lib/lota/frameworks
 #   (@loader_path/frameworks), each as the one version directory its
 #   install name names (Versions/A), without the symlinks around it, on
-#   which RubyGems warns, without its headers, and with only its arm64
-#   code. Changing a Mach-O file invalidates its code signature, and
-#   SDL3's signature in love-apple-dependencies seals a file its checkout
-#   lacks (LICENSE.txt, checked out as License.txt), so the bundle and
-#   every framework are signed again ad hoc, as love-apple-dependencies
-#   signs them, and verified with codesign --verify --strict.
+#   which RubyGems warns, without its headers, with only its arm64 code,
+#   and without the rpaths that point outside the gem, such as vorbis's
+#   /Library/Frameworks, where a framework installed on the Mac would
+#   shadow the gem's own. Changing a Mach-O file invalidates its code
+#   signature, and SDL3's signature in love-apple-dependencies seals a
+#   file its checkout lacks (LICENSE.txt, checked out as License.txt), so
+#   the bundle and every framework are signed again ad hoc, as
+#   love-apple-dependencies signs them, and verified with codesign
+#   --verify --strict.
 # - On Linux, the libraries go in lib/lota/libraries ($ORIGIN/libraries),
 #   each as a file named for the soname it is needed by, without its
 #   debugging information, and with its own rpath pointed at that
 #   directory ($ORIGIN), as LÖVE's AppImage carries them. Only glibc's and
-#   GCC's C++ runtime libraries come from the system.
+#   GCC's C++ runtime libraries that the manylinux policy allows come from
+#   the system (NativeFormat::ELF::SYSTEM).
 #
 # The gem is a REUSE project (REUSE Specification 3.3), as the
 # repository is: its REUSE.toml is the repository's, with an annotation
