@@ -293,13 +293,25 @@ module Bindings
     # The module a class lives under when its name is another of LÖVE's
     # modules' names, as Font, which love.graphics registers, is love.font's
     # name: Lota::Native::Font is love.font's module, so Font is
-    # Lota::Native::Graphics::Font. nil for every other class, Data among
-    # them, which love.data both names and registers.
+    # Lota::Native::Graphics::Font. A class with its own module's name
+    # lives under that module when the module has functions of its own
+    # bound, as Joystick, which love.joystick registers, is
+    # Lota::Native::Joystick::Joystick beside love.joystick's functions.
+    # nil for every other class, Data among them, which love.data both
+    # names and registers but none of whose functions Lota binds as
+    # love.data's.
     private def home(type, ports)
       module_name = ports.first.function.module_name
-      return nil if type.downcase == module_name || !love_modules.include?(type.downcase)
+      return (module_functions?(module_name) ? module_name.capitalize : nil) if type.downcase == module_name
+      return nil unless love_modules.include?(type.downcase)
 
       module_name.capitalize
+    end
+
+    # Whether the binding list binds a function of love.+module_name+
+    # itself, which Lota::Native's module of that name then holds.
+    private def module_functions?(module_name)
+      (@list.generated + @list.hand_written).any? { |binding| binding.love_name.start_with?("love.#{module_name}.") }
     end
 
     # The names of LÖVE's modules, as love.font's is "font".
@@ -321,6 +333,9 @@ module Bindings
       love << '"common/Vector.h"' if code.match?(/\bVector[234]\b/)
       love << '"common/math.h"' if code.match?(/\bF?Rect\b/)
       love << '"common/pixelformat.h"' if code.match?(/\bPixelFormat\b/)
+      # Joystick:hasSensor's using namespace love::sensor, for its Sensor
+      # (wrap_Joystick.cpp:384), as clang-tidy's misc-include-cleaner asks.
+      love << '"sensor/Sensor.h"' if code.match?(/\blove::sensor\b/)
       love.concat(declaring_headers(name, code))
       # The module's class only where a port reaches it through instance().
       classes = ports.filter_map do |port|
@@ -337,6 +352,7 @@ module Bindings
       std << "<algorithm>" if code.match?(/\bstd::(?:min|max)\b/)
       std << "<array>" if code.include?("std::array")
       std << "<cstddef>" if code.match?(/\bsize_t\b/)
+      std << "<cstdint>" if code.match?(/\bstd::u?intptr_t\b/)
       std << "<limits>" if code.include?("std::numeric_limits")
       std << "<optional>" if code.include?("std::optional")
       std << "<string>" if code.include?("std::string")

@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Sensor
+    def self.sensor?: (Symbol | String sensor_type) -> bool
+
+    def self.enabled?: (Symbol | String sensor_type) -> bool
+
+    def self.enabled=: ([Symbol | String, bool] setting) -> void
+
+    def self.data: (Symbol | String sensor_type) -> Array[Float]
+
+    def self.get_name: (Symbol | String sensor_type) -> String
+  end
+end

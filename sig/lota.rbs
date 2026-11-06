@@ -24,7 +24,13 @@ module Lota
 
   def self.keyboard: () -> singleton(Keyboard)?
 
+  def self.joystick: () -> singleton(Joystick)?
+
   def self.mouse: () -> singleton(Mouse)?
+
+  def self.touch: () -> singleton(Touch)?
+
+  def self.sensor: () -> singleton(Sensor)?
 
   def self.sound: () -> singleton(Sound)?
 

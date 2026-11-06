@@ -525,6 +525,68 @@ module Lota
       def set_linear: (bool linear) -> nil
     end
 
+    module Joystick
+      def self.joystick_count: () -> Integer
+
+      def self.set_background_events: (bool enable) -> nil
+
+      def self.background_events?: () -> bool
+
+      def self.gamepad_mapping_string: (String guid) -> String?
+    end
+
+    module Joystick
+      class Joystick
+        def connected?: () -> bool
+
+        def name: () -> String
+
+        def id: () -> Array[Integer | nil]
+
+        def guid: () -> String
+
+        def device_info: () -> [Integer, Integer, Integer]
+
+        def device_power_info: () -> Array[String | Integer | nil]
+
+        def device_connection_state: () -> String
+
+        def joystick_type: () -> String
+
+        def axis_count: () -> Integer
+
+        def button_count: () -> Integer
+
+        def hat_count: () -> Integer
+
+        def axis: (Integer axisindex) -> Float
+
+        def hat: (Integer hatindex) -> String
+
+        def set_player_index: (Integer index) -> nil
+
+        def gamepad?: () -> bool
+
+        def gamepad_type: () -> String
+
+        def gamepad_axis: (String axis) -> Float
+
+        def gamepad_mapping_string: () -> String?
+
+        def vibration_supported?: () -> bool
+
+        def vibration: () -> [Float, Float]
+
+        def sensor?: (String type) -> bool
+
+        def sensor_enabled?: (String type) -> bool
+
+        def set_sensor_enabled: (String type, bool enabled) -> nil
+
+        def connected_index: () -> Integer?
+      end
+    end
+
     module Keyboard
       def self.set_key_repeat: (bool enable) -> nil
 
@@ -875,6 +937,16 @@ module Lota
       def self.average_delta: () -> Float
 
       def self.time: () -> Float
+    end
+
+    module Touch
+      def self.position: (Integer id) -> [Float, Float]
+
+      def self.pressure: (Integer id) -> Float
+
+      def self.device_type: (Integer id) -> String
+
+      def self.mouse?: (Integer id) -> bool
     end
 
     module Window

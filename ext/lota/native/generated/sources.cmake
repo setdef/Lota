@@ -13,6 +13,7 @@ set(LOTA_GENERATED_SOURCES
 	generated/filesystem.cpp
 	generated/graphics.cpp
 	generated/image.cpp
+	generated/joystick.cpp
 	generated/keyboard.cpp
 	generated/math.cpp
 	generated/mouse.cpp
@@ -20,5 +21,6 @@ set(LOTA_GENERATED_SOURCES
 	generated/sound.cpp
 	generated/system.cpp
 	generated/timer.cpp
+	generated/touch.cpp
 	generated/window.cpp
 )
