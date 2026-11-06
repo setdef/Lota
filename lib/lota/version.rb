@@ -7,5 +7,5 @@
 
 module Lota
   # The gem's version, following Semantic Versioning.
-  VERSION = "0.1.3"
+  VERSION = "0.2.0"
 end
