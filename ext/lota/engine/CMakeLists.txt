@@ -28,24 +28,42 @@ endif()
 # changes in the build tree, which the engine compiles in place of
 # vendor/love's: physics.patch (ADR 001, section 2) to LÖVE's physics
 # module, and mesh.patch, which frees a Mesh's vertex data as it was
-# allocated, to graphics/Mesh.cpp. The copy is made when CMake configures,
+# allocated, to graphics/Mesh.cpp, and for Android alone
+# vulkan_present.patch, which keeps a suboptimal present from rebuilding
+# the swap chain, to graphics/vulkan/Graphics.cpp; every other platform
+# compiles LÖVE's own file. The copy is made when CMake configures,
 # again whenever a patch or one of the files it patches is edited, and a
 # patched file is written only when it differs, so an unchanged file is not
 # rebuilt.
 set(PHYSICS_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/physics.patch)
 set(MESH_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/mesh.patch)
 set(MESH_SOURCE src/modules/graphics/Mesh.cpp)
+set(VULKAN_PRESENT_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_present.patch)
+set(VULKAN_PRESENT_SOURCE src/modules/graphics/vulkan/Graphics.cpp)
+set(PATCHES physics mesh)
+set(PATCHED_FILES_ALONE MESH_SOURCE)
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+	list(APPEND PATCHES vulkan_present)
+	list(APPEND PATCHED_FILES_ALONE VULKAN_PRESENT_SOURCE)
+endif()
 set(PATCHED_SOURCE_DIR ${CMAKE_BINARY_DIR}/patched/love)
 set(PATCH_STAGING ${CMAKE_BINARY_DIR}/patched/staging)
 file(GLOB_RECURSE PHYSICS_FILES RELATIVE ${ENGINE_SOURCE_DIR} ${ENGINE_SOURCE_DIR}/src/modules/physics/*)
 list(FILTER PHYSICS_FILES EXCLUDE REGEX "/wrap_[^/]*$")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PHYSICS_PATCH} ${MESH_PATCH})
 file(REMOVE_RECURSE ${PATCH_STAGING})
-foreach(path IN LISTS PHYSICS_FILES MESH_SOURCE)
+set(PATCHED_PATHS ${PHYSICS_FILES})
+foreach(patch IN LISTS PATCHES)
+	string(TOUPPER ${patch} name)
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${${name}_PATCH})
+endforeach()
+foreach(file IN LISTS PATCHED_FILES_ALONE)
+	list(APPEND PATCHED_PATHS ${${file}})
+endforeach()
+foreach(path IN LISTS PATCHED_PATHS)
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ENGINE_SOURCE_DIR}/${path})
 	configure_file(${ENGINE_SOURCE_DIR}/${path} ${PATCH_STAGING}/${path} COPYONLY)
 endforeach()
-foreach(patch IN ITEMS physics mesh)
+foreach(patch IN LISTS PATCHES)
 	string(TOUPPER ${patch} name)
 	execute_process(
 		COMMAND patch -p1 --forward --batch --silent --no-backup-if-mismatch -i ${${name}_PATCH}
@@ -68,9 +86,11 @@ set(patched_sources)
 foreach(source IN LISTS ENGINE_SOURCES)
 	string(REPLACE "${ENGINE_SOURCE_DIR}/src/modules/physics/" "${PATCHED_SOURCE_DIR}/src/modules/physics/"
 		source "${source}")
-	if(source STREQUAL "${ENGINE_SOURCE_DIR}/${MESH_SOURCE}")
-		set(source ${PATCHED_SOURCE_DIR}/${MESH_SOURCE})
-	endif()
+	foreach(file IN LISTS PATCHED_FILES_ALONE)
+		if(source STREQUAL "${ENGINE_SOURCE_DIR}/${${file}}")
+			set(source ${PATCHED_SOURCE_DIR}/${${file}})
+		endif()
+	endforeach()
 	list(APPEND patched_sources ${source})
 endforeach()
 set(ENGINE_SOURCES ${patched_sources})
@@ -79,6 +99,11 @@ set(ENGINE_SOURCES ${patched_sources})
 # its original folder next, where the compiler found them before.
 set_source_files_properties(${PATCHED_SOURCE_DIR}/${MESH_SOURCE} PROPERTIES
 	COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/modules/graphics")
+# The patched vulkan/Graphics.cpp's likewise ("Graphics.h", "Vulkan.h").
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+	set_source_files_properties(${PATCHED_SOURCE_DIR}/${VULKAN_PRESENT_SOURCE} PROPERTIES
+		COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/modules/graphics/vulkan")
+endif()
 
 add_library(lota_engine STATIC ${ENGINE_SOURCES})
 
