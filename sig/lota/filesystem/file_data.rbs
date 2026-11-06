@@ -16,6 +16,8 @@ module Lota
       def initialize_copy: (FileData source) -> void
 
       def filename: () -> String
+
+      def extension: () -> String
     end
   end
 end

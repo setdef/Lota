@@ -67,7 +67,7 @@ PACKAGE_GAME = PackageCheck::Game.new(
 # gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0
 # only when every test passed; the output rules out a run of no tests.
-LOVETEST_SKIPS = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 14 : 7)
+LOVETEST_SKIPS = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 17 : 10)
 
 LOVETEST_GAME = PackageCheck::Game.new(
   name: "test/lovetest/game",
@@ -75,10 +75,13 @@ LOVETEST_GAME = PackageCheck::Game.new(
   files: {},
   gems: ["minitest"],
   arguments: [],
-  # Its seven skips are Lövetest's discard, requestAttention,
-  # showMessageBox, openURL, vibrate, pump, and wait tests, which Lövetest
-  # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,
-  # system.rb, and event.rb), and, on a GitHub runner on Linux, seven
+  # Its ten skips are Lövetest's discard, requestAttention,
+  # showMessageBox, openURL, vibrate, pump, wait, getSource, and setSource
+  # tests, which Lövetest skips everywhere (test/lovetest/tests/
+  # graphics.rb, window.rb, system.rb, event.rb, and filesystem.rb), and
+  # its RecordingDevice test, which skips where OpenAL Soft cannot record,
+  # as through the null driver here (SILENT, test/lovetest/tests/
+  # audio.rb), and, on a GitHub runner on Linux, seven
   # window tests more (window.rb), and, on a desktop macOS does not draw,
   # the isOccluded test (test/lovetest/unseen_desktop.rb). Its isEnabled,
   # getName, and getData sensor tests skip together where the machine has

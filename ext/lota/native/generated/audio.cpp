@@ -11,12 +11,15 @@
 #include "native/errors.hpp"
 
 #include "audio/Audio.h"
+#include "audio/RecordingDevice.h"
 #include "audio/Source.h"
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "sound/SoundData.h"
 
 #include <array>
 #include <limits>
+#include <optional>
 #include <string>
 
 namespace lota::native {
@@ -50,6 +53,13 @@ Audio *instance() {
 
 // love.audio.getActiveSourceCount: w_getActiveSourceCount (wrap_Audio.cpp:41-45).
 int w_getActiveSourceCount() { return instance()->getActiveSourceCount(); }
+
+// love.audio.newQueueableSource: w_newQueueableSource (wrap_Audio.cpp:104-117).
+Source *w_newQueueableSource(int samplerate, int bitdepth, int channels, int buffers) {
+  Source *t = nullptr;
+  t = instance()->newSource(samplerate, bitdepth, channels, buffers);
+  return t;
+}
 
 // love.audio.setVolume: w_setVolume (wrap_Audio.cpp:211-216).
 void w_setVolume(double v) { instance()->setVolume(static_cast<float>(v)); }
@@ -111,6 +121,103 @@ void w_setDistanceModel(const std::string &distance_model) {
   }
   instance()->setDistanceModel(distance_model_value);
 }
+
+// love.audio.getMaxSceneEffects: w_getMaxSceneEffects (wrap_Audio.cpp:525-529).
+int w_getMaxSceneEffects() { return instance()->getMaxSceneEffects(); }
+
+// love.audio.getMaxSourceEffects: w_getMaxSourceEffects (wrap_Audio.cpp:531-535).
+int w_getMaxSourceEffects() { return instance()->getMaxSourceEffects(); }
+
+// love.audio.isEffectsSupported: w_isEffectsSupported (wrap_Audio.cpp:537-541).
+bool w_isEffectsSupported() { return instance()->isEFXsupported(); }
+
+// love.audio.setOutputSpatialization: w_setOutputSpatialization (wrap_Audio.cpp:543-550).
+bool w_setOutputSpatialization(bool enable, const std::optional<std::string> &filter) {
+  const bool success =
+      instance()->setOutputSpatialization(enable, filter.has_value() ? filter->c_str() : nullptr);
+  return success;
+}
+
+// love.audio.getOutputSpatialization: w_getOutputSpatialization (wrap_Audio.cpp:552-562).
+Rice::Array w_getOutputSpatialization() {
+  Rice::Array results;
+  const char *filter = nullptr;
+  const bool enabled = instance()->getOutputSpatialization(filter);
+  results.push(enabled, false);
+  if (filter != nullptr) {
+    results.push(std::string(filter), false);
+  } else {
+    results.push(nullptr, false);
+  }
+  return results;
+}
+
+// love.audio.setMixWithSystem: w_setMixWithSystem (wrap_Audio.cpp:578-582).
+bool w_setMixWithSystem(bool argument1) { return Audio::setMixWithSystem(argument1); }
+
+// love.audio.getPlaybackDevice: w_getPlaybackDevice (wrap_Audio.cpp:584-591).
+std::string w_getPlaybackDevice() {
+  std::string device{};
+  device = instance()->getPlaybackDevice();
+  return device;
+}
+
+// love.audio.setPlaybackDevice: w_setPlaybackDevice (wrap_Audio.cpp:609-628).
+Rice::Array w_setPlaybackDevice(const std::optional<std::string> &device) {
+  Rice::Array results;
+  try {
+    instance()->setPlaybackDevice(device.has_value() ? device->c_str() : nullptr);
+    results.push(true, false);
+    return results;
+  } catch (love::Exception &e) {
+    results.push(false, false);
+    results.push(e.what(), false);
+    return results;
+  }
+  return results;
+}
+
+// RecordingDevice:stop: w_RecordingDevice_stop (wrap_RecordingDevice.cpp:59-77).
+love::sound::SoundData *w_RecordingDevice_stop(RecordingDevice &d) {
+  love::sound::SoundData *s = nullptr;
+  s = d.getData();
+  d.stop();
+  if (s != nullptr) {
+    return s;
+  }
+  return nullptr;
+}
+
+// RecordingDevice:getData: w_RecordingDevice_getData (wrap_RecordingDevice.cpp:79-95).
+love::sound::SoundData *w_RecordingDevice_getData(RecordingDevice &d) {
+  love::sound::SoundData *s = nullptr;
+  s = d.getData();
+  if (s != nullptr) {
+    return s;
+  }
+  return nullptr;
+}
+
+// RecordingDevice:getSampleCount: w_RecordingDevice_getSampleCount
+// (wrap_RecordingDevice.cpp:97-102).
+int w_RecordingDevice_getSampleCount(const RecordingDevice &d) { return d.getSampleCount(); }
+
+// RecordingDevice:getSampleRate: w_RecordingDevice_getSampleRate
+// (wrap_RecordingDevice.cpp:104-109).
+int w_RecordingDevice_getSampleRate(const RecordingDevice &d) { return d.getSampleRate(); }
+
+// RecordingDevice:getBitDepth: w_RecordingDevice_getBitDepth (wrap_RecordingDevice.cpp:111-116).
+int w_RecordingDevice_getBitDepth(const RecordingDevice &d) { return d.getBitDepth(); }
+
+// RecordingDevice:getChannelCount: w_RecordingDevice_getChannelCount
+// (wrap_RecordingDevice.cpp:118-123).
+int w_RecordingDevice_getChannelCount(const RecordingDevice &d) { return d.getChannelCount(); }
+
+// RecordingDevice:getName: w_RecordingDevice_getName (wrap_RecordingDevice.cpp:125-130).
+std::string w_RecordingDevice_getName(const RecordingDevice &d) { return d.getName(); }
+
+// RecordingDevice:isRecording: w_RecordingDevice_isRecording (wrap_RecordingDevice.cpp:132-137).
+bool w_RecordingDevice_isRecording(const RecordingDevice &d) { return d.isRecording(); }
 
 // Source:clone: w_Source_clone (wrap_Source.cpp:39-47).
 Source *w_Source_clone(Source &t) {
@@ -341,7 +448,31 @@ void define_generated_audio(const Rice::Module &native) {
       .define_singleton_function("set_doppler_scale", &w_setDopplerScale, Rice::Arg("scale"))
       .define_singleton_function("doppler_scale", &w_getDopplerScale)
       .define_singleton_function("set_distance_model", &w_setDistanceModel,
-                                 Rice::Arg("distance_model"));
+                                 Rice::Arg("distance_model"))
+      .define_singleton_function("new_queueable_source", &w_newQueueableSource,
+                                 Rice::Arg("samplerate"), Rice::Arg("bitdepth"),
+                                 Rice::Arg("channels"), Rice::Arg("buffers") = 0,
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("max_scene_effects", &w_getMaxSceneEffects)
+      .define_singleton_function("max_source_effects", &w_getMaxSourceEffects)
+      .define_singleton_function("effects_supported?", &w_isEffectsSupported)
+      .define_singleton_function("set_mix_with_system", &w_setMixWithSystem, Rice::Arg("argument1"))
+      .define_singleton_function("playback_device", &w_getPlaybackDevice)
+      .define_singleton_function("set_playback_device", &w_setPlaybackDevice,
+                                 Rice::Arg("device") = std::optional<std::string>())
+      .define_singleton_function("set_output_spatialization", &w_setOutputSpatialization,
+                                 Rice::Arg("enable"),
+                                 Rice::Arg("filter") = std::optional<std::string>())
+      .define_singleton_function("output_spatialization", &w_getOutputSpatialization);
+  Rice::define_class_under<RecordingDevice>(native, "RecordingDevice")
+      .define_method("stop", &w_RecordingDevice_stop, Rice::Return().takeOwnership())
+      .define_method("data", &w_RecordingDevice_getData, Rice::Return().takeOwnership())
+      .define_method("sample_count", &w_RecordingDevice_getSampleCount)
+      .define_method("sample_rate", &w_RecordingDevice_getSampleRate)
+      .define_method("bit_depth", &w_RecordingDevice_getBitDepth)
+      .define_method("channel_count", &w_RecordingDevice_getChannelCount)
+      .define_method("name", &w_RecordingDevice_getName)
+      .define_method("recording?", &w_RecordingDevice_isRecording);
   Rice::define_class_under<Source>(native, "Source")
       .define_method("play", &w_Source_play)
       .define_method("stop", &w_Source_stop)

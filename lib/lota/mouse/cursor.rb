@@ -15,14 +15,15 @@ module Lota
     # Operating systems draw a set of such shapes themselves.
     #
     # Lota::Mouse.system_cursor returns one of the system's shapes as a
-    # Cursor, and Lota::Mouse.cursor= shows it. Lota makes the system's
-    # cursors only; LÖVE also makes one from an image, which Lota binds
-    # later.
+    # Cursor, Cursor.new makes one of a picture of the game's own, and
+    # Lota::Mouse.cursor= shows it.
     #
-    # === Example
+    # === Examples
     #
     #   drag = Lota::Mouse.system_cursor(:sizewe)
     #   Lota::Mouse.cursor = drag
+    #
+    #   Lota::Mouse.cursor = Lota::Mouse::Cursor.new("pointer.png", 4, 2)
     class Cursor
       include Object
 
@@ -34,6 +35,32 @@ module Lota
         cursor = allocate
         cursor.instance_variable_set(:@native, native)
         cursor
+      end
+
+      # A Cursor of a picture, matching love.mouse.newCursor
+      # (src/modules/mouse/wrap_Mouse.cpp, w_newCursor), which rule 2
+      # makes Cursor.new.
+      #
+      # [image] A Lota::Image::ImageData, or anything
+      #   Lota::Image::ImageData.new decodes, such as an image file's name
+      #   or a Lota::Filesystem::FileData; or an Array of them, the same
+      #   picture at each of the screen's scales.
+      # [hotx] Integer pixel of the picture, from its left, that points;
+      #   0 when left out.
+      # [hoty] Integer pixel, from its top; 0 when left out.
+      #
+      # Raises RuntimeError with LÖVE's message where the system cannot
+      # make cursors (Lota::Mouse.cursor_supported?), or for a picture it
+      # cannot use.
+      #
+      # === Example
+      #
+      #   Lota::Mouse::Cursor.new("pointer.png", 4, 2).get_type # => :image
+      def self.new(image, hotx = 0, hoty = 0)
+        images = (image.is_a?(Array) ? image : [image]).map do |each|
+          (each.is_a?(Image::ImageData) ? each : Image::ImageData.new(each)).native
+        end
+        from_native(Native::Mouse.new_cursor(images, hotx, hoty))
       end
 
       # What kind of Cursor this is, as a Symbol, matching Cursor:getType
@@ -48,10 +75,6 @@ module Lota
       def get_type
         @native.get_type.to_sym
       end
-
-      # LÖVE makes cursors with love.mouse.getSystemCursor, so Lota does
-      # too (Lota::Mouse.system_cursor).
-      private_class_method :new
     end
   end
 end

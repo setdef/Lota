@@ -70,6 +70,19 @@ module Lovetest
   # GitHub says to Lota's with GITHUB_ACTIONS.
   GITHUB_RUNNER = ENV["GITHUB_ACTIONS"] == "true"
 
+  # Whether the tests' OpenAL Soft plays through a driver that cannot
+  # record: its wave file writer, as test/alsoft.conf has it play on every
+  # computer and as LÖVE's CI has Lövetest play on its runners
+  # (vendor/love/testing/resources/alsoft.conf), or its null driver, as
+  # the package check's runs play (tasks/alsoft.conf). That is why
+  # Lövetest's recording test skips on a runner ("cant emulate recording
+  # devices in CI"). Without a driver that records, LÖVE still lists one
+  # recording device, which cannot start (doc/contributors/upstream/009.md).
+  PLAYBACK_ONLY = begin
+    conf = ENV.fetch("ALSOFT_CONF", "")
+    File.file?(conf) && File.read(conf).match?(/^\s*drivers\s*=\s*(?:wave|null)\s*$/)
+  end
+
   # Lövetest's love.test.windowmode (vendor/love/testing/classes/
   # TestSuite.lua:25): whether the tests run with a window, which they
   # always do in Lota, as in Lövetest unless it is told otherwise.
@@ -114,9 +127,16 @@ module Lovetest
     # transformation as soon as love.update returns, to draw the frame
     # (vendor/love/src/modules/love/callbacks.lua:192-196). So what a test
     # translated or scaled ends with it, here as in Lövetest, and the next
-    # test starts at the origin, whether it is Lövetest's or not.
+    # test starts at the origin, whether it is Lövetest's or not. Lövetest
+    # also collects garbage after each test, "to save having to :release()
+    # anything we made in the last test" (classes/TestSuite.lua:109-110),
+    # and Ruby's collector does the same here, though, scanning the stack
+    # conservatively, it may keep an object a word on the stack still
+    # names, so a test that leaves a File open closes it itself
+    # (tests/filesystem.rb, test_open_file).
     def teardown
       Lota::Graphics.origin if Lota.graphics
+      GC.start
     end
 
     # The types whose tests Lövetest names by the type, capitalized as it

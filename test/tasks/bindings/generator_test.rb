@@ -376,6 +376,31 @@ class GeneratorTest < Minitest::Test
     assert_match(/-> Array\[Integer \| nil \| String\]\z/, port.rbs)
   end
 
+  # w_File_open catches the engine's exception around the call that can
+  # throw it and returns luax_ioError's nil and message from the catch
+  # (wrap_File.cpp:84-91), so the port keeps the try and its catch, and
+  # both paths return an Array (rule 4).
+  # w_setPlaybackDevice reads its device with luaL_optstring(L, 1,
+  # nullptr), so a device left out is a null pointer, which no
+  # std::string holds: the port passes the given name's characters, or
+  # nullptr, and its two results on failure are an Array (rule 4).
+  def test_an_optional_string_that_defaults_to_null_is_a_null_pointer
+    port = port("love.audio.setPlaybackDevice")
+
+    assert_includes port.definition, "instance()->setPlaybackDevice(device.has_value() ? device->c_str() : nullptr);"
+    refute_includes port.definition, "value_or(nullptr)"
+    assert_match(/-> Array\[bool \| String\]\z/, port.rbs)
+  end
+
+  def test_a_try_block_and_its_catch_are_ported
+    port = port("File:open")
+
+    assert_includes port.definition, "Rice::Array w_File_open(File &file, const std::string &mode) {\nRice::Array results;"
+    assert_includes port.definition, "try {\nresults.push(file.open(mode_value), false);\n}\n" \
+      "catch (love::Exception &e) {\nreturn io_error(\"%s\", e.what());\n}\nreturn results;\n}"
+    assert_match(/-> Array\[bool \| nil \| String\]\z/, port.rbs)
+  end
+
   # w_Source_clone pushes the Source it made and releases its own
   # reference, so the port returns the pointer, keeps the release out,
   # and has Rice give that reference to the Ruby wrapper

@@ -375,9 +375,10 @@ module Lota
     end
 
     # The settings that reach the engine before any module opens
-    # (boot.lua:266-335). The console (lines 240-245 and 261-264) opens
-    # only on Windows, and the audio settings (lines 337-345) matter only
-    # on Android and iOS, so Lota leaves them for later.
+    # (boot.lua:266-345). The console (lines 240-245 and 261-264) opens
+    # only on Windows, so Lota leaves it for later. The audio settings
+    # (lines 337-345) do something only on Android and iOS, as LÖVE's
+    # audio module decides, and reach it on every system, as in LÖVE.
     private def prepare_engine
       graphics = @settings.graphics
       graphics = nil unless graphics.is_a?(Settings::Graphics)
@@ -391,6 +392,18 @@ module Lota
       Native::Graphics.set_renderers(renderers(graphics).map(&:to_s))
       Native::Window.set_high_dpi_allowed(!!@settings.highdpi)
       Native::Touch.set_trackpad_touch(!!@settings.trackpadtouch)
+      prepare_audio
+    end
+
+    # love._setAudioMixWithSystem with t.audio.mixwithsystem, when it is
+    # set, and love._requestRecordingPermission with whether t.audio.mic
+    # is (boot.lua:337-345).
+    private def prepare_audio
+      audio = @settings.audio
+      audio = nil unless audio.is_a?(Settings::Audio)
+      mix = audio&.mixwithsystem
+      Native::Audio.set_mix_with_system(mix) unless mix.nil?
+      Native::Audio.set_request_recording_permission(audio&.mic ? true : false)
     end
 
     # The renderers to try, in order (boot.lua:282-326): LÖVE's defaults,
@@ -533,11 +546,20 @@ module Lota
       end
     end
 
-    # Setup window here (boot.lua:398-426). LÖVE also sets the icon from
-    # t.window.icon, which Lota's settings do not have yet.
+    # Setup window here (boot.lua:398-426), its icon first, from
+    # t.window.icon, an image file's name or anything else
+    # Lota::Image::ImageData.new takes, as love.image.newImageData takes it.
+    # The assertion's message names Lota's own conf and module (ADR 001,
+    # section 7).
     private def open_window
       window = @settings.window
       return unless window && @settings.modules.window
+
+      if window.icon
+        raise "If an icon is set in Lota.conf, Lota::Image must be loaded." unless Lota.image
+
+        Lota::Window.set_icon(Lota::Image::ImageData.new(window.icon))
+      end
 
       Lota::Window.title = window.title || @settings.title
       mode = Lota::Window.set_mode(window.width, window.height,

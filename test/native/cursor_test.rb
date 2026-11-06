@@ -47,8 +47,30 @@ class CursorTest < Minitest::Test
     assert_equal "Invalid #{:system_cursor.to_s.tr('_', ' ')} type: love", error.message
   end
 
-  def test_a_cursor_cannot_be_made_with_new
-    assert_raises(NoMethodError) { Lota::Mouse::Cursor.new }
+  # newCursor converts a file's name to an ImageData (luax_convobj,
+  # wrap_Mouse.cpp:74-75) and makes an image cursor of it, as it does of an
+  # ImageData given, or of a table of them (w_newCursor).
+  def test_a_cursor_is_made_of_an_image_its_file_or_an_array_of_them
+    skip("cursors not supported here") unless Lota::Mouse.cursor_supported?
+
+    logo = "resources/love.png" # in the game folder, test/lovetest
+    image = Lota::Image::ImageData.new(logo)
+
+    assert_equal :image, Lota::Mouse::Cursor.new(image).get_type
+    assert_equal :image, Lota::Mouse::Cursor.new([image], 3, 4).get_type
+    assert_equal :image, Lota::Mouse::Cursor.new(logo).get_type
+  end
+
+  # getCursor returns the cursor setCursor last showed, and nothing after
+  # setCursor with nothing (w_getCursor).
+  def test_the_cursor_shown_is_the_one_last_set
+    Lota::Mouse.cursor = Lota::Mouse.system_cursor(:crosshair)
+
+    assert_equal :crosshair, Lota::Mouse.cursor.get_type
+  ensure
+    Lota::Mouse.cursor = nil
+
+    assert_nil Lota::Mouse.cursor
   end
 
   # setCursor with a cursor shows it, and with nothing the system's arrow

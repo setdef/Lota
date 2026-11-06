@@ -105,6 +105,18 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def size: () -> Array[Integer | nil | String]
+
+      def tell: () -> Array[Integer | nil | String]
+
+      def seek: (Float | Integer pos) -> bool
+
+      def read: (?String? container, ?(Float | Integer) size) -> Array[String | FileData | Integer | nil]
+
+      def write_string: (String contents, ?Integer? size) -> Array[bool | nil | String]
+
+      def write_data: (Data data, ?Integer? size) -> Array[bool | nil | String]
     end
 
     class ImageData < Data
@@ -398,14 +410,36 @@ module Lota
 
       def self.read: (String filename, ?Integer size) -> ([String, Integer] | [nil, String])
 
-      def self.open_file: (String filename, String mode) -> ([File] | [nil, String])
-
       def self.write_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
 
       def self.write_data: (String filename, Data data, ?Integer? size) -> ([true] | [nil, String])
 
+      def self.append_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
+
+      def self.append_data: (String filename, Data data, ?Integer? size) -> ([true] | [nil, String])
+
+      def self.directory_items: (String dir) -> Array[String]
+
+      def self.require_path: () -> String
+
+      def self.set_require_path: (String path) -> nil
+
+      def self.c_require_path: () -> String
+
+      def self.set_c_require_path: (String path) -> nil
+
+      def self.mount_archive: (String archive, String mountpoint, ?bool append) -> bool
+
+      def self.mount_data: (Data data, String archive, String mountpoint, ?bool append) -> bool
+
+      def self.unmount_archive: (String archive) -> bool
+
+      def self.unmount_data: (Data data) -> bool
+
       class Lines
         def self.cpp_class: () -> String
+
+        def self.of_file: (File file) -> Lines
 
         def initialize: (String filename) -> void
 
@@ -425,6 +459,28 @@ module Lota
       def tell: (?String? unit) -> Float
 
       def duration: (?String? unit) -> Float
+
+      def set_filter: (Array[[String, Float | Integer | bool | String]]? settings) -> bool
+
+      def filter: () -> Array[[String, Float | String]]?
+
+      def set_effect: (String name, bool enabled, Array[[String, Float | Integer | bool | String]]? settings) -> bool
+
+      def effect: (String name) -> Array[bool | Array[[String, Float | String]]]
+
+      def active_effects: () -> Array[String]
+
+      def queue: (SoundData data, Float | Integer offset, ?(Float | Integer)? length) -> bool
+    end
+
+    class RecordingDevice
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def start: (?Integer? samples, ?Integer? samplerate, ?Integer? bitdepth, ?Integer? channels) -> bool
     end
 
     class Decoder
@@ -495,6 +551,24 @@ module Lota
       def self.stop: () -> nil
 
       def self.stop_source: (Source source) -> nil
+
+      def self.set_request_recording_permission: (bool request) -> nil
+
+      def self.pause: () -> Array[Source]
+
+      def self.pause_source: (Source source) -> nil
+
+      def self.recording_devices: () -> Array[RecordingDevice]
+
+      def self.active_effects: () -> Array[String]
+
+      def self.playback_devices: () -> Array[String]
+
+      def self.output_spatialization_filters: () -> Array[String]
+
+      def self.set_effect: (String name, Array[[String, Float | Integer | bool | String]]? settings) -> bool
+
+      def self.effect: (String name) -> Array[[String, Float | bool | String]]?
     end
 
     module Image
@@ -591,6 +665,8 @@ module Lota
       def self.open?: () -> bool
 
       def self.down?: (Array[Integer] buttons) -> bool
+
+      def self.new_cursor: (Array[ImageData] images, Integer hotx, Integer hoty) -> Cursor
 
       class Cursor
         def self.cpp_class: () -> String

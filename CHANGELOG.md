@@ -10,6 +10,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `Lota::Filesystem.append`, `directory_items`, `real_directory`, `exists`, `mount` (of a path, a `Lota::Data`, or a `FileData`) and `unmount`, `mount_full_path` and `unmount_full_path`, `mount_common_path` and `unmount_common_path`, `full_common_path`, `source`, `source_base_directory`, `working_directory`, `user_directory`, `appdata_directory`, `executable_path`, `canonicalize_real_path`, `symlinks_enabled?` and `symlinks_enabled=`, and `require_path` and `c_require_path` and their writers, which Ruby's `require` does not read.
+- Every method of `Lota::Filesystem::File`: `open`, `open?`, `mode`, `filename`, `extension`, `size`, `read` (into a String or a `FileData`), `write`, `flush`, `eof?`, `tell`, `seek`, `set_buffer`, `buffer`, and `lines`; and `FileData#extension`.
+- `Lota::Audio.pause`, `set_effect` (its settings as keywords) and `effect` (a frozen `Lota::Audio::Effect`), `active_effects`, `max_scene_effects`, `max_source_effects`, `effects_supported?`, `set_mix_with_system`, `playback_device`, `playback_devices`, `set_playback_device`, `recording_devices`, `set_output_spatialization`, `output_spatialization`, and `output_spatialization_filters`.
+- `Lota::Audio::QueueableSource.new`, translating `love.audio.newQueueableSource` and returning a `Source`, whose `===` asks for a Source of the type `:queue`; and `Source#queue`, `set_filter` and `filter` (a frozen `Lota::Audio::Filter`), `set_effect`, `effect`, and `active_effects`.
+- `Lota::Audio::RecordingDevice`, with `start`, `stop`, `data`, `sample_count`, `sample_rate`, `bit_depth`, `channel_count`, `name`, and `recording?`.
+- Boot passes `t.audio.mixwithsystem` and `t.audio.mic` to the engine before the audio module opens, and sets the window's icon from `t.window.icon`, as LÖVE's boot does.
+- `Lota::Mouse.cursor`, translating `love.mouse.getCursor`, and `Lota::Mouse::Cursor.new`, translating `love.mouse.newCursor`, of an image or an Array of them.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

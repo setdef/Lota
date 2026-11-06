@@ -67,6 +67,8 @@ module Lota
 
     private def prepare_engine: () -> void
 
+    private def prepare_audio: () -> void
+
     private def renderers: (Settings::Graphics? graphics) -> Array[Symbol]
 
     private def open_modules: () -> void

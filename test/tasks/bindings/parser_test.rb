@@ -49,6 +49,24 @@ class ParserTest < Minitest::Test
     assert_equal ["instance()->rectangle(mode, x, y, w, h)"], catches.first.body.map(&:text)
   end
 
+  # w_File_open (wrap_File.cpp:75-94): a try block, whose catch names the
+  # exception it catches and returns luax_ioError's nil and message.
+  def test_statements_open_try_blocks_and_their_catch
+    function = entry("File:open").function
+    nodes = Bindings::Statements.parse(function.definition.body, function.definition.body_offset, function.wrap.source)
+    try = nodes.find { |node| node.kind == :try }
+
+    assert_equal "love::Exception &e", try.text
+    assert_equal 84, try.line
+    assert_equal ["luax_pushboolean(L, file->open(mode))"], try.body.map(&:text)
+    assert_equal [%(luax_ioError(L, "%s", e.what()))], try.alternative.map(&:text)
+    assert_equal "1", nodes.last.text
+  end
+
+  def test_a_try_without_a_catch_is_unreadable
+    assert_raises(Bindings::Statements::Unreadable) { Bindings::Statements.parse("try { x; } y;", 0, source("")) }
+  end
+
   # A statement that declares several variables of one type, with
   # initializers or pointer marks (SoundData *t = ..., *c = nullptr), is
   # one declaration of each, so each has its own type and initializer; a

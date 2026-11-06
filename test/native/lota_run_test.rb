@@ -159,7 +159,10 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
-    assertions = skipped ? 90667 - (3 * 32 * 32) + 1 : 90667
+    assertions = skipped ? 90821 - (3 * 32 * 32) + 1 : 90821
+    # Its mountCommonPath test mounts the desktop folder except on Linux,
+    # where it has none (test/lovetest/tests/filesystem.rb).
+    assertions -= 1 if TestHome::LINUX
     # Lövetest skips its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
     # manager (test/lovetest/tests/window.rb), seven tests of 13 checks,
@@ -178,7 +181,9 @@ class LotaRunTest < Minitest::Test
     # check each it has ten times (test/lovetest/tests/sensor.rb).
     sensors = %i[accelerometer gyroscope].count { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
     assertions += 10 * sensors
-    skips = UnseenDesktop.skips((on_linux_runner ? 14 : 7) + (supported.glsl4 ? 0 : 1) + (sensors.zero? ? 3 : 0))
+    # It also skips getSource, setSource, and RecordingDevice, whose OpenAL
+    # Soft cannot record (Lovetest::PLAYBACK_ONLY), as Lövetest skips them.
+    skips = UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) + (sensors.zero? ? 3 : 0))
     # On a desktop macOS does not draw, the isOccluded test skips before
     # its one assertion (test/lovetest/unseen_desktop.rb).
     assertions -= 1 if UnseenDesktop.on?
@@ -192,7 +197,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^268 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
+    assert_match(/^311 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the
@@ -625,6 +630,34 @@ class LotaRunTest < Minitest::Test
       assert_predicate status, :success?, output
       assert_equal "[64, 64, Lota::Mouse, Lota::Math]\n", output
       refute_equal File.realpath(directory), File.realpath(Dir.pwd)
+    end
+  end
+
+  # boot.lua sets the window's icon from t.window.icon before it opens the
+  # window (boot.lua:400-403), decoding the file it names with
+  # love.image.newImageData.
+  def test_a_games_icon_from_conf_is_the_windows_icon
+    logo = File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png"))
+    conf = "def Lota.conf(t)\n  t.window.icon = \"logo.png\"\nend\n"
+    main = "def Lota.load\n  icon = Lota::Window.icon\n  p [icon.width, icon.height]\n  Lota::Event.quit\nend\n"
+    in_game("logo.png" => logo, "conf.rb" => conf, "main.rb" => main) do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "[64, 64]\n", output
+    end
+  end
+
+  # boot.lua asserts that love.image is loaded when an icon is set
+  # (boot.lua:401), which Lota says of its own module, and the error
+  # screen shows it.
+  def test_an_icon_without_the_image_module_shows_loves_assertion
+    conf = "def Lota.conf(t)\n  t.window.icon = \"logo.png\"\n  t.modules.image = false\nend\n"
+    in_game("conf.rb" => conf, "main.rb" => "") do |directory|
+      output, status = lota_run(directory, preload: QUIT_ON_ERROR)
+
+      assert_equal 1, status.exitstatus, output
+      assert_includes output, "If an icon is set in Lota.conf, Lota::Image must be loaded."
     end
   end
 

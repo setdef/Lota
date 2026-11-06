@@ -10,7 +10,40 @@ module Lota
 
       def self.from_native: (Native::File native) -> File
 
+      def open: (Symbol | String mode) -> Array[bool | nil | String]
+
       def close: () -> bool
+
+      def open?: () -> bool
+
+      def mode: () -> ([Symbol] | [nil, String])
+
+      def filename: () -> String
+
+      def extension: () -> String
+
+      def size: () -> Array[Integer | nil | String]
+
+      def read: (?(Symbol | String | Integer | Float)? container, ?(Integer | Float)? size) -> Array[String | FileData | Integer | nil]
+
+      private def read_into: (String? container, (Integer | Float)? size) -> Array[String | FileData | Integer | nil]
+
+      def write: (String | Lota::Data data, ?Integer? size) -> Array[bool | nil | String]
+
+      def flush: () -> Array[bool | nil | String]
+
+      def eof?: () -> bool
+
+      def tell: () -> Array[Integer | nil | String]
+
+      def seek: (Integer | Float position) -> bool
+
+      def set_buffer: (Symbol | String mode, ?(Integer | Float) size) -> Array[bool | nil | String]
+
+      def buffer: () -> ([Symbol, Integer] | [nil, String])
+
+      def lines: () -> Enumerator[String, void]
+               | () { (String line) -> void } -> nil
     end
   end
 end

@@ -8,13 +8,16 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/int.h"
 #include "filesystem/File.h"
 #include "filesystem/FileData.h"
 #include "filesystem/Filesystem.h"
 
+#include <optional>
 #include <string>
 
 namespace lota::native {
@@ -46,8 +49,91 @@ Filesystem *instance() {
 // (vendor/love/src/modules/filesystem), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// File:open: w_File_open (wrap_File.cpp:75-94).
+Rice::Array w_File_open(File &file, const std::string &mode) {
+  Rice::Array results;
+  File::Mode mode_value{};
+  if (!File::getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("file open mode", File::getConstants(mode_value), mode);
+  }
+  try {
+    results.push(file.open(mode_value), false);
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  return results;
+}
+
 // File:close: w_File_close (wrap_File.cpp:96-101).
 bool w_File_close(File &file) { return file.close(); }
+
+// File:isOpen: w_File_isOpen (wrap_File.cpp:103-108).
+bool w_File_isOpen(const File &file) { return file.isOpen(); }
+
+// File:flush: w_File_flush (wrap_File.cpp:190-204).
+Rice::Array w_File_flush(File &file) {
+  Rice::Array results;
+  bool success = false;
+  try {
+    success = file.flush();
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  results.push(success, false);
+  return results;
+}
+
+// File:isEOF: w_File_isEOF (wrap_File.cpp:206-211).
+bool w_File_isEOF(File &file) { return file.isEOF(); }
+
+// File:setBuffer: w_File_setBuffer (wrap_File.cpp:374-396).
+Rice::Array w_File_setBuffer(File &file, const std::string &bufmode, double size) {
+  Rice::Array results;
+  File::BufferMode bufmode_value{};
+  if (!File::getConstant(bufmode.c_str(), bufmode_value)) {
+    raise_enum_error("file buffer mode", File::getConstants(bufmode_value), bufmode);
+  }
+  bool success = false;
+  try {
+    success = file.setBuffer(bufmode_value, static_cast<love::int64>(size));
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  results.push(success, false);
+  return results;
+}
+
+// File:getBuffer: w_File_getBuffer (wrap_File.cpp:398-411).
+Rice::Array w_File_getBuffer(const File &file) {
+  Rice::Array results;
+  int64 size = 0;
+  const File::BufferMode bufmode = file.getBuffer(size);
+  const char *str = nullptr;
+  if (!File::getConstant(bufmode, str)) {
+    return io_error("Unknown file buffer mode.");
+  }
+  results.push(std::string(str), false);
+  results.push(size, false);
+  return results;
+}
+
+// File:getMode: w_File_getMode (wrap_File.cpp:413-425).
+Rice::Array w_File_getMode(const File &file) {
+  Rice::Array results;
+  const File::Mode mode = file.getMode();
+  const char *str = nullptr;
+  if (!File::getConstant(mode, str)) {
+    return io_error("Unknown file mode.");
+  }
+  results.push(std::string(str), false);
+  return results;
+}
+
+// File:getFilename: w_File_getFilename (wrap_File.cpp:427-432).
+std::string w_File_getFilename(const File &file) { return file.getFilename(); }
+
+// File:getExtension: w_File_getExtension (wrap_File.cpp:434-439).
+std::string w_File_getExtension(const File &file) { return file.getExtension(); }
 
 // FileData:clone: w_FileData_clone (wrap_FileData.cpp:35-42).
 FileData *w_FileData_clone(const FileData &t) {
@@ -58,6 +144,9 @@ FileData *w_FileData_clone(const FileData &t) {
 
 // FileData:getFilename: w_FileData_getFilename (wrap_FileData.cpp:44-49).
 std::string w_FileData_getFilename(const FileData &t) { return t.getFilename(); }
+
+// FileData:getExtension: w_FileData_getExtension (wrap_FileData.cpp:51-56).
+std::string w_FileData_getExtension(const FileData &t) { return t.getExtension(); }
 
 // love.filesystem.init: w_init (wrap_Filesystem.cpp:52-57).
 void w_init(const std::string &arg0) { instance()->init(arg0.c_str()); }
@@ -85,14 +174,132 @@ void w_setSource(const std::string &arg) {
   }
 }
 
+// love.filesystem.getSource: w_getSource (wrap_Filesystem.cpp:107-111).
+std::string w_getSource() { return instance()->getSource(); }
+
+// love.filesystem.mountFullPath: w_mountFullPath (wrap_Filesystem.cpp:155-172).
+bool w_mountFullPath(const std::string &fullpath, const std::string &mountpoint,
+                     const std::optional<std::string> &permissions, bool append) {
+  auto permissions_value = Filesystem::MOUNT_PERMISSIONS_READ;
+  if (permissions.has_value()) {
+    const char *const permissionstr_value = required(permissions, "permissions").c_str();
+    if (!Filesystem::getConstant(permissionstr_value, permissions_value)) {
+      raise_enum_error("mount permissions", Filesystem::getConstants(permissions_value),
+                       permissionstr_value);
+    }
+  }
+  return instance()->mountFullPath(fullpath.c_str(), mountpoint.c_str(), permissions_value, append);
+}
+
+// love.filesystem.mountCommonPath: w_mountCommonPath (wrap_Filesystem.cpp:174-195).
+bool w_mountCommonPath(const std::string &commonpath, const std::string &mountpoint,
+                       const std::optional<std::string> &permissions, bool append) {
+  Filesystem::CommonPath commonpath_value{};
+  if (!Filesystem::getConstant(commonpath.c_str(), commonpath_value)) {
+    raise_enum_error("common path", Filesystem::getConstants(commonpath_value), commonpath);
+  }
+  auto permissions_value = Filesystem::MOUNT_PERMISSIONS_READ;
+  if (permissions.has_value()) {
+    const char *const permissionstr_value = required(permissions, "permissions").c_str();
+    if (!Filesystem::getConstant(permissionstr_value, permissions_value)) {
+      raise_enum_error("mount permissions", Filesystem::getConstants(permissions_value),
+                       permissionstr_value);
+    }
+  }
+  return instance()->mountCommonPath(commonpath_value, mountpoint.c_str(), permissions_value,
+                                     append);
+}
+
+// love.filesystem.unmountFullPath: w_unmountFullPath (wrap_Filesystem.cpp:212-217).
+bool w_unmountFullPath(const std::string &fullpath) {
+  return instance()->unmountFullPath(fullpath.c_str());
+}
+
+// love.filesystem.unmountCommonPath: w_unmountCommonPath (wrap_Filesystem.cpp:219-228).
+bool w_unmountCommonPath(const std::string &commonpath) {
+  Filesystem::CommonPath commonpath_value{};
+  if (!Filesystem::getConstant(commonpath.c_str(), commonpath_value)) {
+    raise_enum_error("common path", Filesystem::getConstants(commonpath_value), commonpath);
+  }
+  return instance()->unmount(commonpath_value);
+}
+
+// love.filesystem.openFile: w_openFile (wrap_Filesystem.cpp:230-252).
+Rice::Array w_openFile(const std::string &filename, const std::string &mode) {
+  Rice::Array results;
+  File::Mode mode_value = File::MODE_CLOSED;
+  if (!File::getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("file open mode", File::getConstants(mode_value), mode);
+  }
+  File *t = nullptr;
+  try {
+    t = instance()->openFile(filename.c_str(), mode_value);
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  results.push(t, false);
+  return results;
+}
+
+// love.filesystem.getFullCommonPath: w_getFullCommonPath (wrap_Filesystem.cpp:465-474).
+std::string w_getFullCommonPath(const std::string &commonpath) {
+  Filesystem::CommonPath commonpath_value{};
+  if (!Filesystem::getConstant(commonpath.c_str(), commonpath_value)) {
+    raise_enum_error("common path", Filesystem::getConstants(commonpath_value), commonpath);
+  }
+  return instance()->getFullCommonPath(commonpath_value);
+}
+
+// love.filesystem.getWorkingDirectory: w_getWorkingDirectory (wrap_Filesystem.cpp:476-480).
+std::string w_getWorkingDirectory() { return instance()->getWorkingDirectory(); }
+
+// love.filesystem.getUserDirectory: w_getUserDirectory (wrap_Filesystem.cpp:482-486).
+std::string w_getUserDirectory() { return instance()->getUserDirectory(); }
+
+// love.filesystem.getAppdataDirectory: w_getAppdataDirectory (wrap_Filesystem.cpp:488-492).
+std::string w_getAppdataDirectory() { return instance()->getAppdataDirectory(); }
+
 // love.filesystem.getSaveDirectory: w_getSaveDirectory (wrap_Filesystem.cpp:494-498).
 std::string w_getSaveDirectory() { return instance()->getSaveDirectory(); }
+
+// love.filesystem.getSourceBaseDirectory: w_getSourceBaseDirectory (wrap_Filesystem.cpp:500-504).
+std::string w_getSourceBaseDirectory() { return instance()->getSourceBaseDirectory(); }
+
+// love.filesystem.getRealDirectory: w_getRealDirectory (wrap_Filesystem.cpp:506-522).
+Rice::Array w_getRealDirectory(const std::string &filename) {
+  Rice::Array results;
+  std::string dir{};
+  try {
+    dir = instance()->getRealDirectory(filename.c_str());
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  results.push(dir, false);
+  return results;
+}
+
+// love.filesystem.canonicalizeRealPath: w_canonicalizeRealPath (wrap_Filesystem.cpp:524-529).
+std::string w_canonicalizeRealPath(const std::string &path) {
+  return instance()->canonicalizeRealPath(path);
+}
+
+// love.filesystem.getExecutablePath: w_getExecutablePath (wrap_Filesystem.cpp:531-535).
+std::string w_getExecutablePath() { return instance()->getExecutablePath(); }
+
+// love.filesystem.exists: w_exists (wrap_Filesystem.cpp:537-542).
+bool w_exists(const std::string &path) { return instance()->exists(path.c_str()); }
 
 // love.filesystem.createDirectory: w_createDirectory (wrap_Filesystem.cpp:604-609).
 bool w_createDirectory(const std::string &arg) { return instance()->createDirectory(arg.c_str()); }
 
 // love.filesystem.remove: w_remove (wrap_Filesystem.cpp:611-616).
 bool w_remove(const std::string &arg) { return instance()->remove(arg.c_str()); }
+
+// love.filesystem.setSymlinksEnabled: w_setSymlinksEnabled (wrap_Filesystem.cpp:803-807).
+void w_setSymlinksEnabled(bool enable) { instance()->setSymlinksEnabled(enable); }
+
+// love.filesystem.areSymlinksEnabled: w_areSymlinksEnabled (wrap_Filesystem.cpp:809-813).
+bool w_areSymlinksEnabled() { return instance()->areSymlinksEnabled(); }
 
 // SPDX-SnippetEnd
 
@@ -109,11 +316,46 @@ void define_generated_filesystem(const Rice::Module &native) {
       .define_singleton_function("identity", &w_getIdentity)
       .define_singleton_function("save_directory", &w_getSaveDirectory)
       .define_singleton_function("create_directory", &w_createDirectory, Rice::Arg("arg"))
-      .define_singleton_function("remove", &w_remove, Rice::Arg("arg"));
-  Rice::define_class_under<File>(native, "File").define_method("close", &w_File_close);
+      .define_singleton_function("remove", &w_remove, Rice::Arg("arg"))
+      .define_singleton_function("source", &w_getSource)
+      .define_singleton_function(
+          "mount_full_path", &w_mountFullPath, Rice::Arg("fullpath"), Rice::Arg("mountpoint"),
+          Rice::Arg("permissions") = std::optional<std::string>(), Rice::Arg("append") = false)
+      .define_singleton_function(
+          "mount_common_path", &w_mountCommonPath, Rice::Arg("commonpath"), Rice::Arg("mountpoint"),
+          Rice::Arg("permissions") = std::optional<std::string>(), Rice::Arg("append") = false)
+      .define_singleton_function("unmount_full_path", &w_unmountFullPath, Rice::Arg("fullpath"))
+      .define_singleton_function("unmount_common_path", &w_unmountCommonPath,
+                                 Rice::Arg("commonpath"))
+      .define_singleton_function("full_common_path", &w_getFullCommonPath, Rice::Arg("commonpath"))
+      .define_singleton_function("working_directory", &w_getWorkingDirectory)
+      .define_singleton_function("user_directory", &w_getUserDirectory)
+      .define_singleton_function("appdata_directory", &w_getAppdataDirectory)
+      .define_singleton_function("source_base_directory", &w_getSourceBaseDirectory)
+      .define_singleton_function("real_directory", &w_getRealDirectory, Rice::Arg("filename"))
+      .define_singleton_function("canonicalize_real_path", &w_canonicalizeRealPath,
+                                 Rice::Arg("path"))
+      .define_singleton_function("executable_path", &w_getExecutablePath)
+      .define_singleton_function("exists", &w_exists, Rice::Arg("path"))
+      .define_singleton_function("set_symlinks_enabled", &w_setSymlinksEnabled, Rice::Arg("enable"))
+      .define_singleton_function("symlinks_enabled?", &w_areSymlinksEnabled)
+      .define_singleton_function("open_file", &w_openFile, Rice::Arg("filename"), Rice::Arg("mode"),
+                                 Rice::Return().takeOwnership());
+  Rice::define_class_under<File>(native, "File")
+      .define_method("close", &w_File_close)
+      .define_method("open", &w_File_open, Rice::Arg("mode"))
+      .define_method("open?", &w_File_isOpen)
+      .define_method("flush", &w_File_flush)
+      .define_method("eof?", &w_File_isEOF)
+      .define_method("set_buffer", &w_File_setBuffer, Rice::Arg("bufmode"), Rice::Arg("size") = 0.0)
+      .define_method("buffer", &w_File_getBuffer)
+      .define_method("mode", &w_File_getMode)
+      .define_method("filename", &w_File_getFilename)
+      .define_method("extension", &w_File_getExtension);
   Rice::define_class_under<FileData>(native, "FileData")
       .define_method("clone", &w_FileData_clone, Rice::Return().takeOwnership())
-      .define_method("filename", &w_FileData_getFilename);
+      .define_method("filename", &w_FileData_getFilename)
+      .define_method("extension", &w_FileData_getExtension);
 }
 
 } // namespace lota::native

@@ -224,8 +224,9 @@ module Lota
     #
     #   file, message = Lota::Filesystem.open_file("save.dat", :r)
     def self.open_file(filename, mode)
-      native, message = Native::Filesystem.open_file(filename, EnumName.of(mode))
-      native ? [File.from_native(native)] : [nil, message.to_s]
+      results = Native::Filesystem.open_file(filename, EnumName.of(mode))
+      native = results.first
+      native.is_a?(Native::File) ? [File.from_native(native)] : [nil, results.last.to_s]
     end
 
     # Writes a file in the save directory, replacing any file of the
@@ -283,8 +284,16 @@ module Lota
     #   Lota::Filesystem.lines("level1.txt") do |row|
     #     @rows << row
     #   end
-    def self.lines(filename)
+    def self.lines(filename, &block)
       reader = Native::Filesystem::Lines.new(filename)
+      return enumerate_lines(reader) unless block
+
+      enumerate_lines(reader, &block)
+    end
+
+    # The lines +reader+ reads, as an Enumerator, or each given to the
+    # block, after which it returns +nil+. :nodoc:
+    def self.enumerate_lines(reader)
       lines = Enumerator.new do |yielder|
         while (line = reader.next_line)
           yielder << line
@@ -294,6 +303,395 @@ module Lota
 
       lines.each { |line| yield line }
       nil
+    end
+
+    # Adds to the end of a file in the save directory, making it if there
+    # is none, matching love.filesystem.append
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_append).
+    #
+    # [filename] String path of the file, inside the save directory.
+    # [data] String of the bytes to add, or a Lota::Filesystem::FileData,
+    #   whose bytes it adds.
+    # [size] Integer number of bytes of +data+ to add; all of them when
+    #   +nil+ or left out.
+    #
+    # Returns an Array (ADR 001, rule 4), <tt>[true]</tt>, or +nil+ and a
+    # message String when the file cannot be written, as
+    # Lota::Filesystem.write does. Lota adds no more than +data+ holds.
+    # Raises TypeError for +data+ that is neither.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.append("log.txt", "level 2\n") # => [true]
+    def self.append(filename, data, size = nil)
+      case data
+      when String then Native::Filesystem.append_string(filename, data, size)
+      when FileData then Native::Filesystem.append_data(filename, data.native, size)
+      else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Filesystem::FileData)"
+      end
+    end
+
+    # The names of the files and directories in a directory, as an Array
+    # of Strings, matching love.filesystem.getDirectoryItems
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getDirectoryItems),
+    # whose table becomes an Array.
+    #
+    # [dir] String path of the directory, in the save directory, the
+    #   game's folder, or anything mounted, all of which it lists
+    #   together.
+    #
+    # The names are only names, without +dir+ before them. A directory
+    # that does not exist has no items.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.directory_items("levels") # => ["1.txt", "2.txt"]
+    def self.directory_items(dir)
+      Native::Filesystem.directory_items(dir)
+    end
+
+    # The directory a file is found in, matching
+    # love.filesystem.getRealDirectory
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getRealDirectory), as
+    # an Array (ADR 001, rule 4) of the full path of the save directory,
+    # the game's folder, or the archive it is in, or of +nil+ and LÖVE's
+    # message when there is no such file.
+    #
+    # [filename] String path of the file.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.real_directory("settings.txt").first # => ".../Lota/asteroids"
+    def self.real_directory(filename)
+      Native::Filesystem.real_directory(filename)
+    end
+
+    # Whether +path+ names a file or directory the filesystem can find,
+    # matching love.filesystem.exists
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_exists). Its name
+    # keeps LÖVE's, as it is neither +is+ nor +has+ (ADR 001, rule 13).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.exists("settings.txt") # => true
+    def self.exists(path)
+      Native::Filesystem.exists(path)
+    end
+
+    # Mounts an archive or a folder, so that its files can be read as if
+    # they were at +mountpoint+, matching love.filesystem.mount
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_mount), and returns
+    # whether it could.
+    #
+    # The forms:
+    #
+    # [<tt>mount(archive, mountpoint, append = false)</tt>] +archive+ is
+    #   the String path of a zip file or folder in the save directory or
+    #   the game's folder.
+    # [<tt>mount(data, archivename, mountpoint, append = false)</tt>]
+    #   +data+ is any Lota::Data holding a zip file, mounted under the
+    #   name +archivename+, which unmount takes.
+    # [<tt>mount(file_data, mountpoint, append = false)</tt>] a
+    #   Lota::Filesystem::FileData, mounted under its own filename.
+    #
+    # [append] Whether its files are found after the ones already mounted
+    #   rather than before them.
+    #
+    # Mounts last until unmount, so they take no block (ADR 001, section
+    # 7). LÖVE also mounts a NativeFile, which Lota does not bind yet.
+    #
+    # === Examples
+    #
+    #   Lota::Filesystem.mount("dlc.zip", "dlc") # => true
+    #   Lota::Filesystem.mount(data, "dlc.zip", "dlc")
+    def self.mount(archive, *rest)
+      case archive
+      when String then Native::Filesystem.mount_archive(archive, string!(rest[0]), boolean!(rest[1]))
+      when FileData
+        return mount_data(archive, archive.filename, rest[0], rest[1]) unless rest[1].is_a?(String)
+
+        mount_data(archive, string!(rest[0]), rest[1], rest[2])
+      else mount_data(archive, string!(rest[0]), rest[1], rest[2])
+      end
+    end
+
+    # Mounts +data+ as the archive +archivename+ at +mountpoint+. :nodoc:
+    private_class_method def self.mount_data(data, archivename, mountpoint, append)
+      Native::Filesystem.mount_data(data.native, archivename, string!(mountpoint), boolean!(append))
+    end
+
+    # +value+, a String, or a TypeError, as luaL_checkstring raises for
+    # anything else. :nodoc:
+    private_class_method def self.string!(value)
+      return value if value.is_a?(String)
+
+      raise TypeError, "wrong argument type #{value.class} (expected String)"
+    end
+
+    # +value+, or +false+ for +nil+, as luax_optboolean reads a boolean
+    # left out, or a TypeError for anything else. :nodoc:
+    private_class_method def self.boolean!(value)
+      case value
+      when true, false then value
+      when nil then false
+      else raise TypeError, "wrong argument type #{value.class} (expected true or false)"
+      end
+    end
+
+    # Unmounts what mount mounted, matching love.filesystem.unmount
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_unmount), and returns
+    # whether it was mounted.
+    #
+    # [archive] The String path mount was given, or the Lota::Data it
+    #   mounted.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.unmount("dlc.zip") # => true
+    def self.unmount(archive)
+      case archive
+      when String then Native::Filesystem.unmount_archive(archive)
+      else Native::Filesystem.unmount_data(archive.native)
+      end
+    end
+
+    # Mounts a folder or archive anywhere on the computer, given its full
+    # path, matching love.filesystem.mountFullPath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_mountFullPath), and
+    # returns whether it could.
+    #
+    # [fullpath] String full path of the folder or archive.
+    # [mountpoint] String path its files are found at.
+    # [permissions] +:read+, or +:readwrite+ to write to it too; +:read+
+    #   when +nil+ or left out.
+    # [append] Whether its files are found after the ones already mounted.
+    #
+    # Raises ArgumentError for permissions LÖVE does not know.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.mount_full_path("/Users/you/mods", "mods", :read) # => true
+    def self.mount_full_path(fullpath, mountpoint, permissions = nil, append = false)
+      Native::Filesystem.mount_full_path(fullpath, mountpoint, permissions && EnumName.of(permissions), append)
+    end
+
+    # Unmounts what mount_full_path mounted, matching
+    # love.filesystem.unmountFullPath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_unmountFullPath), and
+    # returns whether it was mounted.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.unmount_full_path("/Users/you/mods") # => true
+    def self.unmount_full_path(fullpath)
+      Native::Filesystem.unmount_full_path(fullpath)
+    end
+
+    # Mounts one of the system's folders, matching
+    # love.filesystem.mountCommonPath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_mountCommonPath), and
+    # returns whether it could.
+    #
+    # [commonpath] +:appsavedir+, +:appdocuments+, +:userhome+,
+    #   +:userappdata+, +:userdesktop+, or +:userdocuments+.
+    # [mountpoint] String path its files are found at.
+    # [permissions] +:read+ or +:readwrite+; +:read+ when +nil+ or left
+    #   out.
+    # [append] Whether its files are found after the ones already mounted.
+    #
+    # A folder of the game's own (+:appsavedir+ and +:appdocuments+) is
+    # made if it does not exist. A folder already mounted is not mounted
+    # again, and returns +false+. Raises ArgumentError for a common path
+    # or permissions LÖVE does not know.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.mount_common_path(:userdocuments, "documents", :read) # => true
+    def self.mount_common_path(commonpath, mountpoint, permissions = nil, append = false)
+      Native::Filesystem.mount_common_path(EnumName.of(commonpath), mountpoint, permissions && EnumName.of(permissions),
+        append)
+    end
+
+    # Unmounts what mount_common_path mounted, matching
+    # love.filesystem.unmountCommonPath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_unmountCommonPath),
+    # and returns whether it was mounted. Raises ArgumentError for a
+    # common path LÖVE does not know.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.unmount_common_path(:userdocuments) # => true
+    def self.unmount_common_path(commonpath)
+      Native::Filesystem.unmount_common_path(EnumName.of(commonpath))
+    end
+
+    # The full path of one of the system's folders, matching
+    # love.filesystem.getFullCommonPath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getFullCommonPath).
+    #
+    # [commonpath] +:appsavedir+, +:appdocuments+, +:userhome+,
+    #   +:userappdata+, +:userdesktop+, or +:userdocuments+.
+    #
+    # Raises ArgumentError for a common path LÖVE does not know.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.full_common_path(:userhome) # => "/Users/you"
+    def self.full_common_path(commonpath)
+      Native::Filesystem.full_common_path(EnumName.of(commonpath))
+    end
+
+    # The game's folder, or the archive it runs from, matching
+    # love.filesystem.getSource
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getSource), as
+    # Lota::Boot sets it.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.source # => "/Users/you/games/asteroids"
+    def self.source
+      Native::Filesystem.source
+    end
+
+    # The folder the game's folder is in, matching
+    # love.filesystem.getSourceBaseDirectory
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getSourceBaseDirectory).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.source_base_directory # => "/Users/you/games"
+    def self.source_base_directory
+      Native::Filesystem.source_base_directory
+    end
+
+    # The folder the game was started in, matching
+    # love.filesystem.getWorkingDirectory
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getWorkingDirectory).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.working_directory # => "/Users/you"
+    def self.working_directory
+      Native::Filesystem.working_directory
+    end
+
+    # The player's home folder, matching love.filesystem.getUserDirectory
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getUserDirectory).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.user_directory # => "/Users/you/"
+    def self.user_directory
+      Native::Filesystem.user_directory
+    end
+
+    # The system's application data folder, which holds the save
+    # directory's folder, matching love.filesystem.getAppdataDirectory
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getAppdataDirectory).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.appdata_directory # => "/Users/you/Library/Application Support"
+    def self.appdata_directory
+      Native::Filesystem.appdata_directory
+    end
+
+    # The full path of the program running the game, matching
+    # love.filesystem.getExecutablePath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getExecutablePath):
+    # under <tt>lota run</tt>, Ruby's.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.executable_path # => "/usr/local/bin/ruby"
+    def self.executable_path
+      Native::Filesystem.executable_path
+    end
+
+    # +path+, a path on the computer, made absolute and without +.+ and
+    # +..+, matching love.filesystem.canonicalizeRealPath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_canonicalizeRealPath).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.canonicalize_real_path("/Users/you/../you") # => "/Users/you"
+    def self.canonicalize_real_path(path)
+      Native::Filesystem.canonicalize_real_path(path)
+    end
+
+    # Whether the filesystem follows symbolic links, matching
+    # love.filesystem.areSymlinksEnabled
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_areSymlinksEnabled).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.symlinks_enabled? # => true
+    def self.symlinks_enabled?
+      Native::Filesystem.symlinks_enabled?
+    end
+
+    # Sets whether the filesystem follows symbolic links, matching
+    # love.filesystem.setSymlinksEnabled
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_setSymlinksEnabled).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.symlinks_enabled = false
+    def self.symlinks_enabled=(enable)
+      Native::Filesystem.set_symlinks_enabled(enable)
+    end
+
+    # Where LÖVE's +require+ looks for Lua modules in the game's
+    # filesystem, matching love.filesystem.getRequirePath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getRequirePath): its
+    # patterns joined by semicolons, each +?+ standing for a module's
+    # name. Ruby's +require+ searches $LOAD_PATH instead (ADR 003,
+    # section 6), so Lota keeps the path as LÖVE does and reads nothing
+    # with it.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.require_path # => "?.lua;?/init.lua"
+    def self.require_path
+      Native::Filesystem.require_path
+    end
+
+    # Sets the patterns require_path gives, matching
+    # love.filesystem.setRequirePath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_setRequirePath).
+    #
+    # [path] String of patterns, separated by semicolons.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.require_path = "?.lua;lib/?.lua"
+    def self.require_path=(path)
+      Native::Filesystem.set_require_path(path)
+    end
+
+    # Where LÖVE's +require+ looks for C libraries in the game's
+    # filesystem, matching love.filesystem.getCRequirePath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_getCRequirePath):
+    # its patterns joined by semicolons, each +??+ standing for a
+    # library's file name. Ruby loads extensions through $LOAD_PATH, so
+    # Lota keeps the path as LÖVE does and reads nothing with it.
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.c_require_path # => "??"
+    def self.c_require_path
+      Native::Filesystem.c_require_path
+    end
+
+    # Sets the patterns c_require_path gives, matching
+    # love.filesystem.setCRequirePath
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_setCRequirePath).
+    #
+    # === Example
+    #
+    #   Lota::Filesystem.c_require_path = "lib/??"
+    def self.c_require_path=(path)
+      Native::Filesystem.set_c_require_path(path)
     end
   end
 end

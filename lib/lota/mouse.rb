@@ -78,6 +78,20 @@ module Lota
       end
     end
 
+    # The Cursor shown as the mouse pointer, or +nil+ for the system's
+    # default pointer, matching love.mouse.getCursor
+    # (src/modules/mouse/wrap_Mouse.cpp, w_getCursor).
+    #
+    # Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Mouse.cursor # => nil
+    def self.cursor
+      native = Native::Mouse.cursor
+      native && Cursor.from_native(native)
+    end
+
     # The pointer's horizontal position in the window, as a Float,
     # matching love.mouse.getX (src/modules/mouse/wrap_Mouse.cpp, w_getX).
     #

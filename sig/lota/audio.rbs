@@ -34,5 +34,38 @@ module Lota
     def self.distance_model=: (Symbol | String model) -> void
 
     def self.distance_model: () -> Symbol
+
+    def self.pause: () -> Array[Source]
+                  | (Source source) -> nil
+
+    def self.set_effect: (String name, ?bool? enabled, **Source::setting settings) -> bool
+
+    def self.effect: (String name) -> Effect?
+
+    def self.active_effects: () -> Array[String]
+
+    def self.max_scene_effects: () -> Integer
+
+    def self.max_source_effects: () -> Integer
+
+    def self.effects_supported?: () -> bool
+
+    def self.set_mix_with_system: (bool mix) -> bool
+
+    def self.playback_device: () -> String
+
+    def self.playback_devices: () -> Array[String]
+
+    def self.set_playback_device: (?String? name) -> Array[bool | String]
+
+    def self.recording_devices: () -> Array[RecordingDevice]
+
+    def self.set_output_spatialization: (bool enable, ?String? filter) -> bool
+
+    def self.output_spatialization: () -> Array[bool | String | nil]
+
+    def self.output_spatialization_filters: () -> Array[String]
+
+    def self.setting_pairs: (Hash[Symbol, Source::setting] settings) -> Array[[String, Float | Integer | bool | String]]?
   end
 end

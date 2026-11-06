@@ -27,6 +27,42 @@ module Lota
       def self.doppler_scale: () -> Float
 
       def self.set_distance_model: (String distance_model) -> nil
+
+      def self.new_queueable_source: (Integer samplerate, Integer bitdepth, Integer channels, ?Integer buffers) -> Source
+
+      def self.max_scene_effects: () -> Integer
+
+      def self.max_source_effects: () -> Integer
+
+      def self.effects_supported?: () -> bool
+
+      def self.set_mix_with_system: (bool argument1) -> bool
+
+      def self.playback_device: () -> String
+
+      def self.set_playback_device: (?String? device) -> Array[bool | String]
+
+      def self.set_output_spatialization: (bool enable, ?String? filter) -> bool
+
+      def self.output_spatialization: () -> Array[bool | String | nil]
+    end
+
+    class RecordingDevice
+      def stop: () -> SoundData?
+
+      def data: () -> SoundData?
+
+      def sample_count: () -> Integer
+
+      def sample_rate: () -> Integer
+
+      def bit_depth: () -> Integer
+
+      def channel_count: () -> Integer
+
+      def name: () -> String
+
+      def recording?: () -> bool
     end
 
     class Source
@@ -123,16 +159,70 @@ module Lota
       def self.create_directory: (String arg) -> bool
 
       def self.remove: (String arg) -> bool
+
+      def self.source: () -> String
+
+      def self.mount_full_path: (String fullpath, String mountpoint, ?String? permissions, ?bool append) -> bool
+
+      def self.mount_common_path: (String commonpath, String mountpoint, ?String? permissions, ?bool append) -> bool
+
+      def self.unmount_full_path: (String fullpath) -> bool
+
+      def self.unmount_common_path: (String commonpath) -> bool
+
+      def self.full_common_path: (String commonpath) -> String
+
+      def self.working_directory: () -> String
+
+      def self.user_directory: () -> String
+
+      def self.appdata_directory: () -> String
+
+      def self.source_base_directory: () -> String
+
+      def self.real_directory: (String filename) -> Array[String | nil]
+
+      def self.canonicalize_real_path: (String path) -> String
+
+      def self.executable_path: () -> String
+
+      def self.exists: (String path) -> bool
+
+      def self.set_symlinks_enabled: (bool enable) -> nil
+
+      def self.symlinks_enabled?: () -> bool
+
+      def self.open_file: (String filename, String mode) -> Array[File | nil | String]
     end
 
     class File
       def close: () -> bool
+
+      def open: (String mode) -> Array[bool | nil | String]
+
+      def open?: () -> bool
+
+      def flush: () -> Array[bool | nil | String]
+
+      def eof?: () -> bool
+
+      def set_buffer: (String bufmode, ?(Float | Integer) size) -> Array[bool | nil | String]
+
+      def buffer: () -> Array[String | Integer | nil]
+
+      def mode: () -> Array[String | nil]
+
+      def filename: () -> String
+
+      def extension: () -> String
     end
 
     class FileData
       def clone: () -> FileData
 
       def filename: () -> String
+
+      def extension: () -> String
     end
 
     module Graphics
@@ -673,6 +763,8 @@ module Lota
       def self.relative_mode: () -> bool
 
       def self.cursor_supported?: () -> bool
+
+      def self.cursor: () -> Cursor?
     end
 
     module Physics

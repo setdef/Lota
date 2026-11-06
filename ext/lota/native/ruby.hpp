@@ -30,6 +30,10 @@ inline Rice::Object entry(const Rice::Array &array, long index) {
   return {rb_ary_entry(array.value(), index)};
 }
 
+inline bool is_hash(const Rice::Object &value) {
+  return rb_obj_is_kind_of(value.value(), rb_cHash) == Qtrue;
+}
+
 inline bool is_string(const Rice::Object &value) {
   return rb_obj_is_kind_of(value.value(), rb_cString) == Qtrue;
 }

@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Audio
+    EFFECT_SETTINGS: Array[Symbol]
+
+    class Effect < ::Data
+      include Record
+
+      attr_reader type: Symbol?
+
+      attr_reader volume: Float?
+
+      attr_reader gain: Float?
+
+      attr_reader highgain: Float?
+
+      attr_reader density: Float?
+
+      attr_reader diffusion: Float?
+
+      attr_reader decaytime: Float?
+
+      attr_reader decayhighratio: Float?
+
+      attr_reader earlygain: Float?
+
+      attr_reader earlydelay: Float?
+
+      attr_reader lategain: Float?
+
+      attr_reader latedelay: Float?
+
+      attr_reader roomrolloff: Float?
+
+      attr_reader airabsorption: Float?
+
+      attr_reader highlimit: Float?
+
+      attr_reader waveform: Symbol?
+
+      attr_reader phase: Float?
+
+      attr_reader rate: Float?
+
+      attr_reader depth: Float?
+
+      attr_reader feedback: Float?
+
+      attr_reader delay: Float?
+
+      attr_reader edge: Float?
+
+      attr_reader lowcut: Float?
+
+      attr_reader center: Float?
+
+      attr_reader bandwidth: Float?
+
+      attr_reader tapdelay: Float?
+
+      attr_reader damping: Float?
+
+      attr_reader spread: Float?
+
+      attr_reader frequency: Float?
+
+      attr_reader highcut: Float?
+
+      attr_reader enable: bool?
+
+      attr_reader lowgain: Float?
+
+      attr_reader lowmidgain: Float?
+
+      attr_reader lowmidfrequency: Float?
+
+      attr_reader lowmidbandwidth: Float?
+
+      attr_reader highmidgain: Float?
+
+      attr_reader highmidfrequency: Float?
+
+      attr_reader highmidbandwidth: Float?
+
+      def self.new: (type: Symbol?, volume: Float?, gain: Float?, highgain: Float?, density: Float?, diffusion: Float?, decaytime: Float?, decayhighratio: Float?, earlygain: Float?, earlydelay: Float?, lategain: Float?, latedelay: Float?, roomrolloff: Float?, airabsorption: Float?, highlimit: Float?, waveform: Symbol?, phase: Float?, rate: Float?, depth: Float?, feedback: Float?, delay: Float?, edge: Float?, lowcut: Float?, center: Float?, bandwidth: Float?, tapdelay: Float?, damping: Float?, spread: Float?, frequency: Float?, highcut: Float?, enable: bool?, lowgain: Float?, lowmidgain: Float?, lowmidfrequency: Float?, lowmidbandwidth: Float?, highmidgain: Float?, highmidfrequency: Float?, highmidbandwidth: Float?) -> instance
+                  | (*(Symbol | Float | bool)? values) -> instance
+
+      def self.of: (Array[[String, Float | bool | String]] pairs) -> Effect
+    end
+  end
+end

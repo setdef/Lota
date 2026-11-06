@@ -168,7 +168,7 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    skips = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 14 : 7)
+    skips = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 17 : 10)
     assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
     refute_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
@@ -232,11 +232,14 @@ class RakeTasksTest < Minitest::Test
   end
 
   # rake test runs the sanitized suite through this test, so every line of
-  # test:native runs in the gate. Its seven skips are Lövetest's discard,
+  # test:native runs in the gate. Its ten skips are Lövetest's discard,
   # requestAttention, showMessageBox, openURL, vibrate, pump, and wait
   # tests, which Lövetest skips everywhere (test/lovetest/tests/graphics.rb,
-  # window.rb, system.rb, and event.rb), and, on a GitHub runner on Linux,
-  # seven window tests more (window.rb). Lövetest's isEnabled, getName, and
+  # window.rb, system.rb, and event.rb), its getSource, setSource, and
+  # RecordingDevice tests, the last of which skips where OpenAL Soft plays
+  # into the wave writer, as the suite's does everywhere
+  # (test/lovetest/tests/filesystem.rb and audio.rb), and, on a GitHub
+  # runner on Linux, seven window tests more (window.rb). Lövetest's isEnabled, getName, and
   # getData sensor tests skip too where the machine has neither an
   # accelerometer nor a gyroscope (test/lovetest/tests/sensor.rb), which
   # this asks the machine, opening the sensor module as the suite will.
@@ -252,7 +255,7 @@ class RakeTasksTest < Minitest::Test
     assert_nil failure, "#{failure&.message}\n#{out}"
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
-    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 14 : 7
+    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 17 : 10
     skips = UnseenDesktop.skips(skips + (sensorless ? 3 : 0))
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="

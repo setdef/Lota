@@ -85,6 +85,18 @@ module Lota
       def filename
         @native.filename
       end
+
+      # The file's extension, without its dot, matching
+      # FileData:getExtension (src/modules/filesystem/wrap_FileData.cpp,
+      # w_FileData_getExtension), or an empty String when its name has
+      # none.
+      #
+      # === Example
+      #
+      #   Lota::Filesystem::FileData.new("hi", "note.txt").extension # => "txt"
+      def extension
+        @native.extension
+      end
     end
   end
 end

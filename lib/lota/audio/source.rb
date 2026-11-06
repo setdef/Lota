@@ -533,6 +533,119 @@ module Lota
         @native.free_buffer_count
       end
 
+      # Queues +sounddata+'s samples to play after those already queued,
+      # matching Source:queue (src/modules/audio/wrap_Source.cpp,
+      # w_Source_queue), and returns whether it could, as when the Source
+      # has a free buffer.
+      #
+      # [sounddata] Lota::Sound::SoundData whose sample rate, bit depth,
+      #   and channels match the Source's.
+      # [offset] Integer byte to start from, given with +length+; 0 when
+      #   left out.
+      # [length] Integer bytes to queue; all of +sounddata+'s when left
+      #   out.
+      #
+      # So <tt>queue(sounddata, length)</tt> queues the first +length+
+      # bytes, and <tt>queue(sounddata, offset, length)</tt> those from
+      # +offset+, as LÖVE counts its arguments. LÖVE also queues from a
+      # pointer, a light userdata Ruby has no counterpart for. Raises
+      # RuntimeError (<tt>"Data region out of bounds."</tt>) for bytes
+      # +sounddata+ does not hold, and with LÖVE's message for a Source
+      # that is not <tt>:queue</tt> or for samples that do not match it.
+      #
+      # === Example
+      #
+      #   synth.queue(Lota::Sound::SoundData.new(1024, 44_100, 16, 1)) # => true
+      def queue(sounddata, *region)
+        offset, length = (region.size == 2) ? region : [0, region.first]
+        @native.queue(sounddata.native, offset || 0, length)
+      end
+
+      # Filters the Source's sound, matching Source:setFilter
+      # (src/modules/audio/wrap_Source.cpp, w_Source_setFilter), and
+      # returns whether it could (ADR 001, rule 7), as with no effects on
+      # the system.
+      #
+      # [settings] LÖVE's table of the filter's settings, as keywords (rule
+      #   10): +type+, <tt>:lowpass</tt>, <tt>:highpass</tt>, or
+      #   <tt>:bandpass</tt>, and +volume+, +lowgain+, and +highgain+, each a
+      #   number from 0 to 1, as the type has them. With no settings, it
+      #   removes the filter.
+      #
+      # Raises RuntimeError with LÖVE's message for settings without a
+      # +type+, a setting the type does not have, or a setting that is not
+      # a number, and ArgumentError for a type LÖVE does not know.
+      #
+      # === Examples
+      #
+      #   source.set_filter(type: :lowpass, volume: 0.5, highgain: 0.3) # => true
+      #   source.set_filter # => true
+      def set_filter(**settings)
+        @native.set_filter(Audio.setting_pairs(settings))
+      end
+
+      # The Source's filter, matching Source:getFilter
+      # (src/modules/audio/wrap_Source.cpp, w_Source_getFilter), as a
+      # frozen Lota::Audio::Filter, or +nil+ when it has none. LÖVE also
+      # fills in a table the caller passes; a Filter is frozen, so Lota
+      # makes a new one each time and takes no table (rule 10).
+      #
+      # === Example
+      #
+      #   source.filter.type # => :lowpass
+      def filter
+        pairs = @native.filter
+        pairs && Filter.of(pairs)
+      end
+
+      # Sends the Source's sound through the effect +name+, which
+      # Lota::Audio.set_effect made, matching Source:setEffect
+      # (src/modules/audio/wrap_Source.cpp, w_Source_setEffect), and
+      # returns whether it could (rule 7).
+      #
+      # The forms:
+      #
+      # [<tt>set_effect(name)</tt>, <tt>set_effect(name, true)</tt>]
+      #   through the effect, unfiltered.
+      # [<tt>set_effect(name, false)</tt>] no longer through it.
+      # [<tt>set_effect(name, **filter)</tt>] through it, filtered by the
+      #   settings #set_filter takes.
+      #
+      # === Examples
+      #
+      #   source.set_effect("echo") # => true
+      #   source.set_effect("echo", type: :highpass, volume: 0.3, lowgain: 0.1)
+      #   source.set_effect("echo", false)
+      def set_effect(name, enabled = nil, **filter)
+        @native.set_effect(name, enabled != false, Audio.setting_pairs(filter))
+      end
+
+      # Whether the Source plays through the effect +name+, and the filter
+      # it plays through it with, matching Source:getEffect
+      # (src/modules/audio/wrap_Source.cpp, w_Source_getEffect), as an
+      # Array (rule 4): <tt>[false]</tt>, <tt>[true]</tt>, or +true+ and a
+      # frozen Lota::Audio::Filter. LÖVE also fills in a table the caller
+      # passes; Lota takes none (rule 10).
+      #
+      # === Example
+      #
+      #   source.effect("echo") # => [true]
+      def effect(name)
+        set, pairs = @native.effect(name)
+        pairs.is_a?(Array) ? [set == true, Filter.of(pairs)] : [set == true]
+      end
+
+      # The names of the effects the Source plays through, as an Array,
+      # matching Source:getActiveEffects
+      # (src/modules/audio/wrap_Source.cpp, w_Source_getActiveEffects).
+      #
+      # === Example
+      #
+      #   source.active_effects # => ["echo"]
+      def active_effects
+        @native.active_effects
+      end
+
       # The numbers of a writer of several values (ADR 001, rule 6), one
       # value or an Array. :nodoc:
       def self.numbers(value)

@@ -37,6 +37,9 @@ class ImageTest < Lovetest::TestMethod
   # isLinear linear? (rule 8), and mapPixel's function a block, given the
   # rectangle first (rule 12). openFile becomes open_file, whose result is
   # an Array of what it returns, of which Lua keeps the first (rule 4).
+  # Lövetest leaves the two Files it opens for its collectgarbage after
+  # the test to close, as test_open_file in tests/filesystem.rb says, and
+  # the translation closes them itself once the test is done with them.
   def test_image_data
     # create obj
     idata = Lota::Image::ImageData.new("resources/love.png")
@@ -96,6 +99,9 @@ class ImageTest < Lovetest::TestMethod
     assert_false(idata.linear?, "check not linear")
     idata.linear = true
     assert_true(idata.linear?, "check now linear")
+  ensure
+    read1&.close
+    read2&.close
   end
   # SPDX-SnippetEnd
 end
