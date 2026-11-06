@@ -76,7 +76,7 @@ An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left 
 
 - Lota needs Ruby 4.0 (4.0.1 or newer).
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
-- On Windows, CI installs the gem and runs a game that opens no window and plays a sound. GitHub's Windows runners have no GPU, so nothing has yet tested drawing, input, or a real audio device on Windows, or the Windows save folder below, which comes from reading the code.
+- On Windows, CI installs the gem and runs a game that opens no window and plays a sound, and a manual workflow (`fuse.yml`) runs such a game from an app `lota fuse` built. GitHub's Windows runners have no GPU, so nothing has yet tested drawing, input, or a real audio device on Windows, or `lota run`'s Windows save folder below, which comes from reading the code.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
 - Phones and tablets (iOS, iPadOS, and Android) are planned, and Lota does not build for them yet.
 
@@ -173,7 +173,7 @@ LÖVE's filesystem reads from your game's folder and writes to a save folder. Lo
 | Linux | `$XDG_DATA_HOME/lota/<identity>`, or `~/.local/share/lota/<identity>` |
 | Windows | `%APPDATA%\Lota\<identity>` |
 
-LÖVE's `love` program saves in the same places, in a `LOVE` folder (`love` on Linux) instead of `Lota`. `Lota::Filesystem.save_directory` returns the path.
+LÖVE's `love` program saves in the same places, in a `LOVE` folder (`love` on Linux) instead of `Lota`. A game built with `lota fuse` (below) saves where a fused LÖVE game saves, in `<identity>` directly under the same folder, without `Lota`: `%APPDATA%\<identity>` on Windows, for one. `Lota::Filesystem.save_directory` returns the path.
 
 ### Errors
 
@@ -181,7 +181,41 @@ When your game raises an error, Lota prints it with its Ruby backtrace and shows
 
 ### Sharing a game
 
-Today a player runs your game as you do: with Ruby 4.0, the Lota gem, and `lota run`. A `lota fuse` command that builds a double-clickable app for players without Ruby is planned and not available yet.
+`lota fuse` builds your game into an app that a player runs without Ruby, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. Run it in the game's folder, or name the folder:
+
+```console
+$ lota fuse path/to/game --identifier com.yourname.DotPopper
+dist/Dot Popper-x64-mingw-ucrt.zip
+dist/Dot Popper-x64-mingw-ucrt-setup.exe
+Built the app for x64-mingw-ucrt only. Run lota fuse on each platform you ship for.
+```
+
+Fledge builds for the computer it runs on, so build each platform's app on that platform: on a Mac for macOS, on Windows for Windows, on Linux for Linux. A player gets:
+
+| Platform | What `lota fuse` writes in `dist` |
+| --- | --- |
+| macOS | `NAME.app`, in a `.tar.gz` and a `.dmg` |
+| Windows | `NAME.exe` and what it needs, in a `.zip`, and a `-setup.exe` that installs it without an administrator |
+| Linux | A folder with `NAME` and a desktop entry, in a `.tar.gz`, and an AppImage (glibc 2.39 or newer: Ubuntu 24.04, Debian 13) |
+
+The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the game folder's name. It saves under `t.identity`, or under the game folder's name, as `lota run` does. `lota fuse` writes the project it builds from in `dist/fuse-project`, and the game goes in it under `game/<identity>`.
+
+To fuse a game, you need:
+
+- Lota's gem for your platform, installed from the release as above. `lota fuse` puts that very gem file in the app.
+- Ruby 4.0, which the app gets a copy of: on Windows, [RubyInstaller](https://rubyinstaller.org/)'s Ruby 4.0 for x64 or ARM64; its MSYS2 tools are not needed.
+- Git, and the network: Fledge is not on RubyGems.org, so Bundler fetches it from GitHub, and Fledge downloads its runtime for your platform the first time. On Windows, install [Git for Windows](https://git-scm.com/download/win); on a Mac, `xcode-select --install` installs Git. Fledge carries what it builds installers with, NSIS among them.
+
+The options:
+
+- `--identifier ID` is the reverse-DNS name macOS and Windows know the app by, such as `com.yourname.DotPopper`. Without it the app gets `com.example.<identity>`, a placeholder: replace it before you ship.
+- `--app-version VERSION` is the app's version, such as `1.0.0`; without it, Fledge's `0.0.0`. A game's `t.version` names the version of LÖVE it was written for, so it never becomes the app's.
+- `--icon PATH` gives the app the icon files at `PATH` in the game's folder, without their extension, as Fledge takes them: `--icon icons/icon` for `icons/icon.icns` (macOS), `icons/icon.ico` (Windows), and `icons/icon-16.png` to `icons/icon-512.png` (Linux). Without it the app has no icon of its own.
+- `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
+- `--out DIR` writes to `DIR` instead of `dist`.
+- `LOTA_FLEDGE_REF` names another tag or commit of Fledge to build with.
+
+What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does), or run on a phone or tablet. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
 
 ## Documentation
 

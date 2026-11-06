@@ -78,6 +78,6 @@ class CLITest < Minitest::Test
   end
 
   def test_the_command_list_names_every_command
-    assert_equal ["run"], Lota::CLI::COMMANDS.keys
+    assert_equal %w[run fuse], Lota::CLI::COMMANDS.keys
   end
 end

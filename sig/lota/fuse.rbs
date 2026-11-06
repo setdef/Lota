@@ -1,0 +1,113 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Fuse
+    class Error < StandardError
+    end
+
+    class Options < ::Data
+      attr_reader out: String
+
+      attr_reader sign: String?
+
+      attr_reader identifier: String?
+
+      attr_reader app_version: String?
+
+      attr_reader icon: String?
+
+      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?, icon: String?) -> instance
+    end
+
+    DEFAULT_OPTIONS: { out: String, sign: String?, identifier: String?, app_version: String?, icon: String? }
+
+    def self.options: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?, ?icon: String?) -> Options
+
+    FLEDGE_GIT: String
+
+    FLEDGE_REF: String
+
+    FLEDGE_REF_VARIABLE: String
+
+    IDENTIFIER_PREFIX: String
+
+    PLATFORMS: Array[String]
+
+    GAME_FOLDER: String
+
+    PROJECT_FOLDER: String
+
+    UNTITLED: String
+
+    UNSAFE: Regexp
+
+    RESERVED: Regexp
+
+    LEFT_OUT: Array[String]
+
+    @directory: String
+
+    @options: Options
+
+    @platform: String
+
+    @gem_file: String?
+
+    @bundle: Array[String]?
+
+    def initialize: (String path, ?Options options, ?platform: String, ?gem_file: String?, ?bundle: Array[String]?) -> void
+
+    def call: () -> Array[String]
+
+    def out: () -> String
+
+    def project: () -> String
+
+    def self.this_platform: () -> String
+
+    def self.installed_gem: (String platform) -> String
+
+    def self.folder_name: (String identity) -> String
+
+    def self.placeholder_identifier: (String identity) -> String
+
+    def self.platform_name: (String platform) -> String?
+
+    def self.fledge_ref: (?Hash[String, String] env) -> String
+
+    private def check_game: () -> void
+
+    private def read_settings: () -> Settings
+
+    private def check_platform: () -> void
+
+    private def check_git: () -> void
+
+    private def bundler: () -> Array[String]
+
+    private def executable: (String name) -> String?
+
+    private def write_project: (Settings settings, String gem) -> void
+
+    private def warn_of_gemfile: () -> void
+
+    private def identity: (Settings settings) -> String
+
+    private def name: (Settings settings) -> String
+
+    private def copy_game: (String from, String to) -> void
+
+    private def gemfile: () -> String
+
+    private def fledge_yml: (String name, String identity, String folder) -> String
+
+    private def entry_script: (String folder) -> String
+
+    private def run: (Array[String] bundle, *String arguments, step: String) -> void
+
+    private def build: (Array[String] bundle) -> Array[String]
+
+    private def environment: () -> Hash[String, String?]
+  end
+end
