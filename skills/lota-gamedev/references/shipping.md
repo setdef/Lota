@@ -55,7 +55,8 @@ and has not run on real hardware. A phone build needs the platform's tools
 
 ## Licence
 
-Lota is AGPL-3.0-or-later. Its gem carries LÖVE's engine (Zlib) and
+Lota is AGPL-3.0-or-later, and a commercial licence for a proprietary game is
+sold at https://www.setdef.com/lota. Its gem carries LÖVE's engine (Zlib) and
 the libraries it uses under their own licences, recorded in the gem's
 `REUSE.toml` and `LICENSES/`; a proprietary game must still honor those (for
 example OpenAL Soft's LGPL: keep it replaceable). Whether the AGPL fits how a
