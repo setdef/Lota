@@ -7,8 +7,11 @@
 
 require "fileutils"
 require "rbconfig"
+require "rubygems/package"
+require "tmpdir"
 require "yaml"
 require_relative "fuse/lockfile"
+require_relative "notices"
 
 module Lota
   # Turns a game folder into an app a player runs without Ruby, as LÖVE
@@ -27,9 +30,17 @@ module Lota
   # and Fledge to FLEDGE_REF, puts the installed Lota gem in the project's
   # <tt>vendor/cache</tt>, since Lota is not on RubyGems.org, writes
   # <tt>fledge.yml</tt> and an entry script that turns YJIT on where the
-  # runtime has it and boots the game fused, locks the bundle, and runs
-  # <tt>fledge build</tt>. Fledge builds for the computer it runs on, so
-  # each platform's app is built on that platform.
+  # runtime has it and boots the game fused, locks the bundle, writes the
+  # app's notices, and runs <tt>fledge build</tt>. Fledge builds for the
+  # computer it runs on, so each platform's app is built on that platform.
+  #
+  # The notices (Lota::Notices) are a file, NOTICES.txt, at the top of the
+  # project, which Fledge puts in the app's +app+ folder: Lota's own
+  # license statement, then each library the Lota gem the app ships
+  # carries, as that gem's manifest names them, with their licenses, and
+  # the text of each license. They come from that very gem, so they name
+  # what this platform's app holds, and a gem without its manifest stops
+  # the build. Nothing in Fuse's options changes them.
   #
   # A game with a Gemfile ships the gems it locks. Its Gemfile.lock must
   # lock this platform and, if it locks Lota, this version of it
@@ -164,6 +175,7 @@ module Lota
       else
         run(bundle, "install", step: "Installing Fledge", why: network)
       end
+      write_notices(File.join(project, "vendor", "cache", File.basename(gem)))
       build(bundle)
     end
 
@@ -309,6 +321,33 @@ module Lota
 
       raise Error, "Fledge is not on RubyGems.org, so Bundler fetches it from #{FLEDGE_GIT} with Git, " \
         "and found no git on PATH. Install Git and try again."
+    end
+
+    # Writes the app's notices into the project (Lota::Notices), from the
+    # Lota gem it ships, at +gem+: its manifest and license texts, with the
+    # paths where Fledge puts that gem in the app. Raises Error when the
+    # gem has no manifest.
+    private def write_notices(gem)
+      Dir.mktmpdir("lota-fuse-notices-") do |dir|
+        package = Gem::Package.new(gem)
+        package.extract_files(dir, Notices::MANIFEST)
+        package.extract_files(dir, "#{Notices::LICENSES}/*")
+        notices = Notices.read(dir, platform: lota_platform, gem_folder: gem_folder(File.basename(gem, ".gem")))
+        File.write(File.join(project, Notices::FILE), notices.text)
+      end
+    rescue Notices::Error => e
+      raise Error, "lota fuse writes the app's #{Notices::FILE} from the Lota gem it ships, and #{File.basename(gem)} cannot " \
+        "give them: #{e.message}. Fuse with a Lota gem that carries its notices."
+    end
+
+    # Where Fledge puts the gem whose full name is +name+ in the app,
+    # relative to the folder that holds its +app+ folder: in the runtime's
+    # gem folder for this Ruby's ABI, which on Windows is inside the
+    # runtime's +ruby+ folder (Fledge's doc/licensing.md, "Your gems").
+    private def gem_folder(name)
+      folders = ["lib", "ruby", "gems", RbConfig::CONFIG.fetch("ruby_version"), "gems", name]
+      folders.unshift("ruby") if lota_platform.include?("mingw")
+      folders.join("/")
     end
 
     # This Ruby's own Bundler.

@@ -37,9 +37,25 @@ class Licensing
   # [pending] What about its licensing the maintainer has yet to decide,
   #   or nil. Its license is left out of the gem until then.
   # [source] The Source archive of a framework's code, or nil.
-  class Work < Data.define(:name, :sources, :gem, :copyright, :license, :pending, :source)
-    def initialize(source: nil, **)
+  # [title] What an app's notices call it, where that is not +name+, or
+  #   nil: a record names the same library on several platforms apart, as
+  #   "zlib (Windows)", which the notices call zlib.
+  # [version] Its version, or nil where the record does not know it.
+  # [credit] The words its license asks a product's documentation to
+  #   carry, which an app's notices carry, or nil.
+  class Work < Data.define(:name, :sources, :gem, :copyright, :license, :pending, :source, :title, :version, :credit)
+    def initialize(source: nil, title: nil, version: nil, credit: nil, **)
       super
+    end
+
+    # What an app's notices call it.
+    def notice_name
+      title || name
+    end
+
+    # Its version, or the version of the gem it comes from.
+    def notice_version
+      version || (gem && Gem::Specification.find_by_name(gem).version.to_s)
     end
 
     # Whether +path+, absolute, is one of this work's files, in the
@@ -94,22 +110,22 @@ class Licensing
   end
 
   # Records code the bundle compiles in.
-  def work(name, sources:, copyright:, license: [], pending: nil, gem: nil)
-    @works << checked(Work.new(name:, sources:, gem:, copyright:, license:, pending:))
+  def work(name, sources:, copyright:, license: [], pending: nil, gem: nil, title: nil, version: nil, credit: nil)
+    @works << checked(Work.new(name:, sources:, gem:, copyright:, license:, pending:, title:, version:, credit:))
   end
 
   # Records a framework the gem ships on macOS, by its directory's name,
   # with the archive of its source when its license asks the gem to carry
   # it.
-  def framework(name, copyright:, license:, pending: nil, source: nil)
+  def framework(name, copyright:, license:, pending: nil, source: nil, title: nil, version: nil, credit: nil)
     @frameworks[name] = checked(Work.new(name:, sources: [], gem: nil, copyright:, license:, pending:,
-      source: source && Source.new(**source)))
+      source: source && Source.new(**source), title:, version:, credit:))
   end
 
   # Records a shared library the gem ships on Linux, by the soname the
   # bundle or another library needs it by, as a framework is recorded.
-  def library(name, copyright:, license:, pending: nil, source: nil)
-    framework(name, copyright:, license:, pending:, source:)
+  def library(name, copyright:, license:, pending: nil, source: nil, title: nil, version: nil, credit: nil)
+    framework(name, copyright:, license:, pending:, source:, title:, version:, credit:)
   end
 
   # The entry for the framework, or on Linux the library, +name+
@@ -163,6 +179,55 @@ Work.new(name: source.name, sources: [], gem: nil,
 ])
     end
     tables.join("\n")
+  end
+
+  # The record's name for Lota's own code, which an app's notices state on
+  # their own, always (Lota::Notices), so its manifest leaves it out.
+  LOTA = "Lota"
+
+  # Where a gem keeps the manifest of what it carries, relative to the
+  # gem, which <tt>lota fuse</tt> writes an app's notices from.
+  NOTICES = "notices.json"
+
+  # The manifest, as a Hash for JSON, of what a gem carries, for an app's
+  # notices (Lota::Notices): each work +bundle+ carries, each work each of
+  # +companions+ carries (each path to its works), and each framework, or
+  # library, +frameworks+ names (each name to its path in the gem), with
+  # its source archive, all paths relative to the gem. Each is named by
+  # Work#notice_name, with Work#notice_version, its licenses, notices of
+  # copyright, and credit. Lota's own work is left out (LOTA). Raises
+  # Invalid for a work whose license is pending, which the notices could
+  # not name.
+  #
+  # A phone's app, which no gem carries Lota into, can describe the works
+  # its own link takes the same way, with no frameworks.
+  def notices(bundle:, works:, frameworks:, companions: {})
+    carried = [[bundle, works], *companions.to_a].flat_map do |path, its|
+      its.reject { |work| work.name == LOTA }.map { |work| notice(work, file: path, separate: false) }
+    end
+    carried += frameworks.map { |name, path| notice(framework_for(name), file: path, separate: true) }
+    { "components" => carried.uniq }
+  end
+
+  private def notice(work, file:, separate:)
+    raise Invalid, "#{work.name}'s license is pending, so the notices cannot name it" if work.pending
+
+    source = work.source
+    {
+      "name" => work.notice_name,
+      "version" => work.notice_version,
+      "license" => work.license,
+      "copyright" => work.copyright,
+      "credit" => work.credit,
+      "file" => file,
+      "separate" => separate,
+      "source" => source && {
+"file" => File.join(SOURCES, source.name),
+"url" => source.url,
+"sha256" => source.sha256,
+"license" => source.license,
+},
+    }
   end
 
   # The source archives of the frameworks named +frameworks+, each once.

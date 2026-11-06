@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Notices
+    type json = String | bool | Array[String] | Hash[String, json] | nil
+
+    type entry = Hash[String, json]
+
+    class Error < StandardError
+    end
+
+    FILE: String
+
+    MANIFEST: String
+
+    LICENSES: String
+
+    LICENSE: String
+
+    LICENSE_NAME: String
+
+    COPYRIGHT: String
+
+    SOURCE: String
+
+    class Component < ::Data
+      attr_reader name: String
+
+      attr_reader version: String?
+
+      attr_reader license: Array[String]
+
+      attr_reader copyright: Array[String]
+
+      attr_reader credit: String?
+
+      attr_reader file: String
+
+      attr_reader separate: bool
+
+      attr_reader source: Source?
+
+      def self.new: (name: String, version: String?, license: Array[String], copyright: Array[String], credit: String?, file: String, separate: bool, source: Source?) -> instance
+
+      def self.from: (entry entry) -> Component
+
+      def title: () -> String
+    end
+
+    class Source < ::Data
+      attr_reader file: String
+
+      attr_reader url: String
+
+      attr_reader sha256: String
+
+      attr_reader license: Array[String]
+
+      def self.new: (file: String, url: String, sha256: String, license: Array[String]) -> instance
+
+      def self.from: (entry entry) -> Source
+    end
+
+    def self.read: (String dir, platform: String, gem_folder: String) -> Notices
+
+    attr_reader components: Array[Component]
+
+    @components: Array[Component]
+
+    @texts: Hash[String, String]
+
+    @platform: String
+
+    @gem_folder: String
+
+    def initialize: (components: Array[Component], texts: Hash[String, String], platform: String, gem_folder: String) -> void
+
+    def licenses: () -> Array[String]
+
+    def text: () -> String
+
+    private def introduction: () -> String
+
+    private def lota: () -> String
+
+    private def groups: () -> Array[String]
+
+    private def entry: (Component component) -> String
+
+    private def source: (Source source) -> Array[String]
+
+    private def identifiers: (String expression) -> Array[String]
+
+    private def windows?: () -> bool
+
+    private def separator: () -> String
+
+    private def path: (String relative) -> String
+  end
+end

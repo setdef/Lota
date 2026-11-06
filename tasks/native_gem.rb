@@ -79,6 +79,12 @@ require_relative "source_archive"
 # as OpenAL Soft's does, carries the archive of that source in the gem's
 # sources/, from where rake sources:fetch keeps it, checked against the
 # SHA-256 the record gives; the build stops without it.
+#
+# An app that lota fuse builds ships the gem, and its notices
+# (Lota::Notices) name what the gem carries, so the gem carries their
+# manifest, Licensing::NOTICES: the works the bundle carries and each
+# library beside it, from the same record and the same linker's map as
+# its REUSE.toml, so each platform's notices name its own gem's contents.
 class NativeGem
   # The record of who wrote what the gem carries.
   attr_reader :licensing
@@ -152,6 +158,7 @@ class NativeGem
     files += stage_bundle(stage) + companions.keys
     files += libraries.flat_map { |_, source| formatted { @format.stage_library(stage, library_dir, source) } }
     files += stage_sources(stage, libraries.keys)
+    files += stage_notices(stage, works, companions, libraries.keys)
     files += stage_licensing(stage, works, companions, libraries.keys)
     package(native_spec(spec, files), stage, work)
   end
@@ -264,6 +271,27 @@ class NativeGem
     raise PackageCheck::Failure, e.message
   end
 
+  # Writes the manifest of what the gem carries, from which lota fuse
+  # writes an app's notices (Licensing#notices), as Licensing::NOTICES.
+  private def stage_notices(stage, works, companions, frameworks)
+    manifest = @licensing.notices(bundle: @bundle, works:, companions:,
+      frameworks: frameworks.to_h { |name| [name, File.join(library_dir, name)] })
+    File.write(File.join(stage, Licensing::NOTICES), "#{JSON.pretty_generate(manifest)}\n")
+    [Licensing::NOTICES]
+  end
+
+  # The REUSE.toml annotation of the notices manifest, which the build
+  # writes from ext/lota/licenses.rb, so it is under that file's license.
+  # The words of credit it quotes, as FreeType's, are not its own notices
+  # of copyright, so the annotation overrides what REUSE would read in it.
+  NOTICES_ANNOTATION = <<~TOML
+    [[annotations]]
+    path = "#{Licensing::NOTICES}"
+    precedence = "override"
+    SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+    SPDX-License-Identifier = "AGPL-3.0-or-later"
+  TOML
+
   # Writes the gem's REUSE.toml and LICENSES/, and checks the gem with
   # the REUSE tool. Every license text goes in first, and the ones no file
   # uses come out, so what remains is exactly what REUSE asks for.
@@ -271,7 +299,7 @@ class NativeGem
     annotations = @licensing.annotations(bundle: @bundle, works:, companions:, frameworks: frameworks.to_h do |name|
       [name, @format.annotation(File.join(library_dir, name))]
     end)
-    File.write(File.join(stage, REUSE_TOML), "#{File.read(File.join(@root, REUSE_TOML))}\n#{annotations}")
+    File.write(File.join(stage, REUSE_TOML), "#{File.read(File.join(@root, REUSE_TOML))}\n#{annotations}\n#{NOTICES_ANNOTATION}")
     texts = license_texts
     texts.each { |identifier, source| copy(source, File.join(stage, LICENSES, "#{identifier}.txt")) }
     used = reuse_lint(stage).fetch("summary").fetch("used_licenses")

@@ -19,6 +19,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Audio::RecordingDevice`, with `start`, `stop`, `data`, `sample_count`, `sample_rate`, `bit_depth`, `channel_count`, `name`, and `recording?`.
 - Boot passes `t.audio.mixwithsystem` and `t.audio.mic` to the engine before the audio module opens, and sets the window's icon from `t.window.icon`, as LÖVE's boot does.
 - `Lota::Mouse.cursor`, translating `love.mouse.getCursor`, and `Lota::Mouse::Cursor.new`, translating `love.mouse.newCursor`, of an image or an Array of them.
+- `lota fuse` writes `app/NOTICES.txt` into every app: Lota's license, each library the platform's gem carries with its version, licenses, and notices of copyright, FreeType's credit, where OpenAL Soft's source archive is in the app, and the text of each license.
+- Each precompiled gem carries `notices.json`, the manifest of what it carries, from which `lota fuse` writes those notices.
+
+### Changed
+
+- `lota fuse` stops on a Lota gem without `notices.json`, as every gem built before this release is.
 
 ## [0.2.0] - 2026-11-05
 

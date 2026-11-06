@@ -58,7 +58,9 @@ and has not run on real hardware. A phone build needs the platform's tools
 Lota is AGPL-3.0-or-later. Its gem carries LÖVE's engine (Zlib) and
 the libraries it uses under their own licences, recorded in the gem's
 `REUSE.toml` and `LICENSES/`; a proprietary game must still honor those (for
-example OpenAL Soft's LGPL: keep it replaceable). Whether the AGPL fits how a
+example OpenAL Soft's LGPL: keep it replaceable). `lota fuse` writes
+`app/NOTICES.txt` into every app, naming those libraries and Lota's license
+with their texts; ship it with the app as `lota fuse` wrote it. Whether the AGPL fits how a
 game ships is a question for the game's owner and their lawyer, and for Lota's
 copyright holder if the game's terms need anything else; do not answer it for
 them, and do not suggest that a flag or setting changes Lota's license.
