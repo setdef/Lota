@@ -112,6 +112,26 @@ class ExtconfTest < Minitest::Test
     end
   end
 
+  # fledge build android does the same under an Android Ruby's
+  # rbconfig.rb, whose compiler is the NDK's for an ABI.
+  def test_under_an_android_rbconfig_it_builds_for_the_phone_from_a_clone
+    in_tree do |root|
+      script = write(root, "ext/lota/extconf.rb", File.read(EXTCONF))
+      write(root, "ext/lota/phone/android.rb", File.read(File.join(ROOT, "ext/lota/phone/android.rb")))
+      shim = write(root, "android_rbconfig.rb", <<~RUBY)
+        require "rbconfig"
+        RbConfig::CONFIG["CC"] = "/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang"
+      RUBY
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", shim, script, chdir: root)
+
+      refute status.success?
+      assert_includes output, "Lota's Android build needs --with-lota-source=DIR"
+      refute_includes output, "Lota's iOS build"
+      refute_includes output, "Lota's source gem does not ship LÖVE's sources"
+      refute_path_exists File.join(root, "Makefile")
+    end
+  end
+
   # Only a build in a clone reads Rice, so Bundler installs it there and
   # no installed gem depends on it.
   def test_rice_is_a_development_dependency
