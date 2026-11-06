@@ -30,6 +30,13 @@ class PhysicsTest < Lovetest::TestMethod
     Lota::Physics.meter = 30
   end
 
+  # And ends with it, so that the suite run after this one, in the same
+  # process, does not find the 10 that setMeter's test leaves.
+  def teardown
+    Lota::Physics.meter = 30
+    super
+  end
+
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib

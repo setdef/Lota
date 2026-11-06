@@ -12,12 +12,18 @@ module Lota
     @fused: bool
 
     interface _Frame
-      def call: () -> top
+      def call: () -> ::Object?
+
+      def equal?: (top other) -> bool
     end
 
     @inerror: bool
 
     @func: _Frame?
+
+    @set_modal_draw_func: bool
+
+    private def set_default_modal_draw_callback: (_Frame? frame) -> void
 
     attr_reader directory: String
 

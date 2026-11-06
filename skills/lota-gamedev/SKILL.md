@@ -36,8 +36,8 @@ truth below; do not guess a name.
 ```ruby
 # conf.rb (optional): settings before the window opens
 def Lota.conf(t)
-  t.identity = "moon_pong"      # the save folder's name
-  t.window.title = "Moon Pong"
+  t.identity = "sample_game"      # the save folder's name
+  t.window.title = "Sample Game"
   t.highdpi = true
 end
 

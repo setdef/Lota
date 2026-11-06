@@ -60,6 +60,8 @@ module Lota
 
     def call: () -> Array[String]
 
+    COMPILER: String
+
     def out: () -> String
 
     def project: () -> String
@@ -80,7 +82,11 @@ module Lota
 
     private def read_settings: () -> Settings
 
-    private def check_platform: () -> void
+    private def lota_platform: () -> String
+
+    private def read_lockfile: (String platform) -> Lockfile?
+
+    private def check_lockfile: (Lockfile locked, String path, String platform) -> void
 
     private def check_git: () -> void
 
@@ -88,9 +94,11 @@ module Lota
 
     private def executable: (String name) -> String?
 
-    private def write_project: (Settings settings, String gem) -> void
+    private def write_project: (Settings settings, String gem, Lockfile? locked) -> void
 
-    private def warn_of_gemfile: () -> void
+    private def copy_cache: (String cache, Lockfile locked) -> void
+
+    private def lock_commands: (Lockfile? locked, String platform) -> Array[Array[String]]
 
     private def identity: (Settings settings) -> String
 
@@ -98,13 +106,15 @@ module Lota
 
     private def copy_game: (String from, String to) -> void
 
-    private def gemfile: () -> String
+    private def gemfile: (String folder, Lockfile? locked) -> String
 
     private def fledge_yml: (String name, String identity, String folder) -> String
 
     private def entry_script: (String folder) -> String
 
-    private def run: (Array[String] bundle, *String arguments, step: String) -> void
+    private def run: (Array[String] bundle, *String arguments, step: String, why: String) -> void
+
+    private def network: (?String subject) -> String
 
     private def build: (Array[String] bundle) -> Array[String]
 

@@ -52,6 +52,17 @@ module Lota
       tokens
     end
 
+    # The tokens of the two results of a modal draw callback, or of the
+    # frame boot hands to the event module, that returned +values+, an
+    # Array of them or the first alone, each read as tokens reads a value,
+    # as drawCallbackInner reads the function's two results with
+    # luax_checkvariant (src/modules/event/wrap_Event.cpp:161-174).
+    # :nodoc:
+    def self.results(values)
+      first, second = values.is_a?(Array) ? values : [values]
+      [tokens(first), tokens(second)]
+    end
+
     # Whether +value+ is one that tokens reads, at its top. :nodoc:
     def self.value?(value)
       case value

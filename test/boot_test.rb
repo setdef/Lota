@@ -129,7 +129,7 @@ class BootTest < Minitest::Test
   # boot.lua:136-148, with Lota's name for a name left empty.
   def test_a_folder_identity_is_its_name_as_boot_lua_makes_it
     assert_equal "pong", Lota::Boot.folder_identity("games/pong")
-    assert_equal "dot", Lota::Boot.folder_identity("games/.dot.popper")
+    assert_equal "sample", Lota::Boot.folder_identity("games/.sample.game")
     assert_equal "a_b", Lota::Boot.folder_identity("/x/a.b.love")
     assert_equal "lotagame", Lota::Boot.folder_identity("/x/...")
   end

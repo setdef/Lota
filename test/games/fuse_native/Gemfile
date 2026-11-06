@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+# A gem with a C extension and no precompiled build, which compiles on the
+# computer that fuses the game, for lota fuse's check
+# (.github/workflows/fuse.yml). Lota comes from the game's vendor/cache,
+# as the README's Installation has a game with a Gemfile take it; the
+# check puts the gem there and locks the bundle before it fuses, as the
+# game's developer would.
+source "https://rubygems.org"
+
+gem "lota"
+gem "fast_blank", "1.0.1"

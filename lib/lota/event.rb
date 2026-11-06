@@ -238,10 +238,11 @@ module Lota
     # [callable] Anything that answers +call+ with no arguments, or +nil+
     #   for none.
     #
-    # While the system resizes the window, on macOS and Windows, it does
-    # not return to the game, so nothing draws until the player lets go.
-    # The event module calls this instead, during the system's loop, and
-    # LÖVE's own game loop passes its frame to it. What the callable
+    # While the system moves or resizes the window, on macOS and Windows,
+    # it does not return to the game until the player lets go. The event
+    # module calls this instead, during the system's loop; when the game
+    # sets none, it runs the frame of the game's loop there, which
+    # Lota::Boot hands it, as LÖVE's boot does. What the callable
     # returns, an exit status or an Array of it and a restart value, as
     # the frame of Lota.run returns them, ends the game as a +quit+
     # message would. Each is read as #restart reads its arguments, so a
@@ -262,15 +263,7 @@ module Lota
         raise TypeError, "wrong argument type #{callable.class} (expected a callable)"
       end
 
-      Native::Event.set_modal_draw_callback(callable && -> { results(callable.call) })
-    end
-
-    # The tokens of the two results of a modal draw callback that returned
-    # +values+, an Array of them or the first alone, each read as #restart
-    # reads its arguments (Lota::Variant). :nodoc:
-    private_class_method def self.results(values)
-      first, second = values.is_a?(Array) ? values : [values]
-      [Variant.tokens(first), Variant.tokens(second)]
+      Native::Event.set_modal_draw_callback(callable && -> { Variant.results(callable.call) })
     end
   end
 end

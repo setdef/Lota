@@ -608,6 +608,8 @@ module Lota
 
       def self.set_modal_draw_callback: (^() -> [Array[Lota::Variant::token], Array[Lota::Variant::token]] | nil callable) -> nil
 
+      def self.set_default_modal_draw_callback: (^() -> [Array[Lota::Variant::token], Array[Lota::Variant::token]] | nil callable) -> nil
+
       def self.push: (String name, Array[Array[Lota::Variant::token]] arguments) -> bool
     end
 

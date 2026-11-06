@@ -9,15 +9,15 @@
 # drawing (mesa) or reporting that it could not (nogpu). Not part of the
 # kit. Exits 1 when any check fails.
 #
-#   check-results.ps1 -Kit FOLDER -Mode mesa|nogpu [-Installed] [-Held] [-Answered]
+#   check-results.ps1 -Kit FOLDER -Mode mesa|nogpu [-Held] [-Answered]
 #
 # -Answered expects the hand checks answered from the lines the workflow
-# fed on standard input; without it, each must say NOT ASKED.
+# fed on standard input, a stray answer before each refused and asked
+# again; without it, each must say NOT ASKED.
 
 param(
   [Parameter(Mandatory = $true)] [string] $Kit,
   [Parameter(Mandatory = $true)] [ValidateSet('mesa', 'nogpu')] [string] $Mode,
-  [switch] $Installed,
   [switch] $Held,
   [switch] $Answered
 )
@@ -37,7 +37,7 @@ Write-Host "results.txt: $((Get-Item -LiteralPath $file).Length) bytes"
 
 $steps = 'motw', 'checksums', 'system', 'computerinfo', 'timeout', 'unpack', 'winkit', 'winkit-warm', 'winkit-rubyenv',
   'winkit-unicode', 'winkit-pacing', 'winkit-shell', 'winkit-cmd', 'winkit-close', 'winkit-kill', 'winkit-links', 'winkit-summary',
-  'dotpopper', 'dotpopper-noshaders', 'install', 'saves', 'events'
+  'saves', 'events'
 if ($Held) { $steps += 'hold' }
 $steps += 'hand'
 $status = @{}
@@ -62,7 +62,7 @@ Check 'Get-ComputerInfo ran' ($text -match 'WindowsBuildLabEx|OsName')
 $shots = @(Get-ChildItem -LiteralPath $folder -Filter '*.jpg')
 Write-Host "screenshots: $($shots.Count): $(($shots | ForEach-Object { $_.Name }) -join ', ')"
 $least = 1
-if ($Mode -eq 'mesa') { $least = 8 }
+if ($Mode -eq 'mesa') { $least = 4 }
 Check "at least $least screenshots of the screen" ($shots.Count -ge $least)
 Check 'screenshots are images' (@($shots | Where-Object { $_.Length -lt 1000 }).Count -eq 0)
 $zip = Join-Path (Join-Path $Kit 'results') "$($folders[0].Name).zip"
@@ -75,38 +75,22 @@ if ($Mode -eq 'mesa') {
   Check 'winkit drew with llvmpipe' ($text -match 'renderer: OpenGL [^\r\n]*llvmpipe')
   Check 'its own frames were kept' (@(Get-ChildItem -LiteralPath $folder -Filter '*-frame.png').Count -ge 5)
   Check 'the shaders compiled, and the broken one did not' ($text -match 'shader vertex and pixel: compiled' -and $text -match 'shader broken, on purpose: RuntimeError')
+  Check 'winkit drew its scene in the units its window has' ($text -match '(?m)^frame: \d+x\d+, [\d.]+ pixels to a scene unit')
   Check 'frame times' ($text -match 'frames: \d+ after the first half second, ms average=')
-  Check 'dot popper played and quit with 0' ($status['dotpopper'] -eq 'PASS' -and $status['dotpopper-noshaders'] -eq 'PASS')
-  Check "dot popper's rounds.csv" ($text -match '--- rounds\.csv')
-  Check "dot popper's frame pacing lines (DOT_POPPER_PERF)" ($text -match 'Dot Popper: \d+ frames a second, longest frame' -and $text -match 'frame pacing every 5 s: ')
-  Check "dot popper's own screenshots" (@(Get-ChildItem -LiteralPath $folder -Filter 'dotpopper-shot-*.png').Count -ge 1)
 } else {
   Check 'winkit reported no GPU' ($status['winkit'] -eq 'NO-GPU' -and $text -match 'window: refused' -and $text -match 'Unable to create renderer')
   Check 'the summary says so in plain words' ($text -match 'could not open a window with the graphics they need')
-  Check "dot popper's error dialog was read and closed" ($status['dotpopper'] -eq 'NO-GPU' -and $text -match "error dialog 'Initialization error', killed")
-}
-if ($Installed) {
-  Check 'the installer installed, ran, and uninstalled' ($status['install'] -eq 'PASS')
-} else {
-  Check 'the installer was skipped' ($status['install'] -eq 'SKIP')
 }
 if ($Held) { Check 'the input test ran' ($status['hold'] -in 'PASS', 'NO-GPU' -and $text -match 'inputs seen: ') }
-Check 'a HAND CHECKS section with every question' ($text -match '(?m)^HAND CHECKS' -and $text -match '(?m)^\[W1\] ' -and $text -match '(?m)^\[17\] ')
-Check 'check 6 asks about the Dot size choice, with not shown' ($text -match "(?m)^\[6\] After one round, if the title shows a Dot size choice, [^\r\n]*write 'not shown'\.\)\r?$")
-$at9 = $text.IndexOf("`n[9] Text and lines")
-$at18 = $text.IndexOf("`n[18] At Game Over, hold and drag a dot to pull it, then let go to throw it; a plain click still goes back to the title. (y/n)")
-$at10 = $text.IndexOf("`n[10] Overall")
-Check "check 18, the throw at Game Over, is asked after 9 and before 10 ($at9, $at18, $at10)" ($at9 -ge 0 -and $at9 -lt $at18 -and $at18 -lt $at10)
+Check 'the kit asked to start, and started' ($text -match '(?m)^start: yes\r?$')
+Check 'a HAND CHECKS section with every question' ($text -match '(?m)^HAND CHECKS' -and $text -match '(?m)^\[W1\] ' -and $text -match '(?m)^\[W2\] ' -and $text -match '(?m)^\[W3\] In the input test')
+Check 'no check of a game is asked' (-not ($text -match '(?m)^\[\d+[a-z]?\] '))
+Check "W2 is asked here, since this is not the maintainer's PC" (-not ($text -match 'prefilled for this PC'))
 if ($Answered) {
-  Check 'the hand-play run of Dot Popper ran and quit' ($text -match 'run: dotpopper-hand' -and $text -match "(?s)run: dotpopper-hand.*?result: exited")
-  Check 'the answers fed on standard input landed in results.txt' (([regex]::Matches($text, '(?m)^  note: fed by CI')).Count -eq 22 -and -not ($text -match 'NOT ASKED'))
-  Check 'the pasted result landed' ($text -match '(?m)^  pasted: Dot Popper result line one \| line two\r?$')
-  Check 'the ratings landed' ($text -match '(?m)^\[10\] [^\r\n]*\r?\n  answer: 4\r?$')
-  Check "ns for check 6 was written as 'not shown'" ($text -match '(?m)^\[6\] [^\r\n]*\r?\n  answer: not shown\r?$')
-  Check 'check 18 was answered' ($text -match '(?m)^\[18\] [^\r\n]*\r?\n  answer: y\r?$')
-  Check 'the controller block was asked' ($text -match '(?m)^\[16\] [^\r\n]*\r?\n  answer: y\r?$')
+  Check 'the answers fed on standard input landed in results.txt' (([regex]::Matches($text, '(?m)^  note: fed by CI')).Count -eq 3 -and -not ($text -match 'NOT ASKED'))
+  Check 'each stray answer was refused, and the next one taken' ($text -match '(?m)^\[W1\] [^\r\n]*\r?\n  answer: y\r?$' -and $text -match '(?m)^\[W2\] [^\r\n]*\r?\n  answer: n\r?$' -and $text -match '(?m)^\[W3\] [^\r\n]*\r?\n  answer: skip\r?$')
 } else {
-  Check 'the hand checks were not asked, and say so' ($status['hand'] -eq 'SKIP' -and $text -match '(?m)^\[1\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)' -and $text -match '(?m)^\[18\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)')
+  Check 'the hand checks were not asked, and say so' ($status['hand'] -eq 'SKIP' -and $text -match '(?m)^\[W1\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)' -and $text -match '(?m)^\[W3\] [^\r\n]*\r?\n  answer: NOT ASKED \(non-interactive\)')
 }
 
 Write-Host "$failed checks failed"

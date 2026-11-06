@@ -158,6 +158,9 @@ bound_by_hand "love.event.restart",
 bound_by_hand "love.event.setModalDrawCallback",
   reason: "keeps a Lua function in a Reference and calls it with lua_cpcall (drawCallback), which the " \
     "generator does not port; Lota keeps a Ruby callable as a root of the garbage collector"
+bound_by_hand "love.event._setDefaultModalDrawCallback",
+  reason: "keeps a Lua function in a Reference, as love.event.setModalDrawCallback does; only Lota::Boot " \
+    "calls it, with each new frame of its loop, as only boot.lua calls LÖVE's"
 
 # love.filesystem
 generate "love.filesystem.init"

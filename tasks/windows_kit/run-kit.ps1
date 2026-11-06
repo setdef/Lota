@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# The Windows kit: records what Lota's apps do on a real Windows PC and
-# writes one results file, results.txt, with screenshots beside it, into
-# results\lota-kit-results-STAMP, and zips that folder. run-kit.cmd starts
-# it with this process's execution policy bypassed; it changes no system
-# setting and needs no administrator. It writes only into the kit's
-# folder, except %TEMP% (Add-Type), the save folders the games make
-# (%APPDATA%\winkit and %APPDATA%\dot_popper), and, only when asked, Dot
-# Popper's per-user install, which it removes again.
+# The Windows kit: records what Lota's own diagnostics app, Winkit
+# (test/games/winkit), does on a real Windows PC and writes one results
+# file, results.txt, with screenshots beside it, into
+# results\lota-kit-results-STAMP, and zips that folder. It bundles no game
+# made with Lota: it checks Lota, not a game. run-kit.cmd starts it with
+# this process's execution policy bypassed; it changes no system setting
+# and needs no administrator. It writes only into the kit's folder,
+# except %TEMP% (Add-Type) and Winkit's save folder (%APPDATA%\winkit).
 #
 # It must run in Windows PowerShell 5.1 and in PowerShell 7, so it uses
 # only what both have: no ternary or null operators, no three-argument
@@ -21,8 +21,7 @@
 # it and its children are killed.
 #
 # Parameters for CI only (the maintainer passes none):
-#   -Unattended       never ask; -Install and -HoldSeconds decide
-#   -Install yes|no   whether to try the setup program (default: ask)
+#   -Unattended       never ask; -HoldSeconds decides
 #   -HoldSeconds N    run the hands-on section for N seconds without asking
 #   -MesaDir PATH     copy Mesa's software OpenGL beside each app
 #   -NullAudio        ALSOFT_DRIVERS=null, for a computer with no audio device
@@ -30,7 +29,6 @@
 [CmdletBinding()]
 param(
   [switch] $Unattended,
-  [ValidateSet('ask', 'yes', 'no')] [string] $Install = 'ask',
   [int] $HoldSeconds = 0,
   [string] $MesaDir = '',
   [switch] $NullAudio
@@ -477,9 +475,29 @@ function Read-Answer([string] $Prompt) {
   return (Read-Host $Prompt)
 }
 
-function Ask([string] $Question) {
-  $answer = Read-Answer "$Question [y/N]"
-  return ("$answer" -match '^\s*y')
+# Asks until the answer is y or n (yes and no too, in any case), and
+# says 'type y or n' after anything else, so a stray key is never taken
+# for an answer. With -Skip, skip and an empty line (Enter) are answers
+# too. Returns 'y', 'n', or 'skip', or $null when no one can answer.
+function Read-YesNo([string] $Prompt, [switch] $Skip) {
+  $hint = 'type y or n'
+  if ($Skip) { $hint = 'type y or n, or press Enter to skip' }
+  while ($true) {
+    $answer = Read-Answer $Prompt
+    if ($null -eq $answer) { return $null }
+    $word = $answer.Trim().ToLowerInvariant()
+    if ($word -in 'y', 'yes') { return 'y' }
+    if ($word -in 'n', 'no') { return 'n' }
+    if ($Skip -and $word -in '', 'skip') { return 'skip' }
+    Write-Host "  Please $hint."
+  }
+}
+
+# A y/n question; $Default when no one can answer.
+function Ask([string] $Question, [bool] $Default = $false) {
+  $answer = Read-YesNo "$Question [y/n]"
+  if ($null -eq $answer) { return $Default }
+  return ($answer -eq 'y')
 }
 
 # ------------------------------------------------------------------ start
@@ -490,19 +508,17 @@ Out-Result "Lota Windows kit results, started $(Get-Stamp)"
 $infoFile = Join-Path $Kit 'kit-info.txt'
 if (Test-Path -LiteralPath $infoFile) { Out-Lines 'kit-info.txt' (Get-Content -LiteralPath $infoFile) }
 Out-Result "kit folder: $Kit"
-Out-Result "parameters: Unattended=$Unattended Install=$Install HoldSeconds=$HoldSeconds MesaDir=$MesaDir NullAudio=$NullAudio"
+Out-Result "parameters: Unattended=$Unattended HoldSeconds=$HoldSeconds MesaDir=$MesaDir NullAudio=$NullAudio"
 
-$doInstall = $false
-if ($Install -eq 'yes') { $doInstall = $true }
-elseif ($Install -eq 'ask') {
-  Write-Host ''
-  Write-Host "Optional: also try Dot Popper's installer? It installs Dot Popper for you only (no administrator),"
-  Write-Host 'starts it from the Start menu for a few seconds, and uninstalls it again. It adds about 2 minutes.'
-  $doInstall = Ask 'Try the installer?'
-}
 Write-Host ''
-Write-Host 'From now on, please do not touch the mouse or keyboard until the kit says it is done (about 6 minutes).'
-Write-Host 'Windows will open and close by themselves; you may hear short tones and Dot Popper sounds.'
+Write-Host 'Once you start it, please do not touch the mouse or keyboard until the kit says it is done (about 4 minutes).'
+Write-Host 'Windows will open and close by themselves; you may hear short tones.'
+if (-not (Ask 'Start now?' $true)) {
+  Out-Result 'start: declined'
+  Write-Host 'Nothing was run. Double-click run-kit.cmd again when you are ready.'
+  exit 0
+}
+Out-Result 'start: yes'
 
 if ($MesaDir) { $env:GALLIUM_DRIVER = 'llvmpipe' }
 if ($NullAudio) { $env:ALSOFT_DRIVERS = 'null' }
@@ -659,9 +675,6 @@ Invoke-Step 'timeout' 'Checking that the kit stops a program that hangs' {
 
 $WinkitRoot = $null
 $WinkitExe = $null
-$PopperRoot = $null
-$PopperExe = $null
-$Setup = $null
 $WinkitBefore = @()
 
 Invoke-Step 'unpack' 'Unpacking the apps into the work folder' {
@@ -675,15 +688,10 @@ Invoke-Step 'unpack' 'Unpacking the apps into the work folder' {
   if (Test-Path -LiteralPath $Work) { Remove-Item -LiteralPath $Work -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $Work | Out-Null
   $winkitZip = @(Get-ChildItem -LiteralPath $Apps -Filter 'Winkit-*.zip')[0]
-  $popperZip = @(Get-ChildItem -LiteralPath $Apps -Filter 'Dot Popper-*.zip')[0]
-  $script:Setup = @(Get-ChildItem -LiteralPath $Apps -Filter '*-setup.exe')[0]
   Expand-Zip $winkitZip.FullName (Join-Path $Work 'winkit')
-  Expand-Zip $popperZip.FullName (Join-Path $Work 'dotpopper')
   $script:WinkitRoot = Join-Path (Join-Path $Work 'winkit') $winkitZip.BaseName
-  $script:PopperRoot = Join-Path (Join-Path $Work 'dotpopper') $popperZip.BaseName
   $script:WinkitExe = Join-Path $script:WinkitRoot 'Winkit.exe'
-  $script:PopperExe = Join-Path $script:PopperRoot 'Dot Popper.exe'
-  foreach ($exe in $script:WinkitExe, $script:PopperExe, $script:Setup.FullName) {
+  foreach ($exe in @($script:WinkitExe)) {
     $v = (Get-Item -LiteralPath $exe).VersionInfo
     Out-Result "$(Split-Path -Leaf $exe): description '$($v.FileDescription)', product '$($v.ProductName)' $($v.ProductVersion), file $($v.FileVersion), company '$($v.CompanyName)', original '$($v.OriginalFilename)'"
     $bytes = [IO.File]::ReadAllBytes($exe)
@@ -697,7 +705,6 @@ Invoke-Step 'unpack' 'Unpacking the apps into the work folder' {
   $files = @(Get-ChildItem -LiteralPath $script:WinkitRoot -Recurse -File)
   Out-Result "winkit app: $($files.Count) files, $([Math]::Round(($files | Measure-Object Length -Sum).Sum / 1MB, 1)) MB at $script:WinkitRoot"
   Copy-Mesa $script:WinkitRoot
-  Copy-Mesa $script:PopperRoot
   $script:WinkitBefore = Get-Snapshot $script:WinkitRoot
 }
 
@@ -838,165 +845,9 @@ Invoke-Step 'winkit-summary' 'Comparing the Winkit starts' {
   if ($MesaDir) { Out-Result '(Mesa files copied in by the kit were there before the first run, so they do not count)' }
 }
 
-function Get-PopperFiles([string] $Label) {
-  $save = Join-Path $env:APPDATA 'dot_popper'
-  if (-not (Test-Path -LiteralPath $save)) { Out-Result "no $save"; return }
-  Out-Lines "$save after $Label" (Get-ChildItem -LiteralPath $save -Force | ForEach-Object { "{0,10} {1} {2}" -f $_.Length, $_.LastWriteTime.ToString('s'), $_.Name })
-  foreach ($name in 'rounds.csv', 'lifetime.txt', 'best_score.txt', 'sound.txt', 'taught.txt', 'dot_size.txt') {
-    $file = Join-Path $save $name
-    if (Test-Path -LiteralPath $file) { Out-Lines $name (Get-Content -LiteralPath $file -Encoding UTF8) }
-  }
-  foreach ($shot in @(Get-ChildItem -LiteralPath $save -Filter 'shot-*.png')) {
-    Copy-Item -LiteralPath $shot.FullName -Destination (Join-Path $ResultsDir "$Label-$($shot.Name)") -Force
-    Out-Result "copied the game's own screenshot: $Label-$($shot.Name)"
-  }
-}
-
-function Test-Popper($r) {
-  if ($r.Result -ne 'exited') {
-    if ($r.Result -like 'error dialog*') {
-      $message = @($r.Texts | Where-Object { $_ -match '^\s+child \[Static\] \S' } | ForEach-Object { $_ -replace '^\s+child \[Static\] ', '' })
-      $status = 'FAIL'
-      if (($message -join ' ') -match 'Unable to create renderer') { $status = 'NO-GPU' }
-      Set-Step $status "it showed an error dialog: $($message -join ' ')"
-    }
-    else { Set-Step 'FAIL' $r.Result }
-    return
-  }
-  if ($r.Code -ne 0) { Set-Step 'FAIL' "exit status $(Format-Code $r.Code)"; return }
-  $lines = @($r.Out -split "`r?`n")
-  $perf = @($lines | Where-Object { $_ -match 'frames a second, longest frame' } | ForEach-Object { $_ -replace '^Dot Popper: ', '' })
-  $note = "quit by itself with 0; window after $($r.WindowMs) ms; first line: $($lines[0])"
-  if ($perf.Count) { $note += "; frame pacing every 5 s: $($perf -join ' | ')" }
-  Set-Step 'PASS' $note
-}
-
-Invoke-Step 'dotpopper' 'Dot Popper playing itself for 45 seconds' {
-  $before = Join-Path $env:APPDATA 'dot_popper'
-  if (Test-Path -LiteralPath $before) { Out-Lines "$before before the run" (Get-ChildItem -LiteralPath $before -Force | ForEach-Object { $_.Name }) }
-  else { Out-Result "$before does not exist before the run" }
-  $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_PERF = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '45'; DOT_POPPER_SHOTS = '3,12,25,38' }
-  $r = Invoke-Child -Label 'dotpopper' -FilePath $PopperExe -Environment $environment -ShotsAt @(12, 30) -TimeoutSeconds 75 -Sample -WatchDialog
-  Out-Child $r
-  Get-PopperFiles 'dotpopper'
-  Test-Popper $r
-}
-
-Invoke-Step 'dotpopper-noshaders' 'Dot Popper for 15 seconds with its shaders off' {
-  $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_PERF = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '15'; DOT_POPPER_NO_SHADERS = '1'; DOT_POPPER_SHOTS = $null }
-  $r = Invoke-Child -Label 'dotpopper-noshaders' -FilePath $PopperExe -Environment $environment -ShotsAt @(8) -TimeoutSeconds 40 -Sample -WatchDialog
-  Out-Child $r
-  Test-Popper $r
-}
-
-function Get-UninstallEntries {
-  return @(Get-ChildItem -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' -ErrorAction SilentlyContinue |
-      Where-Object { "$((Get-ItemProperty -LiteralPath $_.PSPath).DisplayName)" -like '*Dot Popper*' })
-}
-
-function Get-PopperShortcuts {
-  $places = @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop'))
-  return @($places | ForEach-Object { Get-ChildItem -LiteralPath $_ -Recurse -Filter '*Dot Popper*.lnk' -ErrorAction SilentlyContinue })
-}
-
-function Out-InstallState([string] $When) {
-  $folder = Join-Path $env:LOCALAPPDATA 'Programs\Dot Popper'
-  Out-Result "$When; folder $folder exists: $(Test-Path -LiteralPath $folder)"
-  if (Test-Path -LiteralPath $folder) {
-    $files = @(Get-ChildItem -LiteralPath $folder -Recurse -File -Force)
-    Out-Result "  $($files.Count) files; top level: $((Get-ChildItem -LiteralPath $folder -Force | ForEach-Object { $_.Name }) -join ', ')"
-  }
-  foreach ($entry in Get-UninstallEntries) {
-    $p = Get-ItemProperty -LiteralPath $entry.PSPath
-    Out-Result "  uninstall key: $($entry.Name)"
-    foreach ($property in $p.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' }) { Out-Result "    $($property.Name) = $($property.Value)" }
-  }
-  $shell = New-Object -ComObject WScript.Shell
-  $app = New-Object -ComObject Shell.Application
-  foreach ($link in Get-PopperShortcuts) {
-    $s = $shell.CreateShortcut($link.FullName)
-    $id = ''
-    try { $id = $app.NameSpace($link.DirectoryName).ParseName($link.Name).ExtendedProperty('System.AppUserModel.ID') } catch { $id = "unreadable: $($_.Exception.Message)" }
-    Out-Result "  shortcut: $($link.FullName) -> $($s.TargetPath) $($s.Arguments) (in $($s.WorkingDirectory), icon $($s.IconLocation)); AppUserModelID: $id"
-  }
-  return $folder
-}
-
-Invoke-Step 'install' "Dot Popper's setup program: install, start, reinstall, uninstall" {
-  if (-not $doInstall) { Set-Step 'SKIP' 'not chosen'; return }
-  $notes = @()
-  [void](Out-InstallState 'before')
-  $r = Invoke-Child -Label 'setup' -FilePath $Setup.FullName -Arguments '/S' -TimeoutSeconds 180 -ShotsAt @(5)
-  Out-Child $r
-  $notes += "silent install: $($r.Result), exit $($r.Code), $($r.Seconds) s"
-  $folder = Out-InstallState 'after the install'
-  $installed = Join-Path $folder 'Dot Popper.exe'
-  if (-not (Test-Path -LiteralPath $installed)) { Set-Step 'FAIL' (($notes + 'Dot Popper.exe not installed') -join '; '); return }
-  Copy-Mesa $folder
-  $link = @(Get-PopperShortcuts | Where-Object { $_.FullName -like "$([Environment]::GetFolderPath('Programs'))*" })[0]
-  if ($link) {
-    $saved = @{}
-    $environment = @{ DOT_POPPER_AUTOPLAY = '1'; DOT_POPPER_PERF = '1'; DOT_POPPER_SEED = '7'; DOT_POPPER_QUIT_AFTER = '10'; DOT_POPPER_SHOTS = $null }
-    foreach ($name in $environment.Keys) { $saved[$name] = [Environment]::GetEnvironmentVariable($name); [Environment]::SetEnvironmentVariable($name, $environment[$name]) }
-    try {
-      $launched = Get-Date
-      Start-Process -FilePath $link.FullName
-      $game = $null
-      for ($i = 0; $i -lt 60 -and -not $game; $i++) {
-        Start-Sleep -Milliseconds 500
-        $game = @(Get-Process -Name 'Dot Popper' -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -ge $launched.AddSeconds(-1) })[0]
-      }
-      if ($game) {
-        $handle = $game.Handle
-        Out-Result "started from the Start menu shortcut: pid $($game.Id), $($game.Path)"
-        Start-Sleep -Seconds 4
-        $game.Refresh()
-        Out-Result "window title: '$($game.MainWindowTitle)'; child processes: $((@(Get-Children $game.Id)) -join ', ')"
-        Save-Screen 'install-shortcut-5s.jpg'
-        if (-not $game.WaitForExit(40000)) { Stop-Tree $game; $notes += 'from the shortcut: still running after 45 s, killed' }
-        else { $notes += "from the shortcut: exit $($game.ExitCode)" }
-      } else { $notes += 'from the shortcut: no Dot Popper process appeared' }
-    } finally {
-      foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
-    }
-  } else { $notes += 'no Start menu shortcut found' }
-  # Installing again while the installed game runs, at its title screen
-  # (with no DOT_POPPER_QUIT_AFTER the kit's own environment might hold).
-  $quitAfter = $env:DOT_POPPER_QUIT_AFTER
-  Remove-Item Env:\DOT_POPPER_QUIT_AFTER -ErrorAction SilentlyContinue
-  $game = Start-Process -FilePath $installed -PassThru
-  if ($quitAfter) { $env:DOT_POPPER_QUIT_AFTER = $quitAfter }
-  Start-Sleep -Seconds 3
-  $r = Invoke-Child -Label 'setup-while-running' -FilePath $Setup.FullName -Arguments '/S' -TimeoutSeconds 120
-  Out-Child $r
-  $notes += "install while it runs: $($r.Result), exit $($r.Code); the game still running: $(-not $game.HasExited)"
-  Stop-Tree $game
-  $r = Invoke-Child -Label 'setup-again' -FilePath $Setup.FullName -Arguments '/S' -TimeoutSeconds 120
-  Out-Child $r
-  $notes += "install over itself: $($r.Result), exit $($r.Code)"
-  [void](Out-InstallState 'after installing again')
-  Remove-Mesa $folder
-  $entry = @(Get-UninstallEntries)[0]
-  $uninstaller = Join-Path $folder 'uninstall.exe'
-  if ($entry) {
-    $command = [string](Get-ItemProperty -LiteralPath $entry.PSPath).UninstallString
-    if ($command -match '^"([^"]+)"') { $uninstaller = $Matches[1] } elseif ($command) { $uninstaller = $command }
-  }
-  $r = Invoke-Child -Label 'uninstall' -FilePath $uninstaller -Arguments '/S' -TimeoutSeconds 120
-  Out-Child $r
-  for ($i = 0; $i -lt 60 -and ((Test-Path -LiteralPath $folder) -or @(Get-UninstallEntries).Count); $i++) { Start-Sleep -Milliseconds 500 }
-  [void](Out-InstallState 'after the uninstall')
-  $left = @()
-  if (Test-Path -LiteralPath $folder) { $left += 'the folder' }
-  if (@(Get-UninstallEntries).Count) { $left += 'the uninstall key' }
-  if (@(Get-PopperShortcuts).Count) { $left += 'a shortcut' }
-  $notes += "silent uninstall: $($r.Result), exit $($r.Code); left behind: $(if ($left.Count) { $left -join ', ' } else { 'nothing' })"
-  if ($left.Count) { Set-Step 'FAIL' ($notes -join '; ') } else { Set-Step 'PASS' ($notes -join '; ') }
-}
-
-Invoke-Step 'saves' 'Where the games saved' {
+Invoke-Step 'saves' 'Where Winkit saved' {
   Set-Step 'INFO' ''
-  foreach ($folder in (Join-Path $env:APPDATA 'winkit'), (Join-Path $env:APPDATA 'dot_popper'), (Join-Path $env:LOCALAPPDATA 'winkit'), (Join-Path $env:LOCALAPPDATA 'dot_popper'), (Join-Path $env:APPDATA 'LOVE'), (Join-Path $env:APPDATA 'Lota')) {
+  foreach ($folder in (Join-Path $env:APPDATA 'winkit'), (Join-Path $env:LOCALAPPDATA 'winkit'), (Join-Path $env:APPDATA 'LOVE'), (Join-Path $env:APPDATA 'Lota')) {
     if (Test-Path -LiteralPath $folder) {
       Out-Lines $folder (Get-ChildItem -LiteralPath $folder -Force -Recurse | ForEach-Object { "{0,10} {1}" -f $_.Length, $_.FullName.Substring($folder.Length) })
     } else { Out-Result "$folder does not exist" }
@@ -1015,13 +866,13 @@ Invoke-Step 'events' "Windows' own records of crashes and of Defender, since the
         Where-Object { $_.ProviderName -in 'Application Error', 'Windows Error Reporting', 'Application Hang', '.NET Runtime' })
   } catch { Out-Result "application log: $($_.Exception.Message)" }
   foreach ($event in $crashes) { Out-Lines "$($event.TimeCreated.ToString('s')) $($event.ProviderName) $($event.Id)" $event.Message }
-  $ours = @($crashes | Where-Object { $_.Message -match 'Winkit|Dot Popper|ruby|setup' })
+  $ours = @($crashes | Where-Object { $_.Message -match 'Winkit|ruby' })
   Out-Result "crash or hang events: $($crashes.Count), of them naming the kit's apps: $($ours.Count)"
   foreach ($log in 'Microsoft-Windows-Windows Defender/Operational', 'Microsoft-Windows-SmartScreen/Debug', 'Microsoft-Windows-CodeIntegrity/Operational') {
     try {
       $events = @(Get-WinEvent -FilterHashtable @{ LogName = $log; StartTime = $since } -ErrorAction Stop)
       Out-Result "${log}: $($events.Count) events"
-      foreach ($event in @($events | Where-Object { $_.Level -le 3 -or $_.Message -match 'Winkit|Dot Popper' } | Select-Object -First 20)) {
+      foreach ($event in @($events | Where-Object { $_.Level -le 3 -or $_.Message -match 'Winkit' } | Select-Object -First 20)) {
         Out-Lines "$($event.TimeCreated.ToString('s')) $($event.Id)" $event.Message
       }
     } catch { Out-Result "${log}: $($_.Exception.Message)" }
@@ -1074,7 +925,8 @@ $hold = $HoldSeconds
 if ($hold -le 0 -and -not $Unattended -and -not $script:InputEnded) {
   Write-Host ''
   Write-Host 'Optional input test (1 minute): a window opens for 60 seconds. In it, move the mouse, click,'
-  Write-Host 'press a few keys, and, if you have a controller, press its buttons and move its sticks.'
+  Write-Host 'press a few keys, and, if you have a controller, press its buttons and move its sticks. Then drag'
+  Write-Host 'the window around by its title bar for a few seconds, and drag its edge to resize it, watching the white square.'
   if (Ask 'Do the input test now?') { $hold = 60 }
 }
 if ($hold -gt 0) {
@@ -1089,105 +941,50 @@ if ($hold -gt 0) {
 
 # ------------------------------------------------------------ hand checks
 
-# Each check: an id, the kind of answer (yn; yns, which also takes 'not
-# shown' or ns; rating; paste), and the words. Ids are those of Dot
-# Popper's play session, so 18 is asked before 10, which stays last.
-# Every answer goes into results.txt as it is typed, but for ns, which is
-# written as 'not shown'.
+# Each check: an id and the words. Every one takes y, n, or skip (Enter
+# skips), and every answer goes into results.txt as it is typed.
 $HandChecks = @(
-  @('W1', 'yn', "When you first double-clicked run-kit.cmd, a blue 'Windows protected your PC' box appeared. (If yes, type in the note what it said and what you clicked.)"),
-  @('W2', 'yn', 'Some other warning appeared while the kit ran: an antivirus, User Account Control, or an error box. (If yes, type what it said in the note.)'),
-  @('1', 'yn', 'Clicking a bright dot near each of the four screen edges pops it.'),
-  @('2', 'yn', 'F11 toggles fullscreen, Alt+Enter toggles fullscreen, and the dots stay on screen each time.'),
-  @('3', 'yn', 'Dragging the window to a different size in the middle of a round keeps every dot on screen.'),
-  @('4', 'yn', 'With headphones, a pop on the left side of the screen sounds from the left, and one on the right from the right.'),
-  @('5', 'yn', 'M, or the speaker icon on the title, mutes the sound, and it stays muted after quitting and starting again.'),
-  @('6', 'yns', "After one round, if the title shows a Dot size choice, picking the second option changes the drifting dots' size, and the next round's dots match. (If no Dot size choice appears, this window is already near the standard size; write 'not shown'.)"),
-  @('7', 'paste', "'Copy my result' on Game Over, then pasting into Notepad, gives a sensible two- or three-line result."),
-  @('8', 'yn', "'Your records' opens a screen of bests and totals, and a click goes back."),
-  @('9', 'yn', 'Text and lines look sharp, not blurry, at your display scale.'),
-  @('18', 'yn', 'At Game Over, hold and drag a dot to pull it, then let go to throw it; a plain click still goes back to the title. (y/n)'),
-  @('10', 'rating', 'Overall: how does it feel? 1 (bad) to 5 (great).')
-)
-$PadChecks = @(
-  @('11', 'yn', 'Moving the left stick shows a cursor that moves smoothly.'),
-  @('11b', 'rating', 'The cursor speed: 1 (much too slow) to 5 (much too fast), 3 is right.'),
-  @('11c', 'yn', 'The dead zone is OK: the cursor does not drift by itself, and a small push moves it.'),
-  @('12', 'yn', 'A pops the dot under the cursor; the right trigger does too.'),
-  @('13', 'yn', 'Start begins a round and continues after Game Over.'),
-  @('14', 'yn', 'X on the title opens Your records; B goes back.'),
-  @('15', 'yn', 'The shoulder buttons switch the dot size on the title.'),
-  @('16', 'yn', 'At Game Over, the right stick rolls the pile of dots in the direction pushed.'),
-  @('17', 'yn', 'Moving the mouse hides the cursor again.')
+  @('W1', "When you first double-clicked run-kit.cmd, a blue 'Windows protected your PC' box appeared. (If yes, type in the note what it said and what you clicked.)"),
+  @('W2', 'Some other warning appeared while the kit ran: an antivirus, User Account Control, or an error box. (If yes, type what it said in the note.)'),
+  @('W3', "In the input test, while you dragged Winkit's window by its title bar, and by its edge, the white square kept spinning.")
 )
 
-function Write-CheckList($Checks) {
-  foreach ($check in $Checks) { Write-Host ("  [{0}] {1}" -f $check[0], $check[2]) }
+# The answer to W2 the maintainer gave for his own PC in the first round,
+# which the kit writes for him rather than asking again: the SHA-256 of
+# that computer's name, so that the kit holds no name, and the answer.
+$KnownComputer = '8fbc86c965ee9df132d873e319bf3f5e05e87d3cda43d24df51274c95ad04e63'
+$KnownW2 = "yes (prefilled for this PC from the first round): the first double-click on run-kit.cmd showed Windows' 'The publisher could not be verified' prompt (Publisher: Unknown; the file has no valid digital signature), and he chose Run"
+
+function Get-ComputerHash {
+  $bytes = [Text.Encoding]::UTF8.GetBytes("$env:COMPUTERNAME".ToUpperInvariant())
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { return (-join @($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })) } finally { $sha.Dispose() }
 }
 
 function Ask-Check($Check, [string] $Why) {
   $id = $Check[0]
-  $kind = $Check[1]
-  Out-Result "[$id] $($Check[2])"
+  Out-Result "[$id] $($Check[1])"
+  if ($id -eq 'W2' -and (Get-ComputerHash) -eq $KnownComputer) { Out-Result "  answer: $KnownW2"; return }
   if ($Why) { Out-Result "  answer: NOT ASKED ($Why)"; return }
   Write-Host ''
-  Write-Host ("[{0}] {1}" -f $id, $Check[2])
-  $prompt = '  y / n / skip (Enter skips):'
-  if ($kind -eq 'rating') { $prompt = '  1 to 5 / skip (Enter skips):' }
-  if ($kind -eq 'yns') { $prompt = '  y / n / not shown (or ns) / skip (Enter skips):' }
-  $answer = Read-Answer $prompt
+  Write-Host ("[{0}] {1}" -f $id, $Check[1])
+  $answer = Read-YesNo '  y / n / skip (Enter skips):' -Skip
   if ($null -eq $answer) { Out-Result '  answer: NOT ASKED (non-interactive)'; return }
-  if (-not $answer.Trim()) { $answer = 'skip' }
-  if ($kind -eq 'yns' -and $answer.Trim() -match '^(ns|not\s+shown)$') { $answer = 'not shown' }
-  Out-Result "  answer: $($answer.Trim())"
-  if ($kind -eq 'paste') {
-    Write-Host '  Paste the result here (Ctrl+V or right-click), then press Enter on an empty line:'
-    $pasted = @()
-    for ($i = 0; $i -lt 12; $i++) {
-      $line = Read-Answer '  >'
-      if ($null -eq $line -or -not $line.Trim()) { break }
-      $pasted += $line
-    }
-    Out-Result "  pasted: $($pasted -join ' | ')"
-  }
+  Out-Result "  answer: $answer"
   $note = Read-Answer '  Note (optional; Enter for none):'
   if ($note) { Out-Result "  note: $note" }
 }
 
-Invoke-Step 'hand' 'Hand checks: Dot Popper played by hand, and your answers' {
+Invoke-Step 'hand' 'Hand checks: your answers' {
   Out-Result 'HAND CHECKS'
   $why = ''
   if ($Unattended -or $script:InputEnded) { $why = 'non-interactive' }
   else {
     Write-Host ''
-    Write-Host '================ Hand checks (about 10 minutes, optional) ================'
-    Write-Host 'The kit starts Dot Popper for you. Play it and try the things listed below, then quit it'
-    Write-Host 'with Escape. After you quit, the kit asks about each one here, so you can answer then.'
-    Write-Host ''
-    Write-CheckList $HandChecks
-    if (-not (Ask 'Do the hand checks now?')) { $why = 'declined' }
-    if ($script:InputEnded) { $why = 'non-interactive' }
-  }
-  $pad = $false
-  if (-not $why) {
-    $pad = Ask 'Do you have a controller connected?'
-    Out-Result "controller connected (his answer): $pad"
-    if ($pad) {
-      Write-Host 'Also try these with the controller:'
-      Write-CheckList $PadChecks
-    }
-    [void](Read-Answer 'Press Enter to start Dot Popper.')
-    Write-Host 'Dot Popper is running. Quit it with Escape when you are done (the kit waits up to 20 minutes).'
-    $environment = @{ DOT_POPPER_AUTOPLAY = $null; DOT_POPPER_SEED = $null; DOT_POPPER_SHOTS = $null; DOT_POPPER_NO_SHADERS = $null; DOT_POPPER_PERF = '1' }
-    $r = Invoke-Child -Label 'dotpopper-hand' -FilePath $PopperExe -Environment $environment -TimeoutSeconds 1200 -WatchDialog
-    Out-Child $r
-    Get-PopperFiles 'dotpopper-hand'
-    Write-Host 'Thank you. Now the questions.'
+    Write-Host '================ Hand checks (1 minute) ================'
+    Write-Host 'The kit asks about a few things you may have seen. Type y or n, or press Enter to skip one.'
   }
   foreach ($check in $HandChecks) { Ask-Check $check $why }
-  if ($pad) { foreach ($check in $PadChecks) { Ask-Check $check '' } }
-  elseif (-not $why) { foreach ($check in $PadChecks) { Ask-Check $check 'no controller' } }
-  else { foreach ($check in $PadChecks) { Ask-Check $check $why } }
   if ($why) { Set-Step 'SKIP' "not asked ($why)" } else { Set-Step 'INFO' 'answered' }
 }
 
