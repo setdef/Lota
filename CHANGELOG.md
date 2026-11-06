@@ -33,6 +33,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 
 - On Android, a game that draws with Vulkan, LÖVE's first choice there, runs in landscape as it does in portrait: LÖVE rebuilt its swap chain on every frame while the phone was turned, which took 60 frames a second down to 20 or 30.
+- A release's Windows gems are delivered again: the license record no longer reads LÖVE's version file, which the jobs that deliver a gem do not check out. The tag v0.2.1 was pushed and published nothing for this.
 
 ## [0.2.0] - 2026-11-05
 

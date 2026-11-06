@@ -39,8 +39,10 @@
 
 # The version of LÖVE at the pinned commit
 # (vendor/love/src/common/version.h:28), which an app's notices give for
-# LÖVE's own code and Lota's patches of it.
-love_version = File.read(File.expand_path("../../vendor/love/src/common/version.h", __dir__))[/LOVE_VERSION_STRING "(.+)"/, 1]
+# LÖVE's own code and Lota's patches of it. It is written here and not read
+# from that file, because the jobs that deliver a gem check out no
+# submodule; test/tasks/licensing_test.rb holds it equal to the file.
+love_version = "12.0"
 
 # Lota's own C++ (LICENSE). Its ports of LÖVE's code are Zlib snippets,
 # which LÖVE's entry covers.
