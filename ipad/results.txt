@@ -1,0 +1,21 @@
+@DISPLAY_NAME@ on an iPhone or iPad: results
+
+Fill in the blanks after each line, on the device or on the Mac
+afterwards, and send this file back. Answer y or n, or pick one of the
+choices given. Leave a note on any line, as long as you like. Copy the
+questions once for each device you play on.
+
+== The device and the build
+
+Device model (Settings > General > About > Model Name):
+iOS or iPadOS version (Settings > General > About > iOS Version):
+Date played:
+
+Kit build (filled in by CI; leave it as it is):
+  Game @GAME_REPOSITORY@ @GAME_REF@, commit @GAME_SHA@
+  Lota @LOTA_REPOSITORY@ @LOTA_REF@, commit @LOTA_SHA@
+  Workflow run @RUN_ID@, @RUN_URL@
+
+== Questions
+
+@QUESTIONS@
