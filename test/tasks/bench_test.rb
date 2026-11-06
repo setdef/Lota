@@ -172,8 +172,11 @@ class BenchTest < Minitest::Test
     end
   end
 
+  # The run has ten seconds, not a fraction of one, to print before it is
+  # killed, so a busy machine that is slow to start sh does not kill it
+  # before it has printed anything; its sleep outlasts any machine.
   def test_spawn_kills_a_run_that_takes_too_long
-    output, status = Bench.spawn({}, ["sh", "-c", "echo started; sleep 10"], timeout: 0.5)
+    output, status = Bench.spawn({}, ["sh", "-c", "echo started; sleep 600"], timeout: 10)
 
     assert_nil status
     assert_equal "started\n", output
