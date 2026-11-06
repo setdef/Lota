@@ -108,10 +108,11 @@ object:,
     # calls.
     LUA_LEFT = /\bL\b|\b(?:lua|luaL|luax)_\w+\s*\(|\bLUA_\w+/
     COUNT_TEST = /lua_gettop\s*\(\s*L\s*\)\s*(>=|>|<=|<)\s*(\d+)/
-    # The pushes of an engine object: luax_pushshape pushes a Shape as the
-    # class its type names (wrap_Shape.cpp:36-63), as Rice wraps a pointer
-    # as the most derived class Lota::Native binds for it.
-    OBJECT_PUSHERS = %w[luax_pushtype luax_pushshape].freeze
+    # The pushes of an engine object: luax_pushshape and luax_pushjoint push
+    # a Shape or a Joint as the class its type names (wrap_Shape.cpp:36-63,
+    # wrap_Joint.cpp:44-76), and nil for none, as Rice wraps a pointer as the
+    # most derived class Lota::Native binds for it, and nullptr as nil.
+    OBJECT_PUSHERS = %w[luax_pushtype luax_pushshape luax_pushjoint].freeze
     # A C array LÖVE declares (int v[3]), which the port declares as a
     # std::array, as clang-tidy's modernize-avoid-c-arrays asks.
     C_ARRAY = /\A([\w:]+)\s+(\w+)\s*\[\s*(\d+)\s*\]\z/
@@ -355,15 +356,19 @@ object:,
     # it before the wrap function goes on (luax_checkbody's "Attempt to use
     # destroyed body."), on the method's object or the parameter it reads.
     # A pointer compared with 0 is compared with nullptr, as clang-tidy's
-    # modernize-use-nullptr asks.
+    # modernize-use-nullptr asks. An object read only when given, as
+    # w_computeLinearStiffness reads its second Body (wrap_Physics.cpp:
+    # 805-808), is checked only when given, as LÖVE checks it only then.
     private def helper_checks
       @reads.uniq { |read| read[:index] }.filter_map do |read|
         check = @checks[read[:call].base_name] or next
+        given = nil
         target = if read[:index] == 1 && @offset == 1
           "#{@self_parameter[:name]}."
         else
           parameter = parameters.find { |candidate| candidate.index == read[:index] } or next
-          "#{parameter.name}->"
+          given = "#{parameter.name}.has_value()" if parameter.optional
+          parameter.optional ? "#{parameter.name}.value()->" : "#{parameter.name}->"
         end
         variable = Regexp.escape(check.variable)
         condition = check.condition.gsub(/\b#{variable}\s*->\s*(\w+)\s*==\s*0\b/) do
@@ -371,7 +376,9 @@ object:,
           type = @types.field(helper_type(read[:call]), field, module_dir: @module_dir).to_s
           "#{check.variable}->#{field} == #{type.include?('*') ? 'nullptr' : '0'}"
         end
-        "if (#{condition.gsub(/\b#{variable}\s*->\s*/, target)}) {\nthrow love::Exception(#{check.message});\n}"
+        condition = condition.gsub(/\b#{variable}\s*->\s*/, target)
+        condition = "#{given} && #{condition.include?('||') ? "(#{condition})" : condition}" if given
+        "if (#{condition}) {\nthrow love::Exception(#{check.message});\n}"
       end
     end
 
@@ -543,20 +550,24 @@ line: node.line,
     # Whether the body uses the object it reads into +name+ only to call
     # const methods on it, by LÖVE's headers, as w_Transform_inverseOf
     # calls its source's getMatrix, so clang-tidy's misc-const-correctness
-    # asks that it be const.
+    # asks that it be const. Reading a field counts as a const use, as
+    # w_computeLinearStiffness reads its Body's body (wrap_Physics.cpp:
+    # 812); assigning one does not.
     private def const_only?(name, type)
       return false unless name
 
       uses = 0
       calls = []
+      reads = 0
       word = /(?<![\w.>])#{Regexp.escape(name)}\b/
       walk_texts(@body) do |text, _node|
         next if parameter_declaration?(text) || @reads.any? { |read| read[:text] == text }
 
         uses += text.scan(word).size
         calls.concat(text.scan(/#{word}\s*(?:->|\.)\s*(\w+)\s*\(([^()]*)\)/))
+        reads += text.scan(%r{#{word}\s*(?:->|\.)\s*\w+\b(?!\s*\()(?!\s*(?:[-+*/%|&^]?=(?!=)|\+\+|--|\[))}).size
       end
-      return false if uses.zero? || uses != calls.size
+      return false if uses.zero? || uses != calls.size + reads
 
       calls.all? do |method_name, arguments|
         count = arguments.strip.empty? ? 0 : Calls.split(arguments).size
@@ -593,11 +604,17 @@ line: node.line,
       nil
     end
 
+    # The argument that is this read's own call, with its own arguments, so
+    # that two reads with one reader in one engine call
+    # (c->setPoint(luaL_checknumber(L, 2), luaL_checknumber(L, 3)),
+    # wrap_CircleShape.cpp:65) each find their own position.
     private def engine_parameter(read)
+      own = read[:call]
+      pattern = /#{Regexp.escape(own.name)}\s*\(\s*#{own.arguments.map { |argument| Regexp.escape(argument) }.join('\s*,\s*')}\s*\)/
       Calls.in(read[:text]).each do |call|
         next unless call.member
 
-        position = call.arguments.index { |argument| argument.include?(read[:call].name) } or next
+        position = call.arguments.index { |argument| argument.match?(pattern) } or next
         owner = (call.receiver == "instance()") ? @module_class : self_type
         method = @types.methods(owner, call.base_name, module_dir: @module_dir)
           .find { |candidate| candidate.parameters.size == call.arguments.size }
@@ -646,6 +663,11 @@ line: node.line,
       return [] if text.match?(RELEASE) && owned?
       return emit_guard(@guards.fetch(Regexp.last_match(1))) if text =~ /\A(\w+)\s*\(\s*L\s*\)\z/ && @guards.key?(Regexp.last_match(1))
       return emit_push(text) if push?(text)
+      # A deprecation notice names the game's line that called the function,
+      # which only Ruby knows, and the function by its Ruby name, so the
+      # Ruby that calls the binding marks it with Lota::Deprecation.mark
+      # (test/tasks/bindings/generator_test.rb checks that it does).
+      return [] if Calls.in(text).first&.base_name == "luax_markdeprecated" && text.start_with?("luax_markdeprecated")
       # luax_enumerror raises whether or not its caller returns what it
       # returns, as Joystick:hasSensor calls it (wrap_Joystick.cpp:390-391).
       return emit_return(text, last: false) if Calls.in(text).first&.base_name == "luax_enumerror" && text.start_with?("luax_enumerror")
@@ -1055,7 +1077,7 @@ line: node.line,
       when "luax_pushboolean", "lua_pushboolean" then %w[bool bool]
       when "lua_pushstring", "luax_pushstring" then ["std::string", "String"]
       when "lua_pushnumber", "lua_pushinteger" then number_type(call.base_name, expression)
-      when "luax_pushtype", "luax_pushshape" then object_type(expression)
+      when *OBJECT_PUSHERS then object_type(expression)
       when "lua_pushnil" then [nil, "nil"]
       else raise Unsupported, "#{@function.love_name} pushes with #{call.base_name}"
       end

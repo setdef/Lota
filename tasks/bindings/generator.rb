@@ -220,7 +220,7 @@ module Bindings
         // (vendor/love/src/modules/#{name}), with each read of the Lua
         // stack made a parameter and each push the result.
 
-        #{ports.sort_by { |port| [port.function.wrap.path, port.function.definition.line] }.map(&:definition).join("\n")}
+        #{in_file_order(ports).map(&:definition).join("\n")}
         // SPDX-SnippetEnd
 
         } // namespace
@@ -231,6 +231,18 @@ module Bindings
 
         } // namespace lota::native
       CPP
+    end
+
+    # The ports in their wrap files' order, each C++ function once: LÖVE
+    # registers one function under two Lua names
+    # (WheelJoint:setSpringStiffness and setStiffness are both
+    # w_WheelJoint_setStiffness, wrap_WheelJoint.cpp:153-157), which Lota
+    # binds as two methods of one definition, cited by the name the list
+    # gives first. Ruby's sort is not stable, so the list's order breaks
+    # the tie, and every machine writes the same file.
+    private def in_file_order(ports)
+      ports.each_with_index.sort_by { |port, index| [port.function.wrap.path, port.function.definition.line, index] }
+        .map(&:first).uniq(&:cpp_name)
     end
 
     # The wrap file whose instance() macro the ports reach the module
@@ -255,7 +267,7 @@ module Bindings
     # The constants that hold the defaults of the ports' parameters that
     # are magic numbers, which a Rice::Arg may not spell out.
     private def default_constants(ports)
-      lines = ports.sort_by { |port| [port.function.wrap.path, port.function.definition.line] }.flat_map(&:default_constants)
+      lines = in_file_order(ports).flat_map(&:default_constants)
       lines.empty? ? "" : "\n#{lines.join("\n")}\n"
     end
 
@@ -331,6 +343,7 @@ module Bindings
       love << '"common/Color.h"' if code.match?(/\bColor[fD]?\b|\bColorT\b/)
       love << '"common/int.h"' if code.match?(/\bLOVE_U?INT\d+_(?:MAX|MIN)\b|\bu?int(?:8|16|32|64)\b/)
       love << '"common/Vector.h"' if code.match?(/\bVector[234]\b/)
+      love.concat(box2d_headers(code))
       love << '"common/math.h"' if code.match?(/\bF?Rect\b/)
       love << '"common/pixelformat.h"' if code.match?(/\bPixelFormat\b/)
       # Joystick:hasSensor's using namespace love::sensor, for its Sensor
@@ -358,6 +371,20 @@ module Bindings
       std << "<string>" if code.include?("std::string")
       [lota.sort, love.uniq.sort, std.sort].reject(&:empty?).map { |group| group.map { |file| "#include #{file}" }.join("\n") }
         .join("\n\n").lines(chomp: true)
+    end
+
+    # The headers of Box2D's types +code+ names, which love.physics's
+    # methods take and return (Body::getKinematicState's b2Vec2,
+    # World::getGroundBody's b2Body), each the header that declares it with
+    # Box2D's export macro (struct B2_API b2Vec2, b2_math.h:42), as
+    # clang-tidy's misc-include-cleaner asks.
+    private def box2d_headers(code)
+      code.scan(/\bb2[A-Z]\w*\b/).uniq.sort.filter_map do |type|
+        path = Dir.glob("src/libraries/box2d/*.h", base: @love).sort.find do |file|
+          File.read(File.join(@love, file)).match?(/^\s*(?:class|struct)\s+B2_API\s+#{type}\b(?!\s*;)/)
+        end
+        %("#{path.delete_prefix('src/libraries/')}") if path
+      end
     end
 
     # The headers of module +name+'s own folder that declare a type or an

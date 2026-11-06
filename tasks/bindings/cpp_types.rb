@@ -42,7 +42,10 @@ module Bindings
     # body (return random() * max), which declare nothing.
     KEYWORDS = %w[return else new delete throw case goto].freeze
 
-    CLASS = /(?:template\s*<\s*typename\s+(?<template>\w+)\s*>\s*)?\b(?:class|struct)\s+(?:LOVE_EXPORT\s+)?(?<name>\w+)\s*(?:final\s*)?(?::\s*(?<bases>[^{;]+))?\{/
+    # A class's export macro, LÖVE's (LOVE_EXPORT) or a library's, as Box2D
+    # declares struct B2_API b2Vec2 (src/libraries/box2d/b2_math.h:42).
+    EXPORT = /(?:LOVE_EXPORT|[A-Z][A-Z0-9]*_API)\s+/
+    CLASS = /(?:template\s*<\s*typename\s+(?<template>\w+)\s*>\s*)?\b(?:class|struct)\s+(?:#{EXPORT.source})?(?<name>\w+)\s*(?:final\s*)?(?::\s*(?<bases>[^{;]+))?\{/
     TYPEDEF = /\btypedef\s+(?<target>[\w:<>\s]+?)\s+(?<name>\w+)\s*;|\busing\s+(?<name>\w+)\s*=\s*(?<target>[\w:<>\s]+?)\s*;/
 
     # Reads every header under +root+/src.

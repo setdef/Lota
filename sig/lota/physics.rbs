@@ -9,6 +9,14 @@ module Lota
 
     def self.distance: (Shape shape1, Shape shape2) -> Array[Float]
 
+    def self.compute_linear_stiffness: (Float | Integer frequency, Float | Integer damping_ratio, Body body1, ?Body? body2) -> [Float, Float]
+
+    def self.compute_linear_frequency: (Float | Integer stiffness, Float | Integer damping, Body body1, ?Body? body2) -> [Float, Float]
+
+    def self.compute_angular_stiffness: (Float | Integer frequency, Float | Integer damping_ratio, Body body1, ?Body? body2) -> [Float, Float]
+
+    def self.compute_angular_frequency: (Float | Integer stiffness, Float | Integer damping, Body body1, ?Body? body2) -> [Float, Float]
+
     def self.shape: (Native::Shape? native) -> Shape?
 
     def self.joint: (Native::Joint native) -> Joint?
