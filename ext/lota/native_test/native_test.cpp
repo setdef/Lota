@@ -20,9 +20,11 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -30,11 +32,13 @@
 #include <system_error>
 #include <thread>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_joystick.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
@@ -42,6 +46,7 @@
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_touch.h>
 #include <SDL3/SDL_video.h>
 
 #include <spawn.h>
@@ -473,6 +478,232 @@ void click_mouse(int button, bool down) {
   push(event);
 }
 
+// The id of the touch device the pushed finger events below name. SDL
+// knows no such device, so SDL_GetTouchDeviceType answers
+// SDL_TOUCH_DEVICE_INVALID for it (SDL 3.4.10, src/events/SDL_touch.c),
+// which LÖVE reads as a touchscreen (touch/sdl/Touch.cpp, getDeviceType):
+// the events stand for a finger on the glass of a phone or a tablet.
+constexpr SDL_TouchID pushed_touch_device = 42;
+
+// The first window, which a finger on a touchscreen lands in.
+SDL_WindowID first_window_id() {
+  int count = 0;
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  return (window == nullptr) ? 0 : SDL_GetWindowID(window);
+}
+
+// The numbers in +values+, as floats, which Rice converts from Integers or
+// Floats.
+std::vector<float> floats(Rice::Array values) {
+  const Rice::Array list = std::move(values);
+  std::vector<float> numbers;
+  for (const auto item : list) {
+    numbers.push_back(Rice::detail::From_Ruby<float>().convert(item.value()));
+  }
+  return numbers;
+}
+
+// SDL's event for finger +finger+ on a touchscreen landing (+phase+
+// "down"), moving ("motion"), lifting ("up"), or being cancelled by the
+// system ("canceled"), with +values+ its x and y across the window, from 0
+// to 1, how far it moved along each, and its pressure, as iOS would
+// report it (SDL 3.4.10,
+// src/video/uikit/SDL_uikitview.m). SDL's own touch code sends such an
+// event from the system's (SDL_SendTouch, src/events/SDL_touch.c), which
+// SDL does not export, so the event is pushed into SDL's queue, where
+// LÖVE's Event::convert turns it into touchpressed, touchmoved, or
+// touchreleased (vendor/love/src/modules/event/sdl/Event.cpp:394-441). A
+// pushed event leaves out what SDL_SendTouch does beside it: the mouse
+// events SDL makes of the first finger (push_touch_mouse stands for those)
+// and SDL's own list of fingers, which LÖVE does not read.
+void push_finger(const std::string &phase, SDL_FingerID finger, Rice::Array values) {
+  const std::map<std::string, SDL_EventType> types{
+      {"down", SDL_EVENT_FINGER_DOWN},
+      {"motion", SDL_EVENT_FINGER_MOTION},
+      {"up", SDL_EVENT_FINGER_UP},
+      {"canceled", SDL_EVENT_FINGER_CANCELED},
+  };
+  const std::vector<float> numbers = floats(std::move(values));
+  SDL_Event event{};
+  event.tfinger.type = types.at(phase);
+  event.tfinger.touchID = pushed_touch_device;
+  event.tfinger.fingerID = finger;
+  event.tfinger.x = numbers.at(0);
+  event.tfinger.y = numbers.at(1);
+  event.tfinger.dx = numbers.at(2);
+  event.tfinger.dy = numbers.at(3);
+  event.tfinger.pressure = numbers.at(4);
+  event.tfinger.windowID = first_window_id();
+  push(event);
+}
+
+// The mouse events SDL makes of a finger landing (+down+ true) or lifting
+// at +position+, its x and y in the window's coordinates, as SDL_SendTouch
+// sends them
+// for the first finger down while SDL_HINT_TOUCH_MOUSE_EVENTS is on, as it
+// is unless a program turns it off (SDL 3.4.10, src/events/SDL_touch.c,
+// SDL_SendTouch, and src/events/SDL_mouse.c, SDL_TouchMouseEventsChanged):
+// the pointer moving there, then the left button, both from
+// SDL_TOUCH_MOUSEID, which LÖVE passes on as istouch
+// (vendor/love/src/modules/event/sdl/Event.cpp:330-384). A finger that
+// lifts sends the button alone.
+void push_touch_mouse(bool down, Rice::Array position) {
+  const std::vector<float> point = floats(std::move(position));
+  if (down) {
+    SDL_Event motion{};
+    motion.motion.type = SDL_EVENT_MOUSE_MOTION;
+    motion.motion.which = SDL_TOUCH_MOUSEID;
+    motion.motion.windowID = first_window_id();
+    motion.motion.x = point.at(0);
+    motion.motion.y = point.at(1);
+    push(motion);
+  }
+  SDL_Event button{};
+  button.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+  button.button.which = SDL_TOUCH_MOUSEID;
+  button.button.windowID = first_window_id();
+  button.button.button = SDL_BUTTON_LEFT;
+  button.button.down = down;
+  button.button.clicks = 1;
+  button.button.x = point.at(0);
+  button.button.y = point.at(1);
+  push(button);
+}
+
+// SDL's event for the left mouse button going down or up at +position+,
+// its x and y in the window's coordinates, from a real mouse (mouse 1), as
+// macOS reports a click.
+void push_mouse_click(bool down, Rice::Array position) {
+  const std::vector<float> point = floats(std::move(position));
+  SDL_Event button{};
+  button.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+  button.button.which = 1;
+  button.button.windowID = first_window_id();
+  button.button.button = SDL_BUTTON_LEFT;
+  button.button.down = down;
+  button.button.clicks = 1;
+  button.button.x = point.at(0);
+  button.button.y = point.at(1);
+  push(button);
+}
+
+// The ids of the touch devices SDL knows. SDL adds SDL_MOUSE_TOUCHID among
+// them exactly while it turns mouse events into touches
+// (SDL_HINT_MOUSE_TOUCH_EVENTS, SDL 3.4.10, src/events/SDL_mouse.c,
+// SDL_MouseTouchEventsChanged), which it does by default on iOS and
+// Android and not elsewhere; SDL_MOUSE_TOUCHID is (SDL_TouchID)-1, which
+// Ruby receives as the largest Uint64.
+Rice::Array touch_devices() {
+  int count = 0;
+  const std::unique_ptr<SDL_TouchID, void (*)(void *)> devices(SDL_GetTouchDevices(&count),
+                                                               SDL_free);
+  Rice::Array ids;
+  const std::span<SDL_TouchID> listed(devices.get(), devices ? static_cast<std::size_t>(count) : 0);
+  for (const SDL_TouchID id : listed) {
+    ids.push(static_cast<std::uint64_t>(id), false);
+  }
+  return ids;
+}
+
+// The size of the first window in its own coordinates, which SDL reports
+// a mouse's position in, as [width, height].
+Rice::Array window_size() {
+  int count = 0;
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  int width = 0;
+  int height = 0;
+  if (window == nullptr || !SDL_GetWindowSize(window, &width, &height)) {
+    throw std::runtime_error(SDL_GetError());
+  }
+  Rice::Array result;
+  result.push(width, false);
+  result.push(height, false);
+  return result;
+}
+
+// Joysticks SDL makes in software (SDL_AttachVirtualJoystick, SDL 3.4.10,
+// src/joystick/virtual/SDL_virtualjoystick.c), which SDL reports as it
+// reports a device plugged in, so that LÖVE's own joystick module and
+// Event::convert (vendor/love/src/modules/event/sdl/Event.cpp:618-757)
+// meet them as they would a controller; no test machine has one. Each is
+// opened here too, as SDL sets a virtual joystick's buttons, axes, and hats
+// through an open handle, and reports the change at its next pump.
+std::map<SDL_JoystickID, SDL_Joystick *> &virtual_joysticks() {
+  static std::map<SDL_JoystickID, SDL_Joystick *> joysticks;
+  return joysticks;
+}
+
+// Attaches a virtual joystick named +name+ and returns its instance id: a
+// gamepad, with an Xbox controller's 15 buttons and 6 axes, which SDL maps
+// as a gamepad (SDL_JOYSTICK_TYPE_GAMEPAD), when +gamepad+ is true, and
+// otherwise a joystick SDL knows no mapping for, with 2 axes, 4 buttons,
+// and a hat. Both have rumble motors that refuse every request, so that a
+// test sees the answer SDL gives LÖVE (SDL_RumbleJoystick) passed on.
+SDL_JoystickID attach_virtual_joystick(bool gamepad, const std::string &name) {
+  constexpr Uint16 gamepad_buttons = 15;
+  constexpr Uint16 gamepad_axes = 6;
+  constexpr Uint16 joystick_buttons = 4;
+  constexpr Uint16 joystick_axes = 2;
+  SDL_VirtualJoystickDesc desc{};
+  // SDL_INIT_INTERFACE, which zeroes the description, as desc{} has, and
+  // sets its version to its size, in a do-while that clang-tidy refuses.
+  desc.version = sizeof(desc);
+  desc.type = gamepad ? SDL_JOYSTICK_TYPE_GAMEPAD : SDL_JOYSTICK_TYPE_UNKNOWN;
+  desc.naxes = gamepad ? gamepad_axes : joystick_axes;
+  desc.nbuttons = gamepad ? gamepad_buttons : joystick_buttons;
+  desc.nhats = gamepad ? 0 : 1;
+  desc.name = name.c_str();
+  desc.Rumble = [](void * /*userdata*/, Uint16 /*low*/, Uint16 /*high*/) { return false; };
+  const SDL_JoystickID id = SDL_AttachVirtualJoystick(&desc);
+  if (id == 0) {
+    throw std::runtime_error(SDL_GetError());
+  }
+  SDL_Joystick *joystick = SDL_OpenJoystick(id);
+  if (joystick == nullptr) {
+    throw std::runtime_error(SDL_GetError());
+  }
+  virtual_joysticks()[id] = joystick;
+  return id;
+}
+
+// The open handle of the virtual joystick +id+, or std::out_of_range.
+SDL_Joystick *virtual_joystick(SDL_JoystickID id) { return virtual_joysticks().at(id); }
+
+// Unplugs the virtual joystick +id+.
+void detach_virtual_joystick(SDL_JoystickID id) {
+  SDL_CloseJoystick(virtual_joystick(id));
+  virtual_joysticks().erase(id);
+  if (!SDL_DetachVirtualJoystick(id)) {
+    throw std::runtime_error(SDL_GetError());
+  }
+}
+
+// Holds button +button+ of the virtual joystick +id+, counting from 0,
+// down or lets it up.
+void set_virtual_button(SDL_JoystickID id, int button, bool down) {
+  if (!SDL_SetJoystickVirtualButton(virtual_joystick(id), button, down)) {
+    throw std::runtime_error(SDL_GetError());
+  }
+}
+
+// Moves axis +axis+ of the virtual joystick +id+, counting from 0, to
+// +value+, from -32768 to 32767.
+void set_virtual_axis(SDL_JoystickID id, int axis, int value) {
+  if (!SDL_SetJoystickVirtualAxis(virtual_joystick(id), axis, static_cast<Sint16>(value))) {
+    throw std::runtime_error(SDL_GetError());
+  }
+}
+
+// Points hat +hat+ of the virtual joystick +id+, counting from 0, at
+// +value+, SDL's SDL_HAT_ bits (1 is up).
+void set_virtual_hat(SDL_JoystickID id, int hat, int value) {
+  if (!SDL_SetJoystickVirtualHat(virtual_joystick(id), hat, static_cast<Uint8>(value))) {
+    throw std::runtime_error(SDL_GetError());
+  }
+}
+
 // An input method editing the text "lota", with the cursor after its first
 // character and no selection (-1, as SDL marks a length it does not set).
 // The text is a literal, which outlives the event, as SDL needs of a
@@ -855,6 +1086,23 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
       .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
       .define_module_function("press_key", &press_key, Rice::Arg("scancode"), Rice::Arg("down"))
+      .define_module_function("push_finger", &push_finger, Rice::Arg("phase"), Rice::Arg("finger"),
+                              Rice::Arg("values"))
+      .define_module_function("push_touch_mouse", &push_touch_mouse, Rice::Arg("down"),
+                              Rice::Arg("position"))
+      .define_module_function("push_mouse_click", &push_mouse_click, Rice::Arg("down"),
+                              Rice::Arg("position"))
+      .define_module_function("touch_devices", &touch_devices)
+      .define_module_function("attach_virtual_joystick", &attach_virtual_joystick,
+                              Rice::Arg("gamepad"), Rice::Arg("name"))
+      .define_module_function("detach_virtual_joystick", &detach_virtual_joystick, Rice::Arg("id"))
+      .define_module_function("set_virtual_button", &set_virtual_button, Rice::Arg("id"),
+                              Rice::Arg("button"), Rice::Arg("down"))
+      .define_module_function("set_virtual_axis", &set_virtual_axis, Rice::Arg("id"),
+                              Rice::Arg("axis"), Rice::Arg("value"))
+      .define_module_function("set_virtual_hat", &set_virtual_hat, Rice::Arg("id"),
+                              Rice::Arg("hat"), Rice::Arg("value"))
+      .define_module_function("window_size", &window_size)
       .define_module_function("click_mouse", &click_mouse, Rice::Arg("button"), Rice::Arg("down"))
       .define_module_function("render_loopback", &render_loopback, Rice::Arg("path"),
                               Rice::Arg("dt"))

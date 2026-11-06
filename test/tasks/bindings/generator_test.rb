@@ -62,6 +62,56 @@ class GeneratorTest < Minitest::Test
     assert_includes port("love.event.pump").registration, %(Rice::Arg("wait_timeout") = 0.0)
   end
 
+  # luax_checktouchid reads a touch's id from a light userdata, the
+  # pointer LÖVE makes of SDL's finger id (wrap_Touch.cpp:36-42), which
+  # Lota's event module gives Ruby as the Integer the pointer holds
+  # (native/event.cpp, push_value). The port takes that Integer and turns
+  # it back into LÖVE's int64 as LÖVE does, through intptr_t, so an id
+  # read from an event finds its touch; the file includes <cstdint>.
+  def test_a_touch_id_is_read_as_the_integer_its_pointer_holds
+    port = port("love.touch.getPressure")
+
+    assert_includes port.definition, "double w_getPressure(std::uintptr_t id)"
+    assert_includes port.definition,
+      "instance()->getTouch(static_cast<love::int64>(static_cast<std::intptr_t>(id)))"
+    assert_includes port.registration, %(Rice::Arg("id"))
+    assert_includes port.rbs, ": (Integer id) -> Float"
+    list = Bindings::BindingList.new
+    list.generate("love.touch.isMouse")
+    assert_includes BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/touch.cpp"),
+      "#include <cstdint>"
+  end
+
+  # Joystick:hasSensor calls luax_enumerror without returning what it
+  # returns (wrap_Joystick.cpp:390-391), which raises all the same, so the
+  # port raises there too.
+  def test_an_enum_error_raised_without_return_still_raises
+    code = port("Joystick:hasSensor").definition
+
+    assert_includes code, %(raise_enum_error("sensor type", Sensor::getConstants(type_value), type);)
+    refute_match(/luax_/, code)
+  end
+
+  # w_getIndex passes the Joystick it is called on to
+  # JoystickModule::getIndex, which takes a pointer, and the port takes
+  # the Joystick by reference, so it passes its address.
+  def test_the_object_a_method_is_called_on_is_passed_by_its_address
+    assert_includes port("Joystick:getConnectedIndex").definition, "instance()->getIndex(&j)"
+  end
+
+  # love.joystick registers Joystick, a class with its own module's name,
+  # and has functions of its own, so the class lives under the module.
+  def test_a_class_named_for_its_module_lives_under_it_beside_the_modules_functions
+    list = Bindings::BindingList.new
+    list.generate("love.joystick.getJoystickCount")
+    list.generate("Joystick:getName")
+    files = BindingsHelper.generator(list:).files
+
+    assert_includes files.fetch("ext/lota/native/generated/joystick.cpp"),
+      %(Rice::define_class_under<Joystick>(Rice::define_module_under(native, "Joystick"), "Joystick"))
+    assert_includes files.fetch("sig/lota/native/generated.rbs"), "    module Joystick\n      class Joystick\n"
+  end
+
   # The generated file includes a header for each name it uses: the class
   # of an object argument (w_setFont's Font), std::min and std::max,
   # LÖVE's integer limits, and its Rect (w_getSafeArea's, common/math.h), as clang-tidy's misc-include-cleaner requires.

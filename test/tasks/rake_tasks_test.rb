@@ -236,7 +236,10 @@ class RakeTasksTest < Minitest::Test
   # requestAttention, showMessageBox, openURL, vibrate, pump, and wait
   # tests, which Lövetest skips everywhere (test/lovetest/tests/graphics.rb,
   # window.rb, system.rb, and event.rb), and, on a GitHub runner on Linux,
-  # seven window tests more (window.rb).
+  # seven window tests more (window.rb). Lövetest's isEnabled, getName, and
+  # getData sensor tests skip too where the machine has neither an
+  # accelerometer nor a gyroscope (test/lovetest/tests/sensor.rb), which
+  # this asks the machine, opening the sensor module as the suite will.
   def test_the_native_suite_passes_under_the_sanitizers
     task = Rake::Task["test:native"].tap(&:reenable)
     failure = nil
@@ -247,7 +250,10 @@ class RakeTasksTest < Minitest::Test
     end
 
     assert_nil failure, "#{failure&.message}\n#{out}"
-    skips = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 14 : 7)
+    Lota::Native::Sensor.open
+    sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
+    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 14 : 7
+    skips = UnseenDesktop.skips(skips + (sensorless ? 3 : 0))
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end

@@ -54,7 +54,10 @@ require_relative "lota/font"
 require_relative "lota/graphics"
 require_relative "lota/timer"
 require_relative "lota/keyboard"
+require_relative "lota/joystick"
 require_relative "lota/mouse"
+require_relative "lota/touch"
+require_relative "lota/sensor"
 require_relative "lota/sound"
 require_relative "lota/audio"
 require_relative "lota/math"
@@ -180,6 +183,16 @@ module Lota
     Keyboard if Native::Keyboard.open?
   end
 
+  # Lota::Joystick, as love.joystick, or +nil+ when the module is not
+  # open.
+  #
+  # === Example
+  #
+  #   lota.joystick.joysticks
+  def self.joystick
+    Joystick if Native::Joystick.open?
+  end
+
   # Lota::Mouse, as love.mouse, or +nil+ when the module is not open.
   #
   # === Example
@@ -187,6 +200,24 @@ module Lota
   #   lota.mouse.x
   def self.mouse
     Mouse if Native::Mouse.open?
+  end
+
+  # Lota::Touch, as love.touch, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.touch.touches
+  def self.touch
+    Touch if Native::Touch.open?
+  end
+
+  # Lota::Sensor, as love.sensor, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.sensor.sensor?(:accelerometer)
+  def self.sensor
+    Sensor if Native::Sensor.open?
   end
 
   # Lota::Sound, as love.sound, or +nil+ when the module is not open.

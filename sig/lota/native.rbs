@@ -537,6 +537,42 @@ module Lota
       def self.push: (String name, Array[Array[Lota::Variant::token]] arguments) -> bool
     end
 
+    module Joystick
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.joysticks: () -> Array[Joystick]
+
+      def self.set_gamepad_mapping: (String guid, String button, String inputtype, Integer inputindex, ?String? hatdir) -> bool
+
+      def self.load_gamepad_mappings: (String mappings) -> nil
+
+      def self.save_gamepad_mappings: () -> String
+
+      class Joystick
+        def self.cpp_class: () -> String
+
+        def object_type: () -> String
+
+        def type_of?: (String name) -> bool
+
+        def axes: () -> Array[Float]
+
+        def down?: (Array[Integer | Array[Integer]] | Array[Integer] buttons) -> bool
+
+        def gamepad_down?: (Array[String] buttons) -> bool
+
+        def player_index: () -> Integer
+
+        def gamepad_mapping: (String button) -> Array[String | Integer]
+
+        def sensor_data: (String sensor_type) -> Array[Float]
+
+        def set_vibration: (?(Float | Integer)? left, ?(Float | Integer)? right, ?(Float | Integer) duration) -> bool
+      end
+    end
+
     module Keyboard
       def self.open: () -> nil
 
@@ -565,6 +601,22 @@ module Lota
       end
     end
 
+    module Sensor
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.sensor?: (String sensor_type) -> bool
+
+      def self.enabled?: (String sensor_type) -> bool
+
+      def self.set_enabled: (String sensor_type, bool enabled) -> nil
+
+      def self.data: (String sensor_type) -> Array[Float]
+
+      def self.sensor_name: (String sensor_type) -> String
+    end
+
     module System
       def self.open: () -> nil
 
@@ -574,7 +626,13 @@ module Lota
     end
 
     module Touch
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
       def self.set_trackpad_touch: (bool enable) -> nil
+
+      def self.touches: (?String? filter) -> Array[Integer]
     end
 
     module Window

@@ -24,6 +24,19 @@ class WindowQueriesTest < Minitest::Test
     Lota::Window.vsync = 1
   end
 
+  # A window that does not fill the screen is safe all over: SDL insets
+  # its safe area only where the system covers part of it, which on a Mac
+  # is the camera's notch over a fullscreen window (SDL 3.4.10,
+  # src/video/cocoa/SDL_cocoawindow.m, Cocoa_SetWindowFullscreen, from
+  # NSScreen's safeAreaInsets) and on X11 never, and otherwise answers the
+  # whole window (src/video/SDL_video.c, SDL_GetWindowSafeArea). LÖVE
+  # gives it in the units Lota::Graphics draws in (Window::getSafeArea,
+  # src/modules/window/sdl/Window.cpp:1022-1040), so the menu bar, which
+  # is outside the window, takes nothing from it.
+  def test_a_window_that_does_not_fill_the_screen_is_safe_all_over
+    assert_equal [0, 0, *Lota::Graphics.dimensions], Lota::Window.safe_area
+  end
+
   def test_the_displays_are_counted_and_named_from_1
     assert_kind_of Integer, Lota::Window.display_count
     assert_operator Lota::Window.display_count, :>=, 1

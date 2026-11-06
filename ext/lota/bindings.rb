@@ -573,6 +573,66 @@ bound_by_hand "love.image.newImageData",
   reason: "chooses among its forms by its arguments' kinds, and reads raw bytes from a string or any Data " \
     "(luax_istype); Lota binds the form that decodes Data and the form with a size, a pixel format, and bytes"
 
+# love.joystick
+bound_by_hand "love.joystick.getJoysticks",
+  reason: "builds a table of Joysticks with lua_createtable and lua_rawseti in a loop, which the generator does " \
+    "not port; Lota returns them as an Array"
+bound_by_hand "love.joystick.loadGamepadMappings",
+  reason: "reads a file through luax_getfiledata when LÖVE's filesystem finds one of that name, which the " \
+    "generator does not port"
+bound_by_hand "love.joystick.saveGamepadMappings",
+  reason: "reads the stack at a position it computes to write the file through luax_convobj; Lota binds the " \
+    "string, and Lota::Joystick.save_gamepad_mappings writes it with Lota::Filesystem.write"
+generate "love.joystick.getJoystickCount"
+generate "love.joystick.setBackgroundEvents"
+generate "love.joystick.hasBackgroundEvents"
+bound_by_hand "love.joystick.setGamepadMapping",
+  reason: "reads its fourth and fifth arguments in a switch on the input type, which the generator " \
+    "does not port"
+generate "love.joystick.getGamepadMappingString"
+generate "Joystick:isConnected"
+generate "Joystick:getName"
+generate "Joystick:getID"
+generate "Joystick:getGUID"
+generate "Joystick:getDeviceInfo"
+generate "Joystick:getDevicePowerInfo"
+generate "Joystick:getDeviceConnectionState"
+generate "Joystick:getJoystickType"
+generate "Joystick:getAxisCount"
+generate "Joystick:getButtonCount"
+generate "Joystick:getHatCount"
+generate "Joystick:getAxis"
+bound_by_hand "Joystick:getAxes",
+  reason: "returns a computed number of values, one for each axis; Lota returns them as an Array"
+generate "Joystick:getHat"
+bound_by_hand "Joystick:isDown",
+  reason: "reads its buttons in a loop over every argument, or from a table; Lota::Joystick::Joystick#down? " \
+    "passes them as one Array"
+generate "Joystick:setPlayerIndex"
+bound_by_hand "Joystick:getPlayerIndex",
+  reason: "pushes index >= 0 ? index + 1 : index, whose type the generator cannot tell from the headers"
+generate "Joystick:isGamepad"
+generate "Joystick:getGamepadType"
+generate "Joystick:getGamepadAxis"
+bound_by_hand "Joystick:isGamepadDown",
+  reason: "reads its buttons in a loop over every argument, or from a table, as Joystick:isDown"
+bound_by_hand "Joystick:getGamepadMapping",
+  reason: "returns none, two, or three values from a switch on the input type, which the generator " \
+    "does not port; Lota returns them as an Array, empty for none"
+generate "Joystick:getGamepadMappingString"
+generate "Joystick:isVibrationSupported"
+bound_by_hand "Joystick:setVibration",
+  reason: "the generator reads its left motor into a local where LÖVE checks it, which leaves clang-tidy's " \
+    "bugprone-easily-swappable-parameters seeing the left and right motors used apart; Lota reads both in " \
+    "the one call, as LÖVE does"
+generate "Joystick:getVibration"
+generate "Joystick:hasSensor"
+generate "Joystick:isSensorEnabled"
+generate "Joystick:setSensorEnabled"
+bound_by_hand "Joystick:getSensorData",
+  reason: "returns a computed number of values, one for each the sensor reads; Lota returns them as an Array"
+generate "Joystick:getConnectedIndex"
+
 # love.keyboard
 bound_by_hand "love.keyboard.isDown",
   reason: "reads its keys in a loop over every argument, or from a table; Lota::Keyboard.down? passes them " \
@@ -885,6 +945,23 @@ bound_by_hand "Contact:getNormal",
 bound_by_hand "Contact:getPositions",
   reason: "passes the lua_State to Contact::getPositions, which Lota's physics patch makes return a std::vector"
 
+# love.sensor
+bound_by_hand "love.sensor.hasSensor",
+  reason: "reads its sensor type through luax_checksensortype, an inline helper of wrap_Sensor.cpp that checks " \
+    "the name with luax_enumerror, which the parser does not follow"
+bound_by_hand "love.sensor.isEnabled",
+  reason: "reads its sensor type through luax_checksensortype, an inline helper of wrap_Sensor.cpp that checks " \
+    "the name with luax_enumerror, which the parser does not follow"
+bound_by_hand "love.sensor.setEnabled",
+  reason: "reads its sensor type through luax_checksensortype, an inline helper of wrap_Sensor.cpp that checks " \
+    "the name with luax_enumerror, which the parser does not follow"
+bound_by_hand "love.sensor.getData",
+  reason: "returns a computed number of values, one for each the sensor reads, and reads its type as " \
+    "love.sensor.hasSensor does; Lota returns them as an Array"
+bound_by_hand "love.sensor.getName",
+  reason: "reads its sensor type through luax_checksensortype, an inline helper of wrap_Sensor.cpp that checks " \
+    "the name with luax_enumerror, which the parser does not follow"
+
 # love.sound
 bound_by_hand "love.sound.newDecoder",
   reason: "chooses among its forms by its argument's kind (luax_cangetfile, luax_istype), where Rice passes " \
@@ -958,6 +1035,15 @@ generate "love.timer.sleep"
 generate "love.timer.getFPS"
 generate "love.timer.getAverageDelta"
 generate "love.timer.getTime"
+
+# love.touch
+bound_by_hand "love.touch.getTouches",
+  reason: "builds a table of light userdata with lua_createtable and lua_rawseti in a loop, which the generator " \
+    "does not port; Lota returns the ids as an Array of Integers"
+generate "love.touch.getPosition"
+generate "love.touch.getPressure"
+generate "love.touch.getDeviceType"
+generate "love.touch.isMouse"
 
 # love.window
 generate "love.window.getSafeArea"

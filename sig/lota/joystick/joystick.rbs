@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Joystick
+    class Joystick
+      include Object
+
+      attr_reader native: Native::Joystick::Joystick
+
+      def self.from_native: (Native::Joystick::Joystick native) -> Joystick
+
+      def connected?: () -> bool
+
+      def name: () -> String
+
+      def id: () -> Array[Integer?]
+
+      def guid: () -> String
+
+      def device_info: () -> [Integer, Integer, Integer]
+
+      def device_power_info: () -> [Symbol, Integer?]
+
+      def device_connection_state: () -> Symbol
+
+      def joystick_type: () -> Symbol
+
+      def axis_count: () -> Integer
+
+      def button_count: () -> Integer
+
+      def hat_count: () -> Integer
+
+      def axis: (Integer axis) -> Float
+
+      def axes: () -> Array[Float]
+
+      def hat: (Integer hat) -> Symbol
+
+      def down?: (*(Integer | Array[Integer]) buttons) -> bool
+
+      def player_index=: (Integer index) -> void
+
+      def player_index: () -> Integer
+
+      def gamepad?: () -> bool
+
+      def gamepad_type: () -> Symbol
+
+      def gamepad_axis: (Symbol | String axis) -> Float
+
+      def gamepad_down?: (*(Symbol | String | Array[Symbol | String]) buttons) -> bool
+
+      def gamepad_mapping: (Symbol | String button) -> Array[Symbol | Integer]
+
+      def gamepad_mapping_string: () -> String?
+
+      def vibration_supported?: () -> bool
+
+      def set_vibration: (?(Float | Integer)? left, ?(Float | Integer)? right, ?(Float | Integer)? duration) -> bool
+
+      def vibration: () -> [Float, Float]
+
+      def sensor?: (Symbol | String sensor_type) -> bool
+
+      def sensor_enabled?: (Symbol | String sensor_type) -> bool
+
+      def sensor_enabled=: ([Symbol | String, bool] setting) -> void
+
+      def sensor_data: (Symbol | String sensor_type) -> Array[Float]
+
+      def connected_index: () -> Integer?
+
+      private def list: [T < ::Object] (Array[T | Array[T]] buttons) -> (Array[T | Array[T]] | Array[T])
+    end
+  end
+end

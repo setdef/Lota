@@ -80,6 +80,7 @@ integer: "Integer",
 string: "String",
 boolean: "bool",
 truthy: "bool",
+touch_id: "Integer",
 object:,
 }.fetch(kind) { raise Unsupported, "no Ruby type for a #{kind} argument" }
         type = "(#{type})" if type.include?("|") && (optional || default)
@@ -528,6 +529,9 @@ line: node.line,
       when :integer then integral(read[:cast]) || integral(read[:declared]) || "long long"
       when :string then "const std::string &"
       when :boolean, :truthy then "bool"
+      # A touch's id, which LÖVE reads from a light userdata and Lota's
+      # event module gives Ruby as the Integer its pointer holds.
+      when :touch_id then "std::uintptr_t"
       when :object
         type = helper_type(read[:call])
         spelled = read[:call].qualified_template&.then { |name| (name.split("::").last == type) ? name : nil } || type
@@ -642,6 +646,10 @@ line: node.line,
       return [] if text.match?(RELEASE) && owned?
       return emit_guard(@guards.fetch(Regexp.last_match(1))) if text =~ /\A(\w+)\s*\(\s*L\s*\)\z/ && @guards.key?(Regexp.last_match(1))
       return emit_push(text) if push?(text)
+      # luax_enumerror raises whether or not its caller returns what it
+      # returns, as Joystick:hasSensor calls it (wrap_Joystick.cpp:390-391).
+      return emit_return(text, last: false) if Calls.in(text).first&.base_name == "luax_enumerror" && text.start_with?("luax_enumerror")
+
       ["#{declaration(rewrite(text))};"]
     end
 
@@ -767,8 +775,18 @@ line: node.line,
       return "auto *#{name}#{match[:rest]}" if pointer && match[:rest].match?(/\A\s*=\s*new\s+#{Regexp.escape(match[:type])}\b/)
       return text.sub(/\?\s*0\s*:/, "? nullptr :").sub(/=\s*0\z/, "= nullptr") if pointer
       return text if modified?(@renames.key(name) || name, text) || match[:type].start_with?("const ")
+      return text if match[:type].include?("std::") && returned?(@renames.key(name) || name)
 
       "const #{text}"
+    end
+
+    # Whether the form returns the local +name+ itself, as
+    # w_getGamepadMappingString pushes its std::string mapping
+    # (wrap_JoystickModule.cpp:175-184): a const local cannot move into
+    # what the form returns, which clang-tidy's
+    # performance-no-automatic-move refuses.
+    private def returned?(name)
+      pushes(@body).any? { |call| call.arguments[1].to_s.strip == name }
     end
 
     # Whether a statement other than +declaration+ changes +name+.
@@ -817,7 +835,7 @@ line: node.line,
       text = replace_identifiers(text)
       text = text.gsub(/\blua_Number\b/, "double")
       text = text.gsub(/(?<![\w.])(\d+\.\d*|\.\d+)f\b/, '\1F')
-      text = text.gsub(/\b#{Regexp.escape(@self_parameter[:name])}\s*->/, "#{@self_parameter[:name]}.") if @self_parameter
+      text = self_reference(text) if @self_parameter
       text = keep_strings(text)
       text = static_calls(text)
       text = whole_strings(text)
@@ -900,6 +918,17 @@ line: node.line,
       text
     end
 
+    # +text+ with the object a method is called on, which LÖVE holds as a
+    # pointer and the port takes by reference, reached with a dot where
+    # LÖVE writes ->, and its address passed where LÖVE passes the pointer
+    # itself to a call, as w_getIndex passes its Joystick to
+    # JoystickModule::getIndex (wrap_JoystickModule.cpp:51-60).
+    private def self_reference(text)
+      name = Regexp.escape(@self_parameter[:name])
+      text = text.gsub(/\b#{name}\s*->/, "#{@self_parameter[:name]}.")
+      text.gsub(/([(,]\s*)#{name}(?=\s*[,)])/) { "#{Regexp.last_match(1)}&#{@self_parameter[:name]}" }
+    end
+
     # The C++ expression a read becomes.
     private def read_value(call, cast)
       index = call.arguments[1].to_i
@@ -917,6 +946,10 @@ line: node.line,
         parameter.name
       end
       value = "#{value}.c_str()" if STRING_READERS[call.base_name] == :c_str
+      # luax_checktouchid turns the light userdata back into LÖVE's int64
+      # through intptr_t (wrap_Touch.cpp:36-42), which the port does to the
+      # Integer the pointer holds.
+      value = "static_cast<std::intptr_t>(#{value})" if Analysis::READERS[call.base_name] == :touch_id
       # luax_checkfloat and luax_tofloat return the number as a float
       # (common/runtime.h), which the port casts to as they do.
       cast ||= "float" if FLOAT_READERS.include?(call.base_name) && parameter.cpp == "double"
