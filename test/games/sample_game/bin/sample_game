@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Sample Game's own program, which a build names in place of the entry
+# script the iOS kit would write: it boots the game folder above it as a
+# fused game, with standard output in sync mode, so each line reaches a
+# phone's log as it is printed.
+$stdout.sync = true
+require "lota"
+exit Lota::Boot.new(File.expand_path("..", __dir__), ARGV, fused: true).call

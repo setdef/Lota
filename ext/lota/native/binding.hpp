@@ -85,7 +85,7 @@
 #include <utility>
 #include <vector>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__ANDROID__)
 #include <pthread.h>
 #elif defined(_WIN32)
 #include <windows.h> // Ruby's own headers include it on Windows (ruby/win32.h)
@@ -108,6 +108,7 @@ concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 // thread ID is the process's ID (gettid(2)).
 #ifdef __APPLE__
 inline bool on_main_thread() { return pthread_main_np() == 1; }
+inline void record_main_thread() {}
 #elif defined(_WIN32)
 // Windows names no main thread, and ties a window to the thread that made
 // it, whichever that is. Lota takes the thread that loads the extension,
@@ -115,8 +116,23 @@ inline bool on_main_thread() { return pthread_main_np() == 1; }
 // runs there, as it does from lib/lota.rb.
 inline const unsigned long loading_thread = GetCurrentThreadId();
 inline bool on_main_thread() { return GetCurrentThreadId() == loading_thread; }
+inline void record_main_thread() {}
+#elif defined(__ANDROID__)
+// An Android app's main thread is its UI thread, which Java keeps and on
+// which no game may block. Fledge's Android host runs Ruby on a thread of
+// its own, which SDL's Android video takes for its main thread (Fledge's
+// ADR 025, section 4), as LÖVE's Android build runs Lua on the thread SDL
+// starts its main function on; so the main thread here is Ruby's.
+// libfledgeext.so, which holds the extension, is loaded on the UI thread
+// before Ruby starts, so a static initializer, as on Windows, would record
+// the UI thread; Init_native records the thread that require
+// "lota/native" runs on, Ruby's own, before any binding exists.
+inline pthread_t main_thread{};
+inline bool on_main_thread() { return pthread_equal(pthread_self(), main_thread) != 0; }
+inline void record_main_thread() { main_thread = pthread_self(); }
 #else
 inline bool on_main_thread() { return gettid() == getpid(); }
+inline void record_main_thread() {}
 #endif
 
 // Raises ThreadError unless this is the main thread. +module+ names the
