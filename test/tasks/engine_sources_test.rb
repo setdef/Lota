@@ -206,6 +206,17 @@ class EngineSourcesTest < Minitest::Test
     assert_equal %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF], EngineSources.cmake_args("linux")
   end
 
+  # iOS's list comes from CMake's own cross-compiling for iOS, on a Mac,
+  # beside macOS's.
+  def test_ios_evaluates_for_the_arm64_simulator_and_is_generated_on_macos
+    ios = %w[-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64]
+
+    assert_equal %w[-G Ninja -DMEGA=ON] + ios, EngineSources.cmake_args("ios")
+    assert_equal %w[macos ios], EngineSources.generated_on("macos")
+    assert_equal %w[linux], EngineSources.generated_on("linux")
+    assert_equal %w[windows], EngineSources.generated_on("windows")
+  end
+
   # LÖVE's Windows install rules name megasource's SDL3 target, which the
   # evaluation stands in for.
   def test_windows_evaluates_without_luajit_with_a_stand_in_for_megasources_sdl

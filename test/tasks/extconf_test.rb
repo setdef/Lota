@@ -92,6 +92,26 @@ class ExtconfTest < Minitest::Test
     end
   end
 
+  # fledge build ios runs extconf.rb under an iOS Ruby's rbconfig.rb, as
+  # the shim here stands in for, and the gem it unpacks has no vendor/:
+  # the iOS build asks for a clone that has, before CMake runs.
+  def test_under_an_ios_rbconfig_it_builds_for_the_phone_from_a_clone
+    in_tree do |root|
+      script = write(root, "ext/lota/extconf.rb", File.read(EXTCONF))
+      write(root, "ext/lota/phone/ios.rb", File.read(File.join(ROOT, "ext/lota/phone/ios.rb")))
+      shim = write(root, "ios_rbconfig.rb", <<~RUBY)
+        require "rbconfig"
+        RbConfig::CONFIG["CC"] = "clang -target arm64-apple-ios15.0-simulator"
+      RUBY
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", shim, script, chdir: root)
+
+      refute status.success?
+      assert_includes output, "Lota's iOS build needs --with-lota-source=DIR"
+      refute_includes output, "Lota's source gem does not ship LÖVE's sources"
+      refute_path_exists File.join(root, "Makefile")
+    end
+  end
+
   # Only a build in a clone reads Rice, so Bundler installs it there and
   # no installed gem depends on it.
   def test_rice_is_a_development_dependency

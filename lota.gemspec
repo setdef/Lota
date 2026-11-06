@@ -44,6 +44,7 @@ Gem::Specification.new do |spec|
     ext/lota/cmake
     ext/lota/engine
     ext/lota/native
+    ext/lota/phone
     ext/lota/preload
   ]
   spec.files = IO.popen(["git", "ls-files", "-z", "--", *packaged], chdir: __dir__, err: IO::NULL) do |ls|
