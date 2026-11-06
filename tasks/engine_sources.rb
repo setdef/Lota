@@ -89,8 +89,26 @@ class EngineSources
   # For iOS, CMake's own cross-compiling for iOS aims it at the arm64
   # Simulator, whose sources are a device's too: LÖVE's CMakeLists.txt
   # chooses them by CMAKE_SYSTEM_NAME alone (lines 298-318).
-  def self.cmake_args(platform)
+  #
+  # For Android, the NDK's own toolchain file at +ndk+ aims it at
+  # arm64-v8a and Fledge's API level, 26, as Fledge's toolchain files aim
+  # an extension's CMake (its ADR 027); LÖVE's CMakeLists.txt chooses no
+  # source by processor, so they are x86_64's too. LÖVE's Android build is
+  # megasource's, whose
+  # LuaJIT is prebuilt, so LuaJIT is off, as on Linux.
+  def self.cmake_args(platform, ndk: nil)
     return %w[-G Ninja -DMEGA=ON -DLOVE_JIT=OFF] if platform == "linux"
+    if platform == "android"
+      return %W[
+        -G
+        Ninja
+        -DMEGA=ON
+        -DLOVE_JIT=OFF
+        -DCMAKE_TOOLCHAIN_FILE=#{ndk}/build/cmake/android.toolchain.cmake
+        -DANDROID_ABI=arm64-v8a
+        -DANDROID_PLATFORM=android-26
+      ]
+    end
     return %w[-G Ninja -DMEGA=ON] + IOS_ARGS if platform == "ios"
     # On Windows LÖVE's install rules name megasource's SDL3 target
     # (vendor/love/CMakeLists.txt:2053), so the evaluation defines a
@@ -111,9 +129,10 @@ class EngineSources
 
   # The label of the list generated for +platform+ from vendor/love's
   # +commit+: what CMake is told, less the file the Windows evaluation
-  # includes, whose path is the machine's, not the tree's.
+  # includes and the Android one's toolchain file, whose paths are the
+  # machine's, not the tree's.
   def self.label(commit, platform)
-    definitions = cmake_args(platform).grep(/\A-D/).grep_v(/\A-DCMAKE_PROJECT_INCLUDE=/)
+    definitions = cmake_args(platform).grep(/\A-D/).grep_v(/\A-DCMAKE_(PROJECT_INCLUDE|TOOLCHAIN_FILE)=/)
     "vendor/love #{commit} on #{platform} with #{definitions.join(' ')}"
   end
 
