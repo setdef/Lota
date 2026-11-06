@@ -13,10 +13,25 @@ if(NOT EXISTS ${RICE_DIR}/include/rice/rice.hpp)
 		"configure through ext/lota/extconf.rb (rake compile)")
 endif()
 
-# Rice's FindRuby.cmake defines Ruby::Module, which CMake's own FindRuby
-# gains only in CMake 4.3 (docs/packaging/cmake.md, "FindRuby").
-list(PREPEND CMAKE_MODULE_PATH ${RICE_DIR})
-find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	# The phone's Ruby cannot run here, so FindRuby cannot ask it where its
+	# headers are; extconf.rb, which runs under that Ruby's rbconfig.rb,
+	# passes them. The extension is a static archive the app links, with
+	# Ruby itself (Fledge's FledgeRuby.xcframework).
+	set(LOTA_RUBY_INCLUDE_DIRS "" CACHE STRING "The phone's Ruby headers (extconf.rb sets them)")
+	if(NOT LOTA_RUBY_INCLUDE_DIRS)
+		message(FATAL_ERROR "LOTA_RUBY_INCLUDE_DIRS is empty; configure through ext/lota/extconf.rb")
+	endif()
+	add_library(Ruby::Module INTERFACE IMPORTED)
+	set_target_properties(Ruby::Module PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LOTA_RUBY_INCLUDE_DIRS}")
+	set(LOTA_EXTENSION_TYPE STATIC)
+else()
+	# Rice's FindRuby.cmake defines Ruby::Module, which CMake's own FindRuby
+	# gains only in CMake 4.3 (docs/packaging/cmake.md, "FindRuby").
+	list(PREPEND CMAKE_MODULE_PATH ${RICE_DIR})
+	find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
+	set(LOTA_EXTENSION_TYPE MODULE)
+endif()
 
 # lota_ruby_extension(<target> <feature> <load directory>)
 #
@@ -31,13 +46,14 @@ find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
 function(lota_ruby_extension target feature load_directory)
 	get_filename_component(name ${feature} NAME)
 	get_filename_component(directory ${feature} DIRECTORY)
-	get_target_property(suffix Ruby::Module INTERFACE_RUBY_EXTENSION_SUFFIX)
+	if(LOTA_EXTENSION_TYPE STREQUAL "MODULE")
+		get_target_property(suffix Ruby::Module INTERFACE_RUBY_EXTENSION_SUFFIX)
+		set_target_properties(${target} PROPERTIES PREFIX "" OUTPUT_NAME ${name} SUFFIX ${suffix})
+	endif()
 
 	set_target_properties(${target} PROPERTIES
-		PREFIX ""
-		OUTPUT_NAME ${name}
-		SUFFIX ${suffix}
 		LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${directory}
+		ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${directory}
 		# C++20 for the constrained partial specializations of
 		# Rice::detail::Wrapper in native/binding.hpp.
 		CXX_STANDARD 20
@@ -73,7 +89,13 @@ function(lota_ruby_extension target feature load_directory)
 	# which libraries the bundle carries, and so which licenses it must
 	# record (tasks/native_gem.rb).
 	set(map ${CMAKE_BINARY_DIR}/lib/${directory}/${name}.map)
-	if(APPLE)
+	if(LOTA_EXTENSION_TYPE STREQUAL "STATIC")
+		# A static extension is linked into the app with every other one,
+		# so Init_<name> becomes lota_Init_<name>, and the Init_<name> that
+		# Fledge renames and registers is the one in phone/ that mkmf
+		# compiles, which calls it (extconf.rb).
+		target_compile_definitions(${target} PRIVATE Init_${name}=lota_Init_${name})
+	elseif(APPLE)
 		lota_link_macos(${target} ${name} ${map} ${load_directory})
 	elseif(MINGW)
 		lota_link_mingw(${target} ${name} ${map})

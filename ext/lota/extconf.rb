@@ -21,6 +21,13 @@ require "mkmf"
 require "rbconfig"
 require "shellwords"
 
+# fledge build ios runs this under an iOS Ruby's rbconfig.rb, whose
+# compiler aims at an iOS slice; phone/ios.rb builds the extension there.
+if RbConfig::CONFIG.fetch("CC").match?(/-target arm64-apple-ios/)
+  require_relative "phone/ios"
+  return
+end
+
 # The Rice lota.gemspec pins. Its headers are what the extension compiles
 # against, so the version must match what binding.hpp specializes.
 RICE_VERSION = "4.12.0"

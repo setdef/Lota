@@ -1316,3 +1316,49 @@ work "SDL (Windows)",
     "SunPro",
     "LicenseRef-SDL-libm-Public-Domain",
   ]
+
+# iOS and iPadOS. No gem carries these: an app's extension is linked
+# into the app by Fledge (`fledge build ios`, ext/lota/phone/ios.rb),
+# with the static archives engine/dependencies_ios.cmake names, each
+# thinned to arm64, from which the app's link takes the members it needs,
+# as LÖVE's own iOS build links them. So they are recorded here for the app's
+# notices, and nothing checks them against a link map yet.
+#
+# love-apple-dependencies' iOS archives come from the same releases as
+# its macOS frameworks above, by their headers and version strings:
+# FreeType 2.11 (Headers/freetype/freetype.h), HarfBuzz 6.0.0
+# (hb-version.h), libvorbis 1.3.7 and libtheora 1.1 ("Xiph.Org libVorbis
+# 1.3.7", "Xiph.Org libtheora 1.1 20090822" in each archive), libmodplug's
+# modplug.h byte for byte the framework's, and libogg's ogg.h the
+# framework's, with the os_types.h and config_types.h libogg's configure
+# writes. So each is recorded as its framework is. Which files each
+# archive compiles was not read file by file, as it was for the
+# frameworks; FreeType's archive holds ftbzip2.o, whose bzip2 calls go to
+# the system's libbz2, as the framework's do. libtheoradec is linked as
+# LÖVE's iOS build links it, but love.video is not bound, so no member of
+# it should reach the app, as none reaches the macOS bundle; it is not
+# recorded until an app's link map shows one.
+{
+  "FreeType" => ["freetype", "freetype.framework"],
+  "HarfBuzz" => ["harfbuzz", "harfbuzz.framework"],
+  "libvorbis" => ["vorbis", "vorbis.framework"],
+  "libogg" => ["ogg", "ogg.framework"],
+  "libmodplug" => ["modplug", "libmodplug.framework"],
+}.each do |name, (xcframework, framework)|
+  work "#{name} (iOS)",
+    sources: ["vendor/love-apple-dependencies/iOS/libraries/#{xcframework}.xcframework/**"],
+    copyright: framework_for(framework).copyright,
+    license: framework_for(framework).license
+end
+
+# SDL 3.4.10, LÖVE's version and the SDL3.framework's above, built static
+# for each slice from its release archive by tasks/ios_build.rb, with
+# SDL's own CMake build for iOS. It is recorded as the macOS framework
+# is: SDL's license with the code of others an Apple build compiles in.
+# The iOS build compiles UIKit's video, Core Audio's audio, Metal's GPU
+# and renderer, OpenGL ES, and HIDAPI's iOS backend where macOS's compiles
+# Cocoa's; their files were not read one by one.
+work "SDL (iOS)",
+  sources: ["tmp/ios/sdl3/**"],
+  copyright: framework_for("SDL3.framework").copyright,
+  license: framework_for("SDL3.framework").license

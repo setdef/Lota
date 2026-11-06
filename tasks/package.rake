@@ -142,6 +142,7 @@ def packages
         ext/lota/cmake
         ext/lota/engine
         ext/lota/native
+        ext/lota/phone
         ext/lota/preload
       ],
       native_packaged: [NativeGem::REUSE_TOML, Licensing::SOURCES],
