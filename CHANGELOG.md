@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `lota fuse [path]`, which builds a game folder with Fledge into an app for this computer's platform that runs without Ruby, with `--out`, `--identifier`, `--app-version`, `--icon`, and `--sign`; `Lota::Boot#read_settings` and `Lota::Boot.folder_identity`, which it reads a game's name and identity with.
+
 ### Fixed
 
 - The `aarch64-mingw-ucrt` gem renders with OpenGL as well as Vulkan; its SDL was built without OpenGL.

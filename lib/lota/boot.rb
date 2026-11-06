@@ -323,6 +323,26 @@ module Lota
       conf_error
     end
 
+    # Reads the game's settings without starting it: puts the game's
+    # folder on <tt>$LOAD_PATH</tt>, as booting does, so that conf.rb can
+    # require the files beside it, then configures, and returns the
+    # settings. It opens no module and no window, so a tool can read a
+    # game's name and identity where no window can open, as
+    # <tt>lota fuse</tt> does. Raises what conf.rb or <tt>Lota.conf</tt>
+    # raised.
+    #
+    # === Example
+    #
+    #   # games/pong/conf.rb sets t.title = "Pong"
+    #   Lota::Boot.new("games/pong").read_settings.title # => "Pong"
+    def read_settings
+      add_to_load_path
+      conf_error = configure
+      raise conf_error if conf_error
+
+      @settings
+    end
+
     # The settings that reach the engine before any module opens
     # (boot.lua:266-335). The console (lines 240-245 and 261-264) opens
     # only on Windows, and the audio settings (lines 337-345) matter only
@@ -410,7 +430,22 @@ module Lota
     # names carry Lota's name, as ADR 003, section 8 names the folder it
     # saves in.
     private def identity
-      identity = File.basename(@directory).sub(/\A\.+/, "").sub(/\.[^.]+\z/, "").tr(".", "_")
+      Boot.folder_identity(@directory)
+    end
+
+    # The identity boot.lua gives a game folder at +directory+, which a
+    # game whose conf.rb sets no <tt>t.identity</tt> saves under, as
+    # described for the private identity method above: the folder's name
+    # without leading dots or its last extension, with every other dot an
+    # underscore, or <tt>"lotagame"</tt> when that leaves nothing.
+    # <tt>lota fuse</tt> names the folder it copies such a game into after
+    # it, so the fused game saves under the name <tt>lota run</tt> gave it.
+    #
+    # === Example
+    #
+    #   Lota::Boot.folder_identity("games/.dot.popper") # => "dot"
+    def self.folder_identity(directory)
+      identity = File.basename(directory).sub(/\A\.+/, "").sub(/\.[^.]+\z/, "").tr(".", "_")
       identity.empty? ? "lotagame" : identity
     end
 

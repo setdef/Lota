@@ -1,0 +1,308 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# lota fuse, for real, on each platform Lota ships a gem for (ADR 002,
+# section 5): on a runner of that platform it installs Lota's gem for it,
+# fuses test/games/fuse with this commit's lota fuse, which fetches Fledge
+# from Git and runs fledge build, then unpacks the app it built under a
+# folder named with a space, and runs it with no Ruby on its PATH and an
+# environment of only the system's own variables. The game opens no
+# window, since a runner has no GPU, plays a sound through OpenAL Soft's
+# null backend, since it has no audio device either, saves a file, and
+# quits with 3; the check reads that it ran fused and saved under its
+# identity alone, where LÖVE's fused game saves (ADR 003, section 8).
+#
+# The gems are Lota 0.1.2's release, checked against its SHA256SUMS, or,
+# run by hand with gems_run, the lota-PLATFORM artifacts of a CI run,
+# checked against their .sha256 files. lota fuse runs from this checkout
+# (ruby -I lib), and ships the installed gem it finds, as a developer's
+# would. What each job built is kept as an artifact, fused-PLATFORM: the
+# archive a player unpacks, and on Windows the setup program, on macOS the
+# disk image, on Linux the AppImage.
+#
+# Run by hand with game_repository, it fuses that public repository's
+# game instead, with identifier for its --identifier, and keeps what it
+# built without running it, since a game that draws needs a GPU.
+#
+# Linux builds on Ubuntu 24.04, since Fledge's Linux runtime needs glibc
+# 2.39 (its README, Compatibility), which Lota's gem, built on 22.04 for
+# glibc 2.35, runs on too.
+
+name: Fuse
+
+on:
+  push:
+    branches: ["experiment/fuse-*"]
+  workflow_dispatch:
+    inputs:
+      gems_run:
+        description: A CI run whose lota-PLATFORM artifacts to fuse with (empty for Lota 0.1.2's release)
+        type: string
+        default: ""
+      game_repository:
+        description: A public repository (OWNER/NAME) holding a game to fuse instead of test/games/fuse, which is built but not run
+        type: string
+        default: ""
+      game_ref:
+        description: The branch, tag, or commit of game_repository
+        type: string
+        default: ""
+      game_path:
+        description: The game's folder in game_repository
+        type: string
+        default: "."
+      identifier:
+        description: The app's identifier, for lota fuse --identifier (empty for its placeholder)
+        type: string
+        default: ""
+      icon:
+        description: The game's icon files without their extension, for lota fuse --icon (empty for none)
+        type: string
+        default: ""
+      app_version:
+        description: The app's version, for lota fuse --app-version (empty for Fledge's)
+        type: string
+        default: ""
+      game_env:
+        description: Variables for the drawing run of game_repository's game, as NAME=VALUE separated by spaces
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fuse:
+    name: Fuse (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: arm64-darwin
+          - runner: ubuntu-24.04
+            platform: x86_64-linux-gnu
+          - runner: ubuntu-24.04-arm
+            platform: aarch64-linux-gnu
+          - runner: windows-2025
+            platform: x64-mingw-ucrt
+          - runner: windows-11-arm
+            platform: aarch64-mingw-ucrt
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      GEMS_RUN: ${{ inputs.gems_run }}
+      GAME: ${{ inputs.game_repository && format('game-source/{0}', inputs.game_path) || 'test/games/fuse' }}
+      IDENTIFIER: ${{ inputs.identifier }}
+      GAME_ENV: ${{ inputs.game_env }}
+      ICON: ${{ inputs.icon }}
+      APP_VERSION: ${{ inputs.app_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: inputs.game_repository
+        with:
+          repository: ${{ inputs.game_repository }}
+          ref: ${{ inputs.game_ref }}
+          path: game-source
+          persist-credentials: false
+
+      # The OpenGL and EGL libraries SDL opens, which a desktop has and a
+      # runner does not; Lota loads without a display.
+      - name: Install OpenGL's libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes libgl1 libegl1
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+          windows-toolchain: none
+
+      - name: Get Lota's gem for this platform, check it, and install it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sum() { if command -v sha256sum > /dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+          gems="$RUNNER_TEMP/gems"
+          mkdir -p "$gems"
+          if [ -n "$GEMS_RUN" ]; then
+            gh run download "$GEMS_RUN" -R "$GITHUB_REPOSITORY" -n "lota-$PLATFORM" -D "$gems"
+            (cd "$gems" && sum --check ./*.sha256)
+          else
+            gh release download v0.1.2 -R "$GITHUB_REPOSITORY" -D "$gems" -p "lota-0.1.2-$PLATFORM.gem" -p SHA256SUMS
+            (cd "$gems" && grep " lota-0.1.2-$PLATFORM.gem\$" SHA256SUMS | sum --check -)
+          fi
+          gem install --local "$gems"/lota-*-"$PLATFORM".gem
+          gem list lota
+
+      - name: lota fuse
+        run: |
+          start=$(date +%s)
+          options=(--out "$RUNNER_TEMP/dist")
+          [ -z "$IDENTIFIER" ] || options+=(--identifier "$IDENTIFIER")
+          [ -z "$ICON" ] || options+=(--icon "$ICON")
+          [ -z "$APP_VERSION" ] || options+=(--app-version "$APP_VERSION")
+          ruby -I lib exe/lota fuse "$GAME" "${options[@]}" | tee "$RUNNER_TEMP/fuse.out"
+          echo "lota fuse took $(( $(date +%s) - start )) s"
+          echo "--- the project lota fuse wrote"
+          project="$RUNNER_TEMP/dist/fuse-project"
+          for file in Gemfile Gemfile.lock fledge.yml main.rb; do echo "=== $file"; cat "$project/$file"; done
+          find "$project" -path "$project/vendor" -prune -o -type f -print
+          ls -la "$RUNNER_TEMP/dist"
+
+      - name: Run the app on macOS or Linux, with no Ruby on its PATH
+        if: runner.os != 'Windows' && !inputs.game_repository
+        run: |
+          archive=$(ls "$RUNNER_TEMP"/dist/*.tar.gz)
+          place="$RUNNER_TEMP/run/My Games"
+          mkdir -p "$place" "$RUNNER_TEMP/empty"
+          tar -xzf "$archive" -C "$place"
+          root="$place/$(basename "$archive" .tar.gz)"
+          if [ "$RUNNER_OS" = macOS ]; then program="$root/Fuse Check.app/Contents/MacOS/Fuse Check"; else program="$root/Fuse Check"; fi
+          set +e
+          (cd / && env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" ALSOFT_DRIVERS=null "$program" > "$RUNNER_TEMP/run.out" 2> "$RUNNER_TEMP/run.err")
+          status=$?
+          set -e
+          echo "exit status: $status"; echo "--- stdout"; cat "$RUNNER_TEMP/run.out"; echo "--- stderr"; cat "$RUNNER_TEMP/run.err"
+          ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/run.out"
+
+      - name: Run the app on Windows, with no Ruby on its PATH
+        if: runner.os == 'Windows' && !inputs.game_repository
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/dist" -Filter '*.zip' | Select-Object -First 1
+          $place = Join-Path $env:RUNNER_TEMP 'run\My Games'
+          New-Item -ItemType Directory -Force $place | Out-Null
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $place
+          $program = Join-Path (Join-Path $place $zip.BaseName) 'Fuse Check.exe'
+          $system = $env:SystemRoot
+          $start = [Diagnostics.ProcessStartInfo]::new($program)
+          $start.UseShellExecute = $false
+          $start.RedirectStandardOutput = $true
+          $start.RedirectStandardError = $true
+          $start.WorkingDirectory = $system
+          $start.Environment.Clear()
+          $variables = @{
+            SystemRoot = $system; SystemDrive = $env:SystemDrive; windir = $system
+            PATH = "$system\System32;$system;$system\System32\Wbem"
+            USERPROFILE = $env:USERPROFILE; APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA
+            TEMP = $env:RUNNER_TEMP; TMP = $env:RUNNER_TEMP; ALSOFT_DRIVERS = 'null'
+          }
+          foreach ($name in $variables.Keys) { $start.Environment[$name] = $variables[$name] }
+          $process = [Diagnostics.Process]::Start($start)
+          $out = $process.StandardOutput.ReadToEndAsync()
+          $err = $process.StandardError.ReadToEndAsync()
+          if (-not $process.WaitForExit(120000)) { $process.Kill($true); throw 'Fuse Check.exe still ran after 120 s' }
+          $process.WaitForExit()
+          Set-Content -LiteralPath "$env:RUNNER_TEMP/run.out" -Value $out.Result -NoNewline
+          Write-Host "exit status: $($process.ExitCode)"
+          Write-Host "--- stdout"; Write-Host $out.Result
+          Write-Host "--- stderr"; Write-Host $err.Result
+          ruby .github/fuse_check.rb $process.ExitCode "$env:RUNNER_TEMP/run.out"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Another repository's game draws, and a runner has no GPU and only
+      # Windows' OpenGL 1.1, so on x64 Windows Mesa's software OpenGL,
+      # llvmpipe, from the runner's MSYS2, goes beside the program, where
+      # SDL's LoadLibrary("OPENGL32.DLL") finds it first, as Fledge's
+      # Windows trial ran a Lota game. The game runs for 20 seconds; what it
+      # printed, screenshots of the desktop, and any PNG it says it saved
+      # are kept, since its shaders compile only once it draws. game_env's
+      # variables reach it; it may run 50 seconds and quit by itself.
+      - name: Draw the game with Mesa's llvmpipe
+        if: inputs.game_repository && matrix.platform == 'x64-mingw-ucrt'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-ucrt-x86_64-mesa | Out-Host
+          $zip = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/dist" -Filter '*.zip' | Select-Object -First 1
+          $place = Join-Path $env:RUNNER_TEMP 'draw'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $place
+          $root = Join-Path $place $zip.BaseName
+          $program = Get-ChildItem -LiteralPath $root -Filter '*.exe' | Select-Object -First 1
+          $bin = 'C:\msys64\ucrt64\bin'
+          foreach ($pattern in 'opengl32.dll', 'libgallium_wgl.dll', 'libffi-*.dll', 'libgcc_s_seh-1.dll', 'libiconv-2.dll', 'libintl-8.dll',
+              'libLLVM*.dll', 'libSPIRV-Tools*.dll', 'libstdc++-6.dll', 'libsystre-0.dll', 'libtre-5.dll', 'libwinpthread-1.dll',
+              'libxml2*.dll', 'libzstd.dll', 'zlib1.dll') {
+            Get-ChildItem -LiteralPath $bin -Filter $pattern | ForEach-Object { Copy-Item $_.FullName $root; Write-Host "beside the program: $($_.Name)" }
+          }
+          $results = Join-Path $env:RUNNER_TEMP 'dist\draw'
+          New-Item -ItemType Directory -Force $results | Out-Null
+          $system = $env:SystemRoot
+          $start = [Diagnostics.ProcessStartInfo]::new($program.FullName)
+          $start.UseShellExecute = $false
+          $start.RedirectStandardOutput = $true
+          $start.RedirectStandardError = $true
+          $start.WorkingDirectory = $system
+          $start.Environment.Clear()
+          $variables = @{
+            SystemRoot = $system; SystemDrive = $env:SystemDrive; windir = $system
+            PATH = "$system\System32;$system;$system\System32\Wbem"
+            USERPROFILE = $env:USERPROFILE; APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA
+            TEMP = $env:RUNNER_TEMP; TMP = $env:RUNNER_TEMP; ALSOFT_DRIVERS = 'null'; GALLIUM_DRIVER = 'llvmpipe'
+          }
+          foreach ($name in $variables.Keys) { $start.Environment[$name] = $variables[$name] }
+          foreach ($pair in ($env:GAME_ENV -split '\s+' | Where-Object { $_ })) {
+            $name, $value = $pair -split '=', 2
+            $start.Environment[$name] = $value
+            Write-Host "game_env: $name=$value"
+          }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $icon = [Drawing.Icon]::ExtractAssociatedIcon($program.FullName)
+          $icon.ToBitmap().Save((Join-Path $results 'exe-icon.png'), [Drawing.Imaging.ImageFormat]::Png)
+          Write-Host "the program's icon: $($icon.Width)x$($icon.Height), kept as exe-icon.png"
+          $begun = Get-Date
+          $process = [Diagnostics.Process]::Start($start)
+          $out = $process.StandardOutput.ReadToEndAsync()
+          $err = $process.StandardError.ReadToEndAsync()
+          foreach ($second in 5, 15, 30, 45) {
+            $wait = $begun.AddSeconds($second) - (Get-Date)
+            if ($wait.TotalMilliseconds -gt 0) { Start-Sleep -Milliseconds $wait.TotalMilliseconds }
+            if ($process.HasExited) { break }
+            $bounds = [Windows.Forms.SystemInformation]::VirtualScreen
+            $bitmap = [Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+            $graphics = [Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+            $bitmap.Save((Join-Path $results "desktop-$($second)s.png"), [Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose(); $bitmap.Dispose()
+            if ($second -eq 5) {
+              $process.Refresh()
+              Write-Host "main window title: '$($process.MainWindowTitle)'"
+              $process.Modules | Where-Object { $_.ModuleName -match 'opengl32|gallium|vulkan|OpenAL' } | ForEach-Object { Write-Host "loaded: $($_.FileName)" }
+            }
+          }
+          $left = 50000 - ((Get-Date) - $begun).TotalMilliseconds
+          if (-not $process.WaitForExit([Math]::Max(0, [int]$left))) { $process.Kill($true); Write-Host 'still running after 50 s: stopped' }
+          $process.WaitForExit()
+          Write-Host "exit status: $($process.ExitCode) after $([int]((Get-Date) - $begun).TotalSeconds) s"
+          Write-Host "--- stdout"; Write-Host $out.Result
+          Write-Host "--- stderr"; Write-Host $err.Result
+          Set-Content -LiteralPath (Join-Path $results 'output.txt') -Value "exit status: $($process.ExitCode)`n$($out.Result)`n--- stderr`n$($err.Result)"
+          foreach ($match in [regex]::Matches("$($out.Result)`n$($err.Result)", '[A-Za-z]:[\\/][^\r\n"]*?\.png')) {
+            if (Test-Path -LiteralPath $match.Value) { Copy-Item -LiteralPath $match.Value $results; Write-Host "kept: $($match.Value)" }
+          }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: fused-${{ inputs.game_repository && 'game-' || '' }}${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/dist/*.zip
+            ${{ runner.temp }}/dist/*.tar.gz
+            ${{ runner.temp }}/dist/*-setup.exe
+            ${{ runner.temp }}/dist/*.dmg
+            ${{ runner.temp }}/dist/*.AppImage
+            ${{ runner.temp }}/dist/fuse-project/Gemfile.lock
+            ${{ runner.temp }}/dist/draw
+          if-no-files-found: error
