@@ -126,10 +126,14 @@ inline bool on_main_thread() { return gettid() == getpid(); }
 #endif
 
 // Raises ThreadError unless this is the main thread. +module+ names the
-// Lota module the caller belongs to, for the message.
+// Lota module the caller belongs to, in LÖVE's message for a module its
+// threads may not load (luax_module_threaderror, vendor/love/src/common/
+// runtime.cpp:1067-1072, which LuaThread.cpp:72-73 makes the loader of
+// love.window and love.graphics in a thread), as Lota::Thread's threads,
+// which run on threads of their own, meet it.
 inline void require_main_thread(const char *module) {
   if (!on_main_thread()) {
-    throw Rice::Exception(rb_eThreadError, "%s runs only on the main thread", module);
+    throw Rice::Exception(rb_eThreadError, "The %s module cannot be used in thread code.", module);
   }
 }
 
@@ -252,7 +256,10 @@ public:
   // is released, so a destructor that frees another wrapper cannot touch
   // the queue while it is locked.
   std::size_t drain() {
-    require_main_thread("Lota::Native.drain_release_queue");
+    if (!on_main_thread()) {
+      throw Rice::Exception(rb_eThreadError,
+                            "Lota::Native.drain_release_queue runs only on the main thread");
+    }
     std::vector<love::StrongRef<love::Object>> drained;
     {
       const std::scoped_lock lock(mutex_);
@@ -513,10 +520,17 @@ public:
 // Whether LÖVE's module +name+ (its folder in src/modules) is bound for
 // every Ractor, as LÖVE lets every thread load it, or for the main Ractor
 // alone (ADR 001, section 6), where another Ractor that calls it meets
-// Ractor::UnsafeError. LÖVE keeps love.window and love.graphics off every
-// thread but the main one (vendor/love/src/modules/thread/LuaThread.cpp:
-// 72-73), and so does Lota. Lota also keeps on the main Ractor the
-// modules LÖVE lets threads use but whose code is not safe there:
+// Ractor::UnsafeError.
+//
+// LÖVE keeps love.window and love.graphics off every thread but the main
+// one (vendor/love/src/modules/thread/LuaThread.cpp:72-73), and so does
+// Lota, by the same check that keeps them off Ruby's other threads
+// (require_main_thread): a Ractor other than the main one runs on a thread
+// of its own, so their bindings are bound for every Ractor and raise LÖVE's
+// message there, as on a Ruby thread.
+//
+// Lota keeps on the main Ractor the modules LÖVE lets threads use but
+// whose code is not safe there:
 //
 // - keyboard, mouse, and system call SDL functions that SDL says should
 //   be called only on the main thread: 14 in SDL_keyboard.h (text input,
@@ -531,9 +545,9 @@ public:
 //   event), and Sensor's open sensors (sensor/sdl/Sensor.h:57, changed
 //   by setEnabled).
 inline bool ractor_safe_module(std::string_view name) {
-  static constexpr std::array<std::string_view, 11> SAFE = {
-      "audio", "data",    "event", "filesystem", "font",  "image",
-      "math",  "physics", "sound", "thread",     "timer",
+  static constexpr std::array<std::string_view, 13> SAFE = {
+      "audio", "data",    "event", "filesystem", "font",  "graphics", "image",
+      "math",  "physics", "sound", "thread",     "timer", "window",
   };
   return std::ranges::find(SAFE, name) != SAFE.end();
 }

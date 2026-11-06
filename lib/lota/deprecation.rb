@@ -78,19 +78,11 @@ module Lota
       nil
     end
 
-    # The file whose guards keep Lota::Graphics and Lota::Window on the
-    # main Ractor (Lota::Thread.main_thread_only): a frame of one sits
-    # between a function of theirs and its caller. :nodoc:
-    MAIN_THREAD_GUARDS = File.expand_path("thread.rb", File.dirname(__FILE__)).freeze
-
     # Where a caller called from, as luaL_where gives it for level 1: its
     # file and line and a colon and space, or an empty String when
-    # unknown. Pass it <tt>caller_locations(1, 1)</tt>, or, from a function
-    # of Lota::Graphics or Lota::Window, <tt>caller_locations(1, 2)</tt>,
-    # whose first frame may be the main-thread guard's, which it skips.
-    # :nodoc:
+    # unknown. Pass it <tt>caller_locations(1, 1)</tt>. :nodoc:
     def self.where(locations)
-      location = locations&.find { |frame| frame.path != MAIN_THREAD_GUARDS }
+      location = locations&.first
       location ? "#{location.path}:#{location.lineno}: " : ""
     end
 

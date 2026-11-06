@@ -71,11 +71,6 @@ require_relative "lota/callbacks"
 require_relative "lota/info"
 require_relative "lota/boot"
 
-# LÖVE keeps love.graphics and love.window off its threads, and so does
-# Lota::Thread, with LÖVE's message.
-Lota::Thread.main_thread_only(Lota::Graphics)
-Lota::Thread.main_thread_only(Lota::Window)
-
 # The lowercase spelling of each module, so that a LÖVE tutorial's
 # love.graphics becomes lota.graphics and nothing else changes (ADR 003,
 # section 4). Lota::Graphics remains the idiomatic spelling.

@@ -56,7 +56,8 @@ Lota's; the LÖVE function is in the RDoc.
   optional shaders inside a `rescue` and fall back, so a driver difference
   cannot stop the game.
 - Graphics and window calls only work on the main thread and raise
-  `ThreadError` elsewhere.
+  `ThreadError` elsewhere ("The Lota::Graphics module cannot be used in
+  thread code.").
 
 ## Specific to Lota
 

@@ -5,8 +5,6 @@ module Lota
   module Deprecation
     API_TYPES: Hash[Symbol, String]
 
-    MAIN_THREAD_GUARDS: String
-
     DEPRECATION_TYPES: Array[Symbol]
 
     class Info < Struct[Symbol | Integer | String]

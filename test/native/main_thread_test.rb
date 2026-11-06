@@ -10,7 +10,8 @@ require_relative "../engine_helper"
 
 # Lota::Graphics and Lota::Window run only on the process's main thread,
 # as LÖVE keeps love.graphics and love.window there (ADR 001, section 6);
-# every other call raises ThreadError there. Lota::Image and
+# every other call raises ThreadError there, with LÖVE's message for a
+# module its threads may not load. Lota::Image and
 # Lota::Filesystem run anywhere, as LÖVE lets love.image and
 # love.filesystem run on its threads.
 class MainThreadTest < Minitest::Test
@@ -106,7 +107,7 @@ class MainThreadTest < Minitest::Test
       error = raised_off_the_main_thread(&call)
 
       assert_instance_of ThreadError, error, label
-      assert_equal "Lota::Graphics runs only on the main thread", error.message, label
+      assert_equal "The Lota::Graphics module cannot be used in thread code.", error.message, label
     end
   end
 
@@ -157,7 +158,7 @@ class MainThreadTest < Minitest::Test
       error = raised_off_the_main_thread(&call)
 
       assert_instance_of ThreadError, error, label
-      assert_equal "Lota::Window runs only on the main thread", error.message, label
+      assert_equal "The Lota::Window module cannot be used in thread code.", error.message, label
     end
   end
 

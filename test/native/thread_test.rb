@@ -81,37 +81,36 @@ class ThreadTest < Minitest::Test
   end
 
   # LÖVE keeps love.graphics and love.window off its threads
-  # (LuaThread.cpp:72-73): lota.graphics and lota.window are nil there,
-  # and their bindings, as those of a module Lota has not yet shown safe
-  # for threads, raise Ractor::UnsafeError.
+  # (LuaThread.cpp:72-73): lota.graphics and lota.window are nil there, and
+  # their functions and bindings raise ThreadError with LÖVE's message, as
+  # on any thread but the main one. A module Lota keeps on the main Ractor,
+  # as keyboard, raises Ractor::UnsafeError.
   def test_graphics_and_window_stay_on_the_main_thread
     output = run_script(<<~RUBY)
       run_thread(<<~CODE)
         out = Lota::Thread.channel("out")
         out.push([Lota.graphics, Lota.window, Lota.thread == Lota::Thread])
-        [-> { Lota::Graphics.dimensions }, -> { Lota::Window.title }].each do |call|
+        calls = [-> { Lota::Graphics.dimensions }, -> { Lota::Window.title }, -> { Lota::Native::Graphics.open? },
+          -> { Lota::Native::Window.open }, -> { Lota::Native::Keyboard.open? }]
+        calls.each do |call|
           call.call
           out.push(:called)
-        rescue RuntimeError => e
-          out.push(e.message)
-        end
-        [-> { Lota::Native::Graphics.open? }, -> { Lota::Native::Window.open? }, -> { Lota::Native::Keyboard.open? }].each do |call|
-          call.call
-          out.push(:called)
-        rescue Ractor::UnsafeError => e
-          out.push(e.class.name)
+        rescue ThreadError, Ractor::UnsafeError => e
+          out.push([e.class.name, e.message])
         end
       CODE
       6.times { p CHANNEL.pop }
     RUBY
 
+    graphics = "The Lota::Graphics module cannot be used in thread code."
+    window = "The Lota::Window module cannot be used in thread code."
     assert_equal <<~OUTPUT, output
       [nil, nil, true]
-      "The Lota::Graphics module cannot be used in thread code."
-      "The Lota::Window module cannot be used in thread code."
-      "Ractor::UnsafeError"
-      "Ractor::UnsafeError"
-      "Ractor::UnsafeError"
+      ["ThreadError", #{graphics.dump}]
+      ["ThreadError", #{window.dump}]
+      ["ThreadError", #{graphics.dump}]
+      ["ThreadError", #{window.dump}]
+      ["Ractor::UnsafeError", "ractor unsafe method called from not main ractor"]
     OUTPUT
   end
 
