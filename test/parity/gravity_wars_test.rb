@@ -87,7 +87,7 @@ class GravityWarsTest < Minitest::Test
     run = Parity::LotaRun.new(TRANSLATED, SCRIPT, love, File.dirname(love.frames_dir))
 
     assert_predicate run.output.status, :success?, run.output.text
-    assert_nil run.mismatch, "first differing frame: #{run.mismatch}"
+    assert_nil run.mismatch, run.mismatch_message
     assert_equal FRAMES, run.compared
     assert_equal love.output.text, run.output.text
   end

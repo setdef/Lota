@@ -60,6 +60,10 @@
 // did not load it into.
 #ifdef __APPLE__
 extern "C" __attribute__((weak_import)) long lota_loopback_render(const char *path, double dt);
+// The parity harness's Metal watch (metal_watch.mm), found the same way.
+// Its status is an MTLCommandBufferStatus, an NSUInteger (MTLCommandBuffer.h).
+extern "C" __attribute__((weak_import)) void
+lota_metal_watch_check(int waited, unsigned long status, long code);
 #else
 extern "C" __attribute__((weak)) long lota_loopback_render(const char *path, double dt);
 #endif
@@ -684,6 +688,20 @@ long render_loopback(const std::string &path, double dt) {
   return count;
 }
 
+#ifdef __APPLE__
+// Counts and reports a Metal command buffer that ended with the status
+// +status+ and, unless +code+ is 0, an error of Metal's domain with that
+// code, as the parity harness's Metal watch does for one it saw end
+// (lota_metal_watch_check, metal_watch.mm), after a wait for it when
+// +waited+. Raises when the watch is not loaded into this process.
+void check_metal_command_buffer(bool waited, unsigned long status, long code) {
+  if (lota_metal_watch_check == nullptr) {
+    throw std::runtime_error("liblota_metal_watch is not loaded (DYLD_INSERT_LIBRARIES)");
+  }
+  lota_metal_watch_check(waited ? 1 : 0, status, code);
+}
+#endif
+
 // Takes the arguments Lota::Native::Graphics.rectangle takes, converted by
 // Rice the same way, and does nothing with them, so rake bench can time a
 // call from Ruby into C++ apart from LÖVE's own drawing
@@ -803,6 +821,10 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("click_mouse", &click_mouse, Rice::Arg("button"), Rice::Arg("down"))
       .define_module_function("render_loopback", &render_loopback, Rice::Arg("path"),
                               Rice::Arg("dt"))
+#ifdef __APPLE__
+      .define_module_function("check_metal_command_buffer", &check_metal_command_buffer,
+                              Rice::Arg("waited"), Rice::Arg("status"), Rice::Arg("code"))
+#endif
       .define_module_function("press_return_on_dialogs",
                               &lota::native_test::press_return_on_dialogs)
       .define_module_function("dialogs_answered", &lota::native_test::dialogs_answered)
