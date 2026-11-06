@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# What a game's own CI holds to build its iOS kit: a call to Lota's
+# ios-kit.yml as a reusable workflow, with lota_ref naming the ref its
+# uses line names (doc/contributors/ios-kit.md). Here it builds Lota's
+# own made-up game, test/games/sample_game, as a game repository's
+# workflow would build its own game from game_path ".". A game's own
+# CI names Lota's workflow by a release's tag,
+# setdef/Lota/.github/workflows/ios-kit.yml@vX.Y.Z with lota_ref vX.Y.Z;
+# Lota's own calls the workflow of the same commit.
+name: iOS kit, called as a game's CI calls it
+
+on:
+  push:
+    branches:
+      - "experiment/ios-kit-call-*"
+      - "experiment/phones-*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  ios-kit:
+    uses: ./.github/workflows/ios-kit.yml
+    with:
+      lota_ref: ${{ github.sha }}
+      game_repository: ${{ github.repository }}
+      game_ref: ${{ github.sha }}
+      game_path: test/games/sample_game
+      display_name: "Sample Game"
+      program: bin/sample_game
+      icon: test/games/sample_game/icons
+      kit_questions: test/games/sample_game/kit-questions.txt
+      smoke_env: SAMPLE_GAME_QUIT_AFTER=12
+      smoke_expect: "(?m)^sample game: quitting after"
+      # A busy runner's Simulator once took over 20 s to reach a 12 s quit.
+      smoke_seconds: "40"
+      touch_env: SAMPLE_GAME_QUIT_AFTER=120
+      extra_launches: SAMPLE_GAME_QUIT_AFTER=3;SAMPLE_GAME_QUIT_AFTER=4 SAMPLE_GAME_EXTRA=1

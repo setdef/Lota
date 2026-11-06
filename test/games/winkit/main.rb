@@ -21,6 +21,17 @@ require "rbconfig"
 #
 # When WINKIT_LOG names a file, every line goes there too, for a run
 # started through the shell, whose standard output no one reads.
+# WINKIT_SECONDS sets how long it runs when no argument does, for a phone,
+# where nothing passes arguments.
+#
+# WINKIT_DPI_PROBE=1 opens the window with usedpiscale false (and, through
+# conf.rb, t.highdpi true), and prints the window's DPI scales, the
+# graphics' dimensions and pixel dimensions, and the safe area when the
+# window opens and on each resize, and with each touch the fraction of the
+# pixel dimensions it landed at. With usedpiscale false, LÖVE's
+# getDPIScale is 1.0 (src/modules/window/sdl/Window.cpp, getDPIScale), so a
+# touch at a fraction of the screen should read that fraction of
+# pixel_dimensions.
 class Winkit
   ORANGE = [1.0, 0.5, 0.0, 1.0].freeze
   BACKGROUND = [0.1, 0.2, 0.6, 1.0].freeze
@@ -57,7 +68,8 @@ class Winkit
   BROKEN = "vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) { return no_such_name; }"
 
   def initialize(arguments)
-    @seconds = option(arguments, "--seconds", 8)
+    @seconds = option(arguments, "--seconds", Float(ENV.fetch("WINKIT_SECONDS", "8")))
+    @probe = ENV.fetch("WINKIT_DPI_PROBE", nil) == "1"
     @hold = arguments.any? { |argument| argument.start_with?("--hold") }
     @seconds = option(arguments, "--hold", 60) if @hold
     @log = ENV.fetch("WINKIT_LOG", nil)
@@ -76,6 +88,7 @@ class Winkit
   def load
     say "time at load: #{milliseconds}"
     say "lota: #{Lota::VERSION}"
+    say "engine version: #{Lota.version.inspect}"
     report_ruby
     report_system
     report_files
@@ -112,6 +125,12 @@ class Winkit
     return if %i[mousemoved wheelmoved joystickaxis gamepadaxis].include?(name)
 
     say "input: #{name} #{@last[name].join(' ')} at #{(Lota::Timer.time - @started).round(2)} s"
+    probe_touch(*arguments) if @probe && name == :touchpressed
+  end
+
+  def resize(width, height)
+    say "resize: #{width}x#{height}"
+    report_probe if @probe
   end
 
   def joystick(change, stick)
@@ -191,11 +210,12 @@ class Winkit
   private def open_window
     @started = Lota::Timer.time
     Lota::Window.title = "Winkit"
-    Lota::Window.set_mode(800, 450, vsync: 1, resizable: true)
+    Lota::Window.set_mode(800, 450, vsync: 1, resizable: true, **(@probe ? { usedpiscale: false } : {}))
     @window = true
     Lota::Graphics.background_color = BACKGROUND
     report_renderer
     report_display
+    report_probe if @probe
     compile_shaders
     say "hold: for #{@seconds.round} s, move the mouse, click, press keys and gamepad buttons" if @hold
   rescue => e
@@ -224,6 +244,21 @@ class Winkit
     end
   rescue => e
     say "display: #{e.class}: #{e.message}"
+  end
+
+  private def report_probe
+    say "probe: usedpiscale=#{Lota::Window.mode.last.usedpiscale.inspect} highdpi=#{Lota::Window.high_dpi_allowed?.inspect} " \
+      "Window.dpi_scale=#{Lota::Window.dpi_scale} Window.native_dpi_scale=#{Lota::Window.native_dpi_scale} " \
+      "Graphics.dpi_scale=#{Lota::Graphics.dpi_scale} Graphics.dimensions=#{Lota::Graphics.dimensions.inspect} " \
+      "Graphics.pixel_dimensions=#{Lota::Graphics.pixel_dimensions.inspect} Window.safe_area=#{Lota::Window.safe_area.inspect}"
+  rescue => e
+    say "probe: #{e.class}: #{e.message}"
+  end
+
+  private def probe_touch(_id, x, y, *)
+    width, height = Lota::Graphics.pixel_dimensions
+    say "probe: touch at #{x.round(1)}, #{y.round(1)} is #{(x / width).round(3)}, #{(y / height).round(3)} " \
+      "of pixel_dimensions #{width}x#{height}"
   end
 
   private def compile_shaders
@@ -334,6 +369,10 @@ end
 
 def Lota.draw
   @winkit.draw
+end
+
+def Lota.resize(width, height)
+  @winkit.resize(width, height)
 end
 
 def Lota.joystickadded(joystick)
