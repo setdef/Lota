@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- The `aarch64-mingw-ucrt` gem renders with OpenGL as well as Vulkan; its SDL was built without OpenGL.
+
 ## [0.1.2] - 2026-11-04
 
 ### Added

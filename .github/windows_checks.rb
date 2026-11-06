@@ -23,6 +23,9 @@
 #   lib/lota/libraries and nothing loads from DECOY or MSYS2. MODE bare
 #   requires "lota/native" without the preloader, with only DECOY added,
 #   and exits 3 when the decoy answered, as a control.
+# [opengl [EXPECT]] Runs <tt>lota run</tt> on test/games/opengl, and
+#   passes only if SDL made an OpenGL context for its window, which the
+#   engine used or refused for its version, and its output holds EXPECT.
 # [restart] Runs <tt>lota run</tt> on test/games/restart, which restarts
 #   twice and then quits with status 3, and passes only if each run read
 #   the value the run before it chose and the last run's status is the
@@ -221,6 +224,25 @@ module WindowsChecks
       length = name.call(handle, buffer, 1024)
       buffer[0, length * 2].force_encoding(Encoding::UTF_16LE).encode(Encoding::UTF_8).tr("\\", "/")
     end
+  end
+
+  # Runs <tt>lota run</tt> on test/games/opengl, which opens a window with
+  # OpenGL alone, and passes only if SDL made an OpenGL context: the game
+  # reports an OpenGL renderer, or the engine refuses the context for its
+  # version ("Detected OpenGL version", vendor/love/src/modules/window/sdl/
+  # Window.cpp:427-430), as it refuses the OpenGL 1.1 Windows gives a
+  # runner without a GPU. +expect+, if given, must also be in what it
+  # printed.
+  def opengl(expect = nil)
+    output, status = Open3.capture2e({ "RUBYOPT" => "-I#{File.join(ROOT, 'lib')}" }, RbConfig.ruby, "-w",
+      File.join(ROOT, "exe/lota"), "run", File.join(ROOT, "test/games/opengl"))
+    puts output
+    opened = status.success? && output.include?("renderer: OpenGL")
+    refused = status.exitstatus == 1 && output.include?("Detected OpenGL version")
+    abort "lota run exited #{status.exitstatus} with no OpenGL context" unless opened || refused
+    abort "lota run did not print #{expect.inspect}" if expect && !output.include?(expect)
+
+    puts opened ? "The window opened with OpenGL" : "SDL made an OpenGL context, which the engine refused"
   end
 
   def restart

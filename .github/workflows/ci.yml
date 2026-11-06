@@ -630,8 +630,9 @@ jobs:
   # builds with MSYS2's UCRT64 environment (GCC), ARM64 with its CLANGARM64
   # environment (clang), the toolchains RubyInstaller builds its Ruby with
   # for each. A runner has no GPU, and Windows' own OpenGL is 1.1, which
-  # LÖVE's renderer cannot use, so nothing here opens a window; the gate
-  # (bundle exec rake), whose tests do, does not run on Windows.
+  # LÖVE's renderer cannot use, so the one window opened here shows only
+  # that SDL makes an OpenGL context; the gate (bundle exec rake), whose
+  # tests draw, does not run on Windows.
   windows-build:
     name: Windows build (${{ matrix.platform }})
     strategy:
@@ -836,6 +837,15 @@ jobs:
         run: |
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
           PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb restart
+
+      # A window with OpenGL: Windows' own opengl32.dll gives the runner
+      # OpenGL 1.1, which the engine refuses, so this shows that SDL could
+      # make an OpenGL context on each architecture, not that a game draws.
+      - name: Open a window with OpenGL
+        timeout-minutes: 4
+        run: |
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
+          PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb opengl
 
       # The PATH adds the directory of Git for Windows' commands, which holds
       # no DLL, since the gemspec the version test loads lists its files
