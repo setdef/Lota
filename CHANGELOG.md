@@ -28,6 +28,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `lota fuse` stops on a Lota gem without `notices.json`, as every gem built before this release is.
 
+### Fixed
+
+- On Android, a game that draws with Vulkan, LÖVE's first choice there, runs in landscape as it does in portrait: LÖVE rebuilt its swap chain on every frame while the phone was turned, which took 60 frames a second down to 20 or 30.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

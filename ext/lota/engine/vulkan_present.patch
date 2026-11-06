@@ -1,0 +1,66 @@
+SPDX-FileCopyrightText: 2006-2026 LOVE Development Team
+SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+SPDX-License-Identifier: Zlib
+
+Lota's Vulkan present patch, for Android alone: one statement of LÖVE's
+src/modules/graphics/vulkan/Graphics.cpp, inside #ifdef LOVE_ANDROID.
+LÖVE creates its swap chain with an identity preTransform (line 2156),
+and Android's loader returns VK_SUBOPTIMAL_KHR from vkQueuePresentKHR
+whenever a swap chain's preTransform differs from the window's transform
+hint, which on a phone whose display is portrait is a rotation in
+landscape (frameworks/native vulkan/libvulkan/swapchain.cpp, in
+QueuePresentKHR). Graphics::present rebuilds the swap chain on that result
+(lines 643-650), and recreateSwapChain waits for the device to idle and
+makes the swap chain's images and the depth and stencil image again
+(lines 3685-3705), so in landscape it rebuilds every frame, and the game
+runs at 20 to 30 frames a second where it runs at 60 in portrait. A new
+swap chain has the same identity preTransform and gets the same result.
+The image is presented even so: VK_SUBOPTIMAL_KHR is a success code, and
+the compositor rotates the identity buffer, as it rotates LÖVE's OpenGL ES
+buffer. This patch takes a suboptimal present as a success on Android,
+and changes nothing else: VK_ERROR_OUT_OF_DATE_KHR and a lost surface
+still rebuild, as does any rebuild requested, and a rotation that changes
+the window's size still rebuilds once, through backbufferChanged (lines
+681-703). Acquiring an image already takes a suboptimal result as a
+success (line 1472).
+
+Nothing in Lota can do this: the swap chain, the present, and its result
+are inside LÖVE's Graphics, which no binding reaches. CMake applies the
+patch only when it builds the engine for Android, to a copy of the file
+in the build tree (ext/lota/engine/CMakeLists.txt); vendor/love is never
+written to, and every other platform compiles LÖVE's own file.
+
+On a device that runs LÖVE on Vulkan, in landscape, read the intervals
+between presents (adb shell dumpsys SurfaceFlinger --latency with the
+game's layer): they should be about 16.7 milliseconds, as in portrait and
+as with OpenGL ES, where without the patch they alternate between 33 and
+50. A OnePlus Nord N30 5G (Android 14, Adreno 619, Vulkan 1.1.128) showed that:
+without the patch its intervals in landscape had a median of 50
+milliseconds and alternated between 33 and 50, and with it the median was
+16.7 and about a tenth of the frames were 33, against 1.4 to 2.1 percent
+in portrait, which is probably the compositor's rotation of the identity
+buffer; the image was upright and full screen.
+
+Drop this patch when LÖVE no longer rebuilds its swap chain on
+VK_SUBOPTIMAL_KHR, or if a device shows that it does not help.
+
+diff -ruN a/src/modules/graphics/vulkan/Graphics.cpp b/src/modules/graphics/vulkan/Graphics.cpp
+--- a/src/modules/graphics/vulkan/Graphics.cpp
++++ b/src/modules/graphics/vulkan/Graphics.cpp
+@@ -640,6 +640,16 @@
+ 	}
+ #endif
+ 
++#ifdef LOVE_ANDROID
++	// Android's loader returns VK_SUBOPTIMAL_KHR from every present while
++	// the window's transform hint differs from the swap chain's identity
++	// preTransform, as it does in landscape. A new swap chain would have
++	// the same preTransform and get the same result, so Lota's patch takes
++	// the present as a success (ext/lota/engine/vulkan_present.patch).
++	if (result == VK_SUBOPTIMAL_KHR)
++		result = VK_SUCCESS;
++#endif
++
+ 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_SURFACE_LOST_KHR
+ 		|| swapChainRequestFlags != SWAP_CHAIN_REQUEST_KEEP)
+ 	{

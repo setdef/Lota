@@ -22,13 +22,14 @@
 # IPA, and no runner can boot an arm64 Android emulator, so arm64-v8a is
 # built and never run.
 #
-# It runs on a push to an experiment/phones-* branch and by hand.
+# It runs on a push to an experiment/phones-* or experiment/landscape-*
+# branch and by hand.
 
 name: Phones
 
 on:
   push:
-    branches: ["experiment/phones-*"]
+    branches: ["experiment/phones-*", "experiment/landscape-*"]
   workflow_dispatch:
 
 permissions:
@@ -225,6 +226,21 @@ jobs:
           bundle exec fledge --version
           time bundle exec fledge build android
           ls -la "dist/$APP_NAME-android"
+
+      - name: Show that each ABI's engine compiled the patched Vulkan Graphics.cpp
+        run: |
+          found=0
+          while IFS= read -r ninja; do
+            build=$(dirname "$ninja")
+            patched=$build/patched/love/src/modules/graphics/vulkan/Graphics.cpp
+            echo "== $build"
+            grep -n -A2 "^#ifdef LOVE_ANDROID" "$patched" | grep -n "VK_SUBOPTIMAL_KHR" || true
+            grep -c "patched/love/src/modules/graphics/vulkan/Graphics.cpp" "$ninja" \
+              "$build/compile_commands.json" 2> /dev/null || true
+            find "$build" -path "*patched*vulkan/Graphics.cpp.o" -exec ls -la {} +
+            found=$((found + 1))
+          done < <(find "$PROJECT" "$HOME" -name build.ninja -path "*lota-build/build.ninja" 2> /dev/null)
+          echo "lota-build trees found: $found"
 
       - name: Build a debug APK, a release APK, and an App Bundle, and sign the release with a studio's key
         run: |
