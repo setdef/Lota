@@ -34,25 +34,23 @@ module Lota
 
     self.@fused: bool
 
-    def self.value: () -> value
+    private def self.value: () -> value
 
-    def self.encode: (Variant::carried value) -> String
+    private def self.encode: (Variant::carried value) -> String
 
-    def self.decode: (String text) -> value
+    private def self.decode: (String text) -> value
 
-    def self.take: (?_Environment environment) -> void
+    private def self.take: (?_Environment environment) -> void
 
-    def self.remember: (Array[String] arguments, ?fused: bool) -> void
+    private def self.remember: (Array[String] arguments, ?fused: bool) -> void
 
-    def self.restartable?: () -> bool
+    private def self.restartable?: () -> bool
 
-    def self.run: (Boot boot) -> Integer
+    private def self.request: (Variant::carried value) -> String
 
-    def self.request: (Variant::carried value) -> String
+    private def self.fused_command: (String program) -> Array[String]?
 
-    def self.fused_command: (String program) -> Array[String]?
-
-    def self.exec_pending: () -> void
+    private def self.exec_pending: () -> void
 
     private def self.written: (Variant::carried value, Array[Array[Variant::carried] | Hash[Variant::carried, Variant::carried]] outer) -> String
 
@@ -64,7 +62,7 @@ module Lota
 
     private def self.expect: (StringScanner scanner, Regexp delimiter) -> void
 
-    def self.install: () -> void
+    private def self.install: () -> void
 
   end
 end

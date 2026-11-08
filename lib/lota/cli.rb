@@ -55,7 +55,7 @@ module Lota
       else
         command = COMMANDS[command_name]
         if command
-          Restart.remember([command_name, *argv])
+          Restart.__send__(:remember, [command_name, *argv])
           command.call(argv)
         else
           warn "Unknown command: #{command_name}"

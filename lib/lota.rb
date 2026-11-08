@@ -39,7 +39,7 @@ require "lota/native"
 
 # A restart replaces the process (Lota::Restart), so its exit proc is
 # registered first, to run after every other.
-Lota::Restart.install
+Lota::Restart.__send__(:install)
 
 # Ruby runs exit procs on the main thread, after the game and before it
 # frees what is left. Releases the collector queued on other threads happen
@@ -112,7 +112,7 @@ module Lota
   #     Lota::Event.restart("second") if key == :r
   #   end
   def self.restart
-    Restart.value
+    Restart.__send__(:value)
   end
 
   # Lota::Filesystem, as love.filesystem.

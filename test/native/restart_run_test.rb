@@ -152,7 +152,7 @@ class RestartRunTest < Minitest::Test
   end
 
   def test_the_value_a_game_starts_with_is_read_once_whoever_wrote_it
-    text = Lota::Restart.encode("hello")
+    text = Lota::Restart.__send__(:encode, "hello")
     _, status = lota_run("never", environment: { "LOTA_RESTART_VALUE" => text })
 
     assert_predicate status, :success?
@@ -196,8 +196,7 @@ class RestartRunTest < Minitest::Test
     entry = File.join(@directory, "main.rb")
     File.write(entry, <<~RUBY)
       require "lota"
-      Lota::Restart.remember(ARGV, fused: true)
-      exit Lota::Restart.run(Lota::Boot.new(File.join(__dir__, "game", "restart"), ARGV, fused: true))
+      exit Lota::Boot.new(File.join(__dir__, "game", "restart"), ARGV, fused: true).call
     RUBY
     output, status = capture2e(run_environment, RbConfig.ruby, entry, "string")
 
@@ -213,11 +212,11 @@ class RestartRunTest < Minitest::Test
   def test_nothing_is_left_to_restart_when_the_game_is_not_run_by_lota_run
     code = <<~RUBY
       require "lota"
-      Lota::Restart.take
+      Lota::Restart.__send__(:take)
       p Lota.restart
     RUBY
     native = File.dirname(File.dirname(loaded("lota/native")))
-    output, status = capture2e({ "LOTA_RESTART_VALUE" => Lota::Restart.encode(4) }, RbConfig.ruby,
+    output, status = capture2e({ "LOTA_RESTART_VALUE" => Lota::Restart.__send__(:encode, 4) }, RbConfig.ruby,
       "-I#{native}", "-I#{File.join(ROOT, 'lib')}", "-e", code)
 
     assert_predicate status, :success?, output

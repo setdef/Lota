@@ -189,7 +189,7 @@ class FuseTest < Minitest::Test
       identifier: com.example.sample
     YAML
     assert_equal "def Lota.load(_arguments) = nil\n", read("game", "sample", "main.rb")
-    assert_includes read("main.rb"), %(Lota::Restart.run(Lota::Boot.new(File.join(__dir__, "game", "sample"), ARGV, fused: true)))
+    assert_includes read("main.rb"), %(exit Lota::Boot.new(File.join(__dir__, "game", "sample"), ARGV, fused: true).call)
   end
 
   def test_the_project_holds_the_gemfile_entry_script_gem_and_game
@@ -227,12 +227,11 @@ class FuseTest < Minitest::Test
 
       # Written by lota fuse, which writes it again on every build. Starts
       # the game in game/SampleGame as a fused game, as a shipped game starts,
-      # and starts it again when it restarts, by running this app's program
-      # again with the same arguments (Lota::Restart).
+      # which starts again when it restarts, by running this app's program
+      # again with the same arguments (Lota::Boot#call).
       RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
       require "lota"
-      Lota::Restart.remember(ARGV, fused: true)
-      exit Lota::Restart.run(Lota::Boot.new(File.join(__dir__, "game", "SampleGame"), ARGV, fused: true))
+      exit Lota::Boot.new(File.join(__dir__, "game", "SampleGame"), ARGV, fused: true).call
     RUBY
     assert_equal <<~YAML, read("fledge.yml")
       # Written by lota fuse, which writes it again on every build.

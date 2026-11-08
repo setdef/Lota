@@ -82,7 +82,7 @@ module Lota
           end
 
           require "lota"
-          exit(Lota::Restart.run(Lota::Boot.new(path, arguments)))
+          exit(Lota::Boot.new(path, arguments).call)
         end
         private_class_method :run_game
         # SPDX-SnippetEnd

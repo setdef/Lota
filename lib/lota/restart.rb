@@ -50,8 +50,9 @@ module Lota
   # +RUBYOPT+, which the new process inherits (Bundler::CLI::Exec,
   # kernel_load, and Bundler::SharedHelpers.set_rubyopt).
   #
-  # A fused game, which the entry script <tt>lota fuse</tt> writes starts
-  # (Lota::Fuse), starts again as LÖVE's fused game does, by running the
+  # A fused game, which Lota::Boot#call starts and remembers as it starts
+  # when the game is fused, as the entry script <tt>lota fuse</tt> writes
+  # boots it (Lota::Fuse), starts again as LÖVE's fused game does, by running the
   # program the process runs, with the same arguments: the app's own
   # launcher, which Fledge builds and which runs Ruby inside its own
   # process, found as LÖVE's love.filesystem.getExecutablePath finds it
@@ -122,6 +123,7 @@ module Lota
       # The value the game that restarted chose, or +nil+ when the game
       # was not started by a restart. Lota.restart returns it. :nodoc:
       attr_reader :value
+      private :value
 
       # Writes +value+ for the environment: its type, a colon, and its
       # value, with numbers as the hexadecimal digits of their eight bytes
@@ -136,7 +138,7 @@ module Lota
       # src/common/runtime.cpp:768-774), for tables nested deeper than
       # MAXIMUM_DEPTH, and for a value whose text is longer than
       # MAXIMUM_LENGTH. :nodoc:
-      def encode(value)
+      private def encode(value)
         text = written(value, [])
         if text.bytesize > MAXIMUM_LENGTH
           raise Unsupported, "can't restart with a value too long to cross: #{text.bytesize} bytes, of #{MAXIMUM_LENGTH}"
@@ -147,7 +149,7 @@ module Lota
 
       # The value +text+ holds, which encode wrote. Raises ArgumentError
       # for anything else, however it is shaped. :nodoc:
-      def decode(text)
+      private def decode(text)
         raise ArgumentError, "not a restart value" if text.bytesize > MAXIMUM_LENGTH
 
         scanner = StringScanner.new(text.b)
@@ -162,7 +164,7 @@ module Lota
       # once: the variable is removed whatever it holds, and a value that
       # is not one encode wrote is dropped. Only the first call in a
       # process reads. :nodoc:
-      def take(environment = ENV)
+      private def take(environment = ENV)
         return if @taken
 
         @taken = true
@@ -180,7 +182,7 @@ module Lota
       # by running the program the process runs (fused_command). A program
       # Ruby cannot start again, such as <tt>-e</tt>'s, is not remembered.
       # :nodoc:
-      def remember(arguments, fused: false)
+      private def remember(arguments, fused: false)
         script = File.expand_path($PROGRAM_NAME)
         return unless File.file?(script)
 
@@ -194,24 +196,15 @@ module Lota
 
       # Whether the game can restart: whether the command was remembered.
       # :nodoc:
-      def restartable?
+      private def restartable?
         !@command.nil?
-      end
-
-      # Runs the game +boot+ starts (Lota::Boot#call) and returns its exit
-      # status, asking for the process to start again once it exits when
-      # the game restarted and the command was remembered. :nodoc:
-      def run(boot)
-        status = boot.call
-        request(boot.restart_value) if boot.restart? && restartable?
-        status
       end
 
       # Asks for the process to start again with +value+ once it has
       # exited, and, for a fused game, chooses its command from the program
       # the process runs. Raises TypeError, before the game ends, for a
       # value encode cannot write. :nodoc:
-      def request(value)
+      private def request(value)
         pending = encode(value)
         @command = fused_command(Lota::Native::Filesystem.executable_path) if @fused && Lota::Native::Filesystem.open?
         @pending = pending
@@ -226,7 +219,7 @@ module Lota
       # and the entry script; on macOS and Linux Fledge's <tt>bin/ruby</tt>
       # hands that script to the app's launcher too (Fledge's ADR 026,
       # section 3). :nodoc:
-      def fused_command(program)
+      private def fused_command(program)
         command = @command
         return command if program.empty? || File.identical?(File.dirname(program), RbConfig::CONFIG.fetch("bindir"))
 
@@ -240,7 +233,7 @@ module Lota
       # the game's, and Lota's own, have run. The window is closed first, so the
       # new process does not open its window beside it. If the system
       # cannot start the command, says so and exits with status 1. :nodoc:
-      def exec_pending
+      private def exec_pending
         pending = @pending
         command = @command
         directory = @directory
@@ -325,7 +318,7 @@ module Lota
       # Registers exec_pending as an exit proc, once in a process. Lota
       # calls it as it loads, before it registers exit procs of its own,
       # so a restart is the last thing the process does. :nodoc:
-      def install
+      private def install
         return if @installed
 
         @installed = true

@@ -124,10 +124,12 @@ module Lota
     # returns <tt>"restart"</tt>, alone or first in an Array with the
     # value the game restarts with, as love.run returns them after
     # Lota::Event.restart (callbacks.lua:177-187), ends the game with
-    # status 0 and makes #restart? true; <tt>lota run</tt>, or the entry
-    # script of a game <tt>lota fuse</tt> built, then starts the game
-    # again (Lota::Restart). Raises TypeError, before anything ends,
-    # for a restart value that cannot cross into the new process.
+    # status 0 and makes #restart? true, and the process starts the game
+    # again once it exits (Lota::Restart): the command <tt>lota run</tt>
+    # remembered, or, for a fused game, the program it runs, which call
+    # remembers as it starts, with the game's arguments. Raises TypeError,
+    # before anything ends, for a restart value that cannot cross into the
+    # new process.
     #
     # Once Lota.run has returned its frame, each new frame, the error
     # handler's too, goes to the event module before it first runs, as
@@ -146,7 +148,8 @@ module Lota
     #
     #   status = Lota::Boot.new("games/pong").call
     def call
-      Restart.take
+      Restart.__send__(:take)
+      Restart.__send__(:remember, @arguments, fused: true) if @fused
       @restart = false
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
@@ -188,18 +191,27 @@ module Lota
     # The program's exit status for what the last frame returned
     # (love.cpp, runlove, lines 275-290): LÖVE restarts when the frame's
     # first result is the string <tt>"restart"</tt>, with the second as the
-    # value for the new run, and otherwise exits with the first when it is
-    # a number, or 0.
+    # value for the new run, which Lota asks the process to start again
+    # with once it exits, when it knows how to start it; and otherwise
+    # exits with the first when it is a number, or 0.
     private def finish(retval)
       first, value = retval.is_a?(Array) ? retval : [retval]
       if first == "restart"
-        Restart.encode(value)
+        restartable = Restart.__send__(:restartable?) && !phone?
+        restartable ? Restart.__send__(:request, value) : Restart.__send__(:encode, value)
         @restart = true
         @restart_value = value
         return 0
       end
 
       (first.is_a?(Integer) || first.is_a?(Float)) ? first.to_i : 0
+    end
+
+    # Whether the game runs on a phone, which cannot replace its process,
+    # so a game there ends when it restarts, as a quit ends it: whether
+    # love.system.getOS names iOS or Android.
+    private def phone?
+      Native::System.open? && %w[iOS Android].include?(Native::System.os)
     end
 
     # Brings the game up to the point where its loop starts, as love.boot

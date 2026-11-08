@@ -37,6 +37,8 @@ module Lota
 
     private def finish: (::Object? retval) -> Integer
 
+    private def phone?: () -> bool
+
     def initialize: (String? path, ?Array[String] arguments, ?fused: bool) -> void
 
     def call: () -> Integer
