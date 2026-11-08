@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
 ### Added
 
 - `lota fuse --exclude PATTERN`, repeatable, leaves paths out of the app, and `Lota::Fuse::Options#exclude` holds the patterns.
