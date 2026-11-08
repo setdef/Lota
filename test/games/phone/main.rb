@@ -9,8 +9,9 @@
 # a square where the last touch landed, so a screenshot shows that the
 # engine drew and that a touch arrived; plays a quiet tone; prints what it
 # saw, the system's theme and languages and each change to them among it,
-# each line starting "phone check:", which the phone's log shows; and
-# quits with status 0 after PHONE_CHECK_SECONDS, 20 by default.
+# and each time its window is hidden or shown, each line starting "phone
+# check:", which the phone's log shows; and quits with status 0 after
+# PHONE_CHECK_SECONDS of play, 20 by default.
 module PhoneCheck
   # What a graphics call from another Ruby thread does: LÖVE confines
   # graphics to the main thread, and Lota raises ThreadError there.
@@ -51,8 +52,11 @@ def Lota.load
   @touch = nil
 end
 
+# Counts at most a tenth of a second a frame, so the seconds are those the
+# game played: the first frame after the app returns to the screen has the
+# whole time it was away as its dt.
 def Lota.update(dt)
-  @time += dt
+  @time += [dt, 0.1].min
   Lota::Event.quit(0) if @time > @seconds
 end
 
@@ -74,6 +78,10 @@ end
 
 def Lota.keypressed(key, scancode)
   puts "phone check: keypressed #{key.inspect} #{scancode.inspect}"
+end
+
+def Lota.visible(visible)
+  puts "phone check: visible #{visible} after #{@frames} frames"
 end
 
 def Lota.themechanged

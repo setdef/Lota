@@ -4,7 +4,7 @@
 #
 # Runs test/games/phone's debug APK on the emulator adb is connected to,
 # for .github/workflows/phones.yml: android-emulator-runner runs each line
-# of its script by itself, so the runs live here. Three launches, each into
+# of its script by itself, so the runs live here. Five launches, each into
 # a folder of its own under OUT with its logcat and screenshots:
 #
 # 1. The game plays to its end: a tap lands on the screen, and
@@ -24,6 +24,13 @@
 #    larger than the emulator's, then reset, while the game runs, must
 #    leave it running in the same process, to its own end. Density is
 #    another change the manifest must declare.
+# 5. Home, then the game again, then the recent apps and the game again,
+#    then the screen turned off and on, must leave the game running in
+#    the same process: it must hear itself hidden and shown as
+#    Lota.visible, draw again, and play to its own end, with no [BUG] or
+#    fatal signal. On Vulkan, a frame drawn as SDL let the window go
+#    crashed the game before the host waited for it to pause
+#    (doc/contributors/upstream/017.md); the log names the renderer.
 #
 #   android_emulator.sh APK IDENTIFIER OUT
 set -euo pipefail
@@ -181,6 +188,52 @@ expect "$dir/logcat.txt" density "phone check: quits after" "$identifier: .* exi
 refuse "$dir/logcat.txt" density "SDL *: activity finished" "SDL *: activity re-created" "\[BUG\]" || status=1
 if [ -n "$pid" ] && ! grep -q -- " $pid .*phone check: quits after" "$dir/logcat.txt"; then
   echo "::error::density: the game's process was not $pid when it quit"
+  status=1
+fi
+
+# Leaving the screen releases the game's window; on Vulkan a frame drawn
+# as it went crashed. Each way out counts: the system pauses the game in
+# onStop on Android 7 and newer, and destroys the surface after, before,
+# or with no time between, by how the app leaves.
+dir=$out/background
+mkdir -p "$dir"
+adb shell am force-stop "$identifier"
+adb logcat -c
+adb shell am start -W -n "$activity"
+wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
+pid=$(adb shell pidof "$identifier" || true)
+adb logcat -d | grep -o "phone check: loaded on .*" | head -1
+adb logcat -d | grep -q "phone check: loaded on .*renderer Vulkan" ||
+  echo "::warning::background: the game is not on Vulkan here, so the check cannot fail as it did there"
+sleep 2
+adb shell input keyevent KEYCODE_HOME
+sleep 3
+adb shell am start -W -n "$activity"
+sleep 2
+adb shell input keyevent KEYCODE_APP_SWITCH
+sleep 2
+adb shell am start -W -n "$activity"
+sleep 2
+adb shell input keyevent KEYCODE_POWER
+sleep 3
+adb shell input keyevent KEYCODE_WAKEUP
+adb shell wm dismiss-keyguard
+adb shell am start -W -n "$activity"
+sleep 2
+adb exec-out screencap -p > "$dir/returned.png"
+wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
+adb logcat -d -v threadtime > "$dir/logcat.txt"
+expect "$dir/logcat.txt" background "phone check: visible false" "phone check: visible true after [1-9]" \
+  "phone check: quits after" "$identifier: .* exited with status 0" || status=1
+refuse "$dir/logcat.txt" background "\[BUG\]" "Fatal signal" "SDL *: activity finished" || status=1
+if [ -n "$pid" ] && ! grep -q -- " $pid .*phone check: quits after" "$dir/logcat.txt"; then
+  echo "::error::background: the game's process was not $pid when it quit"
+  status=1
+fi
+last=$(grep -o "phone check: visible true after [0-9]*" "$dir/logcat.txt" | tail -1 | grep -o "[0-9]*$" || echo 0)
+quit=$(grep -o "phone check: quits after [0-9]*" "$dir/logcat.txt" | tail -1 | grep -o "[0-9]*$" || echo 0)
+if [ "${quit:-0}" -le "${last:-0}" ]; then
+  echo "::error::background: the game drew no frame after it was last shown ($last frames then, $quit at its end)"
   status=1
 fi
 

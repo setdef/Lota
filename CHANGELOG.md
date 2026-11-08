@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `lota fuse` run under `bundle exec` no longer fails to lock: the Bundler commands it runs drop the setup of the bundle it runs in, which `bundle exec` names in `RUBYOPT` by its full path.
 - On Android, a game keeps running when dark mode, the font's size or weight, the language, or the system's overlays change (as a new wallpaper's colours change them on Android 12 and later), and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`; before, Android restarted the activity and SDL closed the app.
 - On Android, a game keeps running when the display size (density) changes, and keeps the scale it launched with; before, Android restarted the activity and SDL closed the app.
+- On Android, a game on Vulkan no longer crashes when it leaves the screen (Home, another app, the screen turned off, or a share sheet): the host waits for the game to pause before SDL releases its window, and the game stops while hidden and draws again when it returns.
 
 ## [0.2.2] - 2026-11-06
 
