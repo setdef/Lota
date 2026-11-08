@@ -18,9 +18,12 @@
 # (.github/phones/privacy_imports.sh). Android, on ubuntu-24.04:
 # the Gradle project is built as a debug APK, a release APK, and an
 # Android App Bundle, which are signed with a key made for the run, as a
-# studio signs with its own; the debug APK runs on an x86_64 emulator of
-# API 36, with a tap, Back, and dark mode and an overlay turned on while
-# the game runs (.github/phones/android_emulator.sh). Nothing
+# studio signs with its own; the debug APK runs on x86_64 emulators of
+# API 36 and API 33, with a tap, Back, dark mode and an overlay and a
+# display size turned on while the game runs, and the game sent to the
+# background and brought back (.github/phones/android_emulator.sh). The
+# API 33 emulator's software renderer gives LÖVE Vulkan, where API 36's
+# gives it OpenGL ES alone, so each renderer runs. Nothing
 # here runs on a phone or tablet, signs with an Apple team, or exports an
 # IPA, and no runner can boot an arm64 Android emulator, so arm64-v8a is
 # built and never run.
@@ -291,10 +294,14 @@ jobs:
           retention-days: 30
 
   android-emulator:
-    name: Android, on an x86_64 emulator of API 36
+    name: Android, on an x86_64 emulator of API ${{ matrix.api-level }}
     needs: android
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [36, 33]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -315,7 +322,7 @@ jobs:
       - name: Run the game
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
-          api-level: 36
+          api-level: ${{ matrix.api-level }}
           target: google_apis
           arch: x86_64
           ram-size: 4096M
@@ -326,6 +333,6 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: phones-android-emulator
+          name: phones-android-emulator-${{ matrix.api-level }}
           path: ${{ runner.temp }}/emulator
           retention-days: 30

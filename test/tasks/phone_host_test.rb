@@ -68,6 +68,19 @@ class PhoneHostTest < Minitest::Test
     assert_empty called - NOT_NEEDED.keys - defined
   end
 
+  # Lota's extension looks this method up on the activity by name and JNI
+  # signature (ext/lota/native/event.cpp, watch_android_pause), and skips
+  # the wait for a host without it, so a rename on either side would bring
+  # back the crash of a Vulkan game leaving the screen
+  # (doc/contributors/upstream/016.md) with no error to show for it.
+  def test_the_activity_has_the_method_the_extension_reports_a_pause_to
+    looked_up = File.read(File.join(ROOT, "ext/lota/native/event.cpp"))[/GetStaticMethodID\(\w+, "(\w+)", "\(Z\)V"\)/, 1]
+
+    assert_equal "gamePaused", looked_up
+    assert_match(/^    public static void #{looked_up}\(boolean \w+\) \{/, File.read(ACTIVITY))
+    assert_match(/protected SDLSurface createSDLSurface\(Context context\) \{\s*return new GameSurface/, File.read(ACTIVITY))
+  end
+
   # Read without an XML library: REXML defines a module method +name+ of
   # its own (REXML::Functions), which RbsParity, reading the name of every
   # module loaded in the same test process, would call and fail in.
@@ -95,7 +108,7 @@ class PhoneHostTest < Minitest::Test
     love_android = %w[orientation screenSize smallestScreenSize screenLayout keyboard keyboardHidden navigation]
 
     assert_equal love_android + %w[uiMode fontScale fontWeightAdjustment locale layoutDirection assetsPaths density],
-                 changes
+      changes
   end
 
   # Fledge fills these marks in its project.yml, and in a host's copy of

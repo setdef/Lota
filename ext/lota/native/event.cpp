@@ -22,6 +22,13 @@
 #include <utility>
 #include <vector>
 
+#ifdef __ANDROID__
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_system.h>
+#include <jni.h>
+#endif
+
 namespace lota::native {
 
 using love::Variant;
@@ -38,10 +45,84 @@ Event &event() {
   return *instance;
 }
 
+#ifdef __ANDROID__
+// The activity's static gamePaused(boolean), which Lota's Android host
+// (ext/lota/phone/host/android, MainActivity) waits on before SDL lets
+// the game's window go when the app leaves the screen. SDL waits so for
+// an OpenGL window, and not for a Vulkan one, whose frame LÖVE would
+// otherwise draw onto a window that is gone (MainActivity.GameSurface,
+// and doc/contributors/upstream/016.md).
+struct PauseReport {
+  jclass activity;
+  jmethodID game_paused;
+};
+
+void report_pause(const PauseReport &report, bool paused) {
+  auto *env = static_cast<JNIEnv *>(SDL_GetAndroidJNIEnv());
+  if (env == nullptr) {
+    return;
+  }
+  env->CallStaticVoidMethod(report.activity, report.game_paused, static_cast<jboolean>(paused));
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    env->ExceptionClear();
+  }
+}
+
+// An SDL event watch, called where SDL pushes the event: Android's pause
+// and resume reach the game's thread in its event pump
+// (src/video/android/SDL_androidevents.c, Android_OnPause and
+// Android_OnResume), where LÖVE's own watch makes graphics inactive and
+// active again, on the main thread alone (watchAppEvents,
+// vendor/love/src/modules/event/sdl/Event.cpp:83-109). This one tells the
+// host on the same condition, when the game's thread is drawing no frame.
+bool SDLCALL watch_pause(void *data, SDL_Event *event) {
+  if ((event->type == SDL_EVENT_DID_ENTER_BACKGROUND ||
+       event->type == SDL_EVENT_WILL_ENTER_FOREGROUND) &&
+      SDL_IsMainThread()) {
+    report_pause(*static_cast<const PauseReport *>(data),
+                 event->type == SDL_EVENT_DID_ENTER_BACKGROUND);
+  }
+  return true;
+}
+
+// Watches for the pause, once, when the activity has gamePaused, which
+// an Android host other than Lota's need not have.
+void watch_android_pause() {
+  static bool watched = false;
+  if (watched) {
+    return;
+  }
+  watched = true;
+  auto *env = static_cast<JNIEnv *>(SDL_GetAndroidJNIEnv());
+  auto activity = static_cast<jobject>(SDL_GetAndroidActivity());
+  if (env == nullptr || activity == nullptr) {
+    return;
+  }
+  jclass local = env->GetObjectClass(activity);
+  env->DeleteLocalRef(activity);
+  jmethodID game_paused = env->GetStaticMethodID(local, "gamePaused", "(Z)V");
+  if (game_paused == nullptr) {
+    env->ExceptionClear();
+    env->DeleteLocalRef(local);
+    return;
+  }
+  static PauseReport report{.activity = static_cast<jclass>(env->NewGlobalRef(local)),
+                            .game_paused = game_paused};
+  env->DeleteLocalRef(local);
+  SDL_AddEventWatch(watch_pause, &report);
+  report_pause(report, false);
+}
+#endif
+
 // luaopen_love_event (vendor/love/src/modules/event/wrap_Event.cpp:
 // 263-287) creates SDL's event module once; it then lives as long as the
 // process, as LÖVE's lives until the game quits.
-void open() { open_module<Event, love::event::sdl::Event>(love::Module::M_EVENT); }
+void open() {
+  open_module<Event, love::event::sdl::Event>(love::Module::M_EVENT);
+#ifdef __ANDROID__
+  watch_android_pause();
+#endif
+}
 
 // Whether the module is open, as boot.lua and callbacks.lua ask with
 // "if love.event then".
