@@ -95,7 +95,7 @@ class PhoneHostTest < Minitest::Test
     love_android = %w[orientation screenSize smallestScreenSize screenLayout keyboard keyboardHidden navigation]
 
     assert_equal love_android + %w[uiMode fontScale fontWeightAdjustment locale layoutDirection assetsPaths density],
-                 changes
+      changes
   end
 
   # Fledge fills these marks in its project.yml, and in a host's copy of
