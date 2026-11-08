@@ -87,14 +87,15 @@ class PhoneHostTest < Minitest::Test
   # (doc/contributors/upstream/014.md). love-android's manifest
   # (app/src/main/AndroidManifest.xml at 1c89bb0b2e, line 36) declares
   # the first seven; an emulator recreated the activity for each of the
-  # rest. Density stays out, as in love-android's and SDL's manifests.
+  # rest. Neither love-android's nor SDL's manifest declares density, and
+  # an emulator's "Display size" change ended the game too.
   def test_the_activity_handles_the_changes_that_would_end_the_game
     activity = File.read(MANIFEST).gsub(/<!--.*?-->/m, "")[/<activity\b[^>]*>/m]
     changes = activity[/android:configChanges="([^"]*)"/, 1].split("|")
     love_android = %w[orientation screenSize smallestScreenSize screenLayout keyboard keyboardHidden navigation]
 
-    assert_equal love_android + %w[uiMode fontScale fontWeightAdjustment locale layoutDirection assetsPaths], changes
-    refute_includes changes, "density"
+    assert_equal love_android + %w[uiMode fontScale fontWeightAdjustment locale layoutDirection assetsPaths density],
+                 changes
   end
 
   # Fledge fills these marks in its project.yml, and in a host's copy of

@@ -20,6 +20,10 @@
 #    that it finished a second activity, which it does when Android
 #    recreates the activity for a change the manifest does not declare
 #    (uiMode and assetsPaths here).
+# 4. The display size ("wm density"), made larger, then smaller, then
+#    larger than the emulator's, then reset, while the game runs, must
+#    leave it running in the same process, to its own end. Density is
+#    another change the manifest must declare.
 #
 #   android_emulator.sh APK IDENTIFIER OUT
 set -euo pipefail
@@ -148,6 +152,37 @@ adb logcat -d -v threadtime > "$dir/logcat.txt"
 expect "$dir/logcat.txt" changes "phone check: themechanged :dark" "phone check: quits after" \
   "$identifier: .* exited with status 0" || status=1
 refuse "$dir/logcat.txt" changes "SDL *: activity finished" "SDL *: activity re-created" "\[BUG\]" || status=1
+
+# The display size is the density in dots per inch. Android recreates the
+# activity for each change of it that configChanges leaves out, and
+# SDLActivity then ends the game, and on Vulkan the present after the
+# surface is gone crashes. The game keeps the scale it launched with:
+# LÖVE reads the density once, and SDL passes it on only when the surface
+# changes.
+dir=$out/density
+mkdir -p "$dir"
+adb shell am force-stop "$identifier"
+adb shell wm density reset
+adb logcat -c
+adb shell am start -W -n "$activity"
+wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
+pid=$(adb shell pidof "$identifier" || true)
+base=$(adb shell wm density | sed -n 's/.*: \([0-9]*\)$/\1/p' | tail -1)
+echo "density $base, process $pid"
+for density in $((base * 4 / 3)) $((base * 3 / 4)) $((base * 8 / 7)); do
+  adb shell wm density "$density"
+  sleep 3
+done
+adb exec-out screencap -p > "$dir/changed.png"
+adb shell wm density reset
+wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
+adb logcat -d -v threadtime > "$dir/logcat.txt"
+expect "$dir/logcat.txt" density "phone check: quits after" "$identifier: .* exited with status 0" || status=1
+refuse "$dir/logcat.txt" density "SDL *: activity finished" "SDL *: activity re-created" "\[BUG\]" || status=1
+if [ -n "$pid" ] && ! grep -q -- " $pid .*phone check: quits after" "$dir/logcat.txt"; then
+  echo "::error::density: the game's process was not $pid when it quit"
+  status=1
+fi
 
 grep -h "phone check:\|$identifier: .* exited with status\|SDL *: activity\|FATAL\|\[BUG\]" "$out"/*/logcat.txt || true
 exit $status

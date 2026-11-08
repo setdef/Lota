@@ -17,9 +17,12 @@
   (fontScale, fontWeightAdjustment), the app's language (locale, with
   layoutDirection, which a change of language also changes), and a
   change of the system's overlays (assetsPaths), which Android 12 and
-  newer make when the wallpaper's colours change. SDL's own manifest
-  handles all but the last of these. A game hears dark mode as
-  Lota.themechanged and the language as Lota.localechanged.
+  newer make when the wallpaper's colours change, and the display's
+  density (density), which "Display size" in the settings changes. SDL's
+  own manifest handles none of the last two. A game hears dark mode as
+  Lota.themechanged and the language as Lota.localechanged. It hears
+  nothing of a change of density, and keeps the scale it launched with,
+  as in LÖVE, which reads the density once.
 
   Back reaches the game as the key escape, and then SDL closes the app,
   as in LÖVE. A game that decides what Back does itself adds, inside
@@ -39,7 +42,7 @@
         <activity
             android:name="org.setdef.fledge.host.MainActivity"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|fontScale|fontWeightAdjustment|locale|layoutDirection|assetsPaths"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|fontScale|fontWeightAdjustment|locale|layoutDirection|assetsPaths|density"
             android:launchMode="singleInstance"
             android:exported="true">
             <intent-filter>
