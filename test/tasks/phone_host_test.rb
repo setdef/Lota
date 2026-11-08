@@ -82,6 +82,21 @@ class PhoneHostTest < Minitest::Test
     refute_includes manifest, "<meta-data", "Back closes the app by default, as in LÖVE"
   end
 
+  # Android recreates the activity for a change of configuration the
+  # manifest leaves out, and SDL then ends the game and exits the app
+  # (doc/contributors/upstream/014.md). love-android's manifest
+  # (app/src/main/AndroidManifest.xml at 1c89bb0b2e, line 36) declares
+  # the first seven; an emulator recreated the activity for each of the
+  # rest. Density stays out, as in love-android's and SDL's manifests.
+  def test_the_activity_handles_the_changes_that_would_end_the_game
+    activity = File.read(MANIFEST).gsub(/<!--.*?-->/m, "")[/<activity\b[^>]*>/m]
+    changes = activity[/android:configChanges="([^"]*)"/, 1].split("|")
+    love_android = %w[orientation screenSize smallestScreenSize screenLayout keyboard keyboardHidden navigation]
+
+    assert_equal love_android + %w[uiMode fontScale fontWeightAdjustment locale layoutDirection assetsPaths], changes
+    refute_includes changes, "density"
+  end
+
   # Fledge fills these marks in its project.yml, and in a host's copy of
   # it (Fledge's lib/fledge/templates/ios/project.yml at v0.5.1).
   def test_the_ios_project_keeps_fledges_marks_and_sdls_scene_delegate

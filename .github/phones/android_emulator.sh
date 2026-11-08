@@ -4,7 +4,7 @@
 #
 # Runs test/games/phone's debug APK on the emulator adb is connected to,
 # for .github/workflows/phones.yml: android-emulator-runner runs each line
-# of its script by itself, so the runs live here. Two launches, each into
+# of its script by itself, so the runs live here. Three launches, each into
 # a folder of its own under OUT with its logcat and screenshots:
 #
 # 1. The game plays to its end: a tap lands on the screen, and
@@ -14,6 +14,12 @@
 # 2. Back, pressed while the game runs, must reach it as the key escape
 #    with scancode acback, as in LÖVE; then SDL closes the app, so the
 #    game gets Lota.quit and Ruby exits with status 0.
+# 3. Dark mode, then a font overlay, turned on while the game runs, must
+#    leave it running: the game must hear the theme change as
+#    Lota.themechanged and play to its own end, and SDL must never log
+#    that it finished a second activity, which it does when Android
+#    recreates the activity for a change the manifest does not declare
+#    (uiMode and assetsPaths here).
 #
 #   android_emulator.sh APK IDENTIFIER OUT
 set -euo pipefail
@@ -50,6 +56,20 @@ expect() {
     fi
   done
   return $missing
+}
+
+# Fails, naming $2, if the launch's log $1 holds any pattern after.
+refuse() {
+  local log=$1 name=$2
+  shift 2
+  local found=0
+  for pattern in "$@"; do
+    if grep -q -- "$pattern" "$log"; then
+      echo "::error::$name: the log has a line matching $pattern"
+      found=1
+    fi
+  done
+  return $found
 }
 
 # Right after the emulator boots, its audio server may have no output
@@ -99,5 +119,35 @@ adb logcat -d -v threadtime > "$dir/logcat.txt"
 expect "$dir/logcat.txt" back "phone check: keypressed :escape :acback" "phone check: quits after" \
   "$identifier: .* exited with status 0" || status=1
 
-grep -h "phone check:\|$identifier: .* exited with status\|FATAL\|\[BUG\]" "$out"/*/logcat.txt || true
+# Android recreates an activity for each change its manifest's
+# configChanges leaves out, and SDLActivity then ends the game and exits
+# the process. Dark mode changes uiMode; enabling any overlay of the
+# system's, as a new wallpaper's colours do on Android 12 and later,
+# changes assetsPaths.
+overlay=com.android.theme.font.notoserifsource
+dir=$out/changes
+mkdir -p "$dir"
+adb shell am force-stop "$identifier"
+adb shell cmd uimode night no
+adb logcat -c
+adb shell am start -W -n "$activity"
+wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
+adb shell cmd uimode night yes
+wait_for "phone check: themechanged :dark" 30 || echo "::warning::the game heard no theme change within 30 s"
+if adb shell cmd overlay list | grep -q -- "$overlay"; then
+  adb shell cmd overlay enable "$overlay"
+else
+  echo "::warning::the emulator has no overlay $overlay"
+fi
+sleep 3
+adb exec-out screencap -p > "$dir/changed.png"
+wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
+adb shell cmd overlay disable "$overlay" || true
+adb shell cmd uimode night no
+adb logcat -d -v threadtime > "$dir/logcat.txt"
+expect "$dir/logcat.txt" changes "phone check: themechanged :dark" "phone check: quits after" \
+  "$identifier: .* exited with status 0" || status=1
+refuse "$dir/logcat.txt" changes "SDL *: activity finished" "SDL *: activity re-created" "\[BUG\]" || status=1
+
+grep -h "phone check:\|$identifier: .* exited with status\|SDL *: activity\|FATAL\|\[BUG\]" "$out"/*/logcat.txt || true
 exit $status

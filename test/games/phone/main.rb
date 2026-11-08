@@ -8,7 +8,8 @@
 # Draws a background that changes color, a rectangle, a line of text, and
 # a square where the last touch landed, so a screenshot shows that the
 # engine drew and that a touch arrived; plays a quiet tone; prints what it
-# saw, each line starting "phone check:", which the phone's log shows; and
+# saw, the system's theme and languages and each change to them among it,
+# each line starting "phone check:", which the phone's log shows; and
 # quits with status 0 after PHONE_CHECK_SECONDS, 20 by default.
 module PhoneCheck
   # What a graphics call from another Ruby thread does: LÖVE confines
@@ -39,6 +40,7 @@ def Lota.load
   puts "phone check: loaded on #{Lota::System.os}, renderer #{Lota::Graphics.renderer_info.join(' / ')}"
   puts "phone check: window #{Lota::Graphics.dimensions.join('x')}, pixels " \
     "#{Lota::Graphics.pixel_dimensions.join('x')}, dpi scale #{Lota::Graphics.dpi_scale}"
+  puts "phone check: system theme #{Lota::Window.system_theme.inspect}, locales #{Lota::System.preferred_locales.inspect}"
   puts "phone check: save directory #{Lota::Filesystem.save_directory}"
   puts "phone check: saved #{Lota::Filesystem.write('check.txt', 'saved').first}"
   puts "phone check: another thread: #{PhoneCheck.off_main_thread}"
@@ -72,6 +74,14 @@ end
 
 def Lota.keypressed(key, scancode)
   puts "phone check: keypressed #{key.inspect} #{scancode.inspect}"
+end
+
+def Lota.themechanged
+  puts "phone check: themechanged #{Lota::Window.system_theme.inspect}"
+end
+
+def Lota.localechanged
+  puts "phone check: localechanged #{Lota::System.preferred_locales.inspect}"
 end
 
 def Lota.quit

@@ -19,7 +19,8 @@
 # the Gradle project is built as a debug APK, a release APK, and an
 # Android App Bundle, which are signed with a key made for the run, as a
 # studio signs with its own; the debug APK runs on an x86_64 emulator of
-# API 36, with a tap and Back (.github/phones/android_emulator.sh). Nothing
+# API 36, with a tap, Back, and dark mode and an overlay turned on while
+# the game runs (.github/phones/android_emulator.sh). Nothing
 # here runs on a phone or tablet, signs with an Apple team, or exports an
 # IPA, and no runner can boot an arm64 Android emulator, so arm64-v8a is
 # built and never run.

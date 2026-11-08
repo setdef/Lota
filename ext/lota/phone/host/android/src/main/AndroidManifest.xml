@@ -10,6 +10,17 @@
   3.0, vibration, a full screen with no title bar, and no restart of the
   activity when the screen turns or a keyboard comes and goes.
 
+  Android restarts the activity for any other change of configuration,
+  and SDL then ends the game and exits the app, in love-android too
+  (doc/contributors/upstream/014.md). So, unlike love-android, the
+  activity also handles dark mode (uiMode), the font's size and weight
+  (fontScale, fontWeightAdjustment), the app's language (locale, with
+  layoutDirection, which a change of language also changes), and a
+  change of the system's overlays (assetsPaths), which Android 12 and
+  newer make when the wallpaper's colours change. SDL's own manifest
+  handles all but the last of these. A game hears dark mode as
+  Lota.themechanged and the language as Lota.localechanged.
+
   Back reaches the game as the key escape, and then SDL closes the app,
   as in LÖVE. A game that decides what Back does itself adds, inside
   <application>:
@@ -28,7 +39,7 @@
         <activity
             android:name="org.setdef.fledge.host.MainActivity"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|fontScale|fontWeightAdjustment|locale|layoutDirection|assetsPaths"
             android:launchMode="singleInstance"
             android:exported="true">
             <intent-filter>
