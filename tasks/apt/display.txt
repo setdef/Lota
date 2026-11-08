@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# A desktop's display server and OpenGL, not their development files, for
+# the jobs that run a built gem rather than build one, and libyaml's, which
+# Bundler compiles psych against for the bundle that runs them.
+xvfb
+openbox
+libgl1
+libegl1
+libgl1-mesa-dri
+libyaml-dev

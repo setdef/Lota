@@ -19,7 +19,7 @@ bundle exec rake
 
 `bin/setup` installs the pinned tools from `mise.toml`, CMake, Ninja, clang-format, and clang-tidy among them, and on Linux patchelf. It also runs `bundle exec rake sources:fetch`, which downloads the source archive of each framework or library whose license asks the gem to carry its source, so far OpenAL Soft's 1.24.3 release (about 1 MB), into `vendor/sources`, which git ignores, and keeps it only when its SHA-256 is the one `ext/lota/licenses.rb` records; on Linux it also runs the Makefile's downloads, the release of each library it builds, into `vendor/sources/linux`. The gate never downloads anything.
 
-On Linux, first install the packages LÖVE's own Linux CI installs to build its dependencies (the `apt-get install` in `.github/workflows/ci.yml`'s Linux gate, for Ubuntu 22.04 or newer), and run the tests on a display: the CI runs them on Xvfb with Openbox, as LÖVE's runs Lövetest.
+On Ubuntu 22.04 or newer, `bin/setup` checks that the packages in `tasks/apt/build.txt` are installed, the ones LÖVE's own Linux CI installs to build its dependencies and the Xvfb and Openbox the tests run on, as LÖVE's CI runs Lövetest; if any are missing it prints the `sudo apt-get install` command for them and stops, and never runs `sudo` itself. The CI installs from the same lists, and `tasks/apt/runner.txt` holds the two packages only its runner needs (GCC 12's libstdc++ headers for clang-tidy, and libfuse2).
 
 ### Ruby and ZJIT
 

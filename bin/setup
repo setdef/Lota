@@ -6,6 +6,21 @@ set -euo pipefail
 IFS=$'\n\t'
 set -vx
 
+# LÖVE's Linux dependencies and the display the tests run on are system
+# packages (tasks/apt/build.txt, which CI installs from too). Report the
+# missing ones with the command that installs them; never run sudo here.
+if [ "$(uname -s)" = Linux ] && command -v apt-get >/dev/null 2>&1 && command -v dpkg-query >/dev/null 2>&1; then
+  missing="$(bin/apt-packages missing build | tr '\n' ' ')"
+  if [ -n "$missing" ]; then
+    {
+      echo "These Ubuntu packages are missing: $missing"
+      echo "Install them, then run bin/setup again:"
+      echo "  sudo apt-get install --assume-yes $missing"
+    } >&2
+    exit 1
+  fi
+fi
+
 if command -v mise >/dev/null 2>&1; then
   # vendor/love and vendor/love-apple-dependencies, which the engine builds from
   git submodule update --init

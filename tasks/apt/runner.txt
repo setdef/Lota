@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Packages only the GitHub Actions Ubuntu runner needs, on top of build.txt.
+# libstdc++-12-dev gives clang-tidy (rake cpp:tidy) GCC 12's headers, the
+# newest it reads on the runner's Ubuntu: its analyzer follows GCC 12's
+# std::shared_ptr and reports a leak in every Rice::Object it reads through
+# GCC 11's. A newer Ubuntu has no GCC 12 and its own newer headers instead.
+# libfuse2 runs AppImages, which the runner's Ubuntu 24.04 no longer ships.
+libstdc++-12-dev
+libfuse2

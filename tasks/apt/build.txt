@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# The Ubuntu packages that build Lota's Linux engine and run its tests, for
+# Ubuntu 22.04 or newer: LÖVE's own Linux CI installs them, but for its
+# Vulkan driver, and Lota adds libyaml-dev (Bundler compiles psych against
+# it), xvfb and openbox (the tests run on a display), and wmctrl.
+# One package a line; bin/apt-packages reads this file for bin/setup and for
+# .github/workflows/ci.yml.
+build-essential
+git
+make
+cmake
+autoconf
+automake
+libtool
+pkg-config
+libasound2-dev
+libpulse-dev
+libaudio-dev
+libjack-dev
+libx11-dev
+libxext-dev
+libxrandr-dev
+libxcursor-dev
+libxfixes-dev
+libxi-dev
+libxinerama-dev
+libxxf86vm-dev
+libxss-dev
+libxtst-dev
+libgl1-mesa-dev
+libdbus-1-dev
+libudev-dev
+libgles2-mesa-dev
+libegl1-mesa-dev
+libibus-1.0-dev
+fcitx-libs-dev
+libsamplerate0-dev
+libsndio-dev
+libwayland-dev
+libxkbcommon-dev
+libdrm-dev
+libgbm-dev
+libcurl4-openssl-dev
+wmctrl
+openbox
+libpipewire-0.3-dev
+libdecor-0-dev
+liburing-dev
+xvfb
+libyaml-dev

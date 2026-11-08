@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Reads the lists of Ubuntu packages in tasks/apt, which bin/setup and
+# .github/workflows/ci.yml both install from.
+#
+#   bin/apt-packages list build [runner ...]     the names, one a line
+#   bin/apt-packages missing build [runner ...]  those dpkg-query finds not installed
+
+set -euo pipefail
+IFS=$'\n\t'
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() {
+  echo "usage: bin/apt-packages list|missing NAME..." >&2
+  exit 2
+}
+
+[ "$#" -ge 2 ] || usage
+command="$1"
+shift
+
+names() {
+  local name
+  for name in "$@"; do
+    local file="$root/tasks/apt/$name.txt"
+    [ -f "$file" ] || { echo "bin/apt-packages: no list $file" >&2; exit 2; }
+    sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$file"
+  done | sort -u
+}
+
+case "$command" in
+  list) names "$@" ;;
+  missing)
+    names "$@" | while read -r package; do
+      status="$(dpkg-query --show --showformat='${db:Status-Status}' "$package" 2>/dev/null || true)"
+      [ "$status" = installed ] || echo "$package"
+    done
+    ;;
+  *) usage ;;
+esac
