@@ -193,7 +193,7 @@ class ImageDataTest < Minitest::Test
     copies.each do |copy|
       assert_equal "\xFF\xFF\xFF\xFF".b, copy.string.b
       assert_equal "ImageData", copy.type
-      refute_same image.native, copy.native
+      refute_same image.__send__(:native), copy.__send__(:native)
     end
   end
 

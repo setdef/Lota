@@ -3,12 +3,8 @@
 
 module Lota
   module Filesystem
-    class File
-      include Object
-
-      attr_reader native: Native::File
-
-      def self.from_native: (Native::File native) -> File
+    class File < Object[Native::File]
+      private def self.from_native: (Native::File native) -> File
 
       def open: (Symbol | String mode) -> Array[bool | nil | String]
 

@@ -6,7 +6,7 @@
 #++
 
 module Lota
-  module Data
+  class Data
     # Bytes in the engine's memory that a game can write, matching LÖVE's
     # ByteData class (src/modules/data/ByteData.h).
     #
@@ -21,16 +21,10 @@ module Lota
     #   data = Lota::Data::ByteData.new(8)
     #   data.uint32 = 0, 7, 9
     #   data.uint32(0, 2) # => [7, 9]
-    class ByteData
-      include Object
-      include Data
-
-      # The engine's ByteData, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class ByteData < Data
       # Wraps a ByteData the engine made, such as one
       # Lota::Data.decompress returns. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         data = allocate
         data.instance_variable_set(:@native, native)
         data
@@ -57,7 +51,7 @@ module Lota
       #   Lota::Data::ByteData.new(file_data, 4, 2)
       def self.new(source, offset = nil, size = nil)
         native = case source
-        when Data then Native::Data.new_byte_data_of_data(source.native, offset, size)
+        when Data then Native::Data.new_byte_data_of_data(source.__send__(:native), offset, size)
         when String then Native::Data.new_byte_data_of_string(source)
         else Native::Data.new_byte_data_of_size(source)
         end
@@ -116,7 +110,7 @@ module Lota
       #   data.float = 0, 1.5, -2.0
       #   data.float = 0, [1.5, -2.0]
       def float=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_float(offset, values)
       end
 
@@ -128,7 +122,7 @@ module Lota
       #
       #   data.double = 0, 1.5
       def double=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_double(offset, values)
       end
 
@@ -141,7 +135,7 @@ module Lota
       #
       #   data.int8 = 0, -1, 7
       def int8=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_int8(offset, values)
       end
 
@@ -154,7 +148,7 @@ module Lota
       #
       #   data.uint8 = 0, 255, 7
       def uint8=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_uint8(offset, values)
       end
 
@@ -166,7 +160,7 @@ module Lota
       #
       #   data.int16 = 0, -7
       def int16=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_int16(offset, values)
       end
 
@@ -178,7 +172,7 @@ module Lota
       #
       #   data.uint16 = 2, 65535
       def uint16=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_uint16(offset, values)
       end
 
@@ -190,7 +184,7 @@ module Lota
       #
       #   data.int32 = 4, 65536
       def int32=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_int32(offset, values)
       end
 
@@ -204,14 +198,14 @@ module Lota
       #
       #   data.uint32 = 4, 4294967295
       def uint32=(offset_and_values)
-        offset, values = ByteData.offset_and_values(offset_and_values)
+        offset, values = ByteData.__send__(:offset_and_values, offset_and_values)
         @native.set_uint32(offset, values)
       end
 
       # The offset and the values a writer of numbers is given, as LÖVE
       # reads them: the values are a table when the first is one, and
       # otherwise every argument after the offset. :nodoc:
-      def self.offset_and_values(arguments)
+      private_class_method def self.offset_and_values(arguments)
         offset, *rest = arguments
         first = rest.first
         [offset, first.is_a?(Array) ? first : rest] #: [Float | Integer, Array[Float | Integer]]

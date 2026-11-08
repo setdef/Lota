@@ -22,8 +22,7 @@ class SensorTest < Lovetest::TestMethod
   # (vendor/love/testing/tests/sensor.lua:11-47): setEnabled becomes the
   # writer enabled= of the type and the setting (rule 6), isEnabled
   # enabled? (rule 8), getData data (rule 3), whose three values are an
-  # Array (rule 4), and getName get_name, which keeps its prefix while
-  # rule 3's name collides with Ruby's Module#name. Lua's pcall, which
+  # Array (rule 4), and getName name (rule 3). Lua's pcall, which
   # returns false when the call raised, becomes a rescue.
   def check_is_enabled(sensor_type)
     Lota::Sensor.enabled = sensor_type, true
@@ -34,12 +33,12 @@ class SensorTest < Lovetest::TestMethod
 
   def check_get_name(sensor_type)
     Lota::Sensor.enabled = sensor_type, true
-    ok, name = attempt { Lota::Sensor.get_name(sensor_type) }
+    ok, name = attempt { Lota::Sensor.name(sensor_type) }
     assert_equal(true, ok, "check sensor.getName(\"#{sensor_type}\") success")
     assert_equal(String, name.class, "check sensor.getName(\"#{sensor_type}\") return value type")
 
     Lota::Sensor.enabled = sensor_type, false
-    ok, = attempt { Lota::Sensor.get_name(sensor_type) }
+    ok, = attempt { Lota::Sensor.name(sensor_type) }
     assert_equal(false, ok, "check sensor.getName(\"#{sensor_type}\") errors when disabled")
   end
 

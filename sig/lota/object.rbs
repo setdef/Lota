@@ -6,23 +6,29 @@ module Lota
     def object_type: () -> String
 
     def type_of?: (String name) -> bool
+
+    def to_s: () -> String
+
+    def ==: (::Object other) -> bool
+
+    def release: () -> bool
   end
 
-  interface _WrapsObject
-    def native: () -> _EngineNative
-  end
+  class Object[out N < _EngineNative = _EngineNative]
+    private def self.method_added: (Symbol name) -> void
 
-  module Object : _WrapsObject
-    module TypeRule : Module
-      def method_added: (Symbol name) -> void
-    end
-
-    def self.included: (Module base) -> void
+    attr_reader native: N
 
     def object_type: () -> String
 
     def type: () -> String
 
     def type_of?: (::Object name) -> bool
+
+    def release: () -> bool
+
+    def to_s: () -> String
+
+    def ==: (::Object other) -> bool
   end
 end

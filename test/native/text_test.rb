@@ -39,7 +39,7 @@ class TextTest < Minitest::Test
 
   # Every pixel of +image+, as a String of its bytes.
   def pixels(image)
-    LotaNativeTest.image_data_bytes(image.native)
+    LotaNativeTest.image_data_bytes(image.__send__(:native))
   end
 
   def lit?(image)

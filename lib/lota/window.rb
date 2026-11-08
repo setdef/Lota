@@ -482,7 +482,7 @@ module Lota
     #   Lota::Window.icon # => nil
     def self.icon
       native = Native::Window.icon
-      native && Lota::Image::ImageData.from_native(native)
+      native && Lota::Image::ImageData.__send__(:from_native, native)
     end
 
     # Sets the window's icon, matching love.window.setIcon
@@ -503,7 +503,7 @@ module Lota
         raise TypeError, "wrong argument type #{imagedata.class} (expected Lota::Image::ImageData)"
       end
 
-      Native::Window.set_icon(imagedata.native)
+      Native::Window.set_icon(imagedata.__send__(:native))
     end
 
     # The window's vertical synchronization: 1 waits for the display's

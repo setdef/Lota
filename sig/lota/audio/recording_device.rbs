@@ -3,12 +3,8 @@
 
 module Lota
   module Audio
-    class RecordingDevice
-      include Object
-
-      attr_reader native: Native::RecordingDevice
-
-      def self.from_native: (Native::RecordingDevice native) -> RecordingDevice
+    class RecordingDevice < Object[Native::RecordingDevice]
+      private def self.from_native: (Native::RecordingDevice native) -> RecordingDevice
 
       def start: (?Integer? samples, ?Integer? samplerate, ?Integer? bitdepth, ?Integer? channels) -> bool
 

@@ -102,8 +102,8 @@ class DataTest < Minitest::Test
 
     assert_equal "helloworld", copy.string
     assert_equal 10, copy.size
-    refute_same data.native, copy.native
-    refute_same data.native, data.dup.native
+    refute_same data.__send__(:native), copy.__send__(:native)
+    refute_same data.__send__(:native), data.dup.__send__(:native)
   end
 
   # SoundData:clone copies the samples, so a change to the copy leaves the
@@ -127,7 +127,7 @@ class DataTest < Minitest::Test
     copy = decoder.clone
 
     assert_equal first, copy.decode.string
-    refute_same decoder.native, copy.native
+    refute_same decoder.__send__(:native), copy.__send__(:native)
   end
 
   # Source:clone makes a new Source of the same sound, with the original's

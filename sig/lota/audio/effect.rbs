@@ -87,7 +87,7 @@ module Lota
       def self.new: (type: Symbol?, volume: Float?, gain: Float?, highgain: Float?, density: Float?, diffusion: Float?, decaytime: Float?, decayhighratio: Float?, earlygain: Float?, earlydelay: Float?, lategain: Float?, latedelay: Float?, roomrolloff: Float?, airabsorption: Float?, highlimit: Float?, waveform: Symbol?, phase: Float?, rate: Float?, depth: Float?, feedback: Float?, delay: Float?, edge: Float?, lowcut: Float?, center: Float?, bandwidth: Float?, tapdelay: Float?, damping: Float?, spread: Float?, frequency: Float?, highcut: Float?, enable: bool?, lowgain: Float?, lowmidgain: Float?, lowmidfrequency: Float?, lowmidbandwidth: Float?, highmidgain: Float?, highmidfrequency: Float?, highmidbandwidth: Float?) -> instance
                   | (*(Symbol | Float | bool)? values) -> instance
 
-      def self.of: (Array[[String, Float | bool | String]] pairs) -> Effect
+      private def self.of: (Array[[String, Float | bool | String]] pairs) -> Effect
     end
   end
 end

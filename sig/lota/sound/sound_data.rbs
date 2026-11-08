@@ -3,13 +3,8 @@
 
 module Lota
   module Sound
-    class SoundData
-      include Object
-      include Data
-
-      attr_reader native: Native::SoundData
-
-      def self.from_native: (Native::SoundData native) -> SoundData
+    class SoundData < Data[Native::SoundData]
+      private def self.from_native: (Native::SoundData native) -> SoundData
 
       def self.new: (Integer samples, ?Integer sample_rate, ?Integer bit_depth, ?Integer channels) -> SoundData
                   | (String | Filesystem::FileData | Decoder source) -> SoundData

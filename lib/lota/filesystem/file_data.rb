@@ -18,7 +18,7 @@ module Lota
     # Lota::Image::ImageData.new.
     #
     # Use it to decode an image you read yourself, or one you built in
-    # memory. It is a Data, so it includes Lota::Data, whose #size and
+    # memory. It is a Data, so it inherits from Lota::Data, whose #size and
     # #string give its bytes back.
     #
     # === Examples
@@ -29,16 +29,14 @@ module Lota
     #
     #   # The name matters only for its extension.
     #   Lota::Filesystem::FileData.new(png, "anything.png")
-    class FileData
-      include Object
-      include Data
-
-      # The engine's FileData, for Lota's own modules. :nodoc:
-      attr_reader :native
+    class FileData < Data
+      # Its +new+, the constructor love.filesystem.newFileData becomes
+      # (ADR 001, rule 2), which Lota::Object leaves private.
+      public_class_method :new
 
       # Wraps a FileData the engine made, such as one
       # Lota::Image::ImageData#encode returns. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         file_data = allocate
         file_data.instance_variable_set(:@native, native)
         file_data

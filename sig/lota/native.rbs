@@ -35,6 +35,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     module Math
@@ -78,6 +84,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def control_point: (Integer idx) -> [Float, Float]
 
       def render: (?Integer accuracy) -> Array[Float]
@@ -91,6 +103,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def matrix: () -> Array[Float]
 
@@ -116,15 +134,21 @@ module Lota
 
       def self.compress: (String format, Integer level, String container, (String | Data)? source) -> (String | CompressedData)
 
-      def self.decompress_compressed_data: (String container, CompressedData data) -> (String | ByteData)
+      def self.decompress_compressed_data: (String container, CompressedData data) -> (String | Data)
 
-      def self.decompress: (String format, (String | Data)? source, String container) -> (String | ByteData)
+      def self.decompress: (String format, (String | Data)? source, String container) -> (String | Data)
 
-      def self.encode: (String format, Integer linelen, String container, (String | Data)? source) -> (String | ByteData)
+      def self.encode: (String format, Integer linelen, String container, (String | Data)? source) -> (String | Data)
 
-      def self.decode: (String format, (String | Data)? source, String container) -> (String | ByteData)
+      def self.decode: (String format, (String | Data)? source, String container) -> (String | Data)
 
       def self.check_container: (String container) -> nil
+
+      def self.hash_bytes: (String container, ::Object? source, String function) -> (String | Data)
+
+      def self.hash_function?: (String name) -> bool
+
+      def self.new_data_of_string: (String bytes) -> Data
 
       class Data
         def self.cpp_class: () -> String
@@ -132,6 +156,12 @@ module Lota
         def object_type: () -> String
 
         def type_of?: (String name) -> bool
+
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def release: () -> bool
 
         def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
 
@@ -162,6 +192,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def set_string: (String string, ?(Float | Integer) offset) -> nil
 
       def set_float: (Float | Integer offset, Array[Float | Integer] values) -> nil
@@ -187,6 +223,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class DataView < Data::Data
@@ -195,6 +237,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class FileData < Data::Data
@@ -203,6 +251,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class File
@@ -211,6 +265,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def size: () -> Array[Integer | nil | String]
 
@@ -232,6 +292,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def width: () -> Integer
 
       def height: () -> Integer
@@ -251,6 +317,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def width: (?Integer? mipmap) -> Integer
 
@@ -274,6 +346,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def set_viewport: (Array[Float | Integer] viewport, ?(Float | Integer)? sw, ?(Float | Integer)? sh) -> nil
     end
 
@@ -283,6 +361,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def add: (Quad? quad, Array[Float | Integer] placement) -> Integer
 
@@ -299,6 +383,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def set: (Array[colored_text] text) -> nil
 
@@ -319,6 +409,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       type value = Float | Integer | bool | String | Texture | Buffer | Transform | Data::Data | Array[Float | Integer | bool | Array[Float | Integer]]
 
@@ -346,6 +442,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def set_array_data: (Array[::Object?] arguments) -> nil
 
       def clear: (Array[::Object?] range) -> nil
@@ -363,6 +465,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def set_vertices: (Array[::Object?] arguments) -> nil
 
@@ -401,6 +509,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def set_buffer_size: (Float | Integer size) -> nil
 
@@ -560,6 +674,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def seek: (Float | Integer offset, ?String? unit) -> nil
 
       def tell: (?String? unit) -> Float
@@ -586,6 +706,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def start: (?Integer? samples, ?Integer? samplerate, ?Integer? bitdepth, ?Integer? channels) -> bool
     end
 
@@ -596,6 +722,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def decode: () -> SoundData?
     end
 
@@ -605,6 +737,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def sample: (Float | Integer i, ?(Float | Integer)? channel) -> Float
 
@@ -714,6 +852,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def glyph_data_of_text: (String glyph) -> GlyphData
 
       def glyph_data: (Float | Integer glyph) -> GlyphData
@@ -735,6 +879,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     module Timer
@@ -783,6 +933,12 @@ module Lota
 
         def type_of?: (String name) -> bool
 
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def release: () -> bool
+
         def axes: () -> Array[Float]
 
         def down?: (Array[Integer | Array[Integer]] | Array[Integer] buttons) -> bool
@@ -824,6 +980,12 @@ module Lota
         def object_type: () -> String
 
         def type_of?: (String name) -> bool
+
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def release: () -> bool
 
         def get_type: () -> String
       end
@@ -1077,6 +1239,12 @@ module Lota
 
         def type_of?: (String name) -> bool
 
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def release: () -> bool
+
         def text_width: (String text) -> Float
 
         def glyph_width: (Integer | Float glyph) -> Float
@@ -1101,6 +1269,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def update: (Float | Integer dt, ?Integer? velocityiterations, ?Integer? positioniterations) -> nil
 
@@ -1138,6 +1312,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def shapes: () -> Array[Shape]
 
       def joints: () -> Array[Joint]
@@ -1168,6 +1348,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def set_category: (Array[Integer | Array[Integer]] categories) -> nil
 
       def category: () -> Array[Integer]
@@ -1197,6 +1383,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class PolygonShape < Shape
@@ -1205,6 +1397,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def points: () -> Array[Float]
     end
@@ -1216,6 +1414,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def points: () -> Array[Float]
     end
 
@@ -1226,6 +1430,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def points: () -> Array[Float]
     end
 
@@ -1235,6 +1445,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def anchors: () -> Array[Float]
 
@@ -1251,6 +1467,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class FrictionJoint < Joint
@@ -1259,6 +1481,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class GearJoint < Joint
@@ -1267,6 +1495,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class MotorJoint < Joint
@@ -1275,6 +1509,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def linear_offset: () -> Array[Float]
     end
@@ -1286,6 +1526,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def target: () -> Array[Float]
     end
 
@@ -1295,6 +1541,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def limits: () -> Array[Float]
 
@@ -1308,6 +1560,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def ground_anchors: () -> Array[Float]
     end
 
@@ -1318,6 +1576,12 @@ module Lota
 
       def type_of?: (String name) -> bool
 
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
       def limits: () -> Array[Float]
     end
 
@@ -1327,6 +1591,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class WeldJoint < Joint
@@ -1335,6 +1605,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
     end
 
     class WheelJoint < Joint
@@ -1343,6 +1619,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def axis: () -> Array[Float]
     end
@@ -1353,6 +1635,12 @@ module Lota
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
 
       def normal: () -> Array[Float]
 

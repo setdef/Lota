@@ -241,7 +241,7 @@ class FontModuleFunctionsTest < Minitest::Test
     copy = glyph.clone
 
     assert_equal [glyph.string, glyph.advance, glyph.bearing], [copy.string, copy.advance, copy.bearing]
-    refute_same glyph.native, copy.native
+    refute_same glyph.__send__(:native), copy.__send__(:native)
   end
 
   # w_Rasterizer_hasGlyphs answers for every argument, and needs one.

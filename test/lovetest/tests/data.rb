@@ -11,11 +11,8 @@ require_relative "../lovetest_helper"
 # translated to Ruby by ADR 001's rules. They run in the test suite's own
 # process (test/lovetest/data_test.rb) and under lota run
 # (test/lovetest/game). love.data's container types, formats, and hash
-# functions are Symbols (rule 9). Its hash test waits: rule 13 names
-# love.data.hash +hash+, which Ruby's own Object#hash already means, so
-# Lota does not bind it until the maintainer settles the name. The class
-# is DataModuleTest, as Lota's is LotaModuleTest, since DataTest is
-# test/native/data_test.rb's.
+# functions are Symbols (rule 9). The class is DataModuleTest, as Lota's
+# is LotaModuleTest, since DataTest is test/native/data_test.rb's.
 class DataModuleTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.data.ByteData).
   TYPES = %w[ByteData CompressedData].freeze
@@ -26,11 +23,11 @@ class DataModuleTest < Lovetest::TestMethod
   #
   # Lua's type of +value+, for the two kinds Lövetest's compress and
   # encode tests tell apart: a string, and the userdata of one of LÖVE's
-  # objects, which assertObject recognises by the native object Lota wraps
+  # objects, which Lota makes a Lota::Object, as assertObject recognises it
   # (lovetest_helper.rb, assert_object).
   def lua_type(value)
     if value.is_a?(String) then "string"
-    elsif value.respond_to?(:native) then "userdata"
+    elsif value.is_a?(Lota::Object) then "userdata"
     else value.class.name
     end
   end
@@ -217,6 +214,51 @@ class DataModuleTest < Lovetest::TestMethod
       assert_equal(kind, lua_type(encoded), "check is usedata")
       refute_equal(nil, encoded.object_type, "check has :type()") if kind == "userdata"
     end
+  end
+
+  # Translated to Ruby from love.test.data.hash
+  # (vendor/love/testing/tests/data.lua:207-237): love.data.hash becomes
+  # Lota::Data.hash, which rule 13 names +hash+, and which with arguments
+  # is LÖVE's rather than Ruby's own Object#hash.
+  def test_hash
+    # setup all the different hashing types
+    str1 = Lota::Data.hash(:string, :md5, "helloworld")
+    str2 = Lota::Data.hash(:string, :sha1, "helloworld")
+    str3 = Lota::Data.hash(:string, :sha224, "helloworld")
+    str4 = Lota::Data.hash(:string, :sha256, "helloworld")
+    str5 = Lota::Data.hash(:string, :sha384, "helloworld")
+    str6 = Lota::Data.hash(:string, :sha512, "helloworld")
+    data1 = Lota::Data.hash(:data, :md5, "helloworld")
+    data2 = Lota::Data.hash(:data, :sha1, "helloworld")
+    data3 = Lota::Data.hash(:data, :sha224, "helloworld")
+    data4 = Lota::Data.hash(:data, :sha256, "helloworld")
+    data5 = Lota::Data.hash(:data, :sha384, "helloworld")
+    data6 = Lota::Data.hash(:data, :sha512, "helloworld")
+    # check encoded hash value matches what's expected for that algo
+    # test container string
+    assert_equal("fc5e038d38a57032085441e7fe7010b0", Lota::Data.encode(:string, :hex, str1), "check string md5 encode")
+    assert_equal("6adfb183a4a2c94a2f92dab5ade762a47889a5a1", Lota::Data.encode(:string, :hex, str2),
+      "check string sha1 encode")
+    assert_equal("b033d770602994efa135c5248af300d81567ad5b59cec4bccbf15bcc", Lota::Data.encode(:string, :hex, str3),
+      "check string sha224 encode")
+    assert_equal("936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af",
+      Lota::Data.encode(:string, :hex, str4), "check string sha256 encode")
+    assert_equal("97982a5b1414b9078103a1c008c4e3526c27b41cdbcf80790560a40f2a9bf2ed4427ab1428789915ed4b3dc07c454bd9",
+      Lota::Data.encode(:string, :hex, str5), "check string sha384 encode")
+    assert_equal("1594244d52f2d8c12b142bb61f47bc2eaf503d6d9ca8480cae9fcf112f66e4967dc5e8fa98285e36db8af1b8ffa8b84cb15e0fbcf836c3deb803c13f37659a60",
+      Lota::Data.encode(:string, :hex, str6), "check string sha512 encode")
+    # test container data
+    assert_equal("fc5e038d38a57032085441e7fe7010b0", Lota::Data.encode(:string, :hex, data1), "check data md5 encode")
+    assert_equal("6adfb183a4a2c94a2f92dab5ade762a47889a5a1", Lota::Data.encode(:string, :hex, data2),
+      "check data sha1 encode")
+    assert_equal("b033d770602994efa135c5248af300d81567ad5b59cec4bccbf15bcc", Lota::Data.encode(:string, :hex, data3),
+      "check data sha224 encode")
+    assert_equal("936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af",
+      Lota::Data.encode(:string, :hex, data4), "check data sha256 encode")
+    assert_equal("97982a5b1414b9078103a1c008c4e3526c27b41cdbcf80790560a40f2a9bf2ed4427ab1428789915ed4b3dc07c454bd9",
+      Lota::Data.encode(:string, :hex, data5), "check data sha384 encode")
+    assert_equal("1594244d52f2d8c12b142bb61f47bc2eaf503d6d9ca8480cae9fcf112f66e4967dc5e8fa98285e36db8af1b8ffa8b84cb15e0fbcf836c3deb803c13f37659a60",
+      Lota::Data.encode(:string, :hex, data6), "check data sha512 encode")
   end
 
   # Translated to Ruby from love.test.data.getPackedSize

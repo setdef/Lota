@@ -3,13 +3,11 @@
 
 module Lota
   module Image
-    class ImageData
-      include Object
-      include Data
+    class ImageData < Data[Native::ImageData]
+      private def self.from_native: (Native::ImageData native) -> ImageData
 
-      attr_reader native: Native::ImageData
-
-      def self.from_native: (Native::ImageData native) -> ImageData
+      def self.new: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> ImageData
+                  | (Filesystem::FileData | String source) -> ImageData
 
       def initialize: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> void
                     | (Filesystem::FileData | String source) -> void

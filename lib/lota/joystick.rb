@@ -52,7 +52,7 @@ module Lota
     #
     #   Lota::Joystick.joysticks # => [#<Lota::Joystick::Joystick ...>]
     def self.joysticks
-      Native::Joystick.joysticks.map { |native| self::Joystick.from_native(native) }
+      Native::Joystick.joysticks.map { |native| self::Joystick.__send__(:from_native, native) }
     end
 
     # How many controllers are connected, matching

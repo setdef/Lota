@@ -19,7 +19,7 @@ module Lota
     #
     # Use it to check what a canvas holds, to compare an image with the
     # one you expected, to inspect a decoded file, or to draw pixels of
-    # your own. It is a Data, so it includes Lota::Data, whose #size and
+    # your own. It is a Data, so it inherits from Lota::Data, whose #size and
     # #string give its bytes.
     #
     # Its pixels read and write as LÖVE runs ImageData's methods, in the
@@ -39,16 +39,14 @@ module Lota
     #   Lota::Graphics.clear(1, 1, 0)
     #   Lota::Graphics.canvas = nil
     #   Lota::Graphics.readback_texture(canvas).pixel(8, 8) # => [1.0, 1.0, 0.0, 1.0]
-    class ImageData
-      include Object
-      include Data
-
-      # The engine's ImageData, for Lota's own modules. :nodoc:
-      attr_reader :native
+    class ImageData < Data
+      # Its +new+, the constructor love.image.newImageData becomes
+      # (ADR 001, rule 2), which Lota::Object leaves private.
+      public_class_method :new
 
       # Wraps an ImageData the engine made, such as one read back from a
       # canvas. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         image_data = allocate
         image_data.instance_variable_set(:@native, native)
         image_data
@@ -224,7 +222,7 @@ module Lota
       #   png = image_data.encode(:png)
       #   image_data.encode(:png, "screenshot.png")
       def encode(format, filename = nil)
-        Filesystem::FileData.from_native(@native.encode(EnumName.of(format), filename))
+        Filesystem::FileData.__send__(:from_native, @native.encode(EnumName.of(format), filename))
       end
 
       # The color of the pixel at +x+, +y+, as an Array of red, green,

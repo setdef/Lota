@@ -3,12 +3,8 @@
 
 module Lota
   module Physics
-    class Contact
-      include Object
-
-      attr_reader native: Native::Contact
-
-      def self.from_native: (Native::Contact native) -> Contact
+    class Contact < Object[Native::Contact]
+      private def self.from_native: (Native::Contact native) -> Contact
 
       def shapes: () -> Array[Shape?]
 

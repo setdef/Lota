@@ -3,13 +3,10 @@
 
 module Lota
   module Filesystem
-    class FileData
-      include Object
-      include Data
+    class FileData < Data[Native::FileData]
+      private def self.from_native: (Native::FileData native) -> FileData
 
-      attr_reader native: Native::FileData
-
-      def self.from_native: (Native::FileData native) -> FileData
+      def self.new: (String contents, String name) -> FileData
 
       def initialize: (String contents, String name) -> void
 

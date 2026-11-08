@@ -326,7 +326,7 @@ module Lota
     # The coordinates a function given +arguments+ reads, as LÖVE reads a
     # table in the first argument's place, or else every argument.
     # :nodoc:
-    def self.coordinates_of(arguments)
+    private_class_method def self.coordinates_of(arguments)
       first = arguments.first
       first.is_a?(Array) ? first : arguments #: Array[number]
     end
@@ -335,7 +335,7 @@ module Lota
     # (src/modules/math/wrap_Math.lua:35), which raises RuntimeError when
     # the math module is not open.
     private_class_method def self.generator
-      RandomGenerator.from_native(Native::Math.random_generator)
+      RandomGenerator.__send__(:from_native, Native::Math.random_generator)
     end
 
     # clamp01 (src/modules/math/wrap_Math.lua:31-33): +c+ no lower than 0
@@ -358,7 +358,7 @@ module Lota
     # A number, which each of these functions needs, as LuaJIT's math
     # library and FFI check.
     private_class_method def self.number(value)
-      RandomGenerator.number(value)
+      RandomGenerator.__send__(:number, value)
     end
 
     # SPDX-SnippetEnd

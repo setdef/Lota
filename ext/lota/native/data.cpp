@@ -18,6 +18,7 @@
 #include "data/Compressor.h"
 #include "data/DataModule.h"
 #include "data/DataView.h"
+#include "data/HashFunction.h"
 #include "thread/threads.h"
 
 #include <algorithm>
@@ -42,6 +43,7 @@ using love::data::ContainerType;
 using love::data::DataModule;
 using love::data::DataView;
 using love::data::EncodeFormat;
+using love::data::HashFunction;
 
 // luaopen_love_data (vendor/love/src/modules/data/wrap_DataModule.cpp:
 // 445-464) creates the module once; it then lives as long as the process,
@@ -85,6 +87,17 @@ Rice::Object string_of(const char *bytes, std::size_t size) {
 
 // The wrapper of +data+, a Data the engine made, which it adopts.
 Rice::Object adopted(love::Data *data) { return {Rice::detail::wrap_engine_object(data, true)}; }
+
+// The wrapper of +data+, a ByteData the engine made, which it adopts, made
+// as LÖVE pushes the ByteData its container "data" holds, with
+// luax_pushtype(L, Data::type, data) (vendor/love/src/modules/data/
+// wrap_DataModule.cpp:191, 238, 287, 345, 374, and 390): an object of
+// LÖVE's root type Data, Lota::Native's class Data, which answers Data's
+// methods and type and not ByteData's. luax_pushtype gives an object that
+// already has a Proxy that one, as wrap_engine_object does.
+Rice::Object adopted_as_data(love::Data *data) {
+  return {Rice::detail::wrap_engine_object_as<love::Data>(data, true)};
+}
 
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -210,19 +223,19 @@ EncodeFormat encode_format_of(const char *kind, const std::string &name) {
 
 // The bytes the engine returns from new[] (wrap_DataModule.cpp:187-198,
 // 230-249, and 279-298), which a ByteData takes over, as LÖVE's
-// newByteData(bytes, size, true) does: that ByteData for the container
-// "data", or a String of its bytes, after which it is released and frees
-// them, as LÖVE frees them with delete[] once it has pushed them. Where
-// the engine returns none, an empty String, or a ByteData of no bytes,
-// which the engine refuses.
+// newByteData(bytes, size, true) does: that ByteData, pushed as a Data,
+// for the container "data", or a String of its bytes, after which it is
+// released and frees them, as LÖVE frees them with delete[] once it has
+// pushed them. Where the engine returns none, an empty String, or a Data
+// of no bytes, which the engine refuses.
 Rice::Object result_of(ContainerType ctype, char *bytes, std::size_t size) {
   if (bytes == nullptr) {
-    return ctype == love::data::CONTAINER_DATA ? adopted(instance()->newByteData(0))
+    return ctype == love::data::CONTAINER_DATA ? adopted_as_data(instance()->newByteData(0))
                                                : string_of(nullptr, 0);
   }
   ByteData *data = instance()->newByteData(bytes, size, true);
   if (ctype == love::data::CONTAINER_DATA) {
-    return adopted(data);
+    return adopted_as_data(data);
   }
   const love::StrongRef<ByteData> held(data, love::Acquire::NORETAIN);
   return string_of(static_cast<const char *>(data->getData()), data->getSize());
@@ -348,6 +361,45 @@ Rice::Object decode(const std::string &format_name, Rice::Object source_given,
   return result_of(ctype, dst, dstlen);
 }
 
+// w_hash (wrap_DataModule.cpp:303-352), from where it has read its
+// arguments: +source+, a String or a Data, hashed with the function
+// +function_name+, as a Data for the container "data", pushed as w_hash
+// pushes it, or as a String. The source comes between the two names, so
+// that they cannot be swapped by mistake.
+Rice::Object hash_bytes(const std::string &container, Rice::Object source_given,
+                        const std::string &function_name) {
+  const Rice::Object source = std::move(source_given);
+  const ContainerType ctype = container_of(container);
+  HashFunction::Function function = HashFunction::FUNCTION_MD5;
+  if (!HashFunction::getConstant(function_name.c_str(), function)) {
+    raise_enum_error("hash function", HashFunction::getConstants(function), function_name);
+  }
+  const std::span<const char> raw = bytes_of(source);
+  HashFunction::Value hashvalue{};
+  love::data::hash(function, raw.data(), raw.size(), hashvalue);
+  const std::span<const char> digest = std::span(hashvalue.data).first(hashvalue.size);
+  if (ctype == love::data::CONTAINER_DATA) {
+    ByteData *data = instance()->newByteData(digest.size());
+    std::memcpy(data->getData(), digest.data(), digest.size());
+    return adopted_as_data(data);
+  }
+  return string_of(digest.data(), digest.size());
+}
+
+// Whether +name+ is one of LÖVE's hash functions, as w_hash asks of its
+// first argument when it is no container type (wrap_DataModule.cpp:
+// 311-320), for the variant LÖVE deprecated.
+bool is_hash_function(const std::string &name) {
+  HashFunction::Function function = HashFunction::FUNCTION_MD5;
+  return HashFunction::getConstant(name.c_str(), function);
+}
+
+// w_pack with the container "data" (wrap_DataModule.cpp:378-394): the
+// bytes Lota::Data.pack packed, in a new ByteData pushed as a Data.
+Rice::Object new_data_of_string(const std::string &bytes) {
+  return adopted_as_data(instance()->newByteData(bytes.data(), bytes.size()));
+}
+
 // w_ByteData_setString (wrap_ByteData.cpp:47-64): copies as many of
 // +string+'s bytes as fit in the Data to byte +offset_number+, which LÖVE
 // reads as a Lua number and truncates to an int64.
@@ -444,7 +496,11 @@ void define_data(const Rice::Module &native) {
                                      Rice::Arg("container"), Rice::Arg("source"))
           .define_singleton_function("decode", &decode, Rice::Arg("format"), Rice::Arg("source"),
                                      Rice::Arg("container"))
-          .define_singleton_function("check_container", &check_container, Rice::Arg("container"));
+          .define_singleton_function("check_container", &check_container, Rice::Arg("container"))
+          .define_singleton_function("hash_bytes", &hash_bytes, Rice::Arg("container"),
+                                     Rice::Arg("source"), Rice::Arg("function"))
+          .define_singleton_function("hash_function?", &is_hash_function, Rice::Arg("name"))
+          .define_singleton_function("new_data_of_string", &new_data_of_string, Rice::Arg("bytes"));
   // Its size is generated (ext/lota/native/generated/data.cpp).
   define_engine_class<love::Data>(data_module, "Data")
       .define_method("string", &data_string, Rice::Arg("offset") = 0.0,

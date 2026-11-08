@@ -27,14 +27,9 @@ module Lota
     #   40.times { |x| 30.times { |y| map.add(grass, x * 16, y * 16) } }
     #
     #   def Lota.draw = Lota::Graphics.draw(map)
-    class SpriteBatch
-      include Object
-
-      # The engine's SpriteBatch, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class SpriteBatch < Object
       # Wraps a SpriteBatch the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         batch = allocate
         batch.instance_variable_set(:@native, native)
         batch
@@ -63,7 +58,7 @@ module Lota
         raise ArgumentError, "wrong number of arguments (given #{usage.size + 2}, expected 1..3)" if usage.size > 1
         raise TypeError, "wrong argument type #{texture.class} (expected Lota::Graphics::Texture)" unless texture.is_a?(Texture)
 
-        from_native(Native::Graphics.new_sprite_batch(texture.native, size, usage.empty? ? nil : EnumName.of(usage.first)))
+        from_native(Native::Graphics.new_sprite_batch(texture.__send__(:native), size, usage.empty? ? nil : EnumName.of(usage.first)))
       end
 
       # Adds a sprite, matching SpriteBatch:add
@@ -89,7 +84,7 @@ module Lota
       #   batch.add(100, 50)
       #   batch.add(grass, 16, 0, 0, 2) # twice the size
       def add(quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
-        placement = Graphics.placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
         @native.add(quad.is_a?(Quad) ? quad.native : nil, placement)
       end
 
@@ -104,7 +99,7 @@ module Lota
       #
       #   batch.set(id, grass, player_x, player_y)
       def set(index, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
-        placement = Graphics.placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
         @native.set(index, quad.is_a?(Quad) ? quad.native : nil, placement)
       end
 
@@ -157,7 +152,7 @@ module Lota
       #
       #   batch.texture.width # => 256
       def texture
-        Texture.from_native(@native.texture)
+        Texture.__send__(:from_native, @native.texture)
       end
 
       # Sets the color the sprites added or set from now on are drawn in,

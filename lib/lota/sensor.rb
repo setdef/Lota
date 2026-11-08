@@ -94,18 +94,23 @@ module Lota
     end
 
     # The name SDL gives the sensor of +sensor_type+, matching
-    # love.sensor.getName.
+    # love.sensor.getName (src/modules/sensor/wrap_Sensor.cpp:81-89), which
+    # ADR 001's rule 3 names +name+; or, given no argument, Ruby's own
+    # Module#name of this module, +"Lota::Sensor"+, since getName requires
+    # its sensor type.
     #
-    # Rule 3 would name it +name+, which would take the place of Ruby's
-    # own Module#name on this module; it keeps LÖVE's +get+ until the
-    # maintainer settles the name, as rule 16 keeps +get_type+ where
-    # +type+ would mean two things. Raises RuntimeError while the sensor
-    # is off.
+    # Raises RuntimeError while the sensor is off.
     #
-    # === Example
+    # === Examples
     #
-    #   Lota::Sensor.get_name(:accelerometer) # => "Accelerometer"
-    def self.get_name(sensor_type)
+    #   Lota::Sensor.name(:accelerometer) # => "Accelerometer"
+    #   Lota::Sensor.name                 # => "Lota::Sensor"
+    def self.name(*arguments)
+      return super() if arguments.empty?
+
+      sensor_type, = arguments
+      raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 0..1)" if arguments.size > 1
+
       Native::Sensor.sensor_name(EnumName.of(sensor_type))
     end
   end

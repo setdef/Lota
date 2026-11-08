@@ -3,9 +3,7 @@
 
 module Lota
   module Graphics
-    class Shader
-      include Object
-
+    class Shader < Object[Native::Shader]
       class BufferFormat < ::Data
         include Record
 
@@ -24,13 +22,11 @@ module Lota
 
       type value = Float | Integer | bool | Symbol | Texture | GraphicsBuffer | Math::Transform | Lota::Data | Array[Float | Integer | bool | Array[Float | Integer]]
 
-      attr_reader native: Native::Shader
-
-      def self.from_native: (Native::Shader native) -> Shader
+      private def self.from_native: (Native::Shader native) -> Shader
 
       def self.new: (source first, ?source second, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
 
-      def self.source: (source first, source second, defines defines, String? debugname) -> [Array[String], Array[[String, String]], String]
+      private def self.source: (source first, source second, defines defines, String? debugname) -> [Array[String], Array[[String, String]], String]
 
       private def self.source_of: (source argument) -> String?
 
@@ -56,7 +52,7 @@ module Lota
 
       def warnings: () -> String
 
-      def self.compute: (source first, Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
+      private def self.compute: (source first, Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
 
       def buffer_format: (String name) -> Array[BufferFormat]
 

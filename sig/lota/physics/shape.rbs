@@ -3,12 +3,8 @@
 
 module Lota
   module Physics
-    class Shape[out N < Native::Shape = Native::Shape]
-      include Object
-
-      attr_reader native: N
-
-      def self.from_native: (Native::Shape native) -> instance
+    class Shape[out N < Native::Shape = Native::Shape] < Object[N]
+      private def self.from_native: (Native::Shape native) -> instance
 
       def body: () -> Body?
 

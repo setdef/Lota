@@ -47,7 +47,7 @@ module Lota
     #
     #   Lota::Audio.play(@click) # => true
     def self.play(source)
-      Native::Audio.play(source.native)
+      Native::Audio.play(source.__send__(:native))
     end
 
     # Stops +source+, or every Source playing when left out, matching
@@ -61,7 +61,7 @@ module Lota
     #   Lota::Audio.stop(@music)
     #   Lota::Audio.stop
     def self.stop(source = nil)
-      source ? Native::Audio.stop_source(source.native) : Native::Audio.stop
+      source ? Native::Audio.stop_source(source.__send__(:native)) : Native::Audio.stop
     end
 
     # How loud every Source plays, from 0 for silence to 1 for as loud as
@@ -111,8 +111,8 @@ module Lota
     #
     #   Lota::Audio.position = player.x, player.y
     def self.position=(position)
-      x, y, z = Audio::Source.numbers(position)
-      Native::Audio.set_position(Source.number(x), Source.number(y), Source.number(z, 0))
+      x, y, z = Audio::Source.__send__(:numbers, position)
+      Native::Audio.set_position(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
     end
 
     # The listener's position, as an Array of three Floats (ADR 001, rule
@@ -138,14 +138,14 @@ module Lota
     #
     #   Lota::Audio.orientation = 0, 0, -1, 0, 1, 0
     def self.orientation=(orientation)
-      fx, fy, fz, ux, uy, uz = Source.numbers(orientation)
+      fx, fy, fz, ux, uy, uz = Source.__send__(:numbers, orientation)
       Native::Audio.set_orientation([
-        Source.number(fx),
-        Source.number(fy),
-        Source.number(fz),
-        Source.number(ux),
-        Source.number(uy),
-        Source.number(uz),
+        Source.__send__(:number, fx),
+        Source.__send__(:number, fy),
+        Source.__send__(:number, fz),
+        Source.__send__(:number, ux),
+        Source.__send__(:number, uy),
+        Source.__send__(:number, uz),
 ])
     end
 
@@ -168,8 +168,8 @@ module Lota
     #
     #   Lota::Audio.velocity = 0, 0, 0
     def self.velocity=(velocity)
-      x, y, z = Audio::Source.numbers(velocity)
-      Native::Audio.set_velocity(Source.number(x), Source.number(y), Source.number(z, 0))
+      x, y, z = Audio::Source.__send__(:numbers, velocity)
+      Native::Audio.set_velocity(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
     end
 
     # The listener's velocity, as an Array of three Floats (ADR 001, rule
@@ -246,9 +246,9 @@ module Lota
     #   paused.each(&:play)
     #   Lota::Audio.pause(@music) # => nil
     def self.pause(source = nil)
-      return Native::Audio.pause_source(source.native) if source
+      return Native::Audio.pause_source(source.__send__(:native)) if source
 
-      Native::Audio.pause.map { |native| Source.from_native(native) }
+      Native::Audio.pause.map { |native| Source.__send__(:from_native, native) }
     end
 
     # Makes, changes, or removes a named effect that Sources can play
@@ -290,7 +290,7 @@ module Lota
     #   Lota::Audio.effect("cave").type # => :reverb
     def self.effect(name)
       pairs = Native::Audio.effect(name)
-      pairs && Effect.of(pairs)
+      pairs && Effect.__send__(:of, pairs)
     end
 
     # The names of the effects set, as an Array, matching
@@ -394,7 +394,7 @@ module Lota
     #
     #   Lota::Audio.recording_devices.map(&:name) # => ["MacBook Pro Microphone"]
     def self.recording_devices
-      Native::Audio.recording_devices.map { |native| RecordingDevice.from_native(native) }
+      Native::Audio.recording_devices.map { |native| RecordingDevice.__send__(:from_native, native) }
     end
 
     # Turns on or off playing through headphones' spatial filter, matching
@@ -439,7 +439,7 @@ module Lota
     # The [name, value] pairs the engine reads an effect's or a filter's
     # keywords as, each Symbol value a name, or +nil+ for none, as LÖVE
     # reads no table. :nodoc:
-    def self.setting_pairs(settings)
+    private_class_method def self.setting_pairs(settings)
       return nil if settings.empty?
 
       settings.map { |name, value| [name.name, value.is_a?(Symbol) ? value.name : value] }

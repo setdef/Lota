@@ -17,15 +17,10 @@ module Lota
     # === Example
     #
     #   world.contacts.select(&:touching?)
-    class Contact
-      include Object
-
-      # The engine's Contact, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Contact < Object
       # The Contact that wraps +native+, one for each engine Contact while
       # it lives. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -41,7 +36,7 @@ module Lota
       #
       #   a, b = contact.shapes
       def shapes
-        @native.shapes.map { |shape| Physics.shape(shape) }
+        @native.shapes.map { |shape| Physics.__send__(:shape, shape) }
       end
 
       # The two Shapes' children that touch, counting from 1, as an Array of

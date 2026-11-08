@@ -31,9 +31,7 @@ module Lota
     #   Lota::Graphics.shader = glow
     #   Lota::Graphics.draw(card, 100, 100)
     #   Lota::Graphics.shader = nil
-    class Shader
-      include Object
-
+    class Shader < Object
       # One member of a buffer a shader declares, which #buffer_format
       # returns, translated from the table love.graphics's
       # Shader:getBufferFormat makes (src/modules/graphics/wrap_Shader.cpp,
@@ -51,13 +49,10 @@ module Lota
         include Record
       end
 
-      # The engine's Shader, for Lota's own modules. :nodoc:
-      attr_reader :native
-
       # Wraps a Shader the engine made. The same engine shader always comes
       # back as the same Ruby object, so the one Lota::Graphics.shader
       # returns is the one that was set. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -117,7 +112,7 @@ module Lota
       # love.graphics.newComputeShader
       # (src/modules/graphics/wrap_Graphics.cpp, w_newComputeShader), as new
       # does a shader; +location+ is where a notice says it was made. :nodoc:
-      def self.compute(first, location, defines: nil, debugname: nil, write: nil)
+      private_class_method def self.compute(first, location, defines: nil, debugname: nil, write: nil)
         stages, pairs, name = source(first, nil, defines, debugname)
         native = begin
           Native::Graphics.new_compute_shader(stages, name, pairs, write ? true : false)
@@ -137,7 +132,7 @@ module Lota
       # sources of +first+ and +second+, each read from its file or its
       # FileData, +defines+ as pairs of Strings, and +debugname+, empty
       # when nil. :nodoc:
-      def self.source(first, second, defines, debugname)
+      private_class_method def self.source(first, second, defines, debugname)
         Native::Graphics.check_created
         stages = [first, second].filter_map { |argument| source_of(argument) }
         raise TypeError, "wrong argument type nil (expected String)" if stages.empty?

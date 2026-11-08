@@ -74,7 +74,7 @@ module Lota
     #
     #   distance, x1, y1, x2, y2 = Lota::Physics.distance(left, right)
     def self.distance(shape1, shape2)
-      Native::Physics.distance(shape1.native, shape2.native)
+      Native::Physics.distance(shape1.__send__(:native), shape2.__send__(:native))
     end
 
     # The linear stiffness and damping that give a spring between +body1+ and
@@ -92,7 +92,7 @@ module Lota
     #
     #   stiffness, damping = Lota::Physics.compute_linear_stiffness(5, 0.7, body)
     def self.compute_linear_stiffness(frequency, damping_ratio, body1, body2 = nil)
-      Native::Physics.compute_linear_stiffness(frequency, damping_ratio, body1.native, body2&.native)
+      Native::Physics.compute_linear_stiffness(frequency, damping_ratio, body1.__send__(:native), body2&.__send__(:native))
     end
 
     # The frequency, in hertz, and the damping ratio of a spring of linear
@@ -111,7 +111,7 @@ module Lota
     #
     #   frequency, ratio = Lota::Physics.compute_linear_frequency(joint.stiffness, joint.damping, body)
     def self.compute_linear_frequency(stiffness, damping, body1, body2 = nil)
-      Native::Physics.compute_linear_frequency(stiffness, damping, body1.native, body2&.native)
+      Native::Physics.compute_linear_frequency(stiffness, damping, body1.__send__(:native), body2&.__send__(:native))
     end
 
     # The angular stiffness and damping that give a spring turning +body1+
@@ -129,7 +129,7 @@ module Lota
     #
     #   stiffness, damping = Lota::Physics.compute_angular_stiffness(5, 0.7, body)
     def self.compute_angular_stiffness(frequency, damping_ratio, body1, body2 = nil)
-      Native::Physics.compute_angular_stiffness(frequency, damping_ratio, body1.native, body2&.native)
+      Native::Physics.compute_angular_stiffness(frequency, damping_ratio, body1.__send__(:native), body2&.__send__(:native))
     end
 
     # The frequency, in hertz, and the damping ratio of a spring of angular
@@ -148,37 +148,37 @@ module Lota
     #
     #   frequency, ratio = Lota::Physics.compute_angular_frequency(joint.stiffness, joint.damping, body)
     def self.compute_angular_frequency(stiffness, damping, body1, body2 = nil)
-      Native::Physics.compute_angular_frequency(stiffness, damping, body1.native, body2&.native)
+      Native::Physics.compute_angular_frequency(stiffness, damping, body1.__send__(:native), body2&.__send__(:native))
     end
 
     # The Lota::Physics::Shape that wraps +native+, of its own class, or
     # +nil+. :nodoc:
-    def self.shape(native)
+    private_class_method def self.shape(native)
       case native
-      when Native::CircleShape then CircleShape.from_native(native)
-      when Native::PolygonShape then PolygonShape.from_native(native)
-      when Native::EdgeShape then EdgeShape.from_native(native)
-      when Native::ChainShape then ChainShape.from_native(native)
-      when Native::Shape then Shape.from_native(native)
+      when Native::CircleShape then CircleShape.__send__(:from_native, native)
+      when Native::PolygonShape then PolygonShape.__send__(:from_native, native)
+      when Native::EdgeShape then EdgeShape.__send__(:from_native, native)
+      when Native::ChainShape then ChainShape.__send__(:from_native, native)
+      when Native::Shape then Shape.__send__(:from_native, native)
       end
     end
 
     # The Lota::Physics::Joint that wraps +native+, of its own class, or
     # +nil+. :nodoc:
-    def self.joint(native)
+    private_class_method def self.joint(native)
       case native
-      when Native::DistanceJoint then DistanceJoint.from_native(native)
-      when Native::FrictionJoint then FrictionJoint.from_native(native)
-      when Native::GearJoint then GearJoint.from_native(native)
-      when Native::MotorJoint then MotorJoint.from_native(native)
-      when Native::MouseJoint then MouseJoint.from_native(native)
-      when Native::PrismaticJoint then PrismaticJoint.from_native(native)
-      when Native::PulleyJoint then PulleyJoint.from_native(native)
-      when Native::RevoluteJoint then RevoluteJoint.from_native(native)
-      when Native::RopeJoint then RopeJoint.from_native(native)
-      when Native::WeldJoint then WeldJoint.from_native(native)
-      when Native::WheelJoint then WheelJoint.from_native(native)
-      when Native::Joint then Joint.from_native(native)
+      when Native::DistanceJoint then DistanceJoint.__send__(:from_native, native)
+      when Native::FrictionJoint then FrictionJoint.__send__(:from_native, native)
+      when Native::GearJoint then GearJoint.__send__(:from_native, native)
+      when Native::MotorJoint then MotorJoint.__send__(:from_native, native)
+      when Native::MouseJoint then MouseJoint.__send__(:from_native, native)
+      when Native::PrismaticJoint then PrismaticJoint.__send__(:from_native, native)
+      when Native::PulleyJoint then PulleyJoint.__send__(:from_native, native)
+      when Native::RevoluteJoint then RevoluteJoint.__send__(:from_native, native)
+      when Native::RopeJoint then RopeJoint.__send__(:from_native, native)
+      when Native::WeldJoint then WeldJoint.__send__(:from_native, native)
+      when Native::WheelJoint then WheelJoint.__send__(:from_native, native)
+      when Native::Joint then Joint.__send__(:from_native, native)
       end
     end
   end

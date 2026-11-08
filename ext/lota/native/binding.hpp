@@ -52,6 +52,8 @@
 #include "common/Object.h" // IWYU pragma: export
 #include "common/types.h"
 
+#include "native/luajit.hpp"
+
 // The engine classes of the modules LÖVE confines to its main thread, so
 // that every binding sees the same list (ReleasedOnMainThread, below).
 #include "graphics/Buffer.h"
@@ -71,6 +73,7 @@
 #include "physics/box2d/Shape.h"
 #include "physics/box2d/World.h"
 
+#include <atomic>
 #include <bit>
 #include <concepts>
 #include <cstddef>
@@ -354,6 +357,16 @@ public:
     }
   }
 
+  // Forgets +wrapper+ as the wrapper of +object+, which a game released,
+  // so the object gets a new wrapper the next time Ruby is handed it, as
+  // w__release removes the object from LÖVE's REGISTRY_OBJECTS table
+  // (vendor/love/src/common/runtime.cpp:170-197).
+  void forget(love::Object *object, VALUE wrapper) const {
+    if (map_ != Qnil && find(object) == wrapper) {
+      Rice::Object(map_).call("delete", key(object));
+    }
+  }
+
 private:
   WrapperIdentities() = default;
 
@@ -362,6 +375,31 @@ private:
   }
 
   VALUE map_ = Qnil;
+};
+
+// What every wrapper of an engine object answers, whatever the object's
+// class, for the methods LÖVE gives every object (define_engine_class).
+class EngineWrapper : public Rice::detail::WrapperBase {
+public:
+  using WrapperBase::WrapperBase;
+
+  // The engine object, as LÖVE's Proxy holds it, or nullptr once the
+  // wrapper is released, as w__release leaves the Proxy's object.
+  [[nodiscard]] virtual love::Object *object() const = 0;
+
+  // Ends the wrapper's use of its object, as w__release does
+  // (vendor/love/src/common/runtime.cpp:170-197), and returns whether it
+  // was in use. +self+ is the wrapper's own Ruby object.
+  virtual bool release(VALUE self) = 0;
+
+  // The wrapper of +value+, a Lota::Native object, or nullptr for any
+  // other value.
+  static EngineWrapper *of(VALUE value) {
+    if (!RB_TYPE_P(value, T_DATA) || !RTYPEDDATA_P(value)) {
+      return nullptr;
+    }
+    return dynamic_cast<EngineWrapper *>(Rice::detail::getWrapper(value));
+  }
 };
 
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
@@ -373,14 +411,28 @@ private:
 // :58), so this destructor runs when Ruby collects the object. The reference is LÖVE's
 // own love::StrongRef, which retains or adopts as it is told and releases
 // when destroyed, exactly as LÖVE's C++ holds objects.
-template <EngineObject T> class ObjectWrapper : public Rice::detail::WrapperBase {
+//
+// A game's release, LÖVE's Object:release, ends the wrapper's use of its
+// object at once: every later call through the wrapper raises LÖVE's
+// error, and the object gets a new wrapper the next time Ruby is handed
+// it. The reference itself still goes when the collector frees the
+// wrapper, by the same rule. LÖVE lets go of it at once, because a Lua
+// state runs one call at a time and nothing in LÖVE's C++ holds a Proxy's
+// pointer across a call back into Lua. Lota's bindings do: a method that
+// yields, a callback, a conversion of an argument that calls Ruby, or
+// another thread scheduled between two Ruby calls can each run a
+// release while a binding further up the stack still uses the pointer it
+// read. Those frames hold the wrapper, so the collector cannot free it
+// under them, and keeping the reference until then is what makes the
+// release safe.
+template <EngineObject T> class ObjectWrapper : public EngineWrapper {
   static_assert(!std::is_const_v<T>,
                 "love::Object counts references in non-const retain() and release(), so "
                 "bind functions that return engine objects as non-const pointers");
 
 public:
   ObjectWrapper(rb_data_type_t *rb_data_type, T *object, love::Acquire acquire)
-      : WrapperBase(rb_data_type), companion_(Companion<T>::of(*object), love::Acquire::RETAIN),
+      : EngineWrapper(rb_data_type), companion_(Companion<T>::of(*object), love::Acquire::RETAIN),
         reference_(object, acquire) {}
 
   ObjectWrapper(const ObjectWrapper &) = delete;
@@ -400,37 +452,62 @@ public:
     }
   }
 
-  // Rice's own check (rice/detail/Wrapper.ipp:137-150).
+  // Rice's own check (rice/detail/Wrapper.ipp:137-150), then LÖVE's for a
+  // released object, which luax_checktype makes of every argument it
+  // reads (vendor/love/src/common/runtime.h:576-577, "Cannot use object
+  // after it has been released."), as the RuntimeError Lota
+  // raises for LÖVE's errors.
   void *get(rb_data_type_t *requested_type) override {
     if (rb_typeddata_inherited_p(this->rb_data_type_, requested_type) == 0) {
       throw Rice::Exception(rb_eTypeError, "wrong argument type %s (expected %s)",
                             this->rb_data_type_->wrap_struct_name,
                             requested_type->wrap_struct_name);
     }
+    if (released_) {
+      throw Rice::Exception(rb_eRuntimeError, "Cannot use object after it has been released.");
+    }
     return reference_.get();
+  }
+
+  [[nodiscard]] love::Object *object() const override {
+    return released_ ? nullptr : reference_.get();
+  }
+
+  // The first release forgets the wrapper's identity, so the object gets
+  // a new wrapper the next time Ruby is handed it, and keeps the
+  // reference until the wrapper is freed (above).
+  bool release(VALUE self) override {
+    if (released_.exchange(true)) {
+      return false;
+    }
+    WrapperIdentities::instance().forget(reference_.get(), self);
+    return true;
   }
 
 private:
   // Declared first, so it is released after reference_.
   love::StrongRef<love::Object> companion_;
   love::StrongRef<T> reference_;
+  std::atomic<bool> released_ = false;
 };
 
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
 //
-// Ported from luax_register_type, w__type, and w__typeOf
-// (vendor/love/src/common/runtime.cpp:65-80, 489-491, and 538-544), and
-// changed to define Ruby methods on a Rice class instead of filling a Lua
-// metatable.
+// Ported from luax_register_type, w__tostring, w__type, w__typeOf, w__eq,
+// and w__release (vendor/love/src/common/runtime.cpp:57-88, 170-197, and
+// 489-552), and changed to define Ruby methods on a Rice class instead of
+// filling a Lua metatable.
 
 // Defines Lota::Native's class +name+ under +parent+ for the engine class
-// T, with the methods every LÖVE object has (ADR 001, rule 16):
-// +object_type+, LÖVE's name for T, and +type_of?+, whether T is the type
-// of that name or one of its parents. Every engine class Lota binds is
-// defined through here, once, so every one answers both. Base, when given, is the bound
-// class Ruby's class inherits from, as Rice's define_class_under takes it.
+// T, with the methods every LÖVE object has: +object_type+, LÖVE's name
+// for T, and +type_of?+, whether T is the type of that name or one of its
+// parents (ADR 001, rule 16); +to_s+ and +==+, its __tostring and __eq
+// (rule 13); and +release+. Every engine class Lota binds is defined
+// through here, once, so every one answers them. Base, when given, is the
+// bound class Ruby's class inherits from, as Rice's define_class_under
+// takes it.
 //
 // LÖVE registers each type it pushes to Lua before pushing one, which
 // initializes the type (luax_register_type), and love::Type::byName finds
@@ -440,19 +517,56 @@ private:
 // type has is false, as luax_type's nullptr is. As in LÖVE, +object_type+ names
 // the class the object was bound as (luax_pushtype pushes T::type), not
 // the object's most derived class.
+//
+// Each method takes the wrapper's Ruby object rather than the engine
+// object, as LÖVE's take the Proxy, so each still answers once the
+// object is released: its type, its name with NULL for the address, and
+// +release+ itself, false. Lua compares two userdata with __eq only when
+// they are not the same userdata and share the metamethod (LuaJIT 2.1,
+// src/lj_meta.c, lj_meta_equal), and LÖVE's metatable for each type has a
+// function of its own there, so +==+ is true of the same wrapper, and
+// otherwise of a wrapper of the same class around the same object, while
+// neither is released.
 template <EngineObject T, typename Base = void>
 Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *name) {
   T::type.init();
   return Rice::define_class_under<T, Base>(parent, name)
-      .define_method("object_type",
-                     [](const T & /*self*/) { return std::string(T::type.getName()); })
+      .define_method("object_type", [](VALUE /*self*/) { return std::string(T::type.getName()); })
       .define_method(
           "type_of?",
-          [](const T & /*self*/, const std::string &type_name) {
+          [](VALUE /*self*/, const std::string &type_name) {
             const love::Type *type = love::Type::byName(type_name.c_str());
             return type != nullptr && T::type.isa(*type);
           },
-          Rice::Arg("name"));
+          Rice::Arg("name"))
+      .define_method("to_s",
+                     [](VALUE self) {
+                       const EngineWrapper *wrapper = EngineWrapper::of(self);
+                       const love::Object *object =
+                           wrapper == nullptr ? nullptr : wrapper->object();
+                       return std::string(T::type.getName()) + ": " + luajit::pointer(object);
+                     })
+      .define_method(
+          "==",
+          [](VALUE self, VALUE other) {
+            if (self == other) {
+              return true;
+            }
+            if (rb_obj_class(self) != rb_obj_class(other)) {
+              return false;
+            }
+            const EngineWrapper *mine = EngineWrapper::of(self);
+            const EngineWrapper *theirs = EngineWrapper::of(other);
+            if (mine == nullptr || theirs == nullptr) {
+              return false;
+            }
+            return mine->object() == theirs->object() && mine->object() != nullptr;
+          },
+          Rice::Arg("other").setValue())
+      .define_method("release", [](VALUE self) {
+        EngineWrapper *wrapper = EngineWrapper::of(self);
+        return wrapper != nullptr && wrapper->release(self);
+      });
 }
 
 // SPDX-SnippetEnd
@@ -560,6 +674,27 @@ VALUE wrap_engine_object(U *data, bool isOwner) {
   }
   const std::pair<VALUE, rb_data_type_t *> type = Registries::instance.types.figureType(*data);
   const VALUE wrapped = wrap(type.first, type.second, data, isOwner);
+  identities.remember(data, wrapped);
+  return wrapped;
+}
+
+// The wrapper of the engine object +data+ as LÖVE pushes it with
+// luax_pushtype(L, T::type, data) (vendor/love/src/common/runtime.cpp,
+// luax_pushtype): the one it already has, while that lives, or a new one
+// of the Ruby class bound for T, whatever class +data+ is of in C++, as
+// love.data's functions push a ByteData as a plain Data. +isOwner+ is as
+// wrap_engine_object takes it.
+template <typename T>
+  requires lota::native::EngineObject<T>
+VALUE wrap_engine_object_as(T *data, bool isOwner) {
+  const auto &identities = lota::native::WrapperIdentities::instance();
+  if (const VALUE found = identities.find(data); found != Qnil) {
+    if (isOwner) {
+      data->release();
+    }
+    return found;
+  }
+  const VALUE wrapped = wrap(Data_Type<T>::klass(), Data_Type<T>::ruby_data_type(), data, isOwner);
   identities.remember(data, wrapped);
   return wrapped;
 }

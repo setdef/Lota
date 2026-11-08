@@ -35,7 +35,7 @@ module Lota
 
     def self.noise: (number x, ?number? y, ?number? z, ?number? w) -> Float
 
-    def self.coordinates_of: (Array[number | Array[number]] arguments) -> Array[number]
+    private def self.coordinates_of: (Array[number | Array[number]] arguments) -> Array[number]
 
     private def self.generator: () -> RandomGenerator
 

@@ -32,9 +32,7 @@ module Lota
     #   ]
     #   points = Lota::Graphics::Buffer.new(format, [[0, 0, 1, 0, 0, 1], [8, 0, 0, 1, 0, 1]], vertex: true)
     #   points.element_count # => 2
-    class GraphicsBuffer
-      include Object
-
+    class GraphicsBuffer < Object
       # One member of the format of a buffer, which GraphicsBuffer#format returns,
       # translated from the table love.graphics's GraphicsBuffer:getFormat
       # makes (src/modules/graphics/wrap_Buffer.cpp, w_Buffer_getFormat):
@@ -54,11 +52,8 @@ module Lota
         include Record
       end
 
-      # The engine's Buffer, for Lota's own modules. :nodoc:
-      attr_reader :native
-
       # Wraps a Buffer the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -118,7 +113,7 @@ module Lota
 
       # Makes the buffer for +location+, where a notice says it was made.
       # :nodoc:
-      def self.create(location, format, content, vertex: false, index: false, texel: false, shaderstorage: false,
+      private_class_method def self.create(location, format, content, vertex: false, index: false, texel: false, shaderstorage: false,
         indirectarguments: false, usage: nil, debugname: nil
       )
         uses = { vertex:, index:, texel:, shaderstorage:, indirectarguments: }
@@ -146,7 +141,7 @@ module Lota
       # location or +nil+. A name is required for none, as LÖVE calls them
       # for a buffer and a mesh, and a location when +location+ is true.
       # :nodoc:
-      def self.declarations(format, location)
+      private_class_method def self.declarations(format, location)
         Native::Graphics.check_created
         case format
         when Symbol, String then [["", EnumName.of(format), 0, nil]]
@@ -157,7 +152,7 @@ module Lota
 
       # One member of the format table (lines 1743-1793), the +index+th,
       # counting from 1. :nodoc:
-      def self.declaration(entry, index, location)
+      private_class_method def self.declaration(entry, index, location)
         fields = case entry
         when Hash then entry
         when Format then entry.to_h
@@ -200,14 +195,14 @@ module Lota
 
       # What the engine reads of the content: a Lota::Data's engine object,
       # and anything else as it is. :nodoc:
-      def self.native_content(content)
-        content.is_a?(Lota::Data) ? content.native : content
+      private_class_method def self.native_content(content)
+        content.is_a?(Lota::Data) ? content.__send__(:native) : content
       end
 
       # luax_validatebuffervertexbindings (wrap_Graphics.cpp:1824-1843): the
       # notice for a vertex format that names its attributes but gives no
       # location. :nodoc:
-      def self.mark_deprecated_bindings(native, where)
+      private_class_method def self.mark_deprecated_bindings(native, where)
         return unless native.legacy_vertex_bindings?
 
         Deprecation.mark("vertex format 'name' fields in Meshes and Buffers", :custom, :replaced,
@@ -242,7 +237,7 @@ module Lota
       #   buffer.set_array_data(bytes)
       #   buffer.set_array_data(flat, 1, 3, 2) # two elements, put from the third element of the buffer
       def set_array_data(data, source = nil, destination = nil, count = nil)
-        @native.set_array_data([GraphicsBuffer.native_content(data), source, destination, count])
+        @native.set_array_data([GraphicsBuffer.__send__(:native_content, data), source, destination, count])
         nil
       end
 
@@ -355,7 +350,7 @@ module Lota
       #
       #   Lota::Graphics::Buffer.new(:uint16, 128, index: true)
       def self.new(format, content, **settings)
-        GraphicsBuffer.create(caller_locations(1, 1)&.first, format, content, **settings)
+        GraphicsBuffer.__send__(:create, caller_locations(1, 1)&.first, format, content, **settings)
       end
 
       # Whether +object+ is a GraphicsBuffer, which is what newBuffer makes.

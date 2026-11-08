@@ -111,7 +111,7 @@ class ReleaseQueueTest < Minitest::Test
   # go of it.
   def test_a_texture_freed_off_the_main_thread_is_released_on_the_main_thread
     collect_garbage_off_the_main_thread do
-      on_a_finished_fiber { LotaNativeTest.observe_texture(Lota::Graphics::Canvas.new(16, 16).native) }
+      on_a_finished_fiber { LotaNativeTest.observe_texture(Lota::Graphics::Canvas.new(16, 16).__send__(:native)) }
       assert_equal [2], LotaNativeTest.observed_reference_counts
     end
 
@@ -127,7 +127,7 @@ class ReleaseQueueTest < Minitest::Test
   # does: love.graphics runs only there.
   def test_a_font_freed_off_the_main_thread_is_released_on_the_main_thread
     collect_garbage_off_the_main_thread do
-      on_a_finished_fiber { LotaNativeTest.observe_font(Lota::Graphics::Font.new(8).native) }
+      on_a_finished_fiber { LotaNativeTest.observe_font(Lota::Graphics::Font.new(8).__send__(:native)) }
       assert_equal [2], LotaNativeTest.observed_reference_counts
     end
 
@@ -156,7 +156,7 @@ class ReleaseQueueTest < Minitest::Test
   def test_an_image_data_freed_off_the_main_thread_is_released_at_once
     texture = Lota::Graphics::Canvas.new(16, 16)
     collect_garbage_off_the_main_thread do
-      on_a_finished_fiber { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(texture).native) }
+      on_a_finished_fiber { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(texture).__send__(:native)) }
     end
 
     assert_equal 0, Lota::Native.queued_releases

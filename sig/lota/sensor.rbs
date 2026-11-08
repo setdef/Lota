@@ -11,6 +11,7 @@ module Lota
 
     def self.data: (Symbol | String sensor_type) -> Array[Float]
 
-    def self.get_name: (Symbol | String sensor_type) -> String
+    def self.name: () -> String?
+                 | (Symbol | String sensor_type) -> String
   end
 end

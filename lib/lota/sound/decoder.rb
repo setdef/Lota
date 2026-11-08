@@ -21,18 +21,13 @@ module Lota
     #   while (piece = decoder.decode)
     #     piece.sample_count # => 4096
     #   end
-    class Decoder
-      include Object
-
+    class Decoder < Object
       # The bytes a Decoder decodes at a time when none are given, as
       # LÖVE's Decoder::DEFAULT_BUFFER_SIZE (src/modules/sound/Decoder.h).
       DEFAULT_BUFFER_SIZE = 16_384
 
-      # The engine's Decoder, for Lota's own modules. :nodoc:
-      attr_reader :native
-
       # Wraps a Decoder the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         decoder = allocate
         decoder.instance_variable_set(:@native, native)
         decoder
@@ -61,7 +56,7 @@ module Lota
       #   Lota::Sound::Decoder.new("music/theme.ogg", 4096, :memory)
       def self.new(file, buffer_size = DEFAULT_BUFFER_SIZE, type = nil)
         native = if file.is_a?(Filesystem::FileData)
-          Native::Sound.new_decoder_from_data(file.native, buffer_size)
+          Native::Sound.new_decoder_from_data(file.__send__(:native), buffer_size)
         else
           Native::Sound.new_decoder(file, buffer_size, type && EnumName.of(type))
         end
@@ -94,7 +89,7 @@ module Lota
       #   decoder.decode.sample_count # => 2927
       def decode
         native = @native.decode
-        native && SoundData.from_native(native)
+        native && SoundData.__send__(:from_native, native)
       end
 
       # How many channels the sound has, as an Integer: 1 for mono, 2 for

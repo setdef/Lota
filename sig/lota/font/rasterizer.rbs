@@ -3,12 +3,10 @@
 
 module Lota
   module Font
-    class Rasterizer
-      include Object
+    class Rasterizer < Object[Native::Rasterizer]
+      private def self.from_native: (Native::Rasterizer native) -> Rasterizer
 
-      attr_reader native: Native::Rasterizer
-
-      def self.from_native: (Native::Rasterizer native) -> Rasterizer
+      def self.new: (*::Object? arguments, ?hinting: (Symbol | String)?, ?dpiscale: (Float | Integer)?, ?sdf: bool) -> Rasterizer
 
       def initialize: (*::Object? arguments, ?hinting: (Symbol | String)?, ?dpiscale: (Float | Integer)?, ?sdf: bool) -> void
 

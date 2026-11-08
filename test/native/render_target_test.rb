@@ -148,6 +148,15 @@ class RenderTargetTest < Minitest::Test
     assert_match(/\ADrawing to the stencil buffer with a Canvas active requires/, error.message)
   end
 
+  # w_setStencilState reads the value with luaL_optinteger
+  # (wrap_Graphics.cpp:664), which LuaJIT cuts toward 0.
+  def test_a_stencil_value_is_cut_to_a_whole_number
+    Graphics.set_canvas(Graphics::Canvas.new(4, 4), stencil: true)
+    Graphics.stencil_state = :replace, :always, 1.9
+
+    assert_equal 1, Graphics.stencil_state[2]
+  end
+
   def test_a_stencil_buffer_masks_drawing
     [{ stencil: true }, { depthstencil: true }, { depthstencil: Graphics::Canvas.new(4, 4, format: :stencil8) }]
       .each do |options|

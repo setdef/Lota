@@ -24,15 +24,10 @@ module Lota
     #
     #   ball = Lota::Physics::Body.new(world, 400, 0, :dynamic)
     #   Lota::Physics::CircleShape.new(ball, 20)
-    class Body
-      include Object
-
-      # The engine's Body, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Body < Object
       # The Body that wraps +native+, one for each engine Body while it
       # lives. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -58,7 +53,7 @@ module Lota
       #
       #   Lota::Physics::Body.new(world, 10, 10, :dynamic)
       def self.new(world, x = 0, y = 0, type = nil)
-        from_native(Native::Physics.new_body(world.native, x, y, type && EnumName.of(type)))
+        from_native(Native::Physics.new_body(world.__send__(:native), x, y, type && EnumName.of(type)))
       end
 
       # The position along x, in pixels, as a Float, matching Body:getX.
@@ -309,7 +304,7 @@ module Lota
       #
       #   body.world.body_count # => 2
       def world
-        World.from_native(@native.world)
+        World.__send__(:from_native, @native.world)
       end
 
       # The Body's first Shape, or +nil+ when it has none, matching
@@ -319,7 +314,7 @@ module Lota
       #
       #   body.shape.radius # => 20.0
       def shape
-        Physics.shape(@native.shape)
+        Physics.__send__(:shape, @native.shape)
       end
 
       # The Body's Shapes, as an Array, matching Body:getShapes.
@@ -328,7 +323,7 @@ module Lota
       #
       #   body.shapes.size # => 1
       def shapes
-        @native.shapes.map { |shape| Physics.shape(shape) }
+        @native.shapes.map { |shape| Physics.__send__(:shape, shape) }
       end
 
       # The Body's Shapes, as #shapes gives them, matching
@@ -351,7 +346,7 @@ module Lota
       #
       #   body.joints.size # => 1
       def joints
-        @native.joints.map { |joint| Physics.joint(joint) }
+        @native.joints.map { |joint| Physics.__send__(:joint, joint) }
       end
 
       # The Contacts of the Body's Shapes, as an Array, matching
@@ -361,7 +356,7 @@ module Lota
       #
       #   body.contacts.size # => 1
       def contacts
-        @native.contacts.map { |contact| Contact.from_native(contact) }
+        @native.contacts.map { |contact| Contact.__send__(:from_native, contact) }
       end
 
       # The center of mass in the Body's own coordinates, as an Array of

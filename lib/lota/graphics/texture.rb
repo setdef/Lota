@@ -30,18 +30,13 @@ module Lota
     #
     #   player = Lota::Graphics::Texture.new("assets/player.png")
     #   Lota::Graphics.draw(player, 100, 100)
-    class Texture
-      include Object
-
-      # The engine's Texture, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Texture < Object
       # Wraps a Texture the engine made. Every Texture the engine hands
       # to Ruby passes through here, and the same engine texture comes back
       # as the same Texture, as LÖVE pushes the same object for it, so
       # Lota::Graphics.canvas is the Texture Lota::Graphics.canvas= set.
       # :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 

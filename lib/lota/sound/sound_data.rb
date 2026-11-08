@@ -16,8 +16,8 @@ module Lota
     # sound of its own. Each sample reads and writes as a Float from -1 to
     # 1, however many bits it is stored in.
     #
-    # LÖVE's SoundData is a Data, so it includes Lota::Data, with Data's
-    # methods: its #size, its bytes as a #string, and more.
+    # LÖVE's SoundData is a Data, so it inherits Data's methods from
+    # Lota::Data: its #size, its bytes as a #string, and more.
     #
     # === Example
     #
@@ -25,15 +25,9 @@ module Lota
     #   beep.sample_count.times do |i|
     #     beep.sample = i, Math.sin(i * 2 * Math::PI * 440 / 44_100) * 0.5
     #   end
-    class SoundData
-      include Object
-      include Data
-
-      # The engine's SoundData, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class SoundData < Data
       # Wraps a SoundData the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         sound_data = allocate
         sound_data.instance_variable_set(:@native, native)
         sound_data
@@ -66,7 +60,7 @@ module Lota
           Native::Sound.new_sound_data(source, sample_rate, bit_depth, channels)
         else
           decoder = source.is_a?(Decoder) ? source : Decoder.new(source)
-          Native::Sound.new_sound_data_from_decoder(decoder.native)
+          Native::Sound.new_sound_data_from_decoder(decoder.__send__(:native))
         end
         from_native(native)
       end
@@ -224,7 +218,7 @@ module Lota
       #
       #   sound.slice(0, 100).sample_count # => 100
       def slice(start, length = -1)
-        SoundData.from_native(@native.slice(start, length))
+        SoundData.__send__(:from_native, @native.slice(start, length))
       end
     end
   end

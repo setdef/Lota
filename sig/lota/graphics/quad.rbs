@@ -3,12 +3,8 @@
 
 module Lota
   module Graphics
-    class Quad
-      include Object
-
-      attr_reader native: Native::Quad
-
-      def self.from_native: (Native::Quad native) -> Quad
+    class Quad < Object[Native::Quad]
+      private def self.from_native: (Native::Quad native) -> Quad
 
       def self.new: (Float | Integer x, Float | Integer y, Float | Integer w, Float | Integer h, Texture | Float | Integer first, ?(Texture | Float | Integer)? second, ?(Float | Integer)? third) -> Quad
 

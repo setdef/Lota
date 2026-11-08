@@ -162,13 +162,13 @@ module Lota
     # its Texture and a Hash of its layer or face and its mipmap. :nodoc:
     private_class_method def self.target_of(fields)
       native, layer, face, mipmap = fields
-      [Texture.from_native(native), { layer:, face:, mipmap: }.compact]
+      [Texture.__send__(:from_native, native), { layer:, face:, mipmap: }.compact]
     end
 
     # A target's engine object, or the target as it is, which the engine
     # reads as LÖVE reads its arguments. :nodoc:
     private_class_method def self.native_target(target)
-      target.is_a?(Texture) ? target.native : target
+      target.is_a?(Texture) ? target.__send__(:native) : target
     end
 
     # Fills the active canvas, or the window, with one color, matching
@@ -254,9 +254,9 @@ module Lota
         raise TypeError, "wrong argument type #{dest.class} for dest (expected Lota::Image::ImageData)"
       end
 
-      native = Native::Graphics.readback_texture(texture.native,
-        [slice, mipmap, x, y, width, height, dest&.native, destx, desty])
-      dest || Lota::Image::ImageData.from_native(native)
+      native = Native::Graphics.readback_texture(texture.__send__(:native),
+        [slice, mipmap, x, y, width, height, dest&.__send__(:native), destx, desty])
+      dest || Lota::Image::ImageData.__send__(:from_native, native)
     end
 
     # Whether drawing reaches the screen, matching love.graphics.isActive
@@ -350,7 +350,7 @@ module Lota
     #
     #   Lota::Graphics.push(:transform, camera) { Lota::Graphics.draw(map) }
     def self.push(stack = nil, transform = nil)
-      Native::Graphics.push(stack && EnumName.of(stack), transform.is_a?(Math::Transform) ? transform.native : nil)
+      Native::Graphics.push(stack && EnumName.of(stack), transform.is_a?(Math::Transform) ? transform.__send__(:native) : nil)
       return nil unless block_given?
 
       begin
@@ -453,7 +453,7 @@ module Lota
     #   Lota::Graphics.apply_transform(camera)
     #   Lota::Graphics.apply_transform(100, 50, Math::PI / 4)
     def self.apply_transform(transform = nil, *placement)
-      return Native::Graphics.apply_transform(transform.native) if transform.is_a?(Math::Transform)
+      return Native::Graphics.apply_transform(transform.__send__(:native)) if transform.is_a?(Math::Transform)
 
       Native::Graphics.apply_placement(standard_placement(transform, *placement))
     end
@@ -471,7 +471,7 @@ module Lota
     #
     #   Lota::Graphics.replace_transform(camera)
     def self.replace_transform(transform = nil, *placement)
-      return Native::Graphics.replace_transform(transform.native) if transform.is_a?(Math::Transform)
+      return Native::Graphics.replace_transform(transform.__send__(:native)) if transform.is_a?(Math::Transform)
 
       Native::Graphics.replace_placement(standard_placement(transform, *placement))
     end
@@ -533,9 +533,9 @@ module Lota
     #   Lota::Graphics.projection = :row, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
     def self.projection=(projection)
       if projection.is_a?(Math::Transform)
-        Native::Graphics.set_projection(projection.native)
+        Native::Graphics.set_projection(projection.__send__(:native))
       else
-        layout, elements = Math::Transform.layout_and_elements(projection)
+        layout, elements = Math::Transform.__send__(:layout_and_elements, projection)
         Native::Graphics.set_projection_matrix(layout, elements)
       end
     end
@@ -901,15 +901,15 @@ module Lota
       if quad.is_a?(Quad)
         raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)" unless drawable.is_a?(Texture)
 
-        return Native::Graphics.draw_quad(drawable.native, quad.native, placement)
+        return Native::Graphics.draw_quad(drawable.__send__(:native), quad.__send__(:native), placement)
       end
 
       case drawable
-      when Texture then Native::Graphics.draw(drawable.native, placement)
-      when SpriteBatch then Native::Graphics.draw_sprite_batch(drawable.native, placement)
-      when TextBatch then Native::Graphics.draw_text_batch(drawable.native, placement)
-      when Mesh then Native::Graphics.draw_mesh(drawable.native, placement)
-      when ParticleSystem then Native::Graphics.draw_particle_system(drawable.native, placement)
+      when Texture then Native::Graphics.draw(drawable.__send__(:native), placement)
+      when SpriteBatch then Native::Graphics.draw_sprite_batch(drawable.__send__(:native), placement)
+      when TextBatch then Native::Graphics.draw_text_batch(drawable.__send__(:native), placement)
+      when Mesh then Native::Graphics.draw_mesh(drawable.__send__(:native), placement)
+      when ParticleSystem then Native::Graphics.draw_particle_system(drawable.__send__(:native), placement)
       else raise TypeError, not_drawable(drawable)
       end
     end
@@ -930,15 +930,15 @@ module Lota
       if quad.is_a?(Quad)
         raise TypeError, "wrong argument type #{drawable.class} (expected Lota::Graphics::Texture)" unless drawable.is_a?(Texture)
 
-        return Native::Graphics.draw_quad_with_transform(drawable.native, quad.native, transform.native)
+        return Native::Graphics.draw_quad_with_transform(drawable.__send__(:native), quad.__send__(:native), transform.__send__(:native))
       end
 
       case drawable
-      when Texture then Native::Graphics.draw_with_transform(drawable.native, transform.native)
-      when SpriteBatch then Native::Graphics.draw_sprite_batch_with_transform(drawable.native, transform.native)
-      when TextBatch then Native::Graphics.draw_text_batch_with_transform(drawable.native, transform.native)
-      when Mesh then Native::Graphics.draw_mesh_with_transform(drawable.native, transform.native)
-      when ParticleSystem then Native::Graphics.draw_particle_system_with_transform(drawable.native, transform.native)
+      when Texture then Native::Graphics.draw_with_transform(drawable.__send__(:native), transform.__send__(:native))
+      when SpriteBatch then Native::Graphics.draw_sprite_batch_with_transform(drawable.__send__(:native), transform.__send__(:native))
+      when TextBatch then Native::Graphics.draw_text_batch_with_transform(drawable.__send__(:native), transform.__send__(:native))
+      when Mesh then Native::Graphics.draw_mesh_with_transform(drawable.__send__(:native), transform.__send__(:native))
+      when ParticleSystem then Native::Graphics.draw_particle_system_with_transform(drawable.__send__(:native), transform.__send__(:native))
       else raise TypeError, not_drawable(drawable)
       end
     end
@@ -985,14 +985,14 @@ module Lota
       raise TypeError, "wrong argument type #{layer.class} for layer (expected Integer)" unless layer.is_a?(Integer) || layer.is_a?(Float)
 
       if quad.is_a?(Math::Transform)
-        return Native::Graphics.draw_layer_with_transform(texture.native, layer.to_i, nil, quad.native)
+        return Native::Graphics.draw_layer_with_transform(texture.__send__(:native), layer.to_i, nil, quad.__send__(:native))
       end
       if x.is_a?(Math::Transform)
-        return Native::Graphics.draw_layer_with_transform(texture.native, layer.to_i, transform_quad(quad).native,
-          x.native)
+        return Native::Graphics.draw_layer_with_transform(texture.__send__(:native), layer.to_i, transform_quad(quad).__send__(:native),
+          x.__send__(:native))
       end
 
-      Native::Graphics.draw_layer(texture.native, layer.to_i, quad.is_a?(Quad) ? quad.native : nil,
+      Native::Graphics.draw_layer(texture.__send__(:native), layer.to_i, quad.is_a?(Quad) ? quad.__send__(:native) : nil,
         placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky))
     end
 
@@ -1024,10 +1024,10 @@ module Lota
       raise TypeError, "wrong argument type #{mesh.class} (expected Lota::Graphics::Mesh)" unless mesh.is_a?(Mesh)
 
       if x.is_a?(Math::Transform)
-        return Native::Graphics.draw_instanced_with_transform(mesh.native, instancecount, x.native)
+        return Native::Graphics.draw_instanced_with_transform(mesh.__send__(:native), instancecount, x.__send__(:native))
       end
 
-      Native::Graphics.draw_instanced(mesh.native, instancecount, standard_placement(x, y, r, sx, sy, ox, oy, kx, ky))
+      Native::Graphics.draw_instanced(mesh.__send__(:native), instancecount, standard_placement(x, y, r, sx, sy, ox, oy, kx, ky))
     end
 
     # Draws a mesh as a buffer of arguments says, matching
@@ -1059,10 +1059,10 @@ module Lota
       end
 
       if x.is_a?(Math::Transform)
-        return Native::Graphics.draw_indirect_with_transform(mesh.native, argsbuffer.native, argsindex, x.native)
+        return Native::Graphics.draw_indirect_with_transform(mesh.__send__(:native), argsbuffer.__send__(:native), argsindex, x.__send__(:native))
       end
 
-      Native::Graphics.draw_indirect(mesh.native, argsbuffer.native, argsindex,
+      Native::Graphics.draw_indirect(mesh.__send__(:native), argsbuffer.__send__(:native), argsindex,
         standard_placement(x, y, r, sx, sy, ox, oy, kx, ky))
     end
 
@@ -1084,7 +1084,7 @@ module Lota
     def self.dispatch_threadgroups(shader, x, y = nil, z = nil)
       raise TypeError, "wrong argument type #{shader.class} (expected Lota::Graphics::Shader)" unless shader.is_a?(Shader)
 
-      Native::Graphics.dispatch_threadgroups(shader.native, x, y, z)
+      Native::Graphics.dispatch_threadgroups(shader.__send__(:native), x, y, z)
     end
 
     # Runs a compute shader for the groups a buffer says, matching
@@ -1108,7 +1108,7 @@ module Lota
         raise TypeError, "wrong argument type #{argsbuffer.class} (expected Lota::Graphics::GraphicsBuffer)"
       end
 
-      Native::Graphics.dispatch_indirect(shader.native, argsbuffer.native, argsindex)
+      Native::Graphics.dispatch_indirect(shader.__send__(:native), argsbuffer.__send__(:native), argsindex)
     end
 
     # The Lota::Graphics::GraphicsBuffer of indices that draws quads from four
@@ -1120,7 +1120,7 @@ module Lota
     #   Lota::Graphics.quad_index_buffer.buffer_type?(:index) # => true
     def self.quad_index_buffer
       native = Native::Graphics.quad_index_buffer
-      native && GraphicsBuffer.from_native(native)
+      native && GraphicsBuffer.__send__(:from_native, native)
     end
 
     # The window's width, in units of the screen's DPI scale, matching
@@ -1230,7 +1230,7 @@ module Lota
     def self.font=(font)
       raise TypeError, "wrong argument type #{font.class} (expected Lota::Graphics::Font)" unless font.is_a?(Font)
 
-      Native::Graphics.set_font(font.native)
+      Native::Graphics.set_font(font.__send__(:native))
     end
 
     # The font text is drawn in, matching love.graphics.getFont
@@ -1244,7 +1244,7 @@ module Lota
     #
     #   Lota::Graphics.font # => #<Lota::Graphics::Font ...>
     def self.font
-      Font.from_native(Native::Graphics.font)
+      Font.__send__(:from_native, Native::Graphics.font)
     end
 
     # Draws text in the current font and color, or in a Font given first,
@@ -1291,9 +1291,9 @@ module Lota
       ky = nil
     )
       if font.is_a?(Math::Transform)
-        return Native::Graphics.print_with_transform(colored_text(text), nil, font.native)
+        return Native::Graphics.print_with_transform(colored_text(text), nil, font.__send__(:native))
       elsif font.is_a?(Font) && x.is_a?(Math::Transform)
-        return Native::Graphics.print_with_transform(colored_text(text), font.native, x.native)
+        return Native::Graphics.print_with_transform(colored_text(text), font.__send__(:native), x.__send__(:native))
       end
 
       unless font.is_a?(Font)
@@ -1303,7 +1303,7 @@ module Lota
           placement(number(font || 0), number(x || 0), y, r, sx, sy, ox, oy, kx))
       end
 
-      Native::Graphics.print(colored_text(text), font.native, placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
+      Native::Graphics.print(colored_text(text), font.__send__(:native), placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
     end
 
     # Draws text in the current font and color, or in a Font given first,
@@ -1348,9 +1348,9 @@ module Lota
       kx = nil, ky = nil
     )
       if font.is_a?(Math::Transform)
-        return Native::Graphics.printf_with_transform(colored_text(text), nil, font.native, number(x), alignment(y))
+        return Native::Graphics.printf_with_transform(colored_text(text), nil, font.__send__(:native), number(x), alignment(y))
       elsif font.is_a?(Font) && x.is_a?(Math::Transform)
-        return Native::Graphics.printf_with_transform(colored_text(text), font.native, x.native, number(y),
+        return Native::Graphics.printf_with_transform(colored_text(text), font.__send__(:native), x.__send__(:native), number(y),
           alignment(limit))
       end
 
@@ -1362,7 +1362,7 @@ module Lota
         font = nil
       end
       x, y, limit, align, r, sx, sy, ox, oy, kx, ky = arguments
-      Native::Graphics.printf(colored_text(text), font&.native,
+      Native::Graphics.printf(colored_text(text), font&.__send__(:native),
         placement(number(x), number(y), optional_number(r), optional_number(sx), optional_number(sy),
           optional_number(ox), optional_number(oy), optional_number(kx), optional_number(ky)),
         number(limit), alignment(align))
@@ -1399,7 +1399,7 @@ module Lota
     # as parts, each a String and the color it is drawn in, white until a
     # color comes before it, with alpha 1 when left out.
     # Lota::Graphics::Font#wrap reads text as print does. :nodoc:
-    def self.colored_text(text)
+    private_class_method def self.colored_text(text)
       return [[text, 1.0, 1.0, 1.0, 1.0]] if text.is_a?(String)
 
       color = [1.0, 1.0, 1.0, 1.0] #: [Float | Integer, Float | Integer, Float | Integer, Float | Integer]
@@ -1427,7 +1427,7 @@ module Lota
     # Transform: up to nine numbers, the position 0 when +nil+ or left
     # out. More than nine is an ArgumentError, as for any Ruby method.
     # :nodoc:
-    def self.standard_placement(*numbers)
+    private_class_method def self.standard_placement(*numbers)
       raise ArgumentError, "wrong number of arguments (given #{numbers.size}, expected 0..9)" if numbers.size > 9
 
       x, y, r, sx, sy, ox, oy, kx, ky = numbers
@@ -1441,7 +1441,7 @@ module Lota
     # number after it, is a missing quad, which LÖVE reports as a type
     # error; without a quad there are nine numbers, not ten. The position
     # is 0 when +nil+ or left out. :nodoc:
-    def self.placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+    private_class_method def self.placement_after(quad, x, y, r, sx, sy, ox, oy, kx, ky)
       return placement(x || 0, y || 0, r, sx, sy, ox, oy, kx, ky) if quad.is_a?(Quad)
 
       raise TypeError, "wrong argument type nil (expected Lota::Graphics::Quad)" if quad.nil? && !x.nil?
@@ -1593,7 +1593,7 @@ module Lota
     #   Lota::Graphics.canvas # => [[[#<Lota::Graphics::Texture ...>, {mipmap: 2}]]]
     def self.canvas
       tables, colors, depthstencil = Native::Graphics.canvas
-      return colors.map { |fields| Texture.from_native(fields.first) } unless tables
+      return colors.map { |fields| Texture.__send__(:from_native, fields.first) } unless tables
 
       table = colors.map { |fields| target_of(fields) }
       [depthstencil ? table + [{ depthstencil: target_of(depthstencil) }] : table]
@@ -1723,7 +1723,7 @@ module Lota
     def self.shader=(shader)
       case shader
       when nil then Native::Graphics.set_shader
-      when Shader then Native::Graphics.set_shader(shader.native)
+      when Shader then Native::Graphics.set_shader(shader.__send__(:native))
       else raise TypeError, "wrong argument type #{shader.class} (expected Lota::Graphics::Shader)"
       end
     end
@@ -1740,7 +1740,7 @@ module Lota
     #   Lota::Graphics.shader # => nil
     def self.shader
       native = Native::Graphics.shader
-      native && Shader.from_native(native)
+      native && Shader.__send__(:from_native, native)
     end
 
     # Whether shader source compiles, matching love.graphics.validateShader
@@ -1768,7 +1768,7 @@ module Lota
     def self.validate_shader(gles, first, second = nil, defines: nil, debugname: nil, write: nil)
       raise TypeError, "wrong argument type #{gles.class} (expected true or false)" unless [true, false].include?(gles)
 
-      stages, pairs, name = Shader.source(first, second, defines, debugname)
+      stages, pairs, name = Shader.__send__(:source, first, second, defines, debugname)
       Native::Graphics.validate_shader(gles, stages, name, pairs, write ? true : false)
     end
 
@@ -2184,7 +2184,7 @@ module Lota
           raise TypeError, "wrong argument type #{callable.class} (expected String or an object that answers call)"
         end
 
-        Native::Graphics.capture_screenshot(-> (image) { callable.call(Lota::Image::ImageData.from_native(image)) })
+        Native::Graphics.capture_screenshot(-> (image) { callable.call(Lota::Image::ImageData.__send__(:from_native, image)) })
       end
     end
 
@@ -2247,11 +2247,14 @@ module Lota
       values.map { |value| number(value) }
     end
 
-    # +value+, a number LÖVE reads with luaL_checkinteger, or TypeError.
+    # +value+, a number LÖVE reads with luaL_optinteger, which LuaJIT cuts
+    # to the whole number toward 0, or TypeError.
     private_class_method def self.integer(value)
-      return value if value.is_a?(Integer)
-
-      raise TypeError, "wrong argument type #{value.class} (expected Integer)"
+      case value
+      when Integer then value
+      when Float then value.truncate
+      else raise TypeError, "wrong argument type #{value.class} (expected Integer)"
+      end
     end
   end
 end

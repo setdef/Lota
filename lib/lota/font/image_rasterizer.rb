@@ -51,12 +51,12 @@ module Lota
       #   Lota::Font::ImageRasterizer.new("font.png", " ABCDEFGHIJKLMNOPQRSTUVWXYZ")
       #   Lota::Font::ImageRasterizer.new(image_data, "ABC", 0, 1)
       def self.new(image, glyphs, extraspacing = nil, dpiscale = nil)
-        data = Font.image_data(image)
+        data = Font.__send__(:image_data, image)
         raise TypeError, "wrong argument type #{glyphs.class} for glyphs (expected String)" unless glyphs.is_a?(String)
 
-        extraspacing = Font.optional_integer(extraspacing, "extraspacing")
-        dpiscale = Font.optional_number(dpiscale, "dpiscale")
-        Rasterizer.from_native(Native::Font.new_image_rasterizer(data, glyphs, extraspacing, dpiscale))
+        extraspacing = Font.__send__(:optional_integer, extraspacing, "extraspacing")
+        dpiscale = Font.__send__(:optional_number, dpiscale, "dpiscale")
+        Rasterizer.__send__(:from_native, Native::Font.new_image_rasterizer(data, glyphs, extraspacing, dpiscale))
       end
 
       # SPDX-SnippetEnd
@@ -68,7 +68,7 @@ module Lota
       #
       #   Lota::Font::ImageRasterizer === Lota::Font::ImageRasterizer.new("font.png", "AB") # => true
       def self.===(object)
-        object.is_a?(Rasterizer) && object.native.image?
+        object.is_a?(Rasterizer) && object.__send__(:native).image?
       end
     end
   end

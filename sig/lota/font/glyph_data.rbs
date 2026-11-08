@@ -3,13 +3,10 @@
 
 module Lota
   module Font
-    class GlyphData
-      include Object
-      include Data
+    class GlyphData < Data[Native::GlyphData]
+      private def self.from_native: (Native::GlyphData native) -> GlyphData
 
-      attr_reader native: Native::GlyphData
-
-      def self.from_native: (Native::GlyphData native) -> GlyphData
+      def self.new: (Rasterizer rasterizer, String | Integer | Float glyph) -> GlyphData
 
       def initialize: (Rasterizer rasterizer, String | Integer | Float glyph) -> void
 

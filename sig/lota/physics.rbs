@@ -17,8 +17,8 @@ module Lota
 
     def self.compute_angular_frequency: (Float | Integer stiffness, Float | Integer damping, Body body1, ?Body? body2) -> [Float, Float]
 
-    def self.shape: (Native::Shape? native) -> Shape?
+    private def self.shape: (Native::Shape? native) -> Shape?
 
-    def self.joint: (Native::Joint native) -> Joint?
+    private def self.joint: (Native::Joint native) -> Joint?
   end
 end

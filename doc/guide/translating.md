@@ -69,9 +69,15 @@ A physics World takes four contact callbacks, more than a method's one block, so
 
 ## Objects and types
 
-Every engine object includes `Lota::Object` and answers `object_type` with LÖVE's name for its type (`"Texture"`), and `type_of?` for that type and its parents (`texture.type_of?("Object")`), as LÖVE's `type` and `typeOf` do. `type` is another name for `object_type`, except on a Body, Shape, Joint, Source, or Cursor. Those also have LÖVE's `getType`, which Lota names `get_type` (`body.get_type` is `:dynamic`), and they have no `type`, so a call meant for one never answers the other.
+LÖVE's root types are classes: every engine object is a `Lota::Object`, and every Data, such as an ImageData, SoundData, FileData, or ByteData, is a `Lota::Data` too, as each inherits from Object and Data in LÖVE. `Lota::Data`'s class methods are `love.data`'s, and given the container `:data` they return an object of `Lota::Data` itself, a plain Data with Data's methods, as LÖVE's do. `Lota::Data.hash(:string, :md5, s)` is `love.data.hash`; with no arguments, `Lota::Data.hash` is Ruby's own `Object#hash`. In the same way `Lota::Sensor.name(:accelerometer)` is `love.sensor.getName`, and `Lota::Sensor.name` is Ruby's `Module#name`.
 
-An engine object Lota hands back, as `Lota::Graphics.canvas` hands back the canvas you set, or `world.bodies` the Bodies you made, is the same Ruby object you made. `clone` and `dup` of a SoundData, ImageData, FileData, Decoder, or Source make LÖVE's copy, a new engine object.
+Every engine object answers `object_type` with LÖVE's name for its type (`"Texture"`), and `type_of?` for that type and its parents (`texture.type_of?(:Object)`), as LÖVE's `type` and `typeOf` do. A type's name is a name, so it is a Symbol; a String names the same type. `type` is another name for `object_type`, except on a Body, Shape, Joint, Source, or Cursor. Those also have LÖVE's `getType`, which Lota names `get_type` (`body.get_type` is `:dynamic`), and they have no `type`, so a call meant for one never answers the other.
+
+LÖVE's `__tostring` and `__eq`, which every object has, are `to_s` and `==`: `texture.to_s` is `"Texture: 0x0127c3a4f0"`, and two objects are `==` when they hold the same engine object. `release` is LÖVE's `release`: it returns `true` the first time, and after it any call that uses the object raises `RuntimeError` ("Cannot use object after it has been released."). LÖVE frees the engine object at once if nothing else holds it; Lota frees it when Ruby's garbage collector frees the Ruby object, as it does every engine object, because a method further up the stack, such as one that yields to your block, may still be using it.
+
+An engine object Lota hands back, as `Lota::Graphics.canvas` hands back the canvas you set, or `world.bodies` the Bodies you made, is the same Ruby object you made, until you release it. `clone` and `dup` of a SoundData, ImageData, FileData, Decoder, or Source make LÖVE's copy, a new engine object.
+
+Where LÖVE reads a whole number, such as a font's size, Lota takes a Float too and cuts it toward 0, as LuaJIT does: `Lota::Graphics::Font.new(12.5)` is a 12-pixel font.
 
 A Shader has LÖVE's `send`, which replaces Ruby's `Object#send` on a Shader: `glow.send("strength", 1.5)` sends a uniform. Use `__send__` for Ruby's.
 

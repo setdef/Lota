@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 module Lota
-  module Data
+  class Data[out N < Native::Data::Data = Native::Data::Data]
     module Packing
       type option = :int | :uint | :float | :char | :string | :zstr | :padding | :paddalign | :nop
 

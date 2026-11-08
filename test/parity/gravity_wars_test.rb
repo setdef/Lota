@@ -77,7 +77,7 @@ class GravityWarsTest < Minitest::Test
       path = File.join(love.frames_dir, "0001.png")
       Lota::Native::Image.open
       frame = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
-      bytes = LotaNativeTest.image_data_bytes(frame.native).b
+      bytes = LotaNativeTest.image_data_bytes(frame.__send__(:native)).b
 
       assert_equal "\xFE\xFE\xFE\xFF".b * 1000, bytes.byteslice(0, 1000 * 4)
     end

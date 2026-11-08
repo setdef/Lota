@@ -3,9 +3,7 @@
 
 module Lota
   module Graphics
-    class ParticleSystem
-      include Object
-
+    class ParticleSystem < Object[Native::ParticleSystem]
       type name = Symbol | String
 
       type range = Float | Integer | Array[Float | Integer]
@@ -14,9 +12,7 @@ module Lota
 
       type colors = Array[Float | Integer] | Array[Array[Float | Integer]]
 
-      attr_reader native: Native::ParticleSystem
-
-      def self.from_native: (Native::ParticleSystem native) -> ParticleSystem
+      private def self.from_native: (Native::ParticleSystem native) -> ParticleSystem
 
       def self.new: (Texture texture, ?(Float | Integer)? size) -> ParticleSystem
 

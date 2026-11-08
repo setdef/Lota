@@ -25,14 +25,9 @@ module Lota
     #   file.close
     #   file.open(:r)
     #   file.read # => ["ada 120\n", 8]
-    class File
-      include Object
-
-      # The engine's File, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class File < Object
       # Wraps a File the engine opened. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         file = allocate
         file.instance_variable_set(:@native, native)
         file
@@ -152,7 +147,7 @@ module Lota
       # Reads +size+ bytes into the container type +container+ names. :nodoc:
       private def read_into(container, size)
         @native.read(container, size || -1).map do |value|
-          value.is_a?(Native::FileData) ? FileData.from_native(value) : value
+          value.is_a?(Native::FileData) ? FileData.__send__(:from_native, value) : value
         end
       end
 
@@ -273,9 +268,9 @@ module Lota
       #   file.lines.to_a # => ["ada 120"]
       def lines(&block)
         reader = Native::Filesystem::Lines.of_file(@native)
-        return Filesystem.enumerate_lines(reader) unless block
+        return Filesystem.__send__(:enumerate_lines, reader) unless block
 
-        Filesystem.enumerate_lines(reader, &block)
+        Filesystem.__send__(:enumerate_lines, reader, &block)
       end
     end
   end

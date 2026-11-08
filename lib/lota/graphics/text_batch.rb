@@ -26,14 +26,9 @@ module Lota
     #   title = text.add("Fireball", 8, 8)
     #   text.addf([[1, 0.5, 0], "Deal 6 damage."], 120, :center, 8, 40)
     #   Lota::Graphics.draw(text, 100, 100)
-    class TextBatch
-      include Object
-
-      # The engine's TextBatch, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class TextBatch < Object
       # Wraps a TextBatch the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         batch = allocate
         batch.instance_variable_set(:@native, native)
         batch
@@ -60,7 +55,7 @@ module Lota
       def self.new(font, text = nil)
         raise TypeError, "wrong argument type #{font.class} (expected Lota::Graphics::Font)" unless font.is_a?(Font)
 
-        from_native(Native::Graphics.new_text_batch(font.native, text.nil? ? nil : Graphics.colored_text(text)))
+        from_native(Native::Graphics.new_text_batch(font.__send__(:native), text.nil? ? nil : Graphics.__send__(:colored_text, text)))
       end
 
       # Replaces everything in the batch with +text+, placed at the
@@ -74,7 +69,7 @@ module Lota
       #
       #   batch.set("Round 2")
       def set(text)
-        @native.set(Graphics.colored_text(text))
+        @native.set(Graphics.__send__(:colored_text, text))
       end
 
       # Replaces everything in the batch with +text+ wrapped at +wraplimit+
@@ -91,7 +86,7 @@ module Lota
       #
       #   batch.setf("A long line of text", 100, :center)
       def setf(text, wraplimit, align)
-        @native.setf(Graphics.colored_text(text), wraplimit, EnumName.of(align))
+        @native.setf(Graphics.__send__(:colored_text, text), wraplimit, EnumName.of(align))
       end
 
       # Adds +text+ and returns its Integer index, counting from 1, for
@@ -109,11 +104,11 @@ module Lota
       #   batch.add("Hello", 10, 20, Math::PI / 4, 2)
       #   batch.add("Hello", transform)
       def add(text, *placement)
-        colored = Graphics.colored_text(text)
+        colored = Graphics.__send__(:colored_text, text)
         transform = placement.first
         return @native.add_with_transform(colored, transform.native) if transform.is_a?(Math::Transform)
 
-        @native.add(colored, Graphics.standard_placement(*numbers(placement)))
+        @native.add(colored, Graphics.__send__(:standard_placement, *numbers(placement)))
       end
 
       # Adds +text+ wrapped at +wraplimit+ and aligned within it, and
@@ -131,12 +126,12 @@ module Lota
       #
       #   batch.addf("A long line of text", 100, :right, 10, 20)
       def addf(text, wraplimit, align, *placement)
-        colored = Graphics.colored_text(text)
+        colored = Graphics.__send__(:colored_text, text)
         align = EnumName.of(align)
         transform = placement.first
         return @native.addf_with_transform(colored, wraplimit, align, transform.native) if transform.is_a?(Math::Transform)
 
-        @native.addf(colored, wraplimit, align, Graphics.standard_placement(*numbers(placement)))
+        @native.addf(colored, wraplimit, align, Graphics.__send__(:standard_placement, *numbers(placement)))
       end
 
       # The numbers in +placement+, which holds a Transform only in place
@@ -183,7 +178,7 @@ module Lota
       #
       #   batch.font.height
       def font
-        Font.from_native(@native.font)
+        Font.__send__(:from_native, @native.font)
       end
 
       # The Float width of all the text, or of the text at +index+, as

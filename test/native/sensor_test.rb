@@ -28,7 +28,7 @@ class SensorModuleTest < Minitest::Test
       refute Lota::Sensor.enabled?(sensor_type)
       error = assert_raises(RuntimeError) { Lota::Sensor.data(sensor_type) }
       assert_equal %("#{sensor_type}" sensor is not enabled), error.message
-      error = assert_raises(RuntimeError) { Lota::Sensor.get_name(sensor_type) }
+      error = assert_raises(RuntimeError) { Lota::Sensor.name(sensor_type) }
       assert_equal %("#{sensor_type}" sensor is not enabled), error.message
     end
   end
@@ -48,6 +48,18 @@ class SensorModuleTest < Minitest::Test
     error = assert_raises(ArgumentError) { Lota::Sensor.sensor?(:compass) }
     assert_equal "Invalid sensor mode 'compass', expected one of: 'accelerometer', 'gyroscope'", error.message
     assert_raises(ArgumentError) { Lota::Sensor.enabled = :compass, true }
+  end
+
+  # Rule 3 names love.sensor.getName +name+, and getName requires its
+  # sensor type (wrap_Sensor.cpp:81-89), so Lota::Sensor.name with none is
+  # Ruby's own Module#name, and nothing keeps LÖVE's prefix.
+  def test_name_with_no_sensor_type_is_the_modules_own
+    assert_equal "Lota::Sensor", Lota::Sensor.name
+    assert_equal "Lota::Sensor", Lota::Sensor.inspect
+    refute_respond_to Lota::Sensor, :get_name
+    assert_raises(ArgumentError) { Lota::Sensor.name(:accelerometer, :gyroscope) }
+    error = assert_raises(ArgumentError) { Lota::Sensor.name(:compass) }
+    assert_equal "Invalid sensor mode 'compass', expected one of: 'accelerometer', 'gyroscope'", error.message
   end
 
   def test_lota_sensor_is_the_module

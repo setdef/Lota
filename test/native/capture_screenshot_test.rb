@@ -26,7 +26,7 @@ class CaptureScreenshotTest < Minitest::Test
     Lota::Native::Graphics.capture_screenshot(-> (image) { frames << image })
     Lota::Graphics.clear(1, 0, 0)
     Lota::Graphics.present
-    image = Lota::Image::ImageData.from_native(frames.fetch(0))
+    image = Lota::Image::ImageData.__send__(:from_native, frames.fetch(0))
 
     assert_equal 1, frames.size
     assert_instance_of Lota::Native::ImageData, frames.first
@@ -62,7 +62,7 @@ class CaptureScreenshotTest < Minitest::Test
     Lota::Graphics.present
     collect_garbage
 
-    assert_equal [0.0, 0.0, 1.0, 1.0], Lota::Image::ImageData.from_native(frames.fetch(0)).pixel(1, 1)
+    assert_equal [0.0, 0.0, 1.0, 1.0], Lota::Image::ImageData.__send__(:from_native, frames.fetch(0)).pixel(1, 1)
   end
 
   def test_an_error_in_the_callable_is_raised_by_present_once_the_frame_is_shown

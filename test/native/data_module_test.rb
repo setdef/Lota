@@ -185,7 +185,7 @@ class DataModuleFunctionsTest < Minitest::Test
     assert_equal "\0\0\x02\x01\0\0".b, data.string.b
     error = assert_raises(RuntimeError) { Lota::Data.pack(data, 5, ">I2", 1) }
     assert_equal "The given byte offset and pack format parameters do not fit within the ByteData's size.", error.message
-    assert_kind_of Lota::Data::ByteData, Lota::Data.pack(:data, "b", 1)
+    assert_instance_of Lota::Data, Lota::Data.pack(:data, "b", 1)
   end
 
   # string.unpack returns the values and the position after them, starts
@@ -203,6 +203,82 @@ class DataModuleFunctionsTest < Minitest::Test
     assert_equal "data string too short", error.message
     error = assert_raises(ArgumentError) { Lota::Data.unpack("B", "\x01", 5) }
     assert_equal "initial position out of string", error.message
+  end
+
+  # Given the container "data", decompress, encode, decode, hash, and pack
+  # push what they make as LÖVE's root type Data, not as the ByteData it
+  # is in C++ (wrap_DataModule.cpp:191, 238, 287, 345, 374, and 390), so
+  # Lua sees Data's type and methods, and none of ByteData's.
+  def test_the_data_container_holds_a_plain_data
+    packed = Lota::Data.compress(:string, :zlib, "helloworld")
+    plain = {
+      decompress: Lota::Data.decompress(:data, :zlib, packed),
+      compressed_data: Lota::Data.decompress(:data, Lota::Data.compress(:data, :zlib, "helloworld")),
+      encode: Lota::Data.encode(:data, :hex, "hi"),
+      decode: Lota::Data.decode(:data, :hex, "6869"),
+      hash: Lota::Data.hash(:data, :md5, "hi"),
+      pack: Lota::Data.pack(:data, ">I2", 513),
+    }
+
+    plain.each do |from, data|
+      assert_instance_of Lota::Data, data, from
+      assert_equal "Data", data.object_type, from
+      assert data.type_of?(:Data), from
+      assert data.type_of?(:Object), from
+      refute data.type_of?(:ByteData), from
+      refute_respond_to data, :string=, from
+      refute_respond_to data, :uint8=, from
+    end
+    assert_equal "helloworld", plain.fetch(:decompress).string
+    assert_equal "helloworld", plain.fetch(:compressed_data).string
+    assert_equal "6869", plain.fetch(:encode).string
+    assert_equal "hi", plain.fetch(:decode).string
+    assert_equal [2, 1], plain.fetch(:pack).uint8(0, 2)
+    assert_equal 16, plain.fetch(:hash).size
+  end
+
+  # love.data.hash (wrap_DataModule.cpp:303-352), with every function it
+  # has, of a String or a Data, as a String or a Data.
+  def test_hash_digests_with_loves_functions
+    digests = {
+      md5: "fc5e038d38a57032085441e7fe7010b0",
+      sha1: "6adfb183a4a2c94a2f92dab5ade762a47889a5a1",
+      sha256: "936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af",
+    }
+
+    digests.each do |function, hex|
+      assert_equal hex, Lota::Data.hash(:string, function, "helloworld").unpack1("H*")
+      assert_equal hex, Lota::Data.hash("data", function.to_s, Lota::Data::ByteData.new("helloworld")).string.unpack1("H*")
+    end
+    error = assert_raises(ArgumentError) { Lota::Data.hash(:string, :md4, "helloworld") }
+    assert_match(/\AInvalid hash function 'md4', expected one of: /, error.message)
+    error = assert_raises(ArgumentError) { Lota::Data.hash(:table, :md5, "helloworld") }
+    assert_match(/\AInvalid container type 'table', expected one of: /, error.message)
+    assert_raises(TypeError) { Lota::Data.hash(:string, :md5, nil) }
+  end
+
+  # No call of LÖVE's is love.data.hash with no arguments, so
+  # Lota::Data.hash with none is Ruby's own Object#hash, as a Hash key
+  # asks it.
+  def test_hash_with_no_arguments_is_rubys_own
+    assert_equal ::Object.instance_method(:hash).bind_call(Lota::Data), Lota::Data.hash
+    assert_equal :data, { Lota::Data => :data }.fetch(Lota::Data)
+  end
+
+  # love.data.hash's deprecated form names the function first, returns a
+  # String, and marks the variant deprecated (wrap_DataModule.cpp:
+  # 311-320). No other test calls it, so the notice is this test's to see.
+  def test_hash_with_the_function_first_is_deprecated
+    output = Lota::Deprecation.output?
+    Lota::Deprecation.output = true
+    out, = capture_io { Lota::Data.hash(:md5, "helloworld") }
+
+    assert_match(/\ALota - Warning: .*data_module_test\.rb:\d+: Using deprecated function variant in Lota::Data\.hash \(replaced by variant with container return type parameter\)\n\z/, out)
+    capture_io do
+      assert_equal "fc5e038d38a57032085441e7fe7010b0", Lota::Data.hash(:md5, "helloworld").unpack1("H*")
+    end
+  ensure
+    capture_io { Lota::Deprecation.output = output }
   end
 
   def test_packed_size_refuses_variable_lengths

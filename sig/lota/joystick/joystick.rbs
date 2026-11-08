@@ -3,12 +3,8 @@
 
 module Lota
   module Joystick
-    class Joystick
-      include Object
-
-      attr_reader native: Native::Joystick::Joystick
-
-      def self.from_native: (Native::Joystick::Joystick native) -> Joystick
+    class Joystick < Object[Native::Joystick::Joystick]
+      private def self.from_native: (Native::Joystick::Joystick native) -> Joystick
 
       def connected?: () -> bool
 

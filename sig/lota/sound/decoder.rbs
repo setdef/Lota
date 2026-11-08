@@ -3,14 +3,10 @@
 
 module Lota
   module Sound
-    class Decoder
-      include Object
-
+    class Decoder < Object[Native::Decoder]
       DEFAULT_BUFFER_SIZE: Integer
 
-      attr_reader native: Native::Decoder
-
-      def self.from_native: (Native::Decoder native) -> Decoder
+      private def self.from_native: (Native::Decoder native) -> Decoder
 
       def self.new: (String | Filesystem::FileData file, ?Integer buffer_size, ?(Symbol | String)? type) -> Decoder
 

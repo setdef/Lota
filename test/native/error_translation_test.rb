@@ -154,7 +154,7 @@ class ErrorTranslationTest < Minitest::Test
   # bundle's copy of the engine, where love.image is never opened.
   def test_the_image_data_error_reaches_ruby_translated
     file_data = Lota::Filesystem::FileData.new(PNG, "clear-1.png")
-    error = assert_raises(RuntimeError) { LotaNativeTest.decode_without_the_image_module(file_data.native) }
+    error = assert_raises(RuntimeError) { LotaNativeTest.decode_without_the_image_module(file_data.__send__(:native)) }
 
     assert_instance_of RuntimeError, error
     assert_equal "Lota::Image must be loaded in order to decode an ImageData.", error.message

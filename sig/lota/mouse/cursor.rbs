@@ -3,10 +3,8 @@
 
 module Lota
   module Mouse
-    class Cursor
-      attr_reader native: Native::Mouse::Cursor
-
-      def self.from_native: (Native::Mouse::Cursor native) -> Cursor
+    class Cursor < Object[Native::Mouse::Cursor]
+      private def self.from_native: (Native::Mouse::Cursor native) -> Cursor
 
       def self.new: (Image::ImageData | Filesystem::FileData | String | Array[Image::ImageData | Filesystem::FileData | String] image, ?Integer hotx, ?Integer hoty) -> Cursor
 

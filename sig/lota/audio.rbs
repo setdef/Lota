@@ -66,6 +66,6 @@ module Lota
 
     def self.output_spatialization_filters: () -> Array[String]
 
-    def self.setting_pairs: (Hash[Symbol, Source::setting] settings) -> Array[[String, Float | Integer | bool | String]]?
+    private def self.setting_pairs: (Hash[Symbol, Source::setting] settings) -> Array[[String, Float | Integer | bool | String]]?
   end
 end

@@ -31,6 +31,18 @@ class FontTest < Minitest::Test
     Font.new(12)
   end
 
+  # w_newTrueTypeRasterizer reads the size with luaL_optinteger
+  # (wrap_Font.cpp:115 and 125), which LuaJIT cuts toward 0, so a Float
+  # size makes the font of its whole number.
+  def test_a_size_is_cut_to_a_whole_number
+    data = Lota::Filesystem::FileData.new(File.binread(FONT), "font.ttf")
+
+    assert_equal noto.height, Font.new(12.9).height
+    refute_equal noto.height, Font.new(13).height
+    assert_equal small_font.height, Font.new(data, 8.5).height
+    assert_equal small_font.height, Font.new(data, 8.5, hinting: :normal).height
+  end
+
   # w_Font_getWidth reads a number as a glyph's code point.
   def test_a_width_is_of_text_or_of_one_glyph
     font = small_font

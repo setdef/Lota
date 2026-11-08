@@ -52,7 +52,7 @@ module Parity
     end
 
     private def bytes(image)
-      LotaNativeTest.image_data_bytes(image.native)
+      LotaNativeTest.image_data_bytes(image.__send__(:native))
     end
 
     # compareImg's message for the first pixel it would fail on: the

@@ -2,24 +2,26 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 module Lota
-  interface _WrapsData
-    def native: () -> Native::Data::Data
-  end
-
-  module Data : _WrapsData
+  class Data[out N < Native::Data::Data = Native::Data::Data] < Object[N]
     type source = String | Data
+
+    private def self.from_native: (Native::Data::Data native) -> Data
 
     type packable = Integer | Float | String
 
     def self.compress: (Symbol | String container, Symbol | String format, source source, ?Integer? level) -> (String | CompressedData)
 
-    def self.decompress: (Symbol | String container, CompressedData | Symbol | String compressed, ?source? source) -> (String | ByteData)
+    def self.decompress: (Symbol | String container, CompressedData | Symbol | String compressed, ?source? source) -> (String | Data)
 
-    def self.encode: (Symbol | String container, Symbol | String format, source source, ?Integer? line_length) -> (String | ByteData)
+    def self.encode: (Symbol | String container, Symbol | String format, source source, ?Integer? line_length) -> (String | Data)
 
-    def self.decode: (Symbol | String container, Symbol | String format, source source) -> (String | ByteData)
+    def self.decode: (Symbol | String container, Symbol | String format, source source) -> (String | Data)
 
-    def self.pack: (Symbol | String | ByteData container, *(packable | nil) arguments) -> (String | ByteData)
+    def self.hash: () -> Integer
+                 | (Symbol | String container, Symbol | String function, source source) -> (String | Data)
+                 | (Symbol | String function, source source) -> String
+
+    def self.pack: (Symbol | String | ByteData container, *(packable | nil) arguments) -> (String | Data)
 
     def self.unpack: (String format, source source, ?Integer? position) -> Array[packable]
 
@@ -29,7 +31,7 @@ module Lota
 
     private def self.source_of: (source? source) -> (String | Native::Data::Data | nil)
 
-    private def self.result_of: (String | Native::ByteData native) -> (String | ByteData)
+    private def self.result_of: (String | Native::Data::Data native) -> (String | Data)
 
     def size: () -> Integer
 

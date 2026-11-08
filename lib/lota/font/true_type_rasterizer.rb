@@ -67,14 +67,14 @@ module Lota
       #   Lota::Font::TrueTypeRasterizer.new("assets/pixel.ttf", 8, :normal, 1)
       #   Lota::Font::TrueTypeRasterizer.new(32, sdf: true)
       def self.new(*arguments, hinting: nil, dpiscale: nil, sdf: false)
-        Rasterizer.from_native(native(arguments, hinting, dpiscale, sdf))
+        Rasterizer.__send__(:from_native, native(arguments, hinting, dpiscale, sdf))
       end
 
       # The engine's Rasterizer for +arguments+ and the settings, made as
       # w_newTrueTypeRasterizer chooses: LÖVE's default font when the
       # first is a number or there is none, and the font in the first
       # otherwise. :nodoc:
-      def self.native(arguments, hinting, dpiscale, sdf)
+      private_class_method def self.native(arguments, hinting, dpiscale, sdf)
         source = arguments.first unless arguments.empty? || arguments.first.is_a?(Numeric)
         rest = source.nil? ? arguments : arguments.drop(1)
         size, *legacy = rest
@@ -83,11 +83,11 @@ module Lota
             "wrong number of arguments (given #{arguments.size}, expected #{source.nil? ? '0..3' : '1..4'})"
         end
 
-        size = Font.optional_integer(size, "size")
+        size = Font.__send__(:optional_integer, size, "size")
         hinting, dpiscale = settings(legacy, hinting, dpiscale, sdf)
         return Native::Font.new_default_truetype_rasterizer(size, hinting, dpiscale, sdf) if source.nil?
 
-        data = source.is_a?(Data) ? source.native : Font.file_data(source)
+        data = source.is_a?(Data) ? source.__send__(:native) : Font.__send__(:file_data, source)
         Native::Font.new_truetype_rasterizer(data, size, hinting, dpiscale, sdf)
       end
 
@@ -99,13 +99,13 @@ module Lota
         legacy_hinting, legacy_dpiscale = legacy
         case legacy_hinting
         when nil
-          [name_of(hinting), Font.optional_number(dpiscale, "dpiscale")]
+          [name_of(hinting), Font.__send__(:optional_number, dpiscale, "dpiscale")]
         when Symbol, String
           unless hinting.nil? && dpiscale.nil? && !sdf
             raise ArgumentError, "give the hinting and DPI scale after the size or as keywords, not both"
           end
 
-          [EnumName.of(legacy_hinting), Font.optional_number(legacy_dpiscale, "dpiscale")]
+          [EnumName.of(legacy_hinting), Font.__send__(:optional_number, legacy_dpiscale, "dpiscale")]
         else raise TypeError, "wrong argument type #{legacy_hinting.class} for hinting (expected Symbol)"
         end
       end
@@ -128,7 +128,7 @@ module Lota
       #
       #   Lota::Font::TrueTypeRasterizer === Lota::Font::Rasterizer.new(12) # => true
       def self.===(object)
-        object.is_a?(Rasterizer) && object.native.truetype?
+        object.is_a?(Rasterizer) && object.__send__(:native).truetype?
       end
     end
   end

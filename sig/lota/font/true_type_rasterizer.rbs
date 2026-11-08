@@ -6,7 +6,7 @@ module Lota
     module TrueTypeRasterizer
       def self.new: (*::Object? arguments, ?hinting: (Symbol | String)?, ?dpiscale: (Float | Integer)?, ?sdf: bool) -> Rasterizer
 
-      def self.native: (Array[::Object?] arguments, ::Object? hinting, ::Object? dpiscale, bool sdf) -> Native::Rasterizer
+      private def self.native: (Array[::Object?] arguments, ::Object? hinting, ::Object? dpiscale, bool sdf) -> Native::Rasterizer
 
       private def self.settings: (Array[::Object?] legacy, ::Object? hinting, ::Object? dpiscale, bool sdf) -> [String?, (Float | Integer)?]
 

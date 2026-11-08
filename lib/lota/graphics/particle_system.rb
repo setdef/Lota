@@ -33,14 +33,9 @@ module Lota
     #
     #   def Lota.update(dt) = fire.update(dt)
     #   def Lota.draw = Lota::Graphics.draw(fire, 400, 500)
-    class ParticleSystem
-      include Object
-
-      # The engine's ParticleSystem, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class ParticleSystem < Object
       # Wraps a ParticleSystem the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -70,7 +65,7 @@ module Lota
         Native::Graphics.check_created
         raise TypeError, "wrong argument type #{texture.class} (expected Lota::Graphics::Texture)" unless texture.is_a?(Texture)
 
-        from_native(Native::Graphics.new_particle_system(texture.native, size))
+        from_native(Native::Graphics.new_particle_system(texture.__send__(:native), size))
       end
 
       # Makes this particle system a copy of +system+ by Ruby's +clone+ or +dup+,
@@ -110,7 +105,7 @@ module Lota
       #
       #   fire.texture.width # => 16
       def texture
-        Texture.from_native(@native.texture)
+        Texture.__send__(:from_native, @native.texture)
       end
 
       # Sets the most particles alive at once, matching ParticleSystem:setBufferSize
@@ -721,7 +716,11 @@ module Lota
         list.each do |quad|
           raise TypeError, "wrong argument type #{quad.class} (expected Lota::Graphics::Quad)" unless quad.is_a?(Quad)
         end
-        @native.set_quads(list.map(&:native))
+        natives = list.map do |quad|
+          # A Symbol's proc calls only public methods, and native is protected.
+          quad.native
+        end
+        @native.set_quads(natives)
       end
 
       # The Lota::Graphics::Quad objects particles show, as an Array, matching
@@ -732,7 +731,7 @@ module Lota
       #
       #   fire.quads.size # => 2
       def quads
-        @native.quads.map { |quad| Quad.from_native(quad) }
+        @native.quads.map { |quad| Quad.__send__(:from_native, quad) }
       end
 
       # Sets whether a particle turns to face the way it moves, matching

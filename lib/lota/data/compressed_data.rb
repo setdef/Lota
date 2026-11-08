@@ -6,13 +6,13 @@
 #++
 
 module Lota
-  module Data
+  class Data
     # Compressed bytes that know how they were compressed, matching LÖVE's
     # CompressedData class (src/modules/data/CompressedData.h).
     #
     # Lota::Data.compress returns one for the container +:data+, and
     # Lota::Data.decompress takes it back without being told its format.
-    # Its bytes, which it includes Lota::Data to read, are the compressed
+    # Its bytes, which it reads as every Lota::Data does, are the compressed
     # ones.
     #
     # === Example
@@ -20,15 +20,9 @@ module Lota
     #   compressed = Lota::Data.compress(:data, :zlib, "helloworld")
     #   compressed.format                        # => :zlib
     #   Lota::Data.decompress(:string, compressed) # => "helloworld"
-    class CompressedData
-      include Object
-      include Data
-
-      # The engine's CompressedData, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class CompressedData < Data
       # Wraps a CompressedData the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         data = allocate
         data.instance_variable_set(:@native, native)
         data

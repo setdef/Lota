@@ -34,7 +34,7 @@ class CursorTest < Minitest::Test
 
   def test_a_system_cursor_is_a_cursor_by_symbol_or_string
     assert_instance_of Lota::Mouse::Cursor, Lota::Mouse.system_cursor(:sizewe)
-    assert_instance_of Lota::Native::Mouse::Cursor, Lota::Mouse.system_cursor("hand").native
+    assert_instance_of Lota::Native::Mouse::Cursor, Lota::Mouse.system_cursor("hand").__send__(:native)
   end
 
   # LÖVE's message names the enum, its system cursor type

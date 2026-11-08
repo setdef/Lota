@@ -32,7 +32,7 @@ module Lota
 
       # The Filter of +pairs+, the names and values the engine gives, with
       # every other field +nil+. :nodoc:
-      def self.of(pairs)
+      private_class_method def self.of(pairs)
         given = pairs.to_h { |name, value| [name.to_sym, value.is_a?(String) ? value.to_sym : value] }
         new(*%i[type volume lowgain highgain].map { |member| given[member] })
       end

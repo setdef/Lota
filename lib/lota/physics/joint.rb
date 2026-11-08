@@ -20,15 +20,10 @@ module Lota
     #
     #   joint = Lota::Physics::DistanceJoint.new(a, b, 10, 10, 20, 20)
     #   joint.anchors # => [10.0, 10.0, 20.0, 20.0]
-    class Joint
-      include Object
-
-      # The engine's Joint, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Joint < Object
       # The Joint that wraps +native+, one for each engine Joint while it
       # lives. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -56,7 +51,7 @@ module Lota
       #
       #   a, b = joint.bodies
       def bodies
-        @native.bodies.map { |body| Body.from_native(body) }
+        @native.bodies.map { |body| Body.__send__(:from_native, body) }
       end
 
       # Where the Joint holds each Body, in the World's coordinates, as an
@@ -158,7 +153,7 @@ module Lota
       #
       #   Lota::Physics::DistanceJoint.new(a, b, 10, 10, 20, 20, true)
       def self.new(body1, body2, x1, y1, x2, y2, collide_connected = nil)
-        from_native(Native::Physics.new_distance_joint(body1.native, body2.native, x1, y1, x2, y2,
+        from_native(Native::Physics.new_distance_joint(body1.__send__(:native), body2.__send__(:native), x1, y1, x2, y2,
           flag(collide_connected, false)))
       end
 
@@ -232,7 +227,7 @@ module Lota
       #
       #   Lota::Physics::MouseJoint.new(body, 10, 10)
       def self.new(body, x, y)
-        from_native(Native::Physics.new_mouse_joint(body.native, x, y))
+        from_native(Native::Physics.new_mouse_joint(body.__send__(:native), x, y))
       end
 
       # The world point the joint pulls its Body toward, as an Array of its
@@ -332,8 +327,8 @@ module Lota
       #
       #   Lota::Physics::RevoluteJoint.new(a, b, 10, 10, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide, angle = Joint.anchored(arguments, 2)
-        from_native(Native::Physics.new_revolute_joint(body1.native, body2.native, anchors, flag(collide, false),
+        anchors, collide, angle = Joint.__send__(:anchored, arguments, 2)
+        from_native(Native::Physics.new_revolute_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false),
           angle))
       end
 
@@ -529,8 +524,8 @@ module Lota
       #
       #   Lota::Physics::FrictionJoint.new(a, b, 15, 15, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide = Joint.anchored(arguments, 2)
-        from_native(Native::Physics.new_friction_joint(body1.native, body2.native, anchors, flag(collide, false)))
+        anchors, collide = Joint.__send__(:anchored, arguments, 2)
+        from_native(Native::Physics.new_friction_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false)))
       end
 
       # The most force the joint applies, as a Float, matching
@@ -584,8 +579,8 @@ module Lota
       #
       #   Lota::Physics::WeldJoint.new(a, b, 10, 10, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide, angle = Joint.anchored(arguments, 2)
-        from_native(Native::Physics.new_weld_joint(body1.native, body2.native, anchors, flag(collide, false), angle))
+        anchors, collide, angle = Joint.__send__(:anchored, arguments, 2)
+        from_native(Native::Physics.new_weld_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false), angle))
       end
 
       # The joint's spring stiffness, as a Float, matching
@@ -649,8 +644,8 @@ module Lota
       #
       #   Lota::Physics::PrismaticJoint.new(a, b, 10, 10, 20, 20, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide, angle = Joint.anchored(arguments, 4)
-        from_native(Native::Physics.new_prismatic_joint(body1.native, body2.native, anchors, flag(collide, false),
+        anchors, collide, angle = Joint.__send__(:anchored, arguments, 4)
+        from_native(Native::Physics.new_prismatic_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false),
           angle))
       end
 
@@ -858,8 +853,8 @@ module Lota
       #
       #   Lota::Physics::WheelJoint.new(a, b, 10, 10, 5, 5, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide = Joint.anchored(arguments, 4)
-        from_native(Native::Physics.new_wheel_joint(body1.native, body2.native, anchors, flag(collide, false)))
+        anchors, collide = Joint.__send__(:anchored, arguments, 4)
+        from_native(Native::Physics.new_wheel_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false)))
       end
 
       # How far the wheel has moved along the axis, in pixels, as a Float,
@@ -1053,7 +1048,7 @@ module Lota
       #
       #   Lota::Physics::PulleyJoint.new(a, b, 10, 10, 20, 20, 15, 15, 25, 25)
       def self.new(body1, body2, gx1, gy1, gx2, gy2, x1, y1, x2, y2, ratio = 1, collide_connected = nil)
-        from_native(Native::Physics.new_pulley_joint(body1.native, body2.native, gx1, gy1, gx2, gy2, x1, y1, x2, y2,
+        from_native(Native::Physics.new_pulley_joint(body1.__send__(:native), body2.__send__(:native), gx1, gy1, gx2, gy2, x1, y1, x2, y2,
           ratio, flag(collide_connected, true)))
       end
 
@@ -1109,7 +1104,7 @@ module Lota
       #
       #   Lota::Physics::GearJoint.new(slider1, slider2, 1, true)
       def self.new(joint1, joint2, ratio = 1, collide_connected = nil)
-        from_native(Native::Physics.new_gear_joint(joint1.native, joint2.native, ratio,
+        from_native(Native::Physics.new_gear_joint(joint1.__send__(:native), joint2.__send__(:native), ratio,
           flag(collide_connected, false)))
       end
 
@@ -1140,7 +1135,7 @@ module Lota
       #
       #   first, second = gear.joints
       def joints
-        @native.joints.map { |joint| Physics.joint(joint) }
+        @native.joints.map { |joint| Physics.__send__(:joint, joint) }
       end
     end
 
@@ -1154,7 +1149,7 @@ module Lota
       #
       #   Lota::Physics::RopeJoint.new(a, b, 10, 10, 20, 20, 50, true)
       def self.new(body1, body2, x1, y1, x2, y2, max_length, collide_connected = nil)
-        from_native(Native::Physics.new_rope_joint(body1.native, body2.native, x1, y1, x2, y2, max_length,
+        from_native(Native::Physics.new_rope_joint(body1.__send__(:native), body2.__send__(:native), x1, y1, x2, y2, max_length,
           flag(collide_connected, false)))
       end
 
@@ -1189,7 +1184,7 @@ module Lota
       #
       #   Lota::Physics::MotorJoint.new(a, b, 1)
       def self.new(body1, body2, correction_factor = nil, collide_connected = nil)
-        from_native(Native::Physics.new_motor_joint(body1.native, body2.native, correction_factor,
+        from_native(Native::Physics.new_motor_joint(body1.__send__(:native), body2.__send__(:native), correction_factor,
           flag(collide_connected, false)))
       end
 
@@ -1302,7 +1297,7 @@ module Lota
       # as +short+ numbers, or two more when given, whether the Bodies
       # collide, and a reference angle, which comes only after both
       # anchors. :nodoc:
-      def self.anchored(arguments, short)
+      private_class_method def self.anchored(arguments, short)
         long = short + 2
         count = (arguments.size >= long) ? long : short
         angle = (count == long) ? arguments[count + 1] : nil
@@ -1310,7 +1305,7 @@ module Lota
       end
 
       # A number a joint factory reads with luaL_checknumber. :nodoc:
-      def self.number(value)
+      private_class_method def self.number(value)
         case value
         when Float, Integer then value
         else raise TypeError, "wrong argument type #{value.class} (expected Float or Integer)"

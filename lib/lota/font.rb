@@ -42,11 +42,11 @@ module Lota
     # (src/modules/filesystem/wrap_Filesystem.cpp:332-379): a String names
     # a file in the game's folder, and a Lota::Filesystem::File is read
     # whole. :nodoc:
-    def self.file_data(source)
+    private_class_method def self.file_data(source)
       case source
       when String then Native::Filesystem.file_data(source)
       when Filesystem::File then read_file(source)
-      when Filesystem::FileData then source.native
+      when Filesystem::FileData then source.__send__(:native)
       else raise TypeError, "wrong argument type #{source.class} (expected filename, File, or FileData)"
       end
     end
@@ -56,18 +56,18 @@ module Lota
     # love.image.newImageData: a file name, a Lota::Filesystem::File, or a
     # Lota::Filesystem::FileData is decoded, and an ImageData is used as
     # it is. :nodoc:
-    def self.image_data(image)
+    private_class_method def self.image_data(image)
       case image
-      when Image::ImageData then image.native
-      when String, Filesystem::FileData then Image::ImageData.new(image).native
-      when Filesystem::File then Image::ImageData.new(file_data_of(image)).native
+      when Image::ImageData then image.__send__(:native)
+      when String, Filesystem::FileData then Image::ImageData.new(image).__send__(:native)
+      when Filesystem::File then Image::ImageData.new(file_data_of(image)).__send__(:native)
       else raise TypeError, "wrong argument type #{image.class} (expected Lota::Image::ImageData)"
       end
     end
 
     # The Lota::Filesystem::FileData +file+ reads whole. :nodoc:
     private_class_method def self.file_data_of(file)
-      Filesystem::FileData.from_native(read_file(file))
+      Filesystem::FileData.__send__(:from_native, read_file(file))
     end
 
     # The engine's FileData of what +file+ reads from where it is to its
@@ -76,23 +76,25 @@ module Lota
       data, = file.read(:data)
       raise TypeError, "#{file.filename} read no FileData" unless data.is_a?(Filesystem::FileData)
 
-      data.native
+      data.__send__(:native)
     end
 
     # A number LÖVE reads with luaL_optnumber, for +name+, or +nil+ to
     # leave it to LÖVE's default. :nodoc:
-    def self.optional_number(value, name)
+    private_class_method def self.optional_number(value, name)
       case value
       when Float, Integer, nil then value
       else raise TypeError, "wrong argument type #{value.class} for #{name} (expected Float)"
       end
     end
 
-    # An integer LÖVE reads with luaL_optinteger, for +name+, or +nil+ to
-    # leave it to LÖVE's default. :nodoc:
-    def self.optional_integer(value, name)
+    # An integer LÖVE reads with luaL_optinteger, which LuaJIT cuts to the
+    # whole number toward 0, for +name+, or +nil+ to leave it to LÖVE's
+    # default. :nodoc:
+    private_class_method def self.optional_integer(value, name)
       case value
       when Integer, nil then value
+      when Float then value.truncate
       else raise TypeError, "wrong argument type #{value.class} for #{name} (expected Integer)"
       end
     end

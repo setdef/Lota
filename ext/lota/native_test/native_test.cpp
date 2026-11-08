@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/luajit.hpp"
 #include "native_test/dialogs.hpp"
 #ifndef __APPLE__
 #include "native_test/selections.hpp"
@@ -19,6 +20,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -1073,6 +1075,23 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
           "translate_love_names",
           [](const std::string &message) { return lota::native::translate_love_names(message); },
           Rice::Arg("message"))
+      // How LuaJIT's %p writes +address+ (lota::native::luajit::pointer).
+      .define_module_function(
+          "luajit_pointer",
+          [](unsigned long long address) {
+            return lota::native::luajit::pointer(
+                std::bit_cast<const void *>(static_cast<std::uintptr_t>(address)));
+          },
+          Rice::Arg("address"))
+      // The address of the engine object a Lota::Native object wraps, as
+      // LÖVE's Proxy holds it, or 0 once released.
+      .define_module_function(
+          "engine_address",
+          [](VALUE native) -> unsigned long long {
+            const lota::native::EngineWrapper *wrapper = lota::native::EngineWrapper::of(native);
+            return wrapper == nullptr ? 0 : std::bit_cast<std::uintptr_t>(wrapper->object());
+          },
+          Rice::Arg("native").setValue())
       .define_module_function("forget_observed", [] { observed().clear(); })
       .define_module_function("drop", [] { held().set(nullptr); })
       .define_module_function("held_reference_count", &held_reference_count)

@@ -27,15 +27,10 @@ module Lota
     #   saved = dungeon.state
     #   dungeon.random      # => a Float from 0 up to 1
     #   dungeon.state = saved
-    class RandomGenerator
-      include Object
-
-      # The engine's RandomGenerator, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class RandomGenerator < Object
       # Wraps a RandomGenerator the engine made, such as the one
       # Lota::Math draws from. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         generator = allocate
         generator.instance_variable_set(:@native, native)
         generator
@@ -97,15 +92,17 @@ module Lota
       def random(min = nil, max = nil)
         r = @native.random
         if !max.nil?
-          low = RandomGenerator.number(min)
-          whole = (r * (RandomGenerator.number(max).to_f - low + 1)).floor
+          low = RandomGenerator.__send__(:number, min) #: Float | Integer
+          high = RandomGenerator.__send__(:number, max) #: Float | Integer
+          whole = (r * (high.to_f - low + 1)).floor
           # The same sum either way, which Steep types for each kind of bound.
           case low
           when Integer then whole + low
           else whole + low
           end
         elsif !min.nil?
-          (r * RandomGenerator.number(min)).floor + 1
+          bound = RandomGenerator.__send__(:number, min) #: Float | Integer
+          (r * bound).floor + 1
         else
           r
         end
@@ -125,7 +122,7 @@ module Lota
       #   generator.random_normal       # => a Float, most often near 0
       #   generator.random_normal(15, 100)
       def random_normal(stddev = nil, mean = nil)
-        @native.random_normal(stddev && RandomGenerator.number(stddev), mean && RandomGenerator.number(mean))
+        @native.random_normal(stddev && RandomGenerator.__send__(:number, stddev), mean && RandomGenerator.__send__(:number, mean))
       end
 
       # Seeds the generator, matching RandomGenerator:setSeed
@@ -144,7 +141,7 @@ module Lota
       #   generator.seed = 0xCBBF7A44, 0x0139408D
       def seed=(seed)
         low, high = seed.is_a?(Array) ? seed : [seed]
-        @native.set_seed(RandomGenerator.number(low), high && RandomGenerator.number(high))
+        @native.set_seed(RandomGenerator.__send__(:number, low), high && RandomGenerator.__send__(:number, high))
       end
 
       # The seed's low and high 32 bits, as an Array of two Integers,
@@ -192,7 +189,7 @@ module Lota
 
       # A bound or a seed, which must be a number, as getrandom and
       # randomNormal check. :nodoc:
-      def self.number(value)
+      private_class_method def self.number(value)
         case value
         when Integer, Float then value
         else raise TypeError, "wrong argument type #{value.class} (expected Float or Integer)"

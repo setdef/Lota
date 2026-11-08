@@ -17,7 +17,7 @@ module Lota
       def self.new: (type: Symbol?, volume: Float?, lowgain: Float?, highgain: Float?) -> instance
                   | (*(Symbol | Float)? values) -> instance
 
-      def self.of: (Array[[String, Float | String]] pairs) -> Filter
+      private def self.of: (Array[[String, Float | String]] pairs) -> Filter
     end
   end
 end

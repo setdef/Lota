@@ -20,15 +20,10 @@ module Lota
     #
     #   shape = Lota::Physics::RectangleShape.new(body, 10, 10)
     #   shape.friction = 0.5
-    class Shape
-      include Object
-
-      # The engine's Shape, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Shape < Object
       # The Shape that wraps +native+, one for each engine Shape while it
       # lives. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -46,7 +41,7 @@ module Lota
       #   shape.body.x # => 0.0
       def body
         native = @native.body
-        native && Body.from_native(native)
+        native && Body.__send__(:from_native, native)
       end
 
       # Which kind of Shape this is, as a Symbol, matching Shape:getType:
@@ -385,8 +380,8 @@ module Lota
       #   Lota::Physics::CircleShape.new(body, 0, 0, 20)
       def self.new(body, *arguments)
         native = case arguments.size
-        when 1 then Native::Physics.new_circle_shape(body.native, 0, 0, arguments.fetch(0))
-        when 3 then Native::Physics.new_circle_shape(body.native, arguments.fetch(0), arguments.fetch(1), arguments.fetch(2))
+        when 1 then Native::Physics.new_circle_shape(body.__send__(:native), 0, 0, arguments.fetch(0))
+        when 3 then Native::Physics.new_circle_shape(body.__send__(:native), arguments.fetch(0), arguments.fetch(1), arguments.fetch(2))
         else raise "Incorrect number of parameters"
         end
         from_native(native)
@@ -444,7 +439,7 @@ module Lota
       #
       #   Lota::Physics::PolygonShape.new(body, [0, 0, 2, 3, 2, 1])
       def self.new(body, *coordinates)
-        from_native(Native::Physics.new_polygon_shape(body.native, coordinates.flatten))
+        from_native(Native::Physics.new_polygon_shape(body.__send__(:native), coordinates.flatten))
       end
 
       # Each vertex's x and y, in its Body's frame, as one Array, matching
@@ -486,7 +481,7 @@ module Lota
       #
       #   Lota::Physics::EdgeShape.new(body, 0, 0, 10, 10)
       def self.new(body, x1, y1, x2, y2, *neighbors)
-        from_native(Native::Physics.new_edge_shape(body.native, [x1, y1, x2, y2, *neighbors]))
+        from_native(Native::Physics.new_edge_shape(body.__send__(:native), [x1, y1, x2, y2, *neighbors]))
       end
 
       # The edge's two points in its Body's frame, as an Array of the first
@@ -565,7 +560,7 @@ module Lota
       #
       #   Lota::Physics::ChainShape.new(body, false, [0, 0, 10, 0, 10, 10])
       def self.new(body, loop, *coordinates)
-        from_native(Native::Physics.new_chain_shape(body.native, loop, coordinates.flatten))
+        from_native(Native::Physics.new_chain_shape(body.__send__(:native), loop, coordinates.flatten))
       end
 
       # Each vertex's x and y, in its Body's frame, as one Array, matching
@@ -610,7 +605,7 @@ module Lota
       def child_edge(index)
         Deprecation.mark("Lota::Physics::ChainShape#child_edge", :method, :noreplacement, nil,
           where: Deprecation.where(caller_locations(1, 1)))
-        EdgeShape.from_native(@native.child_edge(index))
+        EdgeShape.__send__(:from_native, @native.child_edge(index))
       end
 
       # The vertex after the chain's last, as an Array of its x and y,
@@ -703,7 +698,7 @@ module Lota
         when 5 then arguments
         else raise "Incorrect number of parameters"
         end
-        PolygonShape.from_native(Native::Physics.new_rectangle_shape(body.native, placement))
+        PolygonShape.__send__(:from_native, Native::Physics.new_rectangle_shape(body.__send__(:native), placement))
       end
     end
   end

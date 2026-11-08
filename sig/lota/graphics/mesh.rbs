@@ -3,9 +3,7 @@
 
 module Lota
   module Graphics
-    class Mesh
-      include Object
-
+    class Mesh < Object[Native::Mesh]
       class VertexFormat < ::Data
         include Record
 
@@ -24,9 +22,7 @@ module Lota
 
       type name = Symbol | String
 
-      attr_reader native: Native::Mesh
-
-      def self.from_native: (Native::Mesh native) -> Mesh
+      private def self.from_native: (Native::Mesh native) -> Mesh
 
       def self.new: (::Object first, ::Object second, ?::Object? third, ?::Object? fourth) -> Mesh
 

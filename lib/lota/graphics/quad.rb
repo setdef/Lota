@@ -20,14 +20,9 @@ module Lota
     #   sheet = Lota::Graphics::Image.new("assets/tiles.png")
     #   grass = Lota::Graphics::Quad.new(0, 0, 16, 16, sheet)
     #   Lota::Graphics.draw(sheet, grass, 100, 100)
-    class Quad
-      include Object
-
-      # The engine's Quad, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Quad < Object
       # Wraps a Quad the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         quad = allocate
         quad.instance_variable_set(:@native, native)
         quad
@@ -68,9 +63,9 @@ module Lota
       #   new(x, y, w, h, layer, sw, sh)
       def self.new(x, y, w, h, first, second = nil, third = nil)
         native = if first.is_a?(Texture)
-          Native::Graphics.new_quad_of_texture(1, [x, y, w, h], first.native)
+          Native::Graphics.new_quad_of_texture(1, [x, y, w, h], first.__send__(:native))
         elsif second.is_a?(Texture)
-          Native::Graphics.new_quad_of_texture(first, [x, y, w, h], second.native)
+          Native::Graphics.new_quad_of_texture(first, [x, y, w, h], second.__send__(:native))
         elsif third.nil?
           raise ArgumentError, "wrong number of arguments (given 5, expected 6..7)" if second.nil?
 

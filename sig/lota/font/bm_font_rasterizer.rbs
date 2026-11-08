@@ -6,7 +6,7 @@ module Lota
     module BMFontRasterizer
       def self.new: (file definition, ?(image | Array[image])? images, ?(Float | Integer)? dpiscale) -> Rasterizer
 
-      def self.native: (Array[::Object?] arguments, bool settings) -> Native::Rasterizer
+      private def self.native: (Array[::Object?] arguments, bool settings) -> Native::Rasterizer
 
       def self.===: (::Object? object) -> bool
     end

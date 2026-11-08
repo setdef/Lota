@@ -3,14 +3,10 @@
 
 module Lota
   module Math
-    class Transform
-      include Object
-
+    class Transform < Object[Native::Transform]
       type matrix = Array[Symbol | String | Float | Integer | Array[Float | Integer]]
 
-      attr_reader native: Native::Transform
-
-      def self.from_native: (Native::Transform native) -> Transform
+      private def self.from_native: (Native::Transform native) -> Transform
 
       def self.new: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? angle, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Transform
 
@@ -46,9 +42,9 @@ module Lota
 
       def inverse_transform_point: (Float | Integer x, Float | Integer y) -> [Float, Float]
 
-      def self.native_of: (Transform transform) -> Native::Transform
+      private def self.native_of: (Transform transform) -> Native::Transform
 
-      def self.layout_and_elements: (matrix matrix) -> [String?, Array[Float | Integer]]
+      private def self.layout_and_elements: (matrix matrix) -> [String?, Array[Float | Integer]]
     end
   end
 end

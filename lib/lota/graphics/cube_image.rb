@@ -56,11 +56,11 @@ module Lota
         if TextureSettings.number?(images)
           native.width = native.height = TextureSettings.size(images, "size")
           TextureSettings.read(native, settings, opt: true, check_type: false, check_dimensions: false)
-          return Texture.from_native(Native::Graphics.new_empty_texture(native))
+          return Texture.__send__(:from_native, Native::Graphics.new_empty_texture(native))
         end
 
         dpiscaleset = TextureSettings.read(native, settings, opt: true, check_type: false, check_dimensions: false)
-        Texture.from_native(Native::Graphics.new_cube_texture(native, dpiscaleset, TextureSettings.images(images)))
+        Texture.__send__(:from_native, Native::Graphics.new_cube_texture(native, dpiscaleset, TextureSettings.images(images)))
       end
 
       # Whether +object+ is a Lota::Graphics::Texture whose type is

@@ -40,7 +40,7 @@ class TextBatchTest < Minitest::Test
     Lota::Graphics.clear(0, 0, 0, 1)
     yield
     Lota::Graphics.canvas = nil
-    LotaNativeTest.image_data_bytes(Lota::Graphics.readback_texture(canvas).native)
+    LotaNativeTest.image_data_bytes(Lota::Graphics.readback_texture(canvas).__send__(:native))
   end
 
   def lit?(bytes)
@@ -230,6 +230,15 @@ class TextBatchTest < Minitest::Test
 
     assert_equal plain.width("AB") + 6, spaced.width("AB")
     assert_equal plain.width("AB"), ImageFont.new("resources/font-letters-ab.png", "AB", nil).width("AB")
+  end
+
+  # w_newImageRasterizer reads the extra spacing with luaL_optinteger
+  # (wrap_Font.cpp:206), which LuaJIT cuts toward 0.
+  def test_extra_spacing_is_cut_to_a_whole_number
+    plain = ImageFont.new("resources/font-letters-ab.png", "AB")
+
+    assert_equal plain.width("AB") + 6, ImageFont.new("resources/font-letters-ab.png", "AB", 3.7).width("AB")
+    assert_equal plain.width("AB"), ImageFont.new("resources/font-letters-ab.png", "AB", 0.9).width("AB")
   end
 
   def test_the_dpi_scale_of_an_image_font_scales_its_glyphs

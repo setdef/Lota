@@ -100,13 +100,23 @@ class ObjectTypeTest < Minitest::Test
     refute texture.type_of?("")
   end
 
-  # luaL_checkstring raises for a table where it wants a string; Ruby
-  # raises TypeError for any value that is not a String.
-  def test_a_name_that_is_not_a_string_raises
-    texture = Lota::Graphics::Canvas.new(4, 4)
-    error = assert_raises(TypeError) { texture.type_of?(:Texture) }
+  # A LÖVE type's name is a name, not text, so rule 9 makes it a Symbol,
+  # and a String still names the same type.
+  def test_a_type_is_named_by_a_symbol_or_a_string
+    objects.each do |name, (object, types)|
+      types.each { |type| assert object.type_of?(type.to_sym), "#{name} is a #{type}" }
+    end
+    refute Lota::Graphics::Canvas.new(4, 4).type_of?(:Font)
+    refute Lota::Graphics::Canvas.new(4, 4).type_of?(:texture)
+  end
 
-    assert_equal "wrong argument type Symbol (expected String)", error.message
-    assert_raises(TypeError) { texture.type_of?(nil) }
+  # luaL_checkstring raises for a table where it wants a string; Ruby
+  # raises TypeError for any value that is neither a Symbol nor a String.
+  def test_a_name_that_is_not_a_name_raises
+    texture = Lota::Graphics::Canvas.new(4, 4)
+    error = assert_raises(TypeError) { texture.type_of?(nil) }
+
+    assert_equal "wrong argument type NilClass (expected Symbol or String)", error.message
+    assert_raises(TypeError) { texture.type_of?(Lota::Graphics::Texture) }
   end
 end

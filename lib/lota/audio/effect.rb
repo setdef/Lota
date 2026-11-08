@@ -78,7 +78,7 @@ module Lota
 
       # The Effect of +pairs+, the names and values the engine gives, with
       # every other field +nil+. :nodoc:
-      def self.of(pairs)
+      private_class_method def self.of(pairs)
         given = pairs.to_h { |name, value| [name.to_sym, value.is_a?(String) ? value.to_sym : value] }
         new(*EFFECT_SETTINGS.map { |member| given[member] })
       end

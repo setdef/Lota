@@ -131,7 +131,7 @@ class MemoryTest < Minitest::Test
   def test_a_thousand_dropped_textures_are_released
     EngineHelper.open_window
     assert_released_once_collected(1000) do
-      on_a_finished_fiber { 1000.times { LotaNativeTest.observe_texture(Lota::Graphics::Canvas.new(4, 4).native) } }
+      on_a_finished_fiber { 1000.times { LotaNativeTest.observe_texture(Lota::Graphics::Canvas.new(4, 4).__send__(:native)) } }
     end
   end
 
@@ -139,7 +139,7 @@ class MemoryTest < Minitest::Test
     EngineHelper.open_window
     on_a_finished_fiber do
       texture = Lota::Graphics::Canvas.new(4, 4)
-      LotaNativeTest.observe_texture(texture.native)
+      LotaNativeTest.observe_texture(texture.__send__(:native))
       Lota::Graphics.canvas = texture
     end
     collect_garbage
@@ -154,7 +154,7 @@ class MemoryTest < Minitest::Test
     texture = Lota::Graphics::Canvas.new(4, 4)
     assert_released_once_collected(100) do
       on_a_finished_fiber do
-        100.times { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(texture).native) }
+        100.times { LotaNativeTest.observe_image_data(Lota::Graphics.readback_texture(texture).__send__(:native)) }
       end
     end
   end
@@ -165,8 +165,8 @@ class MemoryTest < Minitest::Test
       on_a_finished_thread do
         100.times do
           file_data = Lota::Filesystem::FileData.new(PNG, "clear-1.png")
-          LotaNativeTest.observe_file_data(file_data.native)
-          LotaNativeTest.observe_image_data(Lota::Image::ImageData.new(file_data).native)
+          LotaNativeTest.observe_file_data(file_data.__send__(:native))
+          LotaNativeTest.observe_image_data(Lota::Image::ImageData.new(file_data).__send__(:native))
         end
       end
     end

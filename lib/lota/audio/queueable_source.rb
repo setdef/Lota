@@ -39,7 +39,7 @@ module Lota
       #
       #   Lota::Audio::QueueableSource.new(44_100, 16, 2, 8).get_type # => :queue
       def self.new(samplerate, bitdepth, channels, buffers = 0)
-        Source.from_native(Native::Audio.new_queueable_source(samplerate, bitdepth, channels, buffers))
+        Source.__send__(:from_native, Native::Audio.new_queueable_source(samplerate, bitdepth, channels, buffers))
       end
 
       # Whether +object+ is a Source that newQueueableSource could have

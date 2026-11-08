@@ -51,7 +51,7 @@ module Lota
     #
     #   hand = Lota::Mouse.system_cursor(:hand)
     def self.system_cursor(ctype)
-      Cursor.from_native(Native::Mouse.system_cursor(ctype.to_s))
+      Cursor.__send__(:from_native, Native::Mouse.system_cursor(ctype.to_s))
     end
 
     # Shows +cursor+ as the mouse pointer, or the system's default pointer
@@ -74,7 +74,7 @@ module Lota
       else
         raise TypeError, "wrong argument type #{cursor.class} (expected Lota::Mouse::Cursor)" unless cursor.is_a?(Cursor)
 
-        Native::Mouse.set_cursor(cursor.native)
+        Native::Mouse.set_cursor(cursor.__send__(:native))
       end
     end
 
@@ -89,7 +89,7 @@ module Lota
     #   Lota::Mouse.cursor # => nil
     def self.cursor
       native = Native::Mouse.cursor
-      native && Cursor.from_native(native)
+      native && Cursor.__send__(:from_native, native)
     end
 
     # The pointer's horizontal position in the window, as a Float,

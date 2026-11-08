@@ -2,16 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 module Lota
-  module Data
-    class ByteData
-      include Object
-      include Data
-
+  class Data[out N < Native::Data::Data = Native::Data::Data]
+    class ByteData < Data[Native::ByteData]
       type values = Array[Float | Integer | Array[Float | Integer]]
 
-      attr_reader native: Native::ByteData
-
-      def self.from_native: (Native::ByteData native) -> ByteData
+      private def self.from_native: (Native::ByteData native) -> ByteData
 
       def self.new: (Integer | String | Data source, ?Integer? offset, ?Integer? size) -> ByteData
 
@@ -35,7 +30,7 @@ module Lota
 
       def uint32=: (values offset_and_values) -> void
 
-      def self.offset_and_values: (values arguments) -> [Float | Integer, Array[Float | Integer]]
+      private def self.offset_and_values: (values arguments) -> [Float | Integer, Array[Float | Integer]]
     end
   end
 end

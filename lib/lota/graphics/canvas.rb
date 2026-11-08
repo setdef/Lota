@@ -91,7 +91,7 @@ module Lota
         if arguments.empty? && !settings.empty?
           dpiscaleset = TextureSettings.read(native, settings, opt: false, check_type: true, check_dimensions: true,
             canvas: true)
-          return Texture.from_native(Native::Graphics.new_canvas(native, dpiscaleset))
+          return Texture.__send__(:from_native, Native::Graphics.new_canvas(native, dpiscaleset))
         end
 
         TextureSettings.check_count(arguments, 0..3)
@@ -105,7 +105,7 @@ module Lota
         end
         dpiscaleset = TextureSettings.read(native, settings, opt: true, check_type: true, check_dimensions: false,
           canvas: true)
-        Texture.from_native(Native::Graphics.new_canvas(native, dpiscaleset))
+        Texture.__send__(:from_native, Native::Graphics.new_canvas(native, dpiscaleset))
       end
 
       # luaL_optinteger: +default+ when nil, the number otherwise.

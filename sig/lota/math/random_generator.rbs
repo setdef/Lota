@@ -3,12 +3,8 @@
 
 module Lota
   module Math
-    class RandomGenerator
-      include Object
-
-      attr_reader native: Native::RandomGenerator
-
-      def self.from_native: (Native::RandomGenerator native) -> RandomGenerator
+    class RandomGenerator < Object[Native::RandomGenerator]
+      private def self.from_native: (Native::RandomGenerator native) -> RandomGenerator
 
       def self.new: (?(Float | Integer)? low, ?(Float | Integer)? high) -> RandomGenerator
 
@@ -24,7 +20,7 @@ module Lota
 
       def state=: (String state) -> void
 
-      def self.number: (::Object? value) -> (Float | Integer)
+      private def self.number: (::Object? value) -> (Float | Integer)
     end
   end
 end

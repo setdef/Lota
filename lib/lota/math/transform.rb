@@ -25,14 +25,9 @@ module Lota
     #   camera = Lota::Math::Transform.new
     #   camera.translate(400, 300).rotate(0.5).scale(2)
     #   Lota::Graphics.push { Lota::Graphics.apply_transform(camera) }
-    class Transform
-      include Object
-
-      # The engine's Transform, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Transform < Object
       # Wraps a Transform the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         transform = allocate
         transform.instance_variable_set(:@native, native)
         transform
@@ -89,7 +84,7 @@ module Lota
       #   world = Lota::Math::Transform.new.translate(100, 0)
       #   world.inverse.transform_point(100, 0) # => [0.0, 0.0]
       def inverse
-        Transform.from_native(@native.inverse)
+        Transform.__send__(:from_native, @native.inverse)
       end
 
       # Sets this Transform to the inverse of +source+ and returns it,
@@ -104,7 +99,7 @@ module Lota
       #
       #   undo = Lota::Math::Transform.new.inverse_of(camera)
       def inverse_of(source)
-        @native.inverse_of(Transform.native_of(source))
+        @native.inverse_of(Transform.__send__(:native_of, source))
         self
       end
 
@@ -121,7 +116,7 @@ module Lota
       #
       #   sprite.apply(camera)
       def apply(other)
-        @native.apply(Transform.native_of(other))
+        @native.apply(Transform.__send__(:native_of, other))
         self
       end
 
@@ -152,7 +147,7 @@ module Lota
       #
       #   world = camera * sprite
       def *(other)
-        Transform.from_native(@native * Transform.native_of(other))
+        Transform.__send__(:from_native, @native * Transform.__send__(:native_of, other))
       end
 
       # Moves what it transforms by +x+ and +y+ and returns itself,
@@ -278,7 +273,7 @@ module Lota
       #   transform.matrix = 1, 0, 0, 4, 0, 1, 0, 4, 0, 0, 1, 0, 0, 0, 0, 1
       #   transform.matrix = :column, [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [4, 4, 0, 1]]
       def matrix=(matrix)
-        layout, elements = Transform.layout_and_elements(matrix)
+        layout, elements = Transform.__send__(:layout_and_elements, matrix)
         @native.set_matrix(layout, elements)
       end
 
@@ -318,10 +313,10 @@ module Lota
 
       # The engine's Transform of +transform+, which must be a Transform,
       # as luax_checktransform checks. :nodoc:
-      def self.native_of(transform)
+      private_class_method def self.native_of(transform)
         raise TypeError, "wrong argument type #{transform.class} (expected Lota::Math::Transform)" unless transform.is_a?(Transform)
 
-        transform.native
+        transform.__send__(:native)
       end
 
       # The matrix layout's name, or nil for the default, and the sixteen
@@ -330,7 +325,7 @@ module Lota
       # then the elements in turn, in one Array, or in four Arrays of
       # four. A table of tables in LÖVE holds the same elements in the
       # same order (luax_checkmatrix, wrap_Transform.cpp:33-124). :nodoc:
-      def self.layout_and_elements(matrix)
+      private_class_method def self.layout_and_elements(matrix)
         values = matrix.is_a?(Array) ? matrix : [matrix]
         layout = values.first if values.first.is_a?(Symbol) || values.first.is_a?(String)
         elements = values.drop(layout.nil? ? 0 : 1).flatten

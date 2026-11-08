@@ -14,8 +14,11 @@
 
 #include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <string>
+#include <string_view>
 
 namespace lota::native::luajit {
 
@@ -62,6 +65,49 @@ inline std::int32_t to_bit(double number) {
   return static_cast<std::int32_t>(
       static_cast<std::uint32_t>(std::bit_cast<std::uint64_t>(number + magic)));
 }
+
+// SPDX-SnippetBegin
+// SPDX-SnippetCopyrightText: 2005-2026 Mike Pall
+// SPDX-License-Identifier: MIT
+//
+// Ported from lj_strfmt_wptr (LuaJIT 2.1, src/lj_strfmt.c:135-152, at
+// commit ea9eb7ed of the v2.1 branch LÖVE's builds clone), which
+// lua_pushfstring's %p writes with (lj_strfmt_pushvf, lj_strfmt.c:576).
+
+// +value+ as LuaJIT's %p writes it: NULL for none, and otherwise 0x and
+// the address in lowercase hexadecimal, at least eight digits, and on a
+// 64-bit machine two more for each byte the address needs above its low
+// 32 bits.
+inline std::string pointer(const void *value) {
+  constexpr std::size_t least_digits = 8;
+  constexpr unsigned high_shift = 32;
+  constexpr unsigned byte_shift = 3;
+  constexpr unsigned digit_bits = 4;
+  constexpr std::uintptr_t digit_mask = 0xf;
+  constexpr std::string_view hex = "0123456789abcdef";
+
+  auto address = std::bit_cast<std::uintptr_t>(value);
+  if (address == 0) {
+    return "NULL";
+  }
+  std::size_t digits = 2 * sizeof(std::uintptr_t);
+  if constexpr (sizeof(std::uintptr_t) == sizeof(std::uint64_t)) {
+    const auto high = static_cast<std::uint32_t>(static_cast<std::uint64_t>(address) >> high_shift);
+    digits = least_digits;
+    if (high != 0) {
+      // lj_fls, the index of the highest bit set, is bit_width less one.
+      const auto highest = static_cast<std::size_t>(std::bit_width(high)) - 1;
+      digits += 2 + (2 * (highest >> byte_shift));
+    }
+  }
+  std::string written(digits, '0');
+  for (auto digit = written.rbegin(); digit != written.rend(); ++digit, address >>= digit_bits) {
+    *digit = hex.at(address & digit_mask);
+  }
+  return "0x" + written;
+}
+
+// SPDX-SnippetEnd
 
 } // namespace lota::native::luajit
 

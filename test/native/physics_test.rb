@@ -46,7 +46,7 @@ class PhysicsBindingsTest < Minitest::Test
   def test_bodies_never_returns_a_wrapper_the_collector_found_dead
     @body = nil
 
-    assert_never_reads_back_a_dead_wrapper { @world.native.bodies.first }
+    assert_never_reads_back_a_dead_wrapper { @world.__send__(:native).bodies.first }
   end
 
   # A Lua reference keeps the user data while the Body lives, however long

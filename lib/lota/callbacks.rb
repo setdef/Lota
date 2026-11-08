@@ -173,7 +173,7 @@ module Lota
         integer &&= Native::Graphics.open? if name == :resize
         integer ? argument.to_i : argument
       when Array then Variant.ruby(argument)
-      when Native::Joystick::Joystick then Joystick::Joystick.from_native(argument)
+      when Native::Joystick::Joystick then Joystick::Joystick.__send__(:from_native, argument)
       else
         argument
       end

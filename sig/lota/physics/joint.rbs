@@ -3,16 +3,12 @@
 
 module Lota
   module Physics
-    class Joint[out N < Native::Joint = Native::Joint]
-      include Object
+    class Joint[out N < Native::Joint = Native::Joint] < Object[N]
+      private def self.from_native: (Native::Joint native) -> instance
 
-      attr_reader native: N
+      private def self.anchored: (Array[Float | Integer | bool | nil] arguments, Integer short) -> [Array[Float | Integer], (Float | Integer | bool)?, (Float | Integer)?]
 
-      def self.from_native: (Native::Joint native) -> instance
-
-      def self.anchored: (Array[Float | Integer | bool | nil] arguments, Integer short) -> [Array[Float | Integer], (Float | Integer | bool)?, (Float | Integer)?]
-
-      def self.number: (Float | Integer | bool | nil value) -> (Float | Integer)
+      private def self.number: (Float | Integer | bool | nil value) -> (Float | Integer)
 
       def get_type: () -> Symbol
 

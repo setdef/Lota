@@ -42,6 +42,8 @@ module Lota
       # [glyphs] String of the characters in the image, in the order they
       #   are drawn in it.
       # [extraspacing] Integer pixels added between glyphs; 0 by default.
+      #   LÖVE reads it with luaL_optinteger, so a Float is cut to the
+      #   whole number toward 0, as LuaJIT cuts it.
       # [dpiscale] Float or Integer DPI scale of the image; 1 by default.
       #
       # Raises TypeError for an image or number of the wrong type,
@@ -54,20 +56,21 @@ module Lota
       #   Lota::Graphics::ImageFont.new("font.png", " ABCDEFGHIJKLMNOPQRSTUVWXYZ")
       #   Lota::Graphics::ImageFont.new(image_data, "ABCD", 1)
       def self.new(image, glyphs = nil, extraspacing = nil, dpiscale = nil)
-        return Font.from_native(Native::Graphics.new_font_of_rasterizer(image.native)) if image.is_a?(Lota::Font::Rasterizer)
+        return Font.__send__(:from_native, Native::Graphics.new_font_of_rasterizer(image.__send__(:native))) if image.is_a?(Lota::Font::Rasterizer)
 
         raise TypeError, "wrong argument type #{glyphs.class} (expected String)" unless glyphs.is_a?(String)
 
         extraspacing = case extraspacing
         when Integer, nil then extraspacing
+        when Float then extraspacing.truncate
         else raise TypeError, "wrong argument type #{extraspacing.class} (expected Integer)"
         end
         dpiscale = case dpiscale
         when Float, Integer, nil then dpiscale
         else raise TypeError, "wrong argument type #{dpiscale.class} (expected Float)"
         end
-        data = Font.image_data(image)
-        Font.from_native(Native::Graphics.new_image_font(data.native, glyphs, extraspacing, dpiscale))
+        data = Font.__send__(:image_data, image)
+        Font.__send__(:from_native, Native::Graphics.new_image_font(data.__send__(:native), glyphs, extraspacing, dpiscale))
       end
 
       # Whether +object+ is a Lota::Graphics::Font, which every font

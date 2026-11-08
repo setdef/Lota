@@ -41,16 +41,11 @@ module Lota
     #   def Lota.gamepadpressed(joystick, button)
     #     joystick.set_vibration(0.5, 0.5, 0.2) if button == :x
     #   end
-    class Joystick
-      include Object
-
-      # The engine's Joystick, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Joystick < Object
       # The Joystick that wraps +native+, the same one each time while it
       # lives, as LÖVE gives Lua the same userdata for the same joystick.
       # :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 

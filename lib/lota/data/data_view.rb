@@ -6,7 +6,7 @@
 #++
 
 module Lota
-  module Data
+  class Data
     # Some of another Data's bytes, without a copy, matching LÖVE's
     # DataView class (src/modules/data/DataView.h).
     #
@@ -19,15 +19,9 @@ module Lota
     #
     #   bytes = Lota::Data::ByteData.new("helloworld")
     #   Lota::Data::DataView.new(bytes, 5, 5).string # => "world"
-    class DataView
-      include Object
-      include Data
-
-      # The engine's DataView, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class DataView < Data
       # Wraps a DataView the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         view = allocate
         view.instance_variable_set(:@native, native)
         view
@@ -51,7 +45,7 @@ module Lota
       #   Lota::Data::DataView.new(bytes, 0, 5)
       def self.new(data, offset, size = nil)
         case data
-        when Data then from_native(Native::Data.new_data_view(data.native, offset, size))
+        when Data then from_native(Native::Data.new_data_view(data.__send__(:native), offset, size))
         else raise TypeError, "wrong argument type #{data.class} (expected Lota::Data)"
         end
       end

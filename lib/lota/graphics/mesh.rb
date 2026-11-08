@@ -25,9 +25,7 @@ module Lota
     #   quad = Lota::Graphics::Mesh.new([[0, 0, 0, 0], [w, 0, 1, 0], [w, h, 1, 1], [0, h, 0, 1]], :fan)
     #   quad.texture = image
     #   Lota::Graphics.draw(quad, 100, 100)
-    class Mesh
-      include Object
-
+    class Mesh < Object
       # One attribute of the format of a mesh's vertices, which
       # Mesh#vertex_format returns, translated from the table
       # love.graphics's Mesh:getVertexFormat makes
@@ -47,11 +45,8 @@ module Lota
         include Record
       end
 
-      # The engine's Mesh, for Lota's own modules. :nodoc:
-      attr_reader :native
-
       # Wraps a Mesh the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -121,7 +116,7 @@ module Lota
         else
           Native::Graphics.new_standard_mesh(first, name_of(second), (third.is_a?(Symbol) || third.is_a?(String)) ? EnumName.of(third) : nil)
         end
-        GraphicsBuffer.mark_deprecated_bindings(native, where)
+        GraphicsBuffer.__send__(:mark_deprecated_bindings, native, where)
         from_native(native)
       end
 
@@ -158,7 +153,7 @@ module Lota
 
           step = attribute[:step]
           [
-            buffer.native,
+            buffer.__send__(:native),
             attribute[:location],
             attribute[:name]&.to_s,
             step && EnumName.of(step),
@@ -176,12 +171,12 @@ module Lota
         raise ArgumentError, "table of tables expected" if format.empty?
 
         declarations = format.map.with_index(1) do |entry, index|
-          (legacy_declaration?(entry) && entry.is_a?(Array)) ? legacy_declaration(entry) : GraphicsBuffer.declaration(entry, index, true)
+          (legacy_declaration?(entry) && entry.is_a?(Array)) ? legacy_declaration(entry) : GraphicsBuffer.__send__(:declaration, entry, index, true)
         end
         mark_legacy_format(format, where)
         Native::Graphics.new_custom_mesh([
           declarations,
-          GraphicsBuffer.native_content(vertices),
+          GraphicsBuffer.__send__(:native_content, vertices),
           name_of(mode),
           usage && EnumName.of(usage),
 ])
@@ -263,7 +258,7 @@ module Lota
       #   mesh.set_vertices([[0, 0, 0, 0], [16, 0, 1, 0]])
       #   mesh.set_vertices([[8, 8, 0, 1]], 3) # the third vertex
       def set_vertices(data, start = nil, count = nil)
-        @native.set_vertices([GraphicsBuffer.native_content(data), start, count])
+        @native.set_vertices([GraphicsBuffer.__send__(:native_content, data), start, count])
         nil
       end
 
@@ -467,7 +462,7 @@ module Lota
       #   mesh.vertex_buffer.element_count # => 4
       def vertex_buffer
         native = @native.vertex_buffer
-        native && GraphicsBuffer.from_native(native)
+        native && GraphicsBuffer.__send__(:from_native, native)
       end
 
       # Sends changes to the vertices to the graphics card now, rather than
@@ -550,7 +545,7 @@ module Lota
       #   mesh.index_buffer # => nil
       def index_buffer
         native = @native.index_buffer
-        native && GraphicsBuffer.from_native(native)
+        native && GraphicsBuffer.__send__(:from_native, native)
       end
 
       # Sets the texture the mesh is drawn with, or +nil+ for none,
@@ -577,7 +572,7 @@ module Lota
       #   mesh.texture.width # => 256
       def texture
         native = @native.texture
-        native && Texture.from_native(native)
+        native && Texture.__send__(:from_native, native)
       end
 
       # Sets how the vertices make shapes, matching Mesh:setDrawMode

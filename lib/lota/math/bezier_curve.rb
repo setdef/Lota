@@ -26,14 +26,9 @@ module Lota
     #   curve = Lota::Math::BezierCurve.new(0, 0, 100, 200, 200, 0)
     #   x, y = curve.evaluate(0.5) # => [100.0, 100.0]
     #   Lota::Graphics.line(*curve.render)
-    class BezierCurve
-      include Object
-
-      # The engine's BezierCurve, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class BezierCurve < Object
       # Wraps a BezierCurve the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         curve = allocate
         curve.instance_variable_set(:@native, native)
         curve
@@ -54,7 +49,7 @@ module Lota
       #   Lota::Math::BezierCurve.new(1, 1, 2, 2, 3, 1)
       #   Lota::Math::BezierCurve.new([0, 0, 0, 1, 1, 1, 2, 1])
       def self.new(*coordinates)
-        from_native(Native::Math.new_bezier_curve(Math.coordinates_of(coordinates)))
+        from_native(Native::Math.new_bezier_curve(Math.__send__(:coordinates_of, coordinates)))
       end
 
       # The curve's degree, one less than its number of control points, as
@@ -79,7 +74,7 @@ module Lota
       #
       #   velocity = curve.derivative
       def derivative
-        BezierCurve.from_native(@native.derivative)
+        BezierCurve.__send__(:from_native, @native.derivative)
       end
 
       # The control point at +index+, counted from 1, as an Array of its x
@@ -217,7 +212,7 @@ module Lota
       #
       #   first_half = curve.segment(0, 0.5)
       def segment(t1, t2)
-        BezierCurve.from_native(@native.segment(t1, t2))
+        BezierCurve.__send__(:from_native, @native.segment(t1, t2))
       end
 
       # The points to draw the curve through, as one Array of their x and

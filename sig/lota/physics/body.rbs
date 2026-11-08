@@ -3,12 +3,8 @@
 
 module Lota
   module Physics
-    class Body
-      include Object
-
-      attr_reader native: Native::Body
-
-      def self.from_native: (Native::Body native) -> Body
+    class Body < Object[Native::Body]
+      private def self.from_native: (Native::Body native) -> Body
 
       def self.new: (World world, ?(Float | Integer) x, ?(Float | Integer) y, ?(Symbol | String)? type) -> Body
 

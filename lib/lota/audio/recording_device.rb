@@ -22,14 +22,9 @@ module Lota
     #   mic.start(32_000, 44_100, 16, 1)
     #   # ... frames later
     #   sound = mic.stop # => a Lota::Sound::SoundData, or nil
-    class RecordingDevice
-      include Object
-
-      # The engine's RecordingDevice, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class RecordingDevice < Object
       # Wraps a RecordingDevice the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         device = allocate
         device.instance_variable_set(:@native, native)
         device
@@ -153,7 +148,7 @@ module Lota
 
       # The SoundData wrapping +native+, or +nil+. :nodoc:
       private def sound(native)
-        native && Sound::SoundData.from_native(native)
+        native && Sound::SoundData.__send__(:from_native, native)
       end
     end
   end

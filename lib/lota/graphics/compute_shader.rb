@@ -41,7 +41,7 @@ module Lota
       #
       #   Lota::Graphics::ComputeShader.new("compute.glsl", debugname: "simulate")
       def self.new(source, defines: nil, debugname: nil, write: nil)
-        Shader.compute(source, caller_locations(1, 1)&.first, defines:, debugname:, write:)
+        Shader.__send__(:compute, source, caller_locations(1, 1)&.first, defines:, debugname:, write:)
       end
 
       # Whether +object+ is a Lota::Graphics::Shader with a compute stage.

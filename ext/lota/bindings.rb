@@ -158,6 +158,10 @@ bound_by_hand "love.data.encode",
     "binds both forms"
 bound_by_hand "love.data.decode",
   reason: "reads its source as a Data or a string by its kind (luax_istype), as love.data.encode"
+bound_by_hand "love.data.hash",
+  reason: "reads its first argument as a container type or, in the variant it marks deprecated, a hash " \
+    "function, which moves every later argument, and its source as a string or a Data by its kind " \
+    "(lua_isstring); Lota marks the variant in Ruby and binds the hash of either"
 bound_by_hand "love.data.pack",
   reason: "packs its values through lua53_str_pack, Lua 5.3's string.pack, which reads them from the lua_State " \
     "and which Lota does not build (ADR 001, section 1); Lota::Data.pack ports it to Ruby and writes the bytes " \

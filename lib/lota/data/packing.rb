@@ -6,7 +6,7 @@
 #++
 
 module Lota
-  module Data
+  class Data
     # Lua 5.3's string.pack, string.unpack, and string.packsize, which
     # love.data.pack, unpack, and getPackedSize call in the copy LÖVE
     # bundles (src/libraries/lua53/lstrlib.c:155-599), ported to Ruby,

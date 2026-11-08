@@ -45,7 +45,7 @@ class CanvasTest < Minitest::Test
   end
 
   def test_the_texture_wraps_the_engines_texture
-    assert_instance_of Lota::Native::Texture, Canvas.new(4, 4).native
+    assert_instance_of Lota::Native::Texture, Canvas.new(4, 4).__send__(:native)
   end
 
   def test_the_texture_says_it_is_a_canvas
@@ -70,7 +70,7 @@ class CanvasTest < Minitest::Test
   end
 
   def test_canvas_matches_nothing_that_is_not_a_texture
-    not_textures = [nil, :canvas, Object.new, Texture, Canvas, Canvas.new(4, 4).native]
+    not_textures = [nil, :canvas, Object.new, Texture, Canvas, Canvas.new(4, 4).__send__(:native)]
     not_textures << Lota::Graphics.readback_texture(Canvas.new(4, 4))
 
     not_textures.each { |object| refute_operator Canvas, :===, object, object.inspect }

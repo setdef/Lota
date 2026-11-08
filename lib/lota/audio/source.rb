@@ -21,14 +21,9 @@ module Lota
     #   music = Lota::Audio::Source.new("music/theme.ogg", :stream)
     #   music.looping = true
     #   music.play
-    class Source
-      include Object
-
-      # The engine's Source, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Source < Object
       # Wraps a Source the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         source = allocate
         source.instance_variable_set(:@native, native)
         source
@@ -71,8 +66,8 @@ module Lota
       #   Lota::Audio::Source.new(beep).get_type # => :static
       def self.new(source, type = nil, streamtype = nil)
         case source
-        when Sound::SoundData then return from_native(Native::Audio.new_source_from_sound_data(source.native))
-        when Sound::Decoder then return from_native(Native::Audio.new_source_from_decoder(source.native))
+        when Sound::SoundData then return from_native(Native::Audio.new_source_from_sound_data(source.__send__(:native)))
+        when Sound::Decoder then return from_native(Native::Audio.new_source_from_decoder(source.__send__(:native)))
         end
 
         unless type.is_a?(Symbol) || type.is_a?(String)
@@ -86,9 +81,9 @@ module Lota
         end
 
         decoder = Sound::Decoder.new(source, Sound::Decoder::DEFAULT_BUFFER_SIZE, static ? :memory : streamtype)
-        return from_native(Native::Audio.new_source_from_decoder(decoder.native)) unless static
+        return from_native(Native::Audio.new_source_from_decoder(decoder.__send__(:native))) unless static
 
-        from_native(Native::Audio.new_source_from_sound_data(Sound::SoundData.new(decoder).native))
+        from_native(Native::Audio.new_source_from_sound_data(Sound::SoundData.new(decoder).__send__(:native)))
       end
 
       # Makes this Source, a copy of +source+ by Ruby's +clone+ or +dup+,
@@ -250,8 +245,8 @@ module Lota
       #
       #   steps.position = 120, 40
       def position=(vector)
-        x, y, z = Source.numbers(vector)
-        @native.set_position(Source.number(x), Source.number(y), Source.number(z, 0))
+        x, y, z = Source.__send__(:numbers, vector)
+        @native.set_position(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
       end
 
       # The Source's position in space, in the units the listener's position is in, as an Array of three Floats (ADR 001, rule 4),
@@ -277,8 +272,8 @@ module Lota
       #
       #   car.velocity = 30, 0, 0
       def velocity=(vector)
-        x, y, z = Source.numbers(vector)
-        @native.set_velocity(Source.number(x), Source.number(y), Source.number(z, 0))
+        x, y, z = Source.__send__(:numbers, vector)
+        @native.set_velocity(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
       end
 
       # The Source's velocity, which the Doppler effect reads, as an Array of three Floats (ADR 001, rule 4),
@@ -304,8 +299,8 @@ module Lota
       #
       #   speaker.direction = 0, 1, 0
       def direction=(vector)
-        x, y, z = Source.numbers(vector)
-        @native.set_direction(Source.number(x), Source.number(y), Source.number(z, 0))
+        x, y, z = Source.__send__(:numbers, vector)
+        @native.set_direction(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
       end
 
       # The Source's direction, which its cone points along, as an Array of three Floats (ADR 001, rule 4),
@@ -331,8 +326,8 @@ module Lota
       #
       #   speaker.cone = 0, Math::PI / 2, 0.2
       def cone=(cone)
-        inner, outer, volume, gain = Source.numbers(cone)
-        @native.set_cone(Source.number(inner), Source.number(outer), Source.number(volume, 0), Source.number(gain, 1))
+        inner, outer, volume, gain = Source.__send__(:numbers, cone)
+        @native.set_cone(Source.__send__(:number, inner), Source.__send__(:number, outer), Source.__send__(:number, volume, 0), Source.__send__(:number, gain, 1))
       end
 
       # The cone's inner and outer angles, outer volume, and outer
@@ -384,8 +379,8 @@ module Lota
       #
       #   engine.volume_limits = 0.1, 1
       def volume_limits=(limits)
-        least, greatest = Source.numbers(limits)
-        @native.set_volume_limits(Source.number(least), Source.number(greatest))
+        least, greatest = Source.__send__(:numbers, limits)
+        @native.set_volume_limits(Source.__send__(:number, least), Source.__send__(:number, greatest))
       end
 
       # The least and greatest volume, as an Array of two Floats (ADR 001,
@@ -413,8 +408,8 @@ module Lota
       #
       #   campfire.attenuation_distances = 50, 400
       def attenuation_distances=(distances)
-        reference, greatest = Source.numbers(distances)
-        @native.set_attenuation_distances(Source.number(reference), Source.number(greatest))
+        reference, greatest = Source.__send__(:numbers, distances)
+        @native.set_attenuation_distances(Source.__send__(:number, reference), Source.__send__(:number, greatest))
       end
 
       # The reference and greatest distances, as an Array of two Floats
@@ -581,7 +576,7 @@ module Lota
       #   source.set_filter(type: :lowpass, volume: 0.5, highgain: 0.3) # => true
       #   source.set_filter # => true
       def set_filter(**settings)
-        @native.set_filter(Audio.setting_pairs(settings))
+        @native.set_filter(Audio.__send__(:setting_pairs, settings))
       end
 
       # The Source's filter, matching Source:getFilter
@@ -595,7 +590,7 @@ module Lota
       #   source.filter.type # => :lowpass
       def filter
         pairs = @native.filter
-        pairs && Filter.of(pairs)
+        pairs && Filter.__send__(:of, pairs)
       end
 
       # Sends the Source's sound through the effect +name+, which
@@ -617,7 +612,7 @@ module Lota
       #   source.set_effect("echo", type: :highpass, volume: 0.3, lowgain: 0.1)
       #   source.set_effect("echo", false)
       def set_effect(name, enabled = nil, **filter)
-        @native.set_effect(name, enabled != false, Audio.setting_pairs(filter))
+        @native.set_effect(name, enabled != false, Audio.__send__(:setting_pairs, filter))
       end
 
       # Whether the Source plays through the effect +name+, and the filter
@@ -632,7 +627,7 @@ module Lota
       #   source.effect("echo") # => [true]
       def effect(name)
         set, pairs = @native.effect(name)
-        pairs.is_a?(Array) ? [set == true, Filter.of(pairs)] : [set == true]
+        pairs.is_a?(Array) ? [set == true, Filter.__send__(:of, pairs)] : [set == true]
       end
 
       # The names of the effects the Source plays through, as an Array,
@@ -648,13 +643,13 @@ module Lota
 
       # The numbers of a writer of several values (ADR 001, rule 6), one
       # value or an Array. :nodoc:
-      def self.numbers(value)
+      private_class_method def self.numbers(value)
         value.is_a?(Array) ? value : [value]
       end
 
       # One of those numbers, as luaL_checknumber reads it, or as
       # luaL_optnumber reads it with +default+ when it is nil. :nodoc:
-      def self.number(value, default = nil)
+      private_class_method def self.number(value, default = nil)
         value = default if value.nil?
         case value
         when Integer, Float then value

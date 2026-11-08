@@ -14,8 +14,8 @@ module Lota
     # the glyph's pixels, in the pixel format the rasterizer draws in, and
     # where they go relative to the pen: the bearing from the pen to the
     # top-left pixel, the bounding box, and the advance to the next glyph.
-    # It is a Data, so it includes Lota::Data, whose #size and #string give
-    # its pixels' bytes.
+    # It is a Data, so it inherits from Lota::Data, whose #size and
+    # #string give its pixels' bytes.
     #
     # Use it to inspect a glyph, or to draw its pixels yourself.
     #
@@ -24,15 +24,13 @@ module Lota
     #   glyph = Lota::Font::GlyphData.new(rasterizer, "a")
     #   glyph.dimensions # => [8, 8]
     #   glyph.format     # => :la8
-    class GlyphData
-      include Object
-      include Data
-
-      # The engine's GlyphData, for Lota's own modules. :nodoc:
-      attr_reader :native
+    class GlyphData < Data
+      # Its +new+, the constructor love.font.newGlyphData becomes
+      # (ADR 001, rule 2), which Lota::Object leaves private.
+      public_class_method :new
 
       # Wraps a GlyphData the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         glyph_data = allocate
         glyph_data.instance_variable_set(:@native, native)
         glyph_data

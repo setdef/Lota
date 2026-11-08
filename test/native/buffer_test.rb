@@ -330,7 +330,7 @@ class BufferTest < Minitest::Test
   # reference this test holds is released, with an alloc-dealloc-mismatch.
   def test_a_mesh_frees_its_vertex_data_when_its_last_reference_goes
     on_a_finished_fiber do
-      LotaNativeTest.observe_mesh(Lota::Graphics::Mesh.new([[0, 0], [1, 0], [1, 1]], :triangles).native)
+      LotaNativeTest.observe_mesh(Lota::Graphics::Mesh.new([[0, 0], [1, 0], [1, 1]], :triangles).__send__(:native))
     end
     collect_garbage
 

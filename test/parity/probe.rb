@@ -164,7 +164,7 @@ module Parity
       def compare(number, native)
         return if @mismatch
 
-        actual = Lota::Image::ImageData.from_native(native)
+        actual = Lota::Image::ImageData.__send__(:from_native, native)
         @mismatch = mismatch_with_love(number, actual)
         @compared += 1
         keep_mismatch(number, actual) if @mismatch
@@ -177,7 +177,7 @@ module Parity
         love = love_frame(number)
         FileUtils.cp(love, File.join(MISMATCH_DIR, format("love-%04d.png", number))) if File.exist?(love)
         PNG.write(File.join(MISMATCH_DIR, format("lota-%04d.png", number)), actual.width, actual.height,
-          LotaNativeTest.image_data_bytes(actual.native))
+          LotaNativeTest.image_data_bytes(actual.__send__(:native)))
       end
 
       private def love_frame(number)

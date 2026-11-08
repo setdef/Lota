@@ -14,13 +14,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `rake ios:notices[PROJECT]` and `rake android:notices[PROJECT]` write a phone project's `NOTICES.txt`, and on Android copy OpenAL Soft's source into its `sources/` folder.
 - The rest of `love.math`: `Lota::Math::BezierCurve` and every method of it, `Lota::Math::RandomGenerator` (`new`, `random`, `random_normal`, `seed`, `seed=`, `state`, `state=`), and `Lota::Math.random_normal`, `random_seed`, `random_state`, `random_state=`, `color_to_bytes`, `color_from_bytes`, `gamma_to_linear`, `linear_to_gamma`, `convex?`, `triangulate`, `perlin_noise`, `simplex_noise`, and the deprecated `noise`.
-- `love.data`: `Lota::Data.compress`, `decompress`, `encode`, `decode`, `pack`, `unpack`, and `packed_size`, and `Lota::Data::ByteData` (with `string=` and the writers of numbers, `float=` to `uint32=`), `Lota::Data::CompressedData` (with `format`), and `Lota::Data::DataView`. `love.data.hash` waits for its name, as `hash` is Ruby's `Object#hash`.
+- `love.data`: `Lota::Data.compress`, `decompress`, `encode`, `decode`, `hash` (with no arguments still Ruby's `Object#hash`), `pack`, `unpack`, and `packed_size`, whose container `:data` returns a plain `Lota::Data`, as LÖVE returns a plain Data, and `Lota::Data::ByteData` (with `string=` and the writers of numbers, `float=` to `uint32=`), `Lota::Data::CompressedData` (with `format`), and `Lota::Data::DataView`.
+- Every engine object has LÖVE's `release`, and its `__tostring` and `__eq` as `to_s` (`"Texture: 0x0127c3a4f0"`) and `==`.
 - The gem carries Noise1234, which the noise functions link, under its public-domain dedication, and the notices name it.
 - `love.font`: `Lota::Font::Rasterizer` (`new`, `height`, `advance`, `ascent`, `descent`, `line_height`, `glyph_data`, `glyph_count`, `glyphs?`), `Lota::Font::GlyphData` (`new`, `clone`, `width`, `height`, `dimensions`, `glyph`, `glyph_string`, `advance`, `bearing`, `bounding_box`, `format`), and `Lota::Font::TrueTypeRasterizer.new`, `BMFontRasterizer.new`, and `ImageRasterizer.new`; `Lota::Graphics::Font.new` and `ImageFont.new` also take a Rasterizer.
 
 ### Changed
 
 - `lota fuse` builds with Fledge 0.9.0, was 0.6.0.
+- **Breaking:** `Lota::Object` and `Lota::Data` are classes, LÖVE's root types: every engine object's class inherits from `Lota::Object`, and every Data's from `Lota::Data`, where they included them as modules. Neither has `new`, as LÖVE makes neither.
+- **Breaking:** `Lota::Sensor.get_name` is `Lota::Sensor.name`, by rule 3; with no sensor type it is Ruby's `Module#name`.
+- **Breaking:** what Lota's classes use to reach each other is no longer public: every engine object's `native`, every class's `from_native`, and helpers such as `Lota::Graphics.colored_text`, `Lota::Physics.shape`, and `Lota::Font.file_data`.
+- `type_of?` takes a type's name as a Symbol (`texture.type_of?(:Drawable)`), and still as a String.
 
 ### Fixed
 
@@ -28,6 +33,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - A game `lota fuse` built restarts, as a fused LÖVE game does, where it quit: its app's program runs again with the same arguments, and `Lota.restart` holds the value.
 - `Lota::Graphics::Font.new(size, nil, dpiscale)` and `Font.new(data, size, nil, dpiscale)` ignore the DPI scale after a `nil` hinting mode, as LÖVE does, rather than using it.
 - The phone and Windows builds' downloads retry a failed connection.
+- `Lota::Graphics::Font.new`'s size, `Lota::Graphics::ImageFont.new`'s extra spacing, and `Lota::Graphics.stencil_state=`'s value take a Float and cut it toward 0, as LÖVE reads them, where they raised `TypeError`.
 - `lota fuse` installs none of the game's gems: Bundler only locks them, and Fledge, which runs from a Gemfile of its own in `dist/fuse-tools`, compiles only the gems the app ships, so a gem with a C extension in the `development` or `test` group no longer compiles, or fails a build. A failed build of a game with gems now says what a compiler needs.
 - `lota fuse` run under `bundle exec` no longer fails to lock: the Bundler commands it runs drop the setup of the bundle it runs in, which `bundle exec` names in `RUBYOPT` by its full path.
 - On Android, a game keeps running when dark mode, the font's size or weight, the language, or the system's overlays change (as a new wallpaper's colours change them on Android 12 and later), and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`; before, Android restarted the activity and SDL closed the app.

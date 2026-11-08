@@ -2,14 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 module Lota
-  module Data
-    class CompressedData
-      include Object
-      include Data
-
-      attr_reader native: Native::CompressedData
-
-      def self.from_native: (Native::CompressedData native) -> CompressedData
+  class Data[out N < Native::Data::Data = Native::Data::Data]
+    class CompressedData < Data[Native::CompressedData]
+      private def self.from_native: (Native::CompressedData native) -> CompressedData
 
       def initialize_copy: (CompressedData source) -> void
 

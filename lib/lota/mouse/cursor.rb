@@ -24,14 +24,9 @@ module Lota
     #   Lota::Mouse.cursor = drag
     #
     #   Lota::Mouse.cursor = Lota::Mouse::Cursor.new("pointer.png", 4, 2)
-    class Cursor
-      include Object
-
-      # The engine's Cursor, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class Cursor < Object
       # Wraps a Cursor the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         cursor = allocate
         cursor.instance_variable_set(:@native, native)
         cursor
@@ -58,7 +53,7 @@ module Lota
       #   Lota::Mouse::Cursor.new("pointer.png", 4, 2).get_type # => :image
       def self.new(image, hotx = 0, hoty = 0)
         images = (image.is_a?(Array) ? image : [image]).map do |each|
-          (each.is_a?(Image::ImageData) ? each : Image::ImageData.new(each)).native
+          (each.is_a?(Image::ImageData) ? each : Image::ImageData.new(each)).__send__(:native)
         end
         from_native(Native::Mouse.new_cursor(images, hotx, hoty))
       end

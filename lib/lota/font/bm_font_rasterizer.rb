@@ -57,22 +57,22 @@ module Lota
       #   Lota::Font::BMFontRasterizer.new("assets/hud.fnt")
       #   Lota::Font::BMFontRasterizer.new("assets/hud.fnt", ["hud_0.png", "hud_1.png"], 2)
       def self.new(definition, images = nil, dpiscale = nil)
-        Rasterizer.from_native(native([definition, images, dpiscale], false))
+        Rasterizer.__send__(:from_native, native([definition, images, dpiscale], false))
       end
 
       # The engine's Rasterizer for +arguments+, the definition, images, and
       # DPI scale. A BMFont has no TrueType settings, so given +settings+,
       # as Lota::Font::Rasterizer.new may be, it raises ArgumentError.
       # :nodoc:
-      def self.native(arguments, settings)
+      private_class_method def self.native(arguments, settings)
         raise ArgumentError, "a BMFont takes no hinting, dpiscale:, or sdf: settings" if settings
         raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 1..3)" if arguments.size > 3
 
         definition, images, dpiscale = arguments
-        data = Font.file_data(definition)
-        dpiscale = Font.optional_number(dpiscale, "dpiscale")
+        data = Font.__send__(:file_data, definition)
+        dpiscale = Font.__send__(:optional_number, dpiscale, "dpiscale")
         pages = images.is_a?(Array) ? images : [images].compact
-        Native::Font.new_bmfont_rasterizer(data, pages.map { |image| Font.image_data(image) }, dpiscale)
+        Native::Font.new_bmfont_rasterizer(data, pages.map { |image| Font.__send__(:image_data, image) }, dpiscale)
       end
 
       # SPDX-SnippetEnd
@@ -84,7 +84,7 @@ module Lota
       #
       #   Lota::Font::BMFontRasterizer === Lota::Font::Rasterizer.new("assets/hud.fnt") # => true
       def self.===(object)
-        object.is_a?(Rasterizer) && object.native.bmfont?
+        object.is_a?(Rasterizer) && object.__send__(:native).bmfont?
       end
     end
   end

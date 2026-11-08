@@ -134,7 +134,7 @@ module Lota
       private_class_method def self.image(source)
         case source
         when String then Native::Filesystem.file_data(source)
-        when Lota::Image::ImageData, Lota::Data then source.native
+        when Lota::Image::ImageData, Lota::Data then source.__send__(:native)
         else
           raise TypeError,
             "wrong argument type #{source.class} (expected String, Lota::Filesystem::FileData, or " \

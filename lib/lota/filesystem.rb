@@ -226,7 +226,7 @@ module Lota
     def self.open_file(filename, mode)
       results = Native::Filesystem.open_file(filename, EnumName.of(mode))
       native = results.first
-      native.is_a?(Native::File) ? [File.from_native(native)] : [nil, results.last.to_s]
+      native.is_a?(Native::File) ? [File.__send__(:from_native, native)] : [nil, results.last.to_s]
     end
 
     # Writes a file in the save directory, replacing any file of the
@@ -253,7 +253,7 @@ module Lota
     def self.write(filename, data, size = nil)
       case data
       when String then Native::Filesystem.write_string(filename, data, size)
-      when FileData then Native::Filesystem.write_data(filename, data.native, size)
+      when FileData then Native::Filesystem.write_data(filename, data.__send__(:native), size)
       else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Filesystem::FileData)"
       end
     end
@@ -293,7 +293,7 @@ module Lota
 
     # The lines +reader+ reads, as an Enumerator, or each given to the
     # block, after which it returns +nil+. :nodoc:
-    def self.enumerate_lines(reader)
+    private_class_method def self.enumerate_lines(reader)
       lines = Enumerator.new do |yielder|
         while (line = reader.next_line)
           yielder << line
@@ -326,7 +326,7 @@ module Lota
     def self.append(filename, data, size = nil)
       case data
       when String then Native::Filesystem.append_string(filename, data, size)
-      when FileData then Native::Filesystem.append_data(filename, data.native, size)
+      when FileData then Native::Filesystem.append_data(filename, data.__send__(:native), size)
       else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Filesystem::FileData)"
       end
     end
@@ -417,7 +417,7 @@ module Lota
 
     # Mounts +data+ as the archive +archivename+ at +mountpoint+. :nodoc:
     private_class_method def self.mount_data(data, archivename, mountpoint, append)
-      Native::Filesystem.mount_data(data.native, archivename, string!(mountpoint), boolean!(append))
+      Native::Filesystem.mount_data(data.__send__(:native), archivename, string!(mountpoint), boolean!(append))
     end
 
     # +value+, a String, or a TypeError, as luaL_checkstring raises for
@@ -451,7 +451,7 @@ module Lota
     def self.unmount(archive)
       case archive
       when String then Native::Filesystem.unmount_archive(archive)
-      else Native::Filesystem.unmount_data(archive.native)
+      else Native::Filesystem.unmount_data(archive.__send__(:native))
       end
     end
 

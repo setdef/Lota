@@ -165,7 +165,7 @@ class ErrorHandlerTest < Minitest::Test
   def test_the_frame_draws_the_text_in_white_on_loves_blue_from_60_60
     frame, = handled
     frames = []
-    Lota::Native::Graphics.capture_screenshot(-> (image) { frames << Lota::Image::ImageData.from_native(image) })
+    Lota::Native::Graphics.capture_screenshot(-> (image) { frames << Lota::Image::ImageData.__send__(:from_native, image) })
 
     assert_nil frame.call
     image = frames.fetch(0)

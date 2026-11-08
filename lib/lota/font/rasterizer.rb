@@ -28,14 +28,13 @@ module Lota
     #   rasterizer.line_height
     #
     #   Lota::Graphics.font = Lota::Graphics::Font.new(rasterizer)
-    class Rasterizer
-      include Object
-
-      # The engine's Rasterizer, for Lota's own modules. :nodoc:
-      attr_reader :native
+    class Rasterizer < Object
+      # Its +new+, the constructor love.font.newRasterizer becomes
+      # (ADR 001, rule 2), which Lota::Object leaves private.
+      public_class_method :new
 
       # Wraps a Rasterizer the engine made. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         rasterizer = allocate
         rasterizer.instance_variable_set(:@native, native)
         rasterizer
@@ -74,11 +73,11 @@ module Lota
       def initialize(*arguments, hinting: nil, dpiscale: nil, sdf: false)
         first, second = arguments
         @native = if arguments.empty? || first.is_a?(Numeric) || second.is_a?(Numeric)
-          TrueTypeRasterizer.native(arguments, hinting, dpiscale, sdf)
+          TrueTypeRasterizer.__send__(:native, arguments, hinting, dpiscale, sdf)
         elsif second.nil?
-          Native::Font.new_rasterizer(Font.file_data(first))
+          Native::Font.new_rasterizer(Font.__send__(:file_data, first))
         else
-          BMFontRasterizer.native(arguments, !hinting.nil? || !dpiscale.nil? || sdf)
+          BMFontRasterizer.__send__(:native, arguments, !hinting.nil? || !dpiscale.nil? || sdf)
         end
       end
 
@@ -152,13 +151,12 @@ module Lota
       #
       #   rasterizer.glyph_data("a").advance # => 9
       def glyph_data(glyph)
-        GlyphData.from_native(
-          case glyph
-          when String then @native.glyph_data_of_text(glyph)
-          when Integer, Float then @native.glyph_data(glyph)
-          else raise TypeError, "wrong argument type #{glyph.class} (expected String or Integer)"
-          end
-        )
+        glyph_native = case glyph
+        when String then @native.glyph_data_of_text(glyph)
+        when Integer, Float then @native.glyph_data(glyph)
+        else raise TypeError, "wrong argument type #{glyph.class} (expected String or Integer)"
+        end
+        GlyphData.__send__(:from_native, glyph_native)
       end
 
       # How many glyphs it has, as an Integer, matching

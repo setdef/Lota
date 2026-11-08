@@ -3,12 +3,8 @@
 
 module Lota
   module Audio
-    class Source
-      include Object
-
-      attr_reader native: Native::Source
-
-      def self.from_native: (Native::Source native) -> Source
+    class Source < Object[Native::Source]
+      private def self.from_native: (Native::Source native) -> Source
 
       def self.new: (String | Filesystem::FileData | Sound::SoundData | Sound::Decoder source, ?(Symbol | String)? type, ?(Symbol | String)? streamtype) -> Source
 
@@ -96,9 +92,9 @@ module Lota
 
       def active_effects: () -> Array[String]
 
-      def self.numbers: (numbers value) -> Array[Float | Integer]
+      private def self.numbers: (numbers value) -> Array[Float | Integer]
 
-      def self.number: (::Object? value, ?(Float | Integer)? default) -> (Float | Integer)
+      private def self.number: (::Object? value, ?(Float | Integer)? default) -> (Float | Integer)
 
       def get_type: () -> Symbol
     end

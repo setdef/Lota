@@ -2,14 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 module Lota
-  module Data
-    class DataView
-      include Object
-      include Data
-
-      attr_reader native: Native::DataView
-
-      def self.from_native: (Native::DataView native) -> DataView
+  class Data[out N < Native::Data::Data = Native::Data::Data]
+    class DataView < Data[Native::DataView]
+      private def self.from_native: (Native::DataView native) -> DataView
 
       def self.new: (Data data, Integer offset, ?Integer? size) -> DataView
 

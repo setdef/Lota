@@ -3,12 +3,8 @@
 
 module Lota
   module Graphics
-    class SpriteBatch
-      include Object
-
-      attr_reader native: Native::SpriteBatch
-
-      def self.from_native: (Native::SpriteBatch native) -> SpriteBatch
+    class SpriteBatch < Object[Native::SpriteBatch]
+      private def self.from_native: (Native::SpriteBatch native) -> SpriteBatch
 
       def self.new: (Texture texture, ?Integer? size, *(Symbol | String) usage) -> SpriteBatch
 

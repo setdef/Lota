@@ -25,15 +25,10 @@ module Lota
     #
     #   world = Lota::Physics::World.new(0, 300)
     #   world.update(1 / 60.0)
-    class World
-      include Object
-
-      # The engine's World, for Lota's own modules. :nodoc:
-      attr_reader :native
-
+    class World < Object
       # The World that wraps +native+, one for each engine World while it
       # lives, as LÖVE pushes one Lua value for each. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         found = native.instance_variable_get(:@lota)
         return found if found
 
@@ -177,7 +172,7 @@ module Lota
       #
       #   world.bodies.size # => 2
       def bodies
-        @native.bodies.map { |body| Body.from_native(body) }
+        @native.bodies.map { |body| Body.__send__(:from_native, body) }
       end
 
       # How many Bodies are in the World, as an Integer, matching
@@ -197,7 +192,7 @@ module Lota
       #
       #   world.joints # => []
       def joints
-        @native.joints.map { |joint| Physics.joint(joint) }
+        @native.joints.map { |joint| Physics.__send__(:joint, joint) }
       end
 
       # How many Joints are in the World, as an Integer, matching
@@ -217,7 +212,7 @@ module Lota
       #
       #   world.contacts # => []
       def contacts
-        @native.contacts.map { |contact| Contact.from_native(contact) }
+        @native.contacts.map { |contact| Contact.__send__(:from_native, contact) }
       end
 
       # How many Contacts the World has, as an Integer, matching
@@ -302,7 +297,7 @@ module Lota
       #
       #   world.shapes_in_area(0, 0, 10, 10).size # => 1
       def shapes_in_area(x1, y1, x2, y2, mask = nil)
-        @native.shapes_in_area(x1, y1, x2, y2, mask).map { |shape| Physics.shape(shape) }
+        @native.shapes_in_area(x1, y1, x2, y2, mask).map { |shape| Physics.__send__(:shape, shape) }
       end
 
       # Calls the block with each Shape whose bounding box overlaps the area
@@ -320,7 +315,7 @@ module Lota
       #
       #   world.query_shapes_in_area(0, 0, 100, 100) { |shape| found << shape }
       def query_shapes_in_area(x1, y1, x2, y2, *arguments)
-        call = proc { |shape, *rest| yield Physics.shape(shape), *rest } if block_given?
+        call = proc { |shape, *rest| yield Physics.__send__(:shape, shape), *rest } if block_given?
         @native.query_shapes_in_area(x1, y1, x2, y2, [call, *arguments])
       end
 
@@ -356,7 +351,7 @@ module Lota
       #
       #   world.ray_cast(0, 0, 200, 200) { |shape, x, y, xn, yn, fraction| 1 }
       def ray_cast(x1, y1, x2, y2, *arguments)
-        call = proc { |shape, *rest| yield Physics.shape(shape), *rest } if block_given?
+        call = proc { |shape, *rest| yield Physics.__send__(:shape, shape), *rest } if block_given?
         @native.ray_cast(x1, y1, x2, y2, [call, *arguments])
       end
 
@@ -423,7 +418,7 @@ module Lota
 
         parameters = Callbacks.parameters(callable)
         call = lambda do |a, b, contact, *impulses|
-          arguments = [Physics.shape(a), Physics.shape(b), Contact.from_native(contact), *impulses]
+          arguments = [Physics.__send__(:shape, a), Physics.__send__(:shape, b), Contact.__send__(:from_native, contact), *impulses]
           callable.call(*Callbacks.declared(parameters, arguments))
         end
         [callable, call]
@@ -433,12 +428,12 @@ module Lota
       # #contact_function makes them, with the two Shapes.
       private def contact_filter_function(filter)
         parameters = Callbacks.parameters(filter)
-        [filter, -> (a, b) { filter.call(*Callbacks.declared(parameters, [Physics.shape(a), Physics.shape(b)])) }]
+        [filter, -> (a, b) { filter.call(*Callbacks.declared(parameters, [Physics.__send__(:shape, a), Physics.__send__(:shape, b)])) }]
       end
 
       # A ray's hit, with its Shape wrapped.
       private def hit(results)
-        results.map { |value| value.is_a?(Native::Shape) ? Physics.shape(value) : value }
+        results.map { |value| value.is_a?(Native::Shape) ? Physics.__send__(:shape, value) : value }
       end
     end
   end

@@ -28,15 +28,14 @@ module Lota
     #
     #   data = Lota::Filesystem::FileData.new(File.binread("pixel.ttf"), "pixel.ttf")
     #   Lota::Graphics.font = Lota::Graphics::Font.new(data, 8, :mono)
-    class Font
-      include Object
-
-      # The engine's Font, for Lota's own modules. :nodoc:
-      attr_reader :native
+    class Font < Object
+      # Its +new+, the constructor love.graphics.newFont becomes
+      # (ADR 001, rule 2), which Lota::Object leaves private.
+      public_class_method :new
 
       # Wraps a Font the engine made, such as the default font
       # Lota::Graphics.font returns. :nodoc:
-      def self.from_native(native)
+      private_class_method def self.from_native(native)
         font = allocate
         font.instance_variable_set(:@native, native)
         font
@@ -53,7 +52,9 @@ module Lota
       #   or a BMFont definition when +size+ is left out; leave it out for
       #   LÖVE's default font.
       # [size] Integer height in pixels: 13 by default for LÖVE's default
-      #   font, and 12 for a TrueType font in +data+.
+      #   font, and 12 for a TrueType font in +data+. LÖVE reads it with
+      #   luaL_optinteger, so a Float is cut to the whole number toward 0,
+      #   as LuaJIT cuts it.
       # [hinting] +:normal+ (the default), +:light+, +:mono+, or +:none+:
       #   how far glyph outlines bend to fit the pixel grid.
       # [dpiscale] Float or Integer DPI scale the glyphs are rasterized at;
@@ -138,7 +139,7 @@ module Lota
         when Float, Integer, nil then dpiscale
         else raise TypeError, "wrong argument type #{dpiscale.class} (expected Float)"
         end
-        pages = (images.is_a?(Array) ? images : [images]).map { |image| Font.image_data(image).native }
+        pages = (images.is_a?(Array) ? images : [images]).map { |image| Font.__send__(:image_data, image).native }
         definition = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
         @native = Native::Graphics.new_bmfont(definition, pages, dpiscale)
       end
@@ -146,7 +147,7 @@ module Lota
       # The ImageData for +image+, which LÖVE reads as luax_convobj does
       # for the image module's newImageData (src/modules/font/wrap_Font.cpp,
       # convimagedata): a file name or a FileData is decoded. :nodoc:
-      def self.image_data(image)
+      private_class_method def self.image_data(image)
         case image
         when Lota::Image::ImageData then image
         when String, Filesystem::FileData then Lota::Image::ImageData.new(image)
@@ -161,6 +162,7 @@ module Lota
       private def native_font(data, size, hinting, dpiscale, sdf)
         size = case size
         when Integer, nil then size
+        when Float then size.truncate
         else raise TypeError, "wrong argument type #{size.class} for size (expected Integer)"
         end
         hinting = case hinting
@@ -221,7 +223,7 @@ module Lota
       #
       #   width, lines = font.wrap("A long line of text", 50)
       def wrap(text, wraplimit)
-        @native.wrap(Graphics.colored_text(text), wraplimit)
+        @native.wrap(Graphics.__send__(:colored_text, text), wraplimit)
       end
 
       # Sets the line height, a factor of #height between the tops of
