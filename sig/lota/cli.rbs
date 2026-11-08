@@ -23,9 +23,11 @@ module Lota
 
         VALUES: Hash[String, Symbol]
 
+        REPEATED: Hash[String, Symbol]
+
         def self.call: (Array[String] argv) -> void
 
-        def self.parse: (Array[String] argv) -> [String, Hash[Symbol, String]]
+        def self.parse: (Array[String] argv) -> [String, Hash[Symbol, String | Array[String]]]
 
         def self.usage: () -> String
       end

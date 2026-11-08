@@ -6,7 +6,7 @@
 run it on, through [Fledge](https://github.com/setdef/Fledge): a folder and
 archive, and where Fledge makes them an installer. See the README's "Sharing a
 game" for what each platform needs installed and the exact options
-(`--out`, `--identifier`, `--icon`, `--app-version`, `--sign`).
+(`--out`, `--identifier`, `--icon`, `--app-version`, `--sign`, `--exclude`).
 
 Things a game author should know:
 
@@ -37,6 +37,14 @@ Things a game author should know:
   left out of the app's copy of the game; the gems in `vendor/cache` go to
   the build, not the game folder. Settings in the game's `.bundle/config`
   (such as `build.NAME` options for an extension) do not reach the build.
+- `--exclude PATTERN` (repeatable) leaves paths out of the app's copy of the
+  game, besides those above. A pattern is a glob relative to the game's
+  folder (`File.fnmatch` with `FNM_PATHNAME`, `FNM_EXTGLOB`, `FNM_DOTMATCH`):
+  `server` leaves out that folder whole, `doc/` matches folders only,
+  `'test/**'` leaves out everything in `test`, and `*` matches dotfiles.
+  `lota fuse` refuses (exit status 1) a pattern that would leave out
+  `conf.rb` or `main.rb`, warns of one that matches nothing, and reads no
+  ignore file.
 - The app saves under your `t.identity`, as LÖVE's fused game does.
 - The identifier is a reverse-DNS name (`com.example.Game`); the default is a
   placeholder: set your own before you ship.

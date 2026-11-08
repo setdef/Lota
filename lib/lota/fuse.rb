@@ -62,6 +62,23 @@ module Lota
   # platforms, so Bundler keeps the versions the game was made with and
   # Fledge ships them, compiling those with extensions for its runtime.
   #
+  # The app leaves out the paths of LEFT_OUT, and those that match a
+  # pattern of Options#exclude (<tt>--exclude</tt>), each of which is a
+  # glob relative to the game's folder, matched as File.fnmatch does with
+  # File::FNM_PATHNAME, so that <tt>*</tt> stays within a folder and
+  # <tt>**/</tt> crosses folders, File::FNM_EXTGLOB, for
+  # <tt>{a,b}</tt>, and File::FNM_DOTMATCH, so that <tt>*</tt> and
+  # <tt>**</tt> match dotfiles too, as someone who writes
+  # <tt>assets/*</tt> means them. A path that matches is left out whole,
+  # with everything in it if it is a folder, so <tt>server</tt> leaves out
+  # the folder +server+ at the top of the game, and <tt>test/**</tt>,
+  # which fnmatch reads as everything in +test+, leaves +test+ itself
+  # empty. A pattern that ends in a slash matches folders only. A pattern
+  # that matches nothing is reported and does not stop the build. An
+  # exclusion that would leave out conf.rb or main.rb, which the game
+  # needs to start, stops it with an Error, before anything is
+  # written. Fuse reads no file of patterns.
+  #
   # Use it through <tt>lota fuse</tt>.
   #
   # === Example
@@ -89,13 +106,18 @@ module Lota
     #   without their extension, as Fledge names them (<tt>icons/icon</tt>
     #   for <tt>icons/icon.icns</tt>, <tt>icons/icon.ico</tt>, and
     #   <tt>icons/icon-16.png</tt> and the other sizes), or +nil+ for none.
+    # [exclude] Array of String patterns for paths the app leaves out, in
+    #   addition to LEFT_OUT. See Fuse for how they match.
     #
     # Make one with Fuse.options, which fills in DEFAULT_OPTIONS.
-    class Options < ::Data.define(:out, :sign, :identifier, :app_version, :icon)
+    class Options < ::Data.define(:out, :sign, :identifier, :app_version, :icon, :exclude)
     end
 
+    # The exclusions of an Options that is given none.
+    NO_PATTERNS = Array.new(0, "").freeze
+
     # What each of Options is when <tt>lota fuse</tt> is not given it.
-    DEFAULT_OPTIONS = { out: "dist", sign: nil, identifier: nil, app_version: nil, icon: nil }.freeze
+    DEFAULT_OPTIONS = { out: "dist", sign: nil, identifier: nil, app_version: nil, icon: nil, exclude: NO_PATTERNS }.freeze
 
     # Options with DEFAULT_OPTIONS for each that +given+ leaves out.
     #
@@ -162,6 +184,15 @@ module Lota
     # and Bundler's, which hold no game.
     LEFT_OUT = %w[.git .bundle vendor/bundle vendor/cache].freeze
 
+    # The files of a game that an exclusion may not leave out.
+    REQUIRED = %w[conf.rb main.rb].freeze
+
+    # The flags with which Options#exclude patterns match.
+    EXCLUDE_FLAGS = File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH
+
+    # The most paths that Fuse names when it says what it left out.
+    NAMED_LEFT_OUT = 10
+
     # Prepares to fuse the game in the folder +path+.
     #
     # [path] String path of the game's folder.
@@ -179,6 +210,8 @@ module Lota
       @platform = platform
       @gem_file = gem_file
       @bundle = bundle
+      @left_out = [] #: Array[String]
+      @matched = [] #: Array[String]
     end
 
     # Writes the project and builds it with <tt>fledge build</tt>,
@@ -187,12 +220,14 @@ module Lota
     # build stands in the way, saying which.
     def call
       check_game
+      check_exclude
       platform = lota_platform
       locked = read_lockfile(platform)
       gem = @gem_file || Fuse.installed_gem(@platform)
       bundle = @bundle || bundler
       check_git
       write_project(read_settings, gem, locked)
+      report_left_out
       write_tools
       lock_commands(locked, platform).each do |command|
         run(bundle, *command, folder: project, step: "Locking the project's gems", why: LOCKING)
@@ -302,6 +337,39 @@ module Lota
       return unless out == @directory || [project, tools].any? { |folder| "#{@directory}/".start_with?(File.join(folder, "")) }
 
       raise Error, "--out can't be the game's own folder, #{@options.out}; choose one beside or inside it."
+    end
+
+    # Raises Error when an exclusion would leave out a file of
+    # REQUIRED.
+    private def check_exclude
+      @options.exclude.each do |pattern|
+        file = REQUIRED.find { |name| excludes?(pattern, name, directory: false) }
+        next unless file
+
+        raise Error, "--exclude #{pattern} would leave out #{file}, which the game needs to start"
+      end
+    end
+
+    # Whether +pattern+ matches the path +relative+, a folder's if
+    # +directory+.
+    private def excludes?(pattern, relative, directory:)
+      return false if pattern.end_with?("/") && !directory
+
+      File.fnmatch(pattern.delete_prefix("./").chomp("/"), relative, EXCLUDE_FLAGS)
+    end
+
+    # Says which paths of the game were left out by Options#exclude, and
+    # warns of each pattern that matched none.
+    private def report_left_out
+      @options.exclude.each do |pattern|
+        warn "lota fuse: --exclude #{pattern} matched nothing in the game's folder." unless @matched.include?(pattern)
+      end
+      return if @left_out.empty?
+
+      named = @left_out.sort.first(NAMED_LEFT_OUT).join(", ")
+      more = @left_out.size - NAMED_LEFT_OUT
+      named += ", and #{more} more" if more.positive?
+      puts "Left out #{@left_out.size} #{(@left_out.size == 1) ? 'path' : 'paths'} of the game: #{named}"
     end
 
     # The game's settings, as its conf.rb leaves them, read without
@@ -470,13 +538,15 @@ module Lota
       (title.empty? || title == UNTITLED) ? File.basename(@directory) : title
     end
 
-    # Copies the game's files, but not the folders of LEFT_OUT or the
-    # folder this build writes to, should it be inside the game's folder.
+    # Copies the game's files, but not the folders of LEFT_OUT, the paths
+    # that Options#exclude matches, or the folder this build writes to,
+    # should it be inside the game's folder.
     private def copy_game(from, to)
       FileUtils.mkdir_p(to)
       Dir.each_child(from) do |child|
         source = File.join(from, child)
         next if source == out || LEFT_OUT.any? { |name| source == File.join(@directory, name) }
+        next if excluded?(source)
 
         target = File.join(to, child)
         if File.directory?(source)
@@ -485,6 +555,19 @@ module Lota
           FileUtils.cp(source, target, preserve: true)
         end
       end
+    end
+
+    # Whether Options#exclude leaves out the path +source+ in the game,
+    # noting it and the patterns that matched it.
+    private def excluded?(source)
+      relative = source.delete_prefix("#{@directory}/")
+      directory = File.directory?(source)
+      hits = @options.exclude.select { |pattern| excludes?(pattern, relative, directory:) }
+      return false if hits.empty?
+
+      @matched.concat(hits)
+      @left_out << relative
+      true
     end
 
     # The project's Gemfile: the game's, evaluated where the game's copy

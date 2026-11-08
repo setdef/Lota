@@ -17,12 +17,16 @@ module Lota
 
       attr_reader icon: String?
 
-      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?, icon: String?) -> instance
+      attr_reader exclude: Array[String]
+
+      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?, icon: String?, exclude: Array[String]) -> instance
     end
 
-    DEFAULT_OPTIONS: { out: String, sign: String?, identifier: String?, app_version: String?, icon: String? }
+    NO_PATTERNS: Array[String]
 
-    def self.options: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?, ?icon: String?) -> Options
+    DEFAULT_OPTIONS: { out: String, sign: String?, identifier: String?, app_version: String?, icon: String?, exclude: Array[String] }
+
+    def self.options: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?, ?icon: String?, ?exclude: Array[String]) -> Options
 
     FLEDGE_GIT: String
 
@@ -48,6 +52,12 @@ module Lota
 
     LEFT_OUT: Array[String]
 
+    REQUIRED: Array[String]
+
+    EXCLUDE_FLAGS: Integer
+
+    NAMED_LEFT_OUT: Integer
+
     @directory: String
 
     @options: Options
@@ -57,6 +67,10 @@ module Lota
     @gem_file: String?
 
     @bundle: Array[String]?
+
+    @left_out: Array[String]
+
+    @matched: Array[String]
 
     def initialize: (String path, ?Options options, ?platform: String, ?gem_file: String?, ?bundle: Array[String]?) -> void
 
@@ -85,6 +99,14 @@ module Lota
     def self.fledge_ref: (?Hash[String, String] env) -> String
 
     private def check_game: () -> void
+
+    private def check_exclude: () -> void
+
+    private def excludes?: (String pattern, String relative, directory: bool) -> bool
+
+    private def report_left_out: () -> void
+
+    private def excluded?: (String source) -> bool
 
     private def read_settings: () -> Settings
 

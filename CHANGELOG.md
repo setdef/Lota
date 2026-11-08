@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `lota fuse --exclude PATTERN`, repeatable, leaves paths out of the app, and `Lota::Fuse::Options#exclude` holds the patterns.
 - `rake ios:notices[PROJECT]` and `rake android:notices[PROJECT]` write a phone project's `NOTICES.txt`, and on Android copy OpenAL Soft's source into its `sources/` folder.
 - The rest of `love.math`: `Lota::Math::BezierCurve` and every method of it, `Lota::Math::RandomGenerator` (`new`, `random`, `random_normal`, `seed`, `seed=`, `state`, `state=`), and `Lota::Math.random_normal`, `random_seed`, `random_state`, `random_state=`, `color_to_bytes`, `color_from_bytes`, `gamma_to_linear`, `linear_to_gamma`, `convex?`, `triangulate`, `perlin_noise`, `simplex_noise`, and the deprecated `noise`.
 - `love.data`: `Lota::Data.compress`, `decompress`, `encode`, `decode`, `hash` (with no arguments still Ruby's `Object#hash`), `pack`, `unpack`, and `packed_size`, whose container `:data` returns a plain `Lota::Data`, as LÖVE returns a plain Data, and `Lota::Data::ByteData` (with `string=` and the writers of numbers, `float=` to `uint32=`), `Lota::Data::CompressedData` (with `format`), and `Lota::Data::DataView`.

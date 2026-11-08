@@ -762,11 +762,139 @@ class FuseTest < Minitest::Test
     end
   end
 
+  def game_files
+    Dir.glob("**/*", File::FNM_DOTMATCH, base: project("game", "sample")).select { |name| File.file?(project("game", "sample", name)) }.sort
+  end
+
+  def test_exclude_leaves_out_a_folder_whole_and_only_where_it_is_named
+    write("server/app.rb", "")
+    write("server/deep/more.rb", "")
+    write("doc/readme.txt", "")
+    write("lib/server/keep.rb", "")
+
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: ["server", "doc/"])).call }
+
+    assert_equal %w[lib/server/keep.rb main.rb], game_files
+  end
+
+  def test_exclude_with_a_trailing_slash_names_folders_only
+    write("doc", "a file named doc")
+
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: ["doc/"])).call }
+
+    assert_equal %w[doc main.rb], game_files
+  end
+
+  def test_exclude_leaves_out_a_file_and_takes_braces
+    write("notes.txt", "")
+    write("a.psd", "")
+    write("b.xcf", "")
+    write("art/c.png", "")
+
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: ["notes.txt", "*.{psd,xcf}"])).call }
+
+    assert_equal %w[art/c.png main.rb], game_files
+  end
+
+  def test_exclude_reads_double_star_as_fnmatch_does
+    write("test/a.rb", "")
+    write("test/deep/b.rb", "")
+    write("art/raw/c.psd", "")
+    write("d.psd", "")
+    write("art/e.png", "")
+
+    options = Lota::Fuse.options(out: File.join(@root, "dist"), exclude: ["test/**", "**/*.psd"])
+    capture_io { fuse(options).call }
+
+    assert_equal %w[art/e.png main.rb], game_files
+    assert_path_exists project("game", "sample", "test")
+  end
+
+  def test_exclude_matches_dotfiles_with_a_star
+    write(".DS_Store", "")
+    write("assets/.hidden", "")
+    write("assets/x.png", "")
+    write("keep/.kept", "")
+
+    options = Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [".DS_Store", "assets/*"])
+    capture_io { fuse(options).call }
+
+    assert_equal %w[keep/.kept main.rb], game_files
+  end
+
+  def test_exclude_says_what_it_left_out
+    write("server/a.rb", "")
+    write("notes.txt", "")
+
+    stdout, stderr = capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: %w[server notes.txt])).call }
+
+    assert_empty stderr
+    assert_includes stdout, "Left out 2 paths of the game: notes.txt, server\n"
+  end
+
+  def test_exclude_says_nothing_when_it_is_not_given
+    stdout, = capture_io { fuse.call }
+
+    refute_includes stdout, "Left out"
+  end
+
+  def test_exclude_warns_of_a_pattern_that_matches_nothing_and_builds_anyway
+    write("server/a.rb", "")
+
+    stdout, stderr = capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: %w[server sevrer])).call }
+
+    assert_equal "lota fuse: --exclude sevrer matched nothing in the game's folder.\n", stderr
+    assert_includes stdout, "Left out 1 path of the game: server\n"
+    assert_equal %w[main.rb], game_files
+    assert_includes File.read(@log), "fledge build"
+  end
+
+  def test_exclude_that_would_leave_out_a_file_the_game_starts_from_is_refused
+    write("conf.rb", "")
+    ["conf.rb", "*.rb", "{main,x}.rb", "**/main.rb", "co*"].each do |pattern|
+      error = assert_raises(Lota::Fuse::Error) do
+        fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [pattern])).call
+      end
+
+      assert_match(/\A--exclude #{Regexp.escape(pattern)} would leave out (conf|main)\.rb, which the game needs to start\z/, error.message)
+    end
+    refute_path_exists @log
+    refute_path_exists project
+  end
+
+  def test_exclude_may_name_a_folder_that_holds_neither_required_file
+    write("conf.rb", "")
+    write("a/conf.rb", "")
+
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: ["a"])).call }
+
+    assert_equal %w[conf.rb main.rb], game_files
+  end
+
+  def test_the_command_takes_exclude_as_often_as_it_is_given
+    assert_equal [".", { exclude: %w[server test/**] }],
+      Lota::CLI::Commands::Fuse.parse(["--exclude", "server", "--exclude=test/**"])
+    error = assert_raises(Lota::Fuse::Error) { Lota::CLI::Commands::Fuse.parse(["--exclude"]) }
+
+    assert_includes error.message, "--exclude needs a value"
+  end
+
+  def test_the_command_exits_with_status_1_for_an_exclude_it_refuses
+    _stdout, stderr = capture_io do
+      error = assert_raises(SystemExit) { Lota::CLI.call(["fuse", @game, "--exclude", "main.rb"]) }
+
+      assert_equal 1, error.status
+    end
+
+    assert_equal "lota fuse: --exclude main.rb would leave out main.rb, which the game needs to start\n", stderr
+  end
+
   def test_the_command_prints_its_help
     stdout, = capture_io { assert_raises(SystemExit) { Lota::CLI.call(%w[fuse --help]) } }
 
     assert_includes stdout, "Usage: lota fuse [path] [options]"
     assert_includes stdout, "replace it before you ship"
+    assert_includes stdout, "--exclude PATTERN"
     assert_includes Lota::CLI.usage, "fuse [path] [options]"
   end
 end

@@ -25,6 +25,8 @@ module Lota
       #
       #   lota fuse
       #   lota fuse path/to/game --identifier com.example.SampleGame
+      #   lota fuse path/to/game --exclude server --exclude 'test/**' --exclude doc
+      #   lota fuse path/to/game --exclude server --exclude 'test/**' --exclude doc
       #   lota fuse path/to/game --out builds --sign "Developer ID Application: NAME (TEAM)"
       module Fuse
         # The words Fledge reads as a phone, which Lota cannot build for
@@ -41,6 +43,10 @@ module Lota
           "--app-version" => :app_version,
           "--icon" => :icon,
         }.freeze
+
+        # The options that may be given more than once, each with the
+        # Lota::Fuse::Options member it collects.
+        REPEATED = { "--exclude" => :exclude }.freeze
 
         # Runs the fuse command.
         #
@@ -67,7 +73,7 @@ module Lota
         # a phone, or more than one folder.
         def self.parse(argv) # :nodoc:
           paths = [] #: Array[String]
-          options = {} #: Hash[Symbol, String]
+          options = {} #: Hash[Symbol, String | Array[String]]
           arguments = argv.dup
           while (argument = arguments.shift)
             name, value = argument.split("=", 2)
@@ -76,6 +82,11 @@ module Lota
               raise Lota::Fuse::Error, "#{name} needs a value" if value.nil? || value.empty?
 
               options[key] = value
+            elsif (key = REPEATED[name.to_s])
+              value ||= arguments.shift
+              raise Lota::Fuse::Error, "#{name} needs a value" if value.nil? || value.empty?
+
+              (options[key] ||= []) << value
             elsif PHONES.include?(argument)
               raise Lota::Fuse::Error, "Lota cannot build for #{argument} yet: its engine is not built for phones (ADR 002, section 2)."
             elsif argument.start_with?("-")
@@ -114,6 +125,20 @@ module Lota
                                       them: icons/icon for icons/icon.icns,
                                       icons/icon.ico, and icons/icon-16.png to
                                       -512.png (default: none)
+              --exclude PATTERN       Leave paths out of the app, in addition to
+                                      .git, .bundle, vendor/bundle, and
+                                      vendor/cache. PATTERN is a glob relative
+                                      to the game's folder, as File.fnmatch
+                                      reads it with FNM_PATHNAME, FNM_EXTGLOB,
+                                      and FNM_DOTMATCH: * stays in a folder,
+                                      **/ crosses folders, {a,b} picks, and *
+                                      matches dotfiles. A match leaves out a
+                                      folder whole, so server leaves out the
+                                      folder server; end it with / to match
+                                      folders only. Give it as often as you
+                                      like (quote it from your shell); a
+                                      pattern that matches nothing warns.
+                                      conf.rb and main.rb can't be left out
               --sign IDENTITY         Sign the app with IDENTITY, as Fledge's
                                       --sign does
               --help, -h              Show this help

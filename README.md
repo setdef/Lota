@@ -212,8 +212,20 @@ The options:
 - `--app-version VERSION` is the app's version, such as `1.0.0`; without it, Fledge's `0.0.0`. A game's `t.version` names the version of LÖVE it was written for, so it never becomes the app's.
 - `--icon PATH` gives the app the icon files at `PATH` in the game's folder, without their extension, as Fledge takes them: `--icon icons/icon` for `icons/icon.icns` (macOS), `icons/icon.ico` (Windows), and `icons/icon-16.png` to `icons/icon-512.png` (Linux). Without it the app has no icon of its own.
 - `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
+- `--exclude PATTERN` leaves paths out of the app; see below. Give it as often as you like.
 - `--out DIR` writes to `DIR` instead of `dist`.
 - `LOTA_FLEDGE_REF` names another tag or commit of Fledge to build with.
+
+The app holds your game's folder as it is, but for `.git`, `.bundle`, `vendor/bundle`, and `vendor/cache`, which it always leaves out. To leave out more, such as a server's code, your tests, and your docs, give `--exclude` a pattern for each:
+
+```console
+$ lota fuse path/to/game --exclude server --exclude 'test/**' --exclude doc
+dist/Sample Game-x64-mingw-ucrt.zip
+Left out 3 paths of the game: doc, server, test/a_test.rb
+Built the app for x64-mingw-ucrt only. Run lota fuse on each platform you ship for.
+```
+
+A pattern is a glob relative to the game's folder, matched as Ruby's `File.fnmatch` does with `FNM_PATHNAME`, `FNM_EXTGLOB`, and `FNM_DOTMATCH`. So `*` stays within a folder, `**/` crosses folders (`**/*.psd`), `{a,b}` picks one of two (`*.{psd,xcf}`), and `*` matches dotfiles too, because someone who writes `assets/*` means the `.DS_Store` in it. Quote a pattern with a star, so your shell hands it to `lota fuse` as written. A path that matches is left out whole: `server` leaves out the folder `server` at the top of the game, with everything in it, but not `lib/server`. A pattern that ends in a slash (`doc/`) matches folders only. `test/**` is everything in `test`, as `fnmatch` reads it, so it leaves an empty `test` folder. `lota fuse` reads no file of patterns, and it prints the paths it left out. A pattern that matches nothing is reported, but does not stop the build. One that would leave out `conf.rb` or `main.rb`, which the game needs to start, stops it before it writes anything, as every error of `lota fuse` does, with exit status 1.
 
 If your game has a `Gemfile`, the app ships the gems its `Gemfile.lock` locks, at the versions it locks, but for the `development` and `test` groups. `lota fuse` builds from your Gemfile and lockfile, and adds Lota if your Gemfile does not ask for it. Before it builds, it checks that:
 
