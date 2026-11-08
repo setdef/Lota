@@ -11,10 +11,11 @@
 // does on a thread of its own, so Ruby can call SDL directly. The main
 // thread's stack is the one the executable asks for, with -Wl,-stack_size
 // in OTHER_LDFLAGS. Info.plist names SDLUIKitSceneDelegate as the scene's
-// delegate.
+// delegate, and LotaApplication, below, as the app's UIApplication.
 @import FledgeRuby;
 @import AVFoundation;
 @import Foundation;
+@import UIKit;
 
 #include <errno.h>
 #include <os/log.h>
@@ -27,6 +28,42 @@ typedef int (*SDL_main_func)(int argc, char *argv[]);
 extern int SDL_RunApp(int argc, char *argv[], SDL_main_func main_function, void *reserved);
 
 static os_log_t app_log;
+
+// The app's UIApplication, which Info.plist names as NSPrincipalClass, so
+// that UIApplicationMain, called by SDL_RunApp with no class of its own,
+// makes one. SDL 3.4.10 reads the screen's orientation only from
+// statusBarOrientation (SDL_uikitvideo.m, line 240; SDL_uikitmodes.m,
+// lines 333, 487, and 521), and iOS 27 makes that a no-op that answers
+// Unknown, which SDL takes for portrait: a game launched in landscape got
+// a portrait window, cut off at the bottom and black on the right
+// (doc/contributors/upstream/019.md). Where UIKit still answers, its
+// answer stands; where it answers Unknown, the app's window scene says,
+// as Apple's deprecation of statusBarOrientation directs and as SDL 3.4.20
+// does (UIKit_GetInterfaceOrientation, SDL_uikitvideo.m).
+@interface LotaApplication : UIApplication
+@end
+
+@implementation LotaApplication
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
+- (UIInterfaceOrientation)statusBarOrientation {
+  UIInterfaceOrientation orientation = [super statusBarOrientation];
+  if (orientation != UIInterfaceOrientationUnknown)
+    return orientation;
+  if (@available(iOS 16.0, *)) {
+    for (UIScene *scene in self.connectedScenes) {
+      if ([scene isKindOfClass:UIWindowScene.class] &&
+          [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication])
+        return ((UIWindowScene *)scene).effectiveGeometry.interfaceOrientation;
+    }
+  }
+  return orientation;
+}
+#pragma clang diagnostic pop
+
+@end
 
 static NSString *AppName(void) {
   NSDictionary *info = NSBundle.mainBundle.infoDictionary;

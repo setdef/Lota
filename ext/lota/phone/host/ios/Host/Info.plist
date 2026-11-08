@@ -14,6 +14,8 @@
   - UIApplicationSupportsIndirectInputEvents, which SDL asks for to read a
     mouse or trackpad ("You need UIApplicationSupportsIndirectInputEvents
     in your Info.plist for mouse support" without it).
+  - NSPrincipalClass, LotaApplication from Host/main.m, which reads the
+    window scene's orientation where iOS 27 no longer reports it to SDL.
   - UIStatusBarHidden, with UIViewControllerBasedStatusBarAppearance
     false, so the status bar stays hidden, as a game's usually is.
   - LotaAudioSessionCategory, which Host/main.m reads: the audio session's
@@ -48,6 +50,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSPrincipalClass</key>
+	<string>LotaApplication</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchScreen</key>
