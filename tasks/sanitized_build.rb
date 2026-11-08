@@ -108,9 +108,7 @@ class SanitizedBuild
   # load path, ahead of +load_path+, so require "lota/native" loads the
   # sanitized bundle.
   def command(tests, load_path: [])
-    diag = 'Minitest::Test.prepend(Module.new { def after_teardown; super; $diag_n = ($diag_n || 0) + 1; ' \
-           '$stderr.puts "DIAG #{$diag_n} #{Time.now.strftime("%H:%M:%S")} rss=#{`ps -o rss= -p #{$$}`.strip} ' \
-           '#{self.class}##{name} #{($diag_n % 25).zero? ? `sysctl -n vm.swapusage`.strip : ""}"; end })'
+    diag = %(require "#{File.expand_path('diag_rss.rb', __dir__)}")
     runner = ['require "minitest/autorun"', diag, *tests.map { |test| %(require "#{File.expand_path(test)}") }]
     [environment, RbConfig.ruby, "-I#{[lib, *load_path].join(File::PATH_SEPARATOR)}", "-w", "-e", runner.join("; "), "--", "--verbose"]
   end
