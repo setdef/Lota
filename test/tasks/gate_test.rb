@@ -195,6 +195,28 @@ class GateTest < Minitest::Test
     end
   end
 
+  # A check that ends while finish_by asks the clock has finished. The
+  # process waits for the clock to be asked, and the clock answers only
+  # once the process has exited and its output has closed, so both threads
+  # that watch it have ended between finish_by's look at them and its wait
+  # on one. In CI's x86_64 Linux gate, a check ended in that moment, and
+  # finish_by called join on the nil that no live thread left it.
+  def test_a_check_that_ends_while_the_clock_is_asked_has_finished
+    in_tree do |root|
+      asked = File.join(root, "asked")
+      child = Gate::Child.new([RbConfig.ruby, "-e", "sleep 0.01 until File.exist?(ARGV[0])", asked])
+      clock = Object.new
+      clock.define_singleton_method(:now) do
+        File.write(asked, "")
+        sleep 0.01 until child.status && !child.open?
+        0.0
+      end
+
+      assert child.finish_by(ENDING, clock:)
+      assert_predicate child.status, :success?
+    end
+  end
+
   # The live log says when each check starts and ends, as it happens, and
   # the heartbeat names what is still running and for how long. The held
   # check runs until the heartbeat has named it alone, after the other

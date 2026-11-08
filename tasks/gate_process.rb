@@ -52,13 +52,16 @@ class Gate
     # +deadline+, a time on +clock+ (anything whose +now+ gives seconds),
     # waiting until then for both. Something the process started can hold
     # its output open after it exits, and then the check has not finished.
+    #
+    # The thread to wait on is the one found alive, never a second look:
+    # both can end while the clock is asked, between two looks.
     def finish_by(deadline, clock: Gate)
       threads = [@waiter, @collector]
-      while threads.any?(&:alive?)
+      while (thread = threads.find(&:alive?))
         remaining = deadline - clock.now
         break if remaining <= 0
 
-        threads.find(&:alive?).join([remaining, POLL].min)
+        thread.join([remaining, POLL].min)
       end
       threads.map { |thread| thread.join(SETTLE) }.all?
     end
