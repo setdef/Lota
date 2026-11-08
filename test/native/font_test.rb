@@ -99,4 +99,17 @@ class FontTest < Minitest::Test
     assert_kind_of Integer, font.descent
     [font.height, font.baseline, font.line_height, font.dpi_scale].each { |metric| assert_kind_of Float, metric }
   end
+
+  # w_newTrueTypeRasterizer reads the settings after the size only when
+  # the first is given (wrap_Font.cpp:118-119 and 127-128), so a DPI scale
+  # after a nil hinting is ignored, and one after a hinting mode is not.
+  def test_a_dpi_scale_after_the_size_needs_a_hinting_mode_before_it
+    data = Lota::Filesystem::FileData.new(File.binread(FONT), "font.ttf")
+
+    assert_equal Font.new(12).dpi_scale, Font.new(12, nil, 3).dpi_scale
+    assert_equal Font.new(data, 8).dpi_scale, Font.new(data, 8, nil, 3).dpi_scale
+    refute_equal 3.0, Font.new(12, nil, 3).dpi_scale
+    assert_equal 3.0, Font.new(12, :normal, 3).dpi_scale
+    assert_equal 3.0, Font.new(12, nil, 3, dpiscale: 3).dpi_scale
+  end
 end

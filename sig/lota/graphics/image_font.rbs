@@ -4,7 +4,7 @@
 module Lota
   module Graphics
     module ImageFont
-      def self.new: (Lota::Image::ImageData | Filesystem::FileData | String image, String glyphs, ?(Integer | String)? extraspacing, ?(Float | Integer | String)? dpiscale) -> Font
+      def self.new: (Lota::Image::ImageData | Filesystem::FileData | String | Lota::Font::Rasterizer image, ?String? glyphs, ?(Integer | String)? extraspacing, ?(Float | Integer | String)? dpiscale) -> Font
 
       def self.===: (::Object? object) -> bool
     end

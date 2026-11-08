@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Font
+    class GlyphData
+      include Object
+      include Data
+
+      attr_reader native: Native::GlyphData
+
+      def self.from_native: (Native::GlyphData native) -> GlyphData
+
+      def initialize: (Rasterizer rasterizer, String | Integer | Float glyph) -> void
+
+      def initialize_copy: (GlyphData source) -> void
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def dimensions: () -> [Integer, Integer]
+
+      def glyph: () -> Integer
+
+      def glyph_string: () -> String
+
+      def advance: () -> Integer
+
+      def bearing: () -> [Integer, Integer]
+
+      def bounding_box: () -> [Integer, Integer, Integer, Integer]
+
+      def format: () -> Symbol
+    end
+  end
+end

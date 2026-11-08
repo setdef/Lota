@@ -691,6 +691,50 @@ module Lota
       def self.open: () -> nil
 
       def self.open?: () -> bool
+
+      def self.new_rasterizer: (FileData data) -> Rasterizer
+
+      def self.new_default_truetype_rasterizer: (Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Rasterizer
+
+      def self.new_truetype_rasterizer: (Data::Data data, Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Rasterizer
+
+      def self.new_bmfont_rasterizer: (FileData definition, Array[ImageData] images, (Float | Integer)? dpiscale) -> Rasterizer
+
+      def self.new_image_rasterizer: (ImageData data, String glyphs, Integer? extraspacing, (Float | Integer)? dpiscale) -> Rasterizer
+
+      def self.new_glyph_data_of_text: (Rasterizer rasterizer, String glyph) -> GlyphData
+
+      def self.new_glyph_data: (Rasterizer rasterizer, Float | Integer glyph) -> GlyphData
+    end
+
+    class Rasterizer
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def glyph_data_of_text: (String glyph) -> GlyphData
+
+      def glyph_data: (Float | Integer glyph) -> GlyphData
+
+      def text_glyphs?: (String text) -> bool
+
+      def glyph?: (Float | Integer glyph) -> bool
+
+      def truetype?: () -> bool
+
+      def bmfont?: () -> bool
+
+      def image?: () -> bool
+    end
+
+    class GlyphData < Data::Data
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
     end
 
     module Timer
@@ -963,6 +1007,8 @@ module Lota
       def self.new_truetype_font: (Data::Data data, Integer size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
 
       def self.new_font_from_file: (FileData data) -> Font
+
+      def self.new_font_of_rasterizer: (Rasterizer rasterizer) -> Font
 
       def self.new_image_font: (ImageData data, String glyphs, Integer? extraspacing, (Float | Integer)? dpiscale) -> Font
 

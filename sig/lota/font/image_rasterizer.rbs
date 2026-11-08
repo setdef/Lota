@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Font
+    module ImageRasterizer
+      def self.new: (image image, String glyphs, ?Integer? extraspacing, ?(Float | Integer)? dpiscale) -> Rasterizer
+
+      def self.===: (::Object? object) -> bool
+    end
+  end
+end

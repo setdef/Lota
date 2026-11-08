@@ -241,6 +241,42 @@ module Lota
       def extension: () -> String
     end
 
+    class GlyphData
+      def clone: () -> GlyphData
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def dimensions: () -> [Integer, Integer]
+
+      def glyph: () -> Integer
+
+      def glyph_string: () -> String
+
+      def advance: () -> Integer
+
+      def bearing: () -> [Integer, Integer]
+
+      def bounding_box: () -> [Integer, Integer, Integer, Integer]
+
+      def format: () -> String
+    end
+
+    class Rasterizer
+      def height: () -> Integer
+
+      def advance: () -> Integer
+
+      def ascent: () -> Integer
+
+      def descent: () -> Integer
+
+      def line_height: () -> Integer
+
+      def glyph_count: () -> Integer
+    end
+
     module Graphics
       def self.active?: () -> bool
 

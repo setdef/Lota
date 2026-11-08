@@ -201,6 +201,23 @@ class GeneratorTest < Minitest::Test
     assert_match(/-> Integer\z/, port.rbs)
   end
 
+  # w_GlyphData_getGlyph declares a uint32, which Box2D's global uint32
+  # would answer for, and w_GlyphData_getFormat names the pixel format
+  # only through GlyphData::getFormat's return type (wrap_GlyphData.cpp:
+  # 64-70 and 115-125), so the local is love::uint32 and the file includes
+  # common/pixelformat.h for its getConstant.
+  def test_love_integer_locals_are_qualified_and_a_pixel_format_lookup_has_its_header
+    list = Bindings::BindingList.new
+    list.generate("GlyphData:getGlyph")
+    list.generate("GlyphData:getFormat")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/font.cpp")
+
+    assert_includes code, "const love::uint32 glyph = t.getGlyph();"
+    assert_includes code, '#include "common/pixelformat.h"'
+    refute_includes BindingsHelper.generator(list: Bindings::BindingList.new.tap { |only| only.generate("GlyphData:getGlyph") })
+      .files.fetch("ext/lota/native/generated/font.cpp"), "pixelformat.h"
+  end
+
   # w_ParticleSystem_getEmissionArea declares a love::Vector2, so its file
   # includes the header of that name.
   def test_a_vector_declared_in_a_port_has_its_header_included

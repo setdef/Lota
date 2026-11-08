@@ -20,6 +20,7 @@ void define_generated_audio(const Rice::Module &native);
 void define_generated_data(const Rice::Module &native);
 void define_generated_event(const Rice::Module &native);
 void define_generated_filesystem(const Rice::Module &native);
+void define_generated_font(const Rice::Module &native);
 void define_generated_graphics(const Rice::Module &native);
 void define_generated_image(const Rice::Module &native);
 void define_generated_joystick(const Rice::Module &native);
@@ -38,6 +39,7 @@ inline void define_generated(const Rice::Module &native) {
   define_generated_data(native);
   define_generated_event(native);
   define_generated_filesystem(native);
+  define_generated_font(native);
   define_generated_graphics(native);
   define_generated_image(native);
   define_generated_joystick(native);

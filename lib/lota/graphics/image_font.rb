@@ -35,7 +35,10 @@ module Lota
       #
       # [image] String name of an image file in the game's folder, a
       #   Lota::Filesystem::FileData holding an image file, or a
-      #   Lota::Image::ImageData.
+      #   Lota::Image::ImageData; or a Lota::Font::Rasterizer, such as
+      #   Lota::Font::ImageRasterizer.new makes, whose glyphs the font
+      #   draws, in which case the other arguments are ignored, as LÖVE
+      #   ignores them.
       # [glyphs] String of the characters in the image, in the order they
       #   are drawn in it.
       # [extraspacing] Integer pixels added between glyphs; 0 by default.
@@ -50,7 +53,9 @@ module Lota
       #
       #   Lota::Graphics::ImageFont.new("font.png", " ABCDEFGHIJKLMNOPQRSTUVWXYZ")
       #   Lota::Graphics::ImageFont.new(image_data, "ABCD", 1)
-      def self.new(image, glyphs, extraspacing = nil, dpiscale = nil)
+      def self.new(image, glyphs = nil, extraspacing = nil, dpiscale = nil)
+        return Font.from_native(Native::Graphics.new_font_of_rasterizer(image.native)) if image.is_a?(Lota::Font::Rasterizer)
+
         raise TypeError, "wrong argument type #{glyphs.class} (expected String)" unless glyphs.is_a?(String)
 
         extraspacing = case extraspacing

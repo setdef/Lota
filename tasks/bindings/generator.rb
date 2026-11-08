@@ -345,7 +345,7 @@ module Bindings
       love << '"common/Vector.h"' if code.match?(/\bVector[234]\b/)
       love.concat(box2d_headers(code))
       love << '"common/math.h"' if code.match?(/\bF?Rect\b/)
-      love << '"common/pixelformat.h"' if code.match?(/\bPixelFormat\b/)
+      love << '"common/pixelformat.h"' if code.match?(/\bPixelFormat\b/) || ports.any? { |port| pixel_format_call?(port) }
       # Joystick:hasSensor's using namespace love::sensor, for its Sensor
       # (wrap_Joystick.cpp:384), as clang-tidy's misc-include-cleaner asks.
       love << '"sensor/Sensor.h"' if code.match?(/\blove::sensor\b/)
@@ -405,6 +405,18 @@ module Bindings
     # what they declare, as FormatHandler::EncodedFormat names
     # image/FormatHandler.h, each the header named for the class beside the
     # wrap files, as header_of prefers it, or else the module's.
+    # Whether +port+ passes a method of its own object that returns a
+    # PixelFormat to the unqualified getConstant common/pixelformat.h
+    # declares, as w_GlyphData_getFormat does (wrap_GlyphData.cpp:115-125),
+    # whose code names no PixelFormat for the check above to find.
+    private def pixel_format_call?(port)
+      self_parameter = port.self_parameter or return false
+      name = Regexp.escape(self_parameter[:name])
+      port.definition.scan(/(?<![\w:])getConstant\(\s*#{name}\.(\w+)\(\)/).flatten.any? do |method|
+        types.methods(self_parameter[:type], method).any? { |found| types.resolve(found.return_type).first == "PixelFormat" }
+      end
+    end
+
     private def qualifying_headers(name, code, wrap_dir)
       code.scan(/(?<![\w:])([A-Z]\w*)::/).flatten.uniq.filter_map do |type|
         path = [File.join(wrap_dir, "#{type}.h"), "src/modules/#{name}/#{type}.h"].find { |file| named?(file, "#{type}.h") }

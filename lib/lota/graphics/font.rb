@@ -64,9 +64,10 @@ module Lota
       #
       # The hinting and DPI scale come either after the size, as in LÖVE's
       # older form, or as keywords, which translate the table of settings
-      # LÖVE 12 also takes (ADR 001, rule 10). Given +data+ and no size,
-      # LÖVE reads the font at its own default size and ignores the
-      # settings, and so does Lota. A file name is a path in the game's
+      # LÖVE 12 also takes (ADR 001, rule 10). After the size, LÖVE reads
+      # the DPI scale only after a hinting mode, and so does Lota. Given
+      # +data+ and no size, LÖVE reads the font at its own default size and
+      # ignores the settings, and so does Lota. A file name is a path in the game's
       # folder, as LÖVE's filesystem reads it (Lota::Boot makes the folder
       # its source, as boot.lua does), with forward slashes and no "..".
       #
@@ -78,6 +79,10 @@ module Lota
       # definition's folder. The images must be 32-bit RGBA. Hinting and
       # the other settings are for TrueType fonts only, and raise
       # ArgumentError with a BMFont.
+      #
+      # Given a Lota::Font::Rasterizer, the font draws the glyphs it
+      # makes, at its size and settings, and the other arguments are
+      # ignored, as LÖVE ignores them.
       #
       # Raises ArgumentError for an unknown hinting mode or for settings
       # given both ways, RuntimeError with LÖVE's message when the file
@@ -92,8 +97,14 @@ module Lota
       #   Lota::Graphics::Font.new("assets/pixel.ttf", 16) # a font file in the game's folder
       #   Lota::Graphics::Font.new(data, 8, hinting: :mono, dpiscale: 1)
       #   Lota::Graphics::Font.new("assets/hud.fnt", "assets/hud.png") # a BMFont
+      #   Lota::Graphics::Font.new(Lota::Font::Rasterizer.new(16))    # from a Rasterizer
       def initialize(*arguments, hinting: nil, dpiscale: nil, sdf: false)
         first = arguments.first
+        if first.is_a?(Lota::Font::Rasterizer)
+          @native = Native::Graphics.new_font_of_rasterizer(first.native)
+          return
+        end
+
         data = first if first.is_a?(Filesystem::FileData) || first.is_a?(String)
         if data && !arguments[1].nil? && !arguments[1].is_a?(Numeric)
           initialize_bmfont(data, arguments.drop(1), !hinting.nil? || !dpiscale.nil? || sdf)
@@ -101,7 +112,10 @@ module Lota
         end
 
         size, legacy_hinting, legacy_dpiscale = data ? arguments.drop(1) : arguments
-        unless legacy_hinting.nil? && legacy_dpiscale.nil?
+        # w_newTrueTypeRasterizer reads the settings after the size only when
+        # the first of them is given (src/modules/font/wrap_Font.cpp:118-119
+        # and 127-128), so a DPI scale after a nil hinting is ignored.
+        unless legacy_hinting.nil?
           if hinting || dpiscale
             raise ArgumentError, "give the hinting and DPI scale after the size or as keywords, not both"
           end

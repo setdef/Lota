@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The rest of `love.math`: `Lota::Math::BezierCurve` and every method of it, `Lota::Math::RandomGenerator` (`new`, `random`, `random_normal`, `seed`, `seed=`, `state`, `state=`), and `Lota::Math.random_normal`, `random_seed`, `random_state`, `random_state=`, `color_to_bytes`, `color_from_bytes`, `gamma_to_linear`, `linear_to_gamma`, `convex?`, `triangulate`, `perlin_noise`, `simplex_noise`, and the deprecated `noise`.
 - `love.data`: `Lota::Data.compress`, `decompress`, `encode`, `decode`, `pack`, `unpack`, and `packed_size`, and `Lota::Data::ByteData` (with `string=` and the writers of numbers, `float=` to `uint32=`), `Lota::Data::CompressedData` (with `format`), and `Lota::Data::DataView`. `love.data.hash` waits for its name, as `hash` is Ruby's `Object#hash`.
 - The gem carries Noise1234, which the noise functions link, under its public-domain dedication, and the notices name it.
+- `love.font`: `Lota::Font::Rasterizer` (`new`, `height`, `advance`, `ascent`, `descent`, `line_height`, `glyph_data`, `glyph_count`, `glyphs?`), `Lota::Font::GlyphData` (`new`, `clone`, `width`, `height`, `dimensions`, `glyph`, `glyph_string`, `advance`, `bearing`, `bounding_box`, `format`), and `Lota::Font::TrueTypeRasterizer.new`, `BMFontRasterizer.new`, and `ImageRasterizer.new`; `Lota::Graphics::Font.new` and `ImageFont.new` also take a Rasterizer.
 
 ### Changed
 
@@ -23,6 +24,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics::Font.new(size, nil, dpiscale)` and `Font.new(data, size, nil, dpiscale)` ignore the DPI scale after a `nil` hinting mode, as LÖVE does, rather than using it.
 - The phone and Windows builds' downloads retry a failed connection.
 - `lota fuse` installs none of the game's gems: Bundler only locks them, and Fledge, which runs from a Gemfile of its own in `dist/fuse-tools`, compiles only the gems the app ships, so a gem with a C extension in the `development` or `test` group no longer compiles, or fails a build. A failed build of a game with gems now says what a compiler needs.
 - `lota fuse` run under `bundle exec` no longer fails to lock: the Bundler commands it runs drop the setup of the bundle it runs in, which `bundle exec` names in `RUBYOPT` by its full path.

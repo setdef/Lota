@@ -278,6 +278,48 @@ bound_by_hand "love.filesystem.unmount",
 bound_by_hand "love.filesystem.append",
   reason: "returns w_write_or_append, as love.filesystem.write; Lota binds the two forms as two functions"
 
+# love.font
+bound_by_hand "love.font.newRasterizer",
+  reason: "chooses among its forms by its arguments' kinds (lua_type), calling w_newTrueTypeRasterizer or " \
+    "w_newBMFontRasterizer for two of them; Lota::Font::Rasterizer.new chooses as it does, and Lota binds " \
+    "the form with a file alone"
+bound_by_hand "love.font.newTrueTypeRasterizer",
+  reason: "chooses between the default font and a font in data by its first argument's kind, and reads its " \
+    "settings as a string or a table at a position that depends on that (luax_checktruetypesettings); Lota " \
+    "binds both forms, with the settings' hinting, DPI scale, and sdf"
+bound_by_hand "love.font.newBMFontRasterizer",
+  reason: "reads its images from a table in a loop, converting each through convimagedata, which passes the " \
+    "lua_State to love.image.newImageData (luax_convobj); Lota::Font::BMFontRasterizer.new converts each " \
+    "image to an ImageData, and Lota binds them as an Array"
+bound_by_hand "love.font.newImageRasterizer",
+  reason: "converts its image through convimagedata, as love.font.newBMFontRasterizer; " \
+    "Lota::Font::ImageRasterizer.new converts it to an ImageData, which Lota binds with the glyphs, extra " \
+    "spacing, and DPI scale"
+bound_by_hand "love.font.newGlyphData",
+  reason: "reads its glyph as a string or a number by its kind (lua_type), where Rice passes one C++ type " \
+    "for each argument; Lota binds both forms"
+generate "Rasterizer:getHeight"
+generate "Rasterizer:getAdvance"
+generate "Rasterizer:getAscent"
+generate "Rasterizer:getDescent"
+generate "Rasterizer:getLineHeight"
+bound_by_hand "Rasterizer:getGlyphData",
+  reason: "reads its glyph as a string or a number by its kind (lua_type), as love.font.newGlyphData"
+generate "Rasterizer:getGlyphCount"
+bound_by_hand "Rasterizer:hasGlyphs",
+  reason: "reads every argument in a loop, each as a string or a number by its kind; Lota binds both forms, " \
+    "which Lota::Font::Rasterizer#glyphs? asks of each argument"
+generate "GlyphData:clone"
+generate "GlyphData:getWidth"
+generate "GlyphData:getHeight"
+generate "GlyphData:getDimensions"
+generate "GlyphData:getGlyph"
+generate "GlyphData:getGlyphString"
+generate "GlyphData:getAdvance"
+generate "GlyphData:getBearing"
+generate "GlyphData:getBoundingBox"
+generate "GlyphData:getFormat"
+
 # love.graphics
 generate "love.graphics.isActive"
 generate "love.graphics.isCreated"
@@ -412,7 +454,8 @@ bound_by_hand "love.graphics.readbackTexture",
 bound_by_hand "love.graphics.newFont",
   reason: "chooses among its forms by its arguments' kinds, and makes its Rasterizer through love.font's " \
     "wrap functions (w_newRasterizer, w_newTrueTypeRasterizer), which read a settings table; Lota binds the " \
-    "default font at a size, a TrueType font in FileData at a size, and a font from FileData alone"
+    "default font at a size, a TrueType font in FileData at a size, a font from FileData alone, and a font " \
+    "from a Rasterizer"
 generate "love.graphics.getFont"
 generate "love.graphics.getDefaultFilter"
 bound_by_hand "love.graphics.print",
@@ -1488,7 +1531,7 @@ generate "FileData:getExtension"
 bound_by_hand "love.graphics.newImageFont",
   reason: "converts its arguments to a Rasterizer through luax_convobj, reading the stack at the positions it " \
     "computes; Lota::Graphics::ImageFont.new converts the image to an ImageData and binds the Rasterizer " \
-    "made from it, with its glyphs, extra spacing, and DPI scale"
+    "made from it, with its glyphs, extra spacing, and DPI scale, or takes a Rasterizer as it is"
 bound_by_hand "love.graphics.newTextBatch",
   reason: "reads its text through luax_checkcoloredstring only when it is given; Lota binds the form with " \
     "the text as an Array and the form without it"

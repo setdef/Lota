@@ -11,6 +11,7 @@ set(LOTA_GENERATED_SOURCES
 	generated/data.cpp
 	generated/event.cpp
 	generated/filesystem.cpp
+	generated/font.cpp
 	generated/graphics.cpp
 	generated/image.cpp
 	generated/joystick.cpp

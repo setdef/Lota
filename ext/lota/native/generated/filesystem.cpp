@@ -106,7 +106,7 @@ Rice::Array w_File_setBuffer(File &file, const std::string &bufmode, double size
 // File:getBuffer: w_File_getBuffer (wrap_File.cpp:398-411).
 Rice::Array w_File_getBuffer(const File &file) {
   Rice::Array results;
-  int64 size = 0;
+  love::int64 size = 0;
   const File::BufferMode bufmode = file.getBuffer(size);
   const char *str = nullptr;
   if (!File::getConstant(bufmode, str)) {

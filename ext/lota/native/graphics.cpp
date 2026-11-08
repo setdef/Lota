@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/font.hpp"
 #include "native/math.hpp"
 
 #include "common/Color.h"
@@ -434,31 +435,18 @@ love::font::Font &font_module() {
   return *instance;
 }
 
-// luax_checktruetypesettings (wrap_Font.cpp:67-104): the hinting mode by
-// name, the DPI scale when given, and whether glyphs are signed distance
-// fields.
-love::font::TrueTypeRasterizer::Settings
-truetype_settings(const std::optional<std::string> &hinting, std::optional<double> dpiscale,
-                  bool sdf) {
-  love::font::TrueTypeRasterizer::Settings settings;
-  if (hinting.has_value() &&
-      !love::font::TrueTypeRasterizer::getConstant(hinting->c_str(), settings.hinting)) {
-    raise_enum_error("TrueType font hinting mode",
-                     love::font::TrueTypeRasterizer::getConstants(settings.hinting), *hinting);
-  }
-  if (dpiscale.has_value()) {
-    settings.dpiScale.set(static_cast<float>(dpiscale.value()));
-  }
-  settings.sdf = sdf;
-  return settings;
-}
-
 // w_newFont (wrap_Graphics.cpp:1382-1408) of the Rasterizer +rasterizer+,
 // which the font takes its own reference to; the font's one reference goes
 // to the Ruby wrapper.
 Font *new_font(Graphics &instance, love::font::Rasterizer *made) {
   const love::StrongRef<love::font::Rasterizer> rasterizer(made, love::Acquire::NORETAIN);
   return instance.newFont(rasterizer.get());
+}
+
+// w_newFont with a Rasterizer (wrap_Graphics.cpp:1382-1408): a font whose
+// glyphs +rasterizer+ makes, which the font takes its own reference to.
+Font *new_font_of_rasterizer(love::font::Rasterizer *rasterizer) {
+  return created_graphics().newFont(rasterizer);
 }
 
 // w_newFont with a size or nothing, through w_newTrueTypeRasterizer
@@ -1350,6 +1338,8 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("sdf"), Rice::Return().takeOwnership())
       .define_singleton_function("new_font_from_file", &new_font_from_file, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("new_font_of_rasterizer", &new_font_of_rasterizer,
+                                 Rice::Arg("rasterizer"), Rice::Return().takeOwnership())
       .define_singleton_function("new_image_font", &new_image_font, Rice::Arg("data"),
                                  Rice::Arg("glyphs"), Rice::Arg("extraspacing"),
                                  Rice::Arg("dpiscale"), Rice::Return().takeOwnership())

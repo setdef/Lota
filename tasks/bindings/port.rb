@@ -790,7 +790,11 @@ line: node.line,
     # A declaration with no initializer gets one, one never changed
     # afterward becomes const, and a pointer to what new makes is auto, as
     # the type is already named once (clang-tidy's modernize-use-auto).
-    private def declaration(text)
+    # LÖVE's integer types are named in full, as cast_to names them, since
+    # Box2D's global uint32 (b2_types.h), which binding.hpp brings in, is
+    # the one misc-include-cleaner otherwise finds for w_GlyphData_getGlyph's.
+    private def declaration(written)
+      text = written.sub(/\A(const\s+)?(u?int(?:8|16|32|64))(?=\s)/, '\1love::\2')
       match = text.match(/\A(?<type>(?:const\s+)?[\w:]+(?:\s*<[^;=]*?>)?)(?<pointer>\s*\*\s*|\s+)(?<name>\w+)(?<rest>\s*=.*)?\z/m)
       return text unless match && !text.match?(/\A(?:return|throw|delete)\b/)
 
@@ -800,7 +804,7 @@ line: node.line,
       return "#{type}#{name}#{pointer ? ' = nullptr' : '{}'}" unless match[:rest]
       return "auto *#{name}#{match[:rest]}" if pointer && match[:rest].match?(/\A\s*=\s*new\s+#{Regexp.escape(match[:type])}\b/)
       return text.sub(/\?\s*0\s*:/, "? nullptr :").sub(/=\s*0\z/, "= nullptr") if pointer
-      return text if modified?(@renames.key(name) || name, text) || match[:type].start_with?("const ")
+      return text if modified?(@renames.key(name) || name, written) || match[:type].start_with?("const ")
       return text if match[:type].include?("std::") && returned?(@renames.key(name) || name)
 
       "const #{text}"
