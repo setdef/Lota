@@ -122,4 +122,26 @@ class PhoneHostTest < Minitest::Test
     assert_match %r{<key>UISceneDelegateClassName</key>\s*<string>SDLUIKitSceneDelegate</string>}, plist
     assert_includes File.read(File.join(HOST, "ios/Host/main.m")), "SDL_RunApp(argc, argv, run_ruby, NULL)"
   end
+
+  # SDL 3.4.10 reads the screen's orientation from statusBarOrientation
+  # alone, which iOS 27 answers with Unknown, and SDL then gives a game
+  # launched in landscape a portrait window
+  # (doc/contributors/upstream/019.md). SDL_RunApp passes UIApplicationMain
+  # no class (SDL_uikitappdelegate.m, line 60), so the app's class is the
+  # one Info.plist names, and it must keep UIKit's answer and read the
+  # window scene's only when UIKit's is Unknown.
+  def test_the_ios_app_reads_the_scenes_orientation_where_uikit_reports_none
+    plist = File.read(File.join(HOST, "ios/Host/Info.plist")).gsub(/<!--.*?-->/m, "")
+    main = File.read(File.join(HOST, "ios/Host/main.m"))
+    name = plist[%r{<key>NSPrincipalClass</key>\s*<string>(\w+)</string>}, 1]
+    method = main[/^@implementation #{name}\b.*?^- \(UIInterfaceOrientation\)statusBarOrientation \{\n(.*?)^\}/m, 1]
+
+    assert_equal "LotaApplication", name
+    assert_match(/^@interface #{name} : UIApplication$/, main)
+    assert_match(/\A  UIInterfaceOrientation orientation = \[super statusBarOrientation\];
+  if \(orientation != UIInterfaceOrientationUnknown\)
+    return orientation;\n/, method)
+    assert_includes method, "[scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]"
+    assert_includes method, "return ((UIWindowScene *)scene).effectiveGeometry.interfaceOrientation;"
+  end
 end

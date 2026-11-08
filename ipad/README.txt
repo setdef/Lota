@@ -74,7 +74,7 @@ Once installed, @DISPLAY_NAME@ is on the Home Screen. It runs without the Mac un
 
 @DISPLAY_NAME@ fills the screen @STATUS_BAR@ (on an iPad, a game whose window is not fullscreen, `t.window.fullscreen`, may still show it). On an iPhone it turns to @IPHONE_ORIENTATIONS@; on an iPad to @IPAD_ORIENTATIONS@. Its sound category is @AUDIO@.
 
-The host makes one choice LÖVE does not: it hides SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), as a guard, since reading that joystick crashed an early Lota in the Simulator. A game reads the accelerometer through `Lota::Sensor`, and a paired controller is still a joystick. Set `SDL_ACCELEROMETER_AS_JOYSTICK` = `1` in the scheme to bring it back.
+The host makes two choices LÖVE does not. It hides SDL's accelerometer joystick (`SDL_ACCELEROMETER_AS_JOYSTICK=0` in `Host/main.m`), as a guard, since reading that joystick crashed an early Lota in the Simulator. A game reads the accelerometer through `Lota::Sensor`, and a paired controller is still a joystick. Set `SDL_ACCELEROMETER_AS_JOYSTICK` = `1` in the scheme to bring it back. And its `LotaApplication` (`Host/main.m`, named by `NSPrincipalClass` in `Info.plist`) reports the window scene's orientation where iOS 27 no longer reports one to SDL, which would otherwise give a game launched in landscape a portrait window. Keep both if you change the host.
 
 ## When something goes wrong
 
