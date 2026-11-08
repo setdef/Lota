@@ -55,6 +55,12 @@ class RakeTasksTest < Minitest::Test
     Rake::Task[name].prerequisites
   end
 
+  # What a sanitized run printed to stderr, where ASan's and UBSan's
+  # reports go, and Ruby's [BUG] report when the report's abort reaches
+  # Ruby's signal handler, less the memory map that report ends with, a
+  # line for each of thousands of regions.
+  def reported(err) = err.lines.grep_v(/\A\h+-\h+ [-r][-w][-x]/).join
+
   # rake bench opens a window for each of dozens of runs, so the gate
   # never runs it; it builds what it runs, Lota and the reference love.
   # What the gate runs, as default runs it (tasks/gate.rake): what it
@@ -252,7 +258,7 @@ class RakeTasksTest < Minitest::Test
       failure = e
     end
 
-    assert_nil failure, "#{failure&.message}\n#{out}"
+    assert_nil failure, "#{failure&.message}\n#{out}\n#{reported(err)}"
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
     skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 17 : 10
