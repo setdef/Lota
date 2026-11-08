@@ -131,8 +131,24 @@ module Lota
       def free_buffer_count: () -> Integer
     end
 
-    class Data
-      def size: () -> Integer
+    class ByteData
+      def clone: () -> ByteData
+    end
+
+    class CompressedData
+      def clone: () -> CompressedData
+
+      def format: () -> String
+    end
+
+    module Data
+      class Data
+        def size: () -> Integer
+      end
+    end
+
+    class DataView
+      def clone: () -> DataView
     end
 
     module Event
@@ -699,6 +715,30 @@ module Lota
 
     module Math
       def self.new_transform: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer) a, ?(Float | Integer) sx, ?(Float | Integer)? sy, ?(Float | Integer) ox, ?(Float | Integer) oy, ?(Float | Integer) kx, ?(Float | Integer) ky) -> Transform
+    end
+
+    class BezierCurve
+      def degree: () -> Integer
+
+      def derivative: () -> BezierCurve
+
+      def set_control_point: (Integer idx, Float | Integer vx, Float | Integer vy) -> nil
+
+      def insert_control_point: (Float | Integer vx, Float | Integer vy, ?Integer idx) -> nil
+
+      def remove_control_point: (Integer idx) -> nil
+
+      def control_point_count: () -> Integer
+
+      def translate: (Float | Integer dx, Float | Integer dy) -> nil
+
+      def rotate: (Float | Integer phi, ?(Float | Integer) ox, ?(Float | Integer) oy) -> nil
+
+      def scale: (Float | Integer s, ?(Float | Integer) ox, ?(Float | Integer) oy) -> nil
+
+      def evaluate: (Float | Integer t) -> [Float, Float]
+
+      def segment: (Float | Integer t1, Float | Integer t2) -> BezierCurve
     end
 
     class RandomGenerator

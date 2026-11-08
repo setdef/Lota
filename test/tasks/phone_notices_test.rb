@@ -89,10 +89,15 @@ class PhoneNoticesTest < Minitest::Test
   end
 
   def test_a_work_whose_license_is_pending_is_not_named
-    pending = record.works.select(&:pending).map(&:name)
+    licensing = Licensing.new("record.rb")
+    licensing.work("Engine", sources: ["e/**"], copyright: ["2026 E"], license: ["Zlib"])
+    licensing.work("Font", sources: ["f/**"], copyright: ["2019 F"], pending: "OFL-1.1")
+    licensing.phone("iOS", extension: "x")
 
-    refute_empty pending
-    %w[iOS Android].each { |phone| assert_empty record.phone_works(phone).map(&:name) & pending }
+    assert_equal ["Engine"], licensing.phone_works("iOS").map(&:name)
+    %w[iOS Android].each do |phone|
+      assert_empty record.phone_works(phone).map(&:name) & record.works.select(&:pending).map(&:name)
+    end
   end
 
   def test_the_text_says_where_the_app_holds_lota_and_its_libraries

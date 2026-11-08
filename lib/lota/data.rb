@@ -16,23 +16,226 @@ module Lota
   # those bytes, whatever kind of Data holds them.
   #
   # LÖVE's root type for such memory is Data, and every class that holds
-  # some, Lota::Sound::SoundData, Lota::Image::ImageData, and
-  # Lota::Filesystem::FileData, includes this module, as each inherits
-  # Data's methods in LÖVE. Rule 1 of ADR 001 gives love.data the name
-  # Lota::Data, and LÖVE's root type keeps its name there too, so inside
-  # <tt>module Lota</tt> a bare +Data+ means this module, and Ruby's own
-  # class is written <tt>::Data</tt>.
+  # some, Lota::Sound::SoundData, Lota::Image::ImageData,
+  # Lota::Filesystem::FileData, Lota::Data::ByteData,
+  # Lota::Data::CompressedData, and Lota::Data::DataView, includes this
+  # module, as each inherits Data's methods in LÖVE. Rule 1 of ADR 001
+  # gives love.data the name Lota::Data, and LÖVE's root type keeps its
+  # name there too, so inside <tt>module Lota</tt> a bare +Data+ means
+  # this module, and Ruby's own class is written <tt>::Data</tt>.
+  #
+  # Its module functions are love.data's: they compress and decompress,
+  # encode and decode base64 and hex, and pack numbers and strings into
+  # bytes and unpack them, each returning a String or, given the
+  # container +:data+, a Data. love.data.hash is not bound yet, as rule 13
+  # would name it +hash+, which Ruby's own Object#hash already means.
   #
   # Data's getPointer and getFFIPointer give Lua a raw pointer and a
   # LuaJIT FFI pointer, which Ruby has no use for, so Lota leaves them
   # out.
   #
-  # === Example
+  # === Examples
   #
   #   sound = Lota::Sound::SoundData.new("click.ogg")
   #   sound.size              # => 11708
   #   sound.string(0, 4).size # => 4
+  #
+  #   packed = Lota::Data.compress(:string, :zlib, "helloworld")
+  #   Lota::Data.decompress(:string, :zlib, packed) # => "helloworld"
   module Data
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # +source+ compressed, matching love.data.compress
+    # (src/modules/data/wrap_DataModule.cpp:116-149).
+    #
+    # [container] Symbol +:string+ for a String of the compressed bytes,
+    #   or +:data+ for a Lota::Data::CompressedData.
+    # [format] Symbol: +:lz4+, +:zlib+, +:gzip+, or +:deflate+.
+    # [source] String or Lota::Data of the bytes to compress.
+    # [level] Integer from 0, the fastest, to 9, the smallest; the
+    #   format's default when -1 or +nil+.
+    #
+    # Raises ArgumentError for an unknown container or format, TypeError
+    # for a +source+ that is neither, and RuntimeError when the data
+    # module is not open.
+    #
+    # === Examples
+    #
+    #   Lota::Data.compress(:string, :zlib, "helloworld")
+    #   Lota::Data.compress(:data, :lz4, save_bytes, 9).format # => :lz4
+    def self.compress(container, format, source, level = nil)
+      native = Native::Data.compress(EnumName.of(format), level || -1, EnumName.of(container), source_of(source))
+      native.is_a?(String) ? native : CompressedData.from_native(native)
+    end
+
+    # The bytes compressed in +compressed+, matching love.data.decompress
+    # (src/modules/data/wrap_DataModule.cpp:151-201).
+    #
+    # [container] Symbol +:string+ for a String, or +:data+ for a
+    #   Lota::Data::ByteData.
+    # [compressed] Lota::Data::CompressedData, which knows its format; or
+    #   the Symbol format, as Lota::Data.compress takes it, then the
+    #   compressed bytes as a String or a Lota::Data.
+    #
+    # Raises ArgumentError for an unknown container or format, TypeError
+    # for bytes that are neither, and RuntimeError, with LÖVE's message,
+    # for bytes that are not compressed in that format.
+    #
+    # === Examples
+    #
+    #   Lota::Data.decompress(:string, compressed_data)
+    #   Lota::Data.decompress(:string, :zlib, packed) # => "helloworld"
+    def self.decompress(container, compressed, source = nil)
+      native = if compressed.is_a?(CompressedData)
+        Native::Data.decompress_compressed_data(EnumName.of(container), compressed.native)
+      else
+        Native::Data.decompress(EnumName.of(compressed), source_of(source), EnumName.of(container))
+      end
+      result_of(native)
+    end
+
+    # +source+ encoded as text, matching love.data.encode
+    # (src/modules/data/wrap_DataModule.cpp:203-252).
+    #
+    # [container] Symbol +:string+ for a String, or +:data+ for a
+    #   Lota::Data::ByteData.
+    # [format] Symbol +:base64+ or +:hex+.
+    # [source] String or Lota::Data of the bytes to encode.
+    # [line_length] Integer: base64 is broken into lines this long, or
+    #   not at all when 0 or +nil+.
+    #
+    # Raises ArgumentError for an unknown container or format.
+    #
+    # === Example
+    #
+    #   Lota::Data.encode(:string, :hex, "hi") # => "6869"
+    def self.encode(container, format, source, line_length = nil)
+      result_of(Native::Data.encode(EnumName.of(format), line_length || 0, EnumName.of(container), source_of(source)))
+    end
+
+    # The bytes +source+ encodes, matching love.data.decode
+    # (src/modules/data/wrap_DataModule.cpp:254-301), in a +format+
+    # Lota::Data.encode takes.
+    #
+    # Raises ArgumentError for an unknown container or format.
+    #
+    # === Example
+    #
+    #   Lota::Data.decode(:string, :base64, "aGk=") # => "hi"
+    def self.decode(container, format, source)
+      result_of(Native::Data.decode(EnumName.of(format), source_of(source), EnumName.of(container)))
+    end
+
+    # +values+ packed into bytes by +format+, matching love.data.pack
+    # (src/modules/data/wrap_DataModule.cpp:354-397), whose formats are
+    # Lua 5.3's string.pack's: <tt>"<I4"</tt> packs an unsigned 32-bit
+    # integer little-endian, and <tt>"s1"</tt> a string after its length
+    # in a byte.
+    #
+    # [container] Symbol +:string+ for a String, or +:data+ for a
+    #   Lota::Data::ByteData; or a ByteData to pack into, followed by the
+    #   Integer byte to pack from.
+    # [format] String of the format.
+    # [values] The numbers and Strings it packs, one for each option.
+    #
+    # Packing into a ByteData returns it. Raises ArgumentError for a value
+    # that does not fit its option, RuntimeError for an option the format
+    # does not have, and RuntimeError, with LÖVE's message, for bytes that
+    # do not fit in the ByteData.
+    #
+    # === Examples
+    #
+    #   Lota::Data.pack(:string, ">I2", 513) # => "\x02\x01"
+    #   Lota::Data.pack(header, 4, "<I4", 1024)
+    def self.pack(container, *arguments)
+      if container.is_a?(ByteData)
+        offset, format, *values = arguments
+        pack_into(container, offset, format, values)
+      else
+        name = EnumName.of(container)
+        Native::Data.check_container(name)
+        format, *values = arguments
+        packed = Packing.pack(format, values)
+        (name == "data") ? ByteData.from_native(Native::Data.new_byte_data_of_string(packed)) : packed
+      end
+    end
+
+    # The values +format+ packed in +source+, matching love.data.unpack
+    # (src/modules/data/wrap_DataModule.cpp:399-417), then the position of
+    # the byte after them, counted from 1, all in one Array (ADR 001, rule
+    # 4).
+    #
+    # [format] String format, as Lota::Data.pack takes it.
+    # [source] String or Lota::Data of the bytes.
+    # [position] Integer byte to start at, counted from 1, and back from
+    #   the end when negative.
+    #
+    # Raises ArgumentError, with Lua's message, for bytes too few for the
+    # format.
+    #
+    # === Example
+    #
+    #   a, b, next_position = Lota::Data.unpack(">I2I2", "\x00\x01\x00\x02") # => [1, 2, 5]
+    def self.unpack(format, source, position = nil)
+      bytes = case source
+      when Data then source.size.zero? ? "".b : source.string.b
+      when String then source.b
+      else raise TypeError, "wrong argument type #{source.class} (expected String or Lota::Data)"
+      end
+      Packing.unpack(format, bytes, position)
+    end
+
+    # How many bytes +format+ packs, as an Integer, matching
+    # love.data.getPackedSize, which is Lua 5.3's string.packsize
+    # (src/modules/data/wrap_DataModule.cpp:431,
+    # src/libraries/lua53/lstrlib.c:482-504).
+    #
+    # Raises ArgumentError for a format that packs a String of a length of
+    # its own.
+    #
+    # === Example
+    #
+    #   Lota::Data.packed_size(">I2B") # => 3
+    def self.packed_size(format)
+      Packing.packed_size(format)
+    end
+
+    # w_pack with a ByteData (src/modules/data/wrap_DataModule.cpp:356-376):
+    # the packed bytes written into +data+ from byte +offset+, which LÖVE
+    # reads as a number and casts to a size_t, as the processor converts
+    # a negative one, to 0.
+    private_class_method def self.pack_into(data, offset, format, values)
+      start = case offset
+      when Integer then offset.negative? ? 0 : offset
+      when Float then (offset.nan? || offset.negative?) ? 0 : offset.truncate
+      else raise TypeError, "wrong argument type #{offset.class} (expected Float or Integer)"
+      end
+      packed = Packing.pack(format, values)
+      if start + packed.bytesize > data.size
+        raise "The given byte offset and pack format parameters do not fit within the ByteData's size."
+      end
+
+      data.native.set_string(packed, start)
+      data
+    end
+
+    # The engine's object for a Lota::Data, or +source+ itself.
+    private_class_method def self.source_of(source)
+      case source
+      when Data then source.native
+      else source
+      end
+    end
+
+    # A String, or the Ruby wrapper of the ByteData the engine made.
+    private_class_method def self.result_of(native)
+      native.is_a?(String) ? native : ByteData.from_native(native)
+    end
+
+    # SPDX-SnippetEnd
+
     # How many bytes the Data holds, as an Integer, matching Data:getSize
     # (src/modules/data/wrap_Data.cpp, w_Data_getSize).
     #
@@ -178,3 +381,8 @@ module Lota
     end
   end
 end
+
+require_relative "data/packing"
+require_relative "data/byte_data"
+require_relative "data/compressed_data"
+require_relative "data/data_view"

@@ -957,6 +957,12 @@ line: node.line,
 
     # The C++ expression a read becomes.
     private def read_value(call, cast)
+      # luaL_checklstring(L, 2, &size) also stores the string's length in
+      # size, which a parameter made of the string would leave unwritten.
+      if call.base_name == "luaL_checklstring" && call.arguments.size > 2
+        length = call.arguments[2].strip.delete_prefix("&").strip
+        raise Unsupported, "#{function.love_name} reads a string's length into #{length}, which the port does not write"
+      end
       index = call.arguments[1].to_i
       return @self_parameter[:name] if index == 1 && @offset == 1
       return cast_to(rewrite(call.arguments.last), cast) if index > @arity

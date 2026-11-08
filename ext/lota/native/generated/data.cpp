@@ -8,10 +8,16 @@
 #include "native/generated/bindings.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 
 #include "common/Data.h"
+#include "data/ByteData.h"
+#include "data/CompressedData.h"
+#include "data/Compressor.h"
+#include "data/DataView.h"
 
 #include <cstddef>
+#include <string>
 
 namespace lota::native {
 
@@ -30,15 +36,54 @@ using namespace love::data;
 // (vendor/love/src/modules/data), with each read of the Lua
 // stack made a parameter and each push the result.
 
+// ByteData:clone: w_ByteData_clone (wrap_ByteData.cpp:37-45).
+ByteData *w_ByteData_clone(const ByteData &t) {
+  ByteData *c = nullptr;
+  c = t.clone();
+  return c;
+}
+
+// CompressedData:clone: w_CompressedData_clone (wrap_CompressedData.cpp:35-42).
+CompressedData *w_CompressedData_clone(const CompressedData &t) {
+  CompressedData *c = nullptr;
+  c = t.clone();
+  return c;
+}
+
+// CompressedData:getFormat: w_CompressedData_getFormat (wrap_CompressedData.cpp:44-54).
+std::string w_CompressedData_getFormat(const CompressedData &t) {
+  const char *fname = nullptr;
+  if (!Compressor::getConstant(t.getFormat(), fname)) {
+    raise_enum_error("compressed data format",
+                     Compressor::getConstants(Compressor::FORMAT_MAX_ENUM), fname);
+  }
+  return fname;
+}
+
 // Data:getSize: w_Data_getSize (wrap_Data.cpp:75-80).
 size_t w_Data_getSize(const Data &t) { return t.getSize(); }
+
+// DataView:clone: w_DataView_clone (wrap_DataView.cpp:34-42).
+DataView *w_DataView_clone(const DataView &t) {
+  DataView *c = nullptr;
+  c = t.clone();
+  return c;
+}
 
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_generated_data(const Rice::Module &native) {
-  Rice::define_class_under<Data>(native, "Data").define_method("size", &w_Data_getSize);
+  Rice::define_class_under<ByteData>(native, "ByteData")
+      .define_method("clone", &w_ByteData_clone, Rice::Return().takeOwnership());
+  Rice::define_class_under<CompressedData>(native, "CompressedData")
+      .define_method("clone", &w_CompressedData_clone, Rice::Return().takeOwnership())
+      .define_method("format", &w_CompressedData_getFormat);
+  Rice::define_class_under<Data>(Rice::define_module_under(native, "Data"), "Data")
+      .define_method("size", &w_Data_getSize);
+  Rice::define_class_under<DataView>(native, "DataView")
+      .define_method("clone", &w_DataView_clone, Rice::Return().takeOwnership());
 }
 
 } // namespace lota::native

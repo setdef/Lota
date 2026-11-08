@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Data
+    class CompressedData
+      include Object
+      include Data
+
+      attr_reader native: Native::CompressedData
+
+      def self.from_native: (Native::CompressedData native) -> CompressedData
+
+      def initialize_copy: (CompressedData source) -> void
+
+      def format: () -> Symbol
+    end
+  end
+end

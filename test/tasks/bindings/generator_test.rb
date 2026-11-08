@@ -797,6 +797,17 @@ class GeneratorTest < Minitest::Test
     assert_includes port("love.graphics.getLineStyle").definition, %(throw love::Exception("Unknown line style");)
   end
 
+  # luaL_checklstring also writes the string's length into the variable
+  # its third argument points to, as w_ByteData_setString reads its size
+  # (wrap_ByteData.cpp:49-51). A port that made the string a parameter
+  # would leave that variable as it was declared, so it refuses the read.
+  def test_a_string_read_with_its_length_is_refused
+    error = assert_raises(Bindings::Port::Unsupported) { port("ByteData:setString").definition }
+
+    assert_equal "ByteData:setString reads a string's length into size, which the port does not write",
+      error.message
+  end
+
   def test_a_body_the_port_cannot_write_is_refused_by_name
     error = assert_raises(Bindings::Port::Unsupported) { port("love.graphics.clear") }
 
@@ -868,22 +879,18 @@ class GeneratorTest < Minitest::Test
   end
 
   # The rules give each bound function the Ruby name lib/ already
-  # defines, so the generator and the hand-written Ruby agree. RandomGenerator
-  # has no Ruby class yet, and Lota::Math draws from the math module's
-  # generator itself; and love.event._setDefaultModalDrawCallback and
-  # love.filesystem's init and setSource only Lota::Boot, as they serve
-  # only boot.lua.
+  # defines, so the generator and the hand-written Ruby agree. No rule
+  # names RandomGenerator:_random and love.math._getRandomGenerator, the
+  # hooks of LÖVE's Lua wrappers, which Lota::Math::RandomGenerator and
+  # Lota::Math call themselves; and love.event._setDefaultModalDrawCallback
+  # and love.filesystem's init and setSource only Lota::Boot, as they
+  # serve only boot.lua.
   UNWRITTEN = %w[
     RandomGenerator:_random
-    RandomGenerator:getState
-    RandomGenerator:randomNormal
-    RandomGenerator:setSeed
-    RandomGenerator:setState
     love.event._setDefaultModalDrawCallback
     love.filesystem.init
     love.filesystem.setSource
     love.math._getRandomGenerator
-    love.math.newRandomGenerator
   ].freeze
 
   def test_lib_defines_the_name_the_rules_give_each_bound_function

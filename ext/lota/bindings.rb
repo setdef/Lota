@@ -140,6 +140,60 @@ generate "RecordingDevice:getChannelCount"
 generate "RecordingDevice:getName"
 generate "RecordingDevice:isRecording"
 
+# love.data
+bound_by_hand "love.data.newDataView",
+  reason: "casts its offset and size to size_t with C-style casts, which clang-tidy's " \
+    "modernize-avoid-c-style-cast refuses"
+bound_by_hand "love.data.newByteData",
+  reason: "chooses among its forms by its first argument's kind (luax_istype, lua_type), where Rice passes one " \
+    "C++ type for each argument; Lota binds the forms with a Data, a string, and a size"
+bound_by_hand "love.data.compress",
+  reason: "reads its data as a string or a Data by its kind (lua_isstring), as love.data.newByteData chooses; " \
+    "Lota binds both forms"
+bound_by_hand "love.data.decompress",
+  reason: "reads a CompressedData, or a format and a string or Data, by its argument's kind (luax_istype); " \
+    "Lota binds each form"
+bound_by_hand "love.data.encode",
+  reason: "reads its source as a Data or a string by its kind (luax_istype), as love.data.decompress; Lota " \
+    "binds both forms"
+bound_by_hand "love.data.decode",
+  reason: "reads its source as a Data or a string by its kind (luax_istype), as love.data.encode"
+bound_by_hand "love.data.pack",
+  reason: "packs its values through lua53_str_pack, Lua 5.3's string.pack, which reads them from the lua_State " \
+    "and which Lota does not build (ADR 001, section 1); Lota::Data.pack ports it to Ruby and writes the bytes " \
+    "through the engine"
+bound_by_hand "love.data.unpack",
+  reason: "unpacks through lua53_str_unpack, as love.data.pack packs; Lota::Data.unpack ports it to Ruby over " \
+    "the Data's bytes"
+bound_by_hand "love.data.getPackedSize",
+  reason: "is lua53_str_packsize, Lua 5.3's string.packsize, outside the wrap files; Lota::Data.packed_size " \
+    "ports it to Ruby"
+generate "ByteData:clone"
+bound_by_hand "ByteData:setString",
+  reason: "reads its string's length into size with luaL_checklstring, which the port does not write, and " \
+    "copies with memcpy to a pointer it computes with C-style casts, which clang-tidy refuses; Lota copies " \
+    "through a std::span"
+bound_by_hand "ByteData:setFloat",
+  reason: "returns w_ByteData_setT<float>, a template the parser does not follow, which reads its values from " \
+    "a table or from every argument in a loop; Lota binds them as an Array"
+bound_by_hand "ByteData:setDouble",
+  reason: "returns w_ByteData_setT<double>, as ByteData:setFloat"
+bound_by_hand "ByteData:setInt8",
+  reason: "returns w_ByteData_setT<int8>, as ByteData:setFloat"
+bound_by_hand "ByteData:setUInt8",
+  reason: "returns w_ByteData_setT<uint8>, as ByteData:setFloat"
+bound_by_hand "ByteData:setInt16",
+  reason: "returns w_ByteData_setT<int16>, as ByteData:setFloat"
+bound_by_hand "ByteData:setUInt16",
+  reason: "returns w_ByteData_setT<uint16>, as ByteData:setFloat"
+bound_by_hand "ByteData:setInt32",
+  reason: "returns w_ByteData_setT<int32>, as ByteData:setFloat"
+bound_by_hand "ByteData:setUInt32",
+  reason: "returns w_ByteData_setT<uint32>, as ByteData:setFloat"
+generate "CompressedData:clone"
+generate "CompressedData:getFormat"
+generate "DataView:clone"
+
 # love.event
 generate "love.event.pump"
 generate "love.event.clear"
@@ -804,6 +858,41 @@ bound_by_hand "love.math._getRandomGenerator",
 bound_by_hand "RandomGenerator:setSeed",
   reason: "reads its seed's two halves at a position it computes (luax_checkrandomseed); Lota binds the low " \
     "half and an optional high half"
+bound_by_hand "RandomGenerator:getSeed",
+  reason: "pushes the halves of its seed's union (s.b32.low and high), whose fields the headers do not type " \
+    "for the generator; Lota binds them as an Array of two Integers"
+bound_by_hand "love.math.newBezierCurve",
+  reason: "reads its points from a table or from every argument in a loop, at positions it computes; Lota " \
+    "binds them as an Array"
+bound_by_hand "love.math.triangulate",
+  reason: "reads its vertices as love.math.newBezierCurve reads its points, and returns a table of tables it " \
+    "fills in a loop; Lota returns an Array of Arrays"
+bound_by_hand "love.math.isConvex",
+  reason: "reads its vertices as love.math.newBezierCurve reads its points"
+bound_from_lua "love.math.gammaToLinear"
+bound_from_lua "love.math.linearToGamma"
+bound_from_lua "love.math.noise"
+bound_from_lua "love.math.perlinNoise"
+bound_from_lua "love.math.simplexNoise"
+generate "BezierCurve:getDegree"
+generate "BezierCurve:getDerivative"
+bound_by_hand "BezierCurve:getControlPoint",
+  reason: "copies the point getControlPoint returns by const reference into a const Vector2, which " \
+    "clang-tidy's performance-unnecessary-copy-initialization refuses; Lota reads it through the reference"
+generate "BezierCurve:setControlPoint"
+generate "BezierCurve:insertControlPoint"
+generate "BezierCurve:removeControlPoint"
+generate "BezierCurve:getControlPointCount"
+generate "BezierCurve:translate"
+generate "BezierCurve:rotate"
+generate "BezierCurve:scale"
+generate "BezierCurve:evaluate"
+generate "BezierCurve:getSegment"
+bound_by_hand "BezierCurve:render",
+  reason: "fills a table with the points it renders in a loop, which the generator does not port; Lota returns " \
+    "their coordinates as one Array"
+bound_by_hand "BezierCurve:renderSegment",
+  reason: "fills a table in a loop, as BezierCurve:render"
 
 # love.physics, as Lota's physics patch leaves it (ext/lota/engine/physics.patch).
 generate "Body:getX"

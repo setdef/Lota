@@ -11,10 +11,13 @@
 
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/Vector.h"
+#include "math/BezierCurve.h"
 #include "math/MathModule.h"
 #include "math/RandomGenerator.h"
 #include "math/Transform.h"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 
@@ -46,6 +49,76 @@ Math *instance() {
 // Ported by the generator from the wrap functions cited below
 // (vendor/love/src/modules/math), with each read of the Lua
 // stack made a parameter and each push the result.
+
+// BezierCurve:getDegree: w_BezierCurve_getDegree (wrap_BezierCurve.cpp:36-41).
+size_t w_BezierCurve_getDegree(const BezierCurve &curve) { return curve.getDegree(); }
+
+// BezierCurve:getDerivative: w_BezierCurve_getDerivative (wrap_BezierCurve.cpp:43-50).
+BezierCurve *w_BezierCurve_getDerivative(const BezierCurve &curve) {
+  auto *deriv = new BezierCurve(curve.getDerivative());
+  return deriv;
+}
+
+// BezierCurve:setControlPoint: w_BezierCurve_setControlPoint (wrap_BezierCurve.cpp:69-81).
+void w_BezierCurve_setControlPoint(BezierCurve &curve, int idx, double vx, double vy) {
+  if (idx > 0) {
+    idx--;
+  }
+  curve.setControlPoint(idx, Vector2(static_cast<float>(vx), static_cast<float>(vy)));
+}
+
+// BezierCurve:insertControlPoint: w_BezierCurve_insertControlPoint (wrap_BezierCurve.cpp:83-95).
+void w_BezierCurve_insertControlPoint(BezierCurve &curve, double vx, double vy, int idx) {
+  if (idx > 0) {
+    idx--;
+  }
+  curve.insertControlPoint(Vector2(static_cast<float>(vx), static_cast<float>(vy)), idx);
+}
+
+// BezierCurve:removeControlPoint: w_BezierCurve_removeControlPoint (wrap_BezierCurve.cpp:97-107).
+void w_BezierCurve_removeControlPoint(BezierCurve &curve, int idx) {
+  if (idx > 0) {
+    idx--;
+  }
+  curve.removeControlPoint(idx);
+}
+
+// BezierCurve:getControlPointCount: w_BezierCurve_getControlPointCount
+// (wrap_BezierCurve.cpp:109-114).
+size_t w_BezierCurve_getControlPointCount(const BezierCurve &curve) {
+  return curve.getControlPointCount();
+}
+
+// BezierCurve:translate: w_BezierCurve_translate (wrap_BezierCurve.cpp:116-123).
+void w_BezierCurve_translate(BezierCurve &curve, double dx, double dy) {
+  curve.translate(Vector2(static_cast<float>(dx), static_cast<float>(dy)));
+}
+
+// BezierCurve:rotate: w_BezierCurve_rotate (wrap_BezierCurve.cpp:125-133).
+void w_BezierCurve_rotate(BezierCurve &curve, double phi, double ox, double oy) {
+  curve.rotate(phi, Vector2(static_cast<float>(ox), static_cast<float>(oy)));
+}
+
+// BezierCurve:scale: w_BezierCurve_scale (wrap_BezierCurve.cpp:135-143).
+void w_BezierCurve_scale(BezierCurve &curve, double s, double ox, double oy) {
+  curve.scale(s, Vector2(static_cast<float>(ox), static_cast<float>(oy)));
+}
+
+// BezierCurve:evaluate: w_BezierCurve_evaluate (wrap_BezierCurve.cpp:145-158).
+Rice::Array w_BezierCurve_evaluate(const BezierCurve &curve, double t) {
+  Rice::Array results;
+  const Vector2 v = curve.evaluate(t);
+  results.push(static_cast<double>(v.x), false);
+  results.push(static_cast<double>(v.y), false);
+  return results;
+}
+
+// BezierCurve:getSegment: w_BezierCurve_getSegment (wrap_BezierCurve.cpp:160-172).
+BezierCurve *w_BezierCurve_getSegment(const BezierCurve &curve, double t1, double t2) {
+  BezierCurve *segment = nullptr;
+  segment = curve.getSegment(t1, t2);
+  return segment;
+}
 
 // love.math.newTransform: w_newTransform (wrap_Math.cpp:123-146).
 Transform *w_newTransform(std::optional<double> x, std::optional<double> y, double a, double sx,
@@ -145,6 +218,23 @@ void define_generated_math(const Rice::Module &native) {
           Rice::Arg("y") = std::optional<double>(), Rice::Arg("a") = 0.0, Rice::Arg("sx") = 1.0,
           Rice::Arg("sy") = std::optional<double>(), Rice::Arg("ox") = 0.0, Rice::Arg("oy") = 0.0,
           Rice::Arg("kx") = 0.0, Rice::Arg("ky") = 0.0, Rice::Return().takeOwnership());
+  Rice::define_class_under<BezierCurve>(native, "BezierCurve")
+      .define_method("degree", &w_BezierCurve_getDegree)
+      .define_method("derivative", &w_BezierCurve_getDerivative, Rice::Return().takeOwnership())
+      .define_method("set_control_point", &w_BezierCurve_setControlPoint, Rice::Arg("idx"),
+                     Rice::Arg("vx"), Rice::Arg("vy"))
+      .define_method("insert_control_point", &w_BezierCurve_insertControlPoint, Rice::Arg("vx"),
+                     Rice::Arg("vy"), Rice::Arg("idx") = -1)
+      .define_method("remove_control_point", &w_BezierCurve_removeControlPoint, Rice::Arg("idx"))
+      .define_method("control_point_count", &w_BezierCurve_getControlPointCount)
+      .define_method("translate", &w_BezierCurve_translate, Rice::Arg("dx"), Rice::Arg("dy"))
+      .define_method("rotate", &w_BezierCurve_rotate, Rice::Arg("phi"), Rice::Arg("ox") = 0.0,
+                     Rice::Arg("oy") = 0.0)
+      .define_method("scale", &w_BezierCurve_scale, Rice::Arg("s"), Rice::Arg("ox") = 0.0,
+                     Rice::Arg("oy") = 0.0)
+      .define_method("evaluate", &w_BezierCurve_evaluate, Rice::Arg("t"))
+      .define_method("segment", &w_BezierCurve_getSegment, Rice::Arg("t1"), Rice::Arg("t2"),
+                     Rice::Return().takeOwnership());
   Rice::define_class_under<RandomGenerator>(native, "RandomGenerator")
       .define_method("state", &w_RandomGenerator_getState)
       .define_method("state=", &w_RandomGenerator_setState, Rice::Arg("statestr"));

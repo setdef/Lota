@@ -30,6 +30,8 @@ module Lota
 
       def random_normal: (?(Float | Integer)? stddev, ?(Float | Integer)? mean) -> Float
 
+      def seed: () -> [Integer, Integer]
+
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
@@ -41,6 +43,46 @@ module Lota
       def self.open?: () -> bool
 
       def self.random_generator: () -> RandomGenerator
+
+      def self.new_bezier_curve: (Array[Float | Integer] coordinates) -> BezierCurve
+
+      def self.triangulate: (Array[Float | Integer] coordinates) -> Array[Array[Float]]
+
+      def self.convex?: (Array[Float | Integer] coordinates) -> bool
+
+      def self.gamma_to_linear: (Float | Integer c) -> Float
+
+      def self.linear_to_gamma: (Float | Integer c) -> Float
+
+      def self.simplex_noise1: (Float | Integer x) -> Float
+
+      def self.simplex_noise2: (Float | Integer x, Float | Integer y) -> Float
+
+      def self.simplex_noise3: (Float | Integer x, Float | Integer y, Float | Integer z) -> Float
+
+      def self.simplex_noise4: (Float | Integer x, Float | Integer y, Float | Integer z, Float | Integer w) -> Float
+
+      def self.perlin_noise1: (Float | Integer x) -> Float
+
+      def self.perlin_noise2: (Float | Integer x, Float | Integer y) -> Float
+
+      def self.perlin_noise3: (Float | Integer x, Float | Integer y, Float | Integer z) -> Float
+
+      def self.perlin_noise4: (Float | Integer x, Float | Integer y, Float | Integer z, Float | Integer w) -> Float
+    end
+
+    class BezierCurve
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def control_point: (Integer idx) -> [Float, Float]
+
+      def render: (?Integer accuracy) -> Array[Float]
+
+      def render_segment: (Float | Integer start, Float | Integer end, ?Integer accuracy) -> Array[Float]
     end
 
     class Transform
@@ -59,39 +101,103 @@ module Lota
       def set_matrix: (String? layout, Array[Float | Integer] elements) -> nil
     end
 
-    class Data
-      def self.cpp_class: () -> String
-
+    module Data
       def self.open: () -> nil
 
       def self.open?: () -> bool
+
+      def self.new_byte_data_of_data: (Data data, ?Integer? offset, ?Integer? size) -> ByteData
+
+      def self.new_byte_data_of_string: (String bytes) -> ByteData
+
+      def self.new_byte_data_of_size: (Integer size) -> ByteData
+
+      def self.new_data_view: (Data data, Integer offset, ?Integer? size) -> DataView
+
+      def self.compress: (String format, Integer level, String container, (String | Data)? source) -> (String | CompressedData)
+
+      def self.decompress_compressed_data: (String container, CompressedData data) -> (String | ByteData)
+
+      def self.decompress: (String format, (String | Data)? source, String container) -> (String | ByteData)
+
+      def self.encode: (String format, Integer linelen, String container, (String | Data)? source) -> (String | ByteData)
+
+      def self.decode: (String format, (String | Data)? source, String container) -> (String | ByteData)
+
+      def self.check_container: (String container) -> nil
+
+      class Data
+        def self.cpp_class: () -> String
+
+        def object_type: () -> String
+
+        def type_of?: (String name) -> bool
+
+        def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
+
+        def perform_atomic: [T, R] (Array[(^(*T) -> R) | T | nil] call) -> R
+
+        def float: (Float | Integer offset, ?Integer? count) -> Array[Float]
+
+        def double: (Float | Integer offset, ?Integer? count) -> Array[Float]
+
+        def int8: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+        def int16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+        def int32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+        def uint8: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+        def uint16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+
+        def uint32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+      end
+    end
+
+    class ByteData < Data::Data
+      def self.cpp_class: () -> String
 
       def object_type: () -> String
 
       def type_of?: (String name) -> bool
 
-      def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
+      def set_string: (String string, ?(Float | Integer) offset) -> nil
 
-      def perform_atomic: [T, R] (Array[(^(*T) -> R) | T | nil] call) -> R
+      def set_float: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def float: (Float | Integer offset, ?Integer? count) -> Array[Float]
+      def set_double: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def double: (Float | Integer offset, ?Integer? count) -> Array[Float]
+      def set_int8: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def int8: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+      def set_uint8: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def int16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+      def set_int16: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def int32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+      def set_uint16: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def uint8: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+      def set_int32: (Float | Integer offset, Array[Float | Integer] values) -> nil
 
-      def uint16: (Float | Integer offset, ?Integer? count) -> Array[Integer]
-
-      def uint32: (Float | Integer offset, ?Integer? count) -> Array[Integer]
+      def set_uint32: (Float | Integer offset, Array[Float | Integer] values) -> nil
     end
 
-    class FileData < Data
+    class CompressedData < Data::Data
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class DataView < Data::Data
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+    end
+
+    class FileData < Data::Data
       def self.cpp_class: () -> String
 
       def object_type: () -> String
@@ -116,10 +222,10 @@ module Lota
 
       def write_string: (String contents, ?Integer? size) -> Array[bool | nil | String]
 
-      def write_data: (Data data, ?Integer? size) -> Array[bool | nil | String]
+      def write_data: (Data::Data data, ?Integer? size) -> Array[bool | nil | String]
     end
 
-    class ImageData < Data
+    class ImageData < Data::Data
       def self.cpp_class: () -> String
 
       def object_type: () -> String
@@ -214,7 +320,7 @@ module Lota
 
       def type_of?: (String name) -> bool
 
-      type value = Float | Integer | bool | String | Texture | Buffer | Transform | Data | Array[Float | Integer | bool | Array[Float | Integer]]
+      type value = Float | Integer | bool | String | Texture | Buffer | Transform | Data::Data | Array[Float | Integer | bool | Array[Float | Integer]]
 
       def send_values: (String name, Array[value] values) -> nil
 
@@ -412,11 +518,11 @@ module Lota
 
       def self.write_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
 
-      def self.write_data: (String filename, Data data, ?Integer? size) -> ([true] | [nil, String])
+      def self.write_data: (String filename, Data::Data data, ?Integer? size) -> ([true] | [nil, String])
 
       def self.append_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
 
-      def self.append_data: (String filename, Data data, ?Integer? size) -> ([true] | [nil, String])
+      def self.append_data: (String filename, Data::Data data, ?Integer? size) -> ([true] | [nil, String])
 
       def self.directory_items: (String dir) -> Array[String]
 
@@ -430,11 +536,11 @@ module Lota
 
       def self.mount_archive: (String archive, String mountpoint, ?bool append) -> bool
 
-      def self.mount_data: (Data data, String archive, String mountpoint, ?bool append) -> bool
+      def self.mount_data: (Data::Data data, String archive, String mountpoint, ?bool append) -> bool
 
       def self.unmount_archive: (String archive) -> bool
 
-      def self.unmount_data: (Data data) -> bool
+      def self.unmount_data: (Data::Data data) -> bool
 
       class Lines
         def self.cpp_class: () -> String
@@ -493,7 +599,7 @@ module Lota
       def decode: () -> SoundData?
     end
 
-    class SoundData < Data
+    class SoundData < Data::Data
       def self.cpp_class: () -> String
 
       def object_type: () -> String
@@ -522,7 +628,7 @@ module Lota
 
       def self.new_decoder: (String filename, Integer buffer_size, ?String? type) -> Decoder
 
-      def self.new_decoder_from_data: (Data data, Integer buffer_size) -> Decoder
+      def self.new_decoder_from_data: (Data::Data data, Integer buffer_size) -> Decoder
 
       def self.new_sound_data: (Integer samples, Integer sample_rate, Integer bit_depth, Integer channels) -> SoundData
 
@@ -576,7 +682,7 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.new_image_data: (Data data) -> ImageData
+      def self.new_image_data: (Data::Data data) -> ImageData
 
       def self.new_sized_image_data: (Integer w, Integer h, ?String? fstr, ?String? bytes) -> ImageData
     end
@@ -810,7 +916,7 @@ module Lota
 
       def self.present: () -> nil
 
-      type image = Data | Array[Data | Array[Data]]
+      type image = Data::Data | Array[Data::Data | Array[Data::Data]]
 
       def self.canvas_size: () -> [Integer, Integer]
 
@@ -854,7 +960,7 @@ module Lota
 
       def self.new_default_font: (Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
 
-      def self.new_truetype_font: (Data data, Integer size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
+      def self.new_truetype_font: (Data::Data data, Integer size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
 
       def self.new_font_from_file: (FileData data) -> Font
 

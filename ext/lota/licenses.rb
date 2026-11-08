@@ -340,13 +340,16 @@ work "Wuff",
   license: ["Unlicense"],
   version: "0.0.0.2"
 
-# Noise1234, which LÖVE compiles but the bundle does not link yet: the
-# bundle reads only its headers' declarations, so the gem does not carry
-# it (noise1234/simplexnoise1234.h:1-12).
+# Noise1234, which the bundle links for Lota::Math's Perlin and simplex
+# noise. Its author put it in the public domain (noise1234.h:4-7, and the
+# same sentences in simplexnoise1234.h:6-9), in words no SPDX identifier
+# names, so the dedication's text, copied from those lines, is recorded as
+# LicenseRef-Noise1234-Public-Domain. simplexnoise1234.h:2 holds its
+# notice of copyright, and noise1234.h:2 names the same author.
 work "Noise1234",
   sources: ["vendor/love/src/libraries/noise1234/**"],
   copyright: ["2003-2011, Stefan Gustavson"],
-  pending: "a dedication to the public domain (noise1234.h:4-7), which no SPDX identifier names"
+  license: ["LicenseRef-Noise1234-Public-Domain"]
 
 # LÖVE's default font, Noto Sans 2.001, which
 # vendor/love/src/modules/font/NotoSans-Regular.ttf.gzip.h embeds; the

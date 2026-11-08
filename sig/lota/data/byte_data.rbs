@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Data
+    class ByteData
+      include Object
+      include Data
+
+      type values = Array[Float | Integer | Array[Float | Integer]]
+
+      attr_reader native: Native::ByteData
+
+      def self.from_native: (Native::ByteData native) -> ByteData
+
+      def self.new: (Integer | String | Data source, ?Integer? offset, ?Integer? size) -> ByteData
+
+      def initialize_copy: (ByteData source) -> void
+
+      def string=: (String | [String, Float | Integer] string_and_offset) -> void
+
+      def float=: (values offset_and_values) -> void
+
+      def double=: (values offset_and_values) -> void
+
+      def int8=: (values offset_and_values) -> void
+
+      def uint8=: (values offset_and_values) -> void
+
+      def int16=: (values offset_and_values) -> void
+
+      def uint16=: (values offset_and_values) -> void
+
+      def int32=: (values offset_and_values) -> void
+
+      def uint32=: (values offset_and_values) -> void
+
+      def self.offset_and_values: (values arguments) -> [Float | Integer, Array[Float | Integer]]
+    end
+  end
+end

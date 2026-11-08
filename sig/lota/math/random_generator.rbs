@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Math
+    class RandomGenerator
+      include Object
+
+      attr_reader native: Native::RandomGenerator
+
+      def self.from_native: (Native::RandomGenerator native) -> RandomGenerator
+
+      def self.new: (?(Float | Integer)? low, ?(Float | Integer)? high) -> RandomGenerator
+
+      def random: (?(Float | Integer)? min, ?(Float | Integer)? max) -> (Float | Integer)
+
+      def random_normal: (?(Float | Integer)? stddev, ?(Float | Integer)? mean) -> Float
+
+      def seed=: (Float | Integer | Array[(Float | Integer)?] seed) -> void
+
+      def seed: () -> [Integer, Integer]
+
+      def state: () -> String
+
+      def state=: (String state) -> void
+
+      def self.number: (::Object? value) -> (Float | Integer)
+    end
+  end
+end

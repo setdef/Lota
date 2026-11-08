@@ -4,17 +4,26 @@
 #include "native/data.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
+#include "native/luajit.hpp"
 #include "native/ruby.hpp"
 
 #include "common/Data.h"
 #include "common/Exception.h"
 #include "common/Module.h"
+#include "common/Object.h"
 #include "common/int.h"
+#include "data/ByteData.h"
+#include "data/CompressedData.h"
+#include "data/Compressor.h"
 #include "data/DataModule.h"
+#include "data/DataView.h"
 #include "thread/threads.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -26,7 +35,13 @@ namespace lota::native {
 
 namespace {
 
+using love::data::ByteData;
+using love::data::CompressedData;
+using love::data::Compressor;
+using love::data::ContainerType;
 using love::data::DataModule;
+using love::data::DataView;
+using love::data::EncodeFormat;
 
 // luaopen_love_data (vendor/love/src/modules/data/wrap_DataModule.cpp:
 // 445-464) creates the module once; it then lives as long as the process,
@@ -35,6 +50,41 @@ void open() { open_module<DataModule, DataModule>(love::Module::M_DATA); }
 
 // Whether the module is open, as a game asks with "if love.data".
 bool is_open() { return love::Module::getInstance<DataModule>(love::Module::M_DATA) != nullptr; }
+
+// The module, as LÖVE's instance() macro reaches it (wrap_DataModule.cpp:
+// 44), on any thread.
+DataModule *instance() {
+  auto *module = love::Module::getInstance<DataModule>(love::Module::M_DATA);
+  if (module == nullptr) {
+    throw love::Exception("Lota::Data is not open.");
+  }
+  return module;
+}
+
+// The bytes of +source+, a String or a Data, which Lota::Data passes on as
+// it is given or as the Data's native object: a String's own bytes, as
+// luaL_checklstring reads them, or the Data's, as luax_checktype<Data>
+// does. Neither is copied; each lives as long as the argument does.
+std::span<const char> bytes_of(const Rice::Object &source) {
+  if (ruby::is_string(source)) {
+    const Rice::String string(source.value());
+    return {string.c_str(), string.length()};
+  }
+  const love::Data *data = Rice::detail::From_Ruby<love::Data *>().convert(source.value());
+  if (data == nullptr) {
+    ruby::raise_type_error("wrong argument type nil (expected String or Lota::Data)");
+  }
+  return {static_cast<const char *>(data->getData()), data->getSize()};
+}
+
+// The Ruby String of +size+ bytes at +bytes+, or an empty one for none.
+Rice::Object string_of(const char *bytes, std::size_t size) {
+  return {Rice::detail::To_Ruby<std::string>().convert(
+      bytes == nullptr ? std::string() : std::string(bytes, size))};
+}
+
+// The wrapper of +data+, a Data the engine made, which it adopts.
+Rice::Object adopted(love::Data *data) { return {Rice::detail::wrap_engine_object(data, true)}; }
 
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -127,17 +177,276 @@ Rice::Array data_values(const love::Data &data, double offset_number,
   return results;
 }
 
+// luax_checkcontainertype (wrap_DataModule.cpp:46-53): "data" or
+// "string", the kind of value a love.data function returns.
+ContainerType container_of(const std::string &name) {
+  ContainerType ctype = love::data::CONTAINER_STRING;
+  if (!love::data::getConstant(name.c_str(), ctype)) {
+    raise_enum_error("container type", love::data::getConstants(ctype), name);
+  }
+  return ctype;
+}
+
+// The compressed data format +name+, as w_compress and w_decompress read
+// it (wrap_DataModule.cpp:123-124 and 169-170).
+Compressor::Format compressor_format_of(const std::string &name) {
+  Compressor::Format format = Compressor::FORMAT_LZ4;
+  if (!Compressor::getConstant(name.c_str(), format)) {
+    raise_enum_error("compressed data format", Compressor::getConstants(format), name);
+  }
+  return format;
+}
+
+// The encode format +name+, which w_encode and w_decode call their
+// "encode format" and "decode format" (wrap_DataModule.cpp:209-210 and
+// 260-261), as +kind+ names it.
+EncodeFormat encode_format_of(const char *kind, const std::string &name) {
+  EncodeFormat format = love::data::ENCODE_BASE64;
+  if (!love::data::getConstant(name.c_str(), format)) {
+    raise_enum_error(kind, love::data::getConstants(format), name);
+  }
+  return format;
+}
+
+// The bytes the engine returns from new[] (wrap_DataModule.cpp:187-198,
+// 230-249, and 279-298), which a ByteData takes over, as LÖVE's
+// newByteData(bytes, size, true) does: that ByteData for the container
+// "data", or a String of its bytes, after which it is released and frees
+// them, as LÖVE frees them with delete[] once it has pushed them. Where
+// the engine returns none, an empty String, or a ByteData of no bytes,
+// which the engine refuses.
+Rice::Object result_of(ContainerType ctype, char *bytes, std::size_t size) {
+  if (bytes == nullptr) {
+    return ctype == love::data::CONTAINER_DATA ? adopted(instance()->newByteData(0))
+                                               : string_of(nullptr, 0);
+  }
+  ByteData *data = instance()->newByteData(bytes, size, true);
+  if (ctype == love::data::CONTAINER_DATA) {
+    return adopted(data);
+  }
+  const love::StrongRef<ByteData> held(data, love::Acquire::NORETAIN);
+  return string_of(static_cast<const char *>(data->getData()), data->getSize());
+}
+
+// luax_checkcontainertype, as w_pack calls it before it packs
+// (wrap_DataModule.cpp:378): raises for a name that is not a container
+// type.
+void check_container(const std::string &container) { static_cast<void>(container_of(container)); }
+
+// w_newByteData with a Data (wrap_DataModule.cpp:77-96): a copy of +size+
+// of its bytes from +offset+, every byte from +offset+ on by default.
+ByteData *new_byte_data_of_data(const love::Data *data, std::optional<love::int64> offset_given,
+                                std::optional<love::int64> size_given) {
+  if (data->getSize() > static_cast<std::size_t>(std::numeric_limits<love::int64>::max())) {
+    throw love::Exception("Data's size is too large!");
+  }
+  const love::int64 offset = offset_given.value_or(0);
+  if (offset < 0) {
+    throw love::Exception("Offset argument must not be negative.");
+  }
+  const love::int64 size =
+      size_given.value_or(static_cast<love::int64>(data->getSize()) - offset_given.value_or(0));
+  if (size <= 0) {
+    throw love::Exception("Size argument must be greater than zero.");
+  }
+  if (static_cast<std::size_t>(offset + size) > data->getSize()) {
+    throw love::Exception("Offset and size arguments must fit within the given Data's size.");
+  }
+  const std::span<const char> bytes(static_cast<const char *>(data->getData()), data->getSize());
+  return instance()->newByteData(bytes.subspan(static_cast<std::size_t>(offset)).data(),
+                                 static_cast<std::size_t>(size));
+}
+
+// w_newByteData with a string (wrap_DataModule.cpp:97-102): a copy of its
+// bytes.
+ByteData *new_byte_data_of_string(const std::string &bytes) {
+  return instance()->newByteData(bytes.data(), bytes.size());
+}
+
+// w_newByteData with a size (wrap_DataModule.cpp:103-109): that many
+// bytes, each zero.
+ByteData *new_byte_data_of_size(love::int64 size) {
+  if (size <= 0) {
+    throw love::Exception("Data size must be a positive number.");
+  }
+  return instance()->newByteData(static_cast<std::size_t>(size));
+}
+
+// w_newDataView (wrap_DataModule.cpp:55-71): a view of +size+ of
+// +data+'s bytes from +offset+, every byte from +offset+ on by default.
+DataView *new_data_view(love::Data *data, love::int64 offset,
+                        std::optional<love::int64> size_given) {
+  const love::int64 size = size_given.value_or(static_cast<love::int64>(data->getSize()) - offset);
+  if (offset < 0 || size < 0) {
+    throw love::Exception("DataView offset and size must not be negative.");
+  }
+  return instance()->newDataView(data, static_cast<std::size_t>(offset),
+                                 static_cast<std::size_t>(size));
+}
+
+// w_compress (wrap_DataModule.cpp:116-149): +source+, a String or a Data,
+// compressed at +level+, -1 for the format's default, as a CompressedData
+// or its bytes as a String.
+Rice::Object compress(const std::string &format_name, int level, const std::string &container,
+                      Rice::Object source_given) {
+  const Rice::Object source = std::move(source_given);
+  const ContainerType ctype = container_of(container);
+  const Compressor::Format format = compressor_format_of(format_name);
+  const std::span<const char> raw = bytes_of(source);
+  CompressedData *cdata = love::data::compress(format, raw.data(), raw.size(), level);
+  if (ctype == love::data::CONTAINER_DATA) {
+    return adopted(cdata);
+  }
+  const love::StrongRef<CompressedData> held(cdata, love::Acquire::NORETAIN);
+  return string_of(static_cast<const char *>(cdata->getData()), cdata->getSize());
+}
+
+// w_decompress with a CompressedData (wrap_DataModule.cpp:151-163).
+Rice::Object decompress_compressed_data(const std::string &container, CompressedData *data) {
+  const ContainerType ctype = container_of(container);
+  std::size_t rawsize = data->getDecompressedSize();
+  return result_of(ctype, love::data::decompress(data, rawsize), rawsize);
+}
+
+// w_decompress with a format and a String or a Data (wrap_DataModule.cpp:
+// 151-156 and 164-185).
+Rice::Object decompress(const std::string &format_name, Rice::Object source_given,
+                        const std::string &container) {
+  const Rice::Object source = std::move(source_given);
+  const ContainerType ctype = container_of(container);
+  const Compressor::Format format = compressor_format_of(format_name);
+  const std::span<const char> compressed = bytes_of(source);
+  std::size_t rawsize = 0;
+  char *rawbytes = love::data::decompress(format, compressed.data(), compressed.size(), rawsize);
+  return result_of(ctype, rawbytes, rawsize);
+}
+
+// w_encode (wrap_DataModule.cpp:203-252): +source+, a String or a Data,
+// in base64 or hex, base64 broken into lines of +linelen+ characters, or
+// none for 0.
+Rice::Object encode(const std::string &format_name, love::int64 linelen,
+                    const std::string &container, Rice::Object source_given) {
+  const Rice::Object source = std::move(source_given);
+  const ContainerType ctype = container_of(container);
+  const EncodeFormat format = encode_format_of("encode format", format_name);
+  const std::span<const char> src = bytes_of(source);
+  std::size_t dstlen = 0;
+  char *dst =
+      love::data::encode(format, src.data(), src.size(), dstlen, static_cast<std::size_t>(linelen));
+  return result_of(ctype, dst, dstlen);
+}
+
+// w_decode (wrap_DataModule.cpp:254-301): the bytes +source+ encodes.
+Rice::Object decode(const std::string &format_name, Rice::Object source_given,
+                    const std::string &container) {
+  const Rice::Object source = std::move(source_given);
+  const ContainerType ctype = container_of(container);
+  const EncodeFormat format = encode_format_of("decode format", format_name);
+  const std::span<const char> src = bytes_of(source);
+  std::size_t dstlen = 0;
+  char *dst = love::data::decode(format, src.data(), src.size(), dstlen);
+  return result_of(ctype, dst, dstlen);
+}
+
+// w_ByteData_setString (wrap_ByteData.cpp:47-64): copies as many of
+// +string+'s bytes as fit in the Data to byte +offset_number+, which LÖVE
+// reads as a Lua number and truncates to an int64.
+void set_string(ByteData &data, const std::string &string, double offset_number) {
+  const std::size_t size = std::min(string.size(), data.getSize());
+  if (size == 0) {
+    return;
+  }
+  const auto offset = static_cast<love::int64>(offset_number);
+  if (offset < 0 ||
+      offset + static_cast<love::int64>(size) > static_cast<love::int64>(data.getSize())) {
+    throw love::Exception("The given string offset and size don't fit within the Data's size.");
+  }
+  const std::span<char> bytes(static_cast<char *>(data.getData()), data.getSize());
+  std::memcpy(bytes.subspan(static_cast<std::size_t>(offset)).data(), string.data(), size);
+}
+
+// The C cast w_ByteData_setT makes of each Lua number, (T)
+// luaL_checknumber (wrap_ByteData.cpp:85 and 92). C++ leaves a cast of a
+// number outside the type's range undefined; on Apple silicon the
+// compiler makes it the processor's own conversion, FCVTZS to a 32-bit
+// integer of which a narrower type keeps the low bits, or FCVTZU for a
+// uint32, the conversions LuaJIT's FFI makes (native/luajit.hpp), so Lota
+// converts as those do.
+template <typename T> T converted(double number) {
+  if constexpr (std::is_floating_point_v<T>) {
+    return static_cast<T>(number);
+  } else if constexpr (std::is_same_v<T, love::uint32>) {
+    return luajit::to_uint32(number);
+  } else {
+    return static_cast<T>(luajit::to_int32(number));
+  }
+}
+
+// w_ByteData_setT (wrap_ByteData.cpp:66-96), which setFloat, setDouble,
+// setInt8 to setInt32, and setUInt8 to setUInt32 call with their C types:
+// writes each of +values+ as a T from byte +offset_number+ on, at least
+// one, as LÖVE counts a table or the arguments after the offset. A value
+// that is missing or not a number raises TypeError, where
+// luaL_checknumber raises its error.
+template <typename T>
+void set_values(ByteData &data, double offset_number, Rice::Array values_given) {
+  const Rice::Array values = std::move(values_given);
+  const auto offset = static_cast<love::int64>(offset_number);
+  const long count = std::max(1L, ruby::length(values));
+  if (offset < 0 ||
+      static_cast<std::size_t>(offset) + (sizeof(T) * static_cast<std::size_t>(count)) >
+          data.getSize()) {
+    throw love::Exception(
+        "The given offset and value parameters don't fit within the Data's size.");
+  }
+  const std::span<std::byte> bytes(static_cast<std::byte *>(data.getData()), data.getSize());
+  for (long i = 0; i < count; i++) {
+    const T value =
+        converted<T>(Rice::detail::From_Ruby<double>().convert(ruby::entry(values, i).value()));
+    const std::size_t at =
+        static_cast<std::size_t>(offset) + (sizeof(T) * static_cast<std::size_t>(i));
+    std::memcpy(bytes.subspan(at, sizeof(T)).data(), &value, sizeof(T));
+  }
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
 
 void define_data(const Rice::Module &native) {
-  // Its size is generated (ext/lota/native/generated/data.cpp). Data is
-  // also love.data's module, as Lota::Data is (ADR 001, section 7), so it
-  // opens and answers whether it is open.
-  define_engine_class<love::Data>(native, "Data")
-      .define_singleton_function("open", &open)
-      .define_singleton_function("open?", &is_open)
+  // love.data's module, which Lota::Data is too (ADR 001, section 7): it
+  // opens, answers whether it is open, and holds love.data's functions.
+  // LÖVE's root type Data is its class Data, as the generator puts a class
+  // named for its own module under that module once the module has
+  // functions of its own (tasks/bindings/generator.rb, home).
+  const Rice::Module data_module =
+      Rice::define_module_under(native, "Data")
+          .define_singleton_function("open", &open)
+          .define_singleton_function("open?", &is_open)
+          .define_singleton_function(
+              "new_byte_data_of_data", &new_byte_data_of_data, Rice::Arg("data"),
+              Rice::Arg("offset") = std::optional<love::int64>(),
+              Rice::Arg("size") = std::optional<love::int64>(), Rice::Return().takeOwnership())
+          .define_singleton_function("new_byte_data_of_string", &new_byte_data_of_string,
+                                     Rice::Arg("bytes"), Rice::Return().takeOwnership())
+          .define_singleton_function("new_byte_data_of_size", &new_byte_data_of_size,
+                                     Rice::Arg("size"), Rice::Return().takeOwnership())
+          .define_singleton_function(
+              "new_data_view", &new_data_view, Rice::Arg("data"), Rice::Arg("offset"),
+              Rice::Arg("size") = std::optional<love::int64>(), Rice::Return().takeOwnership())
+          .define_singleton_function("compress", &compress, Rice::Arg("format"), Rice::Arg("level"),
+                                     Rice::Arg("container"), Rice::Arg("source"))
+          .define_singleton_function("decompress_compressed_data", &decompress_compressed_data,
+                                     Rice::Arg("container"), Rice::Arg("data"))
+          .define_singleton_function("decompress", &decompress, Rice::Arg("format"),
+                                     Rice::Arg("source"), Rice::Arg("container"))
+          .define_singleton_function("encode", &encode, Rice::Arg("format"), Rice::Arg("linelen"),
+                                     Rice::Arg("container"), Rice::Arg("source"))
+          .define_singleton_function("decode", &decode, Rice::Arg("format"), Rice::Arg("source"),
+                                     Rice::Arg("container"))
+          .define_singleton_function("check_container", &check_container, Rice::Arg("container"));
+  // Its size is generated (ext/lota/native/generated/data.cpp).
+  define_engine_class<love::Data>(data_module, "Data")
       .define_method("string", &data_string, Rice::Arg("offset") = 0.0,
                      Rice::Arg("size") = std::optional<double>())
       .define_method("perform_atomic", &perform_atomic, Rice::Arg("call"))
@@ -157,6 +466,24 @@ void define_data(const Rice::Module &native) {
                      Rice::Arg("count") = std::optional<int>())
       .define_method("uint32", &data_values<love::uint32>, Rice::Arg("offset"),
                      Rice::Arg("count") = std::optional<int>());
+  // Their clones, and CompressedData's format, are generated.
+  define_engine_class<ByteData, love::Data>(native, "ByteData")
+      .define_method("set_string", &set_string, Rice::Arg("string"), Rice::Arg("offset") = 0.0)
+      .define_method("set_float", &set_values<float>, Rice::Arg("offset"), Rice::Arg("values"))
+      .define_method("set_double", &set_values<double>, Rice::Arg("offset"), Rice::Arg("values"))
+      .define_method("set_int8", &set_values<love::int8>, Rice::Arg("offset"), Rice::Arg("values"))
+      .define_method("set_uint8", &set_values<love::uint8>, Rice::Arg("offset"),
+                     Rice::Arg("values"))
+      .define_method("set_int16", &set_values<love::int16>, Rice::Arg("offset"),
+                     Rice::Arg("values"))
+      .define_method("set_uint16", &set_values<love::uint16>, Rice::Arg("offset"),
+                     Rice::Arg("values"))
+      .define_method("set_int32", &set_values<love::int32>, Rice::Arg("offset"),
+                     Rice::Arg("values"))
+      .define_method("set_uint32", &set_values<love::uint32>, Rice::Arg("offset"),
+                     Rice::Arg("values"));
+  define_engine_class<CompressedData, love::Data>(native, "CompressedData");
+  define_engine_class<DataView, love::Data>(native, "DataView");
 }
 
 } // namespace lota::native

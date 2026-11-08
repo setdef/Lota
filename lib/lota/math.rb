@@ -5,6 +5,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "deprecation"
+require_relative "math/bezier_curve"
+require_relative "math/random_generator"
 require_relative "math/transform"
 
 module Lota
@@ -18,9 +21,13 @@ module Lota
   # Lota::Math draws them from LÖVE's own generator, the one
   # love.math.random draws from, so a seed gives the same sequence in Lota
   # as in LÖVE on every platform. Ruby's own +rand+ uses a different
-  # generator, and so does Lua's +math.random+.
+  # generator, and so does Lua's +math.random+. A
+  # Lota::Math::RandomGenerator draws from a generator of its own.
   #
-  # Use it for randomness that should repeat from a seed.
+  # It also has the rest of love.math: noise for terrain and clouds,
+  # polygons cut into triangles, colors converted between bytes and
+  # fractions and between gamma and linear space, Lota::Math::BezierCurve,
+  # and Lota::Math::Transform.
   #
   # === Example
   #
@@ -34,21 +41,12 @@ module Lota
     # SPDX-License-Identifier: Zlib
 
     # A random number from LÖVE's generator, matching love.math.random
-    # (src/modules/math/wrap_Math.lua:37-39, and getrandom in
-    # wrap_RandomGenerator.lua:33-44).
+    # (src/modules/math/wrap_Math.lua:37-39), which draws as
+    # Lota::Math::RandomGenerator#random draws.
     #
     # [min] Float or Integer: with +max+, the smallest number it returns;
     #   alone, the largest, counting from 1.
     # [max] Float or Integer largest number it returns.
-    #
-    # With no arguments it returns a Float from 0 up to, but not
-    # including, 1. With one, a whole number from 1 to +min+; with two, a
-    # whole number from +min+ to +max+, as LÖVE computes them from the
-    # Float: <tt>floor(r * min) + 1</tt> and
-    # <tt>floor(r * (max - min + 1)) + min</tt>. Ruby's floor is an
-    # Integer, so whole bounds give an Integer, and a bound that is a
-    # Float gives a Float: <tt>random(1, 6)</tt> returns 4, and
-    # <tt>random(1.5, 3.5)</tt> 2.5.
     #
     # Raises TypeError for a bound that is not a number, and RuntimeError
     # when the math module is not open, as when
@@ -60,25 +58,31 @@ module Lota
     #   Lota::Math.random(10)     # => 4
     #   Lota::Math.random(15, 100) # => 92
     def self.random(min = nil, max = nil)
-      r = Native::Math.random_generator.random
-      if !max.nil?
-        low = number(min)
-        whole = (r * (number(max).to_f - low + 1)).floor
-        # The same sum either way, which Steep types for each kind of bound.
-        case low
-        when Integer then whole + low
-        else whole + low
-        end
-      elsif !min.nil?
-        (r * number(min)).floor + 1
-      else
-        r
-      end
+      generator.random(min, max)
+    end
+
+    # A random number from a normal distribution, from LÖVE's generator,
+    # matching love.math.randomNormal (src/modules/math/wrap_Math.lua:
+    # 41-43), which draws as Lota::Math::RandomGenerator#random_normal
+    # draws.
+    #
+    # [stddev] Float or Integer standard deviation, 1 when +nil+.
+    # [mean] Float or Integer mean, 0 when +nil+.
+    #
+    # Raises TypeError for an argument that is not a number, and
+    # RuntimeError when the math module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Math.random_seed = 1234
+    #   Lota::Math.random_normal(1, 2) # => 1.0813614997254
+    def self.random_normal(stddev = nil, mean = nil)
+      generator.random_normal(stddev, mean)
     end
 
     # Seeds LÖVE's generator, matching love.math.setRandomSeed
-    # (src/modules/math/wrap_Math.lua:45-47, which calls
-    # RandomGenerator:setSeed, wrap_RandomGenerator.cpp:49-62 and 88-93).
+    # (src/modules/math/wrap_Math.lua:45-47), which seeds it as
+    # Lota::Math::RandomGenerator#seed= does.
     #
     # [seed] Integer or Float seed, or an Array of two: the low and high
     #   32 bits of a 64-bit seed.
@@ -95,16 +99,266 @@ module Lota
     #   Lota::Math.random_seed = 123
     #   Lota::Math.random_seed = 0xCBBF7A44, 0x0139408D
     def self.random_seed=(seed)
-      low, high = seed.is_a?(Array) ? seed : [seed]
-      Native::Math.random_generator.set_seed(number(low), high && number(high))
+      generator.seed = seed
     end
 
-    # A bound, which must be a number, as getrandom checks.
-    private_class_method def self.number(value)
-      case value
-      when Integer, Float then value
-      else raise TypeError, "wrong argument type #{value.class} (expected Float or Integer)"
+    # The seed of LÖVE's generator, its low and high 32 bits as an Array
+    # of two Integers, matching love.math.getRandomSeed
+    # (src/modules/math/wrap_Math.lua:49-51).
+    #
+    # Raises RuntimeError when the math module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Math.random_seed = 9001
+    #   low, high = Lota::Math.random_seed # => [9001, 0]
+    def self.random_seed
+      generator.seed
+    end
+
+    # Where LÖVE's generator is in its sequence, as a String, matching
+    # love.math.getRandomState (src/modules/math/wrap_Math.lua:57-59),
+    # which Lota::Math.random_state= takes back.
+    #
+    # Raises RuntimeError when the math module is not open.
+    #
+    # === Example
+    #
+    #   saved = Lota::Math.random_state
+    def self.random_state
+      generator.state
+    end
+
+    # Returns LÖVE's generator to a place in its sequence, matching
+    # love.math.setRandomState (src/modules/math/wrap_Math.lua:53-55).
+    #
+    # [state] String Lota::Math.random_state returned.
+    #
+    # Raises RuntimeError ("Invalid random state: ...") for a String that
+    # is not a hexadecimal number beginning <tt>0x</tt>, and when the math
+    # module is not open.
+    #
+    # === Example
+    #
+    #   Lota::Math.random_state = saved
+    def self.random_state=(state)
+      generator.state = state
+    end
+
+    # A color's components as whole numbers from 0 to 255, matching
+    # love.math.colorToBytes (src/modules/math/wrap_Math.lua:61-70).
+    #
+    # [r] Float red from 0 to 1, or an Array of the components.
+    # [g] Float green.
+    # [b] Float blue.
+    # [a] Float alpha, or +nil+.
+    #
+    # Each is clamped to 0 to 1 first, then rounded to the nearest byte, as
+    # an Integer. The Array holds red, green, and blue, and alpha when it is
+    # given, as Lua returns a nil alpha that Ruby has no use for. Raises
+    # TypeError for a component that is not a number.
+    #
+    # === Examples
+    #
+    #   Lota::Math.color_to_bytes(0.2, 0.2, 0.2, 0.2) # => [51, 51, 51, 51]
+    #   Lota::Math.color_to_bytes([1, 0.5, 0])        # => [255, 128, 0]
+    def self.color_to_bytes(r, g = nil, b = nil, a = nil)
+      r, g, b, a = r if r.is_a?(Array)
+      bytes = [r, g, b].map { |c| ((clamp01(c) * 255) + 0.5).floor }
+      a.nil? ? bytes : [*bytes, ((clamp01(a) * 255) + 0.5).floor]
+    end
+
+    # A color's components as fractions from 0 to 1, from whole numbers
+    # from 0 to 255, matching love.math.colorFromBytes
+    # (src/modules/math/wrap_Math.lua:72-81).
+    #
+    # [r] Integer or Float red, or an Array of the components.
+    # [g] Integer or Float green.
+    # [b] Integer or Float blue.
+    # [a] Integer or Float alpha, or +nil+.
+    #
+    # Each is rounded to a whole number first, then divided by 255 and
+    # clamped to 0 to 1, as a Float. The Array holds alpha only when it is
+    # given, as Lota::Math.color_to_bytes does. Raises TypeError for a
+    # component that is not a number.
+    #
+    # === Example
+    #
+    #   Lota::Math.color_from_bytes(51, 51, 51, 51) # => [0.2, 0.2, 0.2, 0.2]
+    def self.color_from_bytes(r, g = nil, b = nil, a = nil)
+      r, g, b, a = r if r.is_a?(Array)
+      fractions = [r, g, b].map { |c| clamp01((number(c) + 0.5).floor / 255.0).to_f }
+      a.nil? ? fractions : [*fractions, clamp01((number(a) + 0.5).floor / 255.0).to_f]
+    end
+
+    # A color from gamma space to linear space, matching
+    # love.math.gammaToLinear, in the FFI code LÖVE runs under LuaJIT
+    # (src/modules/math/wrap_Math.lua:153-166).
+    #
+    # [r] Float red from 0 to 1, or an Array of the components.
+    # [g] Float green, or +nil+.
+    # [b] Float blue, or +nil+.
+    # [a] Float alpha, or +nil+.
+    #
+    # Red, green, and blue are clamped to 0 to 1 and converted; alpha is
+    # linear already, so it comes back as it was given. Lua returns a
+    # +nil+ for each component not given; Lota leaves those off the end of
+    # the Array. Raises TypeError for a component that is not a number.
+    #
+    # === Example
+    #
+    #   Lota::Math.gamma_to_linear(1, 1, 1, 0.5) # => [1.0, 1.0, 1.0, 0.5]
+    #   linear = Lota::Math.gamma_to_linear(Lota::Graphics.color)
+    def self.gamma_to_linear(r, g = nil, b = nil, a = nil)
+      convert_color(r, g, b, a) { |c| Native::Math.gamma_to_linear(c) }
+    end
+
+    # A color from linear space to gamma space, matching
+    # love.math.linearToGamma, in the FFI code LÖVE runs under LuaJIT
+    # (src/modules/math/wrap_Math.lua:168-181), as
+    # Lota::Math.gamma_to_linear takes and returns it.
+    #
+    # === Example
+    #
+    #   Lota::Math.linear_to_gamma(0, 0, 0, 0.5) # => [0.0, 0.0, 0.0, 0.5]
+    def self.linear_to_gamma(r, g = nil, b = nil, a = nil)
+      convert_color(r, g, b, a) { |c| Native::Math.linear_to_gamma(c) }
+    end
+
+    # Whether the polygon is convex, matching love.math.isConvex
+    # (src/modules/math/wrap_Math.cpp:218-253).
+    #
+    # [coordinates] An x and a y Float or Integer for each vertex, or an
+    #   Array of them, as LÖVE takes a table.
+    #
+    # Raises TypeError for a coordinate that is not a number, and for an x
+    # without its y.
+    #
+    # === Example
+    #
+    #   Lota::Math.convex?([0, 0, 1, 0, 1, 1, 0, 1]) # => true
+    def self.convex?(*coordinates)
+      Native::Math.convex?(coordinates_of(coordinates))
+    end
+
+    # The triangles that fill the polygon, matching love.math.triangulate
+    # (src/modules/math/wrap_Math.cpp:148-216): an Array with an Array for
+    # each triangle, of its three corners' x and y Floats.
+    #
+    # [coordinates] An x and a y Float or Integer for each vertex, or an
+    #   Array of them, as LÖVE takes a table.
+    #
+    # Raises RuntimeError, with LÖVE's message, for fewer than three
+    # vertices and for a polygon it cannot cut, and TypeError for a
+    # coordinate that is not a number.
+    #
+    # === Example
+    #
+    #   Lota::Math.triangulate(0, 0, 1, 0, 1, 1, 0, 1).size # => 2
+    def self.triangulate(*coordinates)
+      Native::Math.triangulate(coordinates_of(coordinates))
+    end
+
+    # Perlin noise at a point of one to four dimensions, from 0 to 1,
+    # matching love.math.perlinNoise, in the FFI code LÖVE runs under
+    # LuaJIT (src/modules/math/wrap_Math.lua:129-139).
+    #
+    # [x] Float or Integer.
+    # [y] Float or Integer, or +nil+ for one dimension.
+    # [z] Float or Integer, or +nil+ for two or fewer.
+    # [w] Float or Integer, or +nil+ for three or fewer.
+    #
+    # The same point always gives the same noise, and nearby points give
+    # nearby noise, which makes it fit for terrain, clouds, and wandering
+    # motion. As in LÖVE, the last coordinate given decides how many
+    # dimensions it has, and every coordinate before it must be a number;
+    # Raises TypeError otherwise.
+    #
+    # === Example
+    #
+    #   height = Lota::Math.perlin_noise(x / 64.0, y / 64.0)
+    def self.perlin_noise(x, y = nil, z = nil, w = nil)
+      if !w.nil? then Native::Math.perlin_noise4(x, number(y), number(z), w)
+      elsif !z.nil? then Native::Math.perlin_noise3(x, number(y), z)
+      elsif !y.nil? then Native::Math.perlin_noise2(x, y)
+      else Native::Math.perlin_noise1(x)
       end
+    end
+
+    # Simplex noise at a point of one to four dimensions, from 0 to 1,
+    # matching love.math.simplexNoise, in the FFI code LÖVE runs under
+    # LuaJIT (src/modules/math/wrap_Math.lua:141-151), as
+    # Lota::Math.perlin_noise takes it.
+    #
+    # === Example
+    #
+    #   drift = Lota::Math.simplex_noise(Lota::Timer.time)
+    def self.simplex_noise(x, y = nil, z = nil, w = nil)
+      if !w.nil? then Native::Math.simplex_noise4(x, number(y), number(z), w)
+      elsif !z.nil? then Native::Math.simplex_noise3(x, number(y), z)
+      elsif !y.nil? then Native::Math.simplex_noise2(x, y)
+      else Native::Math.simplex_noise1(x)
+      end
+    end
+
+    # Noise at a point of one to four dimensions, matching the deprecated
+    # love.math.noise, in the FFI code LÖVE runs under LuaJIT
+    # (src/modules/math/wrap_Math.lua:115-127): simplex noise in one or
+    # two dimensions, and Perlin noise in three or four.
+    #
+    # Prints LÖVE's notice that Lota::Math.perlin_noise or
+    # Lota::Math.simplex_noise replaces it, once per line of the game that
+    # calls it.
+    #
+    # === Example
+    #
+    #   Lota::Math.noise(1, 10)
+    def self.noise(x, y = nil, z = nil, w = nil)
+      Deprecation.mark("Lota::Math.noise", :function, :replaced, "Lota::Math.perlin_noise or Lota::Math.simplex_noise",
+        where: Deprecation.where(caller_locations(1, 1)))
+      if !w.nil? then Native::Math.perlin_noise4(x, number(y), number(z), w)
+      elsif !z.nil? then Native::Math.perlin_noise3(x, number(y), z)
+      elsif !y.nil? then Native::Math.simplex_noise2(x, y)
+      else Native::Math.simplex_noise1(x)
+      end
+    end
+
+    # The coordinates a function given +arguments+ reads, as LÖVE reads a
+    # table in the first argument's place, or else every argument.
+    # :nodoc:
+    def self.coordinates_of(arguments)
+      first = arguments.first
+      first.is_a?(Array) ? first : arguments #: Array[number]
+    end
+
+    # LÖVE's own generator, the one wrap_Math.lua draws from
+    # (src/modules/math/wrap_Math.lua:35), which raises RuntimeError when
+    # the math module is not open.
+    private_class_method def self.generator
+      RandomGenerator.from_native(Native::Math.random_generator)
+    end
+
+    # clamp01 (src/modules/math/wrap_Math.lua:31-33): +c+ no lower than 0
+    # and no higher than 1, as math.min and math.max keep it, a Float
+    # where it is one.
+    private_class_method def self.clamp01(c)
+      number(c).clamp(0.0, 1.0)
+    end
+
+    # The red, green, and blue of the color, each through the block when
+    # it is given, and its alpha, as the FFI code's gammaToLinear and
+    # linearToGamma make them (src/modules/math/wrap_Math.lua:153-181),
+    # without the nils Lua returns for the components not given.
+    private_class_method def self.convert_color(r, g, b, a)
+      r, g, b, a = r if r.is_a?(Array)
+      converted = [r, g, b].map { |c| c.nil? ? nil : yield(clamp01(c)) }
+      [*converted, a].reverse.drop_while(&:nil?).reverse
+    end
+
+    # A number, which each of these functions needs, as LuaJIT's math
+    # library and FFI check.
+    private_class_method def self.number(value)
+      RandomGenerator.number(value)
     end
 
     # SPDX-SnippetEnd

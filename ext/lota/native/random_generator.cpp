@@ -66,6 +66,21 @@ void set_seed(RandomGenerator &rng, double low, std::optional<double> high) {
   rng.setSeed(std::bit_cast<RandomGenerator::Seed>(number));
 }
 
+// w_RandomGenerator_getSeed (wrap_RandomGenerator.cpp:95-102): the seed's
+// low and high 32 bits, which LÖVE reads from the halves of its union
+// (RandomGenerator.h:46-59), as the halves of the 64-bit number, without
+// reaching into the union. Each is a uint32 in LÖVE's C++, so each is an
+// Integer (ADR 001, rule 14), in an Array of the two (rule 4).
+Rice::Array get_seed(const RandomGenerator &rng) {
+  constexpr unsigned half = 32U;
+  constexpr love::uint64 low_bits = 0xFFFFFFFFULL;
+  const auto number = std::bit_cast<love::uint64>(rng.getSeed());
+  Rice::Array results;
+  results.push(static_cast<long long>(number & low_bits), false);
+  results.push(static_cast<long long>(number >> half), false);
+  return results;
+}
+
 // RandomGenerator:randomNormal, in the FFI code LÖVE runs under LuaJIT,
 // which replaces w_RandomGenerator_randomNormal
 // (wrap_RandomGenerator.lua:82-93): a standard deviation of 1 and a mean
@@ -83,9 +98,10 @@ double random_normal(RandomGenerator &rng, std::optional<double> stddev,
 // love::math::RandomGenerator, whose other methods the generator binds
 // from LÖVE's wrap functions (ext/lota/native/generated/math.cpp).
 // RandomGenerator:random's ranges are Lua in LÖVE (wrap_RandomGenerator.lua:
-// 33-49), so they are Ruby's to port (Lota::Math.random), and setSeed reads
-// its seed's two halves at a position LÖVE computes
-// (wrap_RandomGenerator.cpp:49-62 and 88-102), so it is bound here.
+// 33-49), so they are Ruby's to port (Lota::Math::RandomGenerator#random),
+// setSeed reads its seed's two halves at a position LÖVE computes
+// (wrap_RandomGenerator.cpp:49-62 and 88-93), and getSeed pushes them from
+// its union (lines 95-102), so those are bound here.
 void define_random_generator(const Rice::Module &native) {
   define_engine_class<RandomGenerator>(native, "RandomGenerator")
       // love.math.newRandomGenerator() with no seed: Math::newRandomGenerator
@@ -97,6 +113,7 @@ void define_random_generator(const Rice::Module &native) {
       .define_method("random", unit_random())
       .define_method("set_seed", &set_seed, Rice::Arg("low"),
                      Rice::Arg("high") = std::optional<double>())
+      .define_method("seed", &get_seed)
       .define_method("random_normal", &random_normal, Rice::Arg("stddev") = std::optional<double>(),
                      Rice::Arg("mean") = std::optional<double>());
 }

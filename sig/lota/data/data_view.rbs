@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Data
+    class DataView
+      include Object
+      include Data
+
+      attr_reader native: Native::DataView
+
+      def self.from_native: (Native::DataView native) -> DataView
+
+      def self.new: (Data data, Integer offset, ?Integer? size) -> DataView
+
+      def initialize_copy: (DataView source) -> void
+    end
+  end
+end

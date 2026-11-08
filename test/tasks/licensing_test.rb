@@ -282,10 +282,10 @@ license: ["LGPL-2.0-or-later"],
       "PhysicsFS",
       "PhysicsFS's miniz",
       "PhysicsFS's LZMA SDK",
+      "Noise1234",
       "Noto Sans",
       "LÖVE",
 ].each { |name| assert_includes names, name }
-    refute_includes names, "Noise1234"
   end
 
   def test_annotations_record_each_works_copyright_and_license_and_name_what_is_pending

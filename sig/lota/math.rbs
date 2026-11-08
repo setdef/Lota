@@ -3,10 +3,46 @@
 
 module Lota
   module Math
-    def self.random: (?(Float | Integer)? min, ?(Float | Integer)? max) -> (Float | Integer)
+    type number = Float | Integer
 
-    def self.random_seed=: (Float | Integer | Array[Float | Integer] seed) -> void
+    def self.random: (?number? min, ?number? max) -> number
 
-    private def self.number: (::Object? value) -> (Float | Integer)
+    def self.random_normal: (?number? stddev, ?number? mean) -> Float
+
+    def self.random_seed=: (number | Array[number] seed) -> void
+
+    def self.random_seed: () -> [Integer, Integer]
+
+    def self.random_state: () -> String
+
+    def self.random_state=: (String state) -> void
+
+    def self.color_to_bytes: (number | Array[number] r, ?number? g, ?number? b, ?number? a) -> Array[Integer]
+
+    def self.color_from_bytes: (number | Array[number] r, ?number? g, ?number? b, ?number? a) -> Array[Float]
+
+    def self.gamma_to_linear: (number | Array[number] r, ?number? g, ?number? b, ?number? a) -> Array[number?]
+
+    def self.linear_to_gamma: (number | Array[number] r, ?number? g, ?number? b, ?number? a) -> Array[number?]
+
+    def self.convex?: (*(number | Array[number]) coordinates) -> bool
+
+    def self.triangulate: (*(number | Array[number]) coordinates) -> Array[Array[Float]]
+
+    def self.perlin_noise: (number x, ?number? y, ?number? z, ?number? w) -> Float
+
+    def self.simplex_noise: (number x, ?number? y, ?number? z, ?number? w) -> Float
+
+    def self.noise: (number x, ?number? y, ?number? z, ?number? w) -> Float
+
+    def self.coordinates_of: (Array[number | Array[number]] arguments) -> Array[number]
+
+    private def self.generator: () -> RandomGenerator
+
+    private def self.clamp01: (::Object? c) -> number
+
+    private def self.convert_color: (number | Array[number] r, number? g, number? b, number? a) { (number) -> Float } -> Array[number?]
+
+    private def self.number: (::Object? value) -> number
   end
 end

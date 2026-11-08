@@ -32,7 +32,7 @@ module Lota
 
       def self.images: (::Object? source) -> Native::Graphics::image
 
-      private def self.image: (::Object? source) -> Native::Data
+      private def self.image: (::Object? source) -> Native::Data::Data
 
       def self.read_size: (Native::TextureSettings settings, Array[::Object?] arguments, Range[Integer] count, String? layered) -> void
 

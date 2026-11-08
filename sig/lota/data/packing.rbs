@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Data
+    module Packing
+      type option = :int | :uint | :float | :char | :string | :zstr | :padding | :paddalign | :nop
+
+      MAXINTSIZE: Integer
+
+      SZINT: Integer
+
+      MAXALIGN: Integer
+
+      MAXSIZE: Integer
+
+      NATIVE_LITTLE: bool
+
+      FIXED: Hash[String, [option, Integer]]
+
+      UNSIGNED: Integer
+
+      class Format
+        attr_reader little: bool
+
+        attr_reader maxalign: Integer
+
+        def initialize: (String format) -> void
+
+        def done?: () -> bool
+
+        def details: (Integer totalsize) -> [option, Integer, Integer]
+
+        def option: () -> [option, Integer]
+
+        private def setting: () { () -> void } -> [option, Integer]
+
+        private def number: (Integer default) -> Integer
+
+        private def digit?: () -> bool
+
+        private def limited: (Integer default) -> Integer
+      end
+
+      def self.pack: (::Object? format, Array[::Object?] values) -> String
+
+      def self.packed_size: (::Object? format) -> Integer
+
+      def self.unpack: (::Object? format, String data, ::Object? position) -> Array[Integer | Float | String]
+
+      private def self.relative: (Integer pos, Integer length) -> Integer
+
+      private def self.pack_int: (String packed, ::Object? value, Integer size, bool little) -> String
+
+      private def self.pack_uint: (String packed, ::Object? value, Integer size, bool little) -> String
+
+      private def self.packint: (String packed, Integer n, bool little, Integer size, bool negative) -> String
+
+      private def self.unpackint: (String data, Integer at, bool little, Integer size, bool signed) -> Integer
+
+      private def self.float_directive: (Integer size, bool little) -> String
+
+      private def self.integer: (::Object? value) -> Integer
+
+      private def self.float: (::Object? value) -> Float
+
+      private def self.string: (::Object? value) -> String
+    end
+  end
+end

@@ -3,10 +3,34 @@
 
 module Lota
   interface _WrapsData
-    def native: () -> Native::Data
+    def native: () -> Native::Data::Data
   end
 
   module Data : _WrapsData
+    type source = String | Data
+
+    type packable = Integer | Float | String
+
+    def self.compress: (Symbol | String container, Symbol | String format, source source, ?Integer? level) -> (String | CompressedData)
+
+    def self.decompress: (Symbol | String container, CompressedData | Symbol | String compressed, ?source? source) -> (String | ByteData)
+
+    def self.encode: (Symbol | String container, Symbol | String format, source source, ?Integer? line_length) -> (String | ByteData)
+
+    def self.decode: (Symbol | String container, Symbol | String format, source source) -> (String | ByteData)
+
+    def self.pack: (Symbol | String | ByteData container, *(packable | nil) arguments) -> (String | ByteData)
+
+    def self.unpack: (String format, source source, ?Integer? position) -> Array[packable]
+
+    def self.packed_size: (String format) -> Integer
+
+    private def self.pack_into: (ByteData data, ::Object? offset, ::Object? format, Array[::Object?] values) -> ByteData
+
+    private def self.source_of: (source? source) -> (String | Native::Data::Data | nil)
+
+    private def self.result_of: (String | Native::ByteData native) -> (String | ByteData)
+
     def size: () -> Integer
 
     def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String

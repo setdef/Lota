@@ -19,9 +19,11 @@ namespace lota::native {
 // Lota::Math::Transform#matrix= and Lota::Graphics.projection= pass them.
 love::Matrix4 matrix_of(const std::optional<std::string> &layout, const Rice::Array &elements);
 
-// Binds the function that opens love::math::Math, and the one that reaches
-// its random number generator, as module functions of <native>::Math, and
-// defines <native>::Transform, whose other methods are generated.
+// Binds the function that opens love::math::Math, the one that reaches
+// its random number generator, and love.math's functions the generator
+// does not write, as module functions of <native>::Math, and defines
+// <native>::Transform and <native>::BezierCurve, whose other methods are
+// generated.
 void define_math(const Rice::Module &native);
 
 } // namespace lota::native

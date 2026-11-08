@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Math
+    class BezierCurve
+      include Object
+
+      attr_reader native: Native::BezierCurve
+
+      def self.from_native: (Native::BezierCurve native) -> BezierCurve
+
+      def self.new: (*(Float | Integer | Array[Float | Integer]) coordinates) -> BezierCurve
+
+      def degree: () -> Integer
+
+      def derivative: () -> BezierCurve
+
+      def control_point: (Integer index) -> [Float, Float]
+
+      def control_point=: ([Integer, Float | Integer, Float | Integer] point) -> void
+
+      def insert_control_point: (Float | Integer x, Float | Integer y, ?Integer index) -> nil
+
+      def remove_control_point: (Integer index) -> nil
+
+      def control_point_count: () -> Integer
+
+      def translate: (Float | Integer dx, Float | Integer dy) -> nil
+
+      def rotate: (Float | Integer angle, ?(Float | Integer) ox, ?(Float | Integer) oy) -> nil
+
+      def scale: (Float | Integer s, ?(Float | Integer) ox, ?(Float | Integer) oy) -> nil
+
+      def evaluate: (Float | Integer t) -> [Float, Float]
+
+      def segment: (Float | Integer t1, Float | Integer t2) -> BezierCurve
+
+      def render: (?Integer accuracy) -> Array[Float]
+
+      def render_segment: (Float | Integer start, Float | Integer stop, ?Integer accuracy) -> Array[Float]
+    end
+  end
+end
