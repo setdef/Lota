@@ -9,6 +9,7 @@ require_relative "test_helper"
 require_relative "callback_helper"
 require "json"
 require "lota/cli"
+require "open3"
 require "rubygems/package"
 require "tmpdir"
 
@@ -17,8 +18,10 @@ require "tmpdir"
 # app for minutes, so here a fake bundle stands in for Bundler, recording
 # each command it is given and running the program after exec, and a fake
 # fledge on PATH records its arguments and folder and reports a path, as
-# Fledge reports each file it writes. Everything lota fuse writes is real
-# and read back as written. The real build is CI's fuse experiment's.
+# Fledge reports each file it writes. Each records the Gemfile Bundler is
+# pointed at. Everything lota fuse writes is real and read back as
+# written. One test locks with the real Bundler. The real build is CI's
+# fuse experiment's.
 #
 # Each Lota gem here is a real gem file, with what lota fuse reads from
 # the gem it ships, the manifest of its notices and its license texts, as
@@ -105,7 +108,7 @@ class FuseTest < Minitest::Test
     write("main.rb", "def Lota.load(_arguments) = nil\n")
     @gem = lota_gem(File.join(@root, "lota-#{Lota::VERSION}-arm64-darwin.gem"), "not really Lota")
     fake("bundle", <<~SH)
-      echo "bundle $*" >> "#{@log}"
+      echo "bundle $* with $BUNDLE_GEMFILE" >> "#{@log}"
       if [ "$1" = exec ]; then shift; exec "$@"; fi
     SH
     fake("fledge", <<~SH)
@@ -147,6 +150,22 @@ class FuseTest < Minitest::Test
     File.read(project(*names))
   end
 
+  def tools(*names)
+    File.join(@root, "dist", "fuse-tools", *names)
+  end
+
+  # The Gemfile lota fuse runs Fledge from, holding Fledge at +ref+.
+  def tools_gemfile(ref = Lota::Fuse::FLEDGE_REF)
+    <<~RUBY
+      # frozen_string_literal: true
+
+      # Written by lota fuse, which writes it again on every build. Fledge
+      # runs from this bundle, apart from the project's, so that Bundler
+      # installs none of the game's gems and Fledge is none of the app's.
+      gem "fledge", git: "https://github.com/setdef/Fledge", ref: "#{ref}"
+    RUBY
+  end
+
   def test_a_game_with_no_conf_is_named_and_saved_for_its_folder
     paths = nil
     stdout, = capture_io { paths = fuse.call }
@@ -155,11 +174,13 @@ class FuseTest < Minitest::Test
     assert_equal ["#{dist}/Sample Game-arm64-darwin.app"], paths
     assert_equal "#{dist}/Sample Game-arm64-darwin.app\n", stdout
     assert_equal <<~LOG, File.read(@log)
-      bundle lock --add-checksums
-      bundle install
-      bundle exec fledge build --out #{dist}
-      fledge build --out #{dist} in #{File.realpath(project)} with #{project('Gemfile')}
+      bundle lock --add-checksums with #{project('Gemfile')}
+      bundle install with #{tools('Gemfile')}
+      bundle exec fledge build --out #{dist} with #{tools('Gemfile')}
+      fledge build --out #{dist} in #{File.realpath(project)} with #{tools('Gemfile')}
     LOG
+    assert_equal tools_gemfile, File.read(tools("Gemfile"))
+    assert_equal ["Gemfile"], Dir.children(tools)
     assert_equal <<~YAML, read("fledge.yml")
       # Written by lota fuse, which writes it again on every build.
       ---
@@ -200,10 +221,6 @@ class FuseTest < Minitest::Test
       source "https://rubygems.org"
 
       gem "lota", "#{Lota::VERSION}"
-
-      group :development do
-        gem "fledge", git: "https://github.com/setdef/Fledge", ref: "#{Lota::Fuse::FLEDGE_REF}"
-      end
     RUBY
     assert_equal <<~RUBY, read("main.rb")
       # frozen_string_literal: true
@@ -296,17 +313,13 @@ class FuseTest < Minitest::Test
 
       # Written by lota fuse, which writes it again on every build.
       eval_gemfile "game/sample/Gemfile"
-
-      group :development do
-        gem "fledge", git: "https://github.com/setdef/Fledge", ref: "#{Lota::Fuse::FLEDGE_REF}"
-      end
     RUBY
     assert_equal LOCKFILE, read("Gemfile.lock")
     assert_equal read("game", "sample", "Gemfile"), File.read(File.join(@game, "Gemfile"))
     assert_equal <<~LOG, File.read(@log).lines.first(3).join
-      bundle lock --remove-platform x86_64-linux-gnu
-      bundle lock --add-platform arm64-darwin --add-checksums
-      bundle install
+      bundle lock --remove-platform x86_64-linux-gnu with #{project('Gemfile')}
+      bundle lock --add-platform arm64-darwin --add-checksums with #{project('Gemfile')}
+      bundle install with #{tools('Gemfile')}
     LOG
     assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem", "my_gem-1.0.0.gem", "my_git_gem-abc123"],
       Dir.children(project("vendor", "cache")).sort
@@ -322,8 +335,11 @@ class FuseTest < Minitest::Test
 
     capture_io { fuse.call }
 
-    assert_includes read("Gemfile"), %(eval_gemfile "game/sample/Gemfile"\n\ngem "lota", "#{Lota::VERSION}"\n\ngroup :development do\n)
-    assert_equal ["bundle lock --add-platform arm64-darwin --add-checksums\n", "bundle install\n"], File.read(@log).lines.first(2)
+    assert read("Gemfile").end_with?(%(eval_gemfile "game/sample/Gemfile"\n\ngem "lota", "#{Lota::VERSION}"\n))
+    assert_equal [
+      "bundle lock --add-platform arm64-darwin --add-checksums with #{project('Gemfile')}\n",
+      "bundle install with #{tools('Gemfile')}\n",
+], File.read(@log).lines.first(2)
     assert_equal ["lota-#{Lota::VERSION}-arm64-darwin.gem"], Dir.children(project("vendor", "cache"))
     assert_equal "not really Lota", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
   end
@@ -360,17 +376,84 @@ class FuseTest < Minitest::Test
     refute_path_exists project
   end
 
-  def test_a_failed_install_of_the_games_gems_says_what_a_compiler_needs
+  # Fledge compiles a gem the app ships that has a C extension, for the
+  # app's Ruby, so a failed build of a game with gems says what a compiler
+  # needs.
+  def test_a_failed_build_of_a_game_with_gems_says_what_a_compiler_needs
     write_bundle
-    fake("bundle", %(echo "bundle $*" >> "#{@log}"; [ "$1" != install ]\n))
+    fake("fledge", "exit 1\n")
 
-    error = assert_raises(Lota::Fuse::Error) { fuse.call }
+    error = assert_raises(Lota::Fuse::Error) { capture_io { fuse.call } }
 
-    assert_equal "Installing the game's gems and Fledge failed (bundle install in #{project}). Bundler says above which gem " \
-      "and why. A gem with a C extension compiles on this computer, which needs a C compiler: on macOS, Xcode's command line " \
-      "tools (xcode-select --install); on Linux, a C compiler and make (sudo apt install build-essential on Debian and Ubuntu); " \
-      "on Windows, RubyInstaller's MSYS2 tools (ridk install). lota fuse also needs the network, to fetch Fledge from " \
-      "https://github.com/setdef/Fledge at #{Lota::Fuse::FLEDGE_REF}.", error.message
+    assert_equal "fledge build failed (exit status 1). Fledge says above why. A gem with a C extension compiles on this " \
+      "computer, which needs a C compiler: on macOS, Xcode's command line tools (xcode-select --install); on Linux, a C " \
+      "compiler and make (sudo apt install build-essential on Debian and Ubuntu); on Windows, RubyInstaller's MSYS2 tools " \
+      "(ridk install).", error.message
+  end
+
+  # A gem with a C extension whose extconf.rb only fails, after it writes
+  # +marker+, so that the marker shows whether anything compiled it, as a
+  # .gem file at +path+.
+  def broken_gem(path, marker)
+    Dir.mktmpdir("lota-fuse-broken") do |dir|
+      extconf = "ext/broken/extconf.rb"
+      FileUtils.mkdir_p(File.join(dir, File.dirname(extconf)))
+      File.write(File.join(dir, extconf), "File.write(#{marker.inspect}, 'compiled')\nabort 'broken never compiles'\n")
+      spec = Gem::Specification.new do |gem|
+        gem.name = "broken"
+        gem.version = "1.0.0"
+        gem.summary = "A gem lota fuse's tests never compile"
+        gem.authors = ["Lota's tests"]
+        gem.files = [extconf]
+        gem.extensions = [extconf]
+      end
+      Dir.chdir(dir) { Gem::Package.build(spec, true, false, path) }
+    end
+    path
+  end
+
+  # Runs this Ruby's own Bundler with +arguments+ for +gemfile+, outside
+  # the bundle these tests run in, as a developer runs it in a terminal.
+  def real_bundle(*, gemfile:)
+    env = ENV.keys.grep(/\ABUNDLER?_/).to_h { |key| [key, nil] }.merge("BUNDLE_GEMFILE" => gemfile, "RUBYOPT" => nil)
+    output, status = Open3.capture2e(env, RbConfig.ruby, Gem.bin_path("bundler", "bundle"), *,
+      chdir: File.dirname(gemfile))
+
+    assert status.success?, output
+  end
+
+  # Fledge leaves a game's development and test groups out of the app
+  # (Fledge::Bundle::WITHOUT), so compiling them gives the player nothing.
+  # Here the real Bundler locks the game, as its developer would, and
+  # locks the project, with no gem server to reach: lota fuse then builds
+  # with a development gem whose extension can only fail, and nothing ever
+  # compiles it.
+  def test_a_development_gem_with_an_extension_is_never_compiled
+    platform = Lota::Fuse.platform_name(Lota::Fuse.this_platform)
+    skip "Lota has no gem for #{Lota::Fuse.this_platform}" unless platform
+    marker = File.join(@root, "compiled")
+    gem = lota_gem(File.join(@root, "lota-#{Lota::VERSION}-#{platform}.gem"), "the installed Lota", platform:)
+    FileUtils.mkdir_p(File.join(@game, "vendor/cache"))
+    FileUtils.cp(gem, File.join(@game, "vendor/cache"))
+    broken_gem(File.join(@game, "vendor/cache/broken-1.0.0.gem"), marker)
+    write("Gemfile", %(gem "lota", "#{Lota::VERSION}"\n\ngroup :development do\n  gem "broken"\nend\n))
+    real_bundle("lock", gemfile: File.join(@game, "Gemfile"))
+    fake("bundle", <<~SH)
+      echo "bundle $* with $BUNDLE_GEMFILE" >> "#{@log}"
+      if [ "$BUNDLE_GEMFILE" = "#{project('Gemfile')}" ]; then
+        exec "#{RbConfig.ruby}" "#{Gem.bin_path('bundler', 'bundle')}" "$@" >> "#{@log}" 2>&1
+      fi
+      if [ "$1" = exec ]; then shift; exec "$@"; fi
+    SH
+
+    paths = nil
+    capture_io { paths = fuse(platform: Lota::Fuse.this_platform, gem_file: gem).call }
+
+    refute_path_exists marker
+    assert_equal ["#{File.join(@root, 'dist')}/Sample Game-arm64-darwin.app"], paths
+    assert_includes read("Gemfile.lock"), "\n    broken (1.0.0)\n"
+    refute_includes File.read(@log), "bundle install with #{project('Gemfile')}"
+    assert_includes File.read(@log), "bundle install with #{tools('Gemfile')}"
   end
 
   def test_a_lockfile_is_read_as_bundler_writes_it
@@ -419,7 +502,7 @@ class FuseTest < Minitest::Test
     ENV["LOTA_FLEDGE_REF"] = "v0.5.0"
     capture_io { fuse.call }
 
-    assert_includes read("Gemfile"), %(ref: "v0.5.0")
+    assert_equal tools_gemfile("v0.5.0"), File.read(tools("Gemfile"))
   ensure
     ENV.delete("LOTA_FLEDGE_REF")
   end
@@ -484,6 +567,21 @@ class FuseTest < Minitest::Test
     error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse.options(out: @game)).call }
 
     assert_includes error.message, "--out can't be the game's own folder"
+  end
+
+  # lota fuse writes its project and Fledge's Gemfile anew on every build,
+  # so a game in either folder would be lost.
+  def test_a_game_inside_the_folders_lota_fuse_writes_is_refused
+    %w[fuse-project fuse-tools].each do |folder|
+      inside = File.join(@root, "dist", folder, "game")
+      FileUtils.mkdir_p(inside)
+      File.write(File.join(inside, "main.rb"), "")
+
+      error = assert_raises(Lota::Fuse::Error) { Lota::Fuse.new(inside, Lota::Fuse.options(out: File.join(@root, "dist"))).call }
+
+      assert_includes error.message, "--out can't be the game's own folder"
+      assert_path_exists File.join(inside, "main.rb")
+    end
   end
 
   def test_a_platform_is_named_as_lota_names_its_gem
@@ -581,12 +679,38 @@ class FuseTest < Minitest::Test
   end
 
   def test_a_failed_install_of_fledge_says_it_needs_the_network
+    write_bundle
     fake("bundle", %(echo "bundle $*" >> "#{@log}"; [ "$1" != install ]\n))
 
     error = assert_raises(Lota::Fuse::Error) { fuse.call }
 
-    assert_includes error.message, "Installing Fledge failed (bundle install in #{project})"
-    assert_includes error.message, "needs the network"
+    assert_equal "Installing Fledge failed (bundle install in #{tools}). lota fuse needs the network, to fetch Fledge from " \
+      "https://github.com/setdef/Fledge at #{Lota::Fuse::FLEDGE_REF}.", error.message
+  end
+
+  # bundle exec names Bundler's setup in RUBYOPT by its full path, and a
+  # Bundler command that loads it sets up the Gemfile it names before it
+  # can lock or install it.
+  def test_the_bundle_lota_fuse_runs_in_stays_out_of_bundlers_commands
+    fake("bundle", %(echo "bundle $1 with RUBYOPT=$RUBYOPT" >> "#{@log}"\n))
+    previous = ENV.fetch("RUBYOPT", nil)
+    ENV["RUBYOPT"] = "-W0 -r/gems/bundler-4.0.22/lib/bundler/setup -rbundler/setup"
+
+    capture_io { fuse.call }
+
+    assert_equal ["bundle lock with RUBYOPT=-W0\n", "bundle install with RUBYOPT=-W0\n", "bundle exec with RUBYOPT=-W0\n"],
+      File.read(@log).lines
+  ensure
+    ENV["RUBYOPT"] = previous
+  end
+
+  def test_a_failed_lock_says_bundler_needs_the_gem_servers
+    fake("bundle", %(echo "bundle $*" >> "#{@log}"; [ "$1" != lock ]\n))
+
+    error = assert_raises(Lota::Fuse::Error) { fuse.call }
+
+    assert_equal "Locking the project's gems failed (bundle lock --add-checksums in #{project}). Bundler says above why. It " \
+      "asks the gem servers the Gemfile names for each gem's checksum, which needs the network.", error.message
   end
 
   def test_a_failed_fledge_build_is_reported

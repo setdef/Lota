@@ -20,14 +20,15 @@ Things a game author should know:
   running `lota fuse`. The game's Gemfile need not ask for Lota; `lota fuse`
   adds it.
 - Pure-Ruby gems, gems from RubyGems.org, Git, a folder inside the game, and
-  the game's `vendor/cache` all ride along. A gem with a C extension and no
-  build for the platform compiles on the building computer, so that
-  computer needs a C compiler: Xcode's command line tools on macOS
-  (`xcode-select --install`), a C compiler and `make` on Linux
-  (`build-essential`), RubyInstaller's MSYS2 tools on Windows
-  (`ridk install`). Without one, `lota fuse` fails after Bundler names the
-  gem and says what to install. Build each platform's app on that platform:
-  an extension compiles for the computer it compiles on.
+  the game's `vendor/cache` all ride along. Bundler only locks them; Fledge
+  compiles a shipped gem with a C extension and no build for the platform
+  on the building computer, so that computer needs a C compiler: Xcode's
+  command line tools on macOS (`xcode-select --install`), a C compiler and
+  `make` on Linux (`build-essential`), RubyInstaller's MSYS2 tools on
+  Windows (`ridk install`). Without one, `lota fuse` fails after the
+  compiler's output names the gem and says what to install. Gems in the
+  `development` and `test` groups never compile. Build each platform's app
+  on that platform: an extension compiles for the computer it compiles on.
 - Each gem ships whole, with the license files its package holds; honoring
   each gem's license (`bundle licenses` lists them) is the game author's
   job, and a gem whose package leaves out its license text needs it added
@@ -47,7 +48,8 @@ Things a game author should know:
 
 Experimental. Lota's iOS and iPadOS build has run in the Simulator on CI and an
 Android build has run on an emulator; a game's own build has run on a real iPad
-and iPhone, and nothing yet on a real Android device. `lota fuse` builds no phone app: follow the phone guide
+and iPhone, and Lota's Android host has started on one real Android phone
+without crashing, which is all that has been tried on an Android device. `lota fuse` builds no phone app: follow the phone guide
 ([doc/guide/phones.md](https://github.com/setdef/Lota/blob/trunk/doc/guide/phones.md)),
 which builds one with Fledge from a clone of Lota, and tell the person plainly
 what has and has not run on real hardware (its last section). A phone build

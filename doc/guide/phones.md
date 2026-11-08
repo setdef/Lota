@@ -9,14 +9,14 @@ Phones and tablets are where many games are played, and a Lota game runs there o
 
 [Fledge](https://github.com/setdef/Fledge) writes that project. It puts a Ruby of its own and your game in it, and compiles Lota's engine and extension for the phone while it does. This page takes your game folder through Fledge to an app on a Simulator, an emulator, and a device, and on to the files the App Store and Google Play take.
 
-The phone route is experimental. Read [What has run, and what has not](#what-has-run-and-what-has-not) before you promise anyone a phone build: a game has run on a real iPad and iPhone, and nothing yet on a real Android phone or tablet.
+The phone route is experimental. Read [What has run, and what has not](#what-has-run-and-what-has-not) before you promise anyone a phone build: a game has run on a real iPad and iPhone, and an Android build has started on one real Android phone without crashing, which is all that has been tried there.
 
 ## What you need
 
 For both systems:
 
 - A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`. Its `bundle install` brings Rice, whose headers the build reads.
-- Ruby 4.0 and Bundler, Git, CMake 3.21 or newer, and Ninja (optional, but faster).
+- Ruby 4.0 and Bundler, Git, CMake 3.21 or newer, and Ninja. LÖVE's engine and its libraries build with CMake and Ninja, so have both on your `PATH`.
 - Fledge v0.6.0, which your phone project's `Gemfile` names by its Git tag. Fledge downloads its Ruby runtime for each phone the first time it builds.
 
 For iOS and iPadOS, a Mac with:
@@ -27,9 +27,21 @@ For iOS and iPadOS, a Mac with:
 
 For Android, on x86-64 Linux:
 
-- A JDK, 17 or newer, and the Android SDK, with its `platform-tools` and `build-tools`.
-- The Android NDK, 30.0.16248370: `sdkmanager "ndk;30.0.16248370"`. Set `ANDROID_NDK_ROOT` to it.
+- A JDK, 17 or newer.
+- The Android SDK, with its `platform-tools`, and the Android NDK, 30.0.16248370.
 - `make` and a shell, which two of LÖVE's libraries build with, through their `configure` scripts.
+
+The SDK starts as its command-line tools: download "Command line tools only" for Linux from [Android Studio's download page](https://developer.android.com/studio), and unpack the zip's `cmdline-tools` folder as `cmdline-tools/latest` in a folder for the SDK, such as `~/Android/Sdk`, where `sdkmanager` expects it. Name that folder in `ANDROID_HOME`, accept the SDK's licences, and install the platform tools and the NDK:
+
+```sh
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "ndk;30.0.16248370"
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/30.0.16248370"
+```
+
+Gradle installs the rest, Android's platform 36 and `build-tools` 36.0.0, the first time it builds the app, so that first build needs the network.
 
 Lota's own checks build Android on Ubuntu 24.04. Fledge also builds Android projects on a Mac and on Windows, but Lota's Android libraries have not been built there yet.
 
@@ -62,10 +74,9 @@ For iOS, build SDL3 into `tmp/ios/sdl3`:
 bundle exec rake ios:sdl3
 ```
 
-For Android, build LÖVE's libraries and SDL3 into `tmp/android/deps`:
+For Android, build LÖVE's libraries and SDL3 into `tmp/android/deps`, with `ANDROID_NDK_ROOT` set as above:
 
 ```sh
-export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/30.0.16248370"
 bundle exec rake android:deps
 ```
 
@@ -137,11 +148,12 @@ android:
 
 `name` is the Xcode target's and the app's name: letters and digits. The identifier is the reverse-DNS name the App Store and Google Play know the app by, under a domain of yours in place of `example.com`; changing it later makes a new app. A game's `t.version` names the version of LÖVE it was written for, so the app's version is `fledge.yml`'s.
 
-Then tell Bundler where Lota's clone and its builds are, and lock the `ruby` platform, which Fledge builds a phone's gems for:
+Then tell Bundler where Lota's clone and its builds are, and lock the `ruby` platform, which Fledge builds a phone's gems for. Ask the clone's bundle for Rice's folder first, while you are still in `~/Lota`. Once `BUNDLE_GEMFILE` names the phone project, `bundle info rice` reads that project's bundle, which has no Rice, and prints nothing, and `fledge build` then stops with `RICE_DIR () holds no include/rice/rice.hpp`.
 
 ```sh
+rice=$(bundle info rice --path)
 cd MyGame-phone
-bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-sdl3=$HOME/Lota/tmp/ios/sdl3 --with-rice-dir=$(cd ~/Lota && bundle info rice --path)"
+bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-sdl3=$HOME/Lota/tmp/ios/sdl3 --with-rice-dir=$rice"
 bundle lock --add-platform ruby
 bundle install
 ```
@@ -149,7 +161,7 @@ bundle install
 For Android, name Android's libraries, SDL among them, instead:
 
 ```sh
-bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-android-deps=$HOME/Lota/tmp/android/deps --with-rice-dir=$(cd ~/Lota && bundle info rice --path)"
+bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-android-deps=$HOME/Lota/tmp/android/deps --with-rice-dir=$rice"
 ```
 
 ### The hosts
@@ -298,9 +310,11 @@ Lota's `phones.yml` workflow takes this page's commands on Lota's own sample gam
 
 On real devices, outside Lota's CI: a game's own build took this route from a clone of Lota at v0.1.3, with `rake ios:sdl3`, the same `build.lota` options, Fledge v0.5.1, and host files of the game's own, and installed it from a Mac by cable with `xcodebuild` (a Personal Team, `-allowProvisioningUpdates`) and `devicectl`, on an iPad Pro 12.9-inch (6th generation) with iPadOS 26.7.1 and an iPhone 13 mini with iOS 18.7.8. On both the game ran fullscreen with no status bar, in portrait and both landscapes; taps landed under the finger; sound played, and the silent switch muted it; tilting moved the accelerometer, which the Simulator has none of; and on the iPad a Bluetooth Xbox controller worked. On the iPhone 13 mini a thin column of the wrong colour showed at the right edge in landscape. A game at a display scale that is not a whole number (the iPhone 12 mini and 13 mini report 2.88) that keeps the default stencil, or depth, or MSAA, gets undrawn right-hand columns there on Metal: LÖVE's Metal backend makes the backbuffer's stencil and depth texture from the window's size in units times a scale it reads from the height (`src/modules/graphics/metal/Graphics.mm`, about lines 500 to 531), 2336 pixels where the drawable is 2338, and the render pass stops at the narrower. That is confirmed in the iPhone 13 mini Simulator (iOS 26.1); the check on the physical phone is pending. If a game uses none of them, set `t.window.stencil = false`, `t.window.depth = false`, and `t.window.msaa = 0`.
 
+On 2026-11-06 an `arm64-v8a` build with Lota's own Android host, from a clone of Lota at v0.2.2 with `rake android:deps` and Fledge v0.6.0, ran on a OnePlus Nord N30 5G with Android 14 and an Adreno 619 GPU. LÖVE's engine chose Vulkan there, and the app did not crash.
+
 Not yet tried:
 
-- Any real Android phone or tablet. The `arm64-v8a` build, which most Android phones use, has been built and never run, since no free runner boots an arm64 emulator.
+- Any other real Android phone, and any Android tablet. No free runner boots an arm64 emulator, so the `arm64-v8a` build, which most Android phones use, has run only on the one phone above.
 - The device commands above as Lota's own CI would run them, and an iPad or iPhone with Lota's own hosts rather than a game's.
 - Signing with a paid Apple team, exporting an IPA, TestFlight, App Review, and Google Play's review.
 - Building Android on a Mac or on Windows.

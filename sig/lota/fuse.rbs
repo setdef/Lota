@@ -38,6 +38,8 @@ module Lota
 
     PROJECT_FOLDER: String
 
+    TOOLS_FOLDER: String
+
     UNTITLED: String
 
     UNSAFE: Regexp
@@ -60,11 +62,15 @@ module Lota
 
     def call: () -> Array[String]
 
+    LOCKING: String
+
     COMPILER: String
 
     def out: () -> String
 
     def project: () -> String
+
+    def tools: () -> String
 
     def self.this_platform: () -> String
 
@@ -112,17 +118,19 @@ module Lota
 
     private def gemfile: (String folder, Lockfile? locked) -> String
 
+    private def write_tools: () -> void
+
     private def fledge_yml: (String name, String identity, String folder) -> String
 
     private def entry_script: (String folder) -> String
 
-    private def run: (Array[String] bundle, *String arguments, step: String, why: String) -> void
+    private def run: (Array[String] bundle, *String arguments, folder: String, step: String, why: String) -> void
 
-    private def network: (?String subject) -> String
+    private def network: () -> String
 
-    private def build: (Array[String] bundle) -> Array[String]
+    private def build: (Array[String] bundle, ?why: String?) -> Array[String]
 
-    private def environment: () -> Hash[String, String?]
+    private def environment: (String folder) -> Hash[String, String?]
   end
 end
 

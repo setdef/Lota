@@ -397,7 +397,8 @@ jobs:
   # A developer with Ruby and no compiler fuses a game with a gem to
   # compile: Ruby's own Debian image, which has no C compiler or make,
   # with only Git and the OpenGL libraries Lota loads added. lota fuse must
-  # fail, after Bundler names the gem, and say what to install.
+  # fail as Fledge compiles the gem for the app's Ruby, after the
+  # compiler's output names it, and say what to install.
   no-compiler:
     name: Fuse fuse_native with no compiler (x86_64-linux-gnu)
     if: ${{ !inputs.game_repository }}
@@ -443,5 +444,5 @@ jobs:
           echo "exit status: $status"; echo "--- stdout"; cat "$RUNNER_TEMP/fuse.out"; echo "--- stderr"; cat "$RUNNER_TEMP/fuse.err"
           [ "$status" = 1 ] || { echo "::error::lota fuse exited with $status, not 1"; exit 1; }
           grep -F "fast_blank" "$RUNNER_TEMP/fuse.out" "$RUNNER_TEMP/fuse.err"
-          grep -F "lota fuse: Installing the game's gems and Fledge failed" "$RUNNER_TEMP/fuse.err"
+          grep -F "lota fuse: fledge build failed" "$RUNNER_TEMP/fuse.err"
           grep -F "A gem with a C extension compiles on this computer, which needs a C compiler" "$RUNNER_TEMP/fuse.err"
