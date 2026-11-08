@@ -13,12 +13,18 @@ module DiagRss
     attr_accessor :count
   end
 
+  def before_setup
+    warn "DIAG START #{Time.now.strftime('%H:%M:%S')} #{self.class}##{name}"
+    super
+  end
+
   def after_teardown
     super
     DiagRss.count += 1
     rss = `ps -o rss= -p #{Process.pid}`.strip
     swap = (DiagRss.count % 25).zero? ? `sysctl -n vm.swapusage 2>/dev/null`.strip : ""
     warn "DIAG #{DiagRss.count} #{Time.now.strftime('%H:%M:%S')} rss=#{rss} #{self.class}##{name} #{swap}"
+    failures.each { |failure| warn "DIAG FAILURE #{name}: #{failure.message[0, 6000]}" }
   end
 end
 

@@ -252,8 +252,9 @@ class RakeTasksTest < Minitest::Test
       failure = e
     end
 
-    puts "DIAG STDERR BEGIN", err.lines.last(400).join, "DIAG STDERR END"
-    assert_nil failure, "#{failure&.message}\n#{out}\n#{err.lines.last(400).join}"
+    kept = err.lines.grep_v(/\A\h+-\h+ /)
+    puts "DIAG STDERR BEGIN", kept.last(1500).join, "DIAG STDERR END"
+    assert_nil failure, "#{failure&.message}\n#{out}"
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
     skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 17 : 10
