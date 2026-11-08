@@ -29,8 +29,9 @@ module Lota
   # (ADR 003, section 8), writes a Gemfile that pins Lota to this version,
   # puts the installed Lota gem in the project's <tt>vendor/cache</tt>,
   # since Lota is not on RubyGems.org, writes <tt>fledge.yml</tt> and an
-  # entry script that turns YJIT on where the runtime has it and boots the
-  # game fused, locks the bundle, writes the app's notices, and runs
+  # entry script that turns YJIT on where the runtime has it, boots the
+  # game fused, and starts it again when it restarts (Lota::Restart),
+  # locks the bundle, writes the app's notices, and runs
   # <tt>fledge build</tt>. Fledge builds for the computer it runs on, so
   # each platform's app is built on that platform.
   #
@@ -528,10 +529,13 @@ module Lota
         # frozen_string_literal: true
 
         # Written by lota fuse, which writes it again on every build. Starts
-        # the game in #{GAME_FOLDER}/#{folder} as a fused game, as a shipped game starts.
+        # the game in #{GAME_FOLDER}/#{folder} as a fused game, as a shipped game starts,
+        # and starts it again when it restarts, by running this app's program
+        # again with the same arguments (Lota::Restart).
         RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
         require "lota"
-        exit Lota::Boot.new(File.join(__dir__, #{GAME_FOLDER.inspect}, #{folder.inspect}), ARGV, fused: true).call
+        Lota::Restart.remember(ARGV, fused: true)
+        exit Lota::Restart.run(Lota::Boot.new(File.join(__dir__, #{GAME_FOLDER.inspect}, #{folder.inspect}), ARGV, fused: true))
       RUBY
     end
 

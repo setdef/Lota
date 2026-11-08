@@ -42,7 +42,8 @@ Things a game author should know:
   placeholder: set your own before you ship.
 - Unsigned apps trigger Windows SmartScreen and macOS Gatekeeper prompts; that
   is expected until you sign.
-- A fused game does not restart yet.
+- A fused game restarts as LÖVE's does: `Lota::Event.restart` runs the app's
+  program again with the same arguments, and `Lota.restart` holds the value.
 
 ## Phones and tablets
 

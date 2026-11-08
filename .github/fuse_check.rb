@@ -10,7 +10,8 @@ require_relative "../lib/lota/version"
 
 # Checks what the app lota fuse built from one of the games in GAMES did
 # when the fuse workflow ran it (.github/workflows/fuse.yml): that it quit
-# with 3, ran fused, saved a file under its identity alone, where LÖVE's
+# with 3, for test/games/fuse that it restarted once, as LÖVE's fused game
+# restarts, ran fused, saved a file under its identity alone, where LÖVE's
 # fused game saves (ADR 003, section 8), played its sound, and printed
 # the lines that say its gems reached the app. Given the file of what the
 # app printed to stderr and the name of an OpenAL Soft backend, it also
@@ -97,6 +98,17 @@ checks = {
   "it played its sound" => output.match?(/^[\w ]+: 1 source playing$/),
 }
 lines.each { |line| checks["it printed #{line}"] = output.lines.include?("#{line}\n") }
+if ARGV.fetch(2) == "fuse"
+  # Its first run restarts with its process id, and its second says that
+  # value and its own: the same process on macOS and Linux, where exec
+  # replaces it, and a new one on Windows, where Ruby's exec starts the
+  # program as a process of its own and waits for it (Lota::Restart).
+  runs = output.scan(/^run: (\d+) (.*)$/)
+  checks["it restarted once, with the value it chose"] = runs.size == 2 && runs[0][1] == "nil" &&
+    runs[1][1] == "#{runs[0][0]}.0"
+  checks["each run was #{Gem.win_platform? ? 'a process of its own' : 'the same process'}"] = runs.size == 2 &&
+    (runs[0][0] == runs[1][0]) != Gem.win_platform?
+end
 if ARGV.length > 3
   errors = File.read(ARGV.fetch(3))
   backend = ARGV.fetch(4)

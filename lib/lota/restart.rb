@@ -43,8 +43,25 @@ module Lota
   # macOS has no public way to raise those threads, and starting a new
   # process instead would not keep the process id.
   #
-  # Only <tt>lota run</tt> remembers the command, so a game started in
-  # any other way, such as by Lota::Boot in your own program, ends when it
+  # <tt>lota run</tt> remembers the program Ruby runs, <tt>$0</tt>, which
+  # under <tt>bundle exec lota run</tt> is still Lota's: Bundler loads the
+  # program into its own process, so the process began as +bundle+, but
+  # it sets <tt>$0</tt> to the program, and puts its own setup in
+  # +RUBYOPT+, which the new process inherits (Bundler::CLI::Exec,
+  # kernel_load, and Bundler::SharedHelpers.set_rubyopt).
+  #
+  # A fused game, which the entry script <tt>lota fuse</tt> writes starts
+  # (Lota::Fuse), starts again as LÖVE's fused game does, by running the
+  # program the process runs, with the same arguments: the app's own
+  # launcher, which Fledge builds and which runs Ruby inside its own
+  # process, found as LÖVE's love.filesystem.getExecutablePath finds it
+  # (Lota::Filesystem.executable_path). It sets the app up as it did the
+  # first time, and on macOS keeps the app's bundle. Only when that
+  # program is Ruby's own, as when someone runs the entry script with
+  # +ruby+, does the game start again through Ruby and the script.
+  #
+  # A game started in any other way, such as by Lota::Boot in your own
+  # program, or on a phone, which cannot replace its process, ends when it
   # restarts, as a quit ends it. Ruby's own flags are not remembered but
   # +-w+ and +-W0+; the ones that matter to a game belong in +RUBYOPT+,
   # which the new process inherits with the rest of the environment.
@@ -98,6 +115,8 @@ module Lota
     @command = nil
     @directory = nil
     @pending = nil
+    @arguments = []
+    @fused = false
 
     class << self
       # The value the game that restarted chose, or +nil+ when the game
@@ -153,17 +172,22 @@ module Lota
         @value = nil
       end
 
-      # Remembers how <tt>lota run</tt> was started, to start it again
-      # (Process.argv0, the interpreter, and the working directory), and
-      # makes sure a restart is the last thing the process does. +arguments+
-      # are the command line's arguments after the script. A script Ruby
-      # cannot start again, such as <tt>-e</tt>'s, is not remembered. :nodoc:
-      def remember(arguments)
-        script = File.expand_path(Process.argv0)
+      # Remembers how the game was started, to start it again (the
+      # interpreter, the program Ruby runs, <tt>$0</tt>, and the working
+      # directory), and makes sure a restart is the last thing the process
+      # does. +arguments+ are the command line's arguments after the
+      # program. With +fused+, the game is a fused one, which starts again
+      # by running the program the process runs (fused_command). A program
+      # Ruby cannot start again, such as <tt>-e</tt>'s, is not remembered.
+      # :nodoc:
+      def remember(arguments, fused: false)
+        script = File.expand_path($PROGRAM_NAME)
         return unless File.file?(script)
 
         flag = { true => "-w", nil => "-W0" }[$VERBOSE]
         @command = [RbConfig.ruby, *flag, script, *arguments].freeze
+        @arguments = arguments.dup.freeze
+        @fused = fused
         @directory = Dir.pwd
         install
       end
@@ -174,18 +198,46 @@ module Lota
         !@command.nil?
       end
 
+      # Runs the game +boot+ starts (Lota::Boot#call) and returns its exit
+      # status, asking for the process to start again once it exits when
+      # the game restarted and the command was remembered. :nodoc:
+      def run(boot)
+        status = boot.call
+        request(boot.restart_value) if boot.restart? && restartable?
+        status
+      end
+
       # Asks for the process to start again with +value+ once it has
-      # exited. Raises TypeError, before the game ends, for a value
-      # encode cannot write. :nodoc:
+      # exited, and, for a fused game, chooses its command from the program
+      # the process runs. Raises TypeError, before the game ends, for a
+      # value encode cannot write. :nodoc:
       def request(value)
-        @pending = encode(value)
+        pending = encode(value)
+        @command = fused_command(Lota::Native::Filesystem.executable_path) if @fused && Lota::Native::Filesystem.open?
+        @pending = pending
+      end
+
+      # The command that starts a fused game again when +program+ is the
+      # program its process runs, as love.cpp's main runs the game again
+      # in the program it is (src/love.cpp, main): +program+, with the
+      # arguments the game was started with. When +program+ is one of
+      # Ruby's own, in Ruby's +bin+ folder, or empty because the system did
+      # not name it, the game starts again as remember wrote, through Ruby
+      # and the entry script; on macOS and Linux Fledge's <tt>bin/ruby</tt>
+      # hands that script to the app's launcher too (Fledge's ADR 026,
+      # section 3). :nodoc:
+      def fused_command(program)
+        command = @command
+        return command if program.empty? || File.identical?(File.dirname(program), RbConfig::CONFIG.fetch("bindir"))
+
+        [program, *@arguments].freeze
       end
 
       # Replaces the process with the command it was started with, when a
       # restart was requested, as the last of the exit procs: Ruby runs
       # them in the opposite order to the one they were registered in, and
-      # lota run registers this before it loads Lota, so the game's, and
-      # Lota's own, have run. The window is closed first, so the
+      # Lota registers this as it loads, before its own (lib/lota.rb), so
+      # the game's, and Lota's own, have run. The window is closed first, so the
       # new process does not open its window beside it. If the system
       # cannot start the command, says so and exits with status 1. :nodoc:
       def exec_pending
@@ -270,7 +322,10 @@ module Lota
         raise ArgumentError, "not a restart value" unless scanner.skip(delimiter)
       end
 
-      private def install
+      # Registers exec_pending as an exit proc, once in a process. Lota
+      # calls it as it loads, before it registers exit procs of its own,
+      # so a restart is the last thing the process does. :nodoc:
+      def install
         return if @installed
 
         @installed = true

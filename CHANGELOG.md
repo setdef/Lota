@@ -24,6 +24,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Event.restart` starts the game again under `bundle exec lota run`, where it ran `bundle` again and failed (`Could not find command "run"`).
+- A game `lota fuse` built restarts, as a fused LÖVE game does, where it quit: its app's program runs again with the same arguments, and `Lota.restart` holds the value.
 - `Lota::Graphics::Font.new(size, nil, dpiscale)` and `Font.new(data, size, nil, dpiscale)` ignore the DPI scale after a `nil` hinting mode, as LÖVE does, rather than using it.
 - The phone and Windows builds' downloads retry a failed connection.
 - `lota fuse` installs none of the game's gems: Bundler only locks them, and Fledge, which runs from a Gemfile of its own in `dist/fuse-tools`, compiles only the gems the app ships, so a gem with a C extension in the `development` or `test` group no longer compiles, or fails a build. A failed build of a game with gems now says what a compiler needs.

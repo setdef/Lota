@@ -173,6 +173,55 @@ class RestartTest < Minitest::Test
     assert_empty environment
   end
 
+  LOTA = File.expand_path("../exe/lota", __dir__)
+
+  # A copy of Lota::Restart that remembers +arguments+, with +fused+, as
+  # it would in a process whose $0 is +program+, and has registered no
+  # exit proc in this one.
+  def remembered(program, arguments, fused: false)
+    copy = Lota::Restart.dup
+    copy.instance_variable_set(:@installed, true)
+    before = $PROGRAM_NAME
+    begin
+      $PROGRAM_NAME = program
+      copy.remember(arguments, fused:)
+    ensure
+      $PROGRAM_NAME = before
+    end
+    copy
+  end
+
+  # bundle exec loads the program in its own process, where Process.argv0
+  # is bundle (Bundler::CLI::Exec, kernel_load) and $0 the program, so
+  # lota run remembers $0.
+  def test_lota_run_remembers_the_program_ruby_runs_not_the_one_the_process_began_with
+    command = remembered(LOTA, ["run", "games/pong"]).instance_variable_get(:@command)
+
+    assert_equal RbConfig.ruby, command.first
+    assert_equal [LOTA, "run", "games/pong"], command.last(3)
+  end
+
+  # A fused game starts again as LÖVE's does, by running its program again
+  # with its arguments (src/love.cpp, main): the app's own launcher, as
+  # Fledge builds it. Only when the program is Ruby's own, as when someone
+  # runs the entry script with ruby, does it start Ruby with the script.
+  def test_a_fused_game_starts_its_program_again_with_its_arguments
+    copy = remembered(LOTA, ["--level", "2"], fused: true)
+    launcher = "/Applications/Sample Game.app/Contents/MacOS/Sample Game"
+    command = copy.instance_variable_get(:@command)
+
+    assert_equal [launcher, "--level", "2"], copy.fused_command(launcher)
+    assert_equal ["C:/Games/Sample Game/Sample Game.exe", "--level", "2"],
+      copy.fused_command("C:/Games/Sample Game/Sample Game.exe")
+    assert_equal [RbConfig.ruby, LOTA, "--level", "2"], command.values_at(0, -3, -2, -1)
+    assert_equal command, copy.fused_command(RbConfig.ruby)
+    assert_equal command, copy.fused_command(""), "nothing to name the program by leaves Ruby's command"
+  end
+
+  def test_a_program_ruby_cannot_start_again_is_not_remembered
+    refute_predicate remembered("-e", []), :restartable?
+  end
+
   def test_asking_to_restart_with_what_cannot_cross_raises_before_the_game_ends
     assert_raises(TypeError) { Lota::Restart.request([Object.new]) }
   end

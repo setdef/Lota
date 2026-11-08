@@ -5,11 +5,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# Says whether it runs fused, with YJIT, and where it saves, saves a
-# file, plays a tenth of a second of silence through the gem's OpenAL
-# Soft, and quits with status 3, so an exit status of 0 cannot pass by
-# accident.
+# Restarts once, as LÖVE's fused game restarts, with its process id as
+# the value, and says each run's process id and value, then says whether it runs fused, with YJIT, and where it
+# saves, saves a file, plays a tenth of a second of silence through the
+# gem's OpenAL Soft, and quits with status 3, so an exit status of 0
+# cannot pass by accident.
 def Lota.load(_arguments)
+  puts "run: #{Process.pid} #{Lota.restart.inspect}"
+  return Lota::Event.restart(Process.pid) if Lota.restart.nil?
+
   puts "fused: #{Lota::Filesystem.fused?}"
   puts "yjit: #{defined?(RubyVM::YJIT) ? RubyVM::YJIT.enabled? : 'absent'}"
   puts "identity: #{Lota::Filesystem.identity}"

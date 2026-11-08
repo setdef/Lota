@@ -227,7 +227,9 @@ Every app carries a notices file, `app/NOTICES.txt`, in the folder beside the ap
 
 Your other gems go into the app whole, with the license files their packages hold, whatever their licenses. What those licenses ask of you when you give the app to people is yours to honor, as with any Ruby program you ship: `bundle licenses` lists the license each gem declares, and a gem whose package leaves out its license text, which a license such as MIT asks you to keep with every copy, needs it added to the notices you ship.
 
-What a fused game does not do yet: restart (`Lota::Event.restart` ends it as a quit does). `lota fuse` builds no phone app; [the phone guide](doc/guide/phones.md) builds one with Fledge directly. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
+A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app's program starts it again with the same arguments, with `Lota.restart` holding the value, as `lota run` and `bundle exec lota run` do.
+
+What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](doc/guide/phones.md) builds one with Fledge directly. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
 
 ## Documentation
 

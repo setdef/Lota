@@ -124,8 +124,9 @@ module Lota
     # returns <tt>"restart"</tt>, alone or first in an Array with the
     # value the game restarts with, as love.run returns them after
     # Lota::Event.restart (callbacks.lua:177-187), ends the game with
-    # status 0 and makes #restart? true; <tt>lota run</tt> then starts the
-    # game again (Lota::Restart). Raises TypeError, before anything ends,
+    # status 0 and makes #restart? true; <tt>lota run</tt>, or the entry
+    # script of a game <tt>lota fuse</tt> built, then starts the game
+    # again (Lota::Restart). Raises TypeError, before anything ends,
     # for a restart value that cannot cross into the new process.
     #
     # Once Lota.run has returned its frame, each new frame, the error

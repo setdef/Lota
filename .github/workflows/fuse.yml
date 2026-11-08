@@ -10,6 +10,11 @@
 # window, since a runner has no GPU, plays a sound, saves a file, and
 # quits with 3; the check reads that it ran fused and saved under its
 # identity alone, where LÖVE's fused game saves (ADR 003, section 8).
+# test/games/fuse first restarts once, as LÖVE's fused game restarts, and
+# the check reads that the value crossed and that the run after it was
+# the same process on macOS and Linux and a new one on Windows. The entry
+# script this commit's lota fuse writes calls the gem's Lota::Restart, so
+# until a release carries what it calls, run this by hand with gems_run.
 # Every app's notices are checked in the archive a player unpacks: the
 # NOTICES.txt lota fuse writes, with Lota's own license statement, each
 # library the gem carries, FreeType's credit, OpenAL Soft's source

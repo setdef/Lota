@@ -46,11 +46,16 @@ class RestartRunTest < Minitest::Test
   # restarted process inherits, as Ruby's own flags are not repeated but
   # for -w.
   def lota_run(*, environment: {})
+    capture2e(run_environment.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run", GAME, *)
+  end
+
+  # The environment every run here starts with: the load path, in
+  # RUBYOPT, and the log.
+  def run_environment
     native = File.dirname(File.dirname(loaded("lota/native")))
     native_test = File.dirname(loaded("lota_native_test"))
     load_path = [native, File.join(ROOT, "lib"), native_test].uniq.map { |path| "-I#{path}" }.join(" ")
-    capture2e({ "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log }.merge(environment), RbConfig.ruby, "-w",
-      File.join(ROOT, "exe/lota"), "run", GAME, *)
+    { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log }
   end
 
   # The lines of the log: [kind, fields] for each, with the fields as a
@@ -157,6 +162,52 @@ class RestartRunTest < Minitest::Test
     lota_run("never", environment: { "LOTA_RESTART_VALUE" => "eval:exit!(9)" })
 
     assert_equal ["nil", "false"], log.first.last.values_at("restart", "variable")
+  end
+
+  # bundle exec loads a Ruby program in its own process, so Ruby's
+  # Process.argv0 is bundle, while $0 is the program (Bundler::CLI::Exec,
+  # kernel_load). The program here stands for the wrapper RubyGems
+  # installs as lota, with the .bat beside it that Windows runs, whose
+  # first line Bundler reads to know it runs Ruby.
+  def test_a_restart_under_bundle_exec_runs_the_game_again_and_not_bundle
+    wrapper = File.join(@directory, "lota")
+    File.write(wrapper, "#!/usr/bin/env ruby\nload #{File.join(ROOT, 'exe/lota').inspect}\n")
+    File.chmod(0o755, wrapper)
+    File.write("#{wrapper}.bat", "@\"ruby.exe\" \"%~dpn0\" %*\r\n")
+    bundle = Gem.bin_path("bundler", "bundle")
+    output, status = capture2e(run_environment.merge("BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile")),
+      RbConfig.ruby, bundle, "exec", wrapper, "run", GAME, "string")
+
+    assert_equal 3, status.exitstatus, output
+    assert_equal %w[load at_exit load at_exit], log.map(&:first), output
+    first, _, second, = log.map(&:last)
+
+    assert_equal "\"café\\nline\"", second["restart"]
+    assert_equal [%(["string"])] * 2, [first["arguments"], second["arguments"]], "the same arguments"
+  end
+
+  # The entry script lota fuse writes (Lota::Fuse), run by Ruby itself
+  # rather than by Fledge's launcher, as a developer may run it: the
+  # program the process runs is Ruby's, so the game starts again through
+  # Ruby and the script, with the arguments it was given.
+  def test_a_fused_game_run_by_ruby_restarts_through_ruby_and_its_script
+    FileUtils.mkdir_p(File.join(@directory, "game"))
+    FileUtils.cp_r(GAME, File.join(@directory, "game", "restart"))
+    entry = File.join(@directory, "main.rb")
+    File.write(entry, <<~RUBY)
+      require "lota"
+      Lota::Restart.remember(ARGV, fused: true)
+      exit Lota::Restart.run(Lota::Boot.new(File.join(__dir__, "game", "restart"), ARGV, fused: true))
+    RUBY
+    output, status = capture2e(run_environment, RbConfig.ruby, entry, "string")
+
+    assert_equal 3, status.exitstatus, output
+    assert_equal %w[load at_exit load at_exit], log.map(&:first), output
+    first, _, second, = log.map(&:last)
+
+    assert_equal "\"café\\nline\"", second["restart"]
+    assert_equal [%(["string"])] * 2, [first["arguments"], second["arguments"]], "the same arguments"
+    assert_exec_replaced_the_process([first["pid"], second["pid"]])
   end
 
   def test_nothing_is_left_to_restart_when_the_game_is_not_run_by_lota_run

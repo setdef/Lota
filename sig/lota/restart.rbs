@@ -30,6 +30,10 @@ module Lota
 
     self.@installed: bool?
 
+    self.@arguments: Array[String]
+
+    self.@fused: bool
+
     def self.value: () -> value
 
     def self.encode: (Variant::carried value) -> String
@@ -38,11 +42,15 @@ module Lota
 
     def self.take: (?_Environment environment) -> void
 
-    def self.remember: (Array[String] arguments) -> void
+    def self.remember: (Array[String] arguments, ?fused: bool) -> void
 
     def self.restartable?: () -> bool
 
+    def self.run: (Boot boot) -> Integer
+
     def self.request: (Variant::carried value) -> String
+
+    def self.fused_command: (String program) -> Array[String]?
 
     def self.exec_pending: () -> void
 
@@ -56,7 +64,7 @@ module Lota
 
     private def self.expect: (StringScanner scanner, Regexp delimiter) -> void
 
-    private def self.install: () -> void
+    def self.install: () -> void
 
   end
 end

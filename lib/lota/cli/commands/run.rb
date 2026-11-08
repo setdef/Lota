@@ -26,8 +26,8 @@ module Lota
       #
       # A game that restarts (Lota::Event.restart) ends as a quit does, and
       # this command then runs itself again with <tt>exec</tt>, with the
-      # same arguments, so the game starts anew with Lota.restart set
-      # (Lota::Restart).
+      # same arguments, under <tt>bundle exec</tt> too, so the game starts
+      # anew with Lota.restart set (Lota::Restart).
       #
       # Use it from your game's folder while you work on it.
       #
@@ -82,10 +82,7 @@ module Lota
           end
 
           require "lota"
-          boot = Lota::Boot.new(path, arguments)
-          status = boot.call
-          Lota::Restart.request(boot.restart_value) if boot.restart? && Lota::Restart.restartable?
-          exit(status)
+          exit(Lota::Restart.run(Lota::Boot.new(path, arguments)))
         end
         private_class_method :run_game
         # SPDX-SnippetEnd
