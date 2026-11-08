@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `rake ios:notices[PROJECT]` and `rake android:notices[PROJECT]` write a phone project's `NOTICES.txt`, and on Android copy OpenAL Soft's source into its `sources/` folder.
+
 ## [0.2.2] - 2026-11-06
 
 ### Changed

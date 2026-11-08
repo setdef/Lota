@@ -43,6 +43,8 @@ module Lota
 
       def self.new: (name: String, version: String?, license: Array[String], copyright: Array[String], credit: String?, file: String, separate: bool, source: Source?) -> instance
 
+      def within: (String folder) -> Component
+
       def self.from: (entry entry) -> Component
 
       def title: () -> String

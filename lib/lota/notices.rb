@@ -72,10 +72,12 @@ module Lota
     # [copyright] Its notices of copyright.
     # [credit] The words its license asks a product's documentation to
     #   carry, or +nil+.
-    # [file] The file of the gem that holds it, relative to the gem.
+    # [file] The file of the app that holds it, relative to the folder that
+    #   holds the app's +app+ folder. A manifest gives it relative to the
+    #   gem, which #within places in the app.
     # [separate] Whether that file is a library of its own, rather than
     #   Lota's extension, which compiles it in.
-    # [source] The Source of its code the gem carries, or +nil+.
+    # [source] The Source of its code the app carries, or +nil+.
     class Component < ::Data.define(:name, :version, :license, :copyright, :credit, :file, :separate, :source)
       # Its name, then its version when known.
       #
@@ -84,6 +86,19 @@ module Lota
       #   component.title # => "OpenAL Soft 1.24.3"
       def title
         [name, version].compact.join(" ")
+      end
+
+      # This component of a gem at +folder+ in the app: its file and its
+      # source's, which a manifest gives relative to the gem, relative to the
+      # folder that holds the app's +app+ folder, as +folder+ is.
+      #
+      # === Example
+      #
+      #   component.within("lib/ruby/gems/4.0.0/gems/lota-0.2.0").file
+      #   # => "lib/ruby/gems/4.0.0/gems/lota-0.2.0/lib/lota/native.bundle"
+      def within(folder)
+        archive = source
+        with(file: File.join(folder, file), source: archive && archive.with(file: File.join(folder, archive.file)))
       end
 
       # The Component a manifest's entry describes, a Hash from JSON.
@@ -96,9 +111,10 @@ module Lota
       end
     end
 
-    # The archive of a component's source code the gem carries.
+    # The archive of a component's source code the app carries.
     #
-    # [file] The archive, relative to the gem.
+    # [file] The archive, relative to the folder that holds the app's +app+
+    #   folder, or in a manifest relative to the gem.
     # [url] Where it was published.
     # [sha256] Its SHA-256, in hexadecimal.
     # [license] The SPDX license expressions of everything in it.
@@ -115,7 +131,9 @@ module Lota
       manifest = File.join(dir, MANIFEST)
       raise Error, "the gem has no #{MANIFEST}" unless File.file?(manifest)
 
-      components = JSON.parse(File.read(manifest, encoding: Encoding::UTF_8)).fetch("components").map { |entry| Component.from(entry) }
+      components = JSON.parse(File.read(manifest, encoding: Encoding::UTF_8)).fetch("components").map do |entry|
+        Component.from(entry).within(gem_folder)
+      end
       texts = Dir.glob("*.txt", base: File.join(dir, LICENSES)).to_h do |name|
         [File.basename(name, ".txt"), File.read(File.join(dir, LICENSES, name), encoding: Encoding::UTF_8)]
       end
@@ -125,7 +143,8 @@ module Lota
     # The components the notices name, in the manifest's order.
     attr_reader :components
 
-    # [components] Each Component the app holds.
+    # [components] Each Component the app holds, where it is in the app
+    #   (Component#within).
     # [texts] Each license's text, by its SPDX identifier.
     # [platform] The String platform the app is built for.
     # [gem_folder] Where the gem is in the app, relative to the folder that
@@ -181,7 +200,7 @@ module Lota
     private def groups
       @components.group_by(&:file).map do |file, components|
         where = components.first&.separate ? "A library of its own" : "Compiled into Lota's extension"
-        "#{where}, #{path(File.join(@gem_folder, file))}:\n\n#{components.map { |component| entry(component) }.join("\n")}"
+        "#{where}, #{path(file)}:\n\n#{components.map { |component| entry(component) }.join("\n")}"
       end
     end
 
@@ -199,7 +218,7 @@ module Lota
 
     private def source(source)
       [
-        "  Source: #{path(File.join(@gem_folder, source.file))}",
+        "  Source: #{path(source.file)}",
         "  The source code of this library, as its authors released it, published at #{source.url}, SHA-256 " \
           "#{source.sha256}, with code under #{source.license.join(', ')}.",
       ]

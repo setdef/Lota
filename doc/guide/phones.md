@@ -257,16 +257,20 @@ apksigner sign --ks release.jks --out MyGame.apk MyGame-aligned.apk
 
 ## Licences and notices
 
-An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem folder goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app. Lota has no command yet that writes the rest of a phone app's notices; `ext/lota/licenses.rb` in the clone records each library a phone build links, and `ext/lota/licenses/` holds their texts. Carry those notices in the app, and credit the FreeType Team in its documentation, as FreeType's licence asks.
+An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem folder goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app.
+
+Lota writes the rest, the notices of LÖVE's engine and the libraries a phone build links, into the phone project's `NOTICES.txt`, which goes into the app's `app/` folder, as `lota fuse` writes a desktop app's. Run it in the clone, before `fledge build`, and again after you pull a new version of Lota:
+
+```sh
+bundle exec rake ios:notices[$HOME/MyGame-phone]
+bundle exec rake android:notices[$HOME/MyGame-phone]
+```
+
+The file names Lota and each library, with its version, licences, and notices of copyright, and ends with the text of every licence it names. It comes from the clone's record of who wrote what, `ext/lota/licenses.rb`. FreeType's licence also asks that the app's documentation credit the FreeType Team, in words the file quotes; put them there too.
 
 OpenAL Soft is under the GNU Library General Public License, version 2 or later, which lets a player replace it with a build of their own:
 
-- **Android** links it as `libopenal.so`, a shared library apart from Lota's `libfledgeext.so`, as LÖVE's Android app does. Carry its licence text and its source, the release archive `rake android:deps` built it from, in the app, and say in the app's notices where they are. A folder in the phone project goes into the app:
-
-  ```sh
-  mkdir -p MyGame-phone/licenses
-  cp ~/Lota/ext/lota/licenses/LICENSE-LGPL-2.0-or-later.txt ~/Lota/vendor/sources/android/openal-soft-1.24.3.tar.bz2 MyGame-phone/licenses/
-  ```
+- **Android** links it as `libopenal.so`, a shared library apart from Lota's `libfledgeext.so`, as LÖVE's Android app does. Its source must go with the app, so `rake android:notices` also copies its release's archive, the one `rake android:deps` builds from, into the project's `sources/` folder, downloading it if it has to and checking its SHA-256, and the notices say where it is in the app.
 - **iOS** plays sound through Apple's OpenAL framework, as LÖVE's iOS build does, so no LGPL code is in an iOS app.
 
 ## What has run, and what has not
@@ -274,7 +278,7 @@ OpenAL Soft is under the GNU Library General Public License, version 2 or later,
 Lota's `phones.yml` workflow takes this page's commands on Lota's own sample game, `test/games/phone`, on GitHub's runners:
 
 - iOS, with Xcode 26.3 and XcodeGen 2.46.0 on macOS 15: the project builds for the Simulator, and for devices, Debug and Release, with signing off, and archives with signing off. The game runs in an iPhone 17 Pro and an iPad Pro 13-inch (M5) Simulator of iOS 26.2: it draws on Metal at the screen's own pixels (2622 by 1206 on the iPhone, in landscape), plays its tone, saves a file, finds graphics from another thread refused, quits after its 12 seconds, about 1,600 frames, and Ruby exits with status 0. Each line it prints reaches the log as it prints it, which Fledge v0.5.1 brought.
-- Android, with the NDK 30.0.16248370 and Java 21 on Ubuntu 24.04: the project builds a debug APK, a release APK, and an App Bundle for `arm64-v8a` and `x86_64`, and the release APK and bundle sign with a key made for the run; the app carries OpenAL Soft's licence and source from `licenses/`. The debug APK runs on an `x86_64` emulator of Android 16 (API 36): the game draws with OpenGL ES 3.0 through the emulator's software renderer, plays its tone through OpenSL ES, saves a file, takes a tap as a touch, finds graphics from another thread refused, quits, and Ruby exits with status 0; Back reaches it as `:escape` with the scancode `:acback`, and the game then quits.
+- Android, with the NDK 30.0.16248370 and Java 21 on Ubuntu 24.04: the project builds a debug APK, a release APK, and an App Bundle for `arm64-v8a` and `x86_64`, and the release APK and bundle sign with a key made for the run. The debug APK runs on an `x86_64` emulator of Android 16 (API 36): the game draws with OpenGL ES 3.0 through the emulator's software renderer, plays its tone through OpenSL ES, saves a file, takes a tap as a touch, finds graphics from another thread refused, quits, and Ruby exits with status 0; Back reaches it as `:escape` with the scancode `:acback`, and the game then quits.
 
 On real devices, outside Lota's CI: a game's own build took this route from a clone of Lota at v0.1.3, with `rake ios:sdl3`, the same `build.lota` options, Fledge v0.5.1, and host files of the game's own, and installed it from a Mac by cable with `xcodebuild` (a Personal Team, `-allowProvisioningUpdates`) and `devicectl`, on an iPad Pro 12.9-inch (6th generation) with iPadOS 26.7.1 and an iPhone 13 mini with iOS 18.7.8. On both the game ran fullscreen with no status bar, in portrait and both landscapes; taps landed under the finger; sound played, and the silent switch muted it; tilting moved the accelerometer, which the Simulator has none of; and on the iPad a Bluetooth Xbox controller worked. On the iPhone 13 mini a thin column of the wrong colour showed at the right edge in landscape. A game at a display scale that is not a whole number (the iPhone 12 mini and 13 mini report 2.88) that keeps the default stencil, or depth, or MSAA, gets undrawn right-hand columns there on Metal: LÖVE's Metal backend makes the backbuffer's stencil and depth texture from the window's size in units times a scale it reads from the height (`src/modules/graphics/metal/Graphics.mm`, about lines 500 to 531), 2336 pixels where the drawable is 2338, and the render pass stops at the narrower. That is confirmed in the iPhone 13 mini Simulator (iOS 26.1); the check on the physical phone is pending. If a game uses none of them, set `t.window.stencil = false`, `t.window.depth = false`, and `t.window.msaa = 0`.
 

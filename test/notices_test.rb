@@ -80,7 +80,7 @@ class NoticesTest < Minitest::Test
   end
 
   def notices(components, platform: "arm64-darwin", gem_folder: "lib/ruby/gems/4.0.0/gems/lota-#{Lota::VERSION}-arm64-darwin")
-    Lota::Notices.new(components: components.map { |hash| Lota::Notices::Component.from(hash) }, texts: TEXTS,
+    Lota::Notices.new(components: components.map { |hash| Lota::Notices::Component.from(hash).within(gem_folder) }, texts: TEXTS,
       platform:, gem_folder:)
   end
 
@@ -223,6 +223,7 @@ component("glslang", file: "lib/lota/native.bundle",
       read = Lota::Notices.read(dir, platform: "arm64-darwin", gem_folder: "gems/lota")
 
       assert_equal ["LÖVE", "stb_image"], read.components.map(&:name)
+      assert_equal ["gems/lota/lib/lota/native.bundle"], read.components.map(&:file).uniq
       assert_includes read.text, "\n==== Unlicense ====\n"
       File.delete(File.join(dir, "notices.json"))
       error = assert_raises(Lota::Notices::Error) { Lota::Notices.read(dir, platform: "arm64-darwin", gem_folder: "gems/lota") }

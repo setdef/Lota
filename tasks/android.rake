@@ -6,6 +6,7 @@
 #++
 
 require_relative "android_build"
+require_relative "phone_notices"
 require_relative "engine_sources"
 
 # LÖVE's dependencies for an Android app's ABIs (tasks/android_build.rb),
@@ -21,6 +22,19 @@ namespace :android do
     ANDROID_BUILD.fetch
     ANDROID_BUILD.build
   rescue AndroidBuild::Failure, SourceArchive::Failure => e
+    abort "❌ #{e.message}"
+  end
+
+  desc "Write the NOTICES.txt of a Fledge project's Android app into PROJECT, with OpenAL Soft's source in its sources folder"
+  task :notices, [:project] do |_, args|
+    project = args[:project] or abort "❌ Name the phone project: rake android:notices[PROJECT]"
+    abort "❌ #{project} is not a folder" unless File.directory?(project)
+
+    notices = PhoneNotices.new(licensing: Licensing.load("ext/lota/licenses.rb"), phone: "Android", root: ".")
+    notices.fetch
+    notices.write(project)
+    puts "✅ Wrote #{File.join(project, Lota::Notices::FILE)}"
+  rescue Licensing::Invalid, Licensing::Unrecorded, SourceArchive::Failure => e
     abort "❌ #{e.message}"
   end
 

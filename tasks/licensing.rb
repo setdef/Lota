@@ -43,8 +43,11 @@ class Licensing
   # [version] Its version, or nil where the record does not know it.
   # [credit] The words its license asks a product's documentation to
   #   carry, which an app's notices carry, or nil.
-  class Work < Data.define(:name, :sources, :gem, :copyright, :license, :pending, :source, :title, :version, :credit)
-    def initialize(source: nil, title: nil, version: nil, credit: nil, **)
+  # [platform] The one platform whose build links it, such as "Windows"
+  #   or "iOS", or nil for a work of every platform's engine.
+  class Work < Data.define(:name, :sources, :gem, :copyright, :license, :pending, :source, :title, :version, :credit,
+    :platform)
+    def initialize(source: nil, title: nil, version: nil, credit: nil, platform: nil, **)
       super
     end
 
@@ -88,6 +91,18 @@ class Licensing
   # for, relative to the gem.
   SOURCES = "sources"
 
+  # What a phone's app links, which no link map is read for yet, so the
+  # record says it (Licensing#phone).
+  #
+  # [name] The phone's platform, as works recorded for it name it ("iOS").
+  # [extension] Where the app holds Lota's extension, as its notices say.
+  # [without] The works of every platform that the phone's engine leaves
+  #   out, by name.
+  # [libraries] The libraries the app ships as files of their own, by the
+  #   names the record gives them.
+  class Phone < Data.define(:name, :extension, :without, :libraries)
+  end
+
   # Raised for an entry the record cannot hold.
   class Invalid < StandardError; end
 
@@ -95,7 +110,7 @@ class Licensing
   # covers.
   class Unrecorded < StandardError; end
 
-  attr_reader :works, :frameworks
+  attr_reader :works, :frameworks, :phones
 
   # Reads the record at +path+.
   def self.load(path)
@@ -107,11 +122,37 @@ class Licensing
     @path = path
     @works = []
     @frameworks = {}
+    @phones = {}
   end
 
   # Records code the bundle compiles in.
-  def work(name, sources:, copyright:, license: [], pending: nil, gem: nil, title: nil, version: nil, credit: nil)
-    @works << checked(Work.new(name:, sources:, gem:, copyright:, license:, pending:, title:, version:, credit:))
+  def work(name, sources:, copyright:, license: [], pending: nil, gem: nil, title: nil, version: nil, credit: nil,
+    platform: nil
+  )
+    @works << checked(Work.new(name:, sources:, gem:, copyright:, license:, pending:, title:, version:, credit:, platform:))
+  end
+
+  # Records what the phone +name+'s app links (Phone).
+  def phone(name, extension:, without: [], libraries: [])
+    unknown = without - @works.map(&:name)
+    raise Invalid, "#{name} leaves out #{unknown.join(', ')}, which #{@path} does not record" if unknown.any?
+
+    libraries.each { |library| framework_for(library) }
+    @phones[name] = Phone.new(name:, extension:, without:, libraries:)
+  end
+
+  # The works the phone +name+'s app links: every platform's, less those
+  # it leaves out, then those recorded for it. A work whose license is
+  # pending is one the bundle does not carry (see +pending+), so a phone,
+  # which links what its desktop counterpart's bundle links, leaves it out
+  # as the gem's notices do.
+  def phone_works(name)
+    phone = @phones.fetch(name) { raise Unrecorded, "#{@path} records no phone #{name}" }
+    @works.select do |work|
+      next false if work.pending
+
+      work.platform ? work.platform == name : !phone.without.include?(work.name)
+    end
   end
 
   # Records a framework the gem ships on macOS, by its directory's name,

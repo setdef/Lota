@@ -1287,6 +1287,7 @@ windows_dependencies = "tmp/dependencies/installdir/lib"
 }.each do |name, (archive, linux)|
   recorded = framework_for(linux)
   work "#{name} (Windows)",
+    platform: "Windows",
     sources: ["#{windows_dependencies}/#{archive}"],
     copyright: recorded.copyright,
     license: recorded.license,
@@ -1299,6 +1300,7 @@ end
 # FreeType goes without, so src/bzip2/ftbzip2.c compiles to nothing and no
 # code of bzip2's is compiled in. It links the zlib above.
 work "FreeType (Windows)",
+  platform: "Windows",
   sources: ["#{windows_dependencies}/libfreetype.a"],
   copyright: framework_for("libfreetype.so.6").copyright - ["1996-2019 Julian Seward <jseward@acm.org>"],
   license: framework_for("libfreetype.so.6").license - ["bzip2-1.0.6"],
@@ -1341,6 +1343,7 @@ work "FreeType (Windows)",
 # files the x64 build compiles; the ARM64 build compiles the same but for
 # the SSE code of yuv2rgb, so one record covers both.
 work "SDL (Windows)",
+  platform: "Windows",
   sources: ["#{windows_dependencies}/libSDL3.a"],
   copyright: [
     "1997-2026 Sam Lantinga <slouken@libsdl.org>",
@@ -1422,6 +1425,7 @@ work "SDL (Windows)",
 }.each do |name, (xcframework, framework)|
   recorded = framework_for(framework)
   work "#{name} (iOS)",
+    platform: "iOS",
     sources: ["vendor/love-apple-dependencies/iOS/libraries/#{xcframework}.xcframework/**"],
     copyright: recorded.copyright,
     license: recorded.license,
@@ -1438,6 +1442,7 @@ end
 # and renderer, OpenGL ES, and HIDAPI's iOS backend where macOS's compiles
 # Cocoa's; their files were not read one by one.
 work "SDL (iOS)",
+  platform: "iOS",
   sources: ["tmp/ios/sdl3/**"],
   copyright: framework_for("SDL3.framework").copyright,
   license: framework_for("SDL3.framework").license,
@@ -1453,9 +1458,10 @@ work "SDL (iOS)",
 # links them. So they are recorded here for the app's notices, and nothing
 # checks them against a link map yet. tasks/android_build.rb builds the
 # releases the Windows and Linux gems carry, from the same archives, with
-# the options the Windows build gives them, so each static archive is
-# recorded as the Windows one is; which files each Android archive
-# compiles was not read file by file. libtheoradec is linked as LÖVE's
+# the options the Windows build gives them (AndroidBuild::ARCHIVES is
+# WindowsBuild::ARCHIVES), so each static archive is recorded as the
+# Windows one is, with its name, version, and credit; which files each
+# Android archive compiles was not read file by file. libtheoradec is linked as LÖVE's
 # Android build links it, but love.video is not bound, so, as on Windows,
 # it is not recorded until an app's link map shows a member of it.
 android_dependencies = "tmp/android/deps/*/lib"
@@ -1467,17 +1473,25 @@ android_dependencies = "tmp/android/deps/*/lib"
   "libmodplug" => ["libmodplug.a", "libmodplug.so.1"],
   "HarfBuzz" => ["libharfbuzz.a", "libharfbuzz.so"],
 }.each do |name, (archive, linux)|
+  recorded = framework_for(linux)
   work "#{name} (Android)",
+    platform: "Android",
     sources: ["#{android_dependencies}/#{archive}"],
-    copyright: framework_for(linux).copyright,
-    license: framework_for(linux).license
+    copyright: recorded.copyright,
+    license: recorded.license,
+    title: recorded.notice_name,
+    version: recorded.version
 end
 
 # FreeType 2.13.3 without bzip2, as on Windows (FT_DISABLE_BZIP2).
 work "FreeType (Android)",
+  platform: "Android",
   sources: ["#{android_dependencies}/libfreetype.a"],
   copyright: framework_for("libfreetype.so.6").copyright - ["1996-2019 Julian Seward <jseward@acm.org>"],
-  license: framework_for("libfreetype.so.6").license - ["bzip2-1.0.6"]
+  license: framework_for("libfreetype.so.6").license - ["bzip2-1.0.6"],
+  title: "FreeType",
+  version: framework_for("libfreetype.so.6").version,
+  credit: framework_for("libfreetype.so.6").credit
 
 # OpenAL Soft 1.24.3 as libopenal.so, the shared library LÖVE's Android
 # build ships, which a player can replace and whose license asks for its
@@ -1491,7 +1505,9 @@ work "FreeType (Android)",
 library "libopenal.so",
   copyright: framework_for("libopenal.so.1").copyright + ["2011 The Android Open Source Project"],
   license: framework_for("libopenal.so.1").license + ["Apache-2.0"],
-  source: openal_soft_source
+  source: openal_soft_source,
+  title: "OpenAL Soft",
+  version: "1.24.3"
 
 # SDL as libSDL3.so, which tasks/android_build.rb builds shared from
 # SDL 3.4.10's release, LÖVE's version, whose Java classes the Android
@@ -1501,4 +1517,26 @@ library "libopenal.so",
 # X11's, Wayland's, and PipeWire's; their files were not read one by one.
 library "libSDL3.so",
   copyright: framework_for("libSDL3.so.0").copyright,
-  license: framework_for("libSDL3.so.0").license
+  license: framework_for("libSDL3.so.0").license,
+  title: "SDL",
+  version: "3.4.10"
+
+# What each phone's app links, for the notices rake ios:notices and rake
+# android:notices write into a phone project (tasks/phone_notices.rb): the
+# works of every platform, less those a phone leaves out, with the works
+# recorded for that phone, and the libraries it ships as files of their
+# own. No link map is read for a phone yet, so each phone carries what
+# its desktop counterpart's bundle carries, as measured in the 0.2.2
+# gems' manifests: the engine's source lists differ by one file
+# (sources_ios.cmake has src/common/ios.mm where sources_macos.cmake has
+# macos.mm; sources_android.cmake is sources_linux.cmake), and LÖVE turns
+# Vulkan on for Windows, Linux, and Android and Metal for macOS and iOS
+# (vendor/love/src/common/config.h:126-132), so iOS, as macOS, carries no
+# Vulkan code, and Android, as Linux, carries all of it.
+phone "iOS",
+  extension: "the app's executable",
+  without: ["Vulkan-Headers", "volk", "Vulkan Memory Allocator"]
+
+phone "Android",
+  extension: "libfledgeext.so",
+  libraries: ["libopenal.so", "libSDL3.so"]
