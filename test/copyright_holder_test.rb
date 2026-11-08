@@ -14,8 +14,7 @@ require "open3"
 class CopyrightHolderTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
   HOLDER = "setdef <kerrick@setdef.com>"
-  # Spelled in parts so this file does not name the person it forbids.
-  WRONG = /#{"Kerrick"} #{"Long"}|#{"kerrick"}#{"long"}\.com/i
+  WRONG = /Kerrick Long|kerricklong\.com/i
 
   def tracked_files
     out, status = Open3.capture2("git", "ls-files", "-z", chdir: ROOT)
