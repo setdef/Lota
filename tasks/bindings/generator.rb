@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #--
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
@@ -188,7 +188,7 @@ module Bindings
         #{@label}. Do not edit: change ext/lota/bindings.rb,
         binding_exceptions.rb, or the generator, and regenerate.
 
-        SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+        SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
         SPDX-License-Identifier: AGPL-3.0-or-later
       TEXT
     end

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+// SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Loads the DLLs Lota::Native links, each by its absolute path, from the

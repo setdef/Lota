@@ -2,7 +2,7 @@
 # vendor/love b7daef0f7c1dc5888090f5d5b22d4eaf4ffd1d87. Do not edit: change ext/lota/bindings.rb,
 # binding_exceptions.rb, or the generator, and regenerate.
 #
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # The generated bindings, for ext/lota/native/CMakeLists.txt.

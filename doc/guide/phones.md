@@ -1,5 +1,5 @@
 <!--
-  SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+  SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
   SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
@@ -310,12 +310,14 @@ Lota's `phones.yml` workflow takes this page's commands on Lota's own sample gam
 
 On real devices, outside Lota's CI: a game's own build took this route from a clone of Lota at v0.1.3, with `rake ios:sdl3`, the same `build.lota` options, Fledge v0.5.1, and host files of the game's own, and installed it from a Mac by cable with `xcodebuild` (a Personal Team, `-allowProvisioningUpdates`) and `devicectl`, on an iPad Pro 12.9-inch (6th generation) with iPadOS 26.7.1 and an iPhone 13 mini with iOS 18.7.8. On both the game ran fullscreen with no status bar, in portrait and both landscapes; taps landed under the finger; sound played, and the silent switch muted it; tilting moved the accelerometer, which the Simulator has none of; and on the iPad a Bluetooth Xbox controller worked. On the iPhone 13 mini a thin column of the wrong colour showed at the right edge in landscape. A game at a display scale that is not a whole number (the iPhone 12 mini and 13 mini report 2.88) that keeps the default stencil, or depth, or MSAA, gets undrawn right-hand columns there on Metal: LÖVE's Metal backend makes the backbuffer's stencil and depth texture from the window's size in units times a scale it reads from the height (`src/modules/graphics/metal/Graphics.mm`, about lines 500 to 531), 2336 pixels where the drawable is 2338, and the render pass stops at the narrower. That is confirmed in the iPhone 13 mini Simulator (iOS 26.1); the check on the physical phone is pending. If a game uses none of them, set `t.window.stencil = false`, `t.window.depth = false`, and `t.window.msaa = 0`.
 
+Later, a game's builds on Lota v0.2.2's iOS engine and host, the Xcode project from `fledge build ios` with the game's own lightly customised copy of Lota's host, ran on an iPad Pro 12.9-inch (6th generation, iPadOS 26.7.1), an iPhone 13 mini (iOS 18.7.8), and an iPhone 12 mini (iOS 27.0). On the iPhone 12 mini the game showed a share sheet and went to the background and back, which Metal survived. The runs above were at v0.1.3 with Fledge v0.5.1.
+
 On 2026-11-06 an `arm64-v8a` build with Lota's own Android host, from a clone of Lota at v0.2.2 with `rake android:deps` and Fledge v0.6.0, ran on a OnePlus Nord N30 5G with Android 14 and an Adreno 619 GPU. LÖVE's engine chose Vulkan there, and the app ran without crashing until it left the screen. On 2026-11-07 the same phone, with Lota 0.2.2 and Fledge 0.7.0, crashed a game on Vulkan when it went home, to the recent apps, or to an app picked from a share sheet: 6 times in 6 cycles, and never on OpenGL ES. The host now waits for the game to pause. A game's build with that change and Vulkan forced then came through 6 of 6 cycles of Home and the recent apps on the same phone, and a share sheet to Messages and back, each in the same process and drawing again. It also survived the screen turned off, with its surface destroyed and made again. Unlocking was not tried, since the phone has a PIN. The wait for the game to pause took about 15 milliseconds.
 
 Not yet tried:
 
 - Any other real Android phone, and any Android tablet. No free runner boots an arm64 emulator, so the `arm64-v8a` build, which most Android phones use, has run only on the one phone above.
-- The device commands above as Lota's own CI would run them, and an iPad or iPhone with Lota's own hosts rather than a game's.
+- The device commands above as Lota's own CI would run them, and an iPad or iPhone with Lota's own unmodified host, which no device has run; a game's builds ran a lightly customised copy.
 - Signing with a paid Apple team, exporting an IPA, TestFlight, App Review, and Google Play's review.
 - Building Android on a Mac or on Windows.
 - A game whose own `Gemfile` names other gems; this page's project asks for Lota and Fledge alone.

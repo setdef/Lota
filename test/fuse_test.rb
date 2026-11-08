@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #--
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
@@ -641,7 +641,7 @@ class FuseTest < Minitest::Test
     gem = "lib/ruby/gems/#{RbConfig::CONFIG['ruby_version']}/gems/lota-#{Lota::VERSION}-arm64-darwin"
     assert notices.start_with?("Notices for Lota #{Lota::VERSION} and the libraries it ships\n\n" \
       "lota fuse wrote this file as it built this app for arm64-darwin.")
-    assert_includes notices, "Lota #{Lota::VERSION}\n  Copyright 2026 Kerrick Long <me@kerricklong.com>\n" \
+    assert_includes notices, "Lota #{Lota::VERSION}\n  Copyright 2026 setdef <kerrick@setdef.com>\n" \
       "  License: AGPL-3.0-or-later, the GNU Affero General Public License, version 3 or any later version\n"
     assert_includes notices, "  In this app: #{gem}\n"
     assert_includes notices, "Compiled into Lota's extension, #{gem}/lib/lota/native.bundle:\n\nLÖVE 12.0\n"

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+// SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 // SPDX-License-Identifier: MIT-0
 //
 // Turns the Simulator and holds it turned while ipad/simulator.rb launches

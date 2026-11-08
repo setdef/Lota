@@ -1,5 +1,5 @@
 <!--
-  SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+  SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
   SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 # Changelog
@@ -21,6 +21,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Apps' notices now name setdef as Lota's copyright holder.
 - `lota fuse` builds with Fledge 0.9.0, was 0.6.0.
 - **Breaking:** `Lota::Object` and `Lota::Data` are classes, LÖVE's root types: every engine object's class inherits from `Lota::Object`, and every Data's from `Lota::Data`, where they included them as modules. Neither has `new`, as LÖVE makes neither.
 - **Breaking:** `Lota::Sensor.get_name` is `Lota::Sensor.name`, by rule 3; with no sensor type it is Ruby's `Module#name`.

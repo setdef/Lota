@@ -1,5 +1,5 @@
 @echo off
-rem SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+rem SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 rem SPDX-License-Identifier: AGPL-3.0-or-later
 rem
 rem Starts the Windows kit: Windows PowerShell runs run-kit.ps1 with the

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #--
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
@@ -59,7 +59,7 @@ module Lota
     LICENSE_NAME = "the GNU Affero General Public License, version 3 or any later version"
 
     # Lota's notice of copyright, as its files give it.
-    COPYRIGHT = "2026 Kerrick Long <me@kerricklong.com>"
+    COPYRIGHT = "2026 setdef <kerrick@setdef.com>"
 
     # Where Lota's source code is published.
     SOURCE = "https://github.com/setdef/lota"

@@ -1,7 +1,7 @@
 SPDX-FileCopyrightText: 2011-2017, Yann Collet
 SPDX-FileCopyrightText: 2018 Yann Collet
 SPDX-FileCopyrightText: 2020 Alexander Gallego <alex@vectorized.io>
-SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 SPDX-License-Identifier: BSD-2-Clause
 
 Lota's LZ4 patch: two statements of src/libraries/lz4/lz4.c, the LZ4 1.8.0

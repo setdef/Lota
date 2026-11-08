@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #--
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
@@ -50,7 +50,7 @@ work "Lota",
   # With the list of DLLs that ext/lota/preload/CMakeLists.txt writes into
   # the build for Windows' preloader.
   sources: ["ext/lota/**", "tmp/engine/build/preload/libraries.inc"],
-  copyright: ["2026 Kerrick Long <me@kerricklong.com>"],
+  copyright: ["2026 setdef <kerrick@setdef.com>"],
   license: ["AGPL-3.0-or-later"]
 
 # Rice's headers, which the bindings compile in (COPYING:1-25 in the rice
@@ -408,7 +408,7 @@ work "Box2D",
 # patch's own header puts under the same license.
 work "LÖVE's patched physics module",
   sources: ["tmp/*/build/patched/love/src/modules/physics/**"],
-  copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
+  copyright: ["2006-2026 LOVE Development Team", "2026 setdef <kerrick@setdef.com>"],
   license: ["Zlib"],
   title: "LÖVE #{love_version}'s physics module, as Lota's physics patch changes it"
 
@@ -419,7 +419,7 @@ work "LÖVE's patched physics module",
 # license.
 work "LÖVE's patched Mesh",
   sources: ["tmp/*/build/patched/love/src/modules/graphics/Mesh.cpp"],
-  copyright: ["2006-2026 LOVE Development Team", "2026 Kerrick Long <me@kerricklong.com>"],
+  copyright: ["2006-2026 LOVE Development Team", "2026 setdef <kerrick@setdef.com>"],
   license: ["Zlib"],
   title: "LÖVE #{love_version}'s graphics/Mesh.cpp, as Lota's Mesh patch changes it"
 
@@ -435,7 +435,7 @@ work "LÖVE's patched LZ4",
     "2011-2017, Yann Collet",
     "2018 Yann Collet",
     "2020 Alexander Gallego <alex@vectorized.io>",
-    "2026 Kerrick Long <me@kerricklong.com>",
+    "2026 setdef <kerrick@setdef.com>",
   ],
   license: ["BSD-2-Clause"],
   title: "LZ4 1.8.0's lz4.c, as Lota's LZ4 patch changes it"

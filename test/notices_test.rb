@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #--
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
@@ -93,7 +93,7 @@ class NoticesTest < Minitest::Test
     [[], macos, windows, ios].each do |components|
       text = notices(components).text
 
-      assert_includes text, "Lota #{Lota::VERSION}\n  Copyright 2026 Kerrick Long <me@kerricklong.com>\n" \
+      assert_includes text, "Lota #{Lota::VERSION}\n  Copyright 2026 setdef <kerrick@setdef.com>\n" \
         "  License: AGPL-3.0-or-later, the GNU Affero General Public License, version 3 or any later version\n"
       assert_includes text, "  Source code: #{gemspec.metadata.fetch('source_code_uri')}\n"
       assert_includes text, "\n==== AGPL-3.0-or-later ====\n\n#{File.read(File.join(ROOT, 'LICENSES/AGPL-3.0-or-later.txt'))}"
@@ -108,7 +108,7 @@ class NoticesTest < Minitest::Test
   def test_no_component_replaces_lotas_statement
     text = notices([component("Lota", file: "lib/lota/native.bundle", license: ["MIT"], copyright: ["2026 Someone"])]).text
 
-    assert_includes text, "Lota #{Lota::VERSION}\n  Copyright 2026 Kerrick Long <me@kerricklong.com>\n  License: AGPL-3.0-or-later"
+    assert_includes text, "Lota #{Lota::VERSION}\n  Copyright 2026 setdef <kerrick@setdef.com>\n  License: AGPL-3.0-or-later"
   end
 
   def test_the_app_holds_the_gem_and_each_component_where_the_notices_say

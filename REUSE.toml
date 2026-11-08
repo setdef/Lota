@@ -2,37 +2,37 @@ version = 1
 
 [[annotations]]
 path = ['Gemfile.lock', 'test/games/*/Gemfile.lock']
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
 path = 'README.rdoc'
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
 [[annotations]]
 path = '.gitmodules'
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
 path = 'ext/lota/engine/sources_*.cmake'
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
 path = 'tasks/windows_kit/*.txt'
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
 [[annotations]]
 path = 'skills/**'
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
 [[annotations]]
 path = ["test/games/sample_game/icons/*.png", "test/games/sample_game/kit-questions.txt"]
-SPDX-FileCopyrightText = "2026 Kerrick Long <me@kerricklong.com>"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
 SPDX-License-Identifier = "CC0-1.0"
 
 # SDL 3.4.10's Java classes, unchanged from its release archive

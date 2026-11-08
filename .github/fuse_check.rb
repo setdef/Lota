@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #--
-# SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
@@ -60,7 +60,7 @@ def notices_checks(folder, platform)
     "the app holds app/NOTICES.txt" => true,
     "it was written for #{platform}" => text.include?("as it built this app for #{platform}."),
     "it opens with Lota's own license statement" => text.include?(
-      "\n\nLota #{Lota::VERSION}\n  Copyright 2026 Kerrick Long <me@kerricklong.com>\n" \
+      "\n\nLota #{Lota::VERSION}\n  Copyright 2026 setdef <kerrick@setdef.com>\n" \
         "  License: AGPL-3.0-or-later, the GNU Affero General Public License, version 3 or any later version\n"
     ),
     "it holds the AGPL's text" => text.include?("\n==== AGPL-3.0-or-later ====\n\nGNU AFFERO GENERAL PUBLIC LICENSE\n"),
