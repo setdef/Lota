@@ -8,9 +8,11 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.image tests (vendor/love/testing/tests/image.lua),
-# translated to Ruby by ADR 001's rules. They run in the test suite's own
-# process (test/lovetest/image_test.rb) and under lota run
-# (test/lovetest/game), also from the installed precompiled gem.
+# translated to Ruby by ADR 001's rules, for the functions Lota binds: the
+# CompressedImageData, isCompressed, and newCompressedData tests wait for
+# love.image.newCompressedData, which Lota does not bind. They run in the
+# test suite's own process (test/lovetest/image_test.rb) and under lota
+# run (test/lovetest/game), also from the installed precompiled gem.
 class ImageTest < Lovetest::TestMethod
   TYPES = %w[ImageData].freeze
 
@@ -102,6 +104,15 @@ class ImageTest < Lovetest::TestMethod
   ensure
     read1&.close
     read2&.close
+  end
+
+  # Translated to Ruby from love.test.image.newImageData
+  # (vendor/love/testing/tests/image.lua:133-136): newImageData becomes
+  # ImageData.new (rule 2), with its pixel format a symbol
+  # (rule 9) and its nil rawdata passed as it is.
+  def test_new_image_data
+    assert_object(Lota::Image::ImageData.new("resources/love.png"))
+    assert_object(Lota::Image::ImageData.new(16, 16, :rgba8, nil))
   end
   # SPDX-SnippetEnd
 end
