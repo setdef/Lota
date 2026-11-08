@@ -17,7 +17,7 @@ For both systems:
 
 - A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`. Its `bundle install` brings Rice, whose headers the build reads.
 - Ruby 4.0 and Bundler, Git, CMake 3.21 or newer, and Ninja. LÖVE's engine and its libraries build with CMake and Ninja, so have both on your `PATH`.
-- Fledge v0.7.0, which your phone project's `Gemfile` names by its Git tag. Fledge downloads its Ruby runtime for each phone the first time it builds.
+- Fledge v0.8.0, which your phone project's `Gemfile` names by its Git tag. Fledge downloads its Ruby runtime for each phone the first time it builds.
 
 For iOS and iPadOS, a Mac with:
 
@@ -131,7 +131,7 @@ The `Gemfile` names Lota's folder and Fledge's tag:
 source "https://rubygems.org"
 
 gem "lota", path: "/Users/you/Lota/tmp/phone/lota"
-gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.7.0", group: :development
+gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.8.0", group: :development
 ```
 
 `fledge.yml` names the app, its identifier, its version, and the hosts:
@@ -285,7 +285,7 @@ apksigner sign --ks release.jks --out MyGame.apk MyGame-aligned.apk
 
 ## Licences and notices
 
-An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem folder goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app.
+An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem folder goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app. Fledge is MIT-licensed from 0.8.0, so its runtime adds no source for you to offer.
 
 Lota writes the rest, the notices of LÖVE's engine and the libraries a phone build links, into the phone project's `NOTICES.txt`, which goes into the app's `app/` folder, as `lota fuse` writes a desktop app's. Run it in the clone, before `fledge build`, and again after you pull a new version of Lota:
 

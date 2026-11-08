@@ -20,7 +20,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- `lota fuse` builds with Fledge 0.7.0, was 0.6.0.
+- `lota fuse` builds with Fledge 0.8.0, was 0.6.0.
 
 ### Fixed
 

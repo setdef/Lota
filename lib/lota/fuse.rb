@@ -113,11 +113,13 @@ module Lota
     # first release whose check of a gem's DLLs takes the System32
     # libraries Lota's Windows engine imports; 0.5.1 changes only phones,
     # 0.6.0 adds what a store listing asks of an app (a description, a
-    # license file) without changing how the project builds, and 0.7.0
-    # has a Windows app carry notices/MODIFIED.txt, which says that
-    # fledge build changed its copy of the AGPL launcher, and stops a
-    # bare environment entry from hanging the launcher on macOS and Linux.
-    FLEDGE_REF = "v0.7.0"
+    # license file) without changing how the project builds, 0.7.0 has a
+    # Windows app carry notices/MODIFIED.txt and stops a bare environment
+    # entry from hanging the launcher on macOS and Linux, and 0.8.0
+    # relicenses Fledge under the MIT license, so a Windows app no longer
+    # carries that file, and retries a download and Apple's timestamp
+    # server.
+    FLEDGE_REF = "v0.8.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.
