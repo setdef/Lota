@@ -47,7 +47,7 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  FLEDGE_REF: v0.8.0
+  FLEDGE_REF: v0.9.0
   NDK_REVISION: 30.0.16248370
   APP_NAME: PhoneCheck
   APP_IDENTIFIER: com.example.PhoneCheck
