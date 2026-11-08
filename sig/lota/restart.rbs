@@ -66,3 +66,8 @@ module Lota
 
   end
 end
+
+module Kernel
+  def self?.exec: (Hash[string, string?] env, [String, String] command, *String args, ?chdir: String) -> bot
+                | ...
+end

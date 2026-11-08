@@ -9,6 +9,7 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 require "desktop_input_lock"
 require "rbconfig"
+require "shellwords"
 require "tmpdir"
 
 # A game that restarts, end to end (Lota::Restart): each test runs the lota
@@ -207,6 +208,79 @@ class RestartRunTest < Minitest::Test
     assert_equal "\"café\\nline\"", second["restart"]
     assert_equal [%(["string"])] * 2, [first["arguments"], second["arguments"]], "the same arguments"
     assert_exec_replaced_the_process([first["pid"], second["pid"]])
+  end
+
+  # A fused game whose app was unpacked in a folder with a space and a
+  # letter outside ASCII in its name, started with no arguments, as a
+  # player starts an app: it starts again by running its launcher, whose
+  # path is the whole program, not a command line to split at its spaces.
+  def test_a_fused_game_in_a_folder_with_a_space_in_its_name_restarts_through_its_launcher
+    place = File.join(@directory, "My Gämes")
+    FileUtils.mkdir_p(File.join(place, "game"))
+    FileUtils.cp_r(GAME, File.join(place, "game", "restart"))
+    entry = File.join(place, "main.rb")
+    File.write(entry, <<~RUBY)
+      require "lota"
+      exit Lota::Boot.new(File.join(__dir__, "game", "restart"), ARGV, fused: true).call
+    RUBY
+    launcher = build_launcher(File.join(place, "Sample Gäme"))
+    output, status = capture2e(run_environment.merge("LOTA_LAUNCHER_ENTRY" => entry, "LOTA_RESTART_ARGUMENT" => "string"),
+      launcher)
+
+    assert_equal 3, status.exitstatus, output
+    assert_equal %w[load at_exit load at_exit], log.map(&:first), output
+    first, _, second, = log.map(&:last)
+
+    assert_equal "\"café\\nline\"", second["restart"]
+    assert_equal %w[[] []], [first["arguments"], second["arguments"]], "no arguments, as it was started"
+    assert_exec_replaced_the_process([first["pid"], second["pid"]])
+  end
+
+  # Compiles, at +path+, a launcher like the one Fledge builds for a fused
+  # game: a program of its own that runs Ruby inside its own process, on
+  # the entry script LOTA_LAUNCHER_ENTRY names, with its own arguments
+  # after it, so that the program the process runs is not Ruby's. It sets
+  # the locale first, as Ruby's own main.c does.
+  def build_launcher(path)
+    source = File.join(@directory, "launcher.c")
+    File.write(source, <<~C)
+      #include <locale.h>
+      #include <ruby.h>
+      #include <stdlib.h>
+
+      int main(int argc, char **argv) {
+        char **options = calloc((size_t)argc + 2, sizeof(char *));
+        int count = argc + 1;
+        setlocale(LC_CTYPE, "");
+        options[0] = argv[0];
+        options[1] = getenv("LOTA_LAUNCHER_ENTRY");
+        for (int i = 1; i < argc; i++) options[i + 1] = argv[i];
+        ruby_sysinit(&count, &options);
+        {
+          RUBY_INIT_STACK;
+          ruby_init();
+          return ruby_run_node(ruby_options(count, options));
+        }
+      }
+    C
+    config = RbConfig::CONFIG
+    libdir = config.fetch("libdir")
+    command = [
+      *Shellwords.split(config.fetch("CC")),
+      "-I#{config.fetch('rubyhdrdir')}",
+      "-I#{config.fetch('rubyarchhdrdir')}",
+      source,
+      "-o",
+      path,
+      "-L#{libdir}",
+      "-Wl,-rpath,#{libdir}",
+      *Shellwords.split(config.fetch("LIBRUBYARG")),
+      *Shellwords.split(config.fetch("LIBS")),
+]
+    output, status = capture2e(TOOL_ENV, *command)
+
+    assert_predicate status, :success?, output
+    path
   end
 
   def test_nothing_is_left_to_restart_when_the_game_is_not_run_by_lota_run

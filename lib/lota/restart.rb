@@ -232,20 +232,31 @@ module Lota
       # Lota registers this as it loads, before its own (lib/lota.rb), so
       # the game's, and Lota's own, have run. The window is closed first, so the
       # new process does not open its window beside it. If the system
-      # cannot start the command, says so and exits with status 1. :nodoc:
+      # cannot start the command, says so and exits with status 1.
+      #
+      # The program goes to exec as a pair of itself and its name, so that
+      # it is always one path, even with no arguments after it, as a fused
+      # game started with none has. Ruby takes a lone String as a command
+      # line instead: on macOS and Linux it splits one with no shell
+      # characters at its spaces and runs the first word (Ruby's
+      # process.c, rb_exec_fillarg), and on Windows it hands the line to
+      # w32_spawn, which takes the program to run as the text before the
+      # first space unless the line opens with a quote (win32/win32.c), so
+      # an app in a folder such as <tt>My Games</tt> could not start
+      # again. :nodoc:
       private def exec_pending
         pending = @pending
         command = @command
         directory = @directory
         return unless pending && command && directory
 
-        interpreter = command.fetch(0)
+        program = command.fetch(0)
         arguments = command.drop(1)
 
         Lota::Native::Window.close if defined?(Lota::Native::Window) && Lota::Native::Window.open?
         $stdout.flush
         $stderr.flush
-        Kernel.exec({ VARIABLE => pending }, interpreter, *arguments, chdir: directory)
+        Kernel.exec({ VARIABLE => pending }, [program, program], *arguments, chdir: directory)
       rescue SystemCallError => e
         warn "Error: Cannot restart: #{e.message}"
         exit(1)

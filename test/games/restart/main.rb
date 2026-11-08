@@ -13,7 +13,9 @@
 # for each argument after it, the Nth run with the value the Nth names,
 # and the run after the last quits with status 3, so one lota run carries
 # every value across a restart of its own. With LOTA_RESTART_WINDOW set
-# it also logs whether the window is open and when Lota closes it.
+# it also logs whether the window is open and when Lota closes it. A run
+# given no arguments takes its first from LOTA_RESTART_ARGUMENT, so that a
+# program that starts the game with none can restart it too.
 LOG = ENV.fetch("LOTA_RESTART_LOG")
 
 def log(line)
@@ -36,7 +38,7 @@ VALUES = {
 }.freeze
 
 def Lota.load(arguments)
-  @arguments = arguments
+  @arguments = arguments.empty? ? [*ENV.fetch("LOTA_RESTART_ARGUMENT", nil)] : arguments
   @run = File.exist?(LOG) ? File.readlines(LOG).count { |line| line.start_with?("load ") } + 1 : 1
   log("load pid=#{Process.pid} arguments=#{arguments.inspect} restart=#{Lota.restart.inspect} " \
     "variable=#{ENV.key?('LOTA_RESTART_VALUE')} verbose=#{$VERBOSE.inspect}")
