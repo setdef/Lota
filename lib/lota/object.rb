@@ -107,11 +107,11 @@ module Lota
     # #release still answer. The engine hands the object back, where it
     # still holds it, as a new Ruby object.
     #
-    # LÖVE lets go of its reference at once, and deletes the object if
-    # nothing else holds it. Lota lets go of its own when Ruby's garbage
-    # collector frees this Ruby object, as it does for every engine object
-    # (ADR 001, section 5), since a call further up the stack, such as a
-    # block a method yields to, can still be using the engine object.
+    # Its reference goes at once, as LÖVE's does, so an engine object
+    # nothing else holds is freed then: a File is closed, and a texture's
+    # memory let go. Inside a call that is still using the object, such as
+    # a block that #perform_atomic yields to, it goes as soon as that call
+    # returns.
     #
     # === Example
     #

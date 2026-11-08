@@ -782,6 +782,11 @@ line: node.line,
     # const char * goes in as the std::string a single result returns as,
     # so Rice gives Ruby a String in the same encoding either way.
     private def many_value(value, call, type)
+      # An object the wrap function releases once it has pushed it goes to
+      # its wrapper with the reference it was made with, as
+      # Return().takeOwnership() gives a returned one; Rice::Array#push
+      # would retain it, and the reference would never go.
+      return "Rice::Object(Rice::detail::wrap_engine_object(#{value}, true))" if owned? && type.to_s.end_with?("*")
       return value unless type == "std::string" && expression_type(call.arguments[1]).to_s.include?("char")
 
       "std::string(#{value})"

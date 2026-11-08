@@ -22,7 +22,7 @@ class RbsParityTest < Minitest::Test
   end
 
   def teardown
-    %i[RbsParityModuleWithNew RbsParityModuleWithoutNew RbsParityClassWithInitialize].each do |name|
+    %i[RbsParityModuleWithNew RbsParityModuleWithoutNew RbsParityClassWithInitialize RbsParityWrapped RbsParityInherited].each do |name|
       Object.__send__(:remove_const, name) if Object.const_defined?(name, false)
     end
     FileUtils.rm_rf(@root)
@@ -36,6 +36,41 @@ class RbsParityTest < Minitest::Test
     File.write(File.join(@sig, "example.rbs"), rbs)
     load file
     RbsParity.new(sig_dirs: [@sig], lib_dirs: [@lib]).violations
+  end
+
+  # Lota::Native prepends to each bound class an anonymous module whose
+  # methods call super (ext/lota/native/binding.hpp, install_engine_calls),
+  # so the method the class defines still implements its signature, and a
+  # method only an ancestor defines still does not.
+  def test_a_method_a_prepended_wrapper_calls_is_the_classs_own
+    found = violations(<<~RUBY, <<~RBS)
+      class RbsParityInherited
+        def inherited = 1
+      end
+
+      class RbsParityWrapped < RbsParityInherited
+        def own = 1
+        prepend(Module.new do
+          def own = super
+          def inherited = super
+        end)
+      end
+    RUBY
+      class RbsParityInherited
+        def inherited: () -> Integer
+      end
+
+      class RbsParityWrapped < RbsParityInherited
+        def own: () -> Integer
+
+        def inherited: () -> Integer
+      end
+    RBS
+
+    expected = "RbsParityWrapped#inherited: declared in sig/ but only inherited from RbsParityInherited; " \
+      "define it here or drop the declaration"
+
+    assert_equal [expected], found
   end
 
   def test_a_module_that_defines_new_matches_its_signature

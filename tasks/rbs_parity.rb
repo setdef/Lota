@@ -85,7 +85,7 @@ class RbsParity
     actual = visibility_of(owner, name)
     return [label, "declared in sig/ but not defined in lib/"] unless actual
 
-    method_owner = owner.instance_method(name).owner
+    method_owner = implementation(owner, name).owner
     if name == :initialize && [Data, Struct].include?(method_owner)
       return [label, "declared in sig/ but #{method_owner}#initialize implements it; declare self.new instead"]
     end
@@ -99,6 +99,25 @@ class RbsParity
     return if actual == :protected && visibility == :public
 
     [label, "#{visibility} in sig/ but #{actual} in lib/"]
+  end
+
+  # The method that implements +name+ on +owner+, past any anonymous
+  # module prepended to +owner+ whose method calls super, as Lota::Native
+  # wraps each bound function (ext/lota/native/binding.hpp,
+  # install_engine_calls): the wrapper is +owner+'s own, and so is the
+  # method it calls.
+  private def implementation(owner, name)
+    method = owner.instance_method(name)
+    ancestors = owner.ancestors
+    while prepended?(method.owner, ancestors, owner) && method.super_method
+      method = method.super_method
+    end
+    method
+  end
+
+  private def prepended?(mod, ancestors, owner)
+    !mod.is_a?(Class) && mod.name.nil? && !mod.singleton_class? &&
+      ancestors.index(mod).to_i < ancestors.index(owner).to_i
   end
 
   # self.new is Class#new for ordinary classes; what implements it is

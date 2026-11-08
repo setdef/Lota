@@ -436,6 +436,17 @@ class GeneratorTest < Minitest::Test
     assert_equal "def native: () -> Texture", texture.rbs
   end
 
+  # w_openFile pushes the File it made among results it may push in place
+  # of it (luax_ioError), and releases its own reference
+  # (wrap_Filesystem.cpp:230-252), so the File's wrapper adopts that
+  # reference as it goes into the results: Rice::Array#push would retain
+  # it, and the File would never be closed.
+  def test_an_owned_engine_object_among_several_results_is_adopted
+    open_file = port("love.filesystem.openFile")
+
+    assert_includes open_file.definition, "results.push(Rice::Object(Rice::detail::wrap_engine_object(t, true)), false);"
+  end
+
   # luax_pushshape pushes a Shape as the class its type names
   # (wrap_Shape.cpp:36-63), as Rice wraps a pointer, so it is a push of the
   # Shape; and w_Body_getShape pushes nil when there is none.

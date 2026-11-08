@@ -73,6 +73,8 @@
 #include "physics/box2d/Shape.h"
 #include "physics/box2d/World.h"
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <bit>
 #include <concepts>
@@ -81,6 +83,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -389,17 +392,65 @@ public:
 
   // Ends the wrapper's use of its object, as w__release does
   // (vendor/love/src/common/runtime.cpp:170-197), and returns whether it
-  // was in use. +self+ is the wrapper's own Ruby object.
-  virtual bool release(VALUE self) = 0;
+  // was in use. +self+ is the wrapper's own Ruby object. The reference
+  // goes at once, or, while a native call uses the wrapper, as soon as
+  // the last such call returns (pin, unpin).
+  bool release(VALUE self) {
+    if (released_.exchange(true)) {
+      return false;
+    }
+    forget(self);
+    if (busy_.load() == 0) {
+      let_go();
+    } else {
+      pending_ = true;
+    }
+    return true;
+  }
+
+  // Marks the wrapper in use by a native call in progress, which may hold
+  // the engine object's pointer (EngineCall, below).
+  void pin() { busy_.fetch_add(1); }
+
+  // Ends one native call's use, and lets go of the reference a release
+  // left for the last of them.
+  void unpin() {
+    if (busy_.fetch_sub(1) == 1 && pending_.exchange(false)) {
+      let_go();
+    }
+  }
+
+  // The data types of every engine class this bundle binds
+  // (define_engine_class), which tell its wrappers from any other typed
+  // data, such as a Proc's.
+  static std::unordered_set<const rb_data_type_t *> &types() {
+    static std::unordered_set<const rb_data_type_t *> engine_types;
+    return engine_types;
+  }
 
   // The wrapper of +value+, a Lota::Native object, or nullptr for any
   // other value.
   static EngineWrapper *of(VALUE value) {
-    if (!RB_TYPE_P(value, T_DATA) || !RTYPEDDATA_P(value)) {
+    if (!RB_TYPE_P(value, T_DATA) || !RTYPEDDATA_P(value) ||
+        !types().contains(RTYPEDDATA_TYPE(value))) {
       return nullptr;
     }
     return dynamic_cast<EngineWrapper *>(Rice::detail::getWrapper(value));
   }
+
+protected:
+  [[nodiscard]] bool released() const { return released_.load(); }
+
+  // Forgets +self+ as the wrapper of its object (WrapperIdentities).
+  virtual void forget(VALUE self) = 0;
+
+  // Drops the wrapper's reference to its object.
+  virtual void let_go() = 0;
+
+private:
+  std::atomic<bool> released_ = false;
+  std::atomic<bool> pending_ = false;
+  std::atomic<int> busy_ = 0;
 };
 
 // The memory rule, in one place: a Ruby wrapper holds one reference to its
@@ -414,17 +465,16 @@ public:
 //
 // A game's release, LÖVE's Object:release, ends the wrapper's use of its
 // object at once: every later call through the wrapper raises LÖVE's
-// error, and the object gets a new wrapper the next time Ruby is handed
-// it. The reference itself still goes when the collector frees the
-// wrapper, by the same rule. LÖVE lets go of it at once, because a Lua
-// state runs one call at a time and nothing in LÖVE's C++ holds a Proxy's
-// pointer across a call back into Lua. Lota's bindings do: a method that
-// yields, a callback, a conversion of an argument that calls Ruby, or
-// another thread scheduled between two Ruby calls can each run a
-// release while a binding further up the stack still uses the pointer it
-// read. Those frames hold the wrapper, so the collector cannot free it
-// under them, and keeping the reference until then is what makes the
-// release safe.
+// error, the object gets a new wrapper the next time Ruby is handed it,
+// and the reference goes, as w__release lets go of it at once. Lota's
+// bindings can be in the middle of using the object when a release
+// runs: a method that yields, a callback, a conversion of an argument
+// that calls Ruby, or another thread scheduled between two Ruby calls
+// can each run one while a binding further up the stack still holds the
+// pointer it read. So every native call marks the wrappers it is given
+// in use for as long as it runs (EngineCall), and a release that finds
+// its wrapper in use lets go of the reference when the last of those
+// calls returns.
 template <EngineObject T> class ObjectWrapper : public EngineWrapper {
   static_assert(!std::is_const_v<T>,
                 "love::Object counts references in non-const retain() and release(), so "
@@ -444,13 +494,7 @@ public:
   // main-thread module first joins the release queue, which retains it, so
   // reference_'s release cannot be the last. WrapperIdentities forgot this
   // wrapper when the collector found it dead, before it was freed.
-  ~ObjectWrapper() override {
-    if constexpr (ReleasedOnMainThread<T>::value) {
-      if (!on_main_thread()) {
-        ReleaseQueue::instance().push(reference_.get());
-      }
-    }
-  }
+  ~ObjectWrapper() override { drop(); }
 
   // Rice's own check (rice/detail/Wrapper.ipp:137-150), then LÖVE's for a
   // released object, which luax_checktype makes of every argument it
@@ -463,32 +507,41 @@ public:
                             this->rb_data_type_->wrap_struct_name,
                             requested_type->wrap_struct_name);
     }
-    if (released_) {
+    if (released()) {
       throw Rice::Exception(rb_eRuntimeError, "Cannot use object after it has been released.");
     }
     return reference_.get();
   }
 
   [[nodiscard]] love::Object *object() const override {
-    return released_ ? nullptr : reference_.get();
+    return released() ? nullptr : reference_.get();
   }
 
-  // The first release forgets the wrapper's identity, so the object gets
-  // a new wrapper the next time Ruby is handed it, and keeps the
-  // reference until the wrapper is freed (above).
-  bool release(VALUE self) override {
-    if (released_.exchange(true)) {
-      return false;
-    }
-    WrapperIdentities::instance().forget(reference_.get(), self);
-    return true;
-  }
+protected:
+  // A released object gets a new wrapper the next time Ruby is handed it.
+  void forget(VALUE self) override { WrapperIdentities::instance().forget(reference_.get(), self); }
+
+  // reference_ releases the object, once. Off the main thread, an object
+  // of a main-thread module first joins the release queue, which retains
+  // it, so reference_'s release cannot be the last.
+  void let_go() override { drop(); }
 
 private:
+  void drop() {
+    if (reference_.get() == nullptr) {
+      return;
+    }
+    if constexpr (ReleasedOnMainThread<T>::value) {
+      if (!on_main_thread()) {
+        ReleaseQueue::instance().push(reference_.get());
+      }
+    }
+    reference_.set(nullptr);
+  }
+
   // Declared first, so it is released after reference_.
   love::StrongRef<love::Object> companion_;
   love::StrongRef<T> reference_;
-  std::atomic<bool> released_ = false;
 };
 
 // SPDX-SnippetBegin
@@ -530,7 +583,9 @@ private:
 template <EngineObject T, typename Base = void>
 Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *name) {
   T::type.init();
-  return Rice::define_class_under<T, Base>(parent, name)
+  Rice::Data_Type<T> bound = Rice::define_class_under<T, Base>(parent, name);
+  EngineWrapper::types().insert(Rice::Data_Type<T>::ruby_data_type());
+  return bound
       .define_method("object_type", [](VALUE /*self*/) { return std::string(T::type.getName()); })
       .define_method(
           "type_of?",
@@ -570,6 +625,172 @@ Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *n
 }
 
 // SPDX-SnippetEnd
+
+// A native call's use of the engine objects it is given: its receiver,
+// and each argument, or engine object inside Arrays an argument holds,
+// down to Arrays of Arrays of Arrays, that is a wrapper
+// (EngineWrapper::pin), until end(). No binding reads an engine object
+// from a Hash. It holds only VALUEs, on the stack or in a Ruby Array, so
+// it needs no destructor, which an exception Ruby raises through the
+// call's frame would skip, and the collector, which scans the stack,
+// keeps every wrapper alive meanwhile. It allocates nothing unless the
+// call is given more than a few wrappers.
+class EngineCall {
+public:
+  EngineCall(VALUE self, std::span<const VALUE> arguments) {
+    add(self);
+    for (const VALUE argument : arguments) {
+      add_within(argument, 3);
+    }
+  }
+
+  [[nodiscard]] bool empty() const { return count_ == 0; }
+
+  // Ends the call's use of every wrapper it marked.
+  void end() const {
+    for (std::size_t i = 0; i < std::min(count_, few_.size()); i++) {
+      unpin(few_.at(i));
+    }
+    if (more_ != Qnil) {
+      for (long i = 0; i < RARRAY_LEN(more_); i++) {
+        unpin(rb_ary_entry(more_, i));
+      }
+    }
+  }
+
+private:
+  static void unpin(VALUE value) {
+    if (EngineWrapper *wrapper = EngineWrapper::of(value)) {
+      wrapper->unpin();
+    }
+  }
+
+  // Marks +value+ in use if it is a wrapper, and otherwise each wrapper
+  // among the elements of +value+, an Array, and theirs, +levels+ deep.
+  // Each level is a loop of its own, so that no function calls itself.
+  void add_within(VALUE value, int levels) {
+    if (add(value) || levels == 0 || !RB_TYPE_P(value, T_ARRAY)) {
+      return;
+    }
+    for (long i = 0; i < RARRAY_LEN(value); i++) {
+      add_elements(rb_ary_entry(value, i), levels - 1);
+    }
+  }
+
+  void add_elements(VALUE value, int levels) {
+    if (add(value) || levels == 0 || !RB_TYPE_P(value, T_ARRAY)) {
+      return;
+    }
+    for (long i = 0; i < RARRAY_LEN(value); i++) {
+      add_last(rb_ary_entry(value, i), levels - 1);
+    }
+  }
+
+  void add_last(VALUE value, int levels) {
+    if (add(value) || levels == 0 || !RB_TYPE_P(value, T_ARRAY)) {
+      return;
+    }
+    for (long i = 0; i < RARRAY_LEN(value); i++) {
+      add(rb_ary_entry(value, i));
+    }
+  }
+
+  // Marks +value+ in use, and returns whether it is a wrapper.
+  bool add(VALUE value) {
+    EngineWrapper *wrapper = EngineWrapper::of(value);
+    if (wrapper == nullptr) {
+      return false;
+    }
+    wrapper->pin();
+    if (count_ < few_.size()) {
+      few_.at(count_) = value;
+    } else {
+      if (more_ == Qnil) {
+        more_ = rb_ary_new();
+      }
+      rb_ary_push(more_, value);
+    }
+    count_++;
+    return true;
+  }
+
+  std::array<VALUE, 4> few_{};
+  std::size_t count_ = 0;
+  VALUE more_ = Qnil;
+};
+
+namespace engine_call_detail {
+
+struct Super {
+  int argc;
+  const VALUE *argv;
+  int kw_splat;
+};
+
+inline VALUE call_super(VALUE data) {
+  const auto *given = std::bit_cast<const Super *>(data);
+  return rb_call_super_kw(given->argc, given->argv, given->kw_splat);
+}
+
+inline VALUE end_call(VALUE data) {
+  std::bit_cast<const EngineCall *>(data)->end();
+  return Qnil;
+}
+
+// Every method and function install_engine_calls wraps: marks the
+// engine objects it is given in use, calls the bound function, and ends
+// that use however it returns.
+inline VALUE engine_call(int argc, const VALUE *argv, VALUE self) {
+  const int kw_splat = rb_keyword_given_p();
+  const EngineCall call(self, std::span(argv, static_cast<std::size_t>(argc)));
+  if (call.empty()) {
+    return rb_call_super_kw(argc, argv, kw_splat);
+  }
+  const Super super{.argc = argc, .argv = argv, .kw_splat = kw_splat};
+  return rb_ensure(call_super, std::bit_cast<VALUE>(&super), end_call, std::bit_cast<VALUE>(&call));
+}
+
+// Prepends to +target+, a class or a singleton class, a module whose
+// methods, one for each public method +target+ defines, call
+// engine_call, then the method each overrides.
+inline void wrap_methods(VALUE target) {
+  const Rice::Array names(Rice::Object(target).call("public_instance_methods", false));
+  if (RARRAY_LEN(names.value()) == 0) {
+    return;
+  }
+  const VALUE wrapping = rb_module_new();
+  for (long i = 0; i < RARRAY_LEN(names.value()); i++) {
+    const char *name = rb_id2name(SYM2ID(rb_ary_entry(names.value(), i)));
+    rb_define_method(wrapping, name, engine_call, -1);
+  }
+  rb_prepend_module(target, wrapping);
+}
+
+} // namespace engine_call_detail
+
+// Wraps every method and function of +module+, and of every module and
+// class among its constants and theirs, in engine_call, so that a
+// release a call runs into cannot let go of an object the call uses
+// (ObjectWrapper). Call it once everything under +module+ is defined.
+inline void install_engine_calls(const Rice::Module &module) {
+  std::vector<Rice::Module> pending{module};
+  std::unordered_set<VALUE> seen{module.value()};
+  while (!pending.empty()) {
+    const Rice::Module current = pending.back();
+    pending.pop_back();
+    engine_call_detail::wrap_methods(rb_singleton_class(current.value()));
+    if (current.is_a(rb_cClass)) {
+      engine_call_detail::wrap_methods(current.value());
+    }
+    const Rice::Array names(current.call("constants", false));
+    for (const auto name : names) {
+      const Rice::Object value = current.call("const_get", Rice::Object(name.value()), false);
+      if (value.is_a(rb_cModule) && seen.insert(value.value()).second) {
+        pending.emplace_back(value.value());
+      }
+    }
+  }
+}
 
 // Pins the singleton class of +module+, and of every module and class
 // among its constants and theirs, so that GC.compact never moves one. Rice

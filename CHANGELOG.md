@@ -33,6 +33,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - A game `lota fuse` built restarts, as a fused LÖVE game does, where it quit: its app's program runs again with the same arguments, and `Lota.restart` holds the value.
 - `Lota::Graphics::Font.new(size, nil, dpiscale)` and `Font.new(data, size, nil, dpiscale)` ignore the DPI scale after a `nil` hinting mode, as LÖVE does, rather than using it.
 - The phone and Windows builds' downloads retry a failed connection.
+- A File `Lota::Filesystem.open_file` opens is closed once it is released or collected; it stayed open until the program ended, as Lota kept a reference to it of its own.
 - `Lota::Graphics::Font.new`'s size, `Lota::Graphics::ImageFont.new`'s extra spacing, and `Lota::Graphics.stencil_state=`'s value take a Float and cut it toward 0, as LÖVE reads them, where they raised `TypeError`.
 - `lota fuse` installs none of the game's gems: Bundler only locks them, and Fledge, which runs from a Gemfile of its own in `dist/fuse-tools`, compiles only the gems the app ships, so a gem with a C extension in the `development` or `test` group no longer compiles, or fails a build. A failed build of a game with gems now says what a compiler needs.
 - `lota fuse` run under `bundle exec` no longer fails to lock: the Bundler commands it runs drop the setup of the bundle it runs in, which `bundle exec` names in `RUBYOPT` by its full path.

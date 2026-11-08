@@ -237,7 +237,7 @@ Rice::Array w_openFile(const std::string &filename, const std::string &mode) {
   } catch (love::Exception &e) {
     return io_error("%s", e.what());
   }
-  results.push(t, false);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(t, true)), false);
   return results;
 }
 

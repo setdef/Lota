@@ -1088,7 +1088,10 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function(
           "engine_address",
           [](VALUE native) -> unsigned long long {
-            const lota::native::EngineWrapper *wrapper = lota::native::EngineWrapper::of(native);
+            // Lota::Native's engine types are another bundle's, which
+            // EngineWrapper::of does not know.
+            const auto *wrapper =
+                dynamic_cast<lota::native::EngineWrapper *>(Rice::detail::getWrapper(native));
             return wrapper == nullptr ? 0 : std::bit_cast<std::uintptr_t>(wrapper->object());
           },
           Rice::Arg("native").setValue())

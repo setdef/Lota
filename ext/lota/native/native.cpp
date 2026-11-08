@@ -123,5 +123,6 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
       .define_singleton_function("queued_releases", &queued_releases);
 
   // Last, once every function is bound.
+  lota::native::install_engine_calls(native);
   lota::native::pin_singleton_classes(native);
 }

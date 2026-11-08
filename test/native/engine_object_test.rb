@@ -135,6 +135,53 @@ class EngineObjectTest < Minitest::Test
     refute_equal Lota::Data::ByteData.new("hi"), Lota::Data::ByteData.new("hi")
   end
 
+  # w__release lets go of its reference at once (runtime.cpp:170-197), so
+  # an object nothing else holds is freed then.
+  def test_release_lets_go_of_the_object_at_once
+    image = Lota::Image::ImageData.new(4, 4)
+    LotaNativeTest.observe_image_data(image.__send__(:native))
+
+    assert_equal [2], LotaNativeTest.observed_reference_counts
+    image.release
+
+    assert_equal [1], LotaNativeTest.observed_reference_counts
+  ensure
+    LotaNativeTest.forget_observed
+  end
+
+  # A File's last reference closes it (physfs/File.cpp, ~File), so a
+  # released File the game alone held is closed at once.
+  def test_a_released_file_is_closed_at_once
+    open_files = -> { Dir.children("/dev/fd").size }
+    file, = Lota::Filesystem.open_file("released.txt", :w)
+    with_file = open_files.call
+    file.release
+
+    assert_equal with_file - 1, open_files.call
+  ensure
+    Lota::Filesystem.remove("released.txt")
+  end
+
+  # A release inside a call that still uses the object, as perform_atomic
+  # holds the Data's lock while its block runs, lets go when the call
+  # returns, not under it; the sanitized run would see the lock of a freed
+  # Data otherwise.
+  def test_a_release_inside_a_call_waits_for_the_call_to_return
+    image = Lota::Image::ImageData.new(4, 4)
+    LotaNativeTest.observe_image_data(image.__send__(:native))
+    inside = image.perform_atomic do
+      image.release
+      LotaNativeTest.observed_reference_counts
+    end
+
+    assert_equal [[2], [1]], [inside, LotaNativeTest.observed_reference_counts]
+    alone = Lota::Image::ImageData.new(4, 4)
+
+    assert(alone.perform_atomic { alone.release })
+  ensure
+    LotaNativeTest.forget_observed
+  end
+
   def test_the_engines_object_is_not_public
     texture = Lota::Graphics::Canvas.new(4, 4)
 
