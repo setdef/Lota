@@ -101,6 +101,29 @@ class DataModuleFunctionsTest < Minitest::Test
     assert_equal compressed.string, Lota::Data.compress(:string, :gzip, "helloworld" * 10, 9)
   end
 
+  # A CompressedData knows its decompressed size, which w_decompress
+  # passes on (wrap_DataModule.cpp:157-162), so LZ4 decompresses it with
+  # LZ4_decompress_fast, and bytes given with their format, whose size it
+  # does not know, with LZ4_decompress_safe (Compressor.cpp:132-153). Both
+  # read what LZ4_compress_default writes and, from level 9,
+  # LZ4_compress_HC (lines 74-78): after the size, as a little-endian
+  # uint32, the bytes LÖVE's own LZ4 1.8.0, unpatched, writes for this
+  # input at either level. Lota's LZ4 patch must not change them
+  # (ext/lota/engine/lz4.patch).
+  def test_lz4_compressed_data_decompresses_with_its_size_or_without
+    source = "helloworld" * 10
+    bytes = ["64000000af68656c6c6f776f726c640a004250776f726c64"].pack("H*")
+
+    [-1, 9].each do |level|
+      compressed = Lota::Data.compress(:data, :lz4, source, level)
+
+      assert_equal :lz4, compressed.format
+      assert_equal bytes, compressed.string.b, "level #{level}"
+      assert_equal source, Lota::Data.decompress(:string, compressed), "level #{level}"
+      assert_equal source, Lota::Data.decompress(:string, :lz4, compressed.string), "level #{level}"
+    end
+  end
+
   # Each function checks its container type and format by name, as
   # luax_enumerror reports them (wrap_DataModule.cpp:46-53 and 116-301).
   def test_names_are_checked

@@ -423,6 +423,23 @@ work "LÖVE's patched Mesh",
   license: ["Zlib"],
   title: "LÖVE #{love_version}'s graphics/Mesh.cpp, as Lota's Mesh patch changes it"
 
+# The lz4.c of the LZ4 1.8.0 LÖVE bundles as Lota's LZ4 patch changes it
+# (ext/lota/engine/lz4.patch), which CMake writes into the build tree and
+# the bundle compiles in place of vendor/love's. It is LZ4's file, under
+# LZ4's license (vendor/love/src/libraries/lz4/lz4.c:1-33), with two
+# statements of LZ4's own later releases, whose authors the patch's
+# header names, under the same license.
+work "LÖVE's patched LZ4",
+  sources: ["tmp/*/build/patched/love/src/libraries/lz4/lz4.c"],
+  copyright: [
+    "2011-2017, Yann Collet",
+    "2018 Yann Collet",
+    "2020 Alexander Gallego <alex@vectorized.io>",
+    "2026 Kerrick Long <me@kerricklong.com>",
+  ],
+  license: ["BSD-2-Clause"],
+  title: "LZ4 1.8.0's lz4.c, as Lota's LZ4 patch changes it"
+
 # LÖVE's own sources (vendor/love/license.txt:6-9). Its bundled libraries
 # in src/libraries are works of their own, above; one the list lacks
 # stops the build.

@@ -1,0 +1,63 @@
+SPDX-FileCopyrightText: 2011-2017, Yann Collet
+SPDX-FileCopyrightText: 2018 Yann Collet
+SPDX-FileCopyrightText: 2020 Alexander Gallego <alex@vectorized.io>
+SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
+SPDX-License-Identifier: BSD-2-Clause
+
+Lota's LZ4 patch: two statements of src/libraries/lz4/lz4.c, the LZ4 1.8.0
+that LÖVE bundles (lz4.h, lines 94-96), each backported from LZ4 itself.
+LZ4_compress_generic computes the end of its dictionary as dictionary +
+dictSize (line 549), and LZ4_decompress_generic as dictStart + dictSize
+(line 1192), even when there is no dictionary and the pointer is null.
+Every one-shot compress adds 0 to a null pointer at line 549,
+LZ4_decompress_safe adds 0 at line 1192, and LZ4_decompress_fast, which
+passes a null dictStart with a dictSize of 64 KB (line 1362), adds 65536
+there. C leaves all three undefined, and UndefinedBehaviorSanitizer stops
+rake test:native at them: Apple clang 17 and LLVM clang 18 report adding
+0, and every clang reports adding 65536
+(doc/contributors/upstream/016.md). Nothing outside lz4.c can reach those
+statements: LÖVE's love::data::Compressor calls LZ4_compress_default,
+LZ4_compress_HC, LZ4_decompress_safe, and LZ4_decompress_fast
+(src/modules/data/Compressor.cpp, lines 74-78 and 132-153), which
+Lota::Data.compress and Lota::Data.decompress reach, and the arithmetic is
+inside them.
+
+The first hunk is the first statement of LZ4's own commit
+e68c7d38780ada518e6c43a09a2d92421ea8111b ("avoid computing 0 offsets from
+null pointers", Alexander Gallego, 2020, first in LZ4 1.9.3; lib/lz4.c
+line 822 there, line 880 in 1.9.3), where LZ4 had by then made
+cctx->dictSize a local dictSize. The second is one statement of LZ4's
+own commit 8bea19d57c0db6d3d812c7acc3d1834762bce297 ("fixed minor
+cppcheck warnings in lib", Yann Collet, 2018, first in LZ4 1.9.0;
+lib/lz4.c line 1426 there, line 1761 in 1.9.3), which covers
+LZ4_decompress_fast's 64 KB as well as LZ4_decompress_safe's 0, since it
+tests the pointer and not the size. Each leaves the end of a dictionary
+that is not there null, as the arithmetic made it, so neither changes a
+byte LZ4 writes or reads, and nothing else in those commits is needed to
+remove the three reports. Like LZ4 itself, the patch is under the
+BSD-2-Clause license (lz4.c, lines 1-33). CMake applies it to a copy of
+the file at configure time (ext/lota/engine/CMakeLists.txt); vendor/love
+is never written to. Drop it when LÖVE updates its bundled LZ4 to 1.9.3
+or later, which has both statements.
+
+diff -ruN a/src/libraries/lz4/lz4.c b/src/libraries/lz4/lz4.c
+--- a/src/libraries/lz4/lz4.c
++++ b/src/libraries/lz4/lz4.c
+@@ -546,7 +546,7 @@
+     const BYTE* lowLimit;
+     const BYTE* const lowRefLimit = ip - cctx->dictSize;
+     const BYTE* const dictionary = cctx->dictionary;
+-    const BYTE* const dictEnd = dictionary + cctx->dictSize;
++    const BYTE* const dictEnd = dictionary ? dictionary + cctx->dictSize : dictionary;
+     const ptrdiff_t dictDelta = dictEnd - (const BYTE*)source;
+     const BYTE* anchor = (const BYTE*) source;
+     const BYTE* const iend = ip + inputSize;
+@@ -1189,7 +1189,7 @@
+     BYTE* cpy;
+     BYTE* oexit = op + targetOutputSize;
+ 
+-    const BYTE* const dictEnd = (const BYTE*)dictStart + dictSize;
++    const BYTE* const dictEnd = (dictStart == NULL) ? NULL : dictStart + dictSize;
+     const unsigned inc32table[8] = {0, 1, 2,  1,  0,  4, 4, 4};
+     const int      dec64table[8] = {0, 0, 0, -1, -4,  1, 2, 3};
+ 

@@ -28,20 +28,23 @@ endif()
 # changes in the build tree, which the engine compiles in place of
 # vendor/love's: physics.patch (ADR 001, section 2) to LÖVE's physics
 # module, and mesh.patch, which frees a Mesh's vertex data as it was
-# allocated, to graphics/Mesh.cpp, and for Android alone
-# vulkan_present.patch, which keeps a suboptimal present from rebuilding
-# the swap chain, to graphics/vulkan/Graphics.cpp; every other platform
-# compiles LÖVE's own file. The copy is made when CMake configures,
+# allocated, to graphics/Mesh.cpp, lz4.patch, which backports LZ4's own
+# fix for its arithmetic on null pointers, to libraries/lz4/lz4.c, and for
+# Android alone vulkan_present.patch, which keeps a suboptimal present
+# from rebuilding the swap chain, to graphics/vulkan/Graphics.cpp; every
+# other platform compiles LÖVE's own file. The copy is made when CMake configures,
 # again whenever a patch or one of the files it patches is edited, and a
 # patched file is written only when it differs, so an unchanged file is not
 # rebuilt.
 set(PHYSICS_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/physics.patch)
 set(MESH_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/mesh.patch)
 set(MESH_SOURCE src/modules/graphics/Mesh.cpp)
+set(LZ4_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/lz4.patch)
+set(LZ4_SOURCE src/libraries/lz4/lz4.c)
 set(VULKAN_PRESENT_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_present.patch)
 set(VULKAN_PRESENT_SOURCE src/modules/graphics/vulkan/Graphics.cpp)
-set(PATCHES physics mesh)
-set(PATCHED_FILES_ALONE MESH_SOURCE)
+set(PATCHES physics mesh lz4)
+set(PATCHED_FILES_ALONE MESH_SOURCE LZ4_SOURCE)
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
 	list(APPEND PATCHES vulkan_present)
 	list(APPEND PATCHED_FILES_ALONE VULKAN_PRESENT_SOURCE)
@@ -99,6 +102,9 @@ set(ENGINE_SOURCES ${patched_sources})
 # its original folder next, where the compiler found them before.
 set_source_files_properties(${PATCHED_SOURCE_DIR}/${MESH_SOURCE} PROPERTIES
 	COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/modules/graphics")
+# The patched lz4.c's likewise ("lz4.h").
+set_source_files_properties(${PATCHED_SOURCE_DIR}/${LZ4_SOURCE} PROPERTIES
+	COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/libraries/lz4")
 # The patched vulkan/Graphics.cpp's likewise ("Graphics.h", "Vulkan.h").
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
 	set_source_files_properties(${PATCHED_SOURCE_DIR}/${VULKAN_PRESENT_SOURCE} PROPERTIES

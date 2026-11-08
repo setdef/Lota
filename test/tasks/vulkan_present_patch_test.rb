@@ -48,7 +48,7 @@ class VulkanPresentPatchTest < Minitest::Test
 
     assert_includes guarded, "list(APPEND PATCHES vulkan_present)"
     assert_includes guarded, "list(APPEND PATCHED_FILES_ALONE VULKAN_PRESENT_SOURCE)"
-    assert_includes cmake, "\nset(PATCHES physics mesh)\nset(PATCHED_FILES_ALONE MESH_SOURCE)\n"
+    assert_includes cmake, "\nset(PATCHES physics mesh lz4)\nset(PATCHED_FILES_ALONE MESH_SOURCE LZ4_SOURCE)\n"
   end
 
   # The one #ifdef LOVE_ANDROID block of +patched+ that LÖVE's file lacks,
