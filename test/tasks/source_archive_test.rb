@@ -10,6 +10,7 @@ require_relative "../../tasks/licensing"
 require_relative "../../tasks/source_archive"
 require "digest"
 require "socket"
+require "stringio"
 
 # SourceArchive fetches a framework's source archive once, over HTTP from
 # a server of the test's own, and the gem build checks it every time.
@@ -89,6 +90,108 @@ class SourceArchiveTest < Minitest::Test
 
       assert_equal "vendor/sources/x-1.0.tar.bz2 is missing; run bundle exec rake sources:fetch", missing.message
       assert_includes changed.message, "has SHA-256 #{Digest::SHA256.hexdigest('changed')}"
+    end
+  end
+
+  def recorder
+    waits = []
+    [waits, -> (seconds) { waits << seconds }]
+  end
+
+  def unavailable
+    "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+  end
+
+  def test_fetch_tries_again_after_a_host_answers_5xx
+    in_tree do |root|
+      serve(unavailable, unavailable, ok(CONTENTS)) do |port|
+        waits, pause = recorder
+        out = StringIO.new
+        archive = SourceArchive.new(source("http://127.0.0.1:#{port}/x-1.0.tar.bz2"), root:, out:, pause:)
+        archive.fetch
+
+        archive.verify!
+        assert_equal SourceArchive::BACKOFF.first(2), waits
+        assert_includes out.string, "Retrying http://127.0.0.1:#{port}/x-1.0.tar.bz2 in 2 seconds (1 of 3): " \
+          "SourceArchive::Transient: http://127.0.0.1:#{port}/x-1.0.tar.bz2 answered 503"
+      end
+    end
+  end
+
+  def test_fetch_gives_up_after_the_waits_and_says_what_it_tried
+    in_tree do |root|
+      responses = Array.new(SourceArchive::BACKOFF.size + 1) { unavailable }
+      serve(*responses) do |port|
+        waits, pause = recorder
+        archive = SourceArchive.new(source("http://127.0.0.1:#{port}/x-1.0.tar.bz2"), root:, out: StringIO.new, pause:)
+        error = assert_raises(SourceArchive::Failure) { archive.fetch }
+
+        assert_equal SourceArchive::BACKOFF, waits
+        assert_includes error.message, "did not download in 4 tries, waiting 2, 5, 15 seconds between them"
+        assert_equal 4, error.message.scan("answered 503 Service Unavailable").size
+        refute File.exist?("#{archive.path}.part")
+      end
+    end
+  end
+
+  def test_fetch_does_not_try_again_after_a_404
+    in_tree do |root|
+      serve("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n") do |port|
+        waits, pause = recorder
+        archive = SourceArchive.new(source("http://127.0.0.1:#{port}/x-1.0.tar.bz2"), root:, out: StringIO.new, pause:)
+        error = assert_raises(SourceArchive::Failure) { archive.fetch }
+
+        assert_empty waits
+        assert_includes error.message, "answered 404 Not Found"
+      end
+    end
+  end
+
+  def test_fetch_does_not_try_again_after_the_wrong_archive
+    in_tree do |root|
+      serve(ok("something else")) do |port|
+        waits, pause = recorder
+        archive = SourceArchive.new(source("http://127.0.0.1:#{port}/x-1.0.tar.bz2"), root:, out: StringIO.new, pause:)
+
+        assert_raises(SourceArchive::Failure) { archive.fetch }
+        assert_empty waits
+      end
+    end
+  end
+
+  def test_fetch_tries_again_when_the_connection_is_refused
+    in_tree do |root|
+      closed = TCPServer.new("127.0.0.1", 0)
+      port = closed.addr[1]
+      closed.close
+      waits, pause = recorder
+      archive = SourceArchive.new(source("http://127.0.0.1:#{port}/x-1.0.tar.bz2"), root:, out: StringIO.new, pause:)
+      error = assert_raises(SourceArchive::Failure) { archive.fetch }
+
+      assert_equal SourceArchive::BACKOFF, waits
+      assert_includes error.message, "Errno::ECONNREFUSED"
+    end
+  end
+
+  # The error a game's CI met: the connection to github.com timed out.
+  def test_fetch_tries_again_when_the_connection_times_out_and_then_succeeds
+    in_tree do |root|
+      calls = 0
+      transport = lambda do |uri|
+        calls += 1
+        raise IO::TimeoutError, "user specified timeout for github.com port 443" if calls < 3
+
+        Net::HTTP.get_response(uri)
+      end
+      serve(ok(CONTENTS)) do |port|
+        waits, pause = recorder
+        archive = SourceArchive.new(source("http://127.0.0.1:#{port}/x-1.0.tar.bz2"), root:, out: StringIO.new,
+          pause:, transport:)
+        archive.fetch
+
+        archive.verify!
+        assert_equal 2, waits.size
+      end
     end
   end
 end

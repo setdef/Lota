@@ -221,6 +221,22 @@ xcodebuild -exportArchive -archivePath build/MyGame.xcarchive -exportPath build/
 
 `ExportOptions.plist` names the method, `app-store-connect` for the App Store or `release-testing` for devices you register, and your `teamID`; Xcode's Organizer writes one when you export there once. Or archive from Xcode (Product, then Archive) and distribute from the Organizer.
 
+### The privacy manifest
+
+An App Store listing wants a privacy manifest, `PrivacyInfo.xcprivacy`, that names each category of "required reason" API your app calls and why. Without the right entries, App Store Connect emails you about the upload.
+
+`fledge build ios` writes `Host/PrivacyInfo.xcprivacy` with two entries: file timestamps (`NSPrivacyAccessedAPICategoryFileTimestamp`, reason `C617.1`) and system boot time (`NSPrivacyAccessedAPICategorySystemBootTime`, reason `35F9.1`). From reading their source, Lota's engine and SDL add no category beyond those two. LÖVE's timer and SDL's timer call `mach_absolute_time`, and PhysicsFS and LÖVE's filesystem call `stat` on files inside the app's container.
+
+Three things change that list:
+
+- **A host folder replaces the file whole.** If your `host/ios` has its own `Host/PrivacyInfo.xcprivacy`, it takes the place of Fledge's with no merging (Fledge's ADR 025, section 5). Repeat both entries in it.
+- **Showing file dates to the player.** A game that shows a file's date, from `Lota::Filesystem::Info#modtime` for example, adds `DDA9.1` to the file timestamp entry's reasons.
+- **Opening files the player chose.** A game that declares document types in `Info.plist`, or adds a file picker of its own, adds `3B52.1` to the same entry.
+
+SDL reads the system's scroll direction through `CFPreferences` when a mouse or trackpad connects. Apple's list of required reason APIs does not name that API, and Lota declares nothing for it.
+
+This list comes from reading the source of LÖVE, SDL, and Lota's host, and from the import check in `phones.yml`, which compares what the built app's executable imports with its manifest. No App Store upload has validated it yet. If App Store Connect names a category this section leaves out, add it to your manifest and tell Lota.
+
 ### Or let your game's CI build the Xcode project
 
 If your game is in a GitHub repository, Lota's iOS kit workflow takes the steps above on GitHub's macOS runners, with the same host, and hands you the Xcode project as a zip, checked in iPhone and iPad Simulators in portrait and landscape: you need only a Mac with Xcode to open, sign, and run it. Your repository calls Lota's workflow by a release's tag; no release carries it yet, so until one does, name the commit of Lota's `trunk` that holds it. [The iOS kit](../contributors/ios-kit.md) has the call, its inputs, and what it checks. Unpack the zip with `ditto -x -k`, which keeps its symbolic links.

@@ -13,7 +13,9 @@
 # iOS, on macos-15 with the newest Xcode there: the Xcode project is built
 # for the Simulator and, unsigned, for devices, Debug and Release, and
 # archived unsigned; the Simulator build runs in an iPhone and an iPad
-# Simulator (.github/phones/ios_simulator.sh). Android, on ubuntu-24.04:
+# Simulator (.github/phones/ios_simulator.sh), and the Release device
+# executable's imports are checked against the app's privacy manifest
+# (.github/phones/privacy_imports.sh). Android, on ubuntu-24.04:
 # the Gradle project is built as a debug APK, a release APK, and an
 # Android App Bundle, which are signed with a key made for the run, as a
 # studio signs with its own; the debug APK runs on an x86_64 emulator of
@@ -161,6 +163,11 @@ jobs:
             [ -f "$app/fledge/app/NOTICES.txt" ] || { echo "::error::$app does not carry Lota's NOTICES.txt"; exit 1; }
             du -sh "$app"
           done
+
+      - name: Check the privacy manifest against what the Release device executable imports
+        run: |
+          app=$PROJECT/dist/$APP_NAME-ios/build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app
+          bash .github/phones/privacy_imports.sh "$app/$APP_NAME" "$app/PrivacyInfo.xcprivacy"
 
       - name: Run the game in iPhone and iPad Simulators
         run: |

@@ -162,15 +162,11 @@ class WindowsBuild
     File.join(@root, "dependencies.stamp")
   end
 
-  # How many times #fetch tries each download: hosts fail now and then, as
-  # LinuxBuild::ATTEMPTS rides out.
-  ATTEMPTS = 5
-
   # Downloads each archive into +sources+, unless it is there with the
-  # recorded SHA-256, trying each ATTEMPTS times.
+  # recorded SHA-256, as SourceArchive#fetch does, retrying a failed connection.
   def fetch
     @archives.each do |archive|
-      attempt(archive) { SourceArchive.new(archive, root: @repository).fetch }
+      fetch_archive(archive)
       say "✅ #{archive.path} is #{archive.url}, SHA-256 #{archive.sha256}"
     end
   end
@@ -298,20 +294,11 @@ class WindowsBuild
     @arm64 ? [*options, "-DCMAKE_CXX_FLAGS=-include cstdlib"] : [*options, "-DALSOFT_STATIC_WINPTHREAD=ON"]
   end
 
-  # Runs the block until it does not fail, ATTEMPTS times at most: a
-  # connection dropped, a host that answered with an error, or an archive
-  # other than the one recorded.
-  private def attempt(archive)
-    tries = 0
-    begin
-      yield
-    rescue SourceArchive::Failure, IOError, SystemCallError, OpenSSL::SSL::SSLError, Timeout::Error => e
-      tries += 1
-      raise Failure, "#{archive.url}: #{e.message}" if tries >= ATTEMPTS
-
-      say "Retrying #{archive.url} (#{tries} of #{ATTEMPTS - 1}): #{e.message}"
-      retry
-    end
+  # Fetches +archive+, which SourceArchive retries when the connection fails.
+  private def fetch_archive(archive)
+    SourceArchive.new(archive, root: @repository, out: @out || $stdout).fetch
+  rescue SourceArchive::Failure => e
+    raise Failure, e.message
   end
 
   # Extracts +archive+, once it is the one recorded, and builds it into

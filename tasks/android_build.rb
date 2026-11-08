@@ -109,30 +109,20 @@ class AndroidBuild
     File.join(@root, abi)
   end
 
-  # How many times #fetch tries each download, as WindowsBuild::ATTEMPTS.
-  ATTEMPTS = WindowsBuild::ATTEMPTS
-
   # Downloads each archive into SOURCES, unless it is there with the
-  # recorded SHA-256, trying each ATTEMPTS times: hosts fail now and then.
+  # recorded SHA-256, as SourceArchive#fetch does, retrying a failed connection.
   def fetch
     ARCHIVES.each do |archive|
-      attempt(archive) { SourceArchive.new(archive, root: @repository).fetch }
+      fetch_archive(archive)
       say "✅ #{archive.path} is #{archive.url}, SHA-256 #{archive.sha256}"
     end
   end
 
-  private def attempt(archive)
-    tries = 0
-    begin
-      yield
-    rescue SourceArchive::Failure, IOError, SystemCallError, OpenSSL::SSL::SSLError, Timeout::Error => e
-      tries += 1
-      raise Failure, "#{archive.url}: #{e.message}" if tries >= ATTEMPTS
-
-      say "Retrying #{archive.url} (#{tries} of #{ATTEMPTS - 1}): #{e.message}"
-      sleep(tries)
-      retry
-    end
+  # Fetches +archive+, which SourceArchive retries when the connection fails.
+  private def fetch_archive(archive)
+    SourceArchive.new(archive, root: @repository, out: @out || $stdout).fetch
+  rescue SourceArchive::Failure => e
+    raise Failure, e.message
   end
 
   # Builds every library for every ABI, from what #fetch downloaded, unless

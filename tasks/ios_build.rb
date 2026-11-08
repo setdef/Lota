@@ -77,10 +77,13 @@ class IosBuild
   end
 
   # Downloads SDL's release into SOURCES, unless it is there with the
-  # recorded SHA-256.
+  # recorded SHA-256, retrying a failed connection as SourceArchive#fetch
+  # does.
   def fetch
-    SourceArchive.new(SDL, root: @repository).fetch
+    SourceArchive.new(SDL, root: @repository, out: @out || $stdout).fetch
     say "✅ #{SDL.path} is #{SDL.url}, SHA-256 #{SDL.sha256}"
+  rescue SourceArchive::Failure => e
+    raise Failure, e.message
   end
 
   # Builds SDL for every slice, from what #fetch downloaded, and returns
