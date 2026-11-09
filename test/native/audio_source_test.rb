@@ -75,6 +75,53 @@ class AudioSourceTest < Minitest::Test
     assert_equal "wrong argument type Integer (expected Lota::Sound::Decoder or Lota::Sound::SoundData)", error.message
   end
 
+  # A looping Source stays playing for as long as a test looks at it.
+  def looping_sources(count)
+    Array.new(count) do
+      Source.new(Lota::Sound::SoundData.new(44_100, 44_100, 16, 1), :static).tap { |source| source.looping = true }
+    end
+  end
+
+  # w_play, w_stop, and w_pause take one Source, several, or a table of them
+  # (wrap_Audio.cpp:119-208).
+  def test_several_sources_play_stop_and_pause_together
+    first, second = looping_sources(2)
+
+    assert Lota::Audio.play(first, second)
+    assert_predicate first, :playing?
+    assert_predicate second, :playing?
+    assert_nil Lota::Audio.pause(first, second)
+    refute_predicate first, :playing?
+    refute_predicate second, :playing?
+    assert Lota::Audio.play(first, second)
+    assert_nil Lota::Audio.stop(first, second)
+    refute_predicate first, :playing?
+    refute_predicate second, :playing?
+  end
+
+  def test_an_array_of_sources_plays_stops_and_pauses_as_a_table_does
+    first, second = looping_sources(2)
+
+    assert Lota::Audio.play([first, second])
+    assert_predicate second, :playing?
+    assert_nil Lota::Audio.pause([first, second])
+    refute_predicate first, :playing?
+    assert Lota::Audio.play([first, second])
+    assert_nil Lota::Audio.stop([first, second])
+    refute_predicate second, :playing?
+  end
+
+  def test_a_list_of_sources_holds_only_sources
+    first, = looping_sources(1)
+
+    assert_equal "wrong argument type Symbol (expected Lota::Audio::Source)",
+      assert_raises(TypeError) { Lota::Audio.play(first, :second) }.message
+    assert_raises(TypeError) { Lota::Audio.play([first, :second]) }
+    assert_raises(TypeError) { Lota::Audio.stop(first, 1) }
+    assert_raises(TypeError) { Lota::Audio.pause([first, nil]) }
+    assert_raises(TypeError) { Lota::Audio.play(:first) }
+  end
+
   def test_seek_and_tell_in_samples
     source = Source.new("resources/clickmono.ogg", :static)
     source.seek(441, :samples)

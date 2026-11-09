@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `Lota::Audio.play`, `stop`, and `pause` take several Sources, or an Array of them, as `love.audio.play`, `stop`, and `pause` take several or a table.
 - `Lota::Graphics.readback_buffer`, `readback_buffer_async`, `copy_buffer`, `copy_buffer_to_texture`, `copy_texture_to_buffer`, `draw_from_shader`, and `draw_from_shader_indirect`, and `Lota::Graphics::SpriteBatch#attach_attribute`, translating the LÖVE 12 functions of those names.
 - `Lota::Physics.new_circle_body`, `new_rectangle_body`, `new_polygon_body`, `new_edge_body`, and `new_chain_body`, each returning a new Body and its Shape.
 - LÖVE's deprecated forms of `Lota::Physics::CircleShape.new`, `RectangleShape.new`, `PolygonShape.new`, `EdgeShape.new`, and `ChainShape.new` without a Body, and the deprecated `Lota::Physics::Fixture.new`, which attaches a copy of such a Shape to a Body; `Fixture ===` is true of every Shape.

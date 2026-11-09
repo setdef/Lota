@@ -3,9 +3,13 @@
 
 module Lota
   module Audio
-    def self.play: (Source source) -> bool
+    def self.play: (Source | Array[Source] source, *Source more) -> bool
 
-    def self.stop: (?Source? source) -> nil
+    private def self.natives_of: (Array[Source] sources) -> Array[Native::Source]
+
+    private def self.native_of: (Source source) -> Native::Source
+
+    def self.stop: (?(Source | Array[Source])? source, *Source more) -> nil
 
     def self.volume: () -> Float
 
@@ -35,7 +39,7 @@ module Lota
 
     def self.distance_model: () -> Symbol
 
-    def self.pause: () -> Array[Source]
+    def self.pause: (?(Source | Array[Source])? source, *Source more) -> Array[Source]?
                   | (Source source) -> nil
 
     def self.set_effect: (String name, ?bool? enabled, **Source::setting settings) -> bool

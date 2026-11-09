@@ -840,6 +840,12 @@ module Lota
 
       def self.play: (Source source) -> bool
 
+      def self.play_sources: (Array[Source] sources) -> bool
+
+      def self.stop_sources: (Array[Source] sources) -> nil
+
+      def self.pause_sources: (Array[Source] sources) -> nil
+
       def self.stop: () -> nil
 
       def self.stop_source: (Source source) -> nil

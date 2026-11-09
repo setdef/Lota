@@ -270,6 +270,40 @@ Rice::Array pause() {
 // w_pause with one Source (wrap_Audio.cpp:205-208).
 void pause_source(Source &source) { source.pause(); }
 
+// The Sources of readSourceList and readSourceVararg (wrap_Audio.cpp:
+// 119-151), which luax_checksource each of: the Sources in +given+, which
+// Lota::Audio passes as an Array whether the game gave a table of them or
+// each as an argument.
+std::vector<Source *> source_list(Rice::Array given) {
+  const Rice::Array moved = std::move(given);
+  std::vector<Source *> sources;
+  for (const Rice::Object &item : ruby::elements(moved)) {
+    sources.push_back(Rice::detail::From_Ruby<Source *>().convert(item.value()));
+  }
+  return sources;
+}
+
+// w_play with a table of Sources or with several (wrap_Audio.cpp:
+// 153-166): whether they all started.
+bool play_sources(Rice::Array sources) {
+  const std::vector<Source *> list = source_list(std::move(sources));
+  return module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->play(list);
+}
+
+// w_stop with a table of Sources or with several (wrap_Audio.cpp:
+// 168-182).
+void stop_sources(Rice::Array sources) {
+  const std::vector<Source *> list = source_list(std::move(sources));
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->stop(list);
+}
+
+// w_pause with a table of Sources or with several (wrap_Audio.cpp:
+// 184-208).
+void pause_sources(Rice::Array sources) {
+  const std::vector<Source *> list = source_list(std::move(sources));
+  module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->pause(list);
+}
+
 // The names of a list LÖVE fills a table with in a loop, as an Array.
 Rice::Array names_of(const std::vector<std::string> &list) {
   Rice::Array names;
@@ -719,6 +753,9 @@ void define_audio(const Rice::Module &native) {
                                  &set_request_recording_permission, Rice::Arg("request"))
       .define_singleton_function("pause", &pause)
       .define_singleton_function("pause_source", &pause_source, Rice::Arg("source"))
+      .define_singleton_function("play_sources", &play_sources, Rice::Arg("sources"))
+      .define_singleton_function("stop_sources", &stop_sources, Rice::Arg("sources"))
+      .define_singleton_function("pause_sources", &pause_sources, Rice::Arg("sources"))
       .define_singleton_function("recording_devices", &recording_devices)
       .define_singleton_function("active_effects", &active_effects)
       .define_singleton_function("playback_devices", &playback_devices)

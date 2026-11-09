@@ -36,32 +36,61 @@ module Lota
   #     Lota::Audio.play(@click)
   #   end
   module Audio
-    # Plays +source+, matching love.audio.play with one Source
+    # Plays +source+, matching love.audio.play
     # (src/modules/audio/wrap_Audio.cpp, w_play), as Source#play does.
     #
-    # Returns +true+ when it started, and +false+ when it could not, as
-    # when every one of the engine's voices is busy. Raises RuntimeError
-    # when the audio module is not open.
+    # It takes one Source, several Sources, or an Array of them, which
+    # LÖVE takes as a table. Returns +true+ when it started, and +false+
+    # when it could not, as when every one of the engine's voices is busy;
+    # for several, +true+ when they all started. Raises TypeError for
+    # anything but a Source, and RuntimeError when the audio module is not
+    # open.
     #
-    # === Example
+    # === Examples
     #
     #   Lota::Audio.play(@click) # => true
-    def self.play(source)
-      Native::Audio.play(source.__send__(:native))
+    #   Lota::Audio.play(@click, @thud)
+    #   Lota::Audio.play([@click, @thud])
+    def self.play(source, *more)
+      return Native::Audio.play_sources(natives_of(source)) if source.is_a?(Array)
+      return Native::Audio.play_sources(natives_of([source, *more])) unless more.empty?
+
+      Native::Audio.play(native_of(source))
     end
 
     # Stops +source+, or every Source playing when left out, matching
     # love.audio.stop (src/modules/audio/wrap_Audio.cpp, w_stop). A
     # stopped Source starts from its beginning when it plays again.
     #
-    # Raises RuntimeError when the audio module is not open.
+    # It takes one Source, several Sources, or an Array of them, which
+    # LÖVE takes as a table. Raises TypeError for anything but a Source,
+    # and RuntimeError when the audio module is not open.
     #
     # === Examples
     #
     #   Lota::Audio.stop(@music)
+    #   Lota::Audio.stop(@music, @ambience)
+    #   Lota::Audio.stop([@music, @ambience])
     #   Lota::Audio.stop
-    def self.stop(source = nil)
-      source ? Native::Audio.stop_source(source.__send__(:native)) : Native::Audio.stop
+    def self.stop(source = nil, *more)
+      return Native::Audio.stop if source.nil?
+      return Native::Audio.stop_sources(natives_of(source)) if source.is_a?(Array)
+      return Native::Audio.stop_sources(natives_of([source, *more])) unless more.empty?
+
+      Native::Audio.stop_source(native_of(source))
+    end
+
+    # The engine's Sources of +sources+, each checked. :nodoc:
+    private_class_method def self.natives_of(sources)
+      sources.map { |source| native_of(source) }
+    end
+
+    # The engine's Source of +source+, or TypeError, as luax_checksource
+    # reads one. :nodoc:
+    private_class_method def self.native_of(source)
+      raise TypeError, "wrong argument type #{source.class} (expected Lota::Audio::Source)" unless source.is_a?(Source)
+
+      source.__send__(:native)
     end
 
     # How loud every Source plays, from 0 for silence to 1 for as loud as
@@ -237,20 +266,24 @@ module Lota
     # (src/modules/audio/wrap_Audio.cpp, w_pause).
     #
     # With no Source, it pauses every Source playing and returns them, as
-    # an Array where LÖVE returns a table, to play again later. With one,
-    # it pauses that Source and returns +nil+. LÖVE also takes several
-    # Sources, or a table of them, which Lota does not bind yet. Raises
-    # RuntimeError when the audio module is not open.
+    # an Array where LÖVE returns a table, to play again later. With one
+    # Source, several, or an Array of them, which LÖVE takes as a table, it
+    # pauses those and returns +nil+. Raises TypeError for anything but a
+    # Source, and RuntimeError when the audio module is not open.
     #
     # === Examples
     #
     #   paused = Lota::Audio.pause
     #   paused.each(&:play)
     #   Lota::Audio.pause(@music) # => nil
-    def self.pause(source = nil)
-      return Native::Audio.pause_source(source.__send__(:native)) if source
+    #   Lota::Audio.pause(@music, @ambience) # => nil
+    #   Lota::Audio.pause([@music, @ambience]) # => nil
+    def self.pause(source = nil, *more)
+      return Native::Audio.pause.map { |native| Source.__send__(:from_native, native) } if source.nil?
+      return Native::Audio.pause_sources(natives_of(source)) if source.is_a?(Array)
+      return Native::Audio.pause_sources(natives_of([source, *more])) unless more.empty?
 
-      Native::Audio.pause.map { |native| Source.__send__(:from_native, native) }
+      Native::Audio.pause_source(native_of(source))
     end
 
     # Makes, changes, or removes a named effect that Sources can play

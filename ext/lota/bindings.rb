@@ -30,10 +30,11 @@ bound_by_hand "love.audio.newSource",
     "check and the forms with a SoundData and a Decoder"
 bound_by_hand "love.audio.play",
   reason: "reads a list of Sources from a table or from every argument (readSourceList, readSourceVararg), " \
-    "which the parser does not read; Lota binds the form with one Source"
+    "which the parser does not read; Lota binds the form with one Source, and the forms with several, which " \
+    "Lota::Audio passes as an Array"
 bound_by_hand "love.audio.stop",
   reason: "reads a list of Sources from a table or from every argument, as love.audio.play; Lota binds the " \
-    "forms with no Source and with one"
+    "forms with no Source, with one, and with several"
 generate "love.audio.setVolume"
 generate "love.audio.getVolume"
 generate "Source:play"
@@ -108,7 +109,7 @@ bound_by_hand "love.audio.getActiveEffects",
   reason: "fills a table in a loop, as love.audio.getOutputSpatializationFilters"
 bound_by_hand "love.audio.pause",
   reason: "returns the Sources it paused as a table it fills in a loop, and reads a list of Sources as " \
-    "love.audio.play does; Lota binds the forms with no Source and with one"
+    "love.audio.play does; Lota binds the forms with no Source, with one, and with several"
 bound_by_hand "love.audio.setEffect",
   reason: "reads its settings from a table with lua_next, each by the type its parameter has, which the " \
     "generator does not port; Lota reads them as the pairs Lota::Audio.set_effect makes of its keywords"
