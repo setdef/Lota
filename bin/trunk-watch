@@ -12,8 +12,8 @@
 # failed only because a download or a runner broke is run again. Any
 # other failure has its failed jobs run again once; if the run then
 # passes, it prints that a flaky test is likely. If the run is still
-# red and exactly one commit lies between the last fully green trunk
-# commit and the red one, it reverts that commit in a scratch clone it
+# red and exactly one commit lies between the last trunk commit the
+# run's workflow passed on and the red one, it reverts that commit in a scratch clone it
 # creates and removes (never your working copy), pushes the revert to
 # trunk (never forced), prints "REVERTED sha (run ID)", and exits 1. In
 # any unclear case (several commits, a merge commit, a conflict) it

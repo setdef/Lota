@@ -11,13 +11,13 @@ require "json"
 # it (bin/trunk-watch). It lists the trunk's completed runs, and for each
 # failed one reads the raw log of every failed job (gh run view --log-failed
 # silently drops lines that hold terminal escape sequences, so it is not
-# used), strips the escape codes, and classifies all the jobs' errors
-# together: a run that failed only because
-# GitHub's runners or a download broke is run again. Any other failure has
+# used), strips the escape codes, and classifies each job's errors: a run
+# that failed only because GitHub's runners or a download broke is run
+# again. Any other failure has
 # its failed jobs run again once, so that a flaky test cannot condemn a good
 # commit. A run still red after that is the backstop's business: when
-# exactly one commit lies between the last fully green commit and the red
-# one, the watch reverts it in a scratch clone and pushes the revert to
+# exactly one commit lies between the last commit its workflow passed on
+# and the red one, the watch reverts it in a scratch clone and pushes the revert to
 # trunk; otherwise, or with no +git+, it stops the watch so that whoever
 # started it learns that trunk is red.
 class TrunkWatch
@@ -44,6 +44,16 @@ class TrunkWatch
   # Error lines that say nothing about the code: a tool a failed step
   # never installed, and the cache report that follows any failure.
   NOISE = /Process completed with exit code 127|Report ccache/
+
+  # Lines, not reported as errors, that show a job's download arrived
+  # broken: sdkmanager could not open the Android system image it had
+  # just downloaded, and the emulator step ended with only its exit
+  # status as its error.
+  BROKEN_DOWNLOAD = /An error occurred while preparing SDK package .*Error on ZipFile/
+
+  # The error line a failed step always ends with, which names no cause:
+  # in a job whose log shows BROKEN_DOWNLOAD, it is that outage's.
+  STEP_EXIT = /##\[error\](?:The process '.*' failed|Process completed) with exit code \d+/
 
   # Terminal escape sequences: CSI sequences (colors, cursor moves) and the
   # two-character escapes.
@@ -73,7 +83,7 @@ class TrunkWatch
 
   # What to do about a run that stayed red: +action+ is :revert or :report;
   # +commits+ are the shas after +green+ up to the red head, newest first;
-  # +green+ is the last fully green commit, or nil; +reason+ says why the
+  # +green+ is the last green commit, or nil; +reason+ says why the
   # action is :report.
   class Plan < Data.define(:action, :green, :commits, :reason)
     # The commit to revert, for a :revert plan.
@@ -87,9 +97,21 @@ class TrunkWatch
   # error line is an outage's or noise and the attempt is below ATTEMPTS,
   # otherwise :stop.
   def self.classify(log, attempt)
-    errors = strip_ansi(log).lines(chomp: true).grep(ERROR_LINE)
-    real = errors.grep_v(OUTAGE).grep_v(NOISE)
+    lines = strip_ansi(log).lines(chomp: true)
+    broken = lines.grep(BROKEN_DOWNLOAD)
+    errors = broken + lines.grep(ERROR_LINE)
+    real = errors.grep_v(OUTAGE).grep_v(NOISE).grep_v(BROKEN_DOWNLOAD)
+    real = real.grep_v(STEP_EXIT) unless broken.empty?
     Verdict.new(action: (real.empty? && attempt < ATTEMPTS) ? :rerun : :stop, errors:, outage: real.empty?)
+  end
+
+  # The verdict on a failed run's jobs, from each job's log in +logs+:
+  # each is classified alone, so that one job's broken download excuses
+  # no other job's error.
+  def self.classify_jobs(logs, attempt)
+    verdicts = logs.map { |log| classify(log, attempt) }
+    outage = verdicts.all?(&:outage)
+    Verdict.new(action: (outage && attempt < ATTEMPTS) ? :rerun : :stop, errors: verdicts.flat_map(&:errors), outage:)
   end
 
   # +log+ without its terminal escape sequences.
@@ -117,13 +139,16 @@ class TrunkWatch
   # JSON of gh run list for trunk, every workflow) and +graph+ (the output
   # of +git rev-list --parents HEAD+, newest first). The green commit is
   # the newest ancestor of +head+, +head+ excepted, all of whose runs
-  # succeeded. Exactly one commit with one parent between them is a
-  # :revert; anything else is a :report with its reason.
-  def self.plan(runs, head, graph)
+  # succeeded, of +workflow+ alone when it is given: a workflow that runs
+  # on every commit judges a commit by its own runs, though another, which
+  # gives way to newer pushes, was cancelled there. Exactly one commit with
+  # one parent between them is a :revert; anything else is a :report with
+  # its reason.
+  def self.plan(runs, head, graph, workflow = nil)
     commits = graph.to_s.lines.map(&:split)
     return report_plan(nil, [], "the history does not start at #{head[0, 7]}") unless commits.dig(0, 0) == head
 
-    green = green_shas(runs)
+    green = green_shas(workflow ? runs.select { |run| run["workflowName"] == workflow } : runs)
     index = commits.index { |sha, *| sha != head && green.include?(sha) }
     return report_plan(nil, commits.map(&:first), "no fully green commit in the last #{commits.size}") unless index
 
@@ -136,15 +161,15 @@ class TrunkWatch
   end
 
   # The message of the revert of +sha+, whose subject was +subject+, for
-  # the red run +run_id+ and the +jobs+ that failed in it.
-  def self.revert_message(sha, subject, run_id, jobs)
+  # the red run +run_id+ of +workflow+ and the +jobs+ that failed in it.
+  def self.revert_message(sha, subject, run_id, jobs, workflow = "CI")
     named = jobs.empty? ? "no failed job named" : "failed jobs #{jobs.join(', ')}"
     <<~MESSAGE
       revert: #{subject}
 
-      CI run #{run_id} was red, with #{named}, and
+      #{workflow} run #{run_id} was red, with #{named}, and
       the failed jobs failed again when run again. This commit is the only
-      one between the last fully green commit and the red one, so
+      one between the last commit #{workflow} passed and the red one, so
       bin/trunk-watch reverted #{sha[0, 7]} automatically. Tell its author:
       fix it and land it again.
 
@@ -198,7 +223,7 @@ class TrunkWatch
     @runs = list_runs(15)
     announce_passes
     failed_runs.each do |run|
-      verdict = TrunkWatch.classify(log(run), run.attempt)
+      verdict = TrunkWatch.classify_jobs(logs(run), run.attempt)
       if verdict.action == :rerun
         rerun(run)
       elsif verdict.outage || @git.nil?
@@ -228,17 +253,17 @@ class TrunkWatch
     end
   end
 
-  # The raw logs of all of the run's failed jobs, one after the other. A
-  # job whose log cannot be read contributes an error that is no outage's,
-  # so that an unseen job never lets a run pass as an outage.
-  private def log(run)
+  # The raw log of each of the run's failed jobs. A job whose log cannot
+  # be read gives an error that is no outage's, so that an unseen job
+  # never lets a run pass as an outage.
+  private def logs(run)
     jobs = TrunkWatch.failed_job_ids(@gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs"))
-    return "##[error]no failed job of run #{run.id} could be listed\n" if jobs.empty?
+    return ["##[error]no failed job of run #{run.id} could be listed\n"] if jobs.empty?
 
     jobs.map do |id, name|
       raw = @gh.call("api", "--allow-escape-sequences", "repos/#{@repository}/actions/jobs/#{id}/logs")
       raw ? TrunkWatch.strip_ansi(raw) : "##[error]the log of job #{name} (#{id}) could not be read\n"
-    end.join("\n")
+    end
   end
 
   private def failed_job_names(run)
@@ -286,7 +311,7 @@ class TrunkWatch
     graph = @git.call("fetch", "origin") && @git.call("rev-list", "--parents", "--max-count=#{HISTORY}", run.head)
     return Plan.new(action: :report, green: nil, commits: [], reason: "the history could not be fetched") unless graph
 
-    TrunkWatch.plan(list_runs(100), run.head, graph)
+    TrunkWatch.plan(list_runs(100), run.head, graph, run.workflow)
   end
 
   # Reverts the plan's commit and pushes it to trunk; returns nil when it
@@ -298,7 +323,7 @@ class TrunkWatch
       @git.call("revert", "--abort")
       return "git revert of #{sha[0, 7]} failed (a conflict, most likely)"
     end
-    @git.call("commit", "--amend", "-m", TrunkWatch.revert_message(sha, subject, run.id, failed_job_names(run)))
+    @git.call("commit", "--amend", "-m", TrunkWatch.revert_message(sha, subject, run.id, failed_job_names(run), run.workflow))
     PUSH_ATTEMPTS.times do
       @git.call("fetch", "origin")
       unless @git.call("rebase", "origin/trunk")

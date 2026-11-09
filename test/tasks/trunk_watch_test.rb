@@ -85,6 +85,29 @@ class TrunkWatchTest < Minitest::Test
     { databaseId: 602, name: "Gate (linux)", conclusion: "failure" },
   ])
 
+  # What sdkmanager printed when the Android system image it downloaded
+  # was not a zip it could open, recorded from a phones.yml emulator job:
+  # the job's only error line is its step's exit status.
+  ANDROID_LOG = <<~LOG
+    2026-11-09T14:34:30.1234567Z Warning: An error occurred while preparing SDK package Google APIs Intel x86_64 Atom System Image: Error on ZipFile unknown archive.
+    2026-11-09T14:34:31.8431502Z error: could not connect to TCP port 5554: Connection refused
+    2026-11-09T14:34:31.8455240Z ##[error]The process '/usr/bin/sh' failed with exit code 1
+  LOG
+
+  def test_a_broken_system_image_download_excuses_only_its_own_jobs_exit
+    verdict = TrunkWatch.classify(ANDROID_LOG, 1)
+
+    assert_equal :rerun, verdict.action
+    assert(verdict.errors.any? { |line| line.include?("Error on ZipFile") })
+    assert_equal :stop, TrunkWatch.classify("##[error]The process '/usr/bin/sh' failed with exit code 1\n", 1).action
+
+    code = "2026-11-09T10:00:00.1234567Z ##[error]Process completed with exit code 1.\n"
+    gh = FakeGh.new(runs, "", jobs: TWO_JOBS, logs: { 601 => ANDROID_LOG, 602 => code })
+
+    assert_equal 30, watch(gh).check.id
+    assert(gh.calls.none? { |call| call[1] == "rerun" })
+  end
+
   def test_strip_ansi_removes_color_and_cursor_codes
     assert_equal "Failure: x", TrunkWatch.strip_ansi("#{ESC}[31;1mFail#{ESC}[0mure:#{ESC}[K x")
     assert_equal "", TrunkWatch.strip_ansi(nil)
@@ -245,8 +268,8 @@ class TrunkWatchTest < Minitest::Test
   OLDER = "c" * 40
   OTHER = "d" * 40
 
-  def run_row(id, sha, conclusion, status: "completed", attempt: 1)
-    { databaseId: id, status:, conclusion:, attempt:, headSha: sha, workflowName: "CI" }
+  def run_row(id, sha, conclusion, status: "completed", attempt: 1, workflow: "CI")
+    { databaseId: id, status:, conclusion:, attempt:, headSha: sha, workflowName: workflow }
   end
 
   def history_runs = [run_row(30, RED, "failure", attempt: 2), run_row(20, GREEN, "success"), run_row(10, OLDER, "success")]
@@ -346,6 +369,29 @@ class TrunkWatchTest < Minitest::Test
     assert_includes message, "Gate (linux)"
     assert_includes out.string, "REVERTED aaaaaaa (run 30)"
     refute_includes out.string, "TRUNK RED"
+  end
+
+  # A workflow that runs on every commit names the commit that broke it
+  # though another workflow, which runs on fewer, never finished on the
+  # commit before.
+  def test_a_red_run_is_judged_against_its_own_workflows_runs
+    fast = "Pre-push tier"
+    runs = [
+      run_row(30, RED, "failure", attempt: 2, workflow: fast),
+      run_row(21, GREEN, "cancelled"),
+      run_row(20, GREEN, "success", workflow: fast),
+      run_row(11, OLDER, "success"),
+      run_row(10, OLDER, "success", workflow: fast),
+    ]
+    graph = "#{RED} #{GREEN}\n#{GREEN} #{OLDER}\n#{OLDER}\n"
+    git = FakeGit.new("rev-list" => graph, "log" => "feat: break it\n")
+    out = StringIO.new
+    watch, = revert_watch(runs, git, out:)
+
+    assert_equal 30, watch.check.id
+    assert_includes out.string, "REVERTED aaaaaaa (run 30)"
+    assert_includes git.calls[4].last, "#{fast} run 30 was red"
+    assert_equal :report, TrunkWatch.plan(stringify(runs), RED, graph, "CI").action
   end
 
   def test_a_rejected_push_is_fetched_rebased_and_retried_but_never_forced
