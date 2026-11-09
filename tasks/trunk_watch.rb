@@ -9,7 +9,10 @@ require "json"
 
 # Keeps trunk's GitHub Actions runs green for anyone who wants a hand with
 # it (bin/trunk-watch). It lists the trunk's completed runs, and for each
-# failed one reads the failed steps' log: a run that failed only because
+# failed one reads the raw log of every failed job (gh run view --log-failed
+# silently drops lines that hold terminal escape sequences, so it is not
+# used), strips the escape codes, and classifies all the jobs' errors
+# together: a run that failed only because
 # GitHub's runners or a download broke is run again. Any other failure has
 # its failed jobs run again once, so that a flaky test cannot condemn a good
 # commit. A run still red after that is the backstop's business: when
@@ -41,6 +44,10 @@ class TrunkWatch
   # Error lines that say nothing about the code: a tool a failed step
   # never installed, and the cache report that follows any failure.
   NOISE = /Process completed with exit code 127|Report ccache/
+
+  # Terminal escape sequences: CSI sequences (colors, cursor moves) and the
+  # two-character escapes.
+  ANSI = %r{\e\[[0-?]*[ -/]*[@-~]|\e[@-Z\\-_]}
 
   # A run is run again while its attempt is below this.
   ATTEMPTS = 3
@@ -80,9 +87,21 @@ class TrunkWatch
   # error line is an outage's or noise and the attempt is below ATTEMPTS,
   # otherwise :stop.
   def self.classify(log, attempt)
-    errors = log.lines(chomp: true).grep(ERROR_LINE)
+    errors = strip_ansi(log).lines(chomp: true).grep(ERROR_LINE)
     real = errors.grep_v(OUTAGE).grep_v(NOISE)
     Verdict.new(action: (real.empty? && attempt < ATTEMPTS) ? :rerun : :stop, errors:, outage: real.empty?)
+  end
+
+  # +log+ without its terminal escape sequences.
+  def self.strip_ansi(log) = log.to_s.gsub(ANSI, "")
+
+  # The [id, name] pairs of the failed jobs in the JSON of
+  # +gh run view --json jobs+, or none if +json+ is unreadable.
+  def self.failed_job_ids(json)
+    jobs = JSON.parse(json.to_s).fetch("jobs", [])
+    jobs.select { |job| job["conclusion"] == "failure" }.map { |job| [job["databaseId"], job["name"]] }
+  rescue JSON::ParserError, TypeError
+    []
   end
 
   # The names of the failed jobs in the JSON of +gh run view --json jobs+,
@@ -209,7 +228,18 @@ class TrunkWatch
     end
   end
 
-  private def log(run) = @gh.call("run", "view", run.id.to_s, "--repo", @repository, "--log-failed").to_s
+  # The raw logs of all of the run's failed jobs, one after the other. A
+  # job whose log cannot be read contributes an error that is no outage's,
+  # so that an unseen job never lets a run pass as an outage.
+  private def log(run)
+    jobs = TrunkWatch.failed_job_ids(@gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs"))
+    return "##[error]no failed job of run #{run.id} could be listed\n" if jobs.empty?
+
+    jobs.map do |id, name|
+      raw = @gh.call("api", "--allow-escape-sequences", "repos/#{@repository}/actions/jobs/#{id}/logs")
+      raw ? TrunkWatch.strip_ansi(raw) : "##[error]the log of job #{name} (#{id}) could not be read\n"
+    end.join("\n")
+  end
 
   private def failed_job_names(run)
     TrunkWatch.failed_jobs(@gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs"))

@@ -60,15 +60,54 @@ class TrunkWatchTest < Minitest::Test
     assert_equal :rerun, TrunkWatch.classify("nothing to see\n", 1).action
   end
 
-  JOBS = JSON.generate(jobs: [{ name: "Gate (linux)", conclusion: "failure" }, { name: "Delivery", conclusion: "success" }])
+  JOBS = JSON.generate(jobs: [
+    { databaseId: 501, name: "Gate (linux)", conclusion: "failure" },
+    { databaseId: 502, name: "Delivery", conclusion: "success" },
+  ])
+
+  ESC = "\e"
+
+  # Recorded raw job logs, as the logs API returns them: timestamped, with
+  # color codes. gh run view --log-failed drops every line holding an ESC.
+  MAC_LOG = <<~LOG
+    2026-11-09T10:00:00.1234567Z #{ESC}[36;1mrake test#{ESC}[0m
+    2026-11-09T10:00:01.1234567Z #{ESC}[31;1mFailure:#{ESC}[0m GameTest#test_draw [test/game_test.rb:12]
+    2026-11-09T10:00:02.1234567Z ##[error]#{ESC}[1mProcess completed with exit code 1.#{ESC}[0m
+  LOG
+
+  LINUX_LOG = <<~LOG
+    2026-11-09T10:00:00.1234567Z ##[error]curl failed with exit code 22
+    2026-11-09T10:00:01.1234567Z ##[error]Process completed with exit code 127.
+  LOG
+
+  TWO_JOBS = JSON.generate(jobs: [
+    { databaseId: 601, name: "Gate (macos)", conclusion: "failure" },
+    { databaseId: 602, name: "Gate (linux)", conclusion: "failure" },
+  ])
+
+  def test_strip_ansi_removes_color_and_cursor_codes
+    assert_equal "Failure: x", TrunkWatch.strip_ansi("#{ESC}[31;1mFail#{ESC}[0mure:#{ESC}[K x")
+    assert_equal "", TrunkWatch.strip_ansi(nil)
+  end
+
+  def test_classify_sees_an_error_split_by_escape_codes
+    assert_equal :stop, TrunkWatch.classify("#{ESC}[31mFail#{ESC}[0mure: boom\n", 1).action
+    assert_equal :rerun, TrunkWatch.classify("##[error]#{ESC}[1mcurl failed with exit code 22#{ESC}[0m\n", 1).action
+  end
+
+  def test_failed_job_ids_pairs_ids_with_names
+    assert_equal [[501, "Gate (linux)"]], TrunkWatch.failed_job_ids(JOBS)
+    assert_empty TrunkWatch.failed_job_ids("not json")
+  end
 
   # A gh that answers from recorded output and remembers what it was asked.
   class FakeGh
     attr_reader :calls
 
-    def initialize(runs, log, jobs: JOBS)
+    def initialize(runs, log, jobs: JOBS, logs: nil)
       @runs = runs
       @log = log
+      @logs = logs
       @jobs = jobs
       @calls = []
     end
@@ -77,9 +116,19 @@ class TrunkWatchTest < Minitest::Test
       @calls << args
       case args.first(2)
       when %w[run list] then JSON.generate(@runs)
-      when %w[run view] then args.include?("jobs") ? @jobs : @log
+      when %w[run view] then args.include?("jobs") ? @jobs : visible(@log)
+      when %w[api --allow-escape-sequences] then job_log(args.last)
       when %w[run rerun] then ""
       end
+    end
+
+    # What gh run view --log-failed prints: lines with an ESC are dropped.
+    def visible(log) = log.lines.reject { |line| line.include?("\e") }.join
+
+    private def job_log(path)
+      return @log unless @logs
+
+      @logs[path[%r{jobs/(\d+)/logs}, 1].to_i]
     end
   end
 
@@ -109,6 +158,49 @@ class TrunkWatchTest < Minitest::Test
     assert_equal 30, red.id
     assert_includes out.string, "TRUNK RED: run 30 (abcdef0 CI), attempt 1"
     assert_includes out.string, "Failure: GameTest#test_draw"
+  end
+
+  def test_the_raw_job_log_is_read_through_the_api_with_escapes_allowed
+    gh = FakeGh.new(runs, MAC_LOG)
+    out = StringIO.new
+    red = watch(gh, out:).check
+
+    assert_equal 30, red.id
+    assert_includes gh.calls, %w[api --allow-escape-sequences repos/o/r/actions/jobs/501/logs]
+    assert(gh.calls.none? { |call| call.include?("--log-failed") })
+    assert_includes out.string, "Failure: GameTest#test_draw"
+    refute_includes out.string, ESC
+  end
+
+  def test_an_error_hidden_from_log_failed_by_escapes_is_not_taken_for_an_outage
+    gh = FakeGh.new(runs, "", jobs: TWO_JOBS, logs: { 601 => MAC_LOG, 602 => LINUX_LOG })
+    out = StringIO.new
+
+    assert_equal 30, watch(gh, out:).check.id
+    assert(gh.calls.none? { |call| call[1] == "rerun" })
+    assert_includes out.string, "Failure: GameTest#test_draw"
+    assert_equal :rerun, TrunkWatch.classify(gh.visible(MAC_LOG + LINUX_LOG), 1).action
+  end
+
+  def test_every_failed_jobs_errors_must_be_outages_to_rerun
+    gh = FakeGh.new(runs, CODE_LOG, jobs: TWO_JOBS, logs: { 601 => LINUX_LOG, 602 => LINUX_LOG })
+
+    assert_nil watch(gh).check
+    assert_includes gh.calls, %w[run rerun 30 --repo o/r --failed]
+  end
+
+  def test_a_job_log_that_cannot_be_read_is_not_an_outage
+    gh = FakeGh.new(runs, "", jobs: TWO_JOBS, logs: { 601 => LINUX_LOG, 602 => nil })
+    out = StringIO.new
+
+    assert_equal 30, watch(gh, out:).check.id
+    assert_includes out.string, "the log of job Gate (linux) (602) could not be read"
+  end
+
+  def test_a_run_with_no_listable_failed_job_is_not_an_outage
+    gh = FakeGh.new(runs, "", jobs: JSON.generate(jobs: []))
+
+    assert_equal 30, watch(gh).check.id
   end
 
   def test_runs_at_or_below_the_floor_are_ignored
