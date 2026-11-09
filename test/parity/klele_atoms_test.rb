@@ -8,8 +8,7 @@
 require_relative "parity_helper"
 
 # KleleAtoms, unchanged, in the reference love, and its Ruby translation in
-# Lota (test/games/klele_atoms), frame by frame (Plan 001, "Images, text,
-# and SpriteBatch"), played with the mouse. The game is made for LÖVE 11.3
+# Lota (test/games/klele_atoms), frame by frame, played with the mouse. The game is made for LÖVE 11.3
 # (its conf.lua sets t.version), so LÖVE 12 warns in a dialog before the
 # window opens (boot.lua:378-393), which the harness dismisses by pressing
 # Return (test/parity/lua/conf.lua). The game reads its settings when it
@@ -54,10 +53,10 @@ class KleleAtomsTest < Minitest::Test
   # goes back to the menu. Escape goes down at the start of frame 400, and
   # the menu quits before the game draws it, saving its settings.
   # The sound files both engines decode when the game loads, for their
-  # samples to be compared (Plan 001, "Sound"): KleleAtoms' three WAVE
+  # samples to be compared: KleleAtoms' three WAVE
   # files, the only sounds of the fixture games (the arkanoid tutorial's
-  # come in chapters whose licenses are not stated, which Plan 001 leaves
-  # out), and Lövetest's four Ogg Vorbis files (vendor/love/testing/
+  # come in chapters whose licenses are not stated, so the harness leaves
+  # them out), and Lövetest's four Ogg Vorbis files (vendor/love/testing/
   # resources), which Lövetest's own sound and audio tests decode, so
   # LÖVE's Vorbis decoder is compared as well as its WAVE one.
   SOUNDS = (Dir[File.join(GAME, "sounds/*.wav")] +
@@ -182,7 +181,7 @@ class KleleAtomsTest < Minitest::Test
   end
 
   # What Lota's SoundData and Decoder decode is what LÖVE's do: the same
-  # format, and the same samples, byte for byte (Plan 001, "Sound").
+  # format, and the same samples, byte for byte.
   def test_the_translation_decodes_what_love_decodes
     assert_predicate lota.output.status, :success?, lota.output.text
     expected = decoded(love)

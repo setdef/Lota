@@ -97,7 +97,7 @@ GitHub Actions runs `.github/workflows/ci.yml` on every push and pull request, o
 
 The **Gate** job installs the Ruby that `mise.toml` pins with `ruby/setup-ruby` and the other tools in `mise.toml` with mise, runs `bundle exec rake`, fails if the gate changed a file (its `lint:fix` step corrects what it can, which would otherwise pass unnoticed), and builds the precompiled gem with `rake package:native` as an artifact. Compiled objects come from ccache, which reuses one only when the compiler, its arguments, and every file it reads are the same.
 
-The **Delivery** job then downloads that gem on a fresh runner that builds nothing and fetches only `vendor/love`, for LÖVE's expected images, installs the same Ruby, and runs `rake package:deliver` on it, so the walking skeleton's acceptance test, Lövetest's `love.test.graphics.clear`, passes from the installed gem.
+The **Delivery** job then downloads that gem on a fresh runner that builds nothing and fetches only `vendor/love`, for LÖVE's expected images, installs the same Ruby, and runs `rake package:deliver` on it, so Lövetest's `love.test.graphics.clear`, among the rest, passes from the installed gem.
 
 CI's Ruby comes from `ruby/setup-ruby` rather than mise, and mise skips both Ruby and the Rust it pins for compiling Ruby, because setup-ruby's Ruby is already built by ruby-build with Rust, as the Ruby mise compiles is, so it has ZJIT without compiling Ruby on every run. mise's installs are cached under a key of `mise.toml`'s hash, but mise itself, and MSYS2's base on Windows, come from GitHub's releases on every run, so a job that fails to set either up tries again after a pause, twice for mise (`.github/actions/mise`) and once for MSYS2, before it fails, and an outage of those downloads does not stop trunk.
 
@@ -119,7 +119,7 @@ The real build is `.github/workflows/fuse.yml`'s, which CI calls on every push: 
 
 ## The parity harness
 
-`test/parity` is the parity harness (Plan 001): it runs a published LÖVE game, unchanged, in a reference `love` built from `vendor/love`, and the game's Ruby translation in Lota, both with a fixed `dt` and the same scripted keys, and compares every frame the two show by Lövetest's rule. The games are pinned submodules under `test/fixtures` (the arkanoid tutorial, Gravity-Wars, and KleleAtoms, whose two runs must also save the same settings and game, byte for byte), which Lota's lint and REUSE checks and the gem leave out, as they leave out `vendor/`; their translations live in `test/games`.
+`test/parity` is the parity harness: it runs a published LÖVE game, unchanged, in a reference `love` built from `vendor/love`, and the game's Ruby translation in Lota, both with a fixed `dt` and the same scripted keys, and compares every frame the two show by Lövetest's rule. The games are pinned submodules under `test/fixtures` (the arkanoid tutorial, Gravity-Wars, and KleleAtoms, whose two runs must also save the same settings and game, byte for byte), which Lota's lint and REUSE checks and the gem leave out, as they leave out `vendor/`; their translations live in `test/games`.
 
 `test/parity/lua/conf.lua` is the harness's side in LÖVE: it mounts the game, wraps `love.update` to hold keys in SDL's keyboard state and pass the fixed `dt`, and wraps `love.draw` to save each frame with `love.graphics.captureScreenshot`. `test/parity/probe.rb` is the harness's side in Lota, which does what `conf.lua` does, loaded with `ruby -r` into `lota run`, and compares each frame with LÖVE's as it goes, reporting the first that differs and the pixel where, and keeping that frame, as each engine showed it, in `tmp/parity-mismatches`, which CI uploads when the gate fails.
 
@@ -129,7 +129,7 @@ The real build is `.github/workflows/fuse.yml`'s, which CI calls on every push: 
 
 ### Inputs both sides share
 
-Random numbers come from LÖVE's own generator on both sides, as Plan 001 has them: the Lua side points `math.random` and `math.randomseed` at `love.math.random` and `love.math.setRandomSeed`, which `Lota::Math.random` and `random_seed=` port, and both sides fix the clock a game seeds from, `os.time()` in Lua and `Time.now` in Ruby, at the script's `clock`, so a game that seeds from the time draws the same numbers in both. Both sides also fix `love.timer.getDelta` at the script's `dt` and seed LÖVE's generator with the script's clock before the game's `load`.
+Random numbers come from LÖVE's own generator on both sides: the Lua side points `math.random` and `math.randomseed` at `love.math.random` and `love.math.setRandomSeed`, which `Lota::Math.random` and `random_seed=` port, and both sides fix the clock a game seeds from, `os.time()` in Lua and `Time.now` in Ruby, at the script's `clock`, so a game that seeds from the time draws the same numbers in both. Both sides also fix `love.timer.getDelta` at the script's `dt` and seed LÖVE's generator with the script's clock before the game's `load`.
 
 Where a game needs a key press rather than a held key, as on Escape to quit, the script presses it: both sides also push SDL's key down and key up events into SDL's queue with `SDL_PushEvent`, which LÖVE's own event code turns into `keypressed` and `keyreleased`, and which, unlike a key macOS reports, does not need the window to have keyboard focus.
 

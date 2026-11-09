@@ -15,7 +15,7 @@ Rake::Task["test"].clear if Rake::Task.task_defined?("test")
 # runs in test:ruby. test/native and test/lovetest, the translated Lövetest
 # tests, run in both, so the window and the renderer run under the
 # sanitizers too.
-# test/parity holds the parity harness (Plan 001), which runs games in
+# test/parity holds the parity harness, which runs games in
 # the reference love as well as in Lota, so it runs in test:parity, once
 # that love is built.
 TEST_SUITES = {

@@ -167,7 +167,7 @@ class RakeTasksTest < Minitest::Test
     assert_empty prerequisites("package:deliver")
   end
 
-  # Plan 001's "Done when": the installed gem runs Lövetest's translated
+  # The installed gem runs Lövetest's translated
   # love.test.graphics.clear, among the rest, and every test it runs passes.
   def test_delivery_runs_lovetest_from_the_installed_gem
     lovetest = packages.first.games.find { |game| game.folder == "test/lovetest/game" }

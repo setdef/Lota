@@ -8,7 +8,7 @@
 require_relative "bindings/generator"
 require_relative "bindings/report"
 
-# The binding generator (Plan 001, story 2): Lota::Native's bindings,
+# The binding generator: Lota::Native's bindings,
 # written from LÖVE's wrap functions by ADR 001's rules, the functions
 # ext/lota/bindings.rb lists, and the names binding_exceptions.rb records.
 def bindings_generator

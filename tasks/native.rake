@@ -10,7 +10,7 @@ require_relative "sanitized_build"
 
 # rake compile builds ENGINE_BUILD (tasks/engine.rake): rake-compiler runs ext/lota/extconf.rb in
 # tmp/<platform>/lota/native/<ruby>, then make, then make install into
-# lib/lota (Plan 001, the walking skeleton).
+# lib/lota.
 NATIVE = Rake::ExtensionTask.new("lota/native") do |ext|
   ext.ext_dir = "ext/lota"
   ext.config_options = ["--with-cmake-build-dir=#{File.expand_path(ENGINE_BUILD)}", "--enable-native-test"]

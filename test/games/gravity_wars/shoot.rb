@@ -12,8 +12,8 @@
 # Translated to Ruby from Gravity Wars' shoot.lua
 # (test/fixtures/gravity_wars/shoot.lua, lines 1-202), as globals.rb and
 # ui.rb describe. math.random becomes Lota::Math.random, which draws from
-# LÖVE's own generator, as love.math.random does (Plan 001, "Random
-# numbers"); Lua's math.cos and math.sin are Ruby's Math.cos and Math.sin.
+# LÖVE's own generator, as love.math.random does; Lua's math.cos and
+# math.sin are Ruby's Math.cos and Math.sin.
 # Lota::Math.random returns whole bounds' numbers as Integers, so
 # setExplodyColor divides by 255.0, as globals.rb divides whole numbers.
 # Lua's temp, randX, randY, and radius are globals no other function

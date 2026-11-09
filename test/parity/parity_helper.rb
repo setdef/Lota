@@ -13,7 +13,7 @@ require "tmpdir"
 require "desktop_input_lock"
 require_relative "reference_cache"
 
-# The parity harness (Plan 001, "What correct means"): a LÖVE game,
+# The parity harness: a LÖVE game,
 # unchanged, in the reference love built from vendor/love, and its Ruby
 # translation in Lota, each with the same fixed dt and the same scripted
 # keys, compared frame by frame. test/parity/lua/conf.lua and

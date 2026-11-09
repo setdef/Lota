@@ -278,7 +278,7 @@ jobs:
   # RUBYLIB, and no other gem. lota run then runs two games: one that opens
   # a window, clears it, and quits with status 3, and test/lovetest/game,
   # Lövetest's love.test.graphics.clear translated, compared with LÖVE's
-  # expected image by Lövetest's rule (Plan 001's "Done when"). A guard
+  # expected image by Lövetest's rule. A guard
   # loaded into each run fails it if anything loads from the checkout's
   # lib/, and dyld's report must show Lota's bundle and SDL3 loading from
   # the installed gem (tasks/package_check.rb). bundle exec rake

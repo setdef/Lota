@@ -9,7 +9,7 @@ require "minitest"
 require_relative "../engine_helper"
 
 # Lövetest, LÖVE's own test suite (vendor/love/testing), translated to Ruby
-# by ADR 001's rules (Plan 001, "What correct means"). Each translated test
+# by ADR 001's rules. Each translated test
 # runs in a real window, as Lövetest does, and compares what Lota draws
 # with the images LÖVE drew.
 module Lovetest

@@ -5,7 +5,7 @@
 
 # The iOS kit: an Xcode project for any Lota game
 
-Apple permits no generic player app on iOS, so a Lota game reaches an iPhone or iPad the way a LÖVE game does: as an Xcode project that someone opens, signs, and runs. The newcomer and the studio both need that project (plan 002, "Two ends of shipping a game"). The studio needs it most: it ships a game as an app of its own, so it opens the project, brands it, signs it with its own team, and builds it from source.
+Apple permits no generic player app on iOS, so a Lota game reaches an iPhone or iPad the way a LÖVE game does: as an Xcode project that someone opens, signs, and runs. Someone trying a game on their own iPad needs that project, and a studio needs it most: it ships a game as an app of its own, so it opens the project, brands it, signs it with its own team, and builds it from source.
 
 Making that project by hand takes Lota built for two iOS slices, SDL3 built static, Fledge's Ruby runtime, an SDL host program, and XcodeGen. The iOS kit workflow does all of that on CI for a repository that holds a Lota game, checks the result in iPhone and iPad Simulators, and hands you a zip. Lota builds the kit; you run it, in your own game's CI. To open the kit you need a Mac with Xcode and an Apple ID, and no Ruby, Lota, Fledge, or XcodeGen.
 

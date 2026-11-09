@@ -9,8 +9,7 @@ require_relative "parity_helper"
 require_relative "frame_comparison"
 
 # The arkanoid tutorial's snapshots, unchanged, in the reference love, and
-# their Ruby translations in Lota, frame by frame (Plan 001, "Shapes and
-# the keyboard").
+# their Ruby translations in Lota, frame by frame.
 class ArkanoidTest < Minitest::Test
   # SDL's scancodes for the arrow keys and Escape (SDL_scancode.h), which
   # are the same on every keyboard layout.

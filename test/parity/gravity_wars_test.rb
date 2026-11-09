@@ -8,7 +8,7 @@
 require_relative "parity_helper"
 
 # Gravity Wars, unchanged, in the reference love, and its Ruby translation
-# in Lota, frame by frame (Plan 001, "Shapes and the keyboard"): shapes,
+# in Lota, frame by frame: shapes,
 # canvases with antialiasing, two small images, text in the game's
 # TrueType font, keys, and random numbers, which both engines draw from
 # LÖVE's own generator, seeded from the clock both fix at CLOCK.

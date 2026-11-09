@@ -13,7 +13,7 @@ require "yaml"
 
 # The reference love: LÖVE's own executable, with Lua, built from
 # vendor/love at the pinned commit, which the parity harness runs a game in
-# to learn what Lota must show (Plan 001, "What correct means").
+# to learn what Lota must show.
 #
 # It is built the way LÖVE's own CI builds its macOS app
 # (vendor/love/.github/workflows/main.yml, the macOS job): the
@@ -22,7 +22,7 @@ require "yaml"
 # so that a new pin builds as LÖVE's CI then does. LÖVE's Xcode project is
 # the build LÖVE supports on macOS; its CMakeLists.txt says CMake is not
 # (CMakeLists.txt:35-38), and needs settings the project has added by hand
-# to work at all (Plan 001, spike 3).
+# to work at all.
 #
 # Three things differ from LÖVE's CI, none of them in what is compiled:
 #

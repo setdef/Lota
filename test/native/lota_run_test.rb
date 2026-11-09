@@ -135,7 +135,7 @@ class LotaRunTest < Minitest::Test
     assert_equal 5, status.exitstatus
   end
 
-  # The walking skeleton's acceptance test, through the loop: Lövetest's
+  # Lövetest, through lota run and the game loop: Lövetest's
   # love.graphics (its Buffer, Canvas, Font, Image, Mesh, ParticleSystem, Quad, Shader, and SpriteBatch tests among them),
   # love.audio (its Source test among them), love.sound, love.image, love.keyboard, love.mouse, love.math, love.event, love.system,
   # love.timer, love.window, love.filesystem, and love.physics tests, and

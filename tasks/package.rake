@@ -62,7 +62,7 @@ PACKAGE_GAME = PackageCheck::Game.new(
   status: 3
 )
 
-# The walking skeleton's acceptance test (Plan 001): Lövetest's
+# The installed gem's acceptance test: Lövetest's
 # love.graphics tests, translated in test/lovetest, run by lota run as the
 # gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0

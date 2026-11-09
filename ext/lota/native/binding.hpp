@@ -110,7 +110,7 @@ concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
 // Whether this is the process's main thread, the one the operating system
 // started the process on. macOS runs windows and graphics only there. SDL's
 // own SDL_IsMainThread cannot say: it answers for whichever thread first
-// initialized SDL, and true on any thread before that (Plan 001, spike 2).
+// initialized SDL, and true on any thread before that.
 // macOS asks pthread_main_np; on Linux the main thread is the one whose
 // thread ID is the process's ID (gettid(2)).
 #ifdef __APPLE__

@@ -77,8 +77,7 @@
 -- * love.timer.getDelta returns 1 / LOTA_PARITY_FPS, the dt love.update
 --   gets, rather than the time the frame took.
 --
--- Random numbers come from LÖVE's own generator, as Plan 001 has both
--- engines draw them: Lua's math.random and math.randomseed are pointed at
+-- Random numbers come from LÖVE's own generator in both engines: Lua's math.random and math.randomseed are pointed at
 -- love.math.random and love.math.setRandomSeed (wrap_Math.lua:37-47),
 -- which Lota::Math.random and Lota::Math.random_seed= port, and os.time()
 -- with no table returns LOTA_PARITY_CLOCK, as Time.now does in

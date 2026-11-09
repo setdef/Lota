@@ -4,8 +4,7 @@
 # The iOS kit, for any Lota game in a public repository: an Xcode project
 # that builds the game as one app for iPhone and iPad, which a studio or
 # a game's maintainer opens, signs with their own Apple ID or team, and
-# owns (doc/contributors/plan/002.md, "Two ends of shipping a game";
-# doc/contributors/ios-kit.md is the guide).
+# owns (doc/contributors/ios-kit.md is the guide).
 #
 # The project job lays the game out as a Fledge project (ipad/prepare.rb:
 # lota fuse's entry script, or the game's own program), with Lota from

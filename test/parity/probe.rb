@@ -45,7 +45,7 @@ module Parity
   # Time.now, called with no arguments, returns LOTA_PARITY_CLOCK seconds
   # after the epoch, as the Lua side's os.time() does, so a game that
   # seeds Lota::Math's generator from the clock draws the same numbers
-  # LÖVE's does (Plan 001, "Random numbers"), and Lota.load seeds the
+  # LÖVE's does, and Lota.load seeds the
   # generator with it before the game's load, as the Lua side seeds
   # LÖVE's, for a game that draws numbers without seeding them.
   #

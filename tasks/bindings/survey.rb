@@ -14,7 +14,7 @@ module Bindings
   # LÖVE's whole Lua API, read and translated.
   #
   # Each story binds a few more LÖVE functions, and each first asks which
-  # of them fit no rule or several (Plan 001, story step 2). Answering for
+  # of them fit no rule or several. Answering for
   # one function at a time misses what only shows across the API: two
   # functions that translate to one Ruby name, or a verb pair that rule 11
   # has not decided. Survey reads every function once, from the wrap files

@@ -6,7 +6,7 @@
 #++
 
 # Configures Lota's CMake project (CMakeLists.txt beside this file) and
-# writes a Makefile that builds it, as Plan 001's walking skeleton asks.
+# writes a Makefile that builds it.
 # RubyGems runs this at gem install, and rake-compiler at rake compile; both
 # then run make and make install, which this Makefile turns into a CMake
 # build and a copy of the bundle.

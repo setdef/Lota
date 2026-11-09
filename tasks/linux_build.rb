@@ -17,7 +17,7 @@ require "tmpdir"
 # at the version it names, builds them from source into its installdir,
 # then builds love against them there. Lota's engine links those libraries
 # (ext/lota/engine/dependencies_linux.cmake), and the parity harness runs
-# that love as its reference (Plan 001), so both run the same SDL, OpenAL
+# that love as its reference, so both run the same SDL, OpenAL
 # Soft, and FreeType, as on macOS both load love-apple-dependencies'.
 #
 # The Makefile downloads as it builds. Lota keeps the two apart, so that

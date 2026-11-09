@@ -15,7 +15,7 @@ module Bindings
   # it returns, whether it takes an option table or a function. Rules
   # reports the Ruby name, the rules that gave it, and every way the
   # function fits no rule or more than one, which goes to the maintainer
-  # as a question (Plan 001, story step 2), never answered here.
+  # as a question, never answered here.
   class Rules
     # A function's Ruby translation.
     #

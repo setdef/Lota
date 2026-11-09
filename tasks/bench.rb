@@ -12,7 +12,7 @@ require "rbconfig"
 
 # rake bench: what a draw call costs in Lota, under the interpreter, YJIT,
 # and ZJIT, and what the same call costs a LÖVE game in the reference love
-# (Plan 001, story 3; ADR 001, section 8).
+# (ADR 001, section 8).
 #
 # Two games do the measuring from inside a real window, one for each
 # engine: tasks/bench/lota (with Bench::Recorder, tasks/bench/recorder.rb)
@@ -319,7 +319,7 @@ module Bench
       love = @results.find { |result| result.scenario.engine == "love" }&.data
       lines = @machine + rubies.map { |ruby| "Ruby: #{ruby}" }
       lines += ["LÖVE: #{love.fetch('lua')}, renderer #{love.fetch('renderer')}"] if love
-      (["rake bench (Plan 001, story 3)", ""] + lines + ["", method]).join("\n")
+      (["rake bench", ""] + lines + ["", method]).join("\n")
     end
 
     private def method
