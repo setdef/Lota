@@ -110,6 +110,7 @@ defaults:
 jobs:
   fuse:
     name: Fuse ${{ matrix.game }} (${{ matrix.target.platform }})
+    if: ${{ github.ref_name != 'experiment/fuse-sandbox' }}
     strategy:
       fail-fast: false
       matrix:
@@ -406,7 +407,7 @@ jobs:
   # compiler's output names it, and say what to install.
   no-compiler:
     name: Fuse fuse_native with no compiler (x86_64-linux-gnu)
-    if: ${{ !inputs.game_repository }}
+    if: ${{ !inputs.game_repository && github.ref_name != 'experiment/fuse-sandbox' }}
     runs-on: ubuntu-24.04
     container: ruby:4.0-slim@sha256:22cfdec4c490b9e7e4913527a126ddc34bf30cf5432711f70eb1aa4b3ac388a5
     timeout-minutes: 15
@@ -451,3 +452,76 @@ jobs:
           grep -F "fast_blank" "$RUNNER_TEMP/fuse.out" "$RUNNER_TEMP/fuse.err"
           grep -F "lota fuse: fledge build failed" "$RUNNER_TEMP/fuse.err"
           grep -F "A gem with a C extension compiles on this computer, which needs a C compiler" "$RUNNER_TEMP/fuse.err"
+
+  # The App Sandbox experiment, on experiment/fuse-sandbox alone: fuses
+  # test/games/fuse_sandbox signed ad hoc as Fledge signs it, then runs a
+  # copy of it signed again with each set of entitlements
+  # (.github/sandbox_run.sh). Each variant is a step that may fail, so the
+  # job reports every one.
+  sandbox:
+    name: App Sandbox (${{ matrix.runner }})
+    if: ${{ github.ref_name == 'experiment/fuse-sandbox' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-26]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      PLATFORM: arm64-darwin
+      GAME: test/games/fuse_sandbox
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+        with:
+          ruby-version: "4.0"
+
+      - name: Get Lota's released gem for this platform, check it, and install it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gems="$RUNNER_TEMP/gems"
+          mkdir -p "$gems"
+          version=$(sed -n 's/^ *VERSION = "\(.*\)"$/\1/p' lib/lota/version.rb)
+          gh release download "v$version" -R "$GITHUB_REPOSITORY" -D "$gems" -p "lota-$version-$PLATFORM.gem" -p SHA256SUMS
+          (cd "$gems" && grep " lota-$version-$PLATFORM.gem\$" SHA256SUMS | shasum -a 256 --check -)
+          gem install --local "$gems"/lota-*-"$PLATFORM".gem
+          sw_vers
+
+      - name: lota fuse --sign -
+        run: |
+          ruby -I lib exe/lota fuse "$GAME" --out "$RUNNER_TEMP/dist" --sign -
+          archive=$(ls "$RUNNER_TEMP"/dist/*.tar.gz)
+          place="$RUNNER_TEMP/run/My Games"
+          mkdir -p "$place"
+          tar -xzf "$archive" -C "$place"
+          app=$(ls -d "$place"/*/*.app)
+          echo "APP=$app" >> "$GITHUB_ENV"
+          ls "$app/Contents/MacOS"
+
+      - name: "No sandbox: Fledge's signature (hardened runtime, allow-unsigned-executable-memory, disable-library-validation)"
+        continue-on-error: true
+        run: .github/sandbox_run.sh fledge fledge
+
+      - name: "No sandbox: hardened runtime, disable-library-validation only"
+        continue-on-error: true
+        run: .github/sandbox_run.sh dlv com.apple.security.cs.disable-library-validation
+
+      - name: "Sandbox: app-sandbox, allow-unsigned-executable-memory, disable-library-validation"
+        continue-on-error: true
+        run: .github/sandbox_run.sh sandbox-unsigned com.apple.security.app-sandbox com.apple.security.cs.allow-unsigned-executable-memory com.apple.security.cs.disable-library-validation
+
+      - name: "Sandbox: app-sandbox, allow-jit, disable-library-validation"
+        continue-on-error: true
+        run: .github/sandbox_run.sh sandbox-jit com.apple.security.app-sandbox com.apple.security.cs.allow-jit com.apple.security.cs.disable-library-validation
+
+      - name: "Sandbox: app-sandbox, disable-library-validation"
+        continue-on-error: true
+        run: .github/sandbox_run.sh sandbox-dlv com.apple.security.app-sandbox com.apple.security.cs.disable-library-validation
+
+      - name: "Sandbox: app-sandbox alone"
+        continue-on-error: true
+        run: .github/sandbox_run.sh sandbox-only com.apple.security.app-sandbox
