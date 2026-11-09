@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Data[out N < Native::Data::Data = Native::Data::Data] < Object[N]
+    type source = String | Data
+
+    private def self.from_native: (Native::Data::Data native) -> Data
+
+    type packable = Integer | Float | String
+
+    def self.compress: (Symbol | String container, Symbol | String format, source source, ?Integer? level) -> (String | CompressedData)
+
+    def self.decompress: (Symbol | String container, CompressedData | Symbol | String compressed, ?source? source) -> (String | Data)
+
+    def self.encode: (Symbol | String container, Symbol | String format, source source, ?Integer? line_length) -> (String | Data)
+
+    def self.decode: (Symbol | String container, Symbol | String format, source source) -> (String | Data)
+
+    def self.hash: () -> Integer
+                 | (Symbol | String container, Symbol | String function, source source) -> (String | Data)
+                 | (Symbol | String function, source source) -> String
+
+    def self.pack: (Symbol | String | ByteData container, *(packable | nil) arguments) -> (String | Data)
+
+    def self.unpack: (String format, source source, ?Integer? position) -> Array[packable]
+
+    def self.packed_size: (String format) -> Integer
+
+    private def self.pack_into: (ByteData data, ::Object? offset, ::Object? format, Array[::Object?] values) -> ByteData
+
+    private def self.source_of: (source? source) -> (String | Native::Data::Data | nil)
+
+    private def self.result_of: (String | Native::Data::Data native) -> (String | Data)
+
+    def size: () -> Integer
+
+    def pointer: () -> Fiddle::Pointer
+
+    def ffi_pointer: () -> Fiddle::Pointer
+
+    def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
+
+    def perform_atomic: [T, R] (*T arguments) { (*T) -> R } -> R
+
+    def float: (Float | Integer offset, ?Integer count) -> Array[Float]
+
+    def double: (Float | Integer offset, ?Integer count) -> Array[Float]
+
+    def int8: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def int16: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def int32: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def uint8: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def uint16: (Float | Integer offset, ?Integer count) -> Array[Integer]
+
+    def uint32: (Float | Integer offset, ?Integer count) -> Array[Integer]
+  end
+end

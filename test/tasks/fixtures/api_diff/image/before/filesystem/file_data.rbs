@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Filesystem
+    class FileData < Data[Native::FileData]
+      private def self.from_native: (Native::FileData native) -> FileData
+
+      def self.new: (String contents, String name) -> FileData
+
+      def initialize: (String contents, String name) -> void
+
+      def initialize_copy: (FileData source) -> void
+
+      def filename: () -> String
+
+      def extension: () -> String
+    end
+  end
+end

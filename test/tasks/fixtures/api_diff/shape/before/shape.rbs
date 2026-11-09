@@ -1,0 +1,129 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Physics
+    class Shape[out N < Native::Shape = Native::Shape] < Object[N]
+      private def self.from_native: (Native::Shape native) -> instance
+
+      def body: () -> Body?
+
+      def get_type: () -> Symbol
+
+      def child_count: () -> Integer
+
+      def radius: () -> Float
+
+      def sensor?: () -> bool
+
+      def sensor=: (bool sensor) -> void
+
+      def density: () -> Float
+
+      def density=: (Float | Integer density) -> void
+
+      def friction: () -> Float
+
+      def friction=: (Float | Integer friction) -> void
+
+      def restitution: () -> Float
+
+      def restitution=: (Float | Integer restitution) -> void
+
+      def category: () -> Array[Integer]
+
+      def category=: (Integer | Array[Integer | Array[Integer]] categories) -> void
+
+      def mask: () -> Array[Integer]
+
+      def mask=: (Integer | Array[Integer | Array[Integer]] masks) -> void
+
+      def group_index: () -> Integer
+
+      def group_index=: (Integer index) -> void
+
+      def filter_data: () -> Array[Integer]
+
+      def filter_data=: ([Integer, Integer, Integer] filter_data) -> void
+
+      def shape: () -> self
+
+      def test_point: (Float | Integer x, Float | Integer y, ?(Float | Integer)? angle, ?(Float | Integer)? px, ?(Float | Integer)? py) -> bool
+
+      def ray_cast: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_fraction, *Float | Integer arguments) -> Array[Float]
+
+      def compute_aabb: (Float | Integer x, Float | Integer y, Float | Integer angle, ?Integer child) -> Array[Float]
+
+      def bounding_box: (?Integer child) -> Array[Float]
+
+      def compute_mass: (Float | Integer density) -> Array[Float]
+
+      def mass_data: () -> Array[Float]
+
+      def user_data: () -> ::Object?
+
+      def user_data=: (::Object? value) -> void
+
+      def destroyed?: () -> bool
+
+      def destroy: () -> nil
+    end
+
+    class CircleShape < Shape[Native::CircleShape]
+      def self.new: (Body body, *Float | Integer arguments) -> CircleShape
+
+      def radius=: (Float | Integer radius) -> void
+
+      def point: () -> Array[Float]
+
+      def point=: ([Float | Integer, Float | Integer] point) -> void
+    end
+
+    class PolygonShape < Shape[Native::PolygonShape]
+      def self.new: (Body body, *(Float | Integer | Array[Float | Integer]) coordinates) -> PolygonShape
+
+      def points: () -> Array[Float]
+
+      def validate: () -> bool
+    end
+
+    class EdgeShape < Shape[Native::EdgeShape]
+      def self.new: (Body body, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *Float | Integer neighbors) -> EdgeShape
+
+      def points: () -> Array[Float]
+
+      def next_vertex: () -> Array[Float]
+
+      def next_vertex=: ([Float | Integer, Float | Integer] vertex) -> void
+
+      def previous_vertex: () -> Array[Float]
+
+      def previous_vertex=: ([Float | Integer, Float | Integer] vertex) -> void
+    end
+
+    class ChainShape < Shape[Native::ChainShape]
+      def self.new: (Body body, bool loop, *(Float | Integer | Array[Float | Integer]) coordinates) -> ChainShape
+
+      def points: () -> Array[Float]
+
+      def vertex_count: () -> Integer
+
+      def point: (Integer index) -> Array[Float]
+
+      def child_edge: (Integer index) -> EdgeShape
+
+      def next_vertex: () -> Array[Float]
+
+      def next_vertex=: ([Float | Integer, Float | Integer] vertex) -> void
+
+      def previous_vertex: () -> Array[Float]
+
+      def previous_vertex=: ([Float | Integer, Float | Integer] vertex) -> void
+    end
+
+    module RectangleShape
+      def self.===: (top object) -> bool
+      def self.new: (Body body, *Float | Integer arguments) -> PolygonShape
+    end
+  end
+end

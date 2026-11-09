@@ -7,6 +7,7 @@
 
 require "date"
 require "digest"
+require "fileutils"
 require "open3"
 require "rubygems/package"
 
@@ -95,6 +96,16 @@ class Release
     number
   end
 
+  # The lines of CHANGELOG.md's [Unreleased] section, up to the next
+  # section's heading.
+  def unreleased
+    lines = read(CHANGELOG).lines
+    heading = lines.index { |line| line.chomp == UNRELEASED }
+    raise Refusal, "#{CHANGELOG} has no #{UNRELEASED} section" unless heading
+
+    section(lines, heading)
+  end
+
   # The changes CHANGELOG.md lists under +number+'s dated heading, which
   # are the release's notes.
   def notes(number)
@@ -119,6 +130,26 @@ class Release
     File.write(File.join(dir, CHECKSUMS), expected.sort.map { |gem| "#{sha256(dir, gem)}  #{gem}\n" }.join)
     expected.each { |gem| File.delete(File.join(dir, "#{gem}.sha256")) }
     expected
+  end
+
+  # The repository's release tags.
+  def tags
+    git("tag", "--list", "v*").split
+  end
+
+  # The commit +tag+ points at, or nil when there is no such tag.
+  def tagged(tag)
+    output, status = Open3.capture2("git", "rev-parse", "--quiet", "--verify", "refs/tags/#{tag}^{commit}", chdir: @root)
+    status.success? ? output.chomp : nil
+  end
+
+  # Writes the files under +path+ as they are at +ref+ into +dir+.
+  def export(ref, path, dir)
+    git("ls-tree", "-r", "--name-only", ref, "--", path).lines(chomp: true).each do |file|
+      target = File.join(dir, file)
+      FileUtils.mkdir_p(File.dirname(target))
+      File.write(target, git("show", "#{ref}:#{file}"))
+    end
   end
 
   private def check_tree

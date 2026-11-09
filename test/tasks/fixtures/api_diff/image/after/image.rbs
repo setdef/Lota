@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Image
+    type file = String | Filesystem::File | Data
+
+    def self.compressed?: (file file) -> bool
+
+    def self.new_cube_faces: (ImageData image_data) -> Array[ImageData]
+
+    private def self.data_of: (::Object? file) -> Native::Data::Data
+
+    private def self.read_file: (Filesystem::File file) -> Native::FileData
+  end
+end
