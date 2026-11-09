@@ -34,7 +34,7 @@ module Lota
       private_class_method def self.from_native(native)
         glyph_data = allocate
         glyph_data.instance_variable_set(:@native, native)
-        glyph_data
+        glyph_data.freeze
       end
 
       # SPDX-SnippetBegin
@@ -67,6 +67,7 @@ module Lota
         when Integer, Float then Native::Font.new_glyph_data(rasterizer.native, glyph)
         else raise TypeError, "wrong argument type #{glyph.class} (expected String or Integer)"
         end
+        freeze
       end
 
       # SPDX-SnippetEnd
@@ -83,6 +84,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The width of its pixels, as an Integer, matching GlyphData:getWidth

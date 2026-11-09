@@ -24,7 +24,7 @@ module Lota
       private_class_method def self.from_native(native)
         view = allocate
         view.instance_variable_set(:@native, native)
-        view
+        view.freeze
       end
 
       # Views +size+ of +data+'s bytes from byte +offset+, matching
@@ -61,6 +61,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
     end
   end

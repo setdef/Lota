@@ -10,6 +10,8 @@
 
 #include "native/binding.hpp"
 
+#include <ruby/thread.h>
+
 #include <string>
 #include <vector>
 
@@ -69,6 +71,30 @@ inline std::string class_name(const Rice::Object &value) { return rb_obj_classna
 inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 
 inline Rice::Object nil() { return {Qnil}; }
+
+// A Ruby thread, which holds a Data in perform_atomic, compared by
+// identity; no_thread() is none.
+using ThreadId = VALUE;
+
+inline ThreadId no_thread() { return Qfalse; }
+
+// The Ruby thread running this code.
+inline ThreadId current_thread() { return rb_thread_current(); }
+
+// Runs the interrupts Ruby has pending for this thread, as Ruby does as it
+// returns from a call that released the GVL; an exception one raises
+// reaches C++ as Rice's, rather than as a longjmp through C++ frames.
+inline void check_interrupts() { Rice::detail::protect(rb_thread_check_ints); }
+
+// Calls +function+ with +data+ with the GVL released, as Ruby's own sleep
+// waits, and then runs Ruby's pending interrupts, as an exception of
+// Rice's rather than a longjmp through C++ frames. Nothing can cut
+// +function+ short.
+inline void without_gvl(void *(*function)(void *), void *data) {
+  Rice::detail::protect(rb_thread_call_without_gvl, function, data,
+                        static_cast<rb_unblock_function_t *>(nullptr),
+                        static_cast<void *>(nullptr));
+}
 
 // The elements of +array+, to index with bounds checked.
 inline std::vector<Rice::Object> elements(const Rice::Array &array) {

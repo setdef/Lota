@@ -33,12 +33,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics::Video` (`new` with `audio:` and `dpiscale:`, `stream`, `source`, `source=`, `width`, `height`, `dimensions`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `filter`, `filter=`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`), which `Lota::Graphics.draw` draws.
 - The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
 
+### Changed
+
+- Every `Lota::Data`, such as a `ByteData`, `FileData`, `ImageData`, or `SoundData`, is frozen, and Ractors can share it: `Ractor.shareable?(data)` is true.
+- `Lota::Timer.sleep` lets Ruby's other threads, and its garbage collector, run while it sleeps.
+
 ### Deprecated
 
 - `Lota::Graphics.canvas_formats` and `image_formats`, returning a frozen `Lota::Graphics::CanvasFormats` and `ImageFormats`; `set_new_font`; `Lota::Graphics::Texture#new_image_data`; and `stencil`, `stencil_test=`, and `stencil_test`, translating the functions LÖVE 12 deprecates, each printing LÖVE's notice the first time it is called.
 
 ### Fixed
 
+- Two threads that call `Lota::Data#perform_atomic` on one Data take turns, where the second stopped both for good: it waits for the first without holding Ruby's GVL. `perform_atomic` keeps out other `perform_atomic` calls, as LÖVE's does, and no longer holds the Data's own mutex while its block runs.
 - `Lota::Audio.recording_devices` returns an empty list when nothing can record, where LÖVE lists one device named `""` that cannot start.
 - A finger the system cancels, as iOS does when a gesture takes it, now calls `touchreleased` in order with the other events and leaves `Lota::Touch.touches`; in LÖVE it never ends.
 - On Windows, an engine object Lota hands back again, such as the Shader in use or a Shape a contact names, is the same Ruby object each time, as on macOS and Linux, where it was a new one each time.

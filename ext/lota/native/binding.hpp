@@ -48,6 +48,7 @@
 #undef KEY_EXECUTE
 #endif
 
+#include "common/Data.h"
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/Object.h" // IWYU pragma: export
@@ -199,6 +200,27 @@ template <> struct ReleasedOnMainThread<love::graphics::Mesh> : std::true_type {
 template <> struct ReleasedOnMainThread<love::graphics::ParticleSystem> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::GraphicsReadback> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Video> : std::true_type {};
+
+// Whether Ractors share the wrappers of engine objects of class T, as
+// love.thread's channels pass LÖVE's objects between threads
+// (doc/contributors/design/engine.md, "Threads and Ractors"): a
+// love::Data, which guards its bytes with LÖVE's own lock
+// (src/common/Data.h). Their Ruby type is RUBY_TYPED_FROZEN_SHAREABLE and
+// each wrapper is frozen as it is made (wrap_engine_object), so Ruby
+// shares it rather than refusing it. Wrappers of every other class stay
+// in the Ractor that made them.
+template <typename T> struct Shareable {
+  static constexpr bool value = std::derived_from<T, love::Data>;
+};
+
+// Freezes +wrapper+, a new wrapper of an engine object of the data type
+// +type+, when Ractors share wrappers of its class (Shareable), so Ruby
+// counts it shareable from the start.
+inline void freeze_if_shareable(VALUE wrapper, const rb_data_type_t *type) {
+  if ((type->flags & RUBY_TYPED_FROZEN_SHAREABLE) != 0) {
+    rb_obj_freeze(wrapper);
+  }
+}
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.
@@ -606,6 +628,9 @@ Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *n
   T::type.init();
   Rice::Data_Type<T> bound = Rice::define_class_under<T, Base>(parent, name);
   EngineWrapper::types().insert(Rice::Data_Type<T>::ruby_data_type());
+  if constexpr (Shareable<T>::value) {
+    Rice::Data_Type<T>::ruby_data_type()->flags |= RUBY_TYPED_FROZEN_SHAREABLE;
+  }
   return bound
       .define_method("object_type", [](VALUE /*self*/) { return std::string(T::type.getName()); })
       .define_method(
@@ -916,6 +941,7 @@ VALUE wrap_engine_object(U *data, bool isOwner) {
   }
   const std::pair<VALUE, rb_data_type_t *> type = Registries::instance.types.figureType(*data);
   const VALUE wrapped = wrap(type.first, type.second, data, isOwner);
+  lota::native::freeze_if_shareable(wrapped, type.second);
   identities.remember(data, wrapped);
   return wrapped;
 }
@@ -937,6 +963,7 @@ VALUE wrap_engine_object_as(T *data, bool isOwner) {
     return found;
   }
   const VALUE wrapped = wrap(Data_Type<T>::klass(), Data_Type<T>::ruby_data_type(), data, isOwner);
+  lota::native::freeze_if_shareable(wrapped, Data_Type<T>::ruby_data_type());
   identities.remember(data, wrapped);
   return wrapped;
 }

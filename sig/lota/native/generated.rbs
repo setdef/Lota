@@ -1452,8 +1452,6 @@ module Lota
 
       def self.delta: () -> Float
 
-      def self.sleep: (Float | Integer seconds) -> nil
-
       def self.fps: () -> Integer
 
       def self.average_delta: () -> Float
