@@ -93,10 +93,15 @@ module Bindings
     # TextBatch, whose products the engine cannot tell apart. CompressedData
     # === is true of every CompressedImageData, which only
     # newCompressedData makes (wrap_Image.cpp, w_newCompressedData), so
-    # rule 2's "what that factory makes" is the whole class. The deprecated
-    # newFixture's Fixture === is true of every Shape, the one it makes
-    # being a Shape (wrap_Physics.cpp, w_newFixture), as the maintainer
-    # decided.
+    # rule 2's "what that factory makes" is the whole class. A texture
+    # factory of one type makes the Textures whose getTextureType names
+    # it, a getter answering what a predicate answers for newCanvas, so
+    # CubeTexture === asks the type, as do the modules of LÖVE 11's names
+    # for the same factories; a view is a Texture LÖVE cannot tell from
+    # any other, so TextureView === is true of every Texture, as Image ===
+    # is. The deprecated newFixture's Fixture === is true of every Shape,
+    # the one it makes being a Shape (wrap_Physics.cpp, w_newFixture), as
+    # the maintainer decided.
     MODULE_FACTORY_MATCHES = {
       "newCanvas" => "Texture:isCanvas",
       "newImage" => "Texture",
@@ -106,6 +111,13 @@ module Bindings
       "newComputeShader" => "Shader:hasStage",
       "newCompressedData" => "CompressedImageData",
       "newFixture" => "Shape",
+      "newCubeTexture" => "Texture:getTextureType",
+      "newArrayTexture" => "Texture:getTextureType",
+      "newVolumeTexture" => "Texture:getTextureType",
+      "newCubeImage" => "Texture:getTextureType",
+      "newArrayImage" => "Texture:getTextureType",
+      "newVolumeImage" => "Texture:getTextureType",
+      "newTextureView" => "Texture",
     }.freeze
     # The pushes of an engine object: luax_pushtype, and luax_pushshape and
     # luax_pushjoint, which push a Shape or a Joint as the class its type
@@ -278,7 +290,7 @@ module Bindings
         return no_rule("starts with an underscore, which marks a hook for LÖVE's own Lua wrapper") if @name.start_with?("_")
         return own_type if OWN_TYPE.include?(@name) && @typed.include?(@function.type_name)
         return several_objects if @name.match?(/\Anew[A-Z]/) && several_objects?
-        return factory(Regexp.last_match(1)) if @name =~ /\Anew([A-Z]\w*)\z/
+        return factory(Regexp.last_match(1)) if @function.type_name.nil? && @name =~ /\Anew([A-Z]\w*)\z/
         return getter(Regexp.last_match(1)) if @name =~ /\Aget([A-Z]\w*)\z/
         return setter(Regexp.last_match(1)) if @name =~ /\Aset([A-Z]\w*)\z/
         return predicate(Regexp.last_match(2)) if @name =~ /\A(is|has|are)([A-Z]\w*)\z/
@@ -329,7 +341,9 @@ module Bindings
         (@facts.result_count > 1 && objects.size > 1) || (@facts.computed_count && objects.any?(&:looped))
       end
 
-      # Rule 2.
+      # Rule 2, for a module's functions: a method named new... reads the
+      # object it is called on, and a Ruby constructor belongs to the class
+      # it makes, so Texture:newImageData is rule 13's new_image_data.
       private def factory(class_name)
         @rules << 2
         made = made_type
@@ -452,7 +466,11 @@ module Bindings
         end.compact.first
       end
 
+      # A setter that returns what a factory's wrap function returns
+      # (w_setNewFont returns w_newFont's count) returns the object it
+      # made.
       private def returns_value?
+        return true if @facts&.delegate&.match?(/\Aw_new[A-Z]/)
         return @function.lua_name.then { |name| RULE_7_SETTERS.include?(name) } unless @analysis
 
         @analysis.pushes.any? { |push| !(push.kind == :argument && push.expression.strip == "1") } &&

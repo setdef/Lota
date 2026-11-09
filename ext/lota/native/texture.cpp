@@ -666,6 +666,87 @@ ImageData *readback_image_data(const love::graphics::GraphicsReadback &readback)
   return readback.getImageData();
 }
 
+// Texture:newImageData (wrap_Texture.cpp:426-457) of the arguments after
+// the texture, as Lota::Graphics::Texture#new_image_data passes them: the
+// slice, counting from 1, read only for a texture that is not 2D; the
+// mipmap, counting from 1; and a rectangle of x, y, width, and height.
+// Lota::Graphics::Texture#new_image_data marks it deprecated, as LÖVE
+// marks it. The new ImageData's one reference goes to the Ruby wrapper.
+ImageData *texture_new_image_data(Texture &t, Rice::Array arguments) {
+  const Rice::Array moved = std::move(arguments);
+  const std::vector<Rice::Object> given = ruby::elements(moved);
+  Graphics &instance = graphics();
+
+  int slice = 0;
+  if (t.getTextureType() != love::graphics::TEXTURE_2D) {
+    slice = integer_at(given, 0) - 1;
+  }
+
+  const int mipmap = optional_integer_at(given, 1, 1) - 1;
+
+  love::Rect rect = {.x = 0, .y = 0, .w = t.getPixelWidth(mipmap), .h = t.getPixelHeight(mipmap)};
+  constexpr std::size_t rect_index = 2;
+  if (!none_or_nil(given, rect_index)) {
+    rect.x = integer_at(given, rect_index);
+    rect.y = integer_at(given, rect_index + 1);
+    rect.w = integer_at(given, rect_index + 2);
+    rect.h = integer_at(given, rect_index + 3);
+  }
+
+  return instance.readbackTexture(&t, slice, mipmap, rect, nullptr, 0, 0);
+}
+
+// w_newTextureView (wrap_Graphics.cpp:1275-1333) of +base+ and its
+// settings, as Lota::Graphics::TextureView.new passes them in an Array,
+// each nil when not given: the pixel format, the texture type, the first
+// mipmap and the first layer, each counting from 1, the counts of
+// mipmaps and layers, and the debug name. The view's one reference goes
+// to the Ruby wrapper.
+Texture *new_texture_view(Texture *base, Rice::Array settings) {
+  const Rice::Array moved = std::move(settings);
+  const std::vector<Rice::Object> given = ruby::elements(moved);
+  Texture::ViewSettings view;
+
+  if (!none_or_nil(given, 0)) {
+    const std::string str = Rice::String(element(given, 0).value()).str();
+    if (!love::getConstant(str.c_str(), view.format.value)) {
+      raise_enum_error("pixel format", str);
+    }
+    view.format.hasValue = true;
+  }
+
+  if (!none_or_nil(given, 1)) {
+    const std::string str = Rice::String(element(given, 1).value()).str();
+    if (!Texture::getConstant(str.c_str(), view.type.value)) {
+      raise_enum_error("texture type", Texture::getConstants(view.type.value), str);
+    }
+    view.type.hasValue = true;
+  }
+
+  constexpr std::size_t mipmapstart = 2;
+  if (!none_or_nil(given, mipmapstart)) {
+    view.mipmapStart.set(integer_at(given, mipmapstart) - 1);
+  }
+  constexpr std::size_t mipmapcount = 3;
+  if (!none_or_nil(given, mipmapcount)) {
+    view.mipmapCount.set(integer_at(given, mipmapcount));
+  }
+  constexpr std::size_t layerstart = 4;
+  if (!none_or_nil(given, layerstart)) {
+    view.layerStart.set(integer_at(given, layerstart) - 1);
+  }
+  constexpr std::size_t layers = 5;
+  if (!none_or_nil(given, layers)) {
+    view.layerCount.set(integer_at(given, layers));
+  }
+  constexpr std::size_t debugname = 6;
+  if (!none_or_nil(given, debugname)) {
+    view.debugName = Rice::String(element(given, debugname).value()).str();
+  }
+
+  return graphics().newTextureView(base, view);
+}
+
 // Texture:getViewFormats (wrap_Texture.cpp:303-319): the names of the
 // pixel formats the texture's viewformats setting listed, in its order.
 Rice::Array texture_view_formats(const Texture &texture) {
@@ -943,7 +1024,9 @@ void define_texture(const Rice::Module &native) {
                      Rice::Arg("mipmap") = std::optional<int>())
       .define_method("replace_pixels", &texture_replace_pixels, Rice::Arg("imagedata"),
                      Rice::Arg("arguments"))
-      .define_method("view_formats", &texture_view_formats);
+      .define_method("view_formats", &texture_view_formats)
+      .define_method("new_image_data", &texture_new_image_data, Rice::Arg("arguments"),
+                     Rice::Return().takeOwnership());
 
   // Its other methods are generated (ext/lota/native/generated/graphics.cpp).
   define_engine_class<love::graphics::GraphicsReadback>(native, "GraphicsReadback")
@@ -970,6 +1053,8 @@ void define_texture(const Rice::Module &native) {
                                  Rice::Return().takeOwnership())
       .define_singleton_function("readback_texture", &readback_texture, Rice::Arg("texture"),
                                  Rice::Arg("arguments"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_texture_view", &new_texture_view, Rice::Arg("base"),
+                                 Rice::Arg("settings"), Rice::Return().takeOwnership())
       .define_singleton_function("readback_texture_async", &readback_texture_async,
                                  Rice::Arg("texture"), Rice::Arg("arguments"),
                                  Rice::Return().takeOwnership())

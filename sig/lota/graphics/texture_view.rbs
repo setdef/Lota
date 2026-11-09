@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    module TextureView
+      def self.new: (Texture texture, ?format: (Symbol | String)?, ?type: (Symbol | String)?, ?mipmapstart: Integer?, ?mipmapcount: Integer?, ?layerstart: Integer?, ?layers: Integer?, ?debugname: String?) -> Texture
+
+      def self.===: (top object) -> bool
+    end
+  end
+end

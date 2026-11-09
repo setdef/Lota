@@ -442,14 +442,14 @@ bound_by_hand "love.graphics.newTexture",
   reason: "chooses among its forms by its arguments' kinds, and reads its images through getImageData and " \
     "luax_getdata, which the generator does not port; Lota binds every form, its settings as newCanvas's"
 bound_by_hand "love.graphics.newArrayImage",
-  reason: "LÖVE 12 makes it with w_newArrayTexture, which chooses among its forms as newTexture does; " \
-    "Lota::Graphics::ArrayImage.new binds every form"
+  reason: "calls w_newArrayTexture (wrap_Graphics.cpp:1257-1273); Lota::Graphics::ArrayImage.new calls " \
+    "Lota::Graphics::ArrayTexture.new, bound with love.graphics.newArrayTexture"
 bound_by_hand "love.graphics.newCubeImage",
-  reason: "LÖVE 12 makes it with w_newCubeTexture, which chooses among its forms as newTexture does; " \
-    "Lota::Graphics::CubeImage.new binds every form"
+  reason: "calls w_newCubeTexture (wrap_Graphics.cpp:1257-1273); Lota::Graphics::CubeImage.new calls " \
+    "Lota::Graphics::CubeTexture.new, bound with love.graphics.newCubeTexture"
 bound_by_hand "love.graphics.newVolumeImage",
-  reason: "LÖVE 12 makes it with w_newVolumeTexture, which chooses among its forms as newTexture does; " \
-    "Lota::Graphics::VolumeImage.new binds every form"
+  reason: "calls w_newVolumeTexture (wrap_Graphics.cpp:1257-1273); Lota::Graphics::VolumeImage.new calls " \
+    "Lota::Graphics::VolumeTexture.new, bound with love.graphics.newVolumeTexture"
 bound_by_hand "love.graphics.setCanvas",
   reason: "chooses among its forms by its arguments' kinds and count, and reads a table of targets and options; " \
     "Lota binds its arguments as an Array, and the table of targets with its options as keywords"
@@ -795,6 +795,22 @@ bound_by_hand "love.graphics.getCanvasFormats",
 bound_by_hand "love.graphics.getImageFormats",
   reason: "fills a table as love.graphics.getCanvasFormats does; Lota::Graphics.image_formats marks it " \
     "deprecated"
+bound_by_hand "love.graphics.newCubeTexture",
+  reason: "chooses among its forms by its arguments' kinds, as love.graphics.newTexture does; " \
+    "Lota::Graphics::CubeTexture.new binds every form, and CubeImage.new calls it"
+bound_by_hand "love.graphics.newArrayTexture",
+  reason: "chooses among its forms by its arguments' kinds, as love.graphics.newTexture does; " \
+    "Lota::Graphics::ArrayTexture.new binds every form, and ArrayImage.new calls it"
+bound_by_hand "love.graphics.newVolumeTexture",
+  reason: "chooses among its forms by its arguments' kinds, as love.graphics.newTexture does; " \
+    "Lota::Graphics::VolumeTexture.new binds every form, and VolumeImage.new calls it"
+bound_by_hand "love.graphics.newTextureView",
+  reason: "reads its settings from a table with lua_getfield, which the generator does not port; " \
+    "Lota::Graphics::TextureView.new takes them as keywords, which Lota binds as an Array"
+bound_by_hand "Texture:newImageData",
+  reason: "reads its slice only for a texture that is not 2D, and its rectangle only when given, as " \
+    "love.graphics.readbackTexture; Lota binds the arguments after the texture as an Array, and " \
+    "Lota::Graphics::Texture#new_image_data marks it deprecated"
 bound_by_hand "love.graphics.setNewFont",
   reason: "returns what w_newFont, bound by hand, returns, then sets the font it pushed; " \
     "Lota::Graphics.set_new_font makes the font with Lota::Graphics::Font.new, sets it, returns it, and marks " \

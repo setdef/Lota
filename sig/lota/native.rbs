@@ -354,6 +354,8 @@ module Lota
 
       def view_formats: () -> Array[String]
 
+      def new_image_data: (Array[Integer?] arguments) -> ImageData
+
       def render_to: (Integer? slice, ^() -> void block) -> nil
     end
 
@@ -1205,6 +1207,8 @@ module Lota
       def self.blend_state: () -> Array[String?]
 
       def self.readback_texture: (Texture texture, Array[(Float | Integer | ImageData)?] arguments) -> ImageData
+
+      def self.new_texture_view: (Texture base, Array[String | Integer | nil] settings) -> Texture
 
       def self.readback_texture_async: (Texture texture, Array[(Float | Integer | ImageData)?] arguments) -> GraphicsReadback
 

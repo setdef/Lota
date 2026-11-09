@@ -280,6 +280,35 @@ module Lota
         @native.view_formats.map(&:to_sym)
       end
 
+      # Copies pixels of the texture back from the graphics card into a new
+      # Lota::Image::ImageData, matching the deprecated Texture:newImageData
+      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_newImageData).
+      #
+      # [slice] Integer slice to read, counting from 1, which a texture that
+      #   is not 2D needs; a 2D texture ignores it.
+      # [mipmap] Integer mipmap to read, counting from 1; the first by
+      #   default.
+      # [x] Integer left edge of the rectangle to read, given with +y+,
+      #   +width+, and +height+; the whole mipmap by default.
+      # [y] Integer top edge of the rectangle.
+      # [width] Integer width of the rectangle.
+      # [height] Integer height of the rectangle.
+      #
+      # LÖVE 12 renamed it to Lota::Graphics.readback_texture, which reads
+      # into an ImageData given too; prints LÖVE's notice of the
+      # deprecation the first time it is called. Raises what
+      # readback_texture raises.
+      #
+      # === Example
+      #
+      #   canvas.new_image_data.pixel(0, 0) # => [1.0, 1.0, 0.0, 1.0]
+      def new_image_data(slice = nil, mipmap = nil, x = nil, y = nil, width = nil, height = nil)
+        Deprecation.mark("Lota::Graphics::Texture#new_image_data", :method, :renamed, "Lota::Graphics.readback_texture",
+          where: Deprecation.where(caller_locations(1, 1)))
+        native = @native.new_image_data([slice, mipmap, x, y, width, height])
+        Lota::Image::ImageData.__send__(:from_native, native)
+      end
+
       # Whether the texture's pixels are linear, not sRGB, matching
       # Texture:isFormatLinear (src/modules/graphics/wrap_Texture.cpp,
       # w_Texture_isFormatLinear).

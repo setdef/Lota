@@ -7,12 +7,14 @@
 
 require_relative "graphics/texture_settings"
 require_relative "graphics/texture"
+require_relative "graphics/array_texture"
 require_relative "graphics/array_image"
 require_relative "graphics/graphics_buffer"
 require_relative "graphics/graphics_readback"
 require_relative "graphics/canvas"
 require_relative "graphics/canvas_formats"
 require_relative "graphics/compute_shader"
+require_relative "graphics/cube_texture"
 require_relative "graphics/cube_image"
 require_relative "graphics/font"
 require_relative "graphics/image"
@@ -30,6 +32,8 @@ require_relative "graphics/text"
 require_relative "graphics/text_batch"
 require_relative "graphics/texture_formats"
 require_relative "graphics/texture_types"
+require_relative "graphics/texture_view"
+require_relative "graphics/volume_texture"
 require_relative "graphics/volume_image"
 
 module Lota

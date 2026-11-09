@@ -177,6 +177,11 @@ module Bindings
     # wrap_File.cpp:34-46).
     IO_ERROR = /\Aluax_ioError\s*\(\s*L\s*,/
     RETURN_ERRORS = /\A(?:luaL_error|luax_enumerror|luaL_argerror|luax_typerror|lua_error|luax_effecterror)\s*\(/
+    # A call of another wrap function with the same lua_State, whose count
+    # of values a wrap function returns as its own, directly (return
+    # w_newCubeTexture(L)) or through a variable (int ret = w_newFont(L);
+    # ... return ret), as delegate records.
+    WRAP_CALL = /\A(w_\w+)\s*\(\s*L\s*\)\z/
 
     attr_reader :reads, :tests, :tables, :pushes, :counts, :errors, :enums, :enum_results, :engine_calls,
       :deprecation, :delegate, :problems, :count_tests, :statements, :computed_count
@@ -204,6 +209,7 @@ module Bindings
       @variables = {}
       @constants = {}
       @types = {}
+      @wrap_results = {}
       analyze
     end
 
@@ -285,7 +291,7 @@ module Bindings
         expression(text, node.line, loops)
       elsif text.match?(IO_ERROR)
         counts << 2
-      elsif (target = text[/\A(w_\w+)\s*\(\s*L\s*\)\z/, 1])
+      elsif (target = text[WRAP_CALL, 1] || @wrap_results[text.strip])
         @delegate = target
       else
         expression(text, node.line, loops)
@@ -305,6 +311,7 @@ module Bindings
       @constants[match[:name]] = @constants.key?(match[:name]) ? nil : value if value.match?(/\A\d+\z/)
       @constants[match[:name]] = nil if @constants.key?(match[:name]) && !value.match?(/\A\d+\z/)
       @variables[match[:name]] = :top if value.include?("lua_gettop(L)")
+      @wrap_results[match[:name]] = value[WRAP_CALL, 1] if value.match?(WRAP_CALL)
       read = Calls.in(value).find { |call| call.lua? && READERS.key?(call.base_name) }
       @variables[match[:name]] = read.arguments[1] if read
     end

@@ -57,7 +57,25 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.graphics.newImageFont")
     assert_empty collisions("love.graphics.newText")
     assert_empty collisions("love.image.newCompressedData")
-    assert_equal [[:open, [2]]], collisions("love.graphics.newCubeTexture")
+    assert_empty collisions("love.graphics.newCubeTexture")
+    assert_empty collisions("love.graphics.newVolumeImage")
+    assert_empty collisions("love.graphics.newTextureView")
+    assert_equal [[:open, [2]]], collisions("love.audio.newQueueableSource")
+  end
+
+  # Rule 2 is for a module's factory functions; Texture:newImageData is a
+  # method of the texture it reads, so rule 13 names it.
+  def test_a_method_named_new_is_named_by_rule_13
+    assert_equal "Lota::Graphics::Texture#new_image_data", ruby_name("Texture:newImageData")
+    assert_equal [1, 13], rules("Texture:newImageData").first(2)
+  end
+
+  # w_setNewFont returns what w_newFont returns, through a variable
+  # (wrap_Graphics.cpp:2563-2571): the Font it made and set, so rule 7
+  # keeps it a method.
+  def test_a_setter_that_returns_a_factorys_result_stays_a_method
+    assert_equal "Lota::Graphics.set_new_font", ruby_name("love.graphics.setNewFont")
+    assert_includes rules("love.graphics.setNewFont"), 7
   end
 
   def test_rules_3_and_4_getters_drop_get_and_return_arrays

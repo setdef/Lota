@@ -7,74 +7,39 @@
 
 module Lota
   module Graphics
-    # Makes an array Lota::Graphics::Texture, as LÖVE 12's
-    # love.graphics.newArrayImage makes a Texture, and matches the textures
-    # of its type.
+    # LÖVE 11's name for Lota::Graphics::ArrayTexture, which LÖVE 12 keeps
+    # as love.graphics.newArrayImage, a function that calls
+    # w_newArrayTexture (src/modules/graphics/wrap_Graphics.cpp,
+    # w_newArrayImage). LÖVE marks it renamed only in a comment, so it
+    # prints no notice.
     #
-    # An array texture holds several images of one size as its layers,
-    # which Lota::Graphics.draw_layer draws one at a time and a shader can
-    # pick among, as for a sheet of animation frames.
-    #
-    # LÖVE 12 has no ArrayImage class: newArrayImage makes a Texture whose
-    # type is +:array+. So ArrayImage is a module, as Canvas is, whose
-    # +new+ returns a Texture and whose <tt>ArrayImage === texture</tt>
-    # asks whether the texture's type is +:array+.
+    # LÖVE has no ArrayImage class. So ArrayImage is a module, as Canvas is
+    # (ADR 001, rule 2), whose +new+ returns a Texture and whose
+    # <tt>ArrayImage === texture</tt> asks, as ArrayTexture's does,
+    # whether the texture's type is +:array+.
     #
     # === Example
     #
-    #   frames = Lota::Graphics::ArrayImage.new(%w[walk1.png walk2.png walk3.png])
-    #   frames.layer_count # => 3
-    #   Lota::Graphics.draw_layer(frames, 2, 100, 100)
+    #   Lota::Graphics::ArrayImage.new(%w[a.png b.png]).texture_type # => :array
     module ArrayImage
-      # Creates an array texture of +images+, or of a size, matching
-      # love.graphics.newArrayImage
-      # (src/modules/graphics/wrap_Graphics.cpp, w_newArrayImage), which
-      # LÖVE 12 makes with w_newArrayTexture.
-      #
-      # [images] An Array of layers, each what Lota::Graphics::Texture.new
-      #   takes for one image, or an Array of a layer's mipmaps; or one
-      #   image, which holds a single layer.
-      # [width] Integer width, in place of images, for a texture with no
-      #   pixels yet, followed by its Integer height and layer count.
-      # [settings] LÖVE's settings table, as keywords, as for
-      #   Lota::Graphics::Texture.new.
-      #
-      # Every layer must have the same size. Raises what
-      # Lota::Graphics::Texture.new raises.
+      # Creates a array texture as Lota::Graphics::ArrayTexture.new does,
+      # matching love.graphics.newArrayImage.
       #
       # === Example
       #
-      #   Lota::Graphics::ArrayImage.new(%w[a.png b.png], mipmaps: true)
-      #
-      # :call-seq:
-      #   new(images, **settings)
-      #   new(width, height, layers, **settings)
-      def self.new(*arguments, **settings)
-        native = Native::TextureSettings.new
-        native.set_type("array")
-        images = arguments.first
-        if TextureSettings.number?(images)
-          TextureSettings.read_size(native, arguments, 3..3, nil)
-          TextureSettings.read(native, settings, opt: true, check_type: false, check_dimensions: false)
-          return Texture.__send__(:from_native, Native::Graphics.new_empty_texture(native))
-        end
-
-        TextureSettings.check_count(arguments, 1..1)
-        dpiscaleset = TextureSettings.read(native, settings, opt: true, check_type: false, check_dimensions: false)
-        Texture.__send__(:from_native, Native::Graphics.new_array_texture(native, dpiscaleset, TextureSettings.images(images)))
+      #   Lota::Graphics::ArrayImage.new(%w[a.png b.png])
+      def self.new(*, **settings)
+        ArrayTexture.new(*, **settings)
       end
 
       # Whether +object+ is a Lota::Graphics::Texture whose type is
-      # +:array+, as newArrayImage makes.
+      # +:array+, as Lota::Graphics::ArrayTexture === asks.
       #
       # === Example
       #
-      #   Lota::Graphics::ArrayImage === Lota::Graphics::Canvas.new(8, 8, 2) # => true
+      #   Lota::Graphics::ArrayImage === Lota::Graphics::Canvas.new(8, 8) # => false
       def self.===(object)
-        case object
-        when Texture then object.texture_type == :array
-        else false
-        end
+        ArrayTexture === object
       end
     end
   end

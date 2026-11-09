@@ -36,6 +36,8 @@ module Lota
 
       def view_formats: () -> Array[Symbol]
 
+      def new_image_data: (?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height) -> Lota::Image::ImageData
+
       def format_linear?: () -> bool
 
       def compressed?: () -> bool

@@ -22,10 +22,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics.clear` takes `false` or `true` in place of the color, and the stencil and depth to clear to, or `false` to leave them, after it.
 - `Lota::Graphics.readback_texture_async`, returning a `Lota::Graphics::GraphicsReadback` (`complete?`, `error?`, `wait`, `update`, `buffer_data`, `image_data`).
 - `Lota::Graphics::Texture#view_formats`, and `Lota::Graphics::SpriteBatch#add_layer` and `layer=`, translating `SpriteBatch:addLayer` and `setLayer`.
+- `Lota::Graphics::CubeTexture.new`, `ArrayTexture.new`, and `VolumeTexture.new`, translating LÖVE 12's `newCubeTexture`, `newArrayTexture`, and `newVolumeTexture`, each returning a `Texture` and matching with `===` a texture of its type; `CubeImage.new` and its kin call them.
+- `Lota::Graphics::TextureView.new`, translating `love.graphics.newTextureView` with its settings as keywords and returning a `Texture`; `TextureView === x` is true of every `Texture`.
 
 ### Deprecated
 
-- `Lota::Graphics.canvas_formats` and `image_formats`, returning a frozen `Lota::Graphics::CanvasFormats` and `ImageFormats`; `set_new_font`; and `stencil`, `stencil_test=`, and `stencil_test`, translating the functions LÖVE 12 deprecates, each printing LÖVE's notice the first time it is called.
+- `Lota::Graphics.canvas_formats` and `image_formats`, returning a frozen `Lota::Graphics::CanvasFormats` and `ImageFormats`; `set_new_font`; `Lota::Graphics::Texture#new_image_data`; and `stencil`, `stencil_test=`, and `stencil_test`, translating the functions LÖVE 12 deprecates, each printing LÖVE's notice the first time it is called.
 
 ### Fixed
 

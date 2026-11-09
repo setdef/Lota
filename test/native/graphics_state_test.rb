@@ -47,12 +47,13 @@ class GraphicsStateTest < Minitest::Test
   end
 
   # Asserts that +block+ marks +name+ deprecated once, with the notice
-  # LÖVE's +replacement+ gives, and returns what +block+ returns.
-  def assert_deprecated(name, replacement = nil)
+  # LÖVE gives, ending in +change+, such as "replaced by" a name, and
+  # returns what +block+ returns.
+  def assert_deprecated(name, change = nil, api: :function)
     before = uses(name)
     result = yield
     info = Lota::Deprecation.instance_variable_get(:@deprecated).fetch(name)
-    notice = "Using deprecated function #{name}#{replacement && " (replaced by #{replacement})"}"
+    notice = "Using deprecated #{api} #{name}#{change && " (#{change})"}"
 
     assert_equal [before + 1, notice], [uses(name), Lota::Deprecation.notice(info).delete_prefix(info.where)]
     result
@@ -297,7 +298,7 @@ class GraphicsStateTest < Minitest::Test
   # depth and stencil formats. LÖVE marks both deprecated, replaced by
   # getTextureFormats.
   def test_canvas_and_image_formats_answer_as_texture_formats_and_are_deprecated
-    canvas = assert_deprecated("Lota::Graphics.canvas_formats", "Lota::Graphics.texture_formats") do
+    canvas = assert_deprecated("Lota::Graphics.canvas_formats", "replaced by Lota::Graphics.texture_formats") do
       Graphics.canvas_formats
     end
 
@@ -307,7 +308,7 @@ class GraphicsStateTest < Minitest::Test
     assert_equal Graphics.texture_formats(canvas: true, readable: true).depth16, Graphics.canvas_formats(true).depth16
     assert_nil canvas["DXT1"]
 
-    image = assert_deprecated("Lota::Graphics.image_formats", "Lota::Graphics.texture_formats") do
+    image = assert_deprecated("Lota::Graphics.image_formats", "replaced by Lota::Graphics.texture_formats") do
       Graphics.image_formats
     end
     sampled = Graphics.texture_formats(canvas: false)
@@ -362,7 +363,7 @@ class GraphicsStateTest < Minitest::Test
 
   def test_stencil_puts_the_state_back_when_the_block_raises_and_is_deprecated
     Graphics.set_canvas(Graphics::Canvas.new(4, 4), stencil: true)
-    error = assert_deprecated("Lota::Graphics.stencil", "Lota::Graphics.stencil_mode= or stencil_state=") do
+    error = assert_deprecated("Lota::Graphics.stencil", "replaced by Lota::Graphics.stencil_mode= or stencil_state=") do
       assert_raises(RuntimeError) { Graphics.stencil { raise "drawn" } }
     end
 
@@ -374,13 +375,13 @@ class GraphicsStateTest < Minitest::Test
   # mode turns it off; getStencilTest answers the compare mode and value.
   def test_the_stencil_test_sets_and_reads_the_stencil_state_and_is_deprecated
     Graphics.set_canvas(Graphics::Canvas.new(4, 4), stencil: true)
-    assert_deprecated("Lota::Graphics.stencil_test=", "Lota::Graphics.stencil_mode= or stencil_state=") do
+    assert_deprecated("Lota::Graphics.stencil_test=", "replaced by Lota::Graphics.stencil_mode= or stencil_state=") do
       Graphics.stencil_test = :greater, 1
     end
 
     assert_equal [:keep, :greater, 1], Graphics.stencil_state.first(3)
     assert_equal [:greater, 1], assert_deprecated("Lota::Graphics.stencil_test",
-      "Lota::Graphics.stencil_mode or stencil_state") { Graphics.stencil_test }
+      "replaced by Lota::Graphics.stencil_mode or stencil_state") { Graphics.stencil_test }
 
     Graphics.stencil_test = :less
 
@@ -389,5 +390,65 @@ class GraphicsStateTest < Minitest::Test
     Graphics.stencil_test = nil
 
     assert_equal [:always, 0], Graphics.stencil_test
+  end
+
+  # newCubeTexture, newArrayTexture, and newVolumeTexture
+  # (wrap_Graphics.cpp:977-1255) make a Texture of their type, which ===
+  # asks of the texture (ADR 001, rule 2); LÖVE 11's names, newCubeImage
+  # and its kin, call them (lines 1257-1273).
+  def test_texture_factories_make_and_match_textures_of_their_type
+    cube = Graphics::CubeTexture.new(2)
+    array = Graphics::ArrayTexture.new(2, 2, 3)
+    volume = Graphics::VolumeTexture.new(2, 2, 2)
+
+    assert_equal %i[cube array volume], [cube.texture_type, array.texture_type, volume.texture_type]
+    assert_equal [true, false, false], [cube, array, volume].map { |texture| Graphics::CubeTexture === texture }
+    assert_equal [false, true, false], [cube, array, volume].map { |texture| Graphics::ArrayTexture === texture }
+    assert_equal [false, false, true], [cube, array, volume].map { |texture| Graphics::VolumeTexture === texture }
+    assert_equal [true, true, true], [
+      Graphics::CubeImage === cube,
+      Graphics::ArrayImage === array,
+      Graphics::VolumeImage === volume,
+]
+    assert_equal :array, Graphics::ArrayImage.new(2, 2, 2).texture_type
+    refute_operator Graphics::CubeTexture, :===, :cube
+  end
+
+  # A view shares its texture's pixels (Texture.cpp:340-445): here one
+  # layer of an array texture, drawn as a 2D texture. LÖVE cannot tell a
+  # view from any other Texture, so TextureView === is true of every one.
+  # Views need GLSL 4 (Texture.cpp:402-403).
+  def test_a_texture_view_sees_one_layer_of_an_array_texture
+    skip("Texture views need GLSL 4, which this renderer lacks") unless Graphics.supported.glsl4
+    layers = Graphics::Canvas.new(2, 2, 2)
+    layers.render_to(2) { Graphics.clear(1, 0, 0, 1) }
+    view = Graphics::TextureView.new(layers, type: :"2d", layerstart: 2, layers: 1, debugname: "second")
+    canvas = Graphics::Canvas.new(2, 2)
+    canvas.render_to do
+      Graphics.clear(0, 0, 0, 1)
+      Graphics.draw(view)
+    end
+
+    assert_equal [:"2d", "second", RED], [
+      view.texture_type,
+      view.debug_name,
+      Graphics.readback_texture(canvas).pixel(0, 0),
+]
+    assert_equal [true, true, false], [view, layers, 1].map { |object| Graphics::TextureView === object }
+    error = assert_raises(ArgumentError) { Graphics::TextureView.new(layers, type: :flat) }
+
+    assert_match(/\AInvalid texture type 'flat'/, error.message)
+    assert_raises(TypeError) { Graphics::TextureView.new(:layers) }
+  end
+
+  # Texture:newImageData reads as readbackTexture does, and LÖVE marks it
+  # renamed to readbackTexture (wrap_Texture.cpp:426-457).
+  def test_a_textures_new_image_data_reads_it_back_and_is_deprecated
+    canvas = Graphics::Canvas.new(4, 4)
+    canvas.render_to { Graphics.clear(1, 0, 0, 1) }
+    data = assert_deprecated("Lota::Graphics::Texture#new_image_data",
+      "renamed to Lota::Graphics.readback_texture", api: :method) { canvas.new_image_data(nil, nil, 1, 1, 2, 2) }
+
+    assert_equal [2, RED], [data.width, data.pixel(1, 1)]
   end
 end
