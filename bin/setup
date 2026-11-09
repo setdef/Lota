@@ -31,6 +31,27 @@ if command -v mise >/dev/null 2>&1; then
   # the source archives the precompiled gem carries (ext/lota/licenses.rb)
   mise x -- bundle exec rake sources:fetch
   pre-commit install
+  # The pre-push hook, .githooks/pre-push, runs from whichever worktree
+  # pushes. The clone's shared hooks folder gets a stub that hands off to
+  # it, so every worktree has the hook, and pre-commit (which refuses to
+  # install under core.hooksPath) and any global hook that dispatches to
+  # .git/hooks keep working. Writing the stub again changes nothing.
+  hooks="$(git rev-parse --path-format=absolute --git-common-dir)/hooks"
+  stub="$hooks/pre-push"
+  if [ -e "$stub" ] && ! grep -q "lota pre-push stub" "$stub"; then
+    echo "$stub exists and is not Lota's; leaving it, so the pre-push checks will not run." >&2
+  else
+    mkdir -p "$hooks"
+    cat > "$stub" <<'STUB'
+#!/bin/sh
+# lota pre-push stub, written by bin/setup
+hook="$(git rev-parse --show-toplevel)/.githooks/pre-push"
+[ -x "$hook" ] || exit 0
+exec "$hook" "$@"
+STUB
+    chmod +x "$stub"
+    echo "Git hooks: $stub runs .githooks/pre-push, so git push runs rake prepush and red_before_green first."
+  fi
   bundle exec rake rdoc
 else
   echo "mise isn't installed. Please install it to continue." >&2

@@ -105,6 +105,20 @@ class RemoteGateTest < Minitest::Test
 
   def ssh_args = File.read(File.join(@tree, "ssh.args")).split("\n")
 
+  def test_a_given_commit_is_sent_instead_of_head_or_the_working_tree
+    commit_file(@checkout, "b.txt", "b", "second")
+    given = run!(@checkout, "git", "rev-parse", "HEAD").strip
+    commit_file(@checkout, "c.txt", "c", "third")
+    write(@checkout, "dirty.txt", "x")
+
+    status, out, err = remote(gate(commit: given), %w[prepush])
+
+    assert_equal 3, status, err
+    assert_includes out, "remote gate: #{given[0, 12]} on"
+    refute_includes out, "the working tree"
+    assert_includes out, "subject second\n"
+  end
+
   def test_an_unpushed_commit_goes_as_a_bundle_and_the_gates_status_comes_back
     commit_file(@checkout, "b.txt", "b", "second")
     head = run!(@checkout, "git", "rev-parse", "HEAD").strip

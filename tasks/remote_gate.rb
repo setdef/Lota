@@ -51,18 +51,25 @@ class RemoteGate
   # [runner] The runner's folder on the host.
   # [base] What the host already has, which the bundle leaves out.
   # [ssh] The ssh program.
-  def initialize(repository:, host: HOST, key: nil, runner: RUNNER, base: "origin/trunk", ssh: "ssh")
+  # [commit] A commit to run the gate on instead of HEAD or the working
+  #          tree, such as the tip of a push.
+  def initialize(repository:, host: HOST, key: nil, runner: RUNNER, base: "origin/trunk", ssh: "ssh", commit: nil)
     @repository = repository
     @host = host
     @key = key
     @runner = runner
     @base = base
     @ssh = ssh
+    @given = commit
   end
 
   # The commit the gate runs on: HEAD, or the working tree's commit.
   def commit
-    @commit ||= clean? ? git("rev-parse", "HEAD") : snapshot
+    @commit ||= if @given
+      git("rev-parse", "--verify", "#{@given}^{commit}")
+    else
+      clean? ? git("rev-parse", "HEAD") : snapshot
+    end
   end
 
   # The ssh command, for Kernel#system, that runs the gate with
@@ -76,7 +83,7 @@ class RemoteGate
   # Runs the gate on the host with +rake_args+, printing what it prints,
   # and returns its exit status: the gate's, or ssh's own when ssh fails.
   def run(rake_args = [])
-    $stdout.puts "remote gate: #{commit[0, 12]}#{' (the working tree)' unless clean?} on #{@host}"
+    $stdout.puts "remote gate: #{commit[0, 12]}#{' (the working tree)' unless @given || clean?} on #{@host}"
     $stdout.flush
     Tempfile.create(["lota-remote-gate", ".bundle"]) do |bundle|
       bundled = bundle(bundle.path)
