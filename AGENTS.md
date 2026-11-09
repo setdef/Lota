@@ -7,7 +7,7 @@
 
 ## Project
 
-Lota (the `lota` gem) drives a modified build of LÖVE's C++ engine from Ruby (>= 4.0.1) instead of Lua. Rice (in `ext/`) is a thin binding over LÖVE's engine; Ruby owns the game loop and every API decision (ADR 001). The plan of record is `doc/contributors/plan/001.md`.
+Lota (the `lota` gem) drives a modified build of LÖVE's C++ engine from Ruby (>= 4.0.1) instead of Lua. Rice (in `ext/`) is a thin binding over LÖVE's engine; Ruby owns the game loop and every API decision (ADR 001). The current plan is in `doc/contributors/plan/`.
 
 Pre-1.0, zero external users. Prefer good design over backward compatibility; record every breaking change in CHANGELOG.md.
 
@@ -32,7 +32,7 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 
 - Research before designing: read the LÖVE source and the relevant ADR in `doc/contributors/adr/` first.
 - Root-cause every fix. If you cannot explain why a change fixed the symptom, it is not a fix.
-- Write tests first. A test must fail if the code it covers is deleted or mutated, and must exercise real collaborators, not stubs that hide missing behavior. Where LÖVE's behavior is the contract, the story's acceptance test (Plan 001) is the test: a fixture someone else wrote, behaving as it does in LÖVE.
+- Write tests first. A test must fail if the code it covers is deleted or mutated, and must exercise real collaborators, not stubs that hide missing behavior. Where LÖVE's behavior is the contract, the acceptance test is a fixture someone else wrote, behaving as it does in LÖVE.
 - Lota is a dependency of games, so the dependency points one way: nothing on trunk (code, tests, docs, comments, examples, CI) names or depends on a game that uses Lota. Examples use Lota's own sample names, such as "Sample Game". Temporary material, such as the Windows kit and experiment branches, is exempt, and history may mention a game. Likewise nothing on trunk refers to a particular agent; agents are ephemeral.
 - Never edit `vendor/love`. Engine changes go in patch files in this repository (ADR 001, section 2), and every patch needs a reason it cannot be avoided.
 - Design in the spirit of Kent Beck (small steps, Implementation Patterns), Freeman & Pryce (tests drive interfaces), Sandi Metz (duplication over the wrong abstraction), Rebecca Wirfs-Brock (responsibility-driven roles), Martin Fowler (refactor in behavior-preserving steps), and Matz (programmer happiness). Write prose in the style of `doc/contributors/documentation_style.md`.
@@ -42,8 +42,9 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 - `Data.define` for value objects (`class Foo < Data.define(...)`), `class` for entities. Value types that games pass between Ractors must be frozen `Data` (ADR 001, section 6).
 - Every Ruby method has an RBS signature in `sig/` mirroring `lib/`. No `untyped`, no comments in `.rbs`. For `Data.define` classes, declare `self.new` instead of `initialize` (Steep mis-checks `initialize` there); plain classes declare `initialize` as usual.
 - RDoc (never YARD) in `.rb` files only. Wrap SPDX headers in `#--` / `#++`.
-- Architectural decisions get an ADR; plans live in `doc/contributors/plan/`.
-- Editing README.md or README.rdoc requires reading both files in full first, then rewriting for coherence, not appending.
+- An ADR records one architecturally significant decision, briefly: its context, the options considered, the outcome, and its consequences, good and bad. Detailed design, such as the translation rules, lives in its own document, not in an ADR.
+- Plans live in `doc/contributors/plan/` and are short-lived: delete a plan once its work is done, and never cite a plan from code, tests, or docs, because the citation outlives it.
+- Before you edit a markdown file (anything in `doc/`, a README, or this file), read the whole file, then edit it so it still reads as one coherent piece. Don't append to it or patch lines found by search. A README edit also means reading README.md and README.rdoc both in full. Use whatever writing skill you have for the kind of document.
 
 ## Commands
 
