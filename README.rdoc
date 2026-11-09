@@ -23,9 +23,8 @@ locks; it needs Git and the network, and a C compiler for a gem whose
 extension compiles.
 
 On Linux, a game needs a desktop with X11 or Wayland and OpenGL, as a
-LÖVE game does. The Windows gems are new: their continuous integration
-runs a game without a window, so a game that draws is not yet tested
-there.
+LÖVE game does. On Windows, continuous integration draws on a software
+renderer alone, so a game on a real GPU is not yet tested there.
 
 On another platform or Ruby, such as Alpine Linux, whose C library is
 musl, RubyGems picks Lota's source gem, which stops and says so: Lota

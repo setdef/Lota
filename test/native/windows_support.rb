@@ -44,18 +44,20 @@ module WindowsSupport
     text_input_area
   ].freeze
 
-  # Skips the test that calls one of SDL_FUNCTIONS, or holds a key, which
-  # is +hold+ with a scancode, where +hold+ with a Counted alone holds an
-  # engine object.
+  # Skips the test that calls one of SDL_FUNCTIONS, or holds a key down,
+  # which is +hold+ with a scancode and true, where +hold+ with a Counted
+  # alone holds an engine object. Letting a key up, as a teardown does,
+  # does nothing, since no key can be down.
   module SkipWhereSDLIsApart
     SDL_FUNCTIONS.each do |name|
       define_method(name) { |*| raise Minitest::Skip, SDL_APART }
     end
 
     def hold(*arguments)
-      raise Minitest::Skip, SDL_APART if arguments.size == 2
+      return super unless arguments.size == 2
+      raise Minitest::Skip, SDL_APART if arguments.last
 
-      super
+      nil
     end
   end
   LotaNativeTest.singleton_class.prepend(SkipWhereSDLIsApart)

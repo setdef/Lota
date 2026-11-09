@@ -358,6 +358,8 @@ jobs:
             PATH = "$system\System32;$system;$system\System32\Wbem"
             USERPROFILE = $env:USERPROFILE; APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA
             TEMP = $env:RUNNER_TEMP; TMP = $env:RUNNER_TEMP; ALSOFT_DRIVERS = 'null'; GALLIUM_DRIVER = 'llvmpipe'
+            # llvmpipe's linear rasterizer, from Mesa 25, reads the wrong uniform array and matrix elements.
+            LP_PERF = 'no_rast_linear'
           }
           foreach ($name in $variables.Keys) { $start.Environment[$name] = $variables[$name] }
           foreach ($pair in ($env:GAME_ENV -split '\s+' | Where-Object { $_ })) {

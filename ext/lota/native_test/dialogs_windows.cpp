@@ -114,18 +114,28 @@ void press_return_on_dialogs() {
 
 int dialogs_answered() { return answered().load(); }
 
-// Windows lets a program bring its window to the front while it is the
-// one the person last gave input to, or the program that started it was,
-// as on a runner, where nobody types.
+// Windows lets a program bring its window to the front only while it is
+// the one the person last gave input to, or shares its input with the
+// thread of the window in front (SetForegroundWindow's remarks), so this
+// thread shares the input of that window's thread while it asks, as the
+// window's own click would give it the focus.
 void activate() {
   HWND const window = first_window();
   if (window == nullptr) {
     return;
   }
+  const DWORD self = GetCurrentThreadId();
+  HWND const front = GetForegroundWindow();
+  const DWORD other = front == nullptr ? 0 : GetWindowThreadProcessId(front, nullptr);
+  const bool shared = other != 0 && other != self && AttachThreadInput(self, other, TRUE) != FALSE;
   ShowWindow(window, SW_SHOW);
+  BringWindowToTop(window);
   SetForegroundWindow(window);
   SetActiveWindow(window);
   SetFocus(window);
+  if (shared) {
+    AttachThreadInput(self, other, FALSE);
+  }
 }
 
 bool has_focus() {

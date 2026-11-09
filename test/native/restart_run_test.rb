@@ -241,8 +241,13 @@ class RestartRunTest < Minitest::Test
   # game: a program of its own that runs Ruby inside its own process, on
   # the entry script LOTA_LAUNCHER_ENTRY names, with its own arguments
   # after it, so that the program the process runs is not Ruby's. It sets
-  # the locale first, as Ruby's own main.c does.
+  # the locale first, as Ruby's own main.c does. On Windows a program's
+  # name ends in .exe, and MinGW's linker opens its output through the
+  # system's ANSI code page, which cannot name every folder, so it links
+  # the launcher beside its source and moves it into place.
   def build_launcher(path)
+    path = "#{path}.exe" if TestHome::WINDOWS
+    linked = TestHome::WINDOWS ? File.join(@directory, "launcher.exe") : path
     source = File.join(@directory, "launcher.c")
     File.write(source, <<~C)
       #include <locale.h>
@@ -272,7 +277,7 @@ class RestartRunTest < Minitest::Test
       "-I#{config.fetch('rubyarchhdrdir')}",
       source,
       "-o",
-      path,
+      linked,
       "-L#{libdir}",
       "-Wl,-rpath,#{libdir}",
       *Shellwords.split(config.fetch("LIBRUBYARG")),
@@ -281,6 +286,7 @@ class RestartRunTest < Minitest::Test
     output, status = capture2e(TOOL_ENV, *command)
 
     assert_predicate status, :success?, output
+    FileUtils.mv(linked, path) unless linked == path
     path
   end
 

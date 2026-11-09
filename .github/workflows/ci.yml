@@ -7,8 +7,17 @@
 # integration" and "Delivery"), once for each platform Lota ships a gem
 # for: Apple Silicon macOS, Linux on x86_64 and arm64 (Plan 001, story 6),
 # and Windows on x64 and ARM64 (ADR 002, section 4), whose jobs build the
-# engine and check it without the gate, which needs windows (the Windows
-# jobs say why). The macOS, Linux, and Windows jobs run side by side.
+# engine, check it, and run Lota's tests without the gate's Rake tasks
+# (the Windows jobs say why). The macOS, Linux, and Windows jobs run side
+# by side.
+#
+# Every push also runs, as jobs of the same run, the checks of the
+# platforms Lota builds for without a gem, and of lota fuse: the phone
+# route (phones.yml), the iOS kit twice, as Lota's own CI and as a game's
+# CI calls it (ios-kit.yml, ios-kit-caller.yml), and, once each platform's
+# gem is built, lota fuse on all five with those gems (fuse.yml). So every
+# platform Lota supports that GitHub's free runners can run is checked on
+# every commit of trunk, and a red job there stops the line.
 #
 # macOS: LÖVE's own CI runs its tests on macOS runners with the normal
 # video driver (vendor/love/.github/workflows/main.yml, the macOS job),
@@ -34,9 +43,9 @@
 # Release: a tag such as v0.1.0, pushed on a commit of trunk, runs all of
 # the above again on that commit, and the release job publishes a GitHub
 # release of the gems the delivery jobs installed and ran, but only when
-# every platform's gate (on Windows, its build) and delivery passed. A
-# release is a promise about
-# each platform it lists, and one missing a platform would leave the
+# every platform's gate (on Windows, its build) and delivery passed, and
+# the phone, iOS kit, and fuse checks with them. A release is a promise
+# about each platform it lists, and one missing a platform would leave the
 # games that depend on it there with nothing to install
 # (doc/contributors/releasing.md). Run by hand (workflow_dispatch), the
 # release job is a dry run: it checks and assembles the release that
@@ -628,17 +637,18 @@ jobs:
 
   # Lota on Windows (ADR 002, section 4; Plan 002, item 10): LÖVE's
   # dependencies built from source at LÖVE's versions (tasks/windows_build.rb),
-  # LÖVE's engine and Lota's extension built with MinGW against
-  # RubyInstaller's UCRT Ruby, the extension's closure of DLLs checked, its
-  # DLLs shown to load from the gem's own directory and nowhere else, the
-  # tests that open no window and need no test-only extension run from a
-  # PATH a player's machine might have, and the precompiled gem built. x64
+  # LÖVE's engine, Lota's extension, and the test-only extension built with
+  # MinGW against RubyInstaller's UCRT Ruby, the extension's closure of
+  # DLLs checked, its DLLs shown to load from the gem's own directory and
+  # nowhere else, the precompiled gem built, and then Lota's tests run on
+  # Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest. x64
   # builds with MSYS2's UCRT64 environment (GCC), ARM64 with its CLANGARM64
   # environment (clang), the toolchains RubyInstaller builds its Ruby with
-  # for each. A runner has no GPU, and Windows' own OpenGL is 1.1, which
-  # LÖVE's renderer cannot use, so the one window opened here shows only
-  # that SDL makes an OpenGL context; the gate (bundle exec rake), whose
-  # tests draw, does not run on Windows.
+  # for each. The gate (bundle exec rake) does not run here: its Bundler
+  # would compile gems RubyInstaller's Ruby has no build of, and its other
+  # checks, RuboCop, Steep, clang-tidy, and the sanitizers among them, read
+  # the same sources on macOS and Linux; so the tests run file by file,
+  # without its Rake tasks (windows_checks.rb tests).
   windows-build:
     name: Windows build (${{ matrix.platform }})
     strategy:
@@ -889,14 +899,13 @@ jobs:
       - name: Put Mesa's OpenGL beside Ruby
         env:
           MESA_DIST_WIN: https://github.com/pal1000/mesa-dist-win/releases/download/24.2.4/mesa3d-24.2.4-release-msvc.7z
-          MESA_SHA256: ""
+          MESA_SHA256: e3919de795bee231edc88e9c996f2c1851250dff3bc9b51b9121760ae2250db0
         run: |
           if [ "$MSYSTEM" = CLANGARM64 ]; then
             ruby .github/windows_checks.rb mesa "$(cygpath -m "$MINGW_PREFIX/bin")"
           else
             curl --fail --location --silent --show-error --retry 5 -o "$RUNNER_TEMP/mesa.7z" "$MESA_DIST_WIN"
-            sha256sum "$RUNNER_TEMP/mesa.7z"
-            [ -z "$MESA_SHA256" ] || echo "$MESA_SHA256  $RUNNER_TEMP/mesa.7z" | sha256sum --check -
+            (cd "$RUNNER_TEMP" && echo "$MESA_SHA256  mesa.7z" | sha256sum --check -)
             7z x -y -o"$(cygpath -w "$RUNNER_TEMP/mesa")" "$(cygpath -w "$RUNNER_TEMP/mesa.7z")" > /dev/null
             ls "$RUNNER_TEMP/mesa/x64"
             ruby .github/windows_checks.rb mesa "$(cygpath -m "$RUNNER_TEMP/mesa/x64")"
@@ -923,9 +932,11 @@ jobs:
       # ignore_gate_failures input).
       - name: Run the tests
         timeout-minutes: 100
-        continue-on-error: true # PROBE ONLY: revert before landing
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
         env:
           GALLIUM_DRIVER: llvmpipe
+          # llvmpipe's linear rasterizer, from Mesa 25, reads the wrong uniform array and matrix elements.
+          LP_PERF: no_rast_linear
         run: |
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd"
           PATH="$clean:$MINGW_PREFIX/bin" ruby .github/windows_checks.rb tests tmp/windows-tests
@@ -1048,7 +1059,8 @@ jobs:
   # delivery jobs installed and ran, never rebuilt. It runs for a tag
   # v0.1.0 pushed to this repository, and by hand as a dry run; never for
   # a pull request, and never in a fork. It needs every platform's gate
-  # and delivery to have passed, so a tag on a commit where any platform
+  # and delivery, and the phone, iOS kit, and fuse checks, to have
+  # passed, so a tag on a commit where any platform
   # failed publishes nothing; rerun the failed jobs, or fix the commit and
   # tag the fix with the next version. Its token alone may write, and only
   # the repository's contents, which a GitHub release is; it uses no other

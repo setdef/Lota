@@ -160,7 +160,7 @@ class LotaRunTest < Minitest::Test
   # while the game runs could change the answer between the two.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
-    skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
+    skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX && !TestHome::WINDOWS
     assertions = skipped ? 91160 - (3 * 32 * 32) + 1 : 91160
     # Its mountCommonPath test mounts the desktop folder except on Linux,
     # where it has none (test/lovetest/tests/filesystem.rb).

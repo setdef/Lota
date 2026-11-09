@@ -21,6 +21,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- On Windows, an engine object Lota hands back again, such as the Shader in use or a Shape a contact names, is the same Ruby object each time, as on macOS and Linux, where it was a new one each time.
 - On iOS 27 and iPadOS 27, a game launched in landscape gets a landscape window, where SDL gave it a portrait one, cut off at the bottom and black on the right: the iOS host reports the window scene's orientation where UIKit's `statusBarOrientation` no longer does.
 
 ## [0.3.0] - 2026-11-08
