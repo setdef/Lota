@@ -22,14 +22,15 @@ class WindowStateTest < Minitest::Test
   # lane's display holds only this window (tasks/gate.rb), it has nothing
   # to say, and the failure message says nothing of it. On Windows it
   # names each of SDL's windows by its handle, and says whether Windows
-  # shows it, whether it is in front, and where it is (dialogs_windows.cpp).
+  # shows it, whether it is in front, and where it is, and then which
+  # window is in front (dialogs_windows.cpp).
   def test_it_describes_sdls_window_as_macos_sees_it
     state = LotaNativeTest.window_state
 
     if TestHome::LINUX
       assert_empty state
     elsif TestHome::WINDOWS
-      assert_match(/\Awindow \d+ (visible|hidden)( foreground)? at -?\d+,-?\d+ \d+x\d+$/, state)
+      assert_match(/\Awindow \d+ (visible|hidden)( foreground)? at -?\d+,-?\d+ \d+x\d+\nin front: /, state)
     else
       assert_match(/window \d+ \(SDL's\): seen by macOS (yes|no), ordered in (yes|no), key (yes|no), /, state)
       assert_match(/, frame \(-?\d+, -?\d+, \d+, \d+\), screen /, state)

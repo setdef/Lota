@@ -13,6 +13,7 @@
 
 #include "native_test/dialogs.hpp"
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <cwchar>
@@ -114,11 +115,29 @@ void press_return_on_dialogs() {
 
 int dialogs_answered() { return answered().load(); }
 
+// Presses and lets go of Alt, as a person's key would, which makes this
+// the program that last had input, so Windows lets it take the
+// foreground (SetForegroundWindow's remarks). The key goes to the window
+// in front, which is not one of this program's.
+namespace {
+void press_alt() {
+  std::array<INPUT, 2> inputs{};
+  for (INPUT &input : inputs) {
+    input.type = INPUT_KEYBOARD;
+    input.ki.wVk = VK_MENU;
+  }
+  inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+  SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+}
+} // namespace
+
 // Windows lets a program bring its window to the front only while it is
 // the one the person last gave input to, or shares its input with the
 // thread of the window in front (SetForegroundWindow's remarks), so this
 // thread shares the input of that window's thread while it asks, as the
-// window's own click would give it the focus.
+// window's own click would give it the focus, and, where there is no
+// window in front to share it with, or Windows refuses still, it presses
+// Alt first (press_alt).
 void activate() {
   HWND const window = first_window();
   if (window == nullptr) {
@@ -130,7 +149,10 @@ void activate() {
   const bool shared = other != 0 && other != self && AttachThreadInput(self, other, TRUE) != FALSE;
   ShowWindow(window, SW_SHOW);
   BringWindowToTop(window);
-  SetForegroundWindow(window);
+  if (SetForegroundWindow(window) == FALSE) {
+    press_alt();
+    SetForegroundWindow(window);
+  }
   SetActiveWindow(window);
   SetFocus(window);
   if (shared) {
@@ -176,6 +198,19 @@ std::string window_state() {
              "," + std::to_string(rect.top) + " " + std::to_string(rect.right - rect.left) + "x" +
              std::to_string(rect.bottom - rect.top) + "\n";
   }
+  wchar_t name[64] = {};
+  if (foreground != nullptr) {
+    GetClassNameW(foreground, name, static_cast<int>(std::size(name)));
+  }
+  std::string in_front;
+  for (const wchar_t *c = name; *c != 0; ++c) {
+    in_front += *c < 128 ? static_cast<char>(*c) : '?';
+  }
+  state += "in front: " +
+           (foreground == nullptr ? std::string("no window")
+                                  : std::to_string(reinterpret_cast<std::uintptr_t>(foreground)) +
+                                        " of class " + in_front) +
+           "\n";
   return state;
 }
 

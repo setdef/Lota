@@ -1059,10 +1059,10 @@ jobs:
   # delivery jobs installed and ran, never rebuilt. It runs for a tag
   # v0.1.0 pushed to this repository, and by hand as a dry run; never for
   # a pull request, and never in a fork. It needs every platform's gate
-  # and delivery, and the phone, iOS kit, and fuse checks, to have
-  # passed, so a tag on a commit where any platform
-  # failed publishes nothing; rerun the failed jobs, or fix the commit and
-  # tag the fix with the next version. Its token alone may write, and only
+  # and delivery, and the phone, iOS kit, and fuse checks, to have passed,
+  # so a tag on a commit where any of them failed publishes nothing; rerun
+  # the failed jobs, or fix the commit and tag the fix with the next
+  # version. Its token alone may write, and only
   # the repository's contents, which a GitHub release is; it uses no other
   # secret. A new platform joins with a job that builds its gem and a
   # delivery job that uploads it verified, as verified-lota-<platform>,
