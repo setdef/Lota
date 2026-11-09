@@ -27,8 +27,10 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	particle_system.cpp
 	physics.cpp
 	random_generator.cpp
+	rice_roots.cpp
 	sensor.cpp
 	shader.cpp
+	signal.cpp
 	sound.cpp
 	system.cpp
 	texture.cpp
@@ -43,3 +45,14 @@ else()
 	set(load_directory ${LOTA_ROOT}/lib/lota)
 endif()
 lota_ruby_extension(lota_native lota/native ${load_directory})
+
+# Ruby 4.0's rb_gc_register_address has no lock, and Rice calls it for
+# every value it holds, so every call this target makes, Rice's among
+# them, goes to Lota's own (rice_roots.cpp, which says why). The
+# definitions go, with rice_roots.cpp, when Lota requires Ruby 4.1
+# (Feature #22277). The test extension calls Rice from the main Ractor
+# alone, and keeps Ruby's.
+target_compile_definitions(lota_native PRIVATE
+	rb_gc_register_address=lota_gc_register_address
+	rb_gc_unregister_address=lota_gc_unregister_address
+)

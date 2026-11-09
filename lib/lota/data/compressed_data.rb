@@ -25,7 +25,7 @@ module Lota
       private_class_method def self.from_native(native)
         data = allocate
         data.instance_variable_set(:@native, native)
-        data
+        data.freeze
       end
 
       # Makes this CompressedData, a copy of +source+ by Ruby's +clone+ or
@@ -40,6 +40,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # How its bytes were compressed, as a Symbol (rule 9 of

@@ -515,6 +515,8 @@ module Bindings
         // Defines every generated binding (ext/lota/native/generated/*.cpp)
         // on Lota::Native. native.cpp calls define_generated after the
         // hand-written bindings, so the classes those define already exist.
+        // Each module's are defined safe for the Ractors define_module says
+        // (native/binding.hpp, ractor_safe_module).
 
         #ifndef LOTA_NATIVE_GENERATED_BINDINGS_HPP
         #define LOTA_NATIVE_GENERATED_BINDINGS_HPP
@@ -526,7 +528,7 @@ module Bindings
         #{modules.map { |name| "void define_generated_#{name}(const Rice::Module &native);" }.join("\n")}
 
         inline void define_generated(const Rice::Module &native) {
-        #{modules.map { |name| "define_generated_#{name}(native);" }.join("\n")}
+        #{modules.map { |name| "define_module(\"#{name}\", &define_generated_#{name}, native);" }.join("\n")}
         }
 
         } // namespace lota::native

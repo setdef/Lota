@@ -951,6 +951,8 @@ module Lota
       def self.open: () -> nil
 
       def self.open?: () -> bool
+
+      def self.sleep: (Float | Integer seconds) -> nil
     end
 
     module Event

@@ -20,6 +20,7 @@
 #include "math/RandomGenerator.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <bit>
 #include <cstddef>
@@ -1063,6 +1064,27 @@ int use_after_free() {
 // INT_MAX + 1 overflows.
 int add_one(int number) { return number + 1; }
 
+// Writes past the end of a local array of four ints, at +index+, which the
+// sanitizer tests make 4. The pointer is volatile, so the compiler cannot
+// see which object it points into, and leaves the write for ASan to check
+// rather than UBSan's object-size check.
+int stack_overflow(int index) {
+  std::array<int, 4> numbers{};
+  int *volatile element = numbers.data();
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the bug.
+  element[index] = 1;
+  return numbers.front();
+}
+
+// Writes past the end of a heap array of four ints, at +index+.
+int heap_overflow(int index) {
+  std::vector<int> numbers(4);
+  int *volatile element = numbers.data();
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the bug.
+  element[index] = 1;
+  return numbers.front();
+}
+
 // Allocates an int and forgets it, so LeakSanitizer finds it unreachable
 // at exit.
 void forget_a_block() {
@@ -1255,6 +1277,15 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
 #endif
   test.define_module_function("place_on_displays", &place_on_displays, Rice::Arg("globalx"),
                               Rice::Arg("globaly"), Rice::Arg("bounds"));
+
+  // The overflows run in a Ractor other than the main one too, where Ruby
+  // runs its threads on stacks of its own (native/binding.hpp,
+  // forget_abandoned_frames), so they are defined safe for every Ractor,
+  // and only they.
+  rb_ext_ractor_safe(true);
+  test.define_module_function("stack_overflow", &stack_overflow, Rice::Arg("index"))
+      .define_module_function("heap_overflow", &heap_overflow, Rice::Arg("index"));
+  rb_ext_ractor_safe(false);
 
   // Its functions stay found after a test compacts the heap, as
   // Lota::Native's do (Init_native).

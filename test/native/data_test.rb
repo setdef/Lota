@@ -40,6 +40,34 @@ class DataTest < Minitest::Test
     refute Lota::Graphics::Canvas.new(1, 1).is_a?(Lota::Data)
   end
 
+  # Every Data guards its bytes with LÖVE's own lock, so Ractors share it
+  # (doc/contributors/design/engine.md, "Threads and Ractors"): its wrapper
+  # and the engine's are frozen as they are made, copies too, and its
+  # methods still change its bytes. Other engine objects, such as a
+  # Transform or a Texture, are not shareable.
+  def test_every_data_is_frozen_and_shareable
+    image = Lota::Image::ImageData.new(1, 1)
+    datas = [
+      Lota::Sound::SoundData.new(4, 44_100, 16, 1),
+      image,
+      file_data("hi"),
+      image.clone,
+      image.dup,
+      image.encode(:png),
+      Lota::Data::ByteData.new(2),
+      Lota::Data.compress(:data, :zlib, "hi"),
+    ]
+    datas.each do |data|
+      assert_predicate data, :frozen?, data.type
+      assert_predicate data.__send__(:native), :frozen?, data.type
+      assert Ractor.shareable?(data), data.type
+    end
+    image.pixel = 0, 0, 1, 0, 0, 1
+    assert_equal [1.0, 0.0, 0.0, 1.0], image.pixel(0, 0)
+    refute Ractor.shareable?(Lota::Math::Transform.new)
+    refute Ractor.shareable?(Lota::Graphics::Canvas.new(1, 1))
+  end
+
   def test_size_and_string_read_the_bytes
     data = file_data("helloworld")
 

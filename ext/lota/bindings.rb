@@ -1564,7 +1564,10 @@ bound_by_hand "love.system.getPreferredLocales",
 # love.timer
 generate "love.timer.step"
 generate "love.timer.getDelta"
-generate "love.timer.sleep"
+bound_by_hand "love.timer.sleep",
+  reason: "sleeps with Ruby's GVL released, as Ruby's own sleep does, so the other threads of its Ractor run " \
+    "meanwhile, and so does Ruby's collector, which waits for every Ractor that holds its GVL; the generator " \
+    "writes no binding that releases it"
 generate "love.timer.getFPS"
 generate "love.timer.getAverageDelta"
 generate "love.timer.getTime"

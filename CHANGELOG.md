@@ -32,6 +32,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `love.video`: `Lota::Video`, which boot opens unless `t.modules.video` is false, and `lota.video`; `Lota::Video::VideoStream` (`new`, `sync=`, `filename`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`).
 - `Lota::Graphics::Video` (`new` with `audio:` and `dpiscale:`, `stream`, `source`, `source=`, `width`, `height`, `dimensions`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `filter`, `filter=`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`), which `Lota::Graphics.draw` draws.
 - The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
+- A Ractor other than the main one may call Lota's modules, each holding wrappers of its own for the engine objects it reads, but `Lota::Graphics` and `Lota::Window` raise `ThreadError` there, and `Lota::Joystick`, `Lota::Keyboard`, `Lota::Mouse`, `Lota::Sensor`, `Lota::System`, and `Lota::Touch` raise `Ractor::UnsafeError`.
+- Every `Lota::Data`, such as a `ByteData`, `FileData`, `ImageData`, or `SoundData`, is frozen, and Ractors share it as itself: another Ractor reads and changes the same bytes.
+
+### Changed
+
+- `Lota::Timer.sleep` lets Ruby's other threads, and its garbage collector, run while it sleeps.
+- `Lota::Data#perform_atomic` waits for another thread's block without holding Ruby's GVL, where two threads holding one Data stopped for good; it no longer holds the Data's own mutex while its block runs, so it keeps out only other `perform_atomic` calls, as LÖVE's other Data methods take no lock.
 
 ### Deprecated
 

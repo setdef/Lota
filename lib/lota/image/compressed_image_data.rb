@@ -35,7 +35,7 @@ module Lota
       private_class_method def self.from_native(native)
         data = allocate
         data.instance_variable_set(:@native, native)
-        data
+        data.freeze
       end
 
       # Makes this CompressedImageData, a copy of +source+ by Ruby's
@@ -52,6 +52,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The width in pixels of +mipmap+, as an Integer, matching

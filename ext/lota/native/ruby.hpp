@@ -10,6 +10,8 @@
 
 #include "native/binding.hpp"
 
+#include <ruby/thread.h>
+
 #include <string>
 #include <vector>
 
@@ -70,6 +72,20 @@ inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 
 inline Rice::Object nil() { return {Qnil}; }
 
+// The Ruby thread running this code, which holds a Data in perform_atomic,
+// compared by identity.
+inline VALUE current_thread() { return rb_thread_current(); }
+
+// Calls +function+ with +data+ with the GVL released, as Ruby's own sleep
+// waits, and then runs Ruby's pending interrupts, as an exception of
+// Rice's rather than a longjmp through C++ frames. Nothing can cut
+// +function+ short.
+inline void without_gvl(void *(*function)(void *), void *data) {
+  Rice::detail::protect(rb_thread_call_without_gvl, function, data,
+                        static_cast<rb_unblock_function_t *>(nullptr),
+                        static_cast<void *>(nullptr));
+}
+
 // The elements of +array+, to index with bounds checked.
 inline std::vector<Rice::Object> elements(const Rice::Array &array) {
   std::vector<Rice::Object> values;
@@ -90,9 +106,10 @@ inline std::vector<Rice::Object> elements(const Rice::Array &array) {
 
 // A Ruby value that stays alive while this object does: a root of Ruby's
 // garbage collector, as a Lua reference keeps its value in the registry.
-// Its destructor only unregisters the address, which allocates nothing, so
-// it may run while Ruby collects another object whose release destroys
-// this one.
+// It holds a value of the Ractor that made it, or a shareable one, as
+// Ruby 4.1 asks of an address it roots (Feature #22277). Its destructor
+// only unregisters the address, which allocates nothing, so it may run
+// while Ruby collects another object whose release destroys this one.
 class Root {
 public:
   explicit Root(const Rice::Object &value) : value_(value.value()) {

@@ -7,6 +7,7 @@
 #include "native/errors.hpp"
 #include "native/luajit.hpp"
 #include "native/ruby.hpp"
+#include "native/signal.hpp"
 
 #include "common/Data.h"
 #include "common/Exception.h"
@@ -19,7 +20,6 @@
 #include "data/DataModule.h"
 #include "data/DataView.h"
 #include "data/HashFunction.h"
-#include "thread/threads.h"
 
 #include <algorithm>
 #include <bit>
@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -139,13 +140,90 @@ std::uintptr_t data_pointer(const love::Data &data) {
   return std::bit_cast<std::uintptr_t>(data.getData());
 }
 
+// The Data each Ruby thread holds with perform_atomic, in every Ractor,
+// and how many times: while one thread holds a Data, every other that
+// asks for it waits, without its GVL (Signal).
+//
+// LÖVE holds the Data's own mutex while performAtomic's function runs
+// (wrap_Data.cpp:88). Lota does not hold it while Ruby runs. A thread
+// that waited for it would wait with its GVL held: another Ruby thread of
+// its Ractor, the one holding the Data, could never run to let it go, and
+// a collection, which waits for every Ractor that holds its GVL, could
+// never start, so a block that collected garbage would stop both for
+// good. So perform_atomic keeps out every other perform_atomic of the
+// Data, as LÖVE's does, and the mutex stays LÖVE's, for the engine's C++
+// that takes it (GraphicsReadback.cpp:189, ImageRasterizer.cpp:95,
+// BMFontRasterizer.cpp:350, and native/texture.cpp's copy of a texture's
+// pixels into an ImageData), which a block no longer keeps out. LÖVE's other
+// Data methods take no lock, so a block keeps them out in neither.
+class Holds {
+public:
+  static Holds &instance() {
+    static Holds holds;
+    return holds;
+  }
+
+  void hold(const love::Data *data) {
+    const VALUE me = ruby::current_thread();
+    while (true) {
+      std::uint64_t seen = 0;
+      {
+        const auto lock = signal_.lock();
+        Held &held = held_[data];
+        if (held.owner == Qfalse || held.owner == me) {
+          held.owner = me;
+          held.depth++;
+          return;
+        }
+        seen = signal_.count();
+      }
+      signal_.wait(seen, std::nullopt);
+    }
+  }
+
+  void release(const love::Data *data) noexcept {
+    const auto lock = signal_.lock();
+    const auto found = held_.find(data);
+    if (found == held_.end() || --found->second.depth > 0) {
+      return;
+    }
+    held_.erase(found);
+    signal_.changed();
+  }
+
+private:
+  // The Ruby thread that holds a Data, which it compares by identity
+  // alone, and how many times.
+  struct Held {
+    VALUE owner = Qfalse;
+    int depth = 0;
+  };
+
+  Signal signal_;
+  std::map<const love::Data *, Held> held_;
+};
+
+// Holds a Data for as long as it lives (Holds).
+class Hold {
+public:
+  explicit Hold(const love::Data &data) : data_(&data) { Holds::instance().hold(data_); }
+  Hold(const Hold &) = delete;
+  Hold(Hold &&) = delete;
+  Hold &operator=(const Hold &) = delete;
+  Hold &operator=(Hold &&) = delete;
+  ~Hold() { Holds::instance().release(data_); }
+
+private:
+  const love::Data *data_;
+};
+
 // w_Data_performAtomic (wrap_Data.cpp:82-100), with +call+ the block, as
 // a Proc, and then its arguments, which Lota::Data#perform_atomic gathers
 // into one Array: calls the block with the arguments while it holds the
-// Data's lock, and returns what the block returns. A Ruby error the block
-// raises leaves the lock on its way out, as Lua's pcall does there, and
+// Data (Holds), and returns what the block returns. A Ruby error the block
+// raises lets the Data go on its way out, as Lua's pcall does there, and
 // goes on.
-Rice::Object perform_atomic(love::Data &data, Rice::Array call_given) {
+Rice::Object perform_atomic(const love::Data &data, Rice::Array call_given) {
   const Rice::Array call = std::move(call_given);
   const std::vector<Rice::Object> given = ruby::elements(call);
   Rice::Object block = given.empty() ? ruby::nil() : given.front();
@@ -156,7 +234,7 @@ Rice::Object perform_atomic(love::Data &data, Rice::Array call_given) {
   if (block.is_nil()) {
     ruby::raise_argument_error("no block given");
   }
-  const love::thread::Lock lock(data.getMutex());
+  const Hold hold(data);
   return block.vcall("call", arguments);
 }
 
