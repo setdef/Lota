@@ -37,6 +37,18 @@ On Linux, `LOTA_GATE_DISPLAYS` lists, separated by spaces, an X display for each
 
 A clean run takes about seven minutes, most of it compiling the engine twice and building the reference `love` the parity harness compares Lota with, and a run with nothing to rebuild about two, most of it the parity harness running Lota beside the test shards.
 
+### Red before green
+
+A test that has never failed shows nothing. `bundle exec rake red_before_green[RANGE]` checks each commit of `RANGE` (as `git rev-list` takes it; by default the commits not yet on `origin/trunk`, or else `HEAD` alone): it runs each test the commit adds or changes with the commit's `test/` and its parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`, and prints each one as `red`, or as `NEVER RED` when it passes there, which fails the task (`tasks/red_before_green.rb`). Run it after the gate, before pushing; CI's x86_64 Linux gate runs it on every push to trunk for the commits the push brings.
+
+It works in the checkout, which must be clean in those folders and in `test/`, and puts them back as `HEAD` has them. When the parent's `ext/` and `tasks/` are `HEAD`'s, the extension already built stands in for the parent's; otherwise `rake compile` builds the parent's, which ccache makes quick, and the next `rake compile` builds `HEAD`'s again. A commit whose parent's engine differs from `HEAD`'s (`ext/lota/engine`, or a submodule in `vendor/`) goes unchecked, with the reason printed, since rebuilding LÖVE's engine is not cheap. Only the test files `test:ruby` runs are checked; a test defined in a file one of them loads, as `test/lovetest/system_test.rb` loads `test/lovetest/tests/system.rb`, runs through that file. Tests in `test/parity` and `test/sanitizers` go unchecked, as they need the reference `love` or the sanitized build. A test file that cannot even load against the parent counts as red. Red says only that the test failed there, not that it failed for the reason it should, so each red line carries the failure's first line, such as a test whose setup calls a method the parent lacks.
+
+A commit that changes no behavior, such as a refactor, or that adds tests of behavior already there, waives the check with a trailer above `Provenance:` that says why:
+
+```
+Red-before-green: none (refactor)
+```
+
 ## Rake tasks for the native side
 
 - `bundle exec rake compile` builds the engine and the extensions and copies `Lota::Native` to `lib/lota/native.bundle`. rake-compiler runs `ext/lota/extconf.rb`, which configures the CMake project in `ext/lota` and writes a Makefile that builds it. The source gem's `gem install` runs the same script, which stops there, since the gem ships no LÖVE sources, and names the precompiled gem. CMake decides what to rebuild, so `rake compile` always calls it, and a build with no changes takes a second or two.
