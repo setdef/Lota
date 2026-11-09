@@ -46,17 +46,7 @@ namespace :engine do
   namespace :sources do
     desc "Fail if an engine source list differs from what vendor/love generates"
     task :check do
-      ENGINE_SOURCE_LISTS.each do |file, sources|
-        problems = sources.problems(file)
-        abort <<~ERROR if problems.any?
-          ❌ #{file} does not match vendor/love:
-          #{problems.map { |line| "  #{line}" }.join("\n")}
-
-          Review the change, then run `bundle exec rake engine:sources` to regenerate it.
-        ERROR
-
-        puts "✅ #{file} matches vendor/love"
-      end
+      EngineSources.check(ENGINE_SOURCE_LISTS)
     end
   end
 end
