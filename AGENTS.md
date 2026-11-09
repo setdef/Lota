@@ -7,7 +7,7 @@
 
 ## Project
 
-Lota (the `lota` gem) drives a modified build of LÖVE's C++ engine from Ruby (>= 4.0.1) instead of Lua. Rice (in `ext/`) is a thin binding over LÖVE's engine; Ruby owns the game loop and every API decision (ADR 001). The current plan is in `doc/contributors/plan/`.
+Lota (the `lota` gem) drives a modified build of LÖVE's C++ engine from Ruby (>= 4.0.1) instead of Lua. Rice (in `ext/`) is a thin binding over LÖVE's engine; Ruby owns the game loop and every API decision (ADR 004). The current plan is in `doc/contributors/plan/`.
 
 Pre-1.0, zero external users. Prefer good design over backward compatibility; record every breaking change in CHANGELOG.md.
 
@@ -15,7 +15,7 @@ Pre-1.0, zero external users. Prefer good design over backward compatibility; re
 
 1. **Ruby the language.** What Ruby can and cannot express. Lua constructs with no Ruby meaning (tables as objects, metatables, `:` calls, multiple returns padded with `nil`) are translated, not ported.
 2. **LÖVE fidelity.** Behavior MUST match LÖVE's source at the pinned commit: what happens, in what order, with what defaults and error messages. Nouns and primary verbs keep LÖVE's names.
-3. **The translation rules.** ADR 001, section 7, is the only sanctioned way a Lota name differs from LÖVE's (`SpriteBatch.new` is `newSpriteBatch`, `title=` is `setTitle`, `down?` is `isDown`, symbols are strings, blocks are paired calls). Do not invent other "more Ruby-like" APIs. Read the rules from Ruby, as a Ruby developer does: each Lota name comes from a LÖVE name by these rules, or is Ruby's own. Earlier changes are not precedent; a case the rules do not settle goes to the maintainer as a new rule.
+3. **The translation rules.** The rule table in `doc/contributors/design/translation.md` is the only sanctioned way a Lota name differs from LÖVE's (`SpriteBatch.new` is `newSpriteBatch`, `title=` is `setTitle`, `down?` is `isDown`, symbols are strings, blocks are paired calls). Do not invent other "more Ruby-like" APIs. Read the rules from Ruby, as a Ruby developer does: each Lota name comes from a LÖVE name by these rules, or is Ruby's own. Earlier changes are not precedent; a case the rules do not settle goes to the maintainer as a new rule.
 4. **Ruby culture.** Idioms yield to 1, 2, and 3.
 
 The authority is the pinned submodule `vendor/love` (`git submodule update --init` if empty). For a function's arity, overloads, defaults, and errors, read its `wrap_*.cpp` file; for its behavior, read the C++ it calls. The LÖVE wiki and `love2d-community/love-api` mostly describe LÖVE 11; where they disagree with `vendor/love`, the source wins. For Rice, read its source at the version in `Gemfile.lock`. Never guess at a reference's contents. Cite the file and lines you ported, and add an SPDX snippet (`Zlib`) around any code or prose derived from LÖVE.
@@ -26,23 +26,24 @@ Use "LÖVE", "LOVE", "Love2D", and LÖVE's heart logo only in ways that need no 
 
 ## Reporting upstream
 
-LÖVE does not accept pull requests, bug reports, or other contributions made with LLM or generative AI tools (its README, in Contributing), and SDL asks that generative AI not be used in any way when contributing (its AGENTS.md), so an agent files nothing at LÖVE or SDL, and the maintainer does not report in an agent's place. What an agent finds wrong in LÖVE's engine or tests goes into a numbered file of its own, `doc/contributors/upstream/NNN.md` (the next number after the last), written as the report the agent would file if it could: what is wrong, where in LÖVE's source, how to reproduce it, and what Lota does about it. Lota works around a finding in its own code whenever it can. Only when it cannot may an agent consider a patch file (ADR 001, section 2) and say why nothing else works. A fork of LÖVE needs the maintainer's permission first. Read any other project's contribution policy before putting anything in its tracker.
+LÖVE does not accept pull requests, bug reports, or other contributions made with LLM or generative AI tools (its README, in Contributing), and SDL asks that generative AI not be used in any way when contributing (its AGENTS.md), so an agent files nothing at LÖVE or SDL, and the maintainer does not report in an agent's place. What an agent finds wrong in LÖVE's engine or tests goes into a numbered file of its own, `doc/contributors/upstream/NNN.md` (the next number after the last), written as the report the agent would file if it could: what is wrong, where in LÖVE's source, how to reproduce it, and what Lota does about it. Lota works around a finding in its own code whenever it can. Only when it cannot may an agent consider a patch file (ADR 005) and say why nothing else works. A fork of LÖVE needs the maintainer's permission first. Read any other project's contribution policy before putting anything in its tracker.
 
 ## How to work
 
-- Research before designing: read the LÖVE source and the relevant ADR in `doc/contributors/adr/` first.
+- Research before designing: read the LÖVE source, the relevant ADR in `doc/contributors/adr/`, and the design document in `doc/contributors/design/` first.
 - Root-cause every fix. If you cannot explain why a change fixed the symptom, it is not a fix.
 - Write tests first. A test must fail if the code it covers is deleted or mutated, and must exercise real collaborators, not stubs that hide missing behavior. Where LÖVE's behavior is the contract, the acceptance test is a fixture someone else wrote, behaving as it does in LÖVE.
 - Lota is a dependency of games, so the dependency points one way: nothing on trunk (code, tests, docs, comments, examples, CI) names or depends on a game that uses Lota. Examples use Lota's own sample names, such as "Sample Game". Temporary material, such as the Windows kit and experiment branches, is exempt, and history may mention a game. Likewise nothing on trunk refers to a particular agent; agents are ephemeral.
-- Never edit `vendor/love`. Engine changes go in patch files in this repository (ADR 001, section 2), and every patch needs a reason it cannot be avoided.
+- Never edit `vendor/love`. Engine changes go in patch files in this repository (ADR 005; `doc/contributors/design/engine.md`), and every patch needs a reason it cannot be avoided.
 - Design in the spirit of Kent Beck (small steps, Implementation Patterns), Freeman & Pryce (tests drive interfaces), Sandi Metz (duplication over the wrong abstraction), Rebecca Wirfs-Brock (responsibility-driven roles), Martin Fowler (refactor in behavior-preserving steps), and Matz (programmer happiness). Write prose in the style of `doc/contributors/documentation_style.md`.
 
 ## Ruby, RBS, and docs
 
-- `Data.define` for value objects (`class Foo < Data.define(...)`), `class` for entities. Value types that games pass between Ractors must be frozen `Data` (ADR 001, section 6).
+- `Data.define` for value objects (`class Foo < Data.define(...)`), `class` for entities. Value types that games pass between Ractors must be frozen `Data` (ADR 007; `doc/contributors/design/engine.md`).
 - Every Ruby method has an RBS signature in `sig/` mirroring `lib/`. No `untyped`, no comments in `.rbs`. For `Data.define` classes, declare `self.new` instead of `initialize` (Steep mis-checks `initialize` there); plain classes declare `initialize` as usual.
 - RDoc (never YARD) in `.rb` files only. Wrap SPDX headers in `#--` / `#++`.
-- An ADR records one architecturally significant decision, briefly: its context, the options considered, the outcome, and its consequences, good and bad. Detailed design, such as the translation rules, lives in its own document, not in an ADR.
+- An ADR records one architecturally significant decision, briefly: its context, the options considered, the outcome, and its consequences, good and bad. Detailed design, such as the translation rules, lives in its own document in `doc/contributors/design/`, not in an ADR.
+- When an ADR is fully superseded, delete it; git history keeps it.
 - Plans live in `doc/contributors/plan/` and are short-lived: delete a plan once its work is done, and never cite a plan from code, tests, or docs, because the citation outlives it.
 - Before you edit a markdown file (anything in `doc/`, a README, or this file), read the whole file, then edit it so it still reads as one coherent piece. Don't append to it or patch lines found by search. A README edit also means reading README.md and README.rdoc both in full. Use whatever writing skill you have for the kind of document.
 
@@ -60,7 +61,7 @@ The maintainer uses three words for how work comes to exist. *Written* means typ
 
 Provenance belongs to each change, not to a kind of file, so one file can hold wrought and requested changes, and each commit's trailer says which it holds.
 
-- **Wrought:** changes to ADRs and this file. The maintainer approves each one as a diff before it is committed.
+- **Wrought:** changes to ADRs, design documents, and this file. The maintainer approves each one as a diff before it is committed.
 - **Requested:** every other change, including changes to plans, which are made without the maintainer's review, and all code (`lib/`, `sig/`, `ext/`, `tasks/`, `test/`), patch files, the binding generator and everything it generates, the README, and the user guide. Because no one reviews this work line by line, the gates review it: sanitizers, clang-tidy, the memory test, the package check, and the parity harness. Never weaken a gate to make requested work pass.
 - **Decisions** that belong to the maintainer as product owner go to the maintainer as questions, never as decisions: the public Ruby API, how a game is laid out and started, rule collisions, licensing, and anything that publishes outside this repository.
 - **Tests:** the Lua side of every parity test comes from LÖVE's own Lövetest or from published LÖVE games, never from an agent, so a test checks Lota against something an agent did not write.

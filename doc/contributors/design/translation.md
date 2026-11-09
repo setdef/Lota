@@ -4,80 +4,11 @@ SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-# ADR 001: Drive LÖVE's Engine from Ruby
+# Translating LÖVE's API into Ruby
 
-## Status
-Accepted
+A decade of LÖVE tutorials teaches games in Lua. This document holds the rules Lota translates that API by ([ADR 008](../adr/008.md)), the reasons behind them, and the literal mode for copying Lua verbatim.
 
-## Date
-2026-10-24
-
-## Context
-
-Lota lets Rubyists make 2D games on LÖVE's engine. LÖVE is a C++ engine that hands control to Lua: `boot.lua` starts the game, `callbacks.lua` runs its loop, and 156 `wrap_*.cpp` files expose the engine to Lua scripts. A decade of LÖVE tutorials teaches games in that Lua API.
-
-The project has one requirement above the others. A game written in Lota must behave as the same game written in LÖVE: the same physics, the same rendering, the same audio, the same event order. In a game, behavior is the product. A Lua platformer ported line for line must jump, slide, and collide the same way, or the tutorials stop being true.
-
-Only LÖVE's own engine meets that requirement. Its renderer, audio, physics, shader dialect, and batching are the behavior, so Lota runs that engine and replaces only the Lua around it.
-
-## Decision
-
-### 1. Bind the whole engine, pinned, unmodified where possible
-
-Lota binds LÖVE's C++ engine at `vendor/love`, a submodule pinned to commit `b7daef0f7` on `main` (2026-09-20). LÖVE 12.0 is unreleased; pinning means updates arrive on purpose, with their behavior changes reviewed, rather than whenever upstream moves.
-
-Everything LÖVE links, Lota links: SDL3, FreeType, HarfBuzz, OpenAL Soft, Vorbis, Ogg, Theora, ModPlug, and zlib from outside, and Box2D 2.4, PhysicsFS, glslang, SPIRV-Cross and the rest from `src/libraries`, each at the version LÖVE builds against.
-
-Lota builds LÖVE's sources from its own source lists. LÖVE's `CMakeLists.txt` builds each module as a static library whose source list includes its `wrap_*.cpp` files, so those targets cannot link without Lua. Lota's build lists LÖVE's sources itself, leaving out:
-
-- every `wrap_*.cpp` file,
-- `common/runtime.*` and `common/Reference.*` (the Lua glue),
-- `modules/love` (the Lua boot sequence),
-- `modules/thread`'s Lua threads and channels (`LuaThread.*`, `ThreadModule.*`, `Channel.*`), keeping its mutex and thread primitives (`threads.*`, `Thread.h`, `sdl/`), which the rest of the engine includes, and
-- `libraries/enet/enet.cpp`, the lua-enet binding; the enet C library beside it stays,
-- `love.cpp`, the `love` executable's `main`, and
-- the Lua libraries LÖVE bundles: `libraries/lua53`, `libraries/luasocket`, and `libraries/luahttps`.
-
-LÖVE's sources compile with warnings turned off (`-w`). Their warnings are LÖVE's to fix, upstream; Lota's own C++ keeps every warning as an error.
-
-Keeping `vendor/love` untouched makes an upgrade a submodule bump instead of a rebase.
-
-### 2. Patch only where nothing in Lota can do the work
-
-Lota changes LÖVE's engine only when its own code cannot, and then as little as it can. A change is a patch file in this repository that the build applies to a copy of the files it touches, so `vendor/love` is never written to and an upgrade stays a submodule bump. Each patch states in its header why nothing outside LÖVE's file can do the work, and is dropped when LÖVE no longer needs it. A patch for a defect in LÖVE's code also has the report Lota would file upstream beside it. Keeping the patches few and small is a goal worth measuring. A fork of LÖVE is a different decision, and the maintainer makes it.
-
-### 3. Port the game loop to Ruby, faithfully
-
-`love.run`, callback dispatch, error handling, and the boot sequence are Lua (`modules/love/boot.lua` and `callbacks.lua`, part of 1,095 lines of Lua in that directory). When `load`, `update`, `draw`, and `errorhandler` run, and in what order, is part of LÖVE's behavior. Lota ports these files to Ruby line by line, with SPDX snippet markers (`Zlib`) on the ported code.
-
-### 4. Bind with Rice
-
-The bindings use [Rice](https://github.com/ruby-rice/rice) (4.12.0), which binds C++ classes to Ruby directly, with no third language between Ruby and LÖVE.
-
-The `wrap_*.cpp` files are the specification for the bindings: they record each function's arity, overloads, defaults, and error messages.
-
-### 5. Keep LÖVE's memory model
-
-Every engine object (Texture, Source, Body, Font) inherits from `love::Object`, which counts references with a `std::atomic<int>`. A Ruby wrapper retains its object when created and releases it when Ruby's garbage collector frees the wrapper. There is one rule for every class, so there is one place to get it right.
-
-Ruby's garbage collector frees a wrapper on whichever thread triggered the collection, while Lua collects only on LÖVE's main thread. So objects of the modules LÖVE confines to the main thread (`love.graphics` and `love.window`) are not released where they are freed: the release joins a queue that the main thread drains once per frame, and once more when the program exits.
-
-### 6. Run game code on the main thread, and stay Ractor-ready
-
-LÖVE runs a game in one Lua state on the main thread, and SDL needs the main thread for windows and events on macOS. Lota does the same: the game's callbacks run in the main Ractor, on the thread `ruby game.rb` started.
-
-Game code stays on the main thread, even where a Ractor could hold it. `love.graphics` is main-thread only, so graphics calls from another Ractor would have to be recorded and replayed, and every call that reads state back (`getColor`, `getCanvas`, `getStackDepth`) would answer from a stale copy.
-
-Lota stays ready for Ractors:
-
-- Engine objects cross Ractors as LÖVE's `love.thread` channels pass them between threads: by sharing one reference-counted object, never by copying it. Every `love::Data` subclass (`ImageData`, `SoundData`, `FileData`, `ByteData`, and the rest) guards itself with LÖVE's own lock (`src/common/Data.h`), so Lota marks their Ruby types `RUBY_TYPED_FROZEN_SHAREABLE` and freezes their wrappers, which lets `Ractor.make_shareable` share them while their methods keep working under that lock. Engine objects without such a lock, such as `Transform`, and those of the modules LÖVE confines to the main thread, are never shareable.
-- Values that are not engine objects, such as the colors and positions rule 4 returns as Arrays, are plain Ruby values, frozen when they cross Ractors.
-- LÖVE already decides what may leave the main thread: its thread module forbids only `love.window` and `love.graphics` (`src/modules/thread/LuaThread.cpp`, lines 72–73). Lota marks the same modules Ractor-unsafe and the rest Ractor-safe, which gives Ruby an equivalent of `love.thread` built on Ractors.
-- A debug mode checks `Ractor.shareable?` on everything sent between Ractors.
-
-Ractors are still experimental in Ruby 4.0, so none of this is the default path yet.
-
-### 7. Translate the API by rule, and keep a literal mode
+## The rules
 
 Lota does not make Ruby imitate Lua. It translates LÖVE's API by fixed rules, so that a reader can turn any tutorial line into Ruby without guessing. LÖVE has 793 distinct function names across its `wrap_*.cpp` files (316 `get`, 177 `set`, 71 `is`/`has`/`are`, 68 `new`, and 163 other verbs), and every one of them falls under these rules. The table decides each function's Ruby name and the shape of a call to it; what the function does follows LÖVE's source. Apply every rule that fits, in any order: `getDPIScale` drops `get` by rule 3 and becomes `dpi_scale` by rule 13. Where two rules would disagree, the row says which one wins; where none does, it is a collision, settled as described below.
 
@@ -126,6 +57,8 @@ Lota does not make Ruby imitate Lua. It translates LÖVE's API by fixed rules, s
 | 41 | A class with its own `getType` has no `type`, only `object_type`. | `body:type()` | `body.object_type` (`"Body"`) |
 | 42 | `type` is also called `object_type`. | `img:type()` | `img.object_type` |
 
+## Why the rules say what they say
+
 Rule 27 makes `Image === texture` true of every Texture because `newImage` is `newTexture`, which can make a canvas too, so no Texture shows that `newImage` did not make it. A PolygonShape likewise cannot show that `newRectangleShape` made it, so `RectangleShape === shape` is true of every PolygonShape.
 
 Rule 35 exists because a writer cannot tell one value that is itself a list or a Data from a list of several values.
@@ -136,7 +69,7 @@ Rule 9 reaches past the `wrap_*.cpp` files: event names, keys, and scancodes com
 
 Rule 28's records answer `[]` as a Lua table answers brackets, so a field no Ruby method can be named, such as `getTextureTypes`' `2d`, still reads. A frozen record cannot be filled in, so by rule 29 LÖVE's fill-in argument has nothing left to do.
 
-Rules 11 and 12 follow the Execute Around pattern (Russ Olsen, *Eloquent Ruby*, chapter 18): the method sets up, yields, and undoes the setup in an `ensure`, so a raised error cannot leave the transform stack pushed or a file open. State setters such as `setCanvas` have no named opposite, and need no block form, because `push(:all) { ... }` already saves and restores all of them. `love.filesystem.openFile` gets none either: it opens on the module and closes on the File, not on the same object. A sound plays across frames, so a block that stopped it on return would stop it within the frame it started; a ParticleSystem or a recording runs across frames likewise. Mounts usually last the whole game, and an attribute stays attached as long as its Mesh lives, so those pairs get no block form until a game needs one. A function kept to call later takes any object that answers `call`, as Ruby's `Signal.trap` does. A setter that keeps a function, such as `setContactFilter` or `setModalDrawCallback`, stores it rather than running it, and a World's `setCallbacks` takes four functions where a method takes one block, so they stay writers; `world.callbacks` returns the four. A callback receives only as many arguments as it declares, as ADR 003, section 3, has Lota's callbacks do.
+Rules 11 and 12 follow the Execute Around pattern (Russ Olsen, *Eloquent Ruby*, chapter 18): the method sets up, yields, and undoes the setup in an `ensure`, so a raised error cannot leave the transform stack pushed or a file open. State setters such as `setCanvas` have no named opposite, and need no block form, because `push(:all) { ... }` already saves and restores all of them. `love.filesystem.openFile` gets none either: it opens on the module and closes on the File, not on the same object. A sound plays across frames, so a block that stopped it on return would stop it within the frame it started; a ParticleSystem or a recording runs across frames likewise. Mounts usually last the whole game, and an attribute stays attached as long as its Mesh lives, so those pairs get no block form until a game needs one. A function kept to call later takes any object that answers `call`, as Ruby's `Signal.trap` does. A setter that keeps a function, such as `setContactFilter` or `setModalDrawCallback`, stores it rather than running it, and a World's `setCallbacks` takes four functions where a method takes one block, so they stay writers; `world.callbacks` returns the four. A callback receives only as many arguments as it declares, as Lota's own callbacks do ([game.md](game.md)).
 
 Rule 30's block runs only on success because `File:open` returns `false`, or `nil` and a message, rather than raising (`wrap_File.cpp`, lines 75–94), and a LÖVE game writes `if file:open("r") then ... file:close() end`.
 
@@ -150,23 +83,16 @@ Rule 18 names Buffer's class `GraphicsBuffer` because that is the type name LÖV
 
 Rule 23 passes LÖVE's own error messages on with a module's name rewritten by rule 1 and a function's name rewritten to its exact Ruby name, looked up in the binding generator's name table rather than snake-cased, so a Lota developer never meets a `love.` name.
 
-When a LÖVE function fits no rule, or two rules at once, nobody decides it case by case. The answer becomes a new rule in this table, and the binding generator (Plan 001, story 2) applies it everywhere. Collisions are settled at the last responsible moment: `rake bindings:report` lists them all, and each comes to the maintainer when a story first needs one of its functions, not before.
+## When no rule fits
+
+When a LÖVE function fits no rule, or two rules at once, nobody decides it case by case. The answer becomes a new rule in this table, and the binding generator (`tasks/bindings/`) applies it everywhere. Collisions are settled at the last responsible moment: `rake bindings:report` lists them all, and each comes to the maintainer when a story first needs one of its functions, not before.
+
+## What never changes
 
 The nouns and primary verbs never change. If LÖVE calls it a SpriteBatch, so does Lota, because a developer looking up an argument searches the LÖVE wiki by LÖVE's name.
 
 Lua tables used as objects become Ruby classes or `Data` in the developer's own code; that is advice for tutorials, not an API rule. Lua's 1-based arrays matter less than they seem, because idiomatic Ruby iterates instead of indexing.
 
-An optional `require "lota/compat"` adds the literal LÖVE names (`newSpriteBatch`, `setBlendMode`) as aliases of the idiomatic methods, for copying a Lua tutorial verbatim.
+## The literal mode
 
-### 8. Measure the binding cost before optimizing it
-
-The measurement now exists (`rake bench`, Plan 001, story 3). Through Rice a call costs about 0.4 to 0.85 µs, most of it Rice rebuilding its argument map on every call, against about 50 ns for the same draw in LÖVE. 10,000 draws a frame take about 8 ms in Lota and 0.5 ms in LÖVE, but the fixture games make 100 to 150 calls a frame (under 1% of a frame), and the heaviest, flash-blip, 1,300 to 2,600 (7 to 13%). Lota keeps Rice for now. Binding through Ruby's C API directly, which costs a few nanoseconds a call and which the generator could emit, is revisited when a fixture game's binding cost becomes a problem.
-
-Ruby has two JITs. YJIT is the production JIT in Ruby 4.0. ZJIT, a method-based JIT, is experimental in 4.0; on Ruby's main branch it already beats YJIT on many benchmarks, and the core team aims to make it production-ready in Ruby 4.1. ZJIT inlines small Ruby methods into their callers, including methods that yield to a block, so the Execute Around methods of rules 11 and 12 should cost little once it lands. Neither JIT can see into C++. A call into a C extension is a point the JIT cannot optimize through; it does not discard compiled code, and a raw C call costs on the order of tens of nanoseconds. Through Rice, a call costs more, about 60 to 330 nanoseconds depending on its arguments (Plan 001, spike 2); for the fixture games that is under 0.6% of a 120 Hz frame (spike 3). As ZJIT makes the Ruby side faster, those calls become a larger share of each frame, so the benchmark runs under both JITs. LÖVE 12 also batches draws internally. So Lota binds draw calls directly and benchmarks 10,000 draws a frame in the first story that draws sprites (Plan 001, story 3). A Ruby-side batcher gets built only if that number says it is needed. SpriteBatch remains the documented way to draw many sprites, as it is in LÖVE.
-
-## Consequences
-
-- Parity is testable. Because both engines run the same C++, the same game written in Lua and in Ruby can be run side by side on the pinned commit and compared frame by frame and contact by contact (Plan 001).
-- Building Lota means building LÖVE's engine. Contributors need LÖVE's dependencies (`love2d/love-apple-dependencies` on macOS, and on Linux the libraries `love2d/love-appimage-source`'s Makefile builds from source, as LÖVE's own Linux CI builds them), and a clone builds a large C++ codebase. Users install a precompiled gem for their platform, which compiles nothing.
-- Upgrading LÖVE is a deliberate act: bump the submodule, update the source lists and the patches, rerun the parity tests.
-- The license is AGPL-3.0-or-later. LÖVE is Zlib, which permits this. A fused game ships Lota itself, and with it Lota's license (ADR 002).
+An optional `require "lota/compat"` adds the literal LÖVE names (`newSpriteBatch`, `setBlendMode`) as aliases of the idiomatic methods, for copying a Lua tutorial verbatim. It also adds a private `Kernel#love` that returns `Lota`, so LÖVE code runs unchanged. AGENTS.md's Trademarks section allows that one identifier because it has to match LÖVE's API. It stays out of the core API, which spells the same thing `lota` ([game.md](game.md)). Lota does not ship `lota/compat` yet.
