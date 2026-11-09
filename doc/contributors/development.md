@@ -101,7 +101,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 
 ## What CI does after you push
 
-GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. On trunk, the x86_64 Linux gate also runs `red_before_green` over the commits the push brings. A red job on trunk stops all other work until it is fixed or reverted, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
+GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. Each push to trunk first gets the pre-push checks on macOS, Linux, and Windows, and `red_before_green` over the commits it brings, within about fifteen minutes. A red job on trunk stops all other work until it is fixed or reverted, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
 
 ## Try a checkout in a game
 

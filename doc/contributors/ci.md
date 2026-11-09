@@ -5,15 +5,15 @@
 
 # Continuous Integration
 
-Lota ships for five desktop platforms and builds for two phone systems, and nobody's computer runs all of them. So every push to trunk runs every platform GitHub's free runners can run, and a red job there stops all other work until it is fixed or reverted. This page says what each workflow checks, and how `bin/trunk-watch` keeps trunk green.
+Lota ships for five desktop platforms and builds for two phone systems, and nobody's computer runs all of them. So trunk runs every platform GitHub's free runners can run, and a red job there stops all other work until it is fixed or reverted. This page says what each workflow checks, and how `bin/trunk-watch` keeps trunk green.
 
 ## What runs on a push
 
-Every push to trunk runs two workflows. The pre-push tier answers first, in about fifteen minutes; the full run takes an hour or more, most of it waiting for macOS runners.
+Two workflows check trunk. The pre-push tier runs on every push and answers first, in about fifteen minutes. The full run takes an hour or more, much of it waiting for macOS runners, so it runs on the newest push that has arrived when the run before it ends.
 
 `.github/workflows/prepush.yml` runs `bundle exec rake prepush` ([development.md](development.md)) on `macos-15` and on Ubuntu 22.04 for x86_64, set up as the gate jobs below are, and the Windows build and tests on x64 (`windows.yml`, below), which take about as long. Its x86_64 Linux job then runs `rake red_before_green` over the commits the push brings. It is a workflow of its own because GitHub finishes a run, and `bin/trunk-watch` reads it, only when its last job ends, and the full run's phone and iOS kit jobs end an hour or more after its desktop jobs. Each trunk commit gets a run of its own, never cancelled, so the watch can judge each commit against its parent and name the one that broke the tier.
 
-`.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch; a run on trunk is never cancelled. Its jobs:
+`.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch. A run on trunk is never cancelled once it starts, but only the newest push waits for it: GitHub cancels a waiting run when a newer push joins the queue. A run asks for about eleven macOS jobs, some 260 runner-minutes, and GitHub's free plan runs five macOS jobs at once, so a run for every commit would queue hours deep, with the tier's macOS job behind it. Its jobs:
 
 - **Gate**, on macOS 15 on Apple Silicon (`macos-15`), and **Gate (x86_64-linux-gnu)** and **Gate (aarch64-linux-gnu)** on Ubuntu 22.04. Each runs `bundle exec rake`, fails if the gate changed a file (its autocorrect would otherwise pass unnoticed), and builds the precompiled gem with `rake package:native` as an artifact.
 - **Delivery**, one for each of those three, which installs that gem on a fresh runner and runs Lövetest from it.
@@ -28,8 +28,6 @@ Every push to trunk runs two workflows. The pre-push tier answers first, in abou
 The macOS runner's session is logged in, so the tests open real windows there as on your Mac. The Linux runners draw on Xvfb displays with Openbox, as LÖVE's own Linux CI runs Lövetest, and cache the libraries `rake dependencies` builds. Compiled objects come from ccache, which reuses one only when the compiler, its arguments, and every file it reads are the same.
 
 `LOTA_GATE_DISPLAYS` gives each of the gate's lanes its own X display on Linux, in `tasks/gate.rake`'s order. The Linux gate starts one for each lane that opens windows ([parity.md](parity.md) says why a lane needs its own).
-
-On trunk, after the gate, the x86_64 Linux job runs `rake red_before_green` over the commits the push brings ([development.md](development.md)).
 
 ### When a lane hangs
 

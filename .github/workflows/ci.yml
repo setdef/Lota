@@ -15,7 +15,9 @@
 # CI calls it (ios-kit.yml, ios-kit-caller.yml), and, once each platform's
 # gem is built, lota fuse on all five with those gems (fuse.yml). So every
 # platform Lota supports that GitHub's free runners can run is checked on
-# every commit of trunk, and a red job there stops the line.
+# trunk, and a red job there stops the line. Each trunk commit's own
+# verdict comes first from the pre-push tier (prepush.yml), and this run
+# follows as often as macOS runners allow (concurrency, below).
 #
 # macOS: LÖVE's own CI runs its tests on macOS runners with the normal
 # video driver (vendor/love/.github/workflows/main.yml, the macOS job),
@@ -70,11 +72,22 @@ on:
 permissions:
   contents: read
 
-# Each trunk commit gets a run of its own that is never cancelled and
-# never waits for another, so every commit on trunk is proven; a branch
-# run gives way to a newer push.
+# What proves each commit: every trunk commit gets a run of the pre-push
+# tier of its own (prepush.yml: rake prepush on macOS and x86_64 Linux,
+# the Windows checks on x64, and red_before_green), never cancelled.
+# This full run coalesces: one that has started on trunk is never
+# cancelled, but while it runs only the newest push to trunk waits, as
+# GitHub cancels a waiting run when a newer one joins the group. So a
+# trunk commit is proven by a full run of its own or by the first full
+# run on a later commit, which holds it. A tag is a ref of its own, so
+# its run is in a group of its own and always runs in full, and the
+# release job reads nothing but that run. A branch run gives way to a
+# newer push. A full run asks for about eleven macOS jobs, some 260
+# runner-minutes, and the free plan runs five macOS jobs at once, so a
+# full run for every commit queued hours deep, with the tier's macOS
+# job behind it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && format('-{0}', github.sha) || '' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 defaults:
@@ -497,24 +510,6 @@ jobs:
             echo "::error::bundle exec rake changed files; run it locally and commit what it changes"
             exit 1
           fi
-
-      # Each test the push's commits add or change, run against the code
-      # its commit started from, must fail there (rake red_before_green,
-      # tasks/red_before_green.rb): a test that passes was never seen
-      # failing. On trunk pushes, on one platform, after the gate, whose
-      # build and ccache it starts from; the checkout is shallow, so it
-      # fetches the history the push spans first.
-      - name: Check that each new test failed before its commit
-        if: >-
-          github.event_name == 'push' && matrix.platform == 'x86_64-linux-gnu' &&
-          github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        timeout-minutes: 30
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          git fetch --quiet --no-tags --unshallow origin "$GITHUB_REF"
-          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..$GITHUB_SHA"; else range="$GITHUB_SHA^..$GITHUB_SHA"; fi
-          bundle exec rake "red_before_green[$range]"
 
       # The first frame that differed in each parity run that failed, as
       # LÖVE and Lota showed it (test/parity/probe.rb).
