@@ -90,7 +90,9 @@ class GraphicsTest < Lovetest::TestMethod
   # (rule 13), with its draw and arc modes as symbols (rule 9), and the
   # rules test_circle names. Lua's math.pi is Ruby's Math::PI.
   # GITHUB_RUNNER and test:isOS are Lovetest::GITHUB_RUNNER and
-  # Lovetest.os?.
+  # Lovetest.os?. Its stored images are one driver's rounding; radeonsi
+  # draws two pixels of arc-2 otherwise, in LÖVE as in Lota
+  # (doc/contributors/upstream/023.md).
   def test_arc
     # draw some arcs using pi format
     canvas = Lota::Graphics::Canvas.new(32, 32)
@@ -1373,7 +1375,9 @@ class GraphicsTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.graphics.setWireframe
   # (vendor/love/testing/tests/graphics.lua:2508-2531), by the rules
   # test_is_wireframe and test_circle name. test.pixel_tolerance is the
-  # test's @pixel_tolerance.
+  # test's @pixel_tolerance. Its stored image is one driver's rounding of
+  # edges that lie between pixels; radeonsi draws two of them a row over,
+  # in LÖVE as in Lota (doc/contributors/upstream/023.md).
   def test_set_wireframe
     name, _version, _vendor, _device = Lota::Graphics.renderer_info
     if name.match?("OpenGL ES")
