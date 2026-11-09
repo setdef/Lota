@@ -27,7 +27,6 @@ The **Windows build** job runs once for x64 and once for ARM64:
 ## What the tests skip on Windows
 
 - `test/tasks`, whose tasks drive the macOS and Linux builds, and `test/native/bundle_test.rb`, which reads rpaths, do not run.
-- SDL is linked into each extension on Windows, so the test extension cannot reach the SDL that Lota's windows and input run on. The tests that hold keys, push events, or plug in virtual joysticks through it skip (`test/native/windows_support.rb`).
 - A test that reads `/dev/fd`, deletes a file another handle holds open, or runs `lota run` under the bundle skips.
 - On the ARM64 runner a window of the shell's holds the foreground, so Windows gives no test window keyboard focus. CI sets `LOTA_FOREGROUND_HELD=1` there, and Lövetest's `setGrabbed` test skips (`test/lovetest/held_foreground.rb`). LÖVE's own CI runs no Lövetest on Windows ARM64.
 

@@ -87,14 +87,6 @@ module NativeHelper
     LotaNativeTest.spawn(command, output.fileno, variables)
   end
 
-  # Skips a test whose game calls the test extension's functions that work
-  # through its SDL, on Windows, where that SDL is not Lota's
-  # (WindowsSupport::SDL_APART). In this process those functions skip by
-  # themselves.
-  def skip_where_sdl_is_apart
-    skip(WindowsSupport::SDL_APART) if TestHome::WINDOWS
-  end
-
   # Where the running process loaded a bundle from.
   def loaded(feature)
     $LOADED_FEATURES.find { |path| path.end_with?("/#{feature}.#{RbConfig::CONFIG['DLEXT']}") } or

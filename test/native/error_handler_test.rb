@@ -23,6 +23,15 @@ class ErrorHandlerTest < Minitest::Test
   ESCAPE = 41
   LCTRL = 224
 
+  # +text+ as the clipboard gives it back: on Windows, SDL puts a carriage
+  # return before each line feed it copies (SDL 3.4.10,
+  # src/video/windows/SDL_windowsclipboard.c:215-248, WIN_SetClipboardText)
+  # and reads the text back as Windows holds it, as LÖVE's own
+  # love.system.getClipboardText does.
+  def copied(text)
+    TestHome::WINDOWS ? text.gsub("\n", "\r\n") : text
+  end
+
   # An error raised in a game's update, with the backtrace Lota's loop
   # gives one: the game's frame, Lota's callbacks.rb and boot.rb, and the
   # lota executable.
@@ -99,9 +108,9 @@ class ErrorHandlerTest < Minitest::Test
       LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
 
       assert_nil frame.call
-      assert_equal "Error\n\n/game/main.rb:3:in 'Lota.update': boom (RuntimeError)\n\n\nTraceback\n\n" \
+      assert_equal copied("Error\n\n/game/main.rb:3:in 'Lota.update': boom (RuntimeError)\n\n\nTraceback\n\n" \
         "/game/main.rb:3:in 'Lota.update'\n/lota/lib/lota/callbacks.rb:56:in 'Lota::Callbacks.call'\n" \
-        "/lota/exe/lota:5:in '<main>'", Lota::System.clipboard_text
+        "/lota/exe/lota:5:in '<main>'"), Lota::System.clipboard_text
     end
   end
 
@@ -126,8 +135,8 @@ class ErrorHandlerTest < Minitest::Test
       LotaNativeTest.press_key(LotaNativeTest.scancode("c".ord), true)
       frame.call
 
-      assert Lota::System.clipboard_text.start_with?("Error\n\n/game/main.rb:3:in 'Lota.update': bad  byte " \
-        "(RuntimeError)\nInvalid UTF-8 string in error message.\n\n\nTraceback\n\n"), Lota::System.clipboard_text
+      assert Lota::System.clipboard_text.start_with?(copied("Error\n\n/game/main.rb:3:in 'Lota.update': bad  byte " \
+        "(RuntimeError)\nInvalid UTF-8 string in error message.\n\n\nTraceback\n\n")), Lota::System.clipboard_text
     end
   end
 
