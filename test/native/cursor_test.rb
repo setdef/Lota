@@ -92,7 +92,9 @@ class CursorTest < Minitest::Test
   # w_getGlobalPosition (wrap_Mouse.cpp:192-201) pushes two doubles and
   # the display, counting from 1, as an integer (rules 4 and 14). On a
   # desktop of one display, as the test runs on, the pointer's place on
-  # the desktop is its place in the window plus the window's.
+  # the desktop is its place in the window plus the window's. The
+  # arithmetic on several displays is GlobalPositionTest's
+  # (test/native/global_position_test.rb).
   def test_the_global_position_is_the_pointer_on_its_display
     Lota::Mouse.position = 15, 20
     x, y, displayindex = Lota::Mouse.global_position

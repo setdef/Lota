@@ -7,6 +7,7 @@
 
 require_relative "../native/native_helper"
 require "rbconfig"
+require "tmpdir"
 
 # rake test:native only (tasks/test.rake): the sanitizers are loaded, and
 # they report each deliberate bug in the test-only extension. Each bug runs
@@ -66,6 +67,44 @@ class SanitizerTest < Minitest::Test
     assert_includes output, "ERROR: AddressSanitizer: heap-use-after-free"
     assert_includes output, "love::Object::release()"
     refute_includes output, "the bug went unreported"
+  end
+
+  # LeakSanitizer runs at exit on Linux only, where tasks/sanitized_build.rb
+  # turns it off for the suite because Ruby leaves memory for the system to
+  # reclaim; this child turns it back on, and suppresses every leak with
+  # Ruby's library among the six innermost frames of its allocation, which
+  # leaves those of the extensions and the libraries they call. The slow
+  # unwinder follows SDL's frames, which keep no frame pointers. A block the
+  # test extension forgets shows the check ran. LÖVE's
+  # Mouse::getGlobalPosition leaks the array SDL_GetDisplays returns on
+  # every call (doc/contributors/upstream/022.md); Lota's does not.
+  def test_lsan_finds_no_display_list_leaked_by_the_global_position
+    skip "LeakSanitizer runs on Linux only" unless TestHome::LINUX
+
+    output, status = Dir.mktmpdir do |directory|
+      suppressions = File.join(directory, "suppressions.txt")
+      File.write(suppressions, "leak:libruby.so\n")
+      capture2e(
+        {
+          "ASAN_OPTIONS" => "use_sigaltstack=0:detect_leaks=1:fast_unwind_on_malloc=0:malloc_context_size=6",
+          "LSAN_OPTIONS" => "suppressions=#{suppressions}",
+        },
+        RbConfig.ruby, "-I#{sanitized_lib}", "-I#{File.join(ROOT, 'lib')}", "-e", <<~RUBY
+          require "lota_native_test"
+          require "lota/native"
+          Lota::Native::Mouse.open
+          100.times { Lota::Native::Mouse.global_position }
+          LotaNativeTest.forget_a_block
+          puts "the calls returned"
+        RUBY
+      )
+    end
+
+    assert_includes output, "the calls returned"
+    assert_includes output, "ERROR: LeakSanitizer: detected memory leaks"
+    assert_includes output, "forget_a_block"
+    refute_includes output, "SDL_GetDisplays"
+    refute status.success?
   end
 
   def test_ubsan_reports_signed_overflow

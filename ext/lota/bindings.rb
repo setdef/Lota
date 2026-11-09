@@ -949,7 +949,10 @@ generate "love.mouse.setCursor"
 generate "love.mouse.getX"
 generate "love.mouse.getY"
 generate "love.mouse.getPosition"
-generate "love.mouse.getGlobalPosition"
+bound_by_hand "love.mouse.getGlobalPosition",
+  reason: "Mouse::getGlobalPosition leaks SDL_GetDisplays' list and subtracts the origin of every display " \
+    "before the pointer's (doc/contributors/upstream/022.md); Lota::Mouse.global_position asks SDL itself, " \
+    "frees the list, and subtracts that display's origin alone"
 generate "love.mouse.setX"
 generate "love.mouse.setY"
 generate "love.mouse.setPosition"

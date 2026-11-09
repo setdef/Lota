@@ -128,19 +128,6 @@ void w_setY(double argument1) {
 // love.mouse.setPosition: w_setPosition (wrap_Mouse.cpp:184-190).
 void w_setPosition(double x, double y) { instance()->setPosition(x, y); }
 
-// love.mouse.getGlobalPosition: w_getGlobalPosition (wrap_Mouse.cpp:192-201).
-Rice::Array w_getGlobalPosition() {
-  Rice::Array results;
-  double x{};
-  double y{};
-  int displayindex{};
-  instance()->getGlobalPosition(x, y, displayindex);
-  results.push(x, false);
-  results.push(y, false);
-  results.push(displayindex + 1, false);
-  return results;
-}
-
 // love.mouse.setVisible: w_setVisible (wrap_Mouse.cpp:230-235).
 void w_setVisible(bool b) { instance()->setVisible(b); }
 
@@ -171,7 +158,6 @@ void define_generated_mouse(const Rice::Module &native) {
       .define_singleton_function("x", &w_getX)
       .define_singleton_function("y", &w_getY)
       .define_singleton_function("position", &w_getPosition)
-      .define_singleton_function("global_position", &w_getGlobalPosition)
       .define_singleton_function("set_x", &w_setX, Rice::Arg("argument1"))
       .define_singleton_function("set_y", &w_setY, Rice::Arg("argument1"))
       .define_singleton_function("set_position", &w_setPosition, Rice::Arg("x"), Rice::Arg("y"))

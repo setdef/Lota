@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/global_position.hpp"
 #include "native/luajit.hpp"
 #include "native_test/dialogs.hpp"
 #if !defined(__APPLE__) && !defined(_WIN32)
@@ -1016,6 +1017,40 @@ void create_metal_device_at_exit() {
 void noop_rectangle(const std::string & /*mode*/, double /*x*/, double /*y*/, double /*width*/,
                     double /*height*/) {}
 
+// lota::native::place_on_displays (native/global_position.hpp), the
+// arithmetic of Lota::Mouse.global_position, for the point at +globalx+
+// and +globaly+ on displays laid out as +bounds+ says, four Integers for
+// each (x, y, width, height), so a test can lay out displays the computer
+// it runs on has not got. Returns the point's place and the display's
+// index, counting from 0, as the arithmetic does.
+Rice::Array place_on_displays(float globalx, float globaly, Rice::Array bounds) {
+  const Rice::Array list = std::move(bounds);
+  std::vector<int> numbers;
+  numbers.reserve(list.size());
+  for (const auto item : list) {
+    numbers.push_back(Rice::detail::From_Ruby<int>().convert(item.value()));
+  }
+  if (numbers.size() % 4 != 0) {
+    throw std::invalid_argument("each display needs an x, a y, a width, and a height");
+  }
+  std::vector<SDL_Rect> rects;
+  for (auto number = numbers.begin(); number != numbers.end(); number = std::next(number, 4)) {
+    rects.push_back({
+        .x = *number,
+        .y = *std::next(number, 1),
+        .w = *std::next(number, 2),
+        .h = *std::next(number, 3),
+    });
+  }
+  const lota::native::DisplayPlace place =
+      lota::native::place_on_displays(globalx, globaly, std::span<const SDL_Rect>(rects));
+  Rice::Array result;
+  result.push(place.x, false);
+  result.push(place.y, false);
+  result.push(place.displayindex, false);
+  return result;
+}
+
 // Deliberate bugs, for the sanitizer tests alone.
 
 // Frees the held Counted, then reads it.
@@ -1027,6 +1062,14 @@ int use_after_free() {
 
 // INT_MAX + 1 overflows.
 int add_one(int number) { return number + 1; }
+
+// Allocates an int and forgets it, so LeakSanitizer finds it unreachable
+// at exit.
+void forget_a_block() {
+  static std::atomic<int *> forgotten{nullptr};
+  forgotten.store(std::make_unique<int>(0).release());
+  forgotten.store(nullptr);
+}
 
 constexpr bool sanitized() {
 #ifdef LOTA_SANITIZE
@@ -1145,6 +1188,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("mistakenly_adopted", &held_counted, Rice::Return().takeOwnership())
       .define_module_function("use_after_free", &use_after_free)
       .define_module_function("add_one", &add_one, Rice::Arg("number"))
+      .define_module_function("forget_a_block", &forget_a_block)
       .define_module_function("sanitized?", &sanitized)
       .define_module_function("hold", &hold, Rice::Arg("scancode"), Rice::Arg("down"))
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
@@ -1209,6 +1253,8 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
   test.define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),
                               Rice::Arg("environment"));
 #endif
+  test.define_module_function("place_on_displays", &place_on_displays, Rice::Arg("globalx"),
+                              Rice::Arg("globaly"), Rice::Arg("bounds"));
 
   // Its functions stay found after a test compacts the heap, as
   // Lota::Native's do (Init_native).

@@ -1022,6 +1022,8 @@ module Lota
 
       def self.down?: (Array[Integer] buttons) -> bool
 
+      def self.global_position: () -> [Float, Float, Integer]
+
       def self.new_cursor: (Array[ImageData] images, Integer hotx, Integer hoty) -> Cursor
 
       class Cursor

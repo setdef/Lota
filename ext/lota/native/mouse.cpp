@@ -4,6 +4,7 @@
 #include "native/mouse.hpp"
 
 #include "native/binding.hpp"
+#include "native/global_position.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -12,6 +13,14 @@
 #include "mouse/Mouse.h"
 #include "mouse/sdl/Mouse.h"
 
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
+
+#include <cstddef>
+#include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -93,6 +102,49 @@ Cursor *new_cursor(Rice::Array images, int hotx, int hoty) {
   return instance->newCursor(data, hotx, hoty);
 }
 
+// Frees what SDL allocated, as SDL_GetDisplays' documentation says its
+// caller must (SDL_video.h).
+struct SDLFree {
+  void operator()(void *memory) const { SDL_free(memory); }
+};
+
+// w_getGlobalPosition (wrap_Mouse.cpp:192-201) and the
+// Mouse::getGlobalPosition it calls (mouse/sdl/Mouse.cpp:166-197): the
+// pointer's place on the display it is on, and that display, counting
+// from 1, asked of SDL as LÖVE asks. LÖVE never frees the list of displays,
+// and subtracts the origin of every display before the pointer's
+// (doc/contributors/upstream/022.md); this frees the list, and subtracts
+// that display's origin alone (native/global_position.hpp).
+Rice::Array global_position() {
+  if (love::Module::getInstance<Mouse>(love::Module::M_MOUSE) == nullptr) {
+    throw love::Exception("Lota::Mouse is not open.");
+  }
+  float globalx = 0.0F;
+  float globaly = 0.0F;
+  SDL_GetGlobalMouseState(&globalx, &globaly);
+
+  int displaycount = 0;
+  const std::unique_ptr<SDL_DisplayID, SDLFree> displays(SDL_GetDisplays(&displaycount));
+  std::vector<SDL_Rect> bounds;
+  if (displays != nullptr && displaycount > 0) {
+    const std::span<const SDL_DisplayID> ids(displays.get(),
+                                             static_cast<std::size_t>(displaycount));
+    bounds.reserve(ids.size());
+    for (const SDL_DisplayID id : ids) {
+      SDL_Rect rect = {};
+      SDL_GetDisplayBounds(id, &rect);
+      bounds.push_back(rect);
+    }
+  }
+
+  const DisplayPlace place = place_on_displays(globalx, globaly, bounds);
+  Rice::Array results;
+  results.push(place.x, false);
+  results.push(place.y, false);
+  results.push(place.displayindex + 1, false);
+  return results;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -103,6 +155,7 @@ void define_mouse(const Rice::Module &native) {
   mouse.define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("down?", &is_down, Rice::Arg("buttons"))
+      .define_singleton_function("global_position", &global_position)
       .define_singleton_function("new_cursor", &new_cursor, Rice::Arg("images"), Rice::Arg("hotx"),
                                  Rice::Arg("hoty"), Rice::Return().takeOwnership());
 }

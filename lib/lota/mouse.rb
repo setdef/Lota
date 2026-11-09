@@ -140,6 +140,13 @@ module Lota
     # It is the pointer's place wherever it is, inside the game's window
     # or not. Raises RuntimeError when the mouse module is not open.
     #
+    # LÖVE subtracts the origin of every display before the pointer's, so
+    # on a third display, or after one that does not start at the
+    # desktop's origin, it misplaces the pointer, and it leaks a little
+    # memory on every call. Lota subtracts that display's origin alone and
+    # leaks nothing; where LÖVE is right, as on a desktop of one display,
+    # the two agree. A pointer on no display is placed against the first.
+    #
     # === Example
     #
     #   x, y, displayindex = Lota::Mouse.global_position # => [1210.0, 480.0, 1]
