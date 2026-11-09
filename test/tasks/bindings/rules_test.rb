@@ -122,8 +122,21 @@ class RulesTest < Minitest::Test
     assert_equal "to_s", Bindings::Rules::METAMETHODS.fetch("__tostring")
   end
 
-  def test_several_values_from_a_non_getter_fit_no_rule
-    assert_includes collisions("love.graphics.transformPoint"), [:no_rule, []]
+  # Rule 4 covers every function that returns several values, not only
+  # getters: its own example is love.filesystem.write, and
+  # love.graphics.transformPoint returns its point as an Array.
+  def test_rule_4_several_values_from_any_function_are_an_array
+    assert_includes rules("love.graphics.transformPoint"), 4
+    assert_empty collisions("love.graphics.transformPoint")
+  end
+
+  # newCircleBody returns a Body and a CircleShape (wrap_Physics.cpp,
+  # w_newCircleBody): rule 4 makes them an Array, and rule 2 still leaves
+  # open what CircleBody === asks of a factory that makes two objects.
+  def test_a_module_factory_with_several_values_leaves_only_rule_2_open
+    assert_includes rules("love.physics.newCircleBody"), 4
+    assert_equal [[:open, [2]]], collisions("love.physics.newCircleBody")
+    assert_match(/returns 2 values/, translation("love.physics.newCircleBody").collisions.first.why)
   end
 
   # Rule 13 spells LÖVE's UInt as C spells uint8_t, one word, so

@@ -301,6 +301,7 @@ module Bindings
           end
         elsif !MODULE_FACTORY_MATCHES.key?(@name)
           note = made ? "it returns a #{made}" : "the analysis cannot tell what it returns"
+          note = "it returns #{results} values, the first a #{made}" if made && results > 1
           open_question([2], "LÖVE has no #{class_name} class, so rule 2 makes #{class_name} a module, " \
             "and no rule says what #{class_name} === asks (#{note})")
         end
@@ -383,10 +384,13 @@ module Bindings
         several([12], "takes #{count} functions, and a Ruby method takes one block") if count > 1
       end
 
+      # Rule 4 covers every function that returns several values, as its
+      # own example, love.filesystem.write, shows; a predicate that does
+      # is a collision of its own (predicate).
       private def several_results
-        return if results <= 1 || @rules.intersect?([3, 7, 8])
+        return if results <= 1 || @rules.include?(8)
 
-        no_rule("returns #{results} values, and rule 4 turns several values into an Array only for getters")
+        @rules << 4
       end
 
       private def writer_collisions
