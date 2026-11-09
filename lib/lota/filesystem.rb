@@ -189,25 +189,51 @@ module Lota
     # Reads a file, matching love.filesystem.read
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_read).
     #
+    # [container] +:string+ (the default) to read the contents into a
+    #   String, or +:data+ into a Lota::Filesystem::FileData. It comes
+    #   first, as in LÖVE and as in Lota::Data.compress, and is told apart
+    #   from the +filename+ by being followed by one (rule 9 of
+    #   doc/contributors/design/translation.md).
     # [filename] String path of the file, found in the save directory or
     #   the game's folder.
     # [size] Integer most bytes to read; the whole file when +nil+, left
     #   out, or negative.
     #
     # Returns an Array of LÖVE's two results (rule 4 of
-    # doc/contributors/design/translation.md): the contents as a String and how
-    # many bytes they are, or +nil+ and a message String when the file cannot be
-    # read, so <tt>.first</tt> is +nil+ exactly when Lua's first result is. The
-    # String is in Ruby's default external encoding, as File.read's is, holding
-    # the file's bytes as they are. LÖVE can also read into a FileData, given
-    # <tt>"data"</tt> first; Lota binds that form later.
+    # doc/contributors/design/translation.md): the contents as a String, or a
+    # FileData, and how many bytes they are, or +nil+ and a message String when
+    # the file cannot be read, so <tt>.first</tt> is +nil+ exactly when Lua's
+    # first result is. The String is in Ruby's default external encoding, as
+    # File.read's is, holding the file's bytes as they are. Raises ArgumentError
+    # for a container LÖVE does not know, before it reads the file.
     #
     # === Examples
     #
     #   contents, size = Lota::Filesystem.read("savegame.dat")
+    #   data, size = Lota::Filesystem.read(:data, "savegame.dat", 64)
     #   Lota::Filesystem.read("missing.txt") # => [nil, "Could not open file missing.txt. Does not exist."]
-    def self.read(filename, size = nil)
-      Native::Filesystem.read(filename, size || -1)
+    #
+    # :call-seq:
+    #   read(filename, size = nil)
+    #   read(container, filename, size = nil)
+    def self.read(first, second = nil, third = nil)
+      if second.is_a?(String)
+        read_into(EnumName.of(first), second, third)
+      elsif first.is_a?(String)
+        read_into(nil, first, second)
+      else
+        raise TypeError, "wrong argument type #{first.class} (expected String)"
+      end
+    end
+
+    # The results of the engine's read of +filename+ in +container+ (+nil+
+    # for a String), with the engine's FileData wrapped. :nodoc:
+    private_class_method def self.read_into(container, filename, size)
+      case Native::Filesystem.read(filename, size || -1, container)
+      in [Native::FileData => data, Integer => bytes] then [FileData.__send__(:from_native, data), bytes]
+      in [String => contents, Integer => bytes] then [contents, bytes]
+      in [nil, String => message] then [nil, message]
+      end
     end
 
     # SPDX-SnippetBegin
@@ -362,6 +388,95 @@ module Lota
     #   file, message = Lota::Filesystem.open_native_file("/tmp/log.txt", :w)
     def self.open_native_file(path, mode)
       opened(Native::Filesystem.open_native_file(path, EnumName.of(mode)))
+    end
+
+    # Opens +filename+ in +mode+, matching love.filesystem.newFile
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_newFile), which LÖVE
+    # deprecated for openFile, and returns an Array of the
+    # Lota::Filesystem::File, or of +nil+ and LÖVE's message when it cannot be
+    # opened. It makes a File or a message, so it stays a module method that
+    # returns an Array, not a constructor (rule 17 of
+    # doc/contributors/design/translation.md).
+    #
+    # [filename] The file's name, as for open_file.
+    # [mode] +:r+ to read, +:w+ to write, +:a+ to append, or +:c+ to leave
+    #   it closed (rule 9); closed when +nil+ or left out.
+    #
+    # Raises ArgumentError for a mode LÖVE does not know. The first call
+    # prints LÖVE's deprecation notice.
+    #
+    # === Example
+    #
+    #   file, message = Lota::Filesystem.new_file("save.dat", :r)
+    def self.new_file(filename, mode = nil)
+      Deprecation.mark("Lota::Filesystem.new_file", :function, :renamed, "Lota::Filesystem.open_file",
+        where: Deprecation.where(caller_locations(1, 1)))
+      opened(Native::Filesystem.open_file(filename, mode.nil? ? "c" : EnumName.of(mode)))
+    end
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # Makes a FileData, matching love.filesystem.newFileData
+    # (src/modules/filesystem/wrap_Filesystem.cpp:428-463, w_newFileData),
+    # and returns an Array of it, or of +nil+ and LÖVE's message when it was
+    # given a file it cannot read. It can return a message besides the
+    # object, so it stays a module method that returns an Array, not a
+    # constructor (rule 17 of doc/contributors/design/translation.md).
+    #
+    # With one argument it reads a file:
+    #
+    # [source] A String name of a file in the game's folder or its save
+    #   directory, a Lota::Filesystem::File read whole, or a
+    #   Lota::Filesystem::FileData, which it returns as it is.
+    #
+    # With two it copies bytes:
+    #
+    # [contents] A String of the bytes, or a Lota::Data, copied as they are.
+    # [name] The String name the FileData carries, such as
+    #   <tt>"player.png"</tt>.
+    #
+    # Raises TypeError for a +source+ or +contents+ of another type, and
+    # ArgumentError for a third argument.
+    #
+    # === Examples
+    #
+    #   data, = Lota::Filesystem.new_file_data(File.binread("hit.png"), "hit.png")
+    #   data, message = Lota::Filesystem.new_file_data("hit.png")
+    def self.new_file_data(source, *name)
+      raise ArgumentError, "wrong number of arguments (given #{name.size + 1}, expected 1..2)" if name.size > 1
+      return file_data_of(source) if name.empty?
+
+      bytes = case source
+      when String then source
+      when Lota::Data then source.string
+      else raise TypeError, "wrong argument type #{source.class} (expected String or Lota::Data)"
+      end
+      filename = name.fetch(0)
+      raise TypeError, "wrong argument type #{filename.class} (expected String)" unless filename.is_a?(String)
+
+      [FileData.__send__(:from_native, Native::Filesystem.new_file_data(bytes, filename))]
+    end
+
+    # SPDX-SnippetEnd
+
+    # The FileData of +source+, a filename, a File, or a FileData, as
+    # luax_getfiledata reads it when asked for an I/O error, in an Array
+    # with nil and a message in its place when the file cannot be read. :nodoc:
+    private_class_method def self.file_data_of(source)
+      case source
+      when String
+        case Native::Filesystem.new_file_data_of_file(source)
+        in [Native::FileData => data] then [FileData.__send__(:from_native, data)]
+        in [nil, String => message] then [nil, message]
+        end
+      when File
+        data, message = source.read(:data)
+        data.is_a?(FileData) ? [data] : [nil, message.to_s]
+      when FileData then [source]
+      else raise TypeError, "wrong argument type #{source.class} (expected filename, File, or FileData)"
+      end
     end
 
     # +results+, as Native::Filesystem.open_file and open_native_file give

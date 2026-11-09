@@ -179,6 +179,29 @@ class SaveDirectoryTest < Minitest::Test
     assert_equal "Could not open file missing.txt. Does not exist.", message
   end
 
+  # w_read takes a container first when a second string follows
+  # (wrap_Filesystem.cpp:618-659): "data" reads into a FileData, named as
+  # the file is, "string" is the default.
+  def test_read_into_a_data_container_gives_a_file_data_in_loves_argument_order
+    saved("scores.txt", "ada 120\n")
+    data, size = Lota::Filesystem.read(:data, "scores.txt")
+    part, part_size = Lota::Filesystem.read(:data, "scores.txt", 3)
+    string, string_size = Lota::Filesystem.read(:string, "scores.txt", 3)
+
+    assert_instance_of Lota::Filesystem::FileData, data
+    assert_equal ["ada 120\n", "scores.txt", 8], [data.string, data.filename, size]
+    assert_equal ["ada", 3], [part.string, part_size]
+    assert_equal ["ada", 3], [string, string_size]
+    assert_equal [nil, "Could not open file missing.txt. Does not exist."], Lota::Filesystem.read(:data, "missing.txt")
+  end
+
+  def test_read_checks_its_container_before_it_reads
+    saved("scores.txt", "ada 120\n")
+    error = assert_raises(ArgumentError) { Lota::Filesystem.read(:text, "scores.txt") }
+
+    assert_match(/\AInvalid container type 'text', expected one of: /, error.message)
+  end
+
   # A Lua string is bytes, so read gives back every byte the file holds,
   # as KleleAtoms' saved game holds bytes such as 255.
   def test_read_and_write_keep_every_byte
@@ -192,7 +215,7 @@ class SaveDirectoryTest < Minitest::Test
   end
 
   def test_write_takes_a_file_data_and_writes_no_more_than_the_data_holds
-    data = Lota::Filesystem::FileData.new("helloworld", "hello.txt")
+    data = Lota::Filesystem.new_file_data("helloworld", "hello.txt").first
 
     assert_equal [true], Lota::Filesystem.write("hello.txt", data, 64)
     assert_equal "helloworld", File.binread(File.join(save_directory, "hello.txt"))
@@ -384,5 +407,60 @@ class SaveDirectoryTest < Minitest::Test
     saved("text.rb", "42")
 
     assert_raises(SyntaxError) { Lota::Filesystem.load("text.rb", :b) }
+  end
+
+  # Rule 17: newFileData can return nil and a message, so it stays a module
+  # method that returns an Array, as every function of rule 4 does
+  # (wrap_Filesystem.cpp:428-463).
+  def test_new_file_data_copies_a_string_or_a_data_under_a_name
+    from_string, = Lota::Filesystem.new_file_data("helloworld", "hello.txt")
+    from_data, = Lota::Filesystem.new_file_data(Lota::Data::ByteData.new("byte data"), "bytes.bin")
+
+    assert_equal ["helloworld", "hello.txt", "txt"], [from_string.string, from_string.filename, from_string.extension]
+    assert_equal ["byte data", "bytes.bin"], [from_data.string, from_data.filename]
+    assert_equal 1, Lota::Filesystem.new_file_data("x", "x").size
+  end
+
+  def test_new_file_data_with_one_argument_reads_a_file_a_file_or_returns_a_file_data
+    saved("scores.txt", "ada 120\n")
+    from_name, = Lota::Filesystem.new_file_data("scores.txt")
+    file, = Lota::Filesystem.open_file("scores.txt", :r)
+    from_file, = Lota::Filesystem.new_file_data(file)
+
+    assert_equal ["ada 120\n", "scores.txt"], [from_name.string, from_name.filename]
+    assert_equal "ada 120\n", from_file.string
+    assert_same from_name, Lota::Filesystem.new_file_data(from_name).first
+  ensure
+    file&.close
+  end
+
+  # luax_getfiledata asked for an I/O error (wrap_Filesystem.cpp:332-373).
+  def test_new_file_data_returns_nil_and_the_engines_message_for_a_file_it_cannot_read
+    assert_equal [nil, "Could not open file missing.txt. Does not exist."], Lota::Filesystem.new_file_data("missing.txt")
+  end
+
+  def test_new_file_data_raises_for_arguments_of_the_wrong_type_or_number
+    assert_raises(TypeError) { Lota::Filesystem.new_file_data(42) }
+    assert_raises(TypeError) { Lota::Filesystem.new_file_data(42, "x") }
+    assert_raises(TypeError) { Lota::Filesystem.new_file_data("x", 42) }
+    assert_equal "wrong number of arguments (given 3, expected 1..2)",
+      assert_raises(ArgumentError) { Lota::Filesystem.new_file_data("x", "y", "z") }.message
+    refute_respond_to Lota::Filesystem::FileData, :new
+  end
+
+  # w_newFile, which LÖVE deprecated for openFile (wrap_Filesystem.cpp:278-306),
+  # returns its File, closed unless given a mode, or nil and a message.
+  def test_new_file_returns_a_file_or_nil_and_a_message
+    saved("scores.txt", "ada 120\n")
+    closed, = Lota::Filesystem.new_file("scores.txt")
+    reading, = Lota::Filesystem.new_file("scores.txt", :r)
+
+    refute_predicate closed, :open?
+    assert_predicate reading, :open?
+    assert_equal ["ada 120\n", 8], reading.read
+    assert_equal [nil, "Could not open file missing.txt. Does not exist."], Lota::Filesystem.new_file("missing.txt", :r)
+    assert_raises(ArgumentError) { Lota::Filesystem.new_file("scores.txt", :x) }
+  ensure
+    reading&.close
   end
 end

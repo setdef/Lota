@@ -172,6 +172,23 @@ class EngineSources
     self.class.difference(committed, generate)
   end
 
+  # Checks each committed list of +lists+, a Hash of its path to the
+  # EngineSources that generates it (rake engine:sources:check): prints
+  # that each matches, or aborts with the first one's problems.
+  def self.check(lists)
+    lists.each do |file, sources|
+      problems = sources.problems(file)
+      abort <<~ERROR if problems.any?
+        ❌ #{file} does not match vendor/love:
+        #{problems.map { |line| "  #{line}" }.join("\n")}
+
+        Review the change, then run `bundle exec rake engine:sources` to regenerate it.
+      ERROR
+
+      puts "✅ #{file} matches vendor/love"
+    end
+  end
+
   # The source paths a generated file lists, relative to the source tree.
   def self.listed(content)
     content.lines.filter_map { |line| line[%r{\A\t\$\{#{ROOT_VARIABLE}\}/(\S+)\n?\z}, 1] }

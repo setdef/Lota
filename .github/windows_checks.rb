@@ -40,11 +40,12 @@
 #   after downloading the source archives the gem carries.
 # [deliver GEM...] Installs the precompiled gems into an empty GEM_HOME
 #   and runs lota from them, as rake package:deliver does.
-# [mesa BIN] Copies Mesa's OpenGL from the MSYS2 directory BIN beside
-#   Ruby's own program, where Windows looks first for the opengl32.dll SDL
+# [mesa BIN [FOLDER]] Copies Mesa's OpenGL from the MSYS2 directory BIN
+#   beside Ruby's own program, or into FOLDER, beside another, such as a
+#   fused game's, where Windows looks first for the opengl32.dll SDL
 #   loads by name, ahead of System32's, whose OpenGL 1.1 LÖVE refuses:
 #   opengl32.dll, its driver libgallium_wgl.dll, and every DLL of BIN
-#   either needs, but none Ruby has already.
+#   either needs, but none the folder has already.
 # [tests LOGS [--prepush]] Runs each file of the tests rake test runs
 #   (TEST_SUITES in tasks/test.rake), but those WINDOWS_EXCLUDED leaves
 #   out, in a Ruby of its own, as Minitest's task does, each within
@@ -335,8 +336,7 @@ module WindowsChecks
     %w[engine package].each { |name| Kernel.load(File.join(ROOT, "tasks/#{name}.rake")) }
   end
 
-  def mesa(bin)
-    target = RbConfig::CONFIG["bindir"]
+  def mesa(bin, target = RbConfig::CONFIG["bindir"])
     objdump = %w[objdump llvm-objdump].find { |tool| system(tool, "--version", out: File::NULL, err: File::NULL) }
     queue = %w[opengl32.dll libgallium_wgl.dll]
     done = []
@@ -348,7 +348,7 @@ module WindowsChecks
       source = File.join(bin, dll)
       abort "#{source} is missing" unless File.exist?(source)
       if File.exist?(File.join(target, dll))
-        puts "#{dll}: Ruby's own"
+        puts "#{dll}: already in #{target}"
         next
       end
       FileUtils.cp(source, target)

@@ -6,13 +6,17 @@
 # installs Lota's gem for it, fuses a game with this commit's lota fuse, which
 # fetches Fledge from Git and runs fledge build, then unpacks the app it built
 # under a folder named with a space, and runs it with no Ruby on its PATH and an
-# environment of only the system's own variables. Each game opens no window,
-# since a runner has no GPU, plays a sound, saves a file, and quits with 3; the
-# check reads that it ran fused and saved under its identity alone, where LÖVE's
-# fused game saves (doc/contributors/design/game.md). test/games/fuse first
-# restarts once, as LÖVE's fused game restarts, and the check reads that the
-# value crossed and that the run after it was the same process on macOS and
-# Linux and a new one on Windows. The entry script this commit's lota fuse
+# environment of only the system's own variables. Each game plays a sound,
+# saves a file, and quits with 3; the check reads that it ran fused and saved
+# under its identity alone, where LÖVE's fused game saves
+# (doc/contributors/design/game.md). test/games/fuse first restarts once, as
+# LÖVE's fused game restarts, and the check reads that the value crossed and
+# that the run after it was the same process on macOS and Linux and a new one
+# on Windows. It then opens a window, draws the screen Lövetest's
+# captureScreenshot test captures, and saves a screenshot, which the check
+# compares with Lövetest's expected image by Lövetest's rule. A runner has no
+# GPU, so it draws with Metal on macOS and on Mesa's llvmpipe elsewhere; the
+# other games open no window. The entry script this commit's lota fuse
 # writes calls the gem's Lota::Restart, so it fuses with gems of the same
 # commit. Every app's notices are checked in the archive a player unpacks: the
 # NOTICES.txt lota fuse writes, with Lota's own license statement, each library
@@ -156,13 +160,33 @@ jobs:
           path: game-source
           persist-credentials: false
 
+      # test/games/fuse draws the screen Lövetest's captureScreenshot test
+      # captures, with Lövetest's resources, and the check compares its
+      # screenshot with Lövetest's expected image. Both are in LÖVE's
+      # repository, so only that submodule is fetched, at depth 1.
+      - name: Fetch Lövetest's resources and expected images
+        if: matrix.game == 'fuse'
+        run: git submodule update --init --depth 1 vendor/love
+
       # The OpenGL and EGL libraries SDL opens, which a desktop has and a
-      # runner does not; Lota loads without a display.
+      # runner does not; Lota loads without a display. test/games/fuse
+      # opens a window, so its job gets a desktop's display server too,
+      # Xvfb with Openbox, and Mesa's OpenGL, as the Linux delivery jobs
+      # do.
       - name: Install OpenGL's libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --assume-yes libgl1 libegl1
+          [ "$GAME_NAME" != fuse ] || bin/apt-packages list display | xargs sudo apt-get install --assume-yes
+
+      - name: Start Xvfb and Openbox
+        if: runner.os == 'Linux' && matrix.game == 'fuse'
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 &
+          sleep 3
+          DISPLAY=:99 openbox &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
       # A game whose gems are pure Ruby needs no MSYS2 on Windows, as the
       # README says; one with a gem to compile, or another repository's,
@@ -276,13 +300,54 @@ jobs:
             audio=(ALSOFT_DRIVERS=null)
             backend=()
           fi
+          display=()
+          [ -z "${DISPLAY:-}" ] || display=(DISPLAY="$DISPLAY")
           set +e
-          (cd / && env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" "${audio[@]}" "$program" > "$RUNNER_TEMP/run.out" 2> "$RUNNER_TEMP/run.err")
+          (cd / && env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" "${display[@]}" "${audio[@]}" "$program" > "$RUNNER_TEMP/run.out" 2> "$RUNNER_TEMP/run.err")
           status=$?
           set -e
           echo "exit status: $status"; echo "--- stdout"; cat "$RUNNER_TEMP/run.out"; echo "--- stderr"; cat "$RUNNER_TEMP/run.err"
           ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/run.out" "$GAME_NAME" "${backend[@]}"
 
+      # test/games/fuse draws, and a runner has no GPU, and Windows' own
+      # OpenGL is 1.1, which LÖVE's renderer refuses. So, as windows.yml
+      # runs Lota's tests, it draws on Mesa's software OpenGL, llvmpipe,
+      # from MSYS2 (UCRT64 on x64, CLANGARM64 on ARM64), set up only once
+      # the app is built, so nothing of it reaches the app. windows_checks.rb
+      # gathers opengl32.dll and the DLLs it needs into a folder of their
+      # own, which the next step copies beside the app's program, where
+      # SDL's LoadLibrary("OPENGL32.DLL") finds it before System32's.
+      # setup-msys2 downloads MSYS2's base from GitHub's releases each
+      # time, so a failed attempt is tried again two minutes later, as
+      # windows.yml tries it.
+      - id: msys2
+        if: runner.os == 'Windows' && matrix.game == 'fuse'
+        continue-on-error: true
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with: &msys2
+          msystem: ${{ matrix.target.platform == 'x64-mingw-ucrt' && 'UCRT64' || 'CLANGARM64' }}
+          path-type: inherit
+          location: ${{ runner.temp }}/mesa-msys2
+          pacboy: mesa:p ${{ matrix.target.platform == 'x64-mingw-ucrt' && 'binutils:p' || 'llvm-tools:p' }}
+      - name: Wait before setting MSYS2 up again
+        if: runner.os == 'Windows' && matrix.game == 'fuse' && steps.msys2.outcome == 'failure'
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 120
+          Remove-Item -Recurse -Force "$env:RUNNER_TEMP\mesa-msys2" -ErrorAction SilentlyContinue
+      - if: runner.os == 'Windows' && matrix.game == 'fuse' && steps.msys2.outcome == 'failure'
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with: *msys2
+
+      - name: Gather Mesa's OpenGL
+        if: runner.os == 'Windows' && matrix.game == 'fuse'
+        shell: msys2 {0}
+        run: |
+          mkdir -p "$RUNNER_TEMP/mesa"
+          ruby .github/windows_checks.rb mesa "$(cygpath -m "$MINGW_PREFIX/bin")" "$(cygpath -m "$RUNNER_TEMP/mesa")"
+
+      # With Mesa beside it, GALLIUM_DRIVER chooses llvmpipe, and LP_PERF
+      # turns off its linear rasterizer, as windows.yml has its tests draw.
       - name: Run the app on Windows, with no Ruby on its PATH
         if: runner.os == 'Windows' && !inputs.game_repository
         shell: pwsh
@@ -293,6 +358,8 @@ jobs:
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $place
           $name = $zip.BaseName -replace "-$([regex]::Escape($env:PLATFORM))$", ''
           $program = Join-Path (Join-Path $place $zip.BaseName) "$name.exe"
+          $mesa = Join-Path $env:RUNNER_TEMP 'mesa'
+          if (Test-Path -LiteralPath $mesa) { Copy-Item (Join-Path $mesa '*') (Split-Path $program) }
           $system = $env:SystemRoot
           $start = [Diagnostics.ProcessStartInfo]::new($program)
           $start.UseShellExecute = $false
@@ -306,6 +373,7 @@ jobs:
             USERPROFILE = $env:USERPROFILE; APPDATA = $env:APPDATA; LOCALAPPDATA = $env:LOCALAPPDATA
             TEMP = $env:RUNNER_TEMP; TMP = $env:RUNNER_TEMP; ALSOFT_DRIVERS = 'null'
           }
+          if (Test-Path -LiteralPath $mesa) { $variables.GALLIUM_DRIVER = 'llvmpipe'; $variables.LP_PERF = 'no_rast_linear' }
           foreach ($name in $variables.Keys) { $start.Environment[$name] = $variables[$name] }
           $process = [Diagnostics.Process]::Start($start)
           $out = $process.StandardOutput.ReadToEndAsync()

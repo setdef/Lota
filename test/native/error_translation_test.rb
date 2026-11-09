@@ -153,7 +153,7 @@ class ErrorTranslationTest < Minitest::Test
   # The real error, from LÖVE's own ImageData constructor, in the test
   # bundle's copy of the engine, where love.image is never opened.
   def test_the_image_data_error_reaches_ruby_translated
-    file_data = Lota::Filesystem::FileData.new(PNG, "clear-1.png")
+    file_data = Lota::Filesystem.new_file_data(PNG, "clear-1.png").first
     error = assert_raises(RuntimeError) { LotaNativeTest.decode_without_the_image_module(file_data.__send__(:native)) }
 
     assert_instance_of RuntimeError, error

@@ -7,11 +7,14 @@
 
 require "digest"
 require_relative "../lib/lota/version"
+require_relative "../tasks/lovetest_image"
 
 # Checks what the app lota fuse built from one of the games in GAMES did
 # when the fuse workflow ran it (.github/workflows/fuse.yml): that it quit
 # with 3, for test/games/fuse that it restarted once, as LÖVE's fused game
-# restarts, ran fused, saved a file under its identity alone, where LÖVE's
+# restarts, and saved a screenshot that is, by Lövetest's rule, the image
+# Lövetest's captureScreenshot test expects (tasks/lovetest_image.rb), ran
+# fused, saved a file under its identity alone, where LÖVE's
 # fused game saves (doc/contributors/design/game.md), played its sound, and
 # printed the lines that say its gems reached the app. Given the file of what
 # the app printed to stderr and the name of an OpenAL Soft backend, it also
@@ -78,6 +81,23 @@ def notices_checks(folder, platform)
   }
 end
 
+# Whether the screenshot whose path +output+ gives is the image Lövetest's
+# captureScreenshot test expects, by Lövetest's rule; says where it
+# differs when it is not.
+def screenshot_matches?(output)
+  path = output[/^screenshot: (.*)$/, 1]
+  return false unless path && File.file?(path)
+
+  expected = File.expand_path("../vendor/love/testing/output/expected/#{LovetestImage::SCREENSHOT}", __dir__)
+  differences = LovetestImage.differences(LovetestImage.read(path), LovetestImage.read(expected))
+  puts "screenshot: #{differences.size} pixels differ"
+  differences.first(10).each { |x, y, actual, wanted| puts "  at #{x},#{y}: #{actual.join(',')}, not #{wanted.join(',')}" }
+  differences.empty?
+rescue LovetestImage::Error => e
+  puts "screenshot: #{e.message}"
+  false
+end
+
 if ARGV.first == "notices"
   checks = notices_checks(ARGV.fetch(1), ARGV.fetch(2))
   checks.each { |check, passed| puts "#{passed ? 'ok' : 'FAILED'}: #{check}" }
@@ -108,6 +128,7 @@ if ARGV.fetch(2) == "fuse"
     runs[1][1] == "#{runs[0][0]}.0"
   checks["each run was #{Gem.win_platform? ? 'a process of its own' : 'the same process'}"] = runs.size == 2 &&
     (runs[0][0] == runs[1][0]) != Gem.win_platform?
+  checks["its screenshot is the image Lövetest's captureScreenshot test expects"] = screenshot_matches?(output)
 end
 if ARGV.length > 3
   errors = File.read(ARGV.fetch(3))

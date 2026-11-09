@@ -859,16 +859,19 @@ module Lota
     # w_setColor).
     #
     # [color] Red, green, blue, and optionally alpha, each a Float or
-    #   Integer from 0 to 1, as several values or one Array; alpha is 1
-    #   when left out.
+    #   Integer from 0 to 1, as one Array; alpha is 1 when left out.
     #
     # Shapes take this color as they are drawn, and keep it, so set it
     # before each thing you draw in a different color. It starts as opaque
     # white. LÖVE stores each component as a single-precision float,
     # clamped to 0 through 1, and so does Lota.
     #
-    # Raises ArgumentError for any count of components but 3 or 4,
-    # TypeError for one that is not a number, and ThreadError off the main
+    # An Array is LÖVE's table form, which reads its first four elements
+    # and ignores any after them (<tt>lua_rawgeti</tt> for 1 through 4).
+    # Raises TypeError, with LÖVE's message, for a red, green, or blue that
+    # is not a number, as when the Array has fewer than three elements
+    # (<tt>luaL_checknumber</tt> at the table's elements), and for an alpha
+    # that is neither a number nor +nil+. Raises ThreadError off the main
     # thread.
     #
     # === Examples
@@ -877,13 +880,43 @@ module Lota
     #   Lota::Graphics.color = 0, 0, 1, 0.5  # half-transparent blue
     #   Lota::Graphics.color = [1, 1, 1]     # an Array works too
     def self.color=(color)
-      components = Array(color)
-      unless components.size == 3 || components.size == 4
-        raise ArgumentError, "wrong number of arguments (given #{components.size}, expected 3 or 4)"
-      end
+      red, green, blue, alpha = color_components(color, "Lota::Graphics.color=")
+      Native::Graphics.set_color(red, green, blue, alpha)
+    end
 
-      Native::Graphics.set_color(components.fetch(0), components.fetch(1), components.fetch(2),
-        components.fetch(3, 1.0))
+    # The red, green, blue, and alpha of a color as
+    # <tt>lua_rawgeti</tt> for 1 through 4 and <tt>luaL_checknumber</tt>
+    # read them from a table, which luax_checkcoloredstring,
+    # w_setColor, w_setBackgroundColor, and w_SpriteBatch_setColor all do:
+    # the elements after the fourth are ignored, and the alpha is 1 when
+    # +nil+. +function+ is Lota's name for the function whose argument it
+    # is, for the error. :nodoc:
+    private_class_method def self.color_components(color, function)
+      elements = color.is_a?(::Array) ? color : [color]
+      red = color_element(elements, 0, function)
+      green = color_element(elements, 1, function)
+      blue = color_element(elements, 2, function)
+      alpha = elements[3].nil? ? 1.0 : color_element(elements, 3, function)
+      [red, green, blue, alpha]
+    end
+
+    # The number at +index+ of a color's elements, or the TypeError
+    # <tt>luaL_checknumber</tt> raises for it at the stack slot
+    # +lua_rawgeti+ pushed it to, which counts from the top: LÖVE's
+    # message names the function by Lota's name (rule 23 of
+    # doc/contributors/design/translation.md). :nodoc:
+    private_class_method def self.color_element(elements, index, function)
+      value = elements[index]
+      return value if value.is_a?(Numeric)
+
+      lua_type = case value
+      when nil then "nil"
+      when true, false then "boolean"
+      when String then "string"
+      when ::Array, ::Hash then "table"
+      else "userdata"
+      end
+      raise TypeError, "bad argument ##{index - 4} to '#{function}' (number expected, got #{lua_type})"
     end
 
     # The color everything is drawn in, as an Array of red, green, blue,
@@ -1658,19 +1691,19 @@ module Lota
       ky = nil
     )
       if font.is_a?(Math::Transform)
-        return Native::Graphics.print_with_transform(colored_text(text), nil, font.__send__(:native))
+        return Native::Graphics.print_with_transform(colored_text(text, "Lota::Graphics.print"), nil, font.__send__(:native))
       elsif font.is_a?(Font) && x.is_a?(Math::Transform)
-        return Native::Graphics.print_with_transform(colored_text(text), font.__send__(:native), x.__send__(:native))
+        return Native::Graphics.print_with_transform(colored_text(text, "Lota::Graphics.print"), font.__send__(:native), x.__send__(:native))
       end
 
       unless font.is_a?(Font)
         raise ArgumentError, "wrong number of arguments (given 10 numbers, expected 0..9)" unless ky.nil?
 
-        return Native::Graphics.print(colored_text(text), nil,
+        return Native::Graphics.print(colored_text(text, "Lota::Graphics.print"), nil,
           placement(number(font || 0), number(x || 0), y, r, sx, sy, ox, oy, kx))
       end
 
-      Native::Graphics.print(colored_text(text), font.__send__(:native), placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
+      Native::Graphics.print(colored_text(text, "Lota::Graphics.print"), font.__send__(:native), placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
     end
 
     # Draws text in the current font and color, or in a Font given first,
@@ -1715,9 +1748,9 @@ module Lota
       kx = nil, ky = nil
     )
       if font.is_a?(Math::Transform)
-        return Native::Graphics.printf_with_transform(colored_text(text), nil, font.__send__(:native), number(x), alignment(y))
+        return Native::Graphics.printf_with_transform(colored_text(text, "Lota::Graphics.printf"), nil, font.__send__(:native), number(x), alignment(y))
       elsif font.is_a?(Font) && x.is_a?(Math::Transform)
-        return Native::Graphics.printf_with_transform(colored_text(text), font.__send__(:native), x.__send__(:native), number(y),
+        return Native::Graphics.printf_with_transform(colored_text(text, "Lota::Graphics.printf"), font.__send__(:native), x.__send__(:native), number(y),
           alignment(limit))
       end
 
@@ -1729,7 +1762,7 @@ module Lota
         font = nil
       end
       x, y, limit, align, r, sx, sy, ox, oy, kx, ky = arguments
-      Native::Graphics.printf(colored_text(text), font&.__send__(:native),
+      Native::Graphics.printf(colored_text(text, "Lota::Graphics.printf"), font&.__send__(:native),
         placement(number(x), number(y), optional_number(r), optional_number(sx), optional_number(sy),
           optional_number(ox), optional_number(oy), optional_number(kx), optional_number(ky)),
         number(limit), alignment(align))
@@ -1765,15 +1798,17 @@ module Lota
     # luax_checkcoloredstring (src/modules/font/wrap_Font.cpp:33-76): text
     # as parts, each a String and the color it is drawn in, white until a
     # color comes before it, with alpha 1 when left out.
-    # Lota::Graphics::Font#wrap reads text as print does. :nodoc:
-    private_class_method def self.colored_text(text)
+    # Lota::Graphics::Font#wrap reads text as print does. A color is read
+    # as a table is for w_setColor, with +function+, Lota's name for the
+    # function whose argument +text+ is, in the error. :nodoc:
+    private_class_method def self.colored_text(text, function)
       return [[text, 1.0, 1.0, 1.0, 1.0]] if text.is_a?(String)
 
       color = [1.0, 1.0, 1.0, 1.0] #: [Float | Integer, Float | Integer, Float | Integer, Float | Integer]
       parts = [] #: Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
       Array(text).each do |part|
         case part
-        when Array then color = [part.fetch(0), part.fetch(1), part.fetch(2), part.fetch(3, 1.0)]
+        when Array then color = color_components(part, function)
         when String then parts << [part, color[0], color[1], color[2], color[3]]
         else raise TypeError, "wrong argument type #{part.class} (expected String or Array)"
         end
@@ -1911,29 +1946,25 @@ module Lota
     # (src/modules/graphics/wrap_Graphics.cpp, w_setBackgroundColor).
     #
     # [color] Red, green, blue, and optionally alpha, each a Float or
-    #   Integer from 0 to 1, as several values or one Array; alpha is 1
-    #   when left out.
+    #   Integer from 0 to 1, as one Array; alpha is 1 when left out.
     #
     # It starts as opaque black. Lota's loop clears the window to it at
     # the start of each frame, as LÖVE's does. LÖVE stores each component
     # as a single-precision float, and so does Lota.
     #
-    # Raises ArgumentError for any count of components but 3 or 4,
-    # TypeError for one that is not a number, and ThreadError off the main
-    # thread.
+    # An Array is LÖVE's table form, which reads its first four elements
+    # and ignores any after them. Raises TypeError, with LÖVE's message,
+    # for a red, green, or blue that is not a number, as when the Array has
+    # fewer than three elements, and for an alpha that is neither a number
+    # nor +nil+. Raises ThreadError off the main thread.
     #
     # === Examples
     #
     #   Lota::Graphics.background_color = 0.1, 0.1, 0.2
     #   Lota::Graphics.background_color = [1, 1, 1, 0]
     def self.background_color=(color)
-      components = Array(color)
-      unless components.size == 3 || components.size == 4
-        raise ArgumentError, "wrong number of arguments (given #{components.size}, expected 3 or 4)"
-      end
-
-      Native::Graphics.set_background_color(components.fetch(0), components.fetch(1), components.fetch(2),
-        components.fetch(3, 1.0))
+      red, green, blue, alpha = color_components(color, "Lota::Graphics.background_color=")
+      Native::Graphics.set_background_color(red, green, blue, alpha)
     end
 
     # Sets how what is drawn mixes with what is already there, matching

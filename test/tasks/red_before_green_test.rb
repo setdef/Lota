@@ -200,6 +200,30 @@ class RedBeforeGreenTest < Minitest::Test
     end
   end
 
+  def test_a_waiver_outside_the_trailer_block_is_reported_as_such
+    in_repository do |root|
+      message = "refactor: rename\n\nRed-before-green: none (refactor)\nProvenance: requested\n\n" \
+        "Co-Authored-By: Sample <sample@example.com>"
+      sha = commit(root, message, "test/calc_test.rb" => CALC_TEST.sub("def test_add", "def test_adds"))
+
+      report = checker(root).check(sha)
+
+      refute_predicate report, :passed?
+      assert_empty report.verdicts
+      assert_match(/Red-before-green waiver is not in the trailer block/, report.lines.join)
+    end
+  end
+
+  def test_a_waiver_in_the_last_paragraph_with_other_trailers_still_waives
+    in_repository do |root|
+      message = "refactor: rename\n\nBecause.\n\nRed-before-green: none (refactor)\nProvenance: requested\n" \
+        "Co-Authored-By: Sample <sample@example.com>"
+      sha = commit(root, message, "test/calc_test.rb" => CALC_TEST.sub("def test_add", "def test_adds"))
+
+      assert_predicate checker(root).check(sha), :passed?
+    end
+  end
+
   def test_a_commit_whose_engine_differs_goes_unchecked
     in_repository do |root|
       sha = commit(root, "fix: engine", "ext/lota/engine/fix.patch" => "--- a\n+++ b\n",

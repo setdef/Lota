@@ -165,7 +165,7 @@ class MemoryTest < Minitest::Test
     assert_released_once_collected(200) do
       on_a_finished_thread do
         100.times do
-          file_data = Lota::Filesystem::FileData.new(PNG, "clear-1.png")
+          file_data = Lota::Filesystem.new_file_data(PNG, "clear-1.png").first
           LotaNativeTest.observe_file_data(file_data.__send__(:native))
           LotaNativeTest.observe_image_data(Lota::Image::ImageData.new(file_data).__send__(:native))
         end

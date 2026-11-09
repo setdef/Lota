@@ -175,6 +175,6 @@ class ArkanoidTest < Minitest::Test
   # The PNG file at +path+, decoded by LÖVE's image module.
   def frame(path)
     Lota::Native::Image.open
-    Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
+    Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(File.binread(path), File.basename(path)).first)
   end
 end

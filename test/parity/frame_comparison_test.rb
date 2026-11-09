@@ -23,7 +23,7 @@ class FrameComparisonTest < Lovetest::TestMethod
 
   def expected
     path = File.join(Lovetest::EXPECTED, "love.test.graphics.clear-1.png")
-    Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
+    Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(File.binread(path), File.basename(path)).first)
   end
 
   # A 16 by 16 canvas cleared to yellow, with a 1 by 1 rectangle of

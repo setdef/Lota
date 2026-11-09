@@ -98,6 +98,30 @@ FileData *file_data(const std::string &filename) {
   return file->read();
 }
 
+// w_newFileData with one filename (wrap_Filesystem.cpp:430-439) reads it
+// through luax_getfiledata asked for an I/O error (332-373): the module
+// opens the file by its path without opening it for reading, then reads all
+// of it, and a file it cannot read gives luax_ioError's nil and message in
+// place of the FileData, as one Array either way (rule 4 of
+// doc/contributors/design/translation.md). The FileData's one reference
+// goes to the Ruby wrapper.
+Rice::Array new_file_data_of_file(const std::string &filename) {
+  const love::filesystem::Filesystem *const instance = filesystem();
+  FileData *data = nullptr;
+  try {
+    const love::StrongRef<File> file(instance->openFile(filename.c_str(), File::MODE_CLOSED),
+                                     love::Acquire::NORETAIN);
+    data = file->read();
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+
+  const love::StrongRef<FileData> held(data, love::Acquire::NORETAIN);
+  Rice::Array results;
+  results.push(data, false);
+  return results;
+}
+
 // The largest integer a Lua number, a double, holds exactly, to which
 // w_getInfo limits a size and a time (wrap_Filesystem.cpp:584-596).
 constexpr love::int64 LARGEST_EXACT_DOUBLE = 0x20000000000000LL;
@@ -148,12 +172,21 @@ Rice::Object info(const std::string &filepath, const std::optional<std::string> 
   return fields;
 }
 
-// w_read into a string (wrap_Filesystem.cpp:618-659): the first +size+
-// bytes of +filename+, or all of it when +size+ is negative, and how many
-// it read, or luax_ioError's nil and message when it cannot read the
-// file, as one Array either way (rule 4 of
-// doc/contributors/design/translation.md).
-Rice::Array read(const std::string &filename, long long size) {
+// w_read (wrap_Filesystem.cpp:618-659): the first +size+ bytes of
+// +filename+, or all of it when +size+ is negative, as a String, or as a
+// FileData when +container+ is "data", and how many bytes it read, or
+// luax_ioError's nil and message when it cannot read the file, as one Array
+// either way (rule 4 of doc/contributors/design/translation.md). The
+// container is checked first, before the file is touched, as
+// luax_checkcontainertype is (the FileData's wrapper keeps its own
+// reference).
+Rice::Array read(const std::string &filename, long long size,
+                 const std::optional<std::string> &container) {
+  love::data::ContainerType ctype = love::data::CONTAINER_STRING;
+  if (container.has_value() && !love::data::getConstant(container->c_str(), ctype)) {
+    raise_enum_error("container type", love::data::getConstants(ctype), *container);
+  }
+
   FileData *data = nullptr;
   try {
     if (size >= 0) {
@@ -172,7 +205,11 @@ Rice::Array read(const std::string &filename, long long size) {
   // Ruby has a copy once it is pushed, so the FileData is released.
   const love::StrongRef<FileData> held(data, love::Acquire::NORETAIN);
   Rice::Array results;
-  results.push(std::string(static_cast<const char *>(data->getData()), data->getSize()), false);
+  if (ctype == love::data::CONTAINER_DATA) {
+    results.push(data, false);
+  } else {
+    results.push(std::string(static_cast<const char *>(data->getData()), data->getSize()), false);
+  }
   results.push(static_cast<long long>(data->getSize()), false);
   return results;
 }
@@ -581,9 +618,12 @@ void define_filesystem(const Rice::Module &native) {
                                  Rice::Arg("filename"), Rice::Return().takeOwnership())
       .define_singleton_function("file_data", &file_data, Rice::Arg("filename"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("new_file_data_of_file", &new_file_data_of_file,
+                                 Rice::Arg("filename"))
       .define_singleton_function("info", &info, Rice::Arg("filepath"),
                                  Rice::Arg("filtertype") = std::optional<std::string>())
-      .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL)
+      .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL,
+                                 Rice::Arg("container") = std::optional<std::string>())
       .define_singleton_function("load", &load, Rice::Arg("filename"),
                                  Rice::Arg("mode") = std::optional<std::string>())
       .define_singleton_function("write_string", &write_string, Rice::Arg("filename"),

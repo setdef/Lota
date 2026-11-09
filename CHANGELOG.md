@@ -33,6 +33,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `love.video`: `Lota::Video`, which boot opens unless `t.modules.video` is false, and `lota.video`; `Lota::Video::VideoStream` (`new`, `sync=`, `filename`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`).
 - `Lota::Graphics::Video` (`new` with `audio:` and `dpiscale:`, `stream`, `source`, `source=`, `width`, `height`, `dimensions`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `filter`, `filter=`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`), which `Lota::Graphics.draw` draws.
 - The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
+- `Lota::Filesystem.new_file_data`, translating `love.filesystem.newFileData` in all its forms, which copies a String or a `Lota::Data` under a name or reads a file name, a `File`, or a `FileData`, and `Lota::Filesystem.new_file`, translating the deprecated `love.filesystem.newFile`; each returns an Array of its object, or of `nil` and LÖVE's message.
+- `Lota::Filesystem.read(:data, filename, size = nil)` reads into a `Lota::Filesystem::FileData`, with the container first as `love.filesystem.read` takes it.
+
+### Changed
+
+- `Lota::Filesystem::FileData.new(contents, name)` is gone, replaced by `Lota::Filesystem.new_file_data(contents, name)`, which returns `[file_data]`: `newFileData` can return `nil` and a message, so rule 17 makes it a module function.
 
 ### Changed
 
@@ -50,6 +56,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - On Vulkan, `Lota::Graphics.present` no longer raises `IndexError` ("vector") when a rebuilt swap chain has more images than the first, as on Android with vsync off; LÖVE's `vulkan/Graphics.cpp` is now compiled with Lota's patch `ext/lota/engine/vulkan_semaphores.patch` on Linux, Windows, and Android.
 - On Vulkan, a present that fails before its frame reaches the GPU leaves the error screen able to draw, where it crashed; LÖVE's `vulkan/Graphics.cpp` is also compiled with Lota's patch `ext/lota/engine/vulkan_submit.patch`.
 - A game whose audio device goes away, as when headphones are unplugged, keeps running: Lota calls `Lota.audiodisconnected(sources)` with the Sources that stopped and, unless it returns a truthy value, moves playback to the system's default device, as LÖVE does; before, the event raised an error.
+- `Lota::Graphics.color=` reads an Array as `love.graphics.setColor` reads a table: its first four elements, ignoring any after them, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
+- `Lota::Graphics.background_color=` reads an Array as `love.graphics.setBackgroundColor` reads a table, as `color=` does: its first four elements, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
+- `Lota::Graphics::SpriteBatch#color=` reads an Array as `SpriteBatch:setColor` reads a table, as `color=` does: its first four elements, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
+- A color in colored text, as `Lota::Graphics.print` and `TextBatch#add` take it, is read as `luax_checkcoloredstring` reads a table: `TypeError` with LÖVE's message, not `IndexError`, when red, green, or blue is missing or not a number, and elements after the fourth are ignored.
 
 ## [0.3.1] - 2026-11-09
 

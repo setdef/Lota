@@ -47,6 +47,27 @@ class FrameBindingsTest < Minitest::Test
     assert_equal [0.0, 0.0, 0.0, 1.0], Lota::Graphics.background_color
   end
 
+  # w_setBackgroundColor reads a table as w_setColor does
+  # (wrap_Graphics.cpp:2527-2551): four elements, the rest ignored, and
+  # the first of red, green, and blue it lacks is the error.
+  def test_the_background_color_reads_four_elements_and_ignores_the_rest
+    Lota::Graphics.background_color = 1, 0, 0, 0.5, 9, "ignored"
+
+    assert_equal [1.0, 0.0, 0.0, 0.5], Lota::Graphics.background_color
+  ensure
+    Lota::Graphics.background_color = 0, 0, 0, 1
+  end
+
+  def test_a_background_color_with_fewer_than_three_elements_raises_loves_error
+    two = assert_raises(TypeError) { Lota::Graphics.background_color = 1, 0 }
+    text = assert_raises(TypeError) { Lota::Graphics.background_color = 1, "0", 0 }
+    alpha = assert_raises(TypeError) { Lota::Graphics.background_color = 1, 0, 0, "1" }
+
+    assert_equal "bad argument #-2 to 'Lota::Graphics.background_color=' (number expected, got nil)", two.message
+    assert_equal "bad argument #-3 to 'Lota::Graphics.background_color=' (number expected, got string)", text.message
+    assert_equal "bad argument #-1 to 'Lota::Graphics.background_color=' (number expected, got string)", alpha.message
+  end
+
   def test_present_raises_loves_error_while_a_canvas_is_the_target
     Lota::Graphics.canvas = Lota::Graphics::Canvas.new(4, 4)
 

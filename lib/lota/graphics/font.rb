@@ -26,7 +26,7 @@ module Lota
     #   Lota::Graphics.font = big
     #   Lota::Graphics.print("Game Over", 300, 250)
     #
-    #   data = Lota::Filesystem::FileData.new(File.binread("pixel.ttf"), "pixel.ttf")
+    #   data, = Lota::Filesystem.new_file_data(File.binread("pixel.ttf"), "pixel.ttf")
     #   Lota::Graphics.font = Lota::Graphics::Font.new(data, 8, :mono)
     class Font < Object
       # Its +new+, the constructor love.graphics.newFont becomes
@@ -226,7 +226,7 @@ module Lota
       #
       #   width, lines = font.wrap("A long line of text", 50)
       def wrap(text, wraplimit)
-        @native.wrap(Graphics.__send__(:colored_text, text), wraplimit)
+        @native.wrap(Graphics.__send__(:colored_text, text, "Lota::Graphics::Font#wrap"), wraplimit)
       end
 
       # Sets the line height, a factor of #height between the tops of

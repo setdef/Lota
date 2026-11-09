@@ -36,7 +36,7 @@ class FontModuleFunctionsTest < Minitest::Test
   end
 
   def file_data(name, contents = File.binread(File.join(RESOURCES, name)))
-    Lota::Filesystem::FileData.new(contents, name)
+    Lota::Filesystem.new_file_data(contents, name).first
   end
 
   def font_data

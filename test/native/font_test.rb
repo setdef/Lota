@@ -24,7 +24,7 @@ class FontTest < Minitest::Test
   end
 
   def small_font
-    Font.new(Lota::Filesystem::FileData.new(File.binread(FONT), "font.ttf"), 8)
+    Font.new(Lota::Filesystem.new_file_data(File.binread(FONT), "font.ttf").first, 8)
   end
 
   def noto
@@ -35,7 +35,7 @@ class FontTest < Minitest::Test
   # (wrap_Font.cpp:115 and 125), which LuaJIT cuts toward 0, so a Float
   # size makes the font of its whole number.
   def test_a_size_is_cut_to_a_whole_number
-    data = Lota::Filesystem::FileData.new(File.binread(FONT), "font.ttf")
+    data = Lota::Filesystem.new_file_data(File.binread(FONT), "font.ttf").first
 
     assert_equal noto.height, Font.new(12.9).height
     refute_equal noto.height, Font.new(13).height
@@ -116,7 +116,7 @@ class FontTest < Minitest::Test
   # the first is given (wrap_Font.cpp:118-119 and 127-128), so a DPI scale
   # after a nil hinting is ignored, and one after a hinting mode is not.
   def test_a_dpi_scale_after_the_size_needs_a_hinting_mode_before_it
-    data = Lota::Filesystem::FileData.new(File.binread(FONT), "font.ttf")
+    data = Lota::Filesystem.new_file_data(File.binread(FONT), "font.ttf").first
 
     assert_equal Font.new(12).dpi_scale, Font.new(12, nil, 3).dpi_scale
     assert_equal Font.new(data, 8).dpi_scale, Font.new(data, 8, nil, 3).dpi_scale

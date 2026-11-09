@@ -73,7 +73,7 @@ class ShaderTest < Minitest::Test
     end
     missing = assert_raises(RuntimeError) { Lota::Graphics::Shader.new("missing.glsl") }
 
-    assert_color [0, 1, 0, 1], drawn(Lota::Graphics::Shader.new(Lota::Filesystem::FileData.new(code, "x.glsl")))
+    assert_color [0, 1, 0, 1], drawn(Lota::Graphics::Shader.new(Lota::Filesystem.new_file_data(code, "x.glsl").first))
     assert_equal "Could not open file missing.glsl. Does not exist.", missing.message
     assert_raises(TypeError) { Lota::Graphics::Shader.new(nil) }
     assert_raises(TypeError) { Lota::Graphics::Shader.new(1) }

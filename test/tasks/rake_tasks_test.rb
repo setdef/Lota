@@ -390,28 +390,33 @@ class RakeTasksTest < Minitest::Test
     assert_includes invoke("engine:sources:check"), "✅ #{ENGINE_SOURCES_FILE} matches vendor/love"
   end
 
-  def test_regenerating_the_engine_source_list_changes_nothing
-    list = File.join(ROOT, ENGINE_SOURCES_FILE)
-    committed = File.read(list)
+  # Each test writes its lists in a folder of its own, never the
+  # checkout's: the gate's other lanes configure CMake from the checkout's
+  # list as these run, and one that read it while a test had changed it
+  # built an engine without the file the test left out.
+  def test_regenerating_the_engine_source_lists_changes_nothing
+    Dir.mktmpdir do |dir|
+      ENGINE_SOURCE_LISTS.each do |file, sources|
+        list = File.join(dir, file)
+        sources.write(list)
 
-    assert_includes invoke("engine:sources"), "✅ Wrote #{ENGINE_SOURCES_FILE}"
-    assert_equal committed, File.read(list)
-  ensure
-    File.write(list, committed) if committed
+        assert_equal File.read(File.join(ROOT, file)), File.read(list), "#{file} regenerates differently"
+      end
+    end
   end
 
   def test_engine_source_check_aborts_with_the_difference
-    list = File.join(ROOT, ENGINE_SOURCES_FILE)
-    committed = File.read(list)
-    File.write(list, committed.sub("\t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n", ""))
+    Dir.mktmpdir do |dir|
+      list = File.join(dir, ENGINE_SOURCES_FILE)
+      FileUtils.mkdir_p(File.dirname(list))
+      committed = File.read(File.join(ROOT, ENGINE_SOURCES_FILE))
+      File.write(list, committed.sub("\t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n", ""))
 
-    task = Rake::Task["engine:sources:check"].tap(&:reenable)
-    _, err = capture_io { assert_raises(SystemExit) { task.invoke } }
-    assert_includes err, "❌ #{ENGINE_SOURCES_FILE} does not match vendor/love:\n" \
-      "  + \t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n"
-    assert_includes err, "run `bundle exec rake engine:sources` to regenerate it"
-  ensure
-    File.write(list, committed) if committed
+      _, err = capture_io { assert_raises(SystemExit) { EngineSources.check(list => ENGINE_SOURCES) } }
+      assert_includes err, "❌ #{list} does not match vendor/love:\n" \
+        "  + \t${ENGINE_SOURCE_DIR}/src/common/Data.cpp\n"
+      assert_includes err, "run `bundle exec rake engine:sources` to regenerate it"
+    end
   end
 
   # The gate's cpp check runs cpp:format, cpp:no_nolint, and cpp:tidy on

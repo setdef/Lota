@@ -181,18 +181,27 @@ module Bindings
     # w_newCubeTexture(L)) or through a variable (int ret = w_newFont(L);
     # ... return ret), as delegate records.
     WRAP_CALL = /\A(w_\w+)\s*\(\s*L\s*\)\z/
+    # A call of a function of the same file with the lua_State and more
+    # arguments (return w_write_or_append(L, File::MODE_WRITE)), which a
+    # wrap function returns the values of, as the helper's own body says.
+    HELPER_CALL = /\A([A-Za-z_]\w*)\s*\(\s*L\s*,.*\)\z/m
 
     attr_reader :reads, :tests, :tables, :pushes, :counts, :errors, :enums, :enum_results, :engine_calls,
-      :deprecation, :delegate, :problems, :count_tests, :statements, :computed_count
+      :deprecation, :delegate, :problems, :io_error, :count_tests, :statements, :computed_count
 
     # [function] The WrapFile::Function to read.
     # [source] Its file's CppSource, for line numbers.
     # [helpers] A Hash of LÖVE's luax_check* helpers by name, to the class
     #   each checks for (luax_checktexture to Texture).
-    def initialize(function, source, helpers: {})
+    # [siblings] A Hash of the functions of the function's file by name,
+    #   which a wrap function may return the values of (w_write returns
+    #   w_write_or_append's), read as part of its own body.
+    def initialize(function, source, helpers: {}, siblings: {})
       @function = function
       @source = source
       @helpers = helpers
+      @siblings = siblings
+      @followed = [function.name]
       @reads = []
       @tests = []
       @tables = []
@@ -205,6 +214,7 @@ module Bindings
       @problems = []
       @count_tests = false
       @computed_count = false
+      @io_error = false
       @variables = {}
       @constants = {}
       @types = {}
@@ -289,14 +299,25 @@ module Bindings
       elsif text.match?(RETURN_ERRORS)
         expression(text, node.line, loops)
       elsif text.match?(IO_ERROR)
+        @io_error = true
         counts << 2
       elsif (target = text[WRAP_CALL, 1] || @wrap_results[text.strip])
         @delegate = target
+      elsif (helper = text[HELPER_CALL, 1]) && @siblings.key?(helper) && !@followed.include?(helper)
+        follow(@siblings.fetch(helper), loops)
       else
         expression(text, node.line, loops)
         @computed_count = true
         @problems << "returns a computed number of values (return #{text})"
       end
+    end
+
+    # Reads +helper+'s body as part of this function's own, with its
+    # arguments' values unknown, since a helper takes only what the wrap
+    # function passes it.
+    private def follow(helper, loops)
+      @followed << helper.name
+      walk(Statements.parse(helper.body, helper.body_offset, @source), loops)
     end
 
     # Records what +text+'s declaration or assignment makes of a variable.
@@ -329,6 +350,7 @@ module Bindings
 
       name = call.base_name
       return @deprecation = call.arguments[2]&.delete('"') if name == "luax_markdeprecated"
+      @io_error = true if name == "luax_getfiledata" && call.arguments[2] == "true"
       return if KNOWN.include?(name)
 
       if READERS.key?(name) || (name == "luaL_checktype" && call.arguments[2] != "LUA_TFUNCTION")

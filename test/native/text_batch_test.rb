@@ -52,7 +52,7 @@ class TextBatchTest < Minitest::Test
   end
 
   def font_file(path)
-    Lota::Filesystem::FileData.new(File.binread(File.join(__dir__, "../lovetest/resources", path)), path)
+    Lota::Filesystem.new_file_data(File.binread(File.join(__dir__, "../lovetest/resources", path)), path).first
   end
 
   def test_a_batch_without_text_is_empty
@@ -124,6 +124,17 @@ class TextBatchTest < Minitest::Test
     assert lit?(red)
     assert(red.bytes.each_slice(4).all? { |_, g, b, _| g == 0 && b == 0 })
     refute_equal plain, red
+  end
+
+  def test_a_color_in_a_batch_text_with_fewer_than_three_elements_raises_loves_error
+    text_batch = batch("a")
+    created = assert_raises(TypeError) { TextBatch.new(Lovetest.font, [[1, 0], "a"]) }
+    set = assert_raises(TypeError) { text_batch.set([[1, 0], "a"]) }
+    added = assert_raises(TypeError) { text_batch.add([[1, 0], "a"]) }
+
+    assert_equal "bad argument #-2 to 'Lota::Graphics::TextBatch.new' (number expected, got nil)", created.message
+    assert_equal "bad argument #-2 to 'Lota::Graphics::TextBatch#set' (number expected, got nil)", set.message
+    assert_equal "bad argument #-2 to 'Lota::Graphics::TextBatch#add' (number expected, got nil)", added.message
   end
 
   def test_text_is_drawn_where_the_draw_places_it
@@ -303,7 +314,7 @@ class TextBatchTest < Minitest::Test
   FNT
 
   def bmfont_definition
-    Lota::Filesystem::FileData.new(BMFONT, "font.fnt")
+    Lota::Filesystem.new_file_data(BMFONT, "font.fnt").first
   end
 
   # w_newBMFontRasterizer: the definition, then its images.
@@ -337,7 +348,7 @@ class TextBatchTest < Minitest::Test
     assert_raises(TypeError) { Font.new(bmfont_definition, "resources/font-letters-ab.png", "2") }
     assert_raises(ArgumentError) { Font.new(bmfont_definition, "resources/font-letters-ab.png", 1, 2) }
     assert_raises(ArgumentError) { Font.new(bmfont_definition, "resources/font-letters-ab.png", hinting: :mono) }
-    outside = Lota::Filesystem::FileData.new(BMFONT.sub("x=0 y=0", "x=100 y=0"), "outside.fnt")
+    outside = Lota::Filesystem.new_file_data(BMFONT.sub("x=0 y=0", "x=100 y=0"), "outside.fnt").first
     error = assert_raises(RuntimeError) { Font.new(outside, "resources/font-letters-ab.png") }
 
     assert_equal "Invalid coordinates for BMFont character 65.", error.message

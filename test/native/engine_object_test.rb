@@ -68,7 +68,7 @@ class EngineObjectTest < Minitest::Test
     assert_raises(NoMethodError) { Lota::Data::CompressedData.new }
     assert_equal "Font", Lota::Graphics::Font.new(12).object_type
     assert_equal "ImageData", Lota::Image::ImageData.new(2, 2).object_type
-    assert_equal "FileData", Lota::Filesystem::FileData.new("hi", "hi.txt").object_type
+    assert_equal "FileData", Lota::Filesystem.new_file_data("hi", "hi.txt").first.object_type
   end
 
   # w__release (runtime.cpp:170-197) returns whether the object was in use,

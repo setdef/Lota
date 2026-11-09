@@ -14,6 +14,7 @@ require "json"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
+require_relative "../../tasks/lovetest_image"
 
 # lota run, end to end: each test runs the lota executable on a game
 # folder in a Ruby of its own, which opens a real window, as a player's
@@ -79,12 +80,16 @@ class LotaRunTest < Minitest::Test
   # the status given on the command line.
   def test_callbacks_run_in_loves_order_and_the_game_exits_with_its_status
     output, status = lota_run(game("order"), "7")
+    scale = reported_scale(output)
+    units = (320 / scale).round
+    units_high = (200 / scale).round
 
     assert_equal <<~OUTPUT, output
       conf 800x600
       main
       load ["7"] ["#{game('order')}", "7"]
-      window 320x200 Order
+      window #{units}x#{units_high} Order
+      pixels 320x200 scale #{scale}
       text input false
       update Float
       draw
@@ -94,6 +99,32 @@ class LotaRunTest < Minitest::Test
       quit 2
     OUTPUT
     assert_equal 7, status.exitstatus
+  end
+
+  # The scale the order game reports for its 320x200-pixel window: 1.0 on a
+  # display at 100%, and more on a display above it, where LÖVE's
+  # usedpiscale makes a unit smaller than a pixel whatever highdpi says.
+  def reported_scale(output)
+    Float(output[/^pixels 320x200 scale (\S+)$/, 1] || flunk("no pixels line: #{output}"))
+  end
+
+  # test/games/fuse, the game the fuse workflow fuses and runs on every
+  # platform, restarts once, then draws the screen Lövetest's
+  # captureScreenshot test captures and saves a screenshot of it, which
+  # must be Lövetest's expected image by Lövetest's rule. The load path
+  # travels in RUBYOPT, which the restarted process inherits.
+  def test_the_fuse_game_saves_the_screenshot_lovetest_expects
+    load_path = run_load_path.split(File::PATH_SEPARATOR).map { |path| "-I#{path}" }.join(" ")
+    output, status = capture2e({ "RUBYOPT" => load_path }, RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run",
+      game("fuse"))
+
+    assert_equal 3, status.exitstatus, output
+    screenshot = output[/^screenshot: (.*)$/, 1]
+
+    refute_nil screenshot, output
+    expected = LovetestImage.read(File.join(ROOT, "vendor/love/testing/output/expected", LovetestImage::SCREENSHOT))
+
+    assert_empty LovetestImage.differences(LovetestImage.read(screenshot), expected).first(5), output
   end
 
   def test_a_game_that_quits_without_a_status_exits_cleanly
@@ -122,7 +153,10 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_includes output, "load [] []"
-    assert_includes output, "window 320x200 Order"
+    scale = reported_scale(output)
+
+    assert_includes output, "window #{(320 / scale).round}x#{(200 / scale).round} Order"
+    assert_includes output, "pixels 320x200 scale"
   ensure
     reader&.close
   end
@@ -789,6 +823,7 @@ class LotaRunTest < Minitest::Test
         Lota::Event.quit
       end
     RUBY
+    scales = {}
     [true, false].each do |highdpi|
       in_game("conf.rb" => "def Lota.conf(t) = (t.highdpi = #{highdpi})\n", "main.rb" => main) do |directory|
         output, status = lota_run(directory, preload: QUIT_ON_ERROR)
@@ -801,9 +836,14 @@ class LotaRunTest < Minitest::Test
         assert_in_delta width * 0.25, touch.first, 1e-6, "highdpi #{highdpi}: #{output}"
         assert_in_delta pixel_width * 0.25, touch_pixel_x, 1e-6, "highdpi #{highdpi}: #{output}"
         assert_equal (width * scale).round, pixel_width, "highdpi #{highdpi}: #{output}"
-        assert_in_delta 1.0, scale, 1e-9, "a unit is a pixel without high DPI" unless highdpi
+        scales[highdpi] = scale
       end
     end
+    # Without high DPI a unit is a pixel, except where LÖVE's usedpiscale
+    # (on by default, Windows only here) scales the units to the display's
+    # setting whatever highdpi says.
+    expected = Gem.win_platform? ? scales[true] : 1.0
+    assert_in_delta expected, scales[false], 1e-9, "the scale without high DPI"
   end
 
   # LÖVE 12 still honors the deprecated t.window.highdpi: boot.lua passes

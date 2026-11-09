@@ -22,7 +22,7 @@ class AudioSourceTest < Minitest::Test
   end
 
   def click_data
-    Lota::Filesystem::FileData.new(File.binread(File.join(Lovetest::RESOURCES, "clickmono.ogg")), "clickmono.ogg")
+    Lota::Filesystem.new_file_data(File.binread(File.join(Lovetest::RESOURCES, "clickmono.ogg")), "clickmono.ogg").first
   end
 
   def test_a_sound_data_plays_as_a_static_source_with_its_samples

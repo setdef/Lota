@@ -114,6 +114,8 @@ module Lota
     def self.dimensions: () -> Array[Integer]
 
     def self.color=: (Array[Float | Integer] color) -> void
+    private def self.color_components: (Array[Float | Integer] color, String function) -> [Float | Integer, Float | Integer, Float | Integer, Float | Integer]
+    private def self.color_element: (Array[Float | Integer] elements, Integer index, String function) -> (Float | Integer)
 
     def self.color: () -> Array[Float]
 
@@ -179,7 +181,7 @@ module Lota
 
     private def self.alignment: (::Object? value) -> String?
 
-    private def self.colored_text: (text text) -> Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
+    private def self.colored_text: (text text, String function) -> Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
 
     private def self.placement: (Float | Integer x, Float | Integer y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> Array[Float | Integer]
 

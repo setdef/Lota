@@ -148,7 +148,7 @@ module Lovetest
 
   # The resource file +name+, as the FileData LÖVE reads a resource into.
   def self.resource(name)
-    Lota::Filesystem::FileData.new(File.binread(File.join(RESOURCES, name)), name)
+    Lota::Filesystem.new_file_data(File.binread(File.join(RESOURCES, name)), name).first
   end
 
   # Translated to Ruby from Lövetest's TestMethod
@@ -280,8 +280,8 @@ module Lovetest
     def compare_img(imgdata)
       expected_path = File.join(EXPECTED, "love.test.graphics.#{lovetest_method}-#{@imgs}.png")
       begin
-        expected = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(expected_path),
-          File.basename(expected_path)))
+        expected = Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(File.binread(expected_path),
+          File.basename(expected_path)).first)
       rescue => e
         return assert_equal(true, false, e.message)
       end

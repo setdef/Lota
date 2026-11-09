@@ -30,7 +30,7 @@ module Lota
     #
     # === Examples
     #
-    #   data = Lota::Filesystem::FileData.new(File.binread("logo.png"), "logo.png")
+    #   data, = Lota::Filesystem.new_file_data(File.binread("logo.png"), "logo.png")
     #   logo = Lota::Image::ImageData.new(data)
     #   logo.width  # => 64
     #
@@ -83,7 +83,7 @@ module Lota
       #   Lota::Image::ImageData.new(16, 16)
       #   Lota::Image::ImageData.new(1, 1, :rgba8, "\xFF\x00\x00\xFF")
       #   png = File.binread("logo.png")
-      #   Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(png, "logo.png"))
+      #   Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(png, "logo.png").first)
       #   Lota::Image::ImageData.new("assets/logo.png")
       #   file, = Lota::Filesystem.open_file("assets/logo.png", :r)
       #   Lota::Image::ImageData.new(file)

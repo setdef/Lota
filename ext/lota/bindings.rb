@@ -227,8 +227,12 @@ generate "love.filesystem.init"
 generate "love.filesystem.setSource"
 generate "FileData:clone"
 bound_by_hand "love.filesystem.newFileData",
-  reason: "converts its argument through luax_getfiledata; Lota ports Filesystem::newFileData so it need not " \
-    "open PhysicsFS"
+  reason: "converts its argument through luax_getfiledata, which returns nil and a message for a file it cannot " \
+    "read and returns its count of values as a variable (nresults); Lota ports Filesystem::newFileData so it " \
+    "need not open PhysicsFS, and reads a file or a File in Ruby"
+bound_by_hand "love.filesystem.newFile",
+  reason: "LÖVE deprecated it for openFile, which it repeats with a mode that may be left out; Lota::Filesystem." \
+    "new_file marks it deprecated and calls openFile's binding"
 
 generate "love.filesystem.setFused"
 generate "love.filesystem.isFused"
@@ -241,15 +245,15 @@ bound_by_hand "love.filesystem.getInfo",
   reason: "reads its file type at a position it computes (startidx), and fills in a table it is given or makes, " \
     "which the generator does not port; Lota returns the fields, which Lota::Filesystem.info makes a frozen Data"
 bound_by_hand "love.filesystem.read",
-  reason: "reads its arguments at positions it computes (startidx); Lota binds the form that reads into a " \
-    "string"
+  reason: "reads its arguments at positions it computes (startidx), after a container only when a second " \
+    "string follows; Lota::Filesystem.read chooses as it does, and binds both containers"
 bound_by_hand "love.filesystem.load",
   reason: "compiles the file it reads as a Lua chunk (luaL_loadbufferx), which calls back into Lua; Lota " \
     "binds its mode check and its read, and Lota::Filesystem.load compiles the source as Ruby, or loads it as a " \
     "compiled instruction sequence when it is binary"
 bound_by_hand "love.filesystem.write",
-  reason: "returns w_write_or_append, a helper the parser does not follow, which reads a string or any Data " \
-    "(luax_istype); Lota binds the two forms as two functions"
+  reason: "returns w_write_or_append, which reads a string or any Data by its kind (luax_istype); Lota " \
+    "binds the two forms as two functions"
 bound_by_hand "love.filesystem.lines",
   reason: "returns an iterator, a C closure over the open File (w_File_lines_i), which the generator does " \
     "not port; Lota binds the iterator as a class whose next_line Lota::Filesystem.lines enumerates"
@@ -291,8 +295,8 @@ bound_by_hand "love.filesystem.append",
 # love.font
 bound_by_hand "love.font.newRasterizer",
   reason: "chooses among its forms by its arguments' kinds (lua_type), calling w_newTrueTypeRasterizer or " \
-    "w_newBMFontRasterizer for two of them; Lota::Font::Rasterizer.new chooses as it does, and Lota binds " \
-    "the form with a file alone"
+    "w_newBMFontRasterizer for two of them; Lota::Font::Rasterizer.new chooses as it does, and binds all " \
+    "three forms"
 bound_by_hand "love.font.newTrueTypeRasterizer",
   reason: "chooses between the default font and a font in data by its first argument's kind, and reads its " \
     "settings as a string or a table at a position that depends on that (luax_checktruetypesettings); Lota " \

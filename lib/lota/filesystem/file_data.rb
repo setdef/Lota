@@ -19,46 +19,23 @@ module Lota
     #
     # Use it to decode an image you read yourself, or one you built in
     # memory. It is a Data, so it inherits from Lota::Data, whose #size and
-    # #string give its bytes back.
+    # #string give its bytes back. Lota::Filesystem.new_file_data makes one.
     #
     # === Examples
     #
     #   png = File.binread("player.png")
-    #   data = Lota::Filesystem::FileData.new(png, "player.png")
+    #   data, = Lota::Filesystem.new_file_data(png, "player.png")
     #   image = Lota::Image::ImageData.new(data)
     #
     #   # The name matters only for its extension.
-    #   Lota::Filesystem::FileData.new(png, "anything.png")
+    #   Lota::Filesystem.new_file_data(png, "anything.png")
     class FileData < Data
-      # Its +new+, the constructor love.filesystem.newFileData becomes
-      # (rule 2 of doc/contributors/design/translation.md), which Lota::Object
-      # leaves private.
-      public_class_method :new
-
       # Wraps a FileData the engine made, such as one
       # Lota::Image::ImageData#encode returns. :nodoc:
       private_class_method def self.from_native(native)
         file_data = allocate
         file_data.instance_variable_set(:@native, native)
         file_data
-      end
-
-      # Copies +contents+ into a new FileData named +name+, matching
-      # love.filesystem.newFileData(contents, name)
-      # (src/modules/filesystem/wrap_Filesystem.cpp, w_newFileData).
-      #
-      # [contents] String of the file's bytes, copied as they are.
-      # [name] String, the file's name, such as <tt>"player.png"</tt>.
-      #
-      # LÖVE also takes a filename alone, and reads the file through
-      # love.filesystem. Lota does not bind that form yet; read the bytes
-      # with File.binread instead.
-      #
-      # === Example
-      #
-      #   Lota::Filesystem::FileData.new(File.binread("hit.png"), "hit.png")
-      def initialize(contents, name)
-        @native = Native::Filesystem.new_file_data(contents, name)
       end
 
       # Makes this FileData, a copy of +source+ by Ruby's +clone+ or
@@ -80,7 +57,7 @@ module Lota
       #
       # === Example
       #
-      #   Lota::Filesystem::FileData.new("hi", "note.txt").filename # => "note.txt"
+      #   Lota::Filesystem.new_file_data("hi", "note.txt").first.filename # => "note.txt"
       def filename
         @native.filename
       end
@@ -92,7 +69,7 @@ module Lota
       #
       # === Example
       #
-      #   Lota::Filesystem::FileData.new("hi", "note.txt").extension # => "txt"
+      #   Lota::Filesystem.new_file_data("hi", "note.txt").first.extension # => "txt"
       def extension
         @native.extension
       end
