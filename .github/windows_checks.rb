@@ -365,8 +365,6 @@ module WindowsChecks
       "with those systems' tools and paths; on Windows the build job's steps and this file build and check",
     "test/native/bundle_test.rb" => "it reads rpaths and dynamic symbols, which Windows has none of; " \
       "the closure and load checks read the extension's DLLs instead",
-    "test/rubocop_test.rb" => "it needs RuboCop, which is in the Gemfile, whose bundle the Windows jobs do not install; " \
-      "the cop reads Ruby source alike on every system, and the macOS and Linux gates run it",
   }.freeze
 
   # How long a file of tests may run, in seconds.

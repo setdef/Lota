@@ -341,11 +341,14 @@ jobs:
             ruby .github/windows_checks.rb mesa "$(cygpath -m "$RUNNER_TEMP/mesa/x64")"
           fi
 
-      # What the tests need beside Ruby's own gems: Minitest, and the
+      # What the tests need beside Ruby's own gems: Minitest, RuboCop, at
+      # the version Gemfile.lock locks, since lib/lota/rubocop.rb ships in
+      # every platform's gem for a game's own RuboCop to load, and the
       # desktop input lock, from its tag, as the Gemfile takes it.
       - name: Install the tests' gems
         run: |
           gem install minitest -v '~> 6.0' --no-document
+          gem install rubocop -v "$(ruby -e 'print File.read("Gemfile.lock")[/^    rubocop \(([^)]+)\)/, 1]')" --no-document
           git clone --quiet --depth 1 --branch v0.2.0 https://github.com/setdef/DesktopInputLock.git "$RUNNER_TEMP/desktop_input_lock"
           (cd "$RUNNER_TEMP/desktop_input_lock" && gem build --quiet ./*.gemspec && gem install --local --no-document ./*.gem)
 

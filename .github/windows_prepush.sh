@@ -24,6 +24,9 @@ step() { echo "== $1 ($(( $(date +%s) - started ))s)"; }
 step "the tests' gems"
 gem list --installed rice --version 4.12.0 > /dev/null || gem install rice --version 4.12.0 --no-document
 gem list --installed minitest --version '~> 6.0' > /dev/null || gem install minitest --version '~> 6.0' --no-document
+# RuboCop at the version Gemfile.lock locks, for lib/lota/rubocop.rb's tests.
+rubocop=$(ruby -e 'print File.read("Gemfile.lock")[/^    rubocop \(([^)]+)\)/, 1]')
+gem list --installed rubocop --version "$rubocop" > /dev/null || gem install rubocop --version "$rubocop" --no-document
 if ! gem list --installed desktop_input_lock --version 0.2.0 > /dev/null; then
   lock=$(mktemp -d)
   git clone --quiet --depth 1 --branch v0.2.0 https://github.com/setdef/DesktopInputLock.git "$lock"
