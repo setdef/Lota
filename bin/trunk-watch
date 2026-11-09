@@ -7,25 +7,38 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# A tool for anyone keeping trunk green. It checks the trunk's GitHub
-# Actions runs every few minutes, runs again those that failed only
-# because a download or a runner broke, and exits non-zero, printing the
-# run and its first errors, when a run is red for any other reason, so
-# whoever runs it in the background is woken. It exits 0 on SIGINT or
-# SIGTERM. Needs the GitHub CLI (gh), logged in.
+# A tool for anyone keeping trunk green, and trunk's automatic revert. It
+# checks the trunk's GitHub Actions runs every few minutes. A run that
+# failed only because a download or a runner broke is run again. Any
+# other failure has its failed jobs run again once; if the run then
+# passes, it prints that a flaky test is likely. If the run is still
+# red and exactly one commit lies between the last fully green trunk
+# commit and the red one, it reverts that commit in a scratch clone it
+# creates and removes (never your working copy), pushes the revert to
+# trunk (never forced), prints "REVERTED sha (run ID)", and exits 1. In
+# any unclear case (several commits, a merge commit, a conflict) it
+# reverts nothing, prints "TRUNK RED", the commit range, and the first
+# errors, and exits 1. Either way whoever runs it in the background is
+# woken. It exits 0 on SIGINT or SIGTERM. Needs the GitHub CLI (gh),
+# logged in, and git able to push to origin.
 #
-#   bin/trunk-watch [--interval SECONDS] [FLOOR_RUN_ID]
+#   bin/trunk-watch [--interval SECONDS] [--no-revert] [FLOOR_RUN_ID]
 #
 # FLOOR_RUN_ID skips runs with that id or lower, the ones already dealt
-# with. SECONDS is 180 by default.
+# with. SECONDS is 180 by default. --no-revert never reruns for flakiness
+# or reverts: any failure other than an outage stops the watch.
 
 require "optparse"
 require "open3"
+require "tmpdir"
+require "fileutils"
 require_relative "../tasks/trunk_watch"
 
 interval = 180
-parser = OptionParser.new("usage: bin/trunk-watch [--interval SECONDS] [FLOOR_RUN_ID]") do |opts|
+revert = true
+parser = OptionParser.new("usage: bin/trunk-watch [--interval SECONDS] [--no-revert] [FLOOR_RUN_ID]") do |opts|
   opts.on("--interval SECONDS", Integer, "seconds between checks (180)") { |seconds| interval = seconds }
+  opts.on("--[no-]revert", "revert the one commit that broke trunk (revert)") { |value| revert = value }
 end
 floor = Integer(parser.parse!.first || 0)
 
@@ -37,6 +50,29 @@ end
 repository = gh.call("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner")&.strip
 abort "bin/trunk-watch: gh cannot name this repository" if repository.nil? || repository.empty?
 
+scratch = nil
+at_exit { FileUtils.remove_entry(scratch) if scratch }
+
+# Runs git in a scratch clone of origin that this process owns, made on
+# first use, so that the working copy is never touched.
+git = lambda do |*args|
+  env = { "GIT_TERMINAL_PROMPT" => "0" }
+  unless scratch
+    url, _error, status = Open3.capture3("git", "remote", "get-url", "origin")
+    return nil unless status.success?
+
+    dir = Dir.mktmpdir("trunk-watch-")
+    _output, _error, status = Open3.capture3(env, "git", "clone", "--quiet", "--no-tags", "--single-branch", "--branch", "trunk", url.strip, dir)
+    unless status.success?
+      FileUtils.remove_entry(dir)
+      return nil
+    end
+    scratch = dir
+  end
+  output, _error, status = Open3.capture3(env, "git", "-C", scratch, *args)
+  output if status.success?
+end
+
 %w[INT TERM].each { |signal| trap(signal) { exit 0 } }
 
-exit 1 if TrunkWatch.new(repository:, gh:, floor:, interval:).run
+exit 1 if TrunkWatch.new(repository:, gh:, git: (git if revert), floor:, interval:).run
