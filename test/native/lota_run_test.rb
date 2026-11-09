@@ -8,6 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../lovetest/unseen_desktop"
+require_relative "../lovetest/lovetest_skips"
 require_relative "../lovetest/held_foreground"
 require "json"
 require "rbconfig"
@@ -154,9 +155,8 @@ class LotaRunTest < Minitest::Test
     runs = Dir[File.join(ROOT, "test/lovetest/tests/*.rb")].sum { |file| File.read(file).scan(/^\s*def test_\w+/).size }
     # Lövetest skips its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
-    # manager (test/lovetest/tests/window.rb), seven tests beside the seven
-    # it always skips.
-    on_linux_runner = ENV["GITHUB_ACTIONS"] == "true" && TestHome::LINUX
+    # manager (test/lovetest/tests/window.rb), beside those it always
+    # skips; LovetestSkips counts both from the tests.
     EngineHelper.open_window
     supported = Lota::Graphics.supported
     # Its ShaderStorageBuffer test skips where the renderer lacks GLSL 4.
@@ -169,7 +169,7 @@ class LotaRunTest < Minitest::Test
     # On a desktop macOS does not draw, the isOccluded test skips
     # (test/lovetest/unseen_desktop.rb), and on a Windows desktop whose
     # foreground is held, the setGrabbed test (test/lovetest/held_foreground.rb).
-    skips = HeldForeground.skips(UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) +
+    skips = HeldForeground.skips(UnseenDesktop.skips(LovetestSkips.expected + (supported.glsl4 ? 0 : 1) +
       (sensors.zero? ? 3 : 0)))
 
     assert_predicate status, :success?, output

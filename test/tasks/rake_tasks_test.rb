@@ -7,6 +7,7 @@
 
 require_relative "tree_helper"
 require_relative "../lovetest/unseen_desktop"
+require_relative "../lovetest/lovetest_skips"
 require "rake"
 
 # Loads the repository's Rakefile and runs the engine and C++ tasks that
@@ -287,7 +288,7 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    skips = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 17 : 10)
+    skips = UnseenDesktop.skips(LovetestSkips.expected)
     assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
     refute_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
@@ -353,14 +354,15 @@ class RakeTasksTest < Minitest::Test
   end
 
   # rake test runs the sanitized suite through this test, so every line of
-  # test:native runs in the gate. Its ten skips are Lövetest's discard,
+  # test:native runs in the gate. Its skips, counted from the tests
+  # (test/lovetest/lovetest_skips.rb), are Lövetest's discard,
   # requestAttention, showMessageBox, openURL, vibrate, pump, and wait
   # tests, which Lövetest skips everywhere (test/lovetest/tests/graphics.rb,
   # window.rb, system.rb, and event.rb), its getSource, setSource, and
   # RecordingDevice tests, the last of which skips where OpenAL Soft plays
   # into the wave writer, as the suite's does everywhere
   # (test/lovetest/tests/filesystem.rb and audio.rb), and, on a GitHub
-  # runner on Linux, seven window tests more (window.rb). Off Linux, the
+  # runner on Linux, the window tests xvfb cannot pass (window.rb). Off Linux, the
   # sanitizers' own LeakSanitizer test skips, as LeakSanitizer runs at exit
   # on Linux only (test/sanitizers/sanitizer_test.rb). Lövetest's
   # isEnabled, getName, and getData sensor tests skip too where the machine
@@ -379,8 +381,7 @@ class RakeTasksTest < Minitest::Test
     assert_nil failure, "#{failure&.message}\n#{out}\n#{reported(err)}"
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
-    skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 17 : 10
-    skips = UnseenDesktop.skips(skips + (TestHome::LINUX ? 0 : 1) + (sensorless ? 3 : 0))
+    skips = UnseenDesktop.skips(LovetestSkips.expected + (TestHome::LINUX ? 0 : 1) + (sensorless ? 3 : 0))
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end

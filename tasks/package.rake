@@ -9,6 +9,7 @@ require "fileutils"
 require_relative "native_gem"
 require_relative "package_check"
 require_relative "../test/lovetest/unseen_desktop"
+require_relative "../test/lovetest/lovetest_skips"
 
 # What the bundle compiles against from LÖVE's dependencies but does not
 # carry as code of its own, on each platform (NativeGem): their headers,
@@ -67,7 +68,7 @@ PACKAGE_GAME = PackageCheck::Game.new(
 # gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0
 # only when every test passed; the output rules out a run of no tests.
-LOVETEST_SKIPS = UnseenDesktop.skips((ENV["GITHUB_ACTIONS"] == "true" && RUBY_PLATFORM.include?("linux")) ? 17 : 10)
+LOVETEST_SKIPS = UnseenDesktop.skips(LovetestSkips.expected)
 
 LOVETEST_GAME = PackageCheck::Game.new(
   name: "test/lovetest/game",
@@ -75,14 +76,15 @@ LOVETEST_GAME = PackageCheck::Game.new(
   files: {},
   gems: ["minitest"],
   arguments: [],
-  # Its ten skips are Lövetest's discard, requestAttention,
-  # showMessageBox, openURL, vibrate, pump, wait, getSource, and setSource
-  # tests, which Lövetest skips everywhere (test/lovetest/tests/
-  # graphics.rb, window.rb, system.rb, event.rb, and filesystem.rb), and
-  # its RecordingDevice test, which skips where OpenAL Soft cannot record,
-  # as through the null driver here (SILENT, test/lovetest/tests/
-  # audio.rb), and, on a GitHub runner on Linux, seven
-  # window tests more (window.rb), and, on a desktop macOS does not draw,
+  # Its skips, counted from the tests (test/lovetest/lovetest_skips.rb),
+  # are Lövetest's discard, requestAttention, showMessageBox, openURL,
+  # vibrate, pump, wait, getSource, and setSource tests, which Lövetest
+  # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,
+  # system.rb, event.rb, and filesystem.rb), and its RecordingDevice
+  # test, which skips where OpenAL Soft cannot record, as through the null
+  # driver here (SILENT, test/lovetest/tests/audio.rb), and, on a GitHub
+  # runner on Linux, the window tests xvfb cannot pass (window.rb), and,
+  # on a desktop macOS does not draw,
   # the isOccluded test (test/lovetest/unseen_desktop.rb). Its isEnabled,
   # getName, and getData sensor tests skip together where the machine has
   # neither an accelerometer nor a gyroscope (test/lovetest/tests/
