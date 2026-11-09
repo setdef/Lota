@@ -319,12 +319,22 @@ Rice::Array names_of(const std::vector<std::string> &list) {
 // an ALC error, and lists a device named "" although its own comment says
 // to return an empty list (openal/Audio.cpp:573-591; upstream/009.md).
 // Only a device with an empty name, while OpenAL lists no capture device
-// to open, is that one.
+// to open, is that one. On iOS, OpenAL is Apple's framework, as in LÖVE's
+// iOS build, which marks alcGetString deprecated since iOS 13; LÖVE calls
+// it there too (openal/Audio.cpp:105), and the extension's -Werror would
+// otherwise stop the build.
 bool invented_recording_device(RecordingDevice &device) {
   if (*device.getName() != '\0') {
     return false;
   }
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
   const ALCchar *capture = alcGetString(nullptr, ALC_CAPTURE_DEVICE_SPECIFIER);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
   return capture == nullptr || *capture == '\0';
 }
 
