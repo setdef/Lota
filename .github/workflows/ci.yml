@@ -70,10 +70,11 @@ on:
 permissions:
   contents: read
 
-# A trunk run is never cancelled, so every release candidate on trunk
-# finishes and can be tagged; a branch run gives way to a newer push.
+# Each trunk commit gets a run of its own that is never cancelled and
+# never waits for another, so every commit on trunk is proven; a branch
+# run gives way to a newer push.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && format('-{0}', github.sha) || '' }}
   cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 defaults:
