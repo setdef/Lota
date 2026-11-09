@@ -9,7 +9,7 @@ Lota ships gems for Windows on x64 and ARM64, for RubyInstaller's Ruby. That Rub
 
 ## Why the gate does not run on Windows
 
-The gate's Bundler would compile gems that RubyInstaller's Ruby has no build of, and its lint, type, and package checks read the same sources on macOS and Linux. So Windows has jobs of its own in `.github/workflows/ci.yml`, which build and test without the gate's Rake tasks. `.github/windows_checks.rb` holds their checks, and the job's steps are the recipe for a Windows build by hand.
+The gate's Bundler would compile gems that RubyInstaller's Ruby has no build of, and its lint, type, and package checks read the same sources on macOS and Linux. So Windows has a workflow of its own, `.github/workflows/windows.yml`, which `ci.yml` calls for x64 and for ARM64, and which builds and tests without the gate's Rake tasks. `.github/windows_checks.rb` holds its checks, and its steps are the recipe for a Windows build by hand.
 
 ## The Windows build job
 
@@ -33,7 +33,7 @@ The **Windows build** job runs once for x64 and once for ARM64:
 
 ## The Windows delivery job
 
-The **Windows delivery** job installs the gem on a runner without MSYS2, with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
+Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner without MSYS2, with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
 
 ## What CI cannot check
 

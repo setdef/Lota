@@ -13,7 +13,7 @@ Lota ships for five desktop platforms and builds for two phone systems, and nobo
 
 - **Gate**, on macOS 15 on Apple Silicon (`macos-15`), and **Gate (x86_64-linux-gnu)** and **Gate (aarch64-linux-gnu)** on Ubuntu 22.04. Each runs `bundle exec rake`, fails if the gate changed a file (its autocorrect would otherwise pass unnoticed), and builds the precompiled gem with `rake package:native` as an artifact.
 - **Delivery**, one for each of those three, which installs that gem on a fresh runner and runs Lövetest from it.
-- **Windows build** and **Delivery** for x64 and ARM64, which build and test the Windows gems without the gate ([windows.md](windows.md)).
+- **Windows build** for x64 and ARM64, which calls `windows.yml` to build and test the Windows gems without the gate, and **Delivery** for each ([windows.md](windows.md)).
 - **Phones**, which calls `phones.yml`.
 - **iOS kit** and **iOS kit, called as a game's CI calls it**, which call `ios-kit.yml` and `ios-kit-caller.yml`.
 - **Fuse**, which calls `fuse.yml` with the gems this run built, once they are built.
@@ -98,7 +98,7 @@ bin/trunk-watch [--interval SECONDS] [--no-revert] [FLOOR_RUN_ID]
 
 - A run whose every error is a download or a runner breaking, such as a curl failure, an HTTP 5xx, or a lost runner, runs again, up to its third attempt. `TrunkWatch::OUTAGE` in `tasks/trunk_watch.rb` lists the outages it knows.
 - Any other failure has its failed jobs run again once, so a flaky test cannot revert a good commit. If that passes, the watch prints that it passed on rerun, a likely flaky test worth fixing, and goes on.
-- A run still red after its rerun sends the watch looking for the commits between the last fully green trunk commit and the red one. If there is exactly one, and it is not a merge, the watch reverts it in a scratch clone of its own, never your working copy, pushes the revert to trunk without force, prints `REVERTED sha (run ID)`, and exits 1, so whoever ran it in the background is woken to tell the commit's author.
+- A run still red after its rerun sends the watch looking for the commits between the last commit the red run's own workflow passed on and the red one, so a workflow cancelled on an older commit does not hide the culprit. If there is exactly one, and it is not a merge, the watch reverts it in a scratch clone of its own, never your working copy, pushes the revert to trunk without force, prints `REVERTED sha (run ID)`, and exits 1, so whoever ran it in the background is woken to tell the commit's author.
 - With several commits, a merge, a conflict, or an outage that will not clear, it reverts nothing. It prints `TRUNK RED` with the run, the commit range, and the first errors, and exits 1, and someone bisects.
 
 `--no-revert` reruns nothing and reverts nothing: any failure that is not an outage stops the watch with `TRUNK RED`. The watch exits 0 on SIGINT or SIGTERM. Its decisions are pure functions in `tasks/trunk_watch.rb` (`classify` and `plan`), tested with recorded `gh` and `git` output.
