@@ -176,6 +176,36 @@ Rice::Array read(const std::string &filename, long long size) {
   return results;
 }
 
+// w_load up to its call into Lua (wrap_Filesystem.cpp:746-775): checks
+// +mode+, LÖVE's load mode ("bt" when it is not given), before anything
+// is read, then reads all of +filename+ through the filesystem, and
+// returns the file's contents and the mode's name, which LÖVE passes on
+// to luaL_loadbufferx, as one Array, or luax_ioError's nil and message
+// when it cannot read the file (ADR 001, rule 4). Lua compiles the
+// chunk; Ruby compiles Lota's (Lota::Filesystem.load).
+Rice::Array load(const std::string &filename, const std::optional<std::string> &mode) {
+  using love::filesystem::Filesystem;
+  Filesystem::LoadMode load_mode = Filesystem::LOADMODE_ANY;
+  if (mode.has_value() && !Filesystem::getConstant(mode->c_str(), load_mode)) {
+    raise_enum_error("load mode", Filesystem::getConstants(load_mode), *mode);
+  }
+
+  FileData *data = nullptr;
+  try {
+    data = filesystem()->read(filename.c_str());
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+
+  const love::StrongRef<FileData> held(data, love::Acquire::NORETAIN);
+  const char *mode_name = nullptr;
+  Filesystem::getConstant(load_mode, mode_name);
+  Rice::Array results;
+  results.push(std::string(static_cast<const char *>(data->getData()), data->getSize()), false);
+  results.push(std::string(mode_name), false);
+  return results;
+}
+
 // The number of bytes to write of an input that holds +length+: +size+,
 // or all of it when +size+ is not given. LÖVE writes +size+ bytes
 // whatever +length+ is, reading past the input for a larger size; Lota
@@ -552,6 +582,8 @@ void define_filesystem(const Rice::Module &native) {
       .define_singleton_function("info", &info, Rice::Arg("filepath"),
                                  Rice::Arg("filtertype") = std::optional<std::string>())
       .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL)
+      .define_singleton_function("load", &load, Rice::Arg("filename"),
+                                 Rice::Arg("mode") = std::optional<std::string>())
       .define_singleton_function("write_string", &write_string, Rice::Arg("filename"),
                                  Rice::Arg("contents"),
                                  Rice::Arg("size") = std::optional<long long>())

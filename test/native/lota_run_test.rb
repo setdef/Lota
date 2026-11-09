@@ -162,7 +162,7 @@ class LotaRunTest < Minitest::Test
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
     skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX && !TestHome::WINDOWS
-    assertions = skipped ? 91160 - (3 * 32 * 32) + 1 : 91160
+    assertions = skipped ? 91166 - (3 * 32 * 32) + 1 : 91166
     # Its mountCommonPath test mounts the desktop folder except on Linux,
     # where it has none (test/lovetest/tests/filesystem.rb).
     assertions -= 1 if TestHome::LINUX
@@ -204,7 +204,7 @@ class LotaRunTest < Minitest::Test
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^351 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
+    assert_match(/^352 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

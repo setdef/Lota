@@ -16,6 +16,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - LÖVE's deprecated forms of `Lota::Physics::CircleShape.new`, `RectangleShape.new`, `PolygonShape.new`, `EdgeShape.new`, and `ChainShape.new` without a Body, and the deprecated `Lota::Physics::Fixture.new`, which attaches a copy of such a Shape to a Body; `Fixture ===` is true of every Shape.
 - `Lota::Data#pointer`, `Lota::Data#ffi_pointer`, and `Lota::Window.pointer`, each a `Fiddle::Pointer` to the address LÖVE gives Lua, the Data's sized as the Data is; they need `gem "fiddle"` in the game's Gemfile, which Lota does not depend on.
 - `Lota::Mouse.global_position`, `Lota::Sound::Decoder#seek`, and `Lota::Filesystem.open_native_file`, matching `love.mouse.getGlobalPosition`, `Decoder:seek`, and `love.filesystem.openNativeFile`.
+- `Lota::Filesystem.load(name, mode = nil)`, matching `love.filesystem.load`: reads a file of Ruby through LÖVE's filesystem, raises `SyntaxError` at once for code that does not compile, and returns `[proc]`, whose call runs the code at the top level with its arguments as `ARGV`, or `[nil, message]` for a file it cannot read; mode `:b` refuses Ruby source, which is text.
+- `Lota::Filesystem::File#open` takes a block: when the file opens, it yields the file, closes it afterward, and returns the block's value; otherwise it returns what `open` returns without a block.
 
 ### Fixed
 

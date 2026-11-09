@@ -21,6 +21,14 @@ module Lota
 
     def self.read: (String filename, ?Integer? size) -> ([String, Integer] | [nil, String])
 
+    def self.load: (String name, ?(Symbol | String)? mode) -> ([Proc] | [nil, String])
+
+    private def self.compile: (String source, String name) -> RubyVM::InstructionSequence
+
+    private def self.chunk: (RubyVM::InstructionSequence code) -> Proc
+
+    WRONG_MODE: String
+
     def self.open_file: (String filename, Symbol | String mode) -> ([File] | [nil, String])
 
     def self.open_native_file: (String path, Symbol | String mode) -> ([File] | [nil, String])
@@ -89,4 +97,8 @@ module Lota
 
     def self.c_require_path=: (String path) -> void
   end
+end
+
+class RubyVM::InstructionSequence
+  def self.compile: (String source, ?String file, ?String path, ?Integer line) -> RubyVM::InstructionSequence
 end

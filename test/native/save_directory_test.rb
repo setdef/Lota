@@ -209,4 +209,140 @@ class SaveDirectoryTest < Minitest::Test
     assert_kind_of String, message
     refute_empty message
   end
+
+  # Rule 11: open's block form is LÖVE's if file:open("r") then ...
+  # file:close() end, so it yields the open File, closes it after, and
+  # returns what the block returns, as push's block form does.
+  def test_open_with_a_block_yields_the_open_file_closes_it_and_returns_the_blocks_value
+    saved("scores.txt", "ada 120")
+    file, = Lota::Filesystem.open_file("scores.txt", :c)
+
+    value = file.open(:r) do |opened|
+      assert_same file, opened
+      assert_predicate file, :open?
+      file.read.first
+    end
+
+    assert_equal "ada 120", value
+    refute_predicate file, :open?
+  end
+
+  def test_open_with_a_block_closes_the_file_when_the_block_raises
+    saved("scores.txt", "ada 120")
+    file, = Lota::Filesystem.open_file("scores.txt", :c)
+
+    assert_raises(ZeroDivisionError) { file.open(:r) { 1 / 0 } }
+    refute_predicate file, :open?
+  end
+
+  # File::open throws for a file to read that does not exist
+  # (physfs/File.cpp:107-109), which w_File_open returns as luax_ioError's
+  # nil and message (wrap_File.cpp:84-91), so the block has no file.
+  def test_open_with_a_block_returns_lovees_nil_and_message_without_yielding_when_it_cannot_open
+    file, = Lota::Filesystem.open_file("missing.txt", :c)
+
+    result = file.open(:r) { flunk "the block ran" }
+
+    assert_equal [nil, "Could not open file missing.txt. Does not exist."], result
+  end
+
+  # File::open returns false for a file already open (physfs/File.cpp:
+  # 115-117): the block form neither yields nor closes the file it did not
+  # open.
+  def test_open_with_a_block_returns_false_for_a_file_already_open_and_leaves_it_open
+    file, = Lota::Filesystem.open_file("scores.txt", :w)
+
+    result = file.open(:w) { flunk "the block ran" }
+
+    assert_equal [false], result
+    assert_predicate file, :open?
+  ensure
+    file&.close
+  end
+
+  # w_load reads the file through LÖVE's filesystem and compiles it without
+  # running it (wrap_Filesystem.cpp:746-800); Lota compiles Ruby, and the
+  # chunk is a Proc that runs it, giving the value of its last expression.
+  def test_load_compiles_a_saved_file_and_runs_it_only_when_called
+    saved("chunk.rb", "Lota::Filesystem.write('ran.txt', 'yes')\n6 * 7\n")
+
+    chunk, message = Lota::Filesystem.load("chunk.rb")
+
+    assert_nil message
+    assert_kind_of Proc, chunk
+    refute Lota::Filesystem.exists("ran.txt")
+    assert_equal 42, chunk.call
+    assert Lota::Filesystem.exists("ran.txt")
+  end
+
+  # A Lua chunk is called with its arguments as ..., as a Ruby file
+  # receives its own as ARGV, which is the process's again after the call,
+  # also when the code raises.
+  def test_load_gives_a_chunk_its_arguments_as_argv_and_puts_the_process_argv_back
+    saved("arguments.rb", "ARGV.dup")
+    saved("raises.rb", "raise ArgumentError, ARGV.inspect")
+    before = ARGV.dup
+
+    assert_equal [1, "two"], Lota::Filesystem.load("arguments.rb").first.call(1, "two")
+    assert_equal [], Lota::Filesystem.load("arguments.rb").first.call
+    error = assert_raises(ArgumentError) { Lota::Filesystem.load("raises.rb").first.call(:three) }
+    assert_equal "[:three]", error.message
+    assert_equal before, ARGV
+  end
+
+  # LÖVE names the chunk after the file (wrap_Filesystem.cpp:777), so
+  # its errors say where they are.
+  def test_load_names_the_file_in_backtraces
+    saved("boom.rb", "def lota_load_test_boom\n  raise 'boom'\nend\nlota_load_test_boom\n")
+
+    error = assert_raises(RuntimeError) { Lota::Filesystem.load("boom.rb").first.call }
+
+    assert_equal ["boom.rb", 2], [error.backtrace_locations.first.path, error.backtrace_locations.first.lineno]
+  ensure
+    Object.__send__(:remove_method, :lota_load_test_boom) if Object.private_method_defined?(:lota_load_test_boom)
+  end
+
+  # The code runs at Ruby's top level, as a file Ruby loads does, so what
+  # it defines is the program's, as a Lua chunk's globals are.
+  def test_load_runs_the_code_at_the_top_level
+    saved("defines.rb", "class LotaLoadTestDefined; end\nself")
+
+    assert_same TOPLEVEL_BINDING.receiver, Lota::Filesystem.load("defines.rb").first.call
+    assert Object.const_defined?(:LotaLoadTestDefined, false)
+  ensure
+    Object.__send__(:remove_const, :LotaLoadTestDefined) if Object.const_defined?(:LotaLoadTestDefined, false)
+  end
+
+  # w_load raises luaL_error's "Syntax error: %s\n" when the chunk does not
+  # compile (wrap_Filesystem.cpp:796-797), at once, before anything runs;
+  # Lota raises Ruby's SyntaxError with that message about Ruby's.
+  def test_load_raises_a_syntax_error_at_once_with_lovees_message
+    saved("broken.rb", "def broken\n")
+
+    error = assert_raises(SyntaxError) { Lota::Filesystem.load("broken.rb") }
+
+    assert_match(/\ASyntax error: broken\.rb:\d+: /, error.message)
+    assert error.message.end_with?("\n")
+  end
+
+  # w_load returns luax_ioError's nil and message when it cannot read the
+  # file (wrap_Filesystem.cpp:760-768).
+  def test_load_returns_nil_and_the_engines_message_for_a_missing_file
+    assert_equal [nil, "Could not open file missing.rb. Does not exist."], Lota::Filesystem.load("missing.rb", :b)
+  end
+
+  # The mode is LÖVE's load mode (Filesystem.cpp:261-267), checked before
+  # the file is read (wrap_Filesystem.cpp:750-758). Ruby source is text,
+  # so "t" and "bt" load it and "b" refuses it, as LuaJIT refuses a text
+  # chunk in mode "b" with a syntax error (lj_load.c, cpparser).
+  def test_load_takes_lovees_load_modes_and_refuses_text_in_binary_mode
+    saved("answer.rb", "42")
+
+    assert_equal 42, Lota::Filesystem.load("answer.rb", :t).first.call
+    assert_equal 42, Lota::Filesystem.load("answer.rb", "bt").first.call
+    error = assert_raises(SyntaxError) { Lota::Filesystem.load("answer.rb", :b) }
+    assert_equal "Syntax error: attempt to load chunk with wrong mode\n", error.message
+    error = assert_raises(ArgumentError) { Lota::Filesystem.load("missing.rb", :x) }
+    assert_equal "Invalid load mode 'x', expected one of: 'b', 't', 'bt'", error.message
+  end
 end

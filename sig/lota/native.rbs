@@ -646,6 +646,8 @@ module Lota
 
       def self.read: (String filename, ?Integer size) -> ([String, Integer] | [nil, String])
 
+      def self.load: (String filename, ?String? mode) -> ([String, String] | [nil, String])
+
       def self.write_string: (String filename, String contents, ?Integer? size) -> ([true] | [nil, String])
 
       def self.write_data: (String filename, Data::Data data, ?Integer? size) -> ([true] | [nil, String])

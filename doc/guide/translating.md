@@ -68,6 +68,10 @@ A function LÖVE keeps to call later takes a block or any object that answers `c
 
 A physics World takes four contact callbacks, more than a method's one block, so it takes them as a writer: `world.callbacks = begin_contact, end_contact, pre_solve, post_solve`, each anything that answers `call`, or `nil`. `world.contact_filter = ->(a, b) { ... }` decides which Shapes collide. Each receives only as many arguments as it declares, as your game's callbacks do.
 
+A pair's block form is the Lua that tests the first call before it makes the second. `file.open(:r) { |f| f.read.first }` is `if file:open("r") then ... file:close() end`: when the file opens, the block gets it, the file closes when the block ends, and the block's value comes back. When the file does not open, the block does not run, and you get what `file.open(:r)` returns, such as `[nil, message]`.
+
+`love.filesystem.load` loads a file of Lua as a function; `Lota::Filesystem.load("level.rb")` loads a file of Ruby as a Proc. It reads the file where LÖVE's filesystem finds it, including the save folder and mounted archives, which `require` does not search. A syntax error raises at once, and the code runs, at the top level, each time you call the Proc. The Proc's arguments are the code's `ARGV`, as a Lua chunk's are its `...`.
+
 ## Objects and types
 
 LÖVE's root types are classes: every engine object is a `Lota::Object`, and every Data, such as an ImageData, SoundData, FileData, or ByteData, is a `Lota::Data` too, as each inherits from Object and Data in LÖVE. `Lota::Data`'s class methods are `love.data`'s, and given the container `:data` they return an object of `Lota::Data` itself, a plain Data with Data's methods, as LÖVE's do. `Lota::Data.hash(:string, :md5, s)` is `love.data.hash`; with no arguments, `Lota::Data.hash` is Ruby's own `Object#hash`. In the same way `Lota::Sensor.name(:accelerometer)` is `love.sensor.getName`, and `Lota::Sensor.name` is Ruby's `Module#name`.

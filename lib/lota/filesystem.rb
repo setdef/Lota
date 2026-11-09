@@ -208,6 +208,91 @@ module Lota
       Native::Filesystem.read(filename, size || -1)
     end
 
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # Loads a file of Ruby code without running it. A game keeps levels,
+    # mods, or settings as code in its save directory or in an archive it
+    # mounts, where +require+, which searches $LOAD_PATH, never looks.
+    # load reads the file through the filesystem, from the save
+    # directory, the game's folder, or anything mounted, compiles it at
+    # once, and returns an Array (ADR 001, rule 4) of a Proc that runs the
+    # code each time it is called, or of +nil+ and LÖVE's message when the
+    # file cannot be read. It matches love.filesystem.load
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_load), which loads a
+    # file of Lua.
+    #
+    # [name] String path of the file, which backtraces name, as LÖVE
+    #   names a chunk after its file.
+    # [mode] LÖVE's load mode: +:t+ for text, +:b+ for binary, or +:bt+
+    #   for either, which it is when +nil+ or left out (ADR 001, rule 9).
+    #
+    # The code runs at Ruby's top level, as a file Ruby loads does, so the
+    # classes and methods it defines are the program's, and the Proc
+    # returns the value of its last expression. A Lua chunk takes the
+    # arguments it is called with as <tt>...</tt>, as a Ruby file takes
+    # its own as ARGV, so while the Proc runs ARGV holds the arguments it
+    # was called with, and afterward the program's own again.
+    #
+    # Ruby code is text, so +:b+, which LuaJIT gives only binary chunks,
+    # refuses every file it can read, with LuaJIT's message for a chunk of
+    # the wrong mode. Raises SyntaxError, with LÖVE's message, for code
+    # that does not compile, or in that mode, and ArgumentError for a mode
+    # LÖVE does not know, before it reads the file.
+    #
+    # === Examples
+    #
+    #   Lota::Filesystem.write("level.rb", "ARGV.first * 2")
+    #   level, = Lota::Filesystem.load("level.rb")
+    #   level.call(21) # => 42
+    #   Lota::Filesystem.load("missing.rb") # => [nil, "Could not open file missing.rb. Does not exist."]
+    def self.load(name, mode = nil)
+      source, mode_name = Native::Filesystem.load(name, mode && EnumName.of(mode))
+      return [nil, mode_name] unless source
+
+      # w_load raises luaL_error's message for a chunk Lua refuses as a
+      # syntax error (wrap_Filesystem.cpp:796-797).
+      raise SyntaxError, "Syntax error: #{WRONG_MODE}\n" unless mode_name.include?("t")
+
+      [chunk(compile(source, name))]
+    end
+
+    # +source+ compiled as the file +name+, or LÖVE's SyntaxError
+    # (wrap_Filesystem.cpp:796-797) with Ruby's message. Ruby reads a file
+    # of code as UTF-8 unless a magic comment says otherwise. :nodoc:
+    private_class_method def self.compile(source, name)
+      RubyVM::InstructionSequence.compile(source.force_encoding(Encoding::UTF_8), name)
+    rescue SyntaxError => e
+      raise SyntaxError, "Syntax error: #{e.message}\n"
+    end
+
+    # SPDX-SnippetEnd
+
+    # A Proc that runs +code+ at the top level with ARGV holding the
+    # Proc's arguments, and gives the program's ARGV back after. :nodoc:
+    private_class_method def self.chunk(code)
+      lambda do |*arguments|
+        argv = ARGV.dup
+        ARGV.replace(arguments)
+        begin
+          code.eval
+        ensure
+          ARGV.replace(argv)
+        end
+      end
+    end
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2005-2026 Mike Pall
+    # SPDX-License-Identifier: MIT
+
+    # LuaJIT's message for a chunk its load mode refuses (v2.1,
+    # src/lj_errmsg.h:115, raised by cpparser in src/lj_load.c:36-48). :nodoc:
+    WRONG_MODE = "attempt to load chunk with wrong mode"
+
+    # SPDX-SnippetEnd
+
     # Opens +filename+ in +mode+, matching love.filesystem.openFile
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_openFile), and
     # returns an Array of the Lota::Filesystem::File (ADR 001, rule 4), or

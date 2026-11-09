@@ -8,10 +8,9 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.filesystem tests (vendor/love/testing/tests/
-# filesystem.lua), translated to Ruby by ADR 001's rules, all but that of
-# love.filesystem.load, which loads a Lua chunk and has no Ruby
-# translation yet. Like the graphics tests, they run in the test suite's
-# own process (test/lovetest/filesystem_test.rb) and under lota run
+# filesystem.lua), translated to Ruby by ADR 001's rules. Like the
+# graphics tests, they run in the test suite's own process
+# (test/lovetest/filesystem_test.rb) and under lota run
 # (test/lovetest/game). The tests that write files write them to the
 # runner's save directory, in the test's own home (test/test_helper.rb).
 class FilesystemTest < Lovetest::TestMethod
@@ -287,6 +286,58 @@ class FilesystemTest < Lovetest::TestMethod
 
   def test_set_source
     skip("used internally")
+  end
+
+  # Translated to Ruby from love.test.filesystem.load (filesystem.lua:
+  # 320-352): load's chunk and message are an Array (rule 4), its modes
+  # symbols (rule 9), and its chunk a Proc, which call runs where Lua calls
+  # the function. The Lua files become Ruby files, as main.lua becomes
+  # main.rb (ADR 003, section 1), each written as the Ruby of its Lua: a
+  # global function test becomes a method test at the top level, and the
+  # chunk's return of test() its last expression, the value of a Ruby
+  # file's code. Lota compiles Ruby, which honors the load modes as LuaJIT
+  # does, so the translation takes Lövetest's branch for Lua 5.2 and
+  # LuaJIT, and Lua's pcall becomes a rescue of SyntaxError, which Ruby
+  # raises for code that does not compile. The method test, like Lua's
+  # global, outlives the test, where it would hide Kernel#test from every
+  # object in the process, so the translation removes it. Under ruby -w,
+  # as the suite runs, Ruby warns where Lua is silent, of test defined a
+  # second time and of the code after test2.rb's return, so the
+  # translation turns warnings off for the test.
+  def test_load
+    verbose = $VERBOSE
+    $VERBOSE = nil
+    # setup some fake lua files
+    Lota::Filesystem.write("test1.rb", "def test\nreturn 1\nend\ntest")
+    Lota::Filesystem.write("test2.rb", "def test\nreturn 1")
+
+    # check file that doesn't exist
+    chunk1, _errormsg1 = Lota::Filesystem.load("faker.rb", :b)
+    assert_nil(chunk1, "check file doesnt exist")
+    # check valid lua file (text load)
+    chunk2, errormsg2 = Lota::Filesystem.load("test1.rb", :t)
+    assert_nil(errormsg2, "check no error message")
+    assert_equal(1, chunk2.call, "check lua file runs")
+
+    # check valid lua file (any load)
+    chunk5, errormsg5 = Lota::Filesystem.load("test1.rb", :bt)
+    assert_nil(errormsg5, "check no error message")
+    assert_equal(1, chunk5.call, "check lua file runs")
+
+    # check invalid lua file
+    ok = begin
+      Lota::Filesystem.load("test2.rb")
+      true
+    rescue SyntaxError
+      false
+    end
+    assert_false(ok, "check invalid lua file")
+    # cleanup
+    Lota::Filesystem.remove("test1.rb")
+    Lota::Filesystem.remove("test2.rb")
+  ensure
+    $VERBOSE = verbose
+    Object.__send__(:remove_method, :test) if Object.private_method_defined?(:test, false)
   end
 
   # Translated to Ruby from love.test.filesystem.mount and

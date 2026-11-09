@@ -35,21 +35,33 @@ module Lota
 
       # Opens the file in +mode+, matching File:open
       # (src/modules/filesystem/wrap_File.cpp, w_File_open), and returns an
-      # Array of whether it opened, or of +nil+ and LÖVE's message, as when
-      # a file to read does not exist (rule 4).
+      # Array (rule 4) of +true+ when it opened, of +false+ when the file
+      # was open already, or of +nil+ and LÖVE's message when it cannot
+      # open, as when a file to read does not exist.
       #
       # [mode] +:r+, +:w+, +:a+, or +:c+.
       #
-      # LÖVE pairs open with close, which rule 11 would give a block form;
-      # it waits for the maintainer, since an open that fails has no file
-      # to give the block. Raises ArgumentError for a mode LÖVE does not
-      # know.
+      # With a block, it is LÖVE's <tt>if file:open("r") then ...
+      # file:close() end</tt> (rule 11): when the file opens, it gives the
+      # block the File, closes the file once the block is done, also when
+      # the block raises, and returns what the block returns; otherwise it
+      # gives the block nothing and returns what it returns without one.
+      # Raises ArgumentError for a mode LÖVE does not know.
       #
-      # === Example
+      # === Examples
       #
       #   file.open(:r) # => [true]
+      #   file.open(:r) { |f| f.read.first } # => "ada 120\n"
+      #   missing.open(:r) { |f| f.read.first } # => [nil, "Could not open file missing.txt. Does not exist."]
       def open(mode)
-        @native.open(EnumName.of(mode))
+        opened = @native.open(EnumName.of(mode))
+        return opened unless block_given? && opened.first
+
+        begin
+          yield self
+        ensure
+          close
+        end
       end
 
       # Closes the file, matching File:close
