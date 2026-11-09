@@ -6,6 +6,7 @@
 #++
 
 require_relative "../test_helper"
+require "io/nonblock"
 
 # The test-only extension (ext/lota/native_test) is never copied into lib;
 # it stays in the build tree that compiled it. It goes last on the load
@@ -71,9 +72,18 @@ module NativeHelper
   # start a process on macOS and Linux, so there the test extension starts
   # it with posix_spawn (LotaNativeTest.spawn); Windows has no fork, and
   # Ruby starts it there itself (WindowsSupport.spawn).
+  #
+  # Ruby makes every pipe non-blocking (IO#nonblock? is true for both ends
+  # of IO.pipe), and a descriptor posix_spawn duplicates into the child
+  # shares that flag with +output+. A child writing to a full non-blocking
+  # pipe gets EAGAIN, and a program such as ldconfig drops what it could
+  # not write and still exits 0, so a parent slow to read sees its output
+  # cut off at the pipe's capacity. The child gets a blocking pipe, as a
+  # program expects of its standard output.
   def self.spawn(command, output, variables)
     return WindowsSupport.spawn(command, output, variables) if TestHome::WINDOWS
 
+    output.nonblock = false
     LotaNativeTest.spawn(command, output.fileno, variables)
   end
 
