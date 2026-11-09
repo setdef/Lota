@@ -38,10 +38,20 @@
 #   after downloading the source archives the gem carries.
 # [deliver GEM...] Installs the precompiled gems into an empty GEM_HOME
 #   and runs lota from them, as rake package:deliver does.
+# [mesa BIN] Copies Mesa's OpenGL from the MSYS2 directory BIN beside
+#   Ruby's own program, where Windows looks first for the opengl32.dll SDL
+#   loads by name, ahead of System32's, whose OpenGL 1.1 LÖVE refuses:
+#   opengl32.dll, its driver libgallium_wgl.dll, and every DLL of BIN
+#   either needs, but none Ruby has already.
+# [tests LOGS] Runs each file of the tests rake test runs (TEST_SUITES in
+#   tasks/test.rake), but those WINDOWS_EXCLUDED leaves out, in a Ruby of
+#   its own, as Minitest's task does, each within TEST_BUDGET seconds,
+#   keeps what each printed in LOGS, and passes only if every file passed.
 #
-# The last two load tasks/package.rake without Bundler, whose Gemfile
-# holds gems RubyInstaller's Ruby would have to compile.
+# package, deliver, and tests load tasks/*.rake without Bundler, whose
+# Gemfile holds gems RubyInstaller's Ruby would have to compile.
 
+require "fileutils"
 require "json"
 require "open3"
 require "rbconfig"
@@ -292,6 +302,105 @@ module WindowsChecks
     Dir.chdir(ROOT)
     # Kernel's load, which the load check's name hides here.
     %w[engine package].each { |name| Kernel.load(File.join(ROOT, "tasks/#{name}.rake")) }
+  end
+
+  def mesa(bin)
+    target = RbConfig::CONFIG["bindir"]
+    objdump = %w[objdump llvm-objdump].find { |tool| system(tool, "--version", out: File::NULL, err: File::NULL) }
+    queue = %w[opengl32.dll libgallium_wgl.dll]
+    done = []
+    until queue.empty?
+      dll = queue.shift
+      next if done.include?(dll.downcase)
+
+      done << dll.downcase
+      source = File.join(bin, dll)
+      abort "#{source} is missing" unless File.exist?(source)
+      if File.exist?(File.join(target, dll))
+        puts "#{dll}: Ruby's own"
+        next
+      end
+      FileUtils.cp(source, target)
+      puts "#{dll}: copied from #{bin}"
+      imports, = Open3.capture2(objdump, "-p", source)
+      queue.concat(imports.scan(/DLL Name: (\S+)/).flatten.select { |name| File.exist?(File.join(bin, name)) })
+    end
+  end
+
+  # The files of the tests rake test runs that cannot run on Windows, with
+  # why.
+  WINDOWS_EXCLUDED = {}.freeze
+
+  # How long a file of tests may run, in seconds.
+  TEST_BUDGET = 900
+
+  def tests(logs)
+    FileUtils.mkdir_p(logs)
+    files = test_files
+    results = files.map { |file| run_test_file(file, logs) }
+    report(results)
+    WINDOWS_EXCLUDED.each { |file, reason| puts "Not run: #{file}, #{reason}" }
+    failed = results.reject { |result| result[:passed] }
+    abort "#{failed.size} of #{files.size} test files failed: #{failed.map { |result| result[:file] }.join(', ')}" if failed.any?
+
+    puts "All #{files.size} test files passed"
+  end
+
+  # TEST_SUITES' test:ruby files, from tasks/test.rake, but those
+  # WINDOWS_EXCLUDED leaves out.
+  def test_files
+    require "rake"
+    TOPLEVEL_BINDING.receiver.extend(Rake::DSL)
+    Dir.chdir(ROOT)
+    Kernel.load(File.join(ROOT, "tasks/test.rake"))
+    (Dir[*TEST_SUITES.fetch(:ruby)].sort - WINDOWS_EXCLUDED.keys)
+  end
+
+  # Runs +file+ as Minitest's task does, with its tests' names and times,
+  # and its output kept in +logs+.
+  def run_test_file(file, logs)
+    log = File.join(logs, "#{file.delete_suffix('.rb').tr('/', '-')}.log")
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    pid = Process.spawn(RbConfig.ruby, "-w", "-Ilib", "-Itest", file, "--verbose",
+      chdir: ROOT, in: File::NULL, out: log, err: %i[child out])
+    status = wait_within(pid, TEST_BUDGET)
+    seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    output = File.binread(log).force_encoding(Encoding::UTF_8).scrub
+    summary = output[/^\d+ runs, \d+ assertions, \d+ failures, \d+ errors, \d+ skips$/]
+    passed = (status&.success? && summary&.match?(/ 0 failures, 0 errors/)) ? true : false
+    puts "== #{file}: #{passed ? 'passed' : 'FAILED'} in #{seconds.round}s, #{summary || status&.inspect || 'out of time'}"
+    puts output.lines.last(60).join unless passed
+    { file:, passed:, seconds:, summary:, skips: output.scan(/^\s*\d+\) Skipped:\n(.+)\n(.+)$/).map { |pair| pair.join(" ") } }
+  end
+
+  # The Process::Status of +pid+, or nil after ending it and every process
+  # it started when it runs past +seconds+.
+  def wait_within(pid, seconds)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + seconds
+    loop do
+      _, status = Process.wait2(pid, Process::WNOHANG)
+      return status if status
+      break if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+      sleep 0.5
+    end
+    system("taskkill", "/T", "/F", "/PID", pid.to_s, out: File::NULL, err: File::NULL)
+    Process.wait(pid)
+    nil
+  end
+
+  # Each file's result, in the job's summary too.
+  def report(results)
+    lines = ["| File | Result | Seconds | Summary |", "| --- | --- | --- | --- |"]
+    results.each do |result|
+      lines << "| #{result[:file]} | #{result[:passed] ? 'passed' : 'failed'} | #{result[:seconds].round} | " \
+        "#{result[:summary]} |"
+    end
+    skips = results.flat_map { |result| result[:skips].map { |skip| "- #{result[:file]}: #{skip}" } }
+    text = [*lines, "", "Skipped:", *skips].join("\n")
+    puts text
+    summary = ENV.fetch("GITHUB_STEP_SUMMARY", nil)
+    File.write(summary, "#{text}\n", mode: "a") if summary
   end
 
   def same?(path, other)

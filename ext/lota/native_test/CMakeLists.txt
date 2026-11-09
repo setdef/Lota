@@ -8,12 +8,17 @@
 # test:native can prove the sanitizers report them; and posix_spawn, so
 # that suite starts processes without forking a sanitized Ruby.
 # dialogs.mm presses Return on dialogs through AppKit on macOS, for the
-# parity harness and the tests of boot.lua's version warning, and
-# dialogs_linux.cpp asks liblota_dialogs to on Linux.
+# parity harness and the tests of boot.lua's version warning,
+# dialogs_linux.cpp asks liblota_dialogs to on Linux, and
+# dialogs_windows.cpp presses it through a hook of Windows' on Windows.
 # lota.gemspec does not package this directory, and extconf.rb builds it
 # only when asked (--enable-native-test), so no installed gem contains it.
 if(APPLE)
 	add_library(lota_native_test MODULE native_test.cpp dialogs.mm)
+elseif(MINGW)
+	# dialogs_windows.cpp presses Return through Windows' own hooks, and
+	# Ruby starts the tests' processes there (NativeHelper.spawn).
+	add_library(lota_native_test MODULE native_test.cpp dialogs_windows.cpp)
 else()
 	add_library(lota_native_test MODULE native_test.cpp dialogs_linux.cpp selections_linux.cpp)
 	# dialogs_linux.cpp gives up keyboard focus through Xlib, on the
@@ -24,6 +29,13 @@ endif()
 lota_ruby_extension(lota_native_test lota_native_test ${CMAKE_BINARY_DIR}/lib)
 if(LOTA_SANITIZE)
 	target_compile_definitions(lota_native_test PRIVATE LOTA_SANITIZE)
+endif()
+
+# The parity harness's libraries, which it loads into a program before
+# anything else, as Windows has no way to: the harness runs on macOS and
+# Linux alone.
+if(MINGW)
+	return()
 endif()
 
 # A shared library of the harness's own, which the harness loads into the

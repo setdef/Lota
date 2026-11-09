@@ -54,7 +54,7 @@ module NativeHelper
     variables = ENV.to_h.merge(environment).compact.map { |name, value| "#{name}=#{value}" }
     reader, writer = IO.pipe
     begin
-      pid = LotaNativeTest.spawn(command, writer.fileno, variables)
+      pid = NativeHelper.spawn(command, writer, variables)
     ensure
       writer.close
     end
@@ -62,6 +62,19 @@ module NativeHelper
     [output, Process.wait2(pid).last]
   ensure
     reader&.close
+  end
+
+  # Starts +command+ with exactly +variables+ (NAME=value strings), its
+  # standard input reading nothing and its standard output and error
+  # writing to the IO +output+, and returns its process ID. Ruby forks to
+  # start a process on macOS and Linux, so there the test extension starts
+  # it with posix_spawn (LotaNativeTest.spawn); Windows has no fork, and
+  # Ruby starts it there with CreateProcess, as LotaNativeTest.spawn would.
+  def self.spawn(command, output, variables)
+    return LotaNativeTest.spawn(command, output.fileno, variables) unless TestHome::WINDOWS
+
+    environment = variables.to_h { |variable| variable.split("=", 2) }
+    Process.spawn(environment, *command, unsetenv_others: true, in: File::NULL, out: output, err: output)
   end
 
   # Where the running process loaded a bundle from.

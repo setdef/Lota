@@ -20,11 +20,21 @@ require "fileutils"
 #   home's .local/share when it is not
 #   (src/modules/filesystem/physfs/Filesystem.cpp:721-727), so a run is
 #   given the first, pointing at the second in its own home.
+# - On Windows, LÖVE asks the shell for the user's roaming application
+#   data folder (src/modules/filesystem/physfs/Filesystem.cpp:659-660,
+#   SHGetKnownFolderPath with FOLDERID_RoamingAppData), which no variable
+#   moves, so every run saves in the runner's own, which the runner throws
+#   away with everything else when its job ends.
 #
 # LOTA_TEST_HOME names the home itself, for alsoft.conf and for the tests.
 module TestHome
-  # Whether the tests run on Linux rather than macOS.
+  # Whether the tests run on Linux, or on Windows, rather than macOS.
   LINUX = RUBY_PLATFORM.include?("linux")
+  WINDOWS = Gem.win_platform?
+
+  # The user's roaming application data folder on Windows, where the shell
+  # puts it for every program.
+  WINDOWS_APPDATA = (ENV.fetch("APPDATA", "").tr("\\", "/") if WINDOWS)
 
   # The folder LÖVE adds under the application data folder for a game run
   # by the love program, not fused (src/modules/filesystem/Filesystem.h:36-54),
@@ -35,13 +45,19 @@ module TestHome
 
   # The environment that gives a program +home+.
   def self.environment(home)
-    system = LINUX ? { "XDG_DATA_HOME" => File.join(home, ".local/share") } : { "CFFIXED_USER_HOME" => home }
+    system = if LINUX then { "XDG_DATA_HOME" => File.join(home, ".local/share") }
+    elsif WINDOWS then {}
+    else { "CFFIXED_USER_HOME" => home }
+    end
     { "LOTA_TEST_HOME" => home, **system }
   end
 
   # The system's application data folder (LÖVE's COMMONPATH_USER_APPDATA)
-  # for a program given +home+.
+  # for a program given +home+, which on Windows is the user's whatever
+  # the home.
   def self.application_data(home)
+    return WINDOWS_APPDATA if WINDOWS
+
     File.join(File.realpath(home), LINUX ? ".local/share" : "Library/Application Support")
   end
 
@@ -56,11 +72,11 @@ module TestHome
   # the folders a home has on macOS. mise, which installs the tools the
   # tests run (mise.toml), finds them under XDG_DATA_HOME too, unless told
   # where they are, so on Linux it is told first, from where it would
-  # look now.
+  # look now. On Windows a home is LOTA_TEST_HOME alone.
   def self.enter(home)
     if LINUX
       ENV["MISE_DATA_DIR"] ||= File.join(ENV.fetch("XDG_DATA_HOME", File.join(Dir.home, ".local/share")), "mise")
-    else
+    elsif !WINDOWS
       HOME_FOLDERS.each { |folder| FileUtils.mkdir_p(File.join(home, folder)) }
     end
     ENV.update(environment(home))

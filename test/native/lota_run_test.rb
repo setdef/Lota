@@ -106,13 +106,13 @@ class LotaRunTest < Minitest::Test
     reader, writer = IO.pipe
     native = File.dirname(File.dirname(loaded("lota/native")))
     pid = Dir.chdir(game("order")) do
-      LotaNativeTest.spawn([
+      NativeHelper.spawn([
         RbConfig.ruby,
         "-w",
         "-I#{native}#{File::PATH_SEPARATOR}#{File.join(ROOT, 'lib')}",
         File.join(ROOT, "exe/lota"),
         "run",
-], writer.fileno, ENV.map { |name, value| "#{name}=#{value}" })
+], writer, ENV.map { |name, value| "#{name}=#{value}" })
     end
     writer.close
     output = reader.read

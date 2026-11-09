@@ -7,7 +7,7 @@
 #include "native/errors.hpp"
 #include "native/luajit.hpp"
 #include "native_test/dialogs.hpp"
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
 #include "native_test/selections.hpp"
 #endif
 
@@ -51,13 +51,15 @@
 #include <SDL3/SDL_touch.h>
 #include <SDL3/SDL_video.h>
 
+#ifndef _WIN32
 #include <spawn.h>
 #include <unistd.h>
+#endif
 // O_RDONLY, which macOS's SDK declares in sys/fcntl.h and glibc in fcntl.h.
 #ifdef __APPLE__
 #include <CoreFoundation/CFBase.h>
 #include <sys/fcntl.h>
-#else
+#elif !defined(_WIN32)
 #include <fcntl.h>
 #endif
 
@@ -78,6 +80,11 @@ lota_metal_watch_check(int waited, unsigned long status, long code);
 // caller's to release, and finds the same way, so that the watch, when
 // loaded, interposes its calls.
 extern "C" __attribute__((weak_import)) CFTypeRef MTLCreateSystemDefaultDevice();
+#elif defined(_WIN32)
+// Windows has no way to load a library into a program before it starts,
+// as DYLD_INSERT_LIBRARIES and LD_PRELOAD do, so the parity harness, and
+// its loopback device, run only on macOS and Linux (CMakeLists.txt).
+constexpr long (*lota_loopback_render)(const char *path, double dt) = nullptr;
 #else
 extern "C" __attribute__((weak)) long lota_loopback_render(const char *path, double dt);
 #endif
@@ -260,6 +267,7 @@ void decode_without_the_image_module(VALUE file_data) {
       love::Acquire::NORETAIN);
 }
 
+#ifndef _WIN32
 // Starting a process from rake test:native's Ruby. Ruby starts every
 // process with fork (process.c, retry_fork_async_signal_safe). On macOS,
 // ASan's fork handler locks every block of its stack store before the
@@ -379,6 +387,7 @@ ProcessId spawn(const std::vector<std::string> &command, int output,
         command.front().c_str());
   return pid;
 }
+#endif
 
 // Holds the key with SDL scancode +scancode+ down, or lets it up, in the
 // keyboard state SDL keeps and love.keyboard.isDown reads
@@ -1147,7 +1156,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("window_state", &lota::native_test::window_state)
       .define_module_function("ignore_mouse_events", &lota::native_test::ignore_mouse_events,
                               Rice::Arg("ignore"))
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
       .define_module_function("tolerate_vanished_requestors",
                               &lota::native_test::tolerate_vanished_requestors)
       .define_module_function("request_clipboard_and_vanish",
@@ -1162,9 +1171,14 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("swap_interval", &swap_interval)
       .define_module_function("text_input_area", &text_input_area)
       .define_module_function("image_data_bytes", &image_data_bytes,
-                              Rice::Arg("image_data").setValue())
-      .define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),
+                              Rice::Arg("image_data").setValue());
+  // Windows has no fork, and Ruby starts a process there with
+  // CreateProcess, so the tests start theirs with Process.spawn
+  // (NativeHelper.spawn).
+#ifndef _WIN32
+  test.define_module_function("spawn", &spawn, Rice::Arg("command"), Rice::Arg("output"),
                               Rice::Arg("environment"));
+#endif
 
   // Its functions stay found after a test compacts the heap, as
   // Lota::Native's do (Init_native).

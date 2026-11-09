@@ -63,9 +63,17 @@ on:
 permissions:
   contents: read
 
+# A push to a branch cancels the run of the push before it, whose commit
+# nobody will release. Every commit on the default branch is proven, so
+# each of its runs has a group of its own, named by its commit, and
+# finishes: GitHub keeps one run going and one waiting in a group, and a
+# third cancels the one waiting, even with cancel-in-progress off
+# (workflow syntax, "concurrency").
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ${{ github.workflow }}-${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 defaults:
   run:
@@ -654,7 +662,7 @@ jobs:
             cxx: clang++
             ccache: C:/ccache
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 75
+    timeout-minutes: 150
     defaults:
       run:
         shell: msys2 {0}
@@ -693,7 +701,7 @@ jobs:
           path-type: inherit
           update: true
           install: patch make
-          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p
+          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p mesa:p
 
       # The REUSE tool, at the version mise.toml pins, which checks the
       # gem's licensing as it is built (tasks/native_gem.rb), into the
@@ -777,7 +785,8 @@ jobs:
           ccache --zero-stats
           mkdir -p tmp/ext
           cd tmp/ext
-          ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$GITHUB_WORKSPACE/tmp/engine/build")"
+          ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$GITHUB_WORKSPACE/tmp/engine/build")" \
+            --enable-native-test
 
       - name: Build the engine and the extension
         run: |
@@ -845,28 +854,6 @@ jobs:
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
           PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb opengl
 
-      # The PATH adds the directory of Git for Windows' commands, which holds
-      # no DLL, since the gemspec the version test loads lists its files
-      # with git. A dry run may go on past a failing test, but never on a
-      # tag (the ignore_gate_failures input).
-      - name: Run the headless tests
-        timeout-minutes: 15
-        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
-        run: |
-          gem install minitest -v '~> 6.0' --no-document
-          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Program Files/Git/cmd"
-          status=0
-          for test in test/version_test.rb test/info_test.rb test/error_message_test.rb test/settings_test.rb \
-            test/record_test.rb test/deprecation_test.rb test/boot_test.rb test/callbacks_test.rb \
-            test/variant_test.rb test/restart_test.rb; do
-            echo "== $test"
-            code=0
-            PATH="$clean" /usr/bin/timeout -k 5 180 ruby -Ilib -Itest "$test" > tmp/test.log 2>&1 || code=$?
-            tail -15 tmp/test.log
-            [ "$code" = 0 ] || { echo "== $test exited $code"; status=1; }
-          done
-          exit $status
-
       # The gem's SHA-256 travels with it, as on the other platforms. The
       # package check builds it from what this job built, with the gem's
       # REUSE record checked, and its binaries read for the DLLs they
@@ -884,6 +871,51 @@ jobs:
           name: lota-${{ matrix.platform }}
           path: pkg/lota-*-${{ matrix.platform }}.gem*
           if-no-files-found: error
+          retention-days: 14
+
+      # The tests draw, and a runner has no GPU, and Windows' own OpenGL is
+      # 1.1, which LÖVE's renderer refuses. LÖVE's own Windows CI runs
+      # Lövetest on Mesa's software OpenGL, llvmpipe, installed system-wide
+      # from mesa-dist-win, on x64 alone, since that build has no ARM64
+      # (vendor/love/.github/workflows/main.yml, the Windows job's "Install
+      # Mesa"). MSYS2 builds the same Mesa for both of Lota's Windows
+      # environments, so it comes from there, beside Ruby's program, where
+      # Windows finds it before System32's for the opengl32.dll SDL loads
+      # by name (windows_checks.rb mesa), after the gem is built, so
+      # nothing of it reaches the gem.
+      - name: Put Mesa's OpenGL beside Ruby
+        run: ruby .github/windows_checks.rb mesa "$(cygpath -m "$MINGW_PREFIX/bin")"
+
+      # What the tests need beside Ruby's own gems: Minitest, and the
+      # desktop input lock, from its tag, as the Gemfile takes it.
+      - name: Install the tests' gems
+        run: |
+          gem install minitest -v '~> 6.0' --no-document
+          git clone --quiet --depth 1 --branch v0.2.0 https://github.com/setdef/DesktopInputLock.git "$RUNNER_TEMP/desktop_input_lock"
+          (cd "$RUNNER_TEMP/desktop_input_lock" && gem build --quiet ./*.gemspec && gem install --local --no-document ./*.gem)
+
+      # Lota's tests, each file in a Ruby of its own, as rake test runs
+      # them, with a PATH of only Ruby, Windows, Windows PowerShell, which
+      # the desktop input lock speaks through, and Git for Windows'
+      # commands, which hold no DLL, since the gemspec the version test
+      # loads lists its files with git. GALLIUM_DRIVER chooses llvmpipe, as
+      # Fledge's Windows trial drew with it. A dry run may go on past a
+      # failing test, but never on a tag (the ignore_gate_failures input).
+      - name: Run the tests
+        timeout-minutes: 100
+        continue-on-error: true # PROBE ONLY: revert before landing
+        env:
+          GALLIUM_DRIVER: llvmpipe
+        run: |
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd"
+          PATH="$clean" ruby .github/windows_checks.rb tests tmp/windows-tests
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-tests-${{ matrix.platform }}
+          path: tmp/windows-tests
+          if-no-files-found: ignore
           retention-days: 14
 
   # The Windows gem the build job built, on a runner that never built it,
@@ -945,6 +977,53 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # The phone route (phones.yml): iOS and iPadOS in the Simulator, and
+  # Android built and run on emulators. Its jobs are this run's own.
+  phones:
+    name: Phones
+    uses: ./.github/workflows/phones.yml
+
+  # The iOS kit (ios-kit.yml), built from this commit for test/games/winkit,
+  # which prints what Lota sees and quits with 0 after its WINKIT_SECONDS,
+  # and whose touch launch runs its DPI probe (test/games/winkit/main.rb).
+  ios-kit:
+    name: iOS kit
+    uses: ./.github/workflows/ios-kit.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      lota_ref: ${{ github.sha }}
+      game_repository: ${{ github.repository }}
+      game_ref: ${{ github.sha }}
+      game_path: test/games/winkit
+      display_name: Winkit
+      smoke_env: WINKIT_HIGHDPI=1
+      smoke_expect: "(?m)^exiting with 0$"
+      touch_env: WINKIT_DPI_PROBE=1 WINKIT_SECONDS=150
+
+  # The iOS kit again, called as a game's own CI calls it
+  # (ios-kit-caller.yml), for test/games/sample_game.
+  ios-kit-call:
+    name: iOS kit, called as a game's CI calls it
+    uses: ./.github/workflows/ios-kit-caller.yml
+    permissions:
+      contents: read
+      actions: read
+
+  # lota fuse on each of the five platforms (fuse.yml), with the gems this
+  # run's gate and build jobs built, so it fuses with this commit's gems,
+  # never a release's.
+  fuse:
+    name: Fuse
+    needs: [gate, linux-gate, windows-build]
+    uses: ./.github/workflows/fuse.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      this_run: true
+
   # The release (doc/contributors/releasing.md), from the gems the
   # delivery jobs installed and ran, never rebuilt. It runs for a tag
   # v0.1.0 pushed to this repository, and by hand as a dry run; never for
@@ -958,7 +1037,8 @@ jobs:
   # both in needs, and the platform in PLATFORMS.
   release:
     name: Release
-    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery]
+    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery, phones, ios-kit, ios-kit-call,
+      fuse]
     if: >-
       github.repository == 'setdef/Lota'
       && ((github.event_name == 'push' && github.ref_type == 'tag')
