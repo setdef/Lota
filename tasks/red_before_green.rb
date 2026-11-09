@@ -311,8 +311,12 @@ class RedBeforeGreen
       results, reporter, errors = %w[results.jsonl reporter.rb errors.log].map { |name| File.join(directory, name) }
       File.write(reporter, REPORTER)
       pattern = "/\\A(?:#{names.map { |name| Regexp.escape(name) }.join('|')})\\z/"
+      # Ruby 4.1 runs RUBYOPT's -rbundler/setup only after the command
+      # line's -r (Feature #21951), so under bundle exec the reporter would
+      # load Minitest before Bundler chose its gems; it is set up first.
+      setup = ENV["BUNDLER_SETUP"] ? ["-r", ENV["BUNDLER_SETUP"]] : []
       pid = Process.spawn({ "RED_BEFORE_GREEN_RESULTS" => results }, RbConfig.ruby, "-w", "-Ilib", "-Itest",
-        "-r", reporter, runner, "-i", pattern, chdir: @root, in: File::NULL, out: File::NULL, err: errors,
+        *setup, "-r", reporter, runner, "-i", pattern, chdir: @root, in: File::NULL, out: File::NULL, err: errors,
         pgroup: true)
       status = wait(pid)
       lines = File.file?(results) ? File.readlines(results, chomp: true) : []

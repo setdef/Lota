@@ -57,7 +57,10 @@ class RunTest < Minitest::Test
       input = DesktopInputLock.new(lock:, marker:)
       holder = "DesktopInputLock.new(lock: #{lock.dump}, marker: #{marker.dump}).hold(speak: false) " \
         "{ puts 'held'; $stdout.flush; $stdin.read }"
-      Open3.popen2(RbConfig.ruby, "-rdesktop_input_lock", "-e", holder,
+      # Ruby 4.1 runs RUBYOPT's -rbundler/setup only after the command
+      # line's -r (Feature #21951), so Bundler is set up first.
+      setup = ENV["BUNDLER_SETUP"] ? ["-r#{ENV['BUNDLER_SETUP']}"] : []
+      Open3.popen2(RbConfig.ruby, *setup, "-rdesktop_input_lock", "-e", holder,
         err: File::NULL) do |stdin, stdout, wait|
         assert_equal "held\n", stdout.gets
         plain = Parity.run({}, "echo", "plain", side: "Lota", desktop_input: input) { 1 }

@@ -86,9 +86,13 @@ class BundleTest < Minitest::Test
       .map { |directory| File.join(directory, name) }.find { |path| File.exist?(path) }
   end
 
+  # A development Ruby, such as a preview, whose ruby_version reads like
+  # 4.1.0+5, loads only an extension that also exports ruby_abi_version
+  # (dln.c, dln_load_and_init); a released Ruby asks for none.
   def test_each_bundle_exports_only_its_init_function
+    abi = RbConfig::CONFIG["ruby_version"].include?("+") ? ["ruby_abi_version"] : []
     BUNDLES.each do |feature, init|
-      assert_equal [init], exported(loaded(feature)), feature
+      assert_equal [init, *abi], exported(loaded(feature)), feature
     end
   end
 

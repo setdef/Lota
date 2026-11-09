@@ -32,6 +32,12 @@ else()
 	list(PREPEND CMAKE_MODULE_PATH ${RICE_DIR})
 	find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
 	set(LOTA_EXTENSION_TYPE MODULE)
+	# A development Ruby, such as a preview, defines RUBY_ABI_VERSION in its
+	# config.h, and then refuses to load an extension that does not export
+	# ruby_abi_version, which ruby/internal/abi.h defines in every file that
+	# includes ruby.h (dln.c, dln_load_and_init). A released Ruby defines
+	# neither, so the bundle exports it only for a development Ruby.
+	file(STRINGS ${Ruby_CONFIG_INCLUDE_DIR}/ruby/config.h LOTA_RUBY_ABI_VERSION REGEX "^#define RUBY_ABI_VERSION ")
 endif()
 
 # lota_ruby_extension(<target> <feature> <load directory>)
@@ -113,6 +119,9 @@ function(lota_link_macos target name map load_directory)
 	# registries and LÖVE's statics instead of dyld coalescing them with
 	# another bundle's.
 	target_link_options(${target} PRIVATE "LINKER:-exported_symbol,_Init_${name}")
+	if(LOTA_RUBY_ABI_VERSION)
+		target_link_options(${target} PRIVATE "LINKER:-exported_symbol,_ruby_abi_version")
+	endif()
 	# Record only the frameworks the bundle uses: the engine's interface
 	# links every framework LÖVE needs, and a bundle that binds no window
 	# needs none of them at load time.
@@ -133,7 +142,11 @@ function(lota_link_linux target name map load_directory)
 	# each extension keeps its own copy of Rice's registries and LÖVE's
 	# statics instead of the dynamic linker binding them to another's.
 	set(script ${CMAKE_CURRENT_BINARY_DIR}/${name}.version)
-	file(WRITE ${script} "{ global: Init_${name}; local: *; };\n")
+	set(exported "Init_${name};")
+	if(LOTA_RUBY_ABI_VERSION)
+		string(APPEND exported " ruby_abi_version;")
+	endif()
+	file(WRITE ${script} "{ global: ${exported} local: *; };\n")
 	target_link_options(${target} PRIVATE "LINKER:--version-script=${script}")
 	set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${script})
 	# Record only the libraries the extension uses, as -dead_strip_dylibs.

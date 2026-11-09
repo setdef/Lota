@@ -106,7 +106,7 @@ jobs:
       # RubyInstaller's Ruby, built with MinGW against the UCRT.
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
-          ruby-version: "4.0"
+          ruby-version: head
           windows-toolchain: none
 
       # The toolchain alone: every library LÖVE links is built from source.

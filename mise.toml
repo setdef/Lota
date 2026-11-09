@@ -21,7 +21,7 @@ ruby_build_opts = "--enable-yjit --enable-zjit"
 "ruby" = "core:ruby[depends=rust]"
 
 [tools]
-ruby = "4.0.7"
+ruby = "4.1.0-preview1"
 rust = { version = "1.99.1", profile = "minimal" }
 python = "3.12"
 pre-commit = "latest"
