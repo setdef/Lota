@@ -102,13 +102,13 @@ class FilesystemTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.filesystem.FileData
-  # (filesystem.lua:82-100): newFileData becomes FileData.new (rule 2),
+  # (filesystem.lua:82-100): newFileData becomes new_file_data (rule 17),
   # getFilename, getExtension, getString, and getSize filename,
   # extension, string, and size (rule 3), and clone Ruby's clone, which
   # makes LÖVE's copy (doc/contributors/design/translation.md).
   def test_file_data
     # create new obj
-    fdata = Lota::Filesystem::FileData.new("helloworld", "test.txt")
+    fdata = Lota::Filesystem.new_file_data("helloworld", "test.txt").first
     assert_object(fdata)
     assert_equal("test.txt", fdata.filename)
     assert_equal("txt", fdata.extension)
@@ -470,9 +470,9 @@ class FilesystemTest < Lovetest::TestMethod
   end
 
   # Translated to Ruby from love.test.filesystem.newFileData
-  # (filesystem.lua:469-471): newFileData becomes FileData.new (rule 2).
+  # (filesystem.lua:469-471): newFileData becomes new_file_data (rule 17).
   def test_new_file_data
-    assert_not_nil(Lota::Filesystem::FileData.new("helloworld", "file1"))
+    assert_not_nil(Lota::Filesystem.new_file_data("helloworld", "file1").first)
   end
 
   # Translated to Ruby from love.test.filesystem.getIdentity and

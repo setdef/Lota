@@ -37,6 +37,13 @@ module Lota
 
     def self.open_native_file: (String path, Symbol | String mode) -> ([File] | [nil, String])
 
+    def self.new_file: (String filename, ?(Symbol | String)? mode) -> ([File] | [nil, String])
+
+    def self.new_file_data: (String | File | FileData source) -> ([FileData] | [nil, String])
+                          | (String | Lota::Data contents, String name) -> [FileData]
+
+    private def self.file_data_of: (::Object source) -> ([FileData] | [nil, String])
+
     private def self.opened: (Array[Native::File | nil | String] results) -> ([File] | [nil, String])
 
     def self.write: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])

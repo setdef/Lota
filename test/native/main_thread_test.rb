@@ -48,8 +48,8 @@ class MainThreadTest < Minitest::Test
   def test_graphics_raises_off_the_main_thread
     texture = Lota::Graphics::Canvas.new(2, 2)
     font = Lota::Graphics::Font.new(8)
-    font_data = Lota::Filesystem::FileData.new(File.binread(File.join(ROOT, "vendor/love/testing/resources/font.ttf")),
-      "font.ttf")
+    font_data = Lota::Filesystem.new_file_data(File.binread(File.join(ROOT, "vendor/love/testing/resources/font.ttf")),
+      "font.ttf").first
     image_data = Lota::Image::ImageData.new("resources/love.png")
     calls = {
       "Canvas.new" => -> { Lota::Graphics::Canvas.new(2, 2) },
@@ -171,7 +171,7 @@ class MainThreadTest < Minitest::Test
 
   def test_image_and_filesystem_work_off_the_main_thread
     pixel = Thread.new do
-      Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(PNG, "clear-1.png")).pixel(0, 0)
+      Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(PNG, "clear-1.png").first).pixel(0, 0)
     end.value
 
     assert_equal [1.0, 1.0, 0.0, 1.0], pixel

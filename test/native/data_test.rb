@@ -19,7 +19,7 @@ class DataTest < Minitest::Test
   end
 
   def file_data(bytes)
-    Lota::Filesystem::FileData.new(bytes, "data.bin")
+    Lota::Filesystem.new_file_data(bytes, "data.bin").first
   end
 
   # Each Data class includes Lota::Data, and answers type_of?("Data") by

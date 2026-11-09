@@ -197,11 +197,11 @@ module Parity
 
         ENV.fetch("LOTA_PARITY_SOUNDS", "").split(",").each.with_index(1) do |path, number|
           contents = File.binread(path)
-          sound_data = Lota::Sound::SoundData.new(Lota::Filesystem::FileData.new(contents, File.basename(path)))
+          sound_data = Lota::Sound::SoundData.new(Lota::Filesystem.new_file_data(contents, File.basename(path)).first)
           File.binwrite(File.join(dir, "#{number}.sounddata"),
             format("%d %d %d %d %.17g %d\n", sound_data.sample_rate, sound_data.bit_depth, sound_data.channel_count,
               sound_data.sample_count, sound_data.duration, sound_data.size) + sound_data.string.b)
-          decoder = Lota::Sound::Decoder.new(Lota::Filesystem::FileData.new(contents, File.basename(path)))
+          decoder = Lota::Sound::Decoder.new(Lota::Filesystem.new_file_data(contents, File.basename(path)).first)
           File.open(File.join(dir, "#{number}.decoder"), "wb") do |out|
             out.write(format("%d %d %d %.17g\n", decoder.sample_rate, decoder.bit_depth, decoder.channel_count,
               decoder.duration))
@@ -228,7 +228,7 @@ module Parity
         path = love_frame(number)
         return { "frame" => number, "message" => "LÖVE showed no frame #{number}" } unless File.exist?(path)
 
-        expected = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
+        expected = Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(File.binread(path), File.basename(path)).first)
         comparison = FrameComparison.new(expected, actual, "frame #{number}")
         return if comparison.match?
 

@@ -98,6 +98,30 @@ FileData *file_data(const std::string &filename) {
   return file->read();
 }
 
+// w_newFileData with one filename (wrap_Filesystem.cpp:430-439) reads it
+// through luax_getfiledata asked for an I/O error (332-373): the module
+// opens the file by its path without opening it for reading, then reads all
+// of it, and a file it cannot read gives luax_ioError's nil and message in
+// place of the FileData, as one Array either way (rule 4 of
+// doc/contributors/design/translation.md). The FileData's one reference
+// goes to the Ruby wrapper.
+Rice::Array new_file_data_of_file(const std::string &filename) {
+  const love::filesystem::Filesystem *const instance = filesystem();
+  FileData *data = nullptr;
+  try {
+    const love::StrongRef<File> file(instance->openFile(filename.c_str(), File::MODE_CLOSED),
+                                     love::Acquire::NORETAIN);
+    data = file->read();
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+
+  const love::StrongRef<FileData> held(data, love::Acquire::NORETAIN);
+  Rice::Array results;
+  results.push(data, false);
+  return results;
+}
+
 // The largest integer a Lua number, a double, holds exactly, to which
 // w_getInfo limits a size and a time (wrap_Filesystem.cpp:584-596).
 constexpr love::int64 LARGEST_EXACT_DOUBLE = 0x20000000000000LL;
@@ -581,6 +605,8 @@ void define_filesystem(const Rice::Module &native) {
                                  Rice::Arg("filename"), Rice::Return().takeOwnership())
       .define_singleton_function("file_data", &file_data, Rice::Arg("filename"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("new_file_data_of_file", &new_file_data_of_file,
+                                 Rice::Arg("filename"))
       .define_singleton_function("info", &info, Rice::Arg("filepath"),
                                  Rice::Arg("filtertype") = std::optional<std::string>())
       .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL)

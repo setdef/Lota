@@ -187,7 +187,7 @@ module Bindings
     HELPER_CALL = /\A([A-Za-z_]\w*)\s*\(\s*L\s*,.*\)\z/m
 
     attr_reader :reads, :tests, :tables, :pushes, :counts, :errors, :enums, :enum_results, :engine_calls,
-      :deprecation, :delegate, :problems, :count_tests, :statements, :computed_count
+      :deprecation, :delegate, :problems, :io_error, :count_tests, :statements, :computed_count
 
     # [function] The WrapFile::Function to read.
     # [source] Its file's CppSource, for line numbers.
@@ -214,6 +214,7 @@ module Bindings
       @problems = []
       @count_tests = false
       @computed_count = false
+      @io_error = false
       @variables = {}
       @constants = {}
       @types = {}
@@ -298,6 +299,7 @@ module Bindings
       elsif text.match?(RETURN_ERRORS)
         expression(text, node.line, loops)
       elsif text.match?(IO_ERROR)
+        @io_error = true
         counts << 2
       elsif (target = text[WRAP_CALL, 1] || @wrap_results[text.strip])
         @delegate = target
@@ -348,6 +350,7 @@ module Bindings
 
       name = call.base_name
       return @deprecation = call.arguments[2]&.delete('"') if name == "luax_markdeprecated"
+      @io_error = true if name == "luax_getfiledata" && call.arguments[2] == "true"
       return if KNOWN.include?(name)
 
       if READERS.key?(name) || (name == "luaL_checktype" && call.arguments[2] != "LUA_TFUNCTION")

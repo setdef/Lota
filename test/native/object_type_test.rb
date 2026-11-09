@@ -26,7 +26,7 @@ class ObjectTypeTest < Minitest::Test
   end
 
   def objects
-    file_data = Lota::Filesystem::FileData.new(PNG, "clear-1.png")
+    file_data = Lota::Filesystem.new_file_data(PNG, "clear-1.png").first
     {
       "Texture" => [Lota::Graphics::Canvas.new(4, 4), %w[Texture Drawable Object]],
       "Font" => [Lota::Graphics::Font.new(12), %w[Font Object]],

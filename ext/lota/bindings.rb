@@ -227,8 +227,12 @@ generate "love.filesystem.init"
 generate "love.filesystem.setSource"
 generate "FileData:clone"
 bound_by_hand "love.filesystem.newFileData",
-  reason: "converts its argument through luax_getfiledata; Lota ports Filesystem::newFileData so it need not " \
-    "open PhysicsFS"
+  reason: "converts its argument through luax_getfiledata, which returns nil and a message for a file it cannot " \
+    "read and returns its count of values as a variable (nresults); Lota ports Filesystem::newFileData so it " \
+    "need not open PhysicsFS, and reads a file or a File in Ruby"
+bound_by_hand "love.filesystem.newFile",
+  reason: "LÖVE deprecated it for openFile, which it repeats with a mode that may be left out; Lota::Filesystem." \
+    "new_file marks it deprecated and calls openFile's binding"
 
 generate "love.filesystem.setFused"
 generate "love.filesystem.isFused"

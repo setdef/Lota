@@ -52,7 +52,7 @@ class TextBatchTest < Minitest::Test
   end
 
   def font_file(path)
-    Lota::Filesystem::FileData.new(File.binread(File.join(__dir__, "../lovetest/resources", path)), path)
+    Lota::Filesystem.new_file_data(File.binread(File.join(__dir__, "../lovetest/resources", path)), path).first
   end
 
   def test_a_batch_without_text_is_empty
@@ -303,7 +303,7 @@ class TextBatchTest < Minitest::Test
   FNT
 
   def bmfont_definition
-    Lota::Filesystem::FileData.new(BMFONT, "font.fnt")
+    Lota::Filesystem.new_file_data(BMFONT, "font.fnt").first
   end
 
   # w_newBMFontRasterizer: the definition, then its images.
@@ -337,7 +337,7 @@ class TextBatchTest < Minitest::Test
     assert_raises(TypeError) { Font.new(bmfont_definition, "resources/font-letters-ab.png", "2") }
     assert_raises(ArgumentError) { Font.new(bmfont_definition, "resources/font-letters-ab.png", 1, 2) }
     assert_raises(ArgumentError) { Font.new(bmfont_definition, "resources/font-letters-ab.png", hinting: :mono) }
-    outside = Lota::Filesystem::FileData.new(BMFONT.sub("x=0 y=0", "x=100 y=0"), "outside.fnt")
+    outside = Lota::Filesystem.new_file_data(BMFONT.sub("x=0 y=0", "x=100 y=0"), "outside.fnt").first
     error = assert_raises(RuntimeError) { Font.new(outside, "resources/font-letters-ab.png") }
 
     assert_equal "Invalid coordinates for BMFont character 65.", error.message

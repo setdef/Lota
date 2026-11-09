@@ -33,6 +33,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `love.video`: `Lota::Video`, which boot opens unless `t.modules.video` is false, and `lota.video`; `Lota::Video::VideoStream` (`new`, `sync=`, `filename`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`).
 - `Lota::Graphics::Video` (`new` with `audio:` and `dpiscale:`, `stream`, `source`, `source=`, `width`, `height`, `dimensions`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `filter`, `filter=`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`), which `Lota::Graphics.draw` draws.
 - The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
+- `Lota::Filesystem.new_file_data`, translating `love.filesystem.newFileData` in all its forms, which copies a String or a `Lota::Data` under a name or reads a file name, a `File`, or a `FileData`, and `Lota::Filesystem.new_file`, translating the deprecated `love.filesystem.newFile`; each returns an Array of its object, or of `nil` and LÖVE's message.
+
+### Changed
+
+- `Lota::Filesystem::FileData.new(contents, name)` is gone, replaced by `Lota::Filesystem.new_file_data(contents, name)`, which returns `[file_data]`: `newFileData` can return `nil` and a message, so rule 17 makes it a module function.
 
 ### Changed
 

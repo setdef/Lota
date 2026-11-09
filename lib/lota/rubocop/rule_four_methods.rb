@@ -35,6 +35,8 @@ RuboCop::Cop::Lota::RULE_FOUR_METHODS = {
   ],
   "Lota::Filesystem" => [
     "append",
+    "new_file",
+    "new_file_data",
     "open_file",
     "open_native_file",
     "real_directory",

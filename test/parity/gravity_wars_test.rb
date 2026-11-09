@@ -115,7 +115,7 @@ class GravityWarsTest < Minitest::Test
   # left, row by row, and those outside it.
   private def opened_and_outside(path)
     Lota::Native::Image.open
-    frame = Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(File.binread(path), File.basename(path)))
+    frame = Lota::Image::ImageData.new(Lota::Filesystem.new_file_data(File.binread(path), File.basename(path)).first)
     bytes = LotaNativeTest.image_data_bytes(frame.__send__(:native)).b
     row_size = frame.width * 4
     opened_size = OPENED.first * 4

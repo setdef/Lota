@@ -26,7 +26,7 @@ module Lota
     #   Lota::Graphics.font = big
     #   Lota::Graphics.print("Game Over", 300, 250)
     #
-    #   data = Lota::Filesystem::FileData.new(File.binread("pixel.ttf"), "pixel.ttf")
+    #   data, = Lota::Filesystem.new_file_data(File.binread("pixel.ttf"), "pixel.ttf")
     #   Lota::Graphics.font = Lota::Graphics::Font.new(data, 8, :mono)
     class Font < Object
       # Its +new+, the constructor love.graphics.newFont becomes

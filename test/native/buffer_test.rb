@@ -99,14 +99,14 @@ class BufferTest < Minitest::Test
 
   def test_set_array_data_takes_the_bytes_of_a_data
     buffer = Lota::Graphics::Buffer.new([POSITION], 2, vertex: true)
-    bytes = Lota::Filesystem::FileData.new([1.0, 2.0].pack("f2"), "bytes")
+    bytes = Lota::Filesystem.new_file_data([1.0, 2.0].pack("f2"), "bytes").first
     buffer.set_array_data(bytes)
 
     assert_equal 2, buffer.element_count
   end
 
   def test_a_buffer_takes_the_content_of_its_format_from_a_data
-    bytes = Lota::Filesystem::FileData.new([1.0, 2.0, 3.0, 4.0].pack("f4"), "bytes")
+    bytes = Lota::Filesystem.new_file_data([1.0, 2.0, 3.0, 4.0].pack("f4"), "bytes").first
     buffer = Lota::Graphics::Buffer.new([POSITION], bytes, vertex: true)
 
     assert_equal 2, buffer.element_count
@@ -207,12 +207,12 @@ class BufferTest < Minitest::Test
   end
 
   def test_a_mesh_takes_its_vertices_from_a_data
-    bytes = Lota::Filesystem::FileData.new([1.0, 2.0, 3.0, 4.0].pack("f4"), "bytes")
+    bytes = Lota::Filesystem.new_file_data([1.0, 2.0, 3.0, 4.0].pack("f4"), "bytes").first
     mesh = Lota::Graphics::Mesh.new([{ format: :floatvec2, location: 0 }], bytes, :points)
 
     assert_equal 2, mesh.vertex_count
     assert_equal [3.0, 4.0], mesh.vertex(2)
-    mesh.set_vertices(Lota::Filesystem::FileData.new([9.0, 8.0].pack("f2"), "bytes"), 2, 1)
+    mesh.set_vertices(Lota::Filesystem.new_file_data([9.0, 8.0].pack("f2"), "bytes").first, 2, 1)
 
     assert_equal [9.0, 8.0], mesh.vertex(2)
   end
@@ -242,17 +242,17 @@ class BufferTest < Minitest::Test
     mesh.set_vertex_map(1, 2, 3, 4)
 
     assert_equal [1, 2, 3, 4], mesh.vertex_map
-    mesh.set_vertex_map(Lota::Filesystem::FileData.new([2, 1, 0].pack("S3"), "indices"), :uint16, 3)
+    mesh.set_vertex_map(Lota::Filesystem.new_file_data([2, 1, 0].pack("S3"), "indices").first, :uint16, 3)
 
     assert_equal [3, 2, 1], mesh.vertex_map
     mesh.set_vertex_map
 
     assert_nil mesh.vertex_map
     assert_match(/Invalid index data type 'int8'/, assert_raises(ArgumentError) do
-      mesh.set_vertex_map(Lota::Filesystem::FileData.new("ab", "indices"), :int8)
+      mesh.set_vertex_map(Lota::Filesystem.new_file_data("ab", "indices").first, :int8)
     end.message)
     assert_equal "Invalid index count: 9",
-      assert_raises(RuntimeError) { mesh.set_vertex_map(Lota::Filesystem::FileData.new("ab", "indices"), :uint16, 9) }.message
+      assert_raises(RuntimeError) { mesh.set_vertex_map(Lota::Filesystem.new_file_data("ab", "indices").first, :uint16, 9) }.message
   end
 
   def test_an_index_buffer_replaces_the_vertex_map

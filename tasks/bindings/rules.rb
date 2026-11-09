@@ -342,7 +342,8 @@ module Bindings
       # Ruby's new makes one object, so a factory that returns more than one, as
       # newCircleBody returns its Body and its CircleShape
       # (wrap_Physics.cpp:85-107) and newCubeFaces its six faces
-      # (wrap_Image.cpp:131-139), keeps its name, in snake case, and returns
+      # (wrap_Image.cpp:131-139), or an object or nil and a message, as newFile
+      # (wrap_Filesystem.cpp:278-306), keeps its name, in snake case, and returns
       # what it makes as an Array by rule 4, with no module and no ===.
       private def several_objects
         @rules.push(17, 4)
@@ -355,12 +356,15 @@ module Bindings
       # literal count of more than one value, or an object pushed in a
       # loop and a count computed at run time, one value for each object.
       # A function that returns its object, or nil and a message, as
-      # newFile does through luax_ioError, returns one object.
+      # newFile does through luax_ioError and newFileData through
+      # luax_getfiledata asked for an I/O error, makes several too: in Ruby
+      # nil and a message are objects.
       private def several_objects?
         return false unless @facts
 
         objects = @facts.pushes.select { |push| OBJECT_PUSHERS.include?(push.pusher) }
-        (@facts.result_count > 1 && objects.size > 1) || (@facts.computed_count && objects.any?(&:looped))
+        (@facts.result_count > 1 && objects.size > 1) || (@facts.computed_count && objects.any?(&:looped)) ||
+          (@facts.io_error && objects.any?)
       end
 
       # Rule 2, for a module's functions: a method named new... reads the

@@ -207,7 +207,7 @@ class TextTest < Minitest::Test
   end
 
   def test_data_that_holds_no_font_raises_loves_error
-    data = Lota::Filesystem::FileData.new("not a font", "font.ttf")
+    data = Lota::Filesystem.new_file_data("not a font", "font.ttf").first
 
     assert_raises(RuntimeError) { Lota::Graphics::Font.new(data, 8) }
   end

@@ -38,7 +38,7 @@ class CompressedImageDataTest < Minitest::Test
     sources = [
       "resources/love.dxt1",
       file,
-      Lota::Filesystem::FileData.new(bytes("love.dxt1"), "love.dxt1"),
+      Lota::Filesystem.new_file_data(bytes("love.dxt1"), "love.dxt1").first,
       Lota::Data::ByteData.new(bytes("love.dxt1")),
     ]
 

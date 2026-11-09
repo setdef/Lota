@@ -51,7 +51,7 @@ class TextureSettingsTest < Minitest::Test
   end
 
   def test_a_dpi_scale_setting_wins_over_a_files_name
-    data = Lota::Filesystem::FileData.new(File.binread(File.join(Lovetest::RESOURCES, "love.png")), "love@2x.png")
+    data = Lota::Filesystem.new_file_data(File.binread(File.join(Lovetest::RESOURCES, "love.png")), "love@2x.png").first
 
     assert_equal 2.0, Graphics::Texture.new(data).dpi_scale
     assert_equal 1.0, Graphics::Texture.new(data, dpiscale: 1).dpi_scale

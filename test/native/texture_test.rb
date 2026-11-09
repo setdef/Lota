@@ -62,7 +62,7 @@ class TextureTest < Minitest::Test
   # A file named like "love@2x.png" holds pixels at twice the density, so
   # the texture draws at half its pixel size.
   def test_a_file_named_at_2x_draws_at_half_size
-    data = Lota::Filesystem::FileData.new(File.binread(File.join(Lovetest::RESOURCES, "love.png")), "love@2x.png")
+    data = Lota::Filesystem.new_file_data(File.binread(File.join(Lovetest::RESOURCES, "love.png")), "love@2x.png").first
     image = drawn { Lota::Graphics.draw(Lota::Graphics::Texture.new(data)) }
 
     assert_equal WHITE, image.pixel(16, 16)

@@ -190,11 +190,33 @@ class RulesTest < Minitest::Test
   end
 
   # newFile returns its File, or nil and a message when it cannot open it
-  # (wrap_Filesystem.cpp, w_newFile, through luax_ioError): two values, but
-  # one object, so it stays a constructor.
-  def test_a_factory_that_returns_one_object_or_an_error_is_a_constructor
-    assert_equal "Lota::Filesystem::File.new", ruby_name("love.filesystem.newFile")
-    assert_includes rules("love.filesystem.newFile"), 2
+  # (wrap_Filesystem.cpp, w_newFile, through luax_ioError). In Ruby nil and a
+  # message are objects too, so it makes several, and rule 17 keeps it a
+  # method that returns an Array, as it keeps newCircleBody.
+  def test_rule_17_a_factory_that_returns_an_object_or_an_error_stays_a_method
+    assert_equal "Lota::Filesystem.new_file", ruby_name("love.filesystem.newFile")
+    assert_includes rules("love.filesystem.newFile"), 17
+    assert_includes rules("love.filesystem.newFile"), 4
+    refute_includes rules("love.filesystem.newFile"), 2
+  end
+
+  # newFileData returns a FileData, or nil and a message when it is given a
+  # file it cannot read: luax_getfiledata is asked for an I/O error
+  # (wrap_Filesystem.cpp:428-440), whose count w_newFileData returns as it
+  # is.
+  def test_rule_17_a_factory_that_returns_through_an_io_error_helper_stays_a_method
+    assert_equal "Lota::Filesystem.new_file_data", ruby_name("love.filesystem.newFileData")
+    assert_includes rules("love.filesystem.newFileData"), 17
+    assert_empty collisions("love.filesystem.newFileData")
+  end
+
+  # Of every factory in LÖVE only these two can return nil and a message
+  # (luax_ioError is in wrap_Filesystem.cpp alone), so no other constructor
+  # moves.
+  def test_only_the_filesystem_factories_return_an_error_as_a_value
+    io = survey.entries.select { |entry| entry.analysis&.io_error && entry.function.love_name.match?(/new[A-Z]/) }
+
+    assert_equal %w[love.filesystem.newFile love.filesystem.newFileData], io.map { |entry| entry.function.love_name }.sort
   end
 
   # The deprecated newFixture returns one Shape (wrap_Physics.cpp:282-296),
