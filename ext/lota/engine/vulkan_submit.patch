@@ -1,0 +1,105 @@
+SPDX-FileCopyrightText: 2006-2026 LOVE Development Team
+SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+SPDX-License-Identifier: Zlib
+
+Lota's Vulkan submit patch: a guard added to submitGpuCommands in LÖVE's
+src/modules/graphics/vulkan/Graphics.cpp. submitGpuCommands ends the
+frame's command buffer (line 478) and then submits it (line 514). If
+anything between the two throws, such as vkQueueSubmit failing (lines
+515-516) or the semaphore that vulkan_semaphores.patch makes in reach
+(line 499), present throws with the command buffer ended and never
+submitted. Nothing begins it again until the next present succeeds, so
+the next command recorded into it is recorded into a command buffer that
+is not recording, which Vulkan leaves undefined. The error handler is the
+first to draw after a present that throws, and LÖVE's
+(src/modules/love/callbacks.lua, line 259) and Lota's both make a Font
+first, whose texture records a clear into that command buffer
+(vulkan/Texture.cpp, line 467 on): on
+a OnePlus Nord N30 5G (Android 14, Adreno 619) the driver dereferences a
+null pointer in vkCmdClearColorImage, and the game crashes with SIGSEGV
+instead of showing its error, in LÖVE's own Android app as in Lota
+(doc/contributors/upstream/025.md).
+
+When the commands are ended but not submitted, this patch records the
+frame again from its start, as beginSwapChainFrame records it once it has
+the image (lines 1487-1518): it begins the command buffer again, which
+vkBeginCommandBuffer may do since the command pool resets its buffers
+(line 3536) and this one never reached the GPU, records the image
+layouts' transitions from VK_IMAGE_LAYOUT_UNDEFINED, and keeps the wait
+for the swap chain image, whose semaphore no submit consumed. What the
+frame drew is lost with it, and the error that unwound through the guard
+is the one present throws. It changes nothing when the submit succeeds.
+
+Nothing in Lota can do this: the command buffer and the frame's state are
+private to LÖVE's Graphics, and no function of LÖVE's begins its command
+buffer again without first ending it. CMake applies the patch wherever it
+builds LÖVE's Vulkan renderer, on Linux, Windows, and Android, to a copy
+of the file in the build tree (ext/lota/engine/CMakeLists.txt); vendor/love
+is never written to.
+
+Drop this patch when LÖVE's present leaves a command buffer that can
+record after it throws.
+
+diff -ruN a/src/modules/graphics/vulkan/Graphics.cpp b/src/modules/graphics/vulkan/Graphics.cpp
+--- a/src/modules/graphics/vulkan/Graphics.cpp
++++ b/src/modules/graphics/vulkan/Graphics.cpp
+@@ -475,6 +475,50 @@
+ 		}
+ 	}
+ 
++	// If the commands recorded since the frame began end but never reach
++	// the GPU, because ending them, or submitting them, throws, record the
++	// frame again from its start, as beginSwapChainFrame records it once
++	// it has the image, without what was drawn. Whatever draws next, as an
++	// error handler does, then records into a command buffer that is
++	// recording, not into one that has ended, which some drivers crash on
++	// (ext/lota/engine/vulkan_submit.patch).
++	struct RestartUnsubmittedFrame
++	{
++		Graphics &graphics;
++		bool imageRequested;
++		bool submitted;
++
++		~RestartUnsubmittedFrame()
++		{
++			if (submitted)
++				return;
++
++			try
++			{
++				graphics.imageRequested = imageRequested;
++				graphics.startRecordingGraphicsCommands();
++
++				VkCommandBuffer commandBuffer = graphics.commandBuffers.at(graphics.currentFrame);
++				if (!graphics.swapChainImages.empty())
++					Vulkan::cmdTransitionImageLayout(
++						commandBuffer, graphics.swapChainImages[graphics.imageIndex], graphics.swapChainPixelFormat, true,
++						VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
++				if (graphics.depthImage)
++					Vulkan::cmdTransitionImageLayout(
++						commandBuffer, graphics.depthImage, graphics.depthStencilPixelFormat, true,
++						VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
++				if (graphics.colorImage)
++					Vulkan::cmdTransitionImageLayout(
++						commandBuffer, graphics.colorImage, graphics.swapChainPixelFormat, true,
++						VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
++			}
++			catch (...)
++			{
++				// The error that unwinds through here is the one to report.
++			}
++		}
++	} restartUnsubmittedFrame = { *this, imageRequested, false };
++
+ 	endRecordingGraphicsCommands();
+ 
+ 	std::array<VkCommandBuffer, 1> submitCommandbuffers = { commandBuffers.at(currentFrame) };
+@@ -514,6 +558,8 @@
+ 	VkResult result = vkQueueSubmit(graphicsQueue, 1, &submitInfo, fence);
+ 	if (result != VK_SUCCESS)
+ 		throw love::Exception("Failed to submit Vulkan draw command buffer: %s", Vulkan::getErrorString(result));
++
++	restartUnsubmittedFrame.submitted = true;
+ 	
+ 	StrongRef<image::ImageData> screenshotImageData;
+ 

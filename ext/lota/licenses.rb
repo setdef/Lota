@@ -423,6 +423,18 @@ work "LÖVE's patched Mesh",
   license: ["Zlib"],
   title: "LÖVE #{love_version}'s graphics/Mesh.cpp, as Lota's Mesh patch changes it"
 
+# LÖVE's graphics/vulkan/Graphics.cpp as Lota's Vulkan patches change it
+# (ext/lota/engine/vulkan_semaphores.patch and vulkan_submit.patch, and on
+# Android vulkan_present.patch), which CMake writes into the build tree
+# and the bundle compiles in place of vendor/love's wherever LÖVE builds
+# its Vulkan renderer. It is LÖVE's file, under LÖVE's license, with
+# changes the patches' own headers put under the same license.
+work "LÖVE's patched Vulkan renderer",
+  sources: ["tmp/*/build/patched/love/src/modules/graphics/vulkan/Graphics.cpp"],
+  copyright: ["2006-2026 LOVE Development Team", "2026 setdef <kerrick@setdef.com>"],
+  license: ["Zlib"],
+  title: "LÖVE #{love_version}'s graphics/vulkan/Graphics.cpp, as Lota's Vulkan patches change it"
+
 # The lz4.c of the LZ4 1.8.0 LÖVE bundles as Lota's LZ4 patch changes it
 # (ext/lota/engine/lz4.patch), which CMake writes into the build tree and
 # the bundle compiles in place of vendor/love's. It is LZ4's file, under

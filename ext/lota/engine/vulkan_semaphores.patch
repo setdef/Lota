@@ -1,0 +1,61 @@
+SPDX-FileCopyrightText: 2006-2026 LOVE Development Team
+SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+SPDX-License-Identifier: Zlib
+
+Lota's Vulkan semaphores patch: one loop added to recreateSwapChain in
+LÖVE's src/modules/graphics/vulkan/Graphics.cpp. The present of each swap
+chain image waits for a semaphore of that image, renderFinishedSemaphores
+indexed by the image's index (lines 499 and 608). createSyncObjects makes
+one for each image of the first swap chain (lines 3577-3582), once, when
+setMode creates the device (line 743), and nothing makes more. A swap
+chain made again by recreateSwapChain (lines 3685-3705) can have more
+images than the first, and once the driver hands out the image the first
+had none for, submitGpuCommands and present index past the end of the
+semaphores with std::vector::at, which throws std::out_of_range, whose
+message is "vector" (doc/contributors/upstream/024.md). A OnePlus Nord
+N30 5G (Android 14, Adreno 619) made a first swap chain of 5 images with
+vsync off, LÖVE's mailbox present mode there, and every later one of 6, so
+a game on Vulkan with vsync off failed within a few frames of its first
+swap chain rebuild, as LÖVE's own Android app does. This patch makes a
+semaphore for each image a new swap chain adds, after createSwapChain, and
+changes nothing else; a swap chain with fewer images leaves the extra
+semaphores unused until a later one needs them, and cleanup destroys them
+all as before (lines 3598-3600).
+
+Nothing in Lota can do this: the semaphores, the swap chain, and the
+present are private to LÖVE's Graphics, which no binding reaches, and a
+game cannot choose how many images a driver gives a swap chain. CMake
+applies the patch wherever it builds LÖVE's Vulkan renderer, on Linux,
+Windows, and Android, to a copy of the file in the build tree
+(ext/lota/engine/CMakeLists.txt); vendor/love is never written to.
+
+Drop this patch when LÖVE makes the semaphores of every swap chain it
+creates.
+
+diff -ruN a/src/modules/graphics/vulkan/Graphics.cpp b/src/modules/graphics/vulkan/Graphics.cpp
+--- a/src/modules/graphics/vulkan/Graphics.cpp
++++ b/src/modules/graphics/vulkan/Graphics.cpp
+@@ -3700,6 +3700,23 @@
+ 	createColorResources();
+ 	createDepthResources();
+ 
++	// The present of each swap chain image waits for a semaphore of its
++	// own, which createSyncObjects makes for the images of the first swap
++	// chain alone. A new one can have more images than the first (on an
++	// Android phone with vsync off, 6 where the first had 5), so make the
++	// semaphores of the images it adds, as Lota's patch does
++	// (ext/lota/engine/vulkan_semaphores.patch).
++	for (size_t i = renderFinishedSemaphores.size(); i < swapChainImages.size(); i++)
++	{
++		VkSemaphoreCreateInfo semaphoreInfo{};
++		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
++
++		VkSemaphore semaphore = VK_NULL_HANDLE;
++		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &semaphore) != VK_SUCCESS)
++			throw love::Exception("Failed to create image available semaphore");
++		renderFinishedSemaphores.push_back(semaphore);
++	}
++
+ 	swapChainRequestFlags = SWAP_CHAIN_REQUEST_KEEP;
+ 	transitionColorDepthLayouts = true;
+ }

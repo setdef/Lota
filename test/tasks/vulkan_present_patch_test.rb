@@ -46,8 +46,7 @@ class VulkanPresentPatchTest < Minitest::Test
     cmake = File.read(File.join(ROOT, "ext/lota/engine/CMakeLists.txt"))
     guarded = cmake[/^if\(CMAKE_SYSTEM_NAME STREQUAL "Android"\)\n(.*?)^endif\(\)/m, 1]
 
-    assert_includes guarded, "list(APPEND PATCHES vulkan_present)"
-    assert_includes guarded, "list(APPEND PATCHED_FILES_ALONE VULKAN_PRESENT_SOURCE)"
+    assert_equal "\tlist(APPEND PATCHES vulkan_present)\n", guarded
     assert_includes cmake, "\nset(PATCHES physics mesh lz4)\nset(PATCHED_FILES_ALONE MESH_SOURCE LZ4_SOURCE)\n"
   end
 

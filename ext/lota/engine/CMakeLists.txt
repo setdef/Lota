@@ -30,25 +30,33 @@ endif()
 # vendor/love's: physics.patch (ADR 005) to LÖVE's physics
 # module, and mesh.patch, which frees a Mesh's vertex data as it was
 # allocated, to graphics/Mesh.cpp, lz4.patch, which backports LZ4's own
-# fix for its arithmetic on null pointers, to libraries/lz4/lz4.c, and for
-# Android alone vulkan_present.patch, which keeps a suboptimal present
-# from rebuilding the swap chain, to graphics/vulkan/Graphics.cpp; every
-# other platform compiles LÖVE's own file. The copy is made when CMake configures,
-# again whenever a patch or one of the files it patches is edited, and a
-# patched file is written only when it differs, so an unchanged file is not
-# rebuilt.
+# fix for its arithmetic on null pointers, to libraries/lz4/lz4.c, and
+# to graphics/vulkan/Graphics.cpp, wherever LÖVE builds its Vulkan
+# renderer (everywhere but Apple's systems), vulkan_semaphores.patch,
+# which makes the semaphores of the images a rebuilt swap chain adds, and
+# vulkan_submit.patch, which leaves a frame that can record after its
+# submit fails, and for Android alone vulkan_present.patch, which keeps a
+# suboptimal present from rebuilding the swap chain. The copy is made when
+# CMake configures, again whenever a patch or one of the files it patches
+# is edited, and a patched file is written only when it differs, so an
+# unchanged file is not rebuilt.
 set(PHYSICS_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/physics.patch)
 set(MESH_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/mesh.patch)
 set(MESH_SOURCE src/modules/graphics/Mesh.cpp)
 set(LZ4_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/lz4.patch)
 set(LZ4_SOURCE src/libraries/lz4/lz4.c)
+set(VULKAN_SEMAPHORES_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_semaphores.patch)
+set(VULKAN_SUBMIT_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_submit.patch)
 set(VULKAN_PRESENT_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_present.patch)
-set(VULKAN_PRESENT_SOURCE src/modules/graphics/vulkan/Graphics.cpp)
+set(VULKAN_SOURCE src/modules/graphics/vulkan/Graphics.cpp)
 set(PATCHES physics mesh lz4)
 set(PATCHED_FILES_ALONE MESH_SOURCE LZ4_SOURCE)
+if(NOT APPLE)
+	list(APPEND PATCHES vulkan_semaphores vulkan_submit)
+	list(APPEND PATCHED_FILES_ALONE VULKAN_SOURCE)
+endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
 	list(APPEND PATCHES vulkan_present)
-	list(APPEND PATCHED_FILES_ALONE VULKAN_PRESENT_SOURCE)
 endif()
 set(PATCHED_SOURCE_DIR ${CMAKE_BINARY_DIR}/patched/love)
 set(PATCH_STAGING ${CMAKE_BINARY_DIR}/patched/staging)
@@ -107,8 +115,8 @@ set_source_files_properties(${PATCHED_SOURCE_DIR}/${MESH_SOURCE} PROPERTIES
 set_source_files_properties(${PATCHED_SOURCE_DIR}/${LZ4_SOURCE} PROPERTIES
 	COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/libraries/lz4")
 # The patched vulkan/Graphics.cpp's likewise ("Graphics.h", "Vulkan.h").
-if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-	set_source_files_properties(${PATCHED_SOURCE_DIR}/${VULKAN_PRESENT_SOURCE} PROPERTIES
+if(NOT APPLE)
+	set_source_files_properties(${PATCHED_SOURCE_DIR}/${VULKAN_SOURCE} PROPERTIES
 		COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/modules/graphics/vulkan")
 endif()
 
