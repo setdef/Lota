@@ -189,25 +189,51 @@ module Lota
     # Reads a file, matching love.filesystem.read
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_read).
     #
+    # [container] +:string+ (the default) to read the contents into a
+    #   String, or +:data+ into a Lota::Filesystem::FileData. It comes
+    #   first, as in LÖVE and as in Lota::Data.compress, and is told apart
+    #   from the +filename+ by being followed by one (rule 9 of
+    #   doc/contributors/design/translation.md).
     # [filename] String path of the file, found in the save directory or
     #   the game's folder.
     # [size] Integer most bytes to read; the whole file when +nil+, left
     #   out, or negative.
     #
     # Returns an Array of LÖVE's two results (rule 4 of
-    # doc/contributors/design/translation.md): the contents as a String and how
-    # many bytes they are, or +nil+ and a message String when the file cannot be
-    # read, so <tt>.first</tt> is +nil+ exactly when Lua's first result is. The
-    # String is in Ruby's default external encoding, as File.read's is, holding
-    # the file's bytes as they are. LÖVE can also read into a FileData, given
-    # <tt>"data"</tt> first; Lota binds that form later.
+    # doc/contributors/design/translation.md): the contents as a String, or a
+    # FileData, and how many bytes they are, or +nil+ and a message String when
+    # the file cannot be read, so <tt>.first</tt> is +nil+ exactly when Lua's
+    # first result is. The String is in Ruby's default external encoding, as
+    # File.read's is, holding the file's bytes as they are. Raises ArgumentError
+    # for a container LÖVE does not know, before it reads the file.
     #
     # === Examples
     #
     #   contents, size = Lota::Filesystem.read("savegame.dat")
+    #   data, size = Lota::Filesystem.read(:data, "savegame.dat", 64)
     #   Lota::Filesystem.read("missing.txt") # => [nil, "Could not open file missing.txt. Does not exist."]
-    def self.read(filename, size = nil)
-      Native::Filesystem.read(filename, size || -1)
+    #
+    # :call-seq:
+    #   read(filename, size = nil)
+    #   read(container, filename, size = nil)
+    def self.read(first, second = nil, third = nil)
+      if second.is_a?(String)
+        read_into(EnumName.of(first), second, third)
+      elsif first.is_a?(String)
+        read_into(nil, first, second)
+      else
+        raise TypeError, "wrong argument type #{first.class} (expected String)"
+      end
+    end
+
+    # The results of the engine's read of +filename+ in +container+ (+nil+
+    # for a String), with the engine's FileData wrapped. :nodoc:
+    private_class_method def self.read_into(container, filename, size)
+      case Native::Filesystem.read(filename, size || -1, container)
+      in [Native::FileData => data, Integer => bytes] then [FileData.__send__(:from_native, data), bytes]
+      in [String => contents, Integer => bytes] then [contents, bytes]
+      in [nil, String => message] then [nil, message]
+      end
     end
 
     # SPDX-SnippetBegin

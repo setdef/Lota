@@ -172,12 +172,21 @@ Rice::Object info(const std::string &filepath, const std::optional<std::string> 
   return fields;
 }
 
-// w_read into a string (wrap_Filesystem.cpp:618-659): the first +size+
-// bytes of +filename+, or all of it when +size+ is negative, and how many
-// it read, or luax_ioError's nil and message when it cannot read the
-// file, as one Array either way (rule 4 of
-// doc/contributors/design/translation.md).
-Rice::Array read(const std::string &filename, long long size) {
+// w_read (wrap_Filesystem.cpp:618-659): the first +size+ bytes of
+// +filename+, or all of it when +size+ is negative, as a String, or as a
+// FileData when +container+ is "data", and how many bytes it read, or
+// luax_ioError's nil and message when it cannot read the file, as one Array
+// either way (rule 4 of doc/contributors/design/translation.md). The
+// container is checked first, before the file is touched, as
+// luax_checkcontainertype is (the FileData's wrapper keeps its own
+// reference).
+Rice::Array read(const std::string &filename, long long size,
+                 const std::optional<std::string> &container) {
+  love::data::ContainerType ctype = love::data::CONTAINER_STRING;
+  if (container.has_value() && !love::data::getConstant(container->c_str(), ctype)) {
+    raise_enum_error("container type", love::data::getConstants(ctype), *container);
+  }
+
   FileData *data = nullptr;
   try {
     if (size >= 0) {
@@ -196,7 +205,11 @@ Rice::Array read(const std::string &filename, long long size) {
   // Ruby has a copy once it is pushed, so the FileData is released.
   const love::StrongRef<FileData> held(data, love::Acquire::NORETAIN);
   Rice::Array results;
-  results.push(std::string(static_cast<const char *>(data->getData()), data->getSize()), false);
+  if (ctype == love::data::CONTAINER_DATA) {
+    results.push(data, false);
+  } else {
+    results.push(std::string(static_cast<const char *>(data->getData()), data->getSize()), false);
+  }
   results.push(static_cast<long long>(data->getSize()), false);
   return results;
 }
@@ -609,7 +622,8 @@ void define_filesystem(const Rice::Module &native) {
                                  Rice::Arg("filename"))
       .define_singleton_function("info", &info, Rice::Arg("filepath"),
                                  Rice::Arg("filtertype") = std::optional<std::string>())
-      .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL)
+      .define_singleton_function("read", &read, Rice::Arg("filename"), Rice::Arg("size") = -1LL,
+                                 Rice::Arg("container") = std::optional<std::string>())
       .define_singleton_function("load", &load, Rice::Arg("filename"),
                                  Rice::Arg("mode") = std::optional<std::string>())
       .define_singleton_function("write_string", &write_string, Rice::Arg("filename"),

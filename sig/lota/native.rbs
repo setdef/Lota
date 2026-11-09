@@ -674,7 +674,7 @@ module Lota
 
       def self.info: (String filepath, ?String? filtertype) -> [String, bool, Integer?, Integer?]?
 
-      def self.read: (String filename, ?Integer size) -> ([String, Integer] | [nil, String])
+      def self.read: (String filename, ?Integer size, ?String? container) -> ([String, Integer] | [FileData, Integer] | [nil, String])
 
       def self.load: (String filename, ?String? mode) -> ([String, String] | [nil, String])
 

@@ -179,6 +179,29 @@ class SaveDirectoryTest < Minitest::Test
     assert_equal "Could not open file missing.txt. Does not exist.", message
   end
 
+  # w_read takes a container first when a second string follows
+  # (wrap_Filesystem.cpp:618-659): "data" reads into a FileData, named as
+  # the file is, "string" is the default.
+  def test_read_into_a_data_container_gives_a_file_data_in_loves_argument_order
+    saved("scores.txt", "ada 120\n")
+    data, size = Lota::Filesystem.read(:data, "scores.txt")
+    part, part_size = Lota::Filesystem.read(:data, "scores.txt", 3)
+    string, string_size = Lota::Filesystem.read(:string, "scores.txt", 3)
+
+    assert_instance_of Lota::Filesystem::FileData, data
+    assert_equal ["ada 120\n", "scores.txt", 8], [data.string, data.filename, size]
+    assert_equal ["ada", 3], [part.string, part_size]
+    assert_equal ["ada", 3], [string, string_size]
+    assert_equal [nil, "Could not open file missing.txt. Does not exist."], Lota::Filesystem.read(:data, "missing.txt")
+  end
+
+  def test_read_checks_its_container_before_it_reads
+    saved("scores.txt", "ada 120\n")
+    error = assert_raises(ArgumentError) { Lota::Filesystem.read(:text, "scores.txt") }
+
+    assert_match(/\AInvalid container type 'text', expected one of: /, error.message)
+  end
+
   # A Lua string is bytes, so read gives back every byte the file holds,
   # as KleleAtoms' saved game holds bytes such as 255.
   def test_read_and_write_keep_every_byte

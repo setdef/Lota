@@ -20,6 +20,9 @@ module Lota
     def self.info: (String path, ?(Symbol | String)? filtertype) -> Info?
 
     def self.read: (String filename, ?Integer? size) -> ([String, Integer] | [nil, String])
+                 | (:string | "string" container, String filename, ?Integer? size) -> ([String, Integer] | [nil, String])
+                 | (:data | "data" container, String filename, ?Integer? size) -> ([FileData, Integer] | [nil, String])
+                 | (Symbol | String container, String filename, ?Integer? size) -> ([String | FileData, Integer] | [nil, String])
 
     def self.load: (String name, ?(Symbol | String)? mode) -> ([Proc] | [nil, String])
 
@@ -43,6 +46,8 @@ module Lota
                           | (String | Lota::Data contents, String name) -> [FileData]
 
     private def self.file_data_of: (::Object source) -> ([FileData] | [nil, String])
+
+    private def self.read_into: (String? container, String filename, Integer? size) -> ([String | FileData, Integer] | [nil, String])
 
     private def self.opened: (Array[Native::File | nil | String] results) -> ([File] | [nil, String])
 

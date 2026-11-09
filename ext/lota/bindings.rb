@@ -245,8 +245,8 @@ bound_by_hand "love.filesystem.getInfo",
   reason: "reads its file type at a position it computes (startidx), and fills in a table it is given or makes, " \
     "which the generator does not port; Lota returns the fields, which Lota::Filesystem.info makes a frozen Data"
 bound_by_hand "love.filesystem.read",
-  reason: "reads its arguments at positions it computes (startidx); Lota binds the form that reads into a " \
-    "string"
+  reason: "reads its arguments at positions it computes (startidx), after a container only when a second " \
+    "string follows; Lota::Filesystem.read chooses as it does, and binds both containers"
 bound_by_hand "love.filesystem.load",
   reason: "compiles the file it reads as a Lua chunk (luaL_loadbufferx), which calls back into Lua; Lota " \
     "binds its mode check and its read, and Lota::Filesystem.load compiles the source as Ruby, or loads it as a " \
