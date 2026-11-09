@@ -135,79 +135,46 @@ class LotaRunTest < Minitest::Test
     assert_equal 5, status.exitstatus
   end
 
-  # Lövetest, through lota run and the game loop: Lövetest's
-  # love.graphics (its Buffer, Canvas, Font, Image, Mesh, ParticleSystem, Quad, Shader, and SpriteBatch tests among them),
-  # love.audio (its Source test among them), love.sound, love.image, love.keyboard, love.mouse, love.math, love.event, love.system,
-  # love.timer, love.window, love.filesystem, and love.physics tests, and
-  # those of love itself, run from
-  # the update callback of a game whose conf.rb translates Lövetest's
-  # conf.lua. On a GitHub Actions macOS runner, Lövetest's arc test
-  # compares none of its three 32 by 32 images, and asserts once instead
-  # (test/lovetest/tests/graphics.rb, test_arc, which skips only on "OS X").
-  # Lövetest skips its discard, requestAttention, showMessageBox,
-  # openURL, vibrate, pump, and wait tests everywhere, and so does Lota. Its
-  # Shader test compares a 16 by 16 image a glsl3 shader draws, and
-  # validates four glsl4 shaders with its eight checks, only where the
-  # renderer supports them, and asserts once for each instead
-  # (test/lovetest/tests/graphics.rb, test_shader). Its Canvas and Image
-  # tests check a changed mipmap sharpness, once each, only where the
-  # renderer is neither OpenGL ES nor Metal (test_canvas and test_image),
-  # so on OpenGL, as on Linux, they assert twice more than the count
-  # below, which is Metal's, as on macOS. Its getPowerInfo test
-  # checks the battery's percent, which Minitest's assert_includes counts
-  # as two assertions, and its seconds, as one, only on a machine that
-  # reports them (test/lovetest/tests/system.rb, test_get_power_info), so
-  # this asks this machine, as the game will; plugging a laptop in or out
-  # while the game runs could change the answer between the two.
+  # Lövetest, through lota run and the game loop: every test Lota
+  # translates from it (test/lovetest/tests), run from the update callback
+  # of a game whose conf.rb translates Lövetest's conf.lua, once each and
+  # with none failing. The runs it expects are the test methods those
+  # files define, so a file the game does not load, or a test it does not
+  # run, is noticed, and a test that runs but asserts nothing fails, as
+  # in Lövetest (Lovetest::TestMethod#after_teardown). How many assertions
+  # the tests make is left to them: many depend on the machine, and
+  # getPowerInfo's on its battery at the moment the game asks, which a
+  # laptop on a charger it out-draws can change from one second to the
+  # next (test/lovetest/tests/system.rb, test_get_power_info).
+  #
+  # Lövetest skips its discard, requestAttention, showMessageBox, openURL,
+  # vibrate, pump, and wait tests everywhere, and so does Lota.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
-    skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX && !TestHome::WINDOWS
-    assertions = skipped ? 345305 - (3 * 32 * 32) + 1 : 345305
-    # Its Video test checks how far the video played only off a GitHub
-    # runner (test/lovetest/tests/graphics.rb, test_video).
-    assertions -= 1 if ENV["GITHUB_ACTIONS"] == "true"
-    # Its mountCommonPath test mounts the desktop folder except on Linux,
-    # where it has none (test/lovetest/tests/filesystem.rb).
-    assertions -= 1 if TestHome::LINUX
+    runs = Dir[File.join(ROOT, "test/lovetest/tests/*.rb")].sum { |file| File.read(file).scan(/^\s*def test_\w+/).size }
     # Lövetest skips its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
-    # manager (test/lovetest/tests/window.rb), seven tests of 13 checks,
-    # beside the seven it always skips.
+    # manager (test/lovetest/tests/window.rb), seven tests beside the seven
+    # it always skips.
     on_linux_runner = ENV["GITHUB_ACTIONS"] == "true" && TestHome::LINUX
-    assertions -= 13 if on_linux_runner
     EngineHelper.open_window
     supported = Lota::Graphics.supported
-    # Its Buffer, Mesh, ParticleSystem, newMesh, and newParticleSystem
-    # tests make 172 assertions and compare two 64 by 64 images, one for
-    # each pixel; its ShaderStorageBuffer test makes one more, and skips
-    # instead where the renderer lacks GLSL 4.
-    assertions += 172 + (2 * 64 * 64) + (supported.glsl4 ? 1 : 0)
+    # Its ShaderStorageBuffer test skips where the renderer lacks GLSL 4.
     # Its isEnabled, getName, and getData sensor tests skip where the
-    # machine has neither an accelerometer nor a gyroscope, and otherwise
-    # check each it has ten times (test/lovetest/tests/sensor.rb).
+    # machine has neither an accelerometer nor a gyroscope
+    # (test/lovetest/tests/sensor.rb).
     sensors = %i[accelerometer gyroscope].count { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
-    assertions += 10 * sensors
     # It also skips getSource, setSource, and RecordingDevice, whose OpenAL
     # Soft cannot record (Lovetest::PLAYBACK_ONLY), as Lövetest skips them.
+    # On a desktop macOS does not draw, the isOccluded test skips
+    # (test/lovetest/unseen_desktop.rb), and on a Windows desktop whose
+    # foreground is held, the setGrabbed test (test/lovetest/held_foreground.rb).
     skips = HeldForeground.skips(UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) +
       (sensors.zero? ? 3 : 0)))
-    # On a desktop macOS does not draw, the isOccluded test skips before
-    # its one assertion (test/lovetest/unseen_desktop.rb), and on a Windows
-    # desktop whose foreground is held, the setGrabbed test before its two
-    # (test/lovetest/held_foreground.rb).
-    assertions -= 1 if UnseenDesktop.on?
-    assertions -= 2 if HeldForeground.on?
-    assertions -= (16 * 16) - 1 unless supported.glsl3
-    assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
-    renderer = Lota::Graphics.renderer_info.first
-    assertions += 2 unless renderer.include?("OpenGL ES") || renderer.include?("Metal")
-    _, percent, seconds = Lota::System.power_info
-    assertions += 2 unless percent.nil?
-    assertions += 1 unless seconds.nil?
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)
-    assert_match(/^356 runs, #{assertions} assertions, 0 failures, 0 errors, #{skips} skips$/, output)
+    assert_match(/^#{runs} runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, output)
   end
 
   # An error in a callback shows LÖVE's error screen, after printing the

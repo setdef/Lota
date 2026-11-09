@@ -185,7 +185,7 @@ Under X11 a warp of the pointer reaches SDL only as the motion the X server send
 
 ## Lövetest
 
-`test/lovetest` holds LÖVE's own Lövetest tests (`vendor/love/testing`), translated to Ruby by ADR 001's rules and marked as Zlib snippets. They open a real window, as Lövetest does: SDL's offscreen driver cannot create a Metal or OpenGL context on macOS, so run them in a logged-in session, and on Linux on a display, where LÖVE draws with OpenGL, through Mesa's software renderer on CI's Xvfb, as LÖVE's Linux CI runs Lövetest. Each compares what Lota draws with LÖVE's expected image, by Lövetest's own rule.
+`test/lovetest` holds LÖVE's own Lövetest tests (`vendor/love/testing`), translated to Ruby by ADR 001's rules and marked as Zlib snippets. They open a real window, as Lövetest does: SDL's offscreen driver cannot create a Metal or OpenGL context on macOS, so run them in a logged-in session, and on Linux on a display, where LÖVE draws with OpenGL, through Mesa's software renderer on CI's Xvfb, as LÖVE's Linux CI runs Lövetest. Each compares what Lota draws with LÖVE's expected image, by Lövetest's own rule, and, as in Lövetest, a test that asserts nothing fails, "no asserts defined" (`Lovetest::TestMethod#after_teardown`). `test/native/lota_run_test.rb` runs them all again through `lota run` and expects as many runs as the files in `test/lovetest/tests` define test methods, so a test the game does not load or run is noticed; how many assertions they make is left to the tests, since many depend on the machine.
 
 ## Using a checkout from a game
 

@@ -139,6 +139,17 @@ module Lovetest
       GC.start
     end
 
+    # Fails a test that ran to its end without asserting anything, as
+    # evaluateTest does: a test with no asserts fails, "no asserts
+    # defined" (lines 467 and 486-487), so a test that silently stops
+    # checking anything is noticed. A test that skipped or already failed
+    # keeps its own result, as a skipped test does in Lövetest (lines
+    # 454-461).
+    def after_teardown
+      super
+      flunk("no asserts defined") if assertions.zero? && failures.empty?
+    end
+
     # The types whose tests Lövetest names by the type, capitalized as it
     # is, where it names the rest by a function (love.test.graphics.Quad and
     # love.test.graphics.newQuad); a test class lists its module's.

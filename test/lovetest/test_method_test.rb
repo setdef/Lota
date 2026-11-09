@@ -20,10 +20,41 @@ class TestMethodTest < Minitest::Test
   class Scaling < Lovetest::TestMethod
     def test_scale
       Lota::Graphics.scale(4, 4)
+      assert_coords([4, 4], Lota::Graphics.transform_point(1, 1))
     end
   end
-  # This suite runs it, when it chooses to.
+
+  # A test that runs to its end without asserting anything, and one that
+  # skips before it asserts.
+  class Unasserted < Lovetest::TestMethod
+    def test_nothing
+      Lota::Graphics.origin
+    end
+
+    def test_skip
+      skip("not here")
+    end
+  end
+  # This suite runs them, when it chooses to.
   Minitest::Runnable.runnables.delete(Scaling)
+  Minitest::Runnable.runnables.delete(Unasserted)
+
+  # Lövetest fails a test that defines no asserts (vendor/love/testing/
+  # classes/TestMethod.lua:486-487), so a translated test that silently
+  # stops checking anything fails rather than passing.
+  def test_a_test_that_asserts_nothing_fails_as_in_lovetest
+    result = Unasserted.new("test_nothing").run
+
+    refute_predicate result, :passed?
+    assert_equal ["no asserts defined"], result.failures.map(&:message)
+  end
+
+  def test_a_test_that_skips_before_asserting_still_skips
+    result = Unasserted.new("test_skip").run
+
+    assert_predicate result, :skipped?
+    assert_equal ["not here"], result.failures.map(&:message)
+  end
 
   def test_a_test_leaves_the_origin_to_the_tests_after_it
     assert_predicate Scaling.new("test_scale").run, :passed?
