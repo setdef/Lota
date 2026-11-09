@@ -144,6 +144,18 @@ module Parity
   # there with Metal, whose frames the harness compares as they are.
   MEMORY = TestHome::LINUX ? { "MALLOC_PERTURB_" => "1" } : {}
 
+  # Mesa's drivers write nothing into a run's home, on Linux. They keep
+  # the shaders they compile in caches on disk under the home's .cache
+  # (llvmpipe and radeonsi in mesa_shader_cache; RADV, Mesa's Vulkan
+  # driver for AMD's GPUs, there and in radv_builtin_shaders), and each
+  # run of either engine has a home of its own, so a cache never spares a
+  # later run anything. RADV writes its caches' indexes and entries
+  # differently from one run of the same game to the next, so the run's
+  # folder a ReferenceCache keeps would differ from the one running the
+  # reference love again writes. A cache only spares a driver compiling a
+  # shader it compiled before; nothing either engine draws depends on it.
+  DRIVER = TestHome::LINUX ? { "MESA_SHADER_CACHE_DISABLE" => "true" } : {}
+
   # The whole environment a run of either engine gets: +variables+, the
   # harness's for the run, and these, the same for both engines, and
   # nothing of this process's. A shell's own variables, which differ from
@@ -154,8 +166,9 @@ module Parity
   # OpenAL Soft's settings for the tests (test/alsoft.conf); SDL's hints
   # that keep the windows in the background (test/test_helper.rb); and on
   # Linux, the display to open them on, which must be set, and its
-  # authority and runtime folder, if they are, and the byte malloc fills
-  # memory with (MEMORY). Each run's home, for HOME, is in +variables+.
+  # authority and runtime folder, if they are, the byte malloc fills
+  # memory with (MEMORY), and Mesa's shader cache turned off (DRIVER).
+  # Each run's home, for HOME, is in +variables+.
   def self.environment(variables)
     {
       "PATH" => "/usr/bin:/bin:/usr/sbin:/sbin",
@@ -167,6 +180,7 @@ module Parity
       "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0",
       **display,
       **MEMORY,
+      **DRIVER,
     }.merge(variables)
   end
 

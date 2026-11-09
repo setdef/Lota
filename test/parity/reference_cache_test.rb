@@ -302,4 +302,19 @@ class ReferenceCacheTest < Minitest::Test
     assert_equal result(fresh), result(hit)
     assert_equal 2, hit.frames.size
   end
+
+  # On Linux, nothing but the game writes in the reference love's home:
+  # the graphics driver keeps no shader cache there (Parity::DRIVER),
+  # whose files would differ from one run to the next under some drivers,
+  # and this game saves nothing.
+  if TestHome::LINUX
+    def test_the_reference_love_leaves_its_home_as_the_game_leaves_it
+      game = File.join(Parity::ARKANOID, "1-01_TheBallTheBrickThePlatform")
+      script = Parity::Script.new(frames: 2, fps: 60, holds: [])
+      run = Parity::LoveRun.new(game, script, Dir.mktmpdir("run", @dir), cache: nil)
+
+      assert_predicate run.output.status, :success?, run.output.text
+      assert_empty Dir.children(run.home)
+    end
+  end
 end
