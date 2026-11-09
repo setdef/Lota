@@ -302,6 +302,7 @@ class LotaRunTest < Minitest::Test
   # (event/sdl/Event.cpp:100-103, event/Event.cpp:108-130): the frame runs
   # again inside the pump of the frame under way, and draws.
   def test_the_frame_draws_while_the_system_resizes_the_window
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.draw
@@ -323,6 +324,7 @@ class LotaRunTest < Minitest::Test
   # the callback's name (event/sdl/Event.cpp:172-182), and reaches the
   # game's error handler from there.
   def test_an_error_the_frame_raises_while_the_window_is_resized_comes_out_of_the_pump
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.draw
@@ -346,6 +348,7 @@ class LotaRunTest < Minitest::Test
   # to the event module, the error handler's too (boot.lua:497-500 and
   # 510-514).
   def test_the_error_handlers_frame_draws_while_the_system_resizes_the_window
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.update(dt) = raise("broken")
@@ -368,6 +371,7 @@ class LotaRunTest < Minitest::Test
   # When love.init or love.run fails, boot.lua hands no frame to the event
   # module, the error handler's neither (boot.lua:471 and 490-500).
   def test_the_error_handlers_frame_is_not_handed_on_when_the_game_failed_to_start
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.load(*) = raise("broken")
@@ -392,6 +396,7 @@ class LotaRunTest < Minitest::Test
   # so once call has returned no frame of the game is drawn, though Lota's
   # module stays open.
   def test_the_frame_is_not_drawn_once_the_game_has_ended
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.draw
@@ -740,7 +745,7 @@ class LotaRunTest < Minitest::Test
   # physfs/Filesystem.cpp:608-616).
   def self.save_directory(identity, fused: false)
     support = TestHome.application_data(ENV.fetch("LOTA_TEST_HOME"))
-    File.join(*[support, (TestHome::LOTA_FOLDER unless fused), identity].compact)
+    TestHome.system_path(File.join(*[support, (TestHome::LOTA_FOLDER unless fused), identity].compact))
   end
 
   # boot.lua names the save directory after the game's folder, without
@@ -795,6 +800,7 @@ class LotaRunTest < Minitest::Test
   # the display has more pixels than points, high DPI doubles the pixels
   # and leaves the units alone; without it, a unit is a pixel.
   def test_a_touch_and_a_mouse_share_the_graphics_units_with_high_dpi_on_and_off
+    skip_where_sdl_is_apart
     main = <<~RUBY
       require "json"
       require "lota_native_test"

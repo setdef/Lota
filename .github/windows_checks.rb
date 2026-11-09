@@ -327,9 +327,14 @@ module WindowsChecks
     end
   end
 
-  # The files of the tests rake test runs that cannot run on Windows, with
-  # why.
-  WINDOWS_EXCLUDED = {}.freeze
+  # The tests rake test runs that Windows leaves out, a file or a folder
+  # each, with why.
+  WINDOWS_EXCLUDED = {
+    "test/tasks/" => "it tests the gate's Rake tasks and the builds they drive, which run on macOS and Linux " \
+      "with those systems' tools and paths; on Windows the build job's steps and this file build and check",
+    "test/native/bundle_test.rb" => "it reads rpaths and dynamic symbols, which Windows has none of; " \
+      "the closure and load checks read the extension's DLLs instead",
+  }.freeze
 
   # How long a file of tests may run, in seconds.
   TEST_BUDGET = 900
@@ -353,19 +358,22 @@ module WindowsChecks
     TOPLEVEL_BINDING.receiver.extend(Rake::DSL)
     Dir.chdir(ROOT)
     Kernel.load(File.join(ROOT, "tasks/test.rake"))
-    (Dir[*TEST_SUITES.fetch(:ruby)].sort - WINDOWS_EXCLUDED.keys)
+    Dir[*TEST_SUITES.fetch(:ruby)].sort.reject { |file| WINDOWS_EXCLUDED.keys.any? { |left| file.start_with?(left) } }
   end
 
   # Runs +file+ as Minitest's task does, with its tests' names and times,
-  # and its output kept in +logs+.
+  # and its output kept in +logs+. RUBYLIB holds lib, as Bundler's setup,
+  # which the gate runs under, puts the gemspec's lib on the load path of
+  # every Ruby a test starts.
   def run_test_file(file, logs)
     log = File.join(logs, "#{file.delete_suffix('.rb').tr('/', '-')}.log")
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    pid = Process.spawn(RbConfig.ruby, "-w", "-Ilib", "-Itest", file, "--verbose",
-      chdir: ROOT, in: File::NULL, out: log, err: %i[child out])
+    pid = Process.spawn({ "RUBYLIB" => File.join(ROOT, "lib") }, RbConfig.ruby, "-w", "-Ilib", "-Itest", file,
+      "--verbose", chdir: ROOT, in: File::NULL, out: log, err: %i[child out])
     status = wait_within(pid, TEST_BUDGET)
     seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-    output = File.binread(log).force_encoding(Encoding::UTF_8).scrub
+    # A Ruby on Windows writes its lines with CRLF.
+    output = File.binread(log).force_encoding(Encoding::UTF_8).scrub.delete("\r")
     summary = output[/^\d+ runs, \d+ assertions, \d+ failures, \d+ errors, \d+ skips$/]
     passed = (status&.success? && summary&.match?(/ 0 failures, 0 errors/)) ? true : false
     puts "== #{file}: #{passed ? 'passed' : 'FAILED'} in #{seconds.round}s, #{summary || status&.inspect || 'out of time'}"

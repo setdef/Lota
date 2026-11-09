@@ -42,7 +42,7 @@ jobs:
       touch_env: SAMPLE_GAME_QUIT_AFTER=120
 ```
 
-The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Sample Game, with `uses: ./.github/workflows/ios-kit.yml` and `lota_ref: ${{ github.sha }}`, the workflow of its own commit; it runs when an `experiment/ios-kit-call-*` or `experiment/phones-*` branch is pushed.
+The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Sample Game, with `uses: ./.github/workflows/ios-kit.yml` and `lota_ref: ${{ github.sha }}`, the workflow of its own commit; Lota's CI calls it on every push.
 
 ## Lota's own checks
 
@@ -57,7 +57,7 @@ gh workflow run ios-kit.yml -R setdef/Lota --ref trunk \
   -f smoke_env=SAMPLE_GAME_QUIT_AFTER=12 "-f=smoke_expect=(?m)^sample game: quitting after"
 ```
 
-Pushing to an `experiment/ios-kit-*` or `experiment/phones-*` branch builds `test/games/winkit` from that commit, with its DPI probe in the touch test.
+On every push, Lota's CI (`.github/workflows/ci.yml`) also calls `ios-kit.yml` itself for `test/games/winkit` from that commit, with its DPI probe in the touch test, and a tag releases nothing unless both kits pass.
 
 ## Open the kit
 

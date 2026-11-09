@@ -31,11 +31,11 @@ class UnseenDesktopTest < Minitest::Test
   end
 
   # The test's own body skips, with the switch's reason, before it asks
-  # anything of the window, on macOS; under X11 the switch changes nothing.
+  # anything of the window, on macOS; elsewhere the switch changes nothing.
   def test_lovetests_is_occluded_test_skips_when_on
     before = ENV.fetch("LOTA_DESKTOP_UNSEEN", nil)
     ENV["LOTA_DESKTOP_UNSEEN"] = "1"
-    if TestHome::LINUX
+    if TestHome::LINUX || TestHome::WINDOWS
       refute_predicate UnseenDesktop, :on?
     else
       skipped = assert_raises(Minitest::Skip) { WindowTest.new("test_is_occluded").test_is_occluded }

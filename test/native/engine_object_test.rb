@@ -152,6 +152,7 @@ class EngineObjectTest < Minitest::Test
   # A File's last reference closes it (physfs/File.cpp, ~File), so a
   # released File the game alone held is closed at once.
   def test_a_released_file_is_closed_at_once
+    skip("Windows has no /dev/fd to count a process's open files in") if TestHome::WINDOWS
     open_files = -> { Dir.children("/dev/fd").size }
     file, = Lota::Filesystem.open_file("released.txt", :w)
     with_file = open_files.call
