@@ -59,6 +59,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics.color=` reads an Array as `love.graphics.setColor` reads a table: its first four elements, ignoring any after them, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
 - `Lota::Graphics.background_color=` reads an Array as `love.graphics.setBackgroundColor` reads a table, as `color=` does: its first four elements, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
 - `Lota::Graphics::SpriteBatch#color=` reads an Array as `SpriteBatch:setColor` reads a table, as `color=` does: its first four elements, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
+- A color in colored text, as `Lota::Graphics.print` and `TextBatch#add` take it, is read as `luax_checkcoloredstring` reads a table: `TypeError` with LÖVE's message, not `IndexError`, when red, green, or blue is missing or not a number, and elements after the fourth are ignored.
 
 ## [0.3.1] - 2026-11-09
 

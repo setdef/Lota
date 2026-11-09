@@ -105,6 +105,24 @@ class TextTest < Minitest::Test
     assert_raises(TypeError) { Lota::Graphics.printf("love", 0, 0, nil) }
   end
 
+  # luax_checkcoloredstring reads a color as a table, with lua_rawgeti
+  # for 1 through 4 (wrap_Font.cpp:33-76), so one with fewer than three
+  # elements is a bad argument, not an IndexError, and extras are ignored.
+  def test_a_color_in_text_with_fewer_than_three_elements_raises_loves_error
+    print_error = assert_raises(TypeError) { Lota::Graphics.print([[1, 0], "a"], 0, 0) }
+    printf_error = assert_raises(TypeError) { Lota::Graphics.printf([[], "a"], 0, 0, 32) }
+
+    assert_equal "bad argument #-2 to 'Lota::Graphics.print' (number expected, got nil)", print_error.message
+    assert_equal "bad argument #-4 to 'Lota::Graphics.printf' (number expected, got nil)", printf_error.message
+  end
+
+  def test_a_color_in_text_ignores_elements_after_the_fourth
+    plain = drawn { Lota::Graphics.print([[1, 0, 0], "love"], 0, 3) }
+    extra = drawn { Lota::Graphics.print([[1, 0, 0, 1, 9, "ignored"], "love"], 0, 3) }
+
+    assert_equal pixels(plain), pixels(extra)
+  end
+
   def test_text_must_be_a_string_or_colored_text
     assert_raises(TypeError) { Lota::Graphics.print(5, 0, 0) }
     assert_raises(TypeError) { Lota::Graphics.printf([[1, 0, 0], 5], 0, 0, 32) }

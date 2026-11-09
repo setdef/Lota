@@ -126,6 +126,17 @@ class TextBatchTest < Minitest::Test
     refute_equal plain, red
   end
 
+  def test_a_color_in_a_batch_text_with_fewer_than_three_elements_raises_loves_error
+    text_batch = batch("a")
+    created = assert_raises(TypeError) { TextBatch.new(Lovetest.font, [[1, 0], "a"]) }
+    set = assert_raises(TypeError) { text_batch.set([[1, 0], "a"]) }
+    added = assert_raises(TypeError) { text_batch.add([[1, 0], "a"]) }
+
+    assert_equal "bad argument #-2 to 'Lota::Graphics::TextBatch.new' (number expected, got nil)", created.message
+    assert_equal "bad argument #-2 to 'Lota::Graphics::TextBatch#set' (number expected, got nil)", set.message
+    assert_equal "bad argument #-2 to 'Lota::Graphics::TextBatch#add' (number expected, got nil)", added.message
+  end
+
   def test_text_is_drawn_where_the_draw_places_it
     origin = drawn { Lota::Graphics.draw(batch("love")) }
     moved = drawn { Lota::Graphics.draw(batch("love"), 8, 8) }

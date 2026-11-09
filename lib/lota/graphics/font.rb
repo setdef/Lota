@@ -226,7 +226,7 @@ module Lota
       #
       #   width, lines = font.wrap("A long line of text", 50)
       def wrap(text, wraplimit)
-        @native.wrap(Graphics.__send__(:colored_text, text), wraplimit)
+        @native.wrap(Graphics.__send__(:colored_text, text, "Lota::Graphics::Font#wrap"), wraplimit)
       end
 
       # Sets the line height, a factor of #height between the tops of

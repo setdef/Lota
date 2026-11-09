@@ -55,7 +55,7 @@ module Lota
       def self.new(font, text = nil)
         raise TypeError, "wrong argument type #{font.class} (expected Lota::Graphics::Font)" unless font.is_a?(Font)
 
-        from_native(Native::Graphics.new_text_batch(font.__send__(:native), text.nil? ? nil : Graphics.__send__(:colored_text, text)))
+        from_native(Native::Graphics.new_text_batch(font.__send__(:native), text.nil? ? nil : Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch.new")))
       end
 
       # Replaces everything in the batch with +text+, placed at the
@@ -69,7 +69,7 @@ module Lota
       #
       #   batch.set("Round 2")
       def set(text)
-        @native.set(Graphics.__send__(:colored_text, text))
+        @native.set(Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch#set"))
       end
 
       # Replaces everything in the batch with +text+ wrapped at +wraplimit+
@@ -86,7 +86,7 @@ module Lota
       #
       #   batch.setf("A long line of text", 100, :center)
       def setf(text, wraplimit, align)
-        @native.setf(Graphics.__send__(:colored_text, text), wraplimit, EnumName.of(align))
+        @native.setf(Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch#setf"), wraplimit, EnumName.of(align))
       end
 
       # Adds +text+ and returns its Integer index, counting from 1, for
@@ -104,7 +104,7 @@ module Lota
       #   batch.add("Hello", 10, 20, Math::PI / 4, 2)
       #   batch.add("Hello", transform)
       def add(text, *placement)
-        colored = Graphics.__send__(:colored_text, text)
+        colored = Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch#add")
         transform = placement.first
         return @native.add_with_transform(colored, transform.native) if transform.is_a?(Math::Transform)
 
@@ -126,7 +126,7 @@ module Lota
       #
       #   batch.addf("A long line of text", 100, :right, 10, 20)
       def addf(text, wraplimit, align, *placement)
-        colored = Graphics.__send__(:colored_text, text)
+        colored = Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch#addf")
         align = EnumName.of(align)
         transform = placement.first
         return @native.addf_with_transform(colored, wraplimit, align, transform.native) if transform.is_a?(Math::Transform)

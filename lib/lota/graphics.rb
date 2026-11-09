@@ -1691,19 +1691,19 @@ module Lota
       ky = nil
     )
       if font.is_a?(Math::Transform)
-        return Native::Graphics.print_with_transform(colored_text(text), nil, font.__send__(:native))
+        return Native::Graphics.print_with_transform(colored_text(text, "Lota::Graphics.print"), nil, font.__send__(:native))
       elsif font.is_a?(Font) && x.is_a?(Math::Transform)
-        return Native::Graphics.print_with_transform(colored_text(text), font.__send__(:native), x.__send__(:native))
+        return Native::Graphics.print_with_transform(colored_text(text, "Lota::Graphics.print"), font.__send__(:native), x.__send__(:native))
       end
 
       unless font.is_a?(Font)
         raise ArgumentError, "wrong number of arguments (given 10 numbers, expected 0..9)" unless ky.nil?
 
-        return Native::Graphics.print(colored_text(text), nil,
+        return Native::Graphics.print(colored_text(text, "Lota::Graphics.print"), nil,
           placement(number(font || 0), number(x || 0), y, r, sx, sy, ox, oy, kx))
       end
 
-      Native::Graphics.print(colored_text(text), font.__send__(:native), placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
+      Native::Graphics.print(colored_text(text, "Lota::Graphics.print"), font.__send__(:native), placement(number(x || 0), y || 0, r, sx, sy, ox, oy, kx, ky))
     end
 
     # Draws text in the current font and color, or in a Font given first,
@@ -1748,9 +1748,9 @@ module Lota
       kx = nil, ky = nil
     )
       if font.is_a?(Math::Transform)
-        return Native::Graphics.printf_with_transform(colored_text(text), nil, font.__send__(:native), number(x), alignment(y))
+        return Native::Graphics.printf_with_transform(colored_text(text, "Lota::Graphics.printf"), nil, font.__send__(:native), number(x), alignment(y))
       elsif font.is_a?(Font) && x.is_a?(Math::Transform)
-        return Native::Graphics.printf_with_transform(colored_text(text), font.__send__(:native), x.__send__(:native), number(y),
+        return Native::Graphics.printf_with_transform(colored_text(text, "Lota::Graphics.printf"), font.__send__(:native), x.__send__(:native), number(y),
           alignment(limit))
       end
 
@@ -1762,7 +1762,7 @@ module Lota
         font = nil
       end
       x, y, limit, align, r, sx, sy, ox, oy, kx, ky = arguments
-      Native::Graphics.printf(colored_text(text), font&.__send__(:native),
+      Native::Graphics.printf(colored_text(text, "Lota::Graphics.printf"), font&.__send__(:native),
         placement(number(x), number(y), optional_number(r), optional_number(sx), optional_number(sy),
           optional_number(ox), optional_number(oy), optional_number(kx), optional_number(ky)),
         number(limit), alignment(align))
@@ -1798,15 +1798,17 @@ module Lota
     # luax_checkcoloredstring (src/modules/font/wrap_Font.cpp:33-76): text
     # as parts, each a String and the color it is drawn in, white until a
     # color comes before it, with alpha 1 when left out.
-    # Lota::Graphics::Font#wrap reads text as print does. :nodoc:
-    private_class_method def self.colored_text(text)
+    # Lota::Graphics::Font#wrap reads text as print does. A color is read
+    # as a table is for w_setColor, with +function+, Lota's name for the
+    # function whose argument +text+ is, in the error. :nodoc:
+    private_class_method def self.colored_text(text, function)
       return [[text, 1.0, 1.0, 1.0, 1.0]] if text.is_a?(String)
 
       color = [1.0, 1.0, 1.0, 1.0] #: [Float | Integer, Float | Integer, Float | Integer, Float | Integer]
       parts = [] #: Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
       Array(text).each do |part|
         case part
-        when Array then color = [part.fetch(0), part.fetch(1), part.fetch(2), part.fetch(3, 1.0)]
+        when Array then color = color_components(part, function)
         when String then parts << [part, color[0], color[1], color[2], color[3]]
         else raise TypeError, "wrong argument type #{part.class} (expected String or Array)"
         end
