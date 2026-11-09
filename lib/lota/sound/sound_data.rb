@@ -30,7 +30,7 @@ module Lota
       private_class_method def self.from_native(native)
         sound_data = allocate
         sound_data.instance_variable_set(:@native, native)
-        sound_data
+        sound_data.freeze
       end
 
       # Makes a SoundData, matching love.sound.newSoundData
@@ -79,6 +79,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # How many channels the sound has, as an Integer: 1 for mono, 2 for

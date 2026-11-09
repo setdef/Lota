@@ -29,6 +29,7 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	random_generator.cpp
 	sensor.cpp
 	shader.cpp
+	signal.cpp
 	sound.cpp
 	system.cpp
 	texture.cpp

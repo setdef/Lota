@@ -54,7 +54,7 @@ module Lota
     private_class_method def self.from_native(native)
       data = allocate
       data.instance_variable_set(:@native, native)
-      data
+      data.freeze
     end
 
     # SPDX-SnippetBegin
@@ -354,15 +354,22 @@ module Lota
       native.string(offset, size)
     end
 
-    # Calls the block with +arguments+ while no other thread can use the
-    # Data, and returns what the block returns, matching
+    # Calls the block with +arguments+ while no other thread, in any
+    # Ractor, can call perform_atomic on the Data, and returns what the
+    # block returns, matching
     # Data:performAtomic (src/modules/data/wrap_Data.cpp,
     # w_Data_performAtomic), whose function becomes the block (rule 12 of
     # doc/contributors/design/translation.md).
     #
     # [arguments] Anything, passed on to the block.
     #
-    # The Data's lock is let go when the block returns or raises.
+    # The Data is let go when the block returns or raises. Another thread
+    # waits for it without its GVL, so the threads of its Ractor, and Ruby's
+    # collector, run meanwhile. LÖVE also holds the Data's own mutex while
+    # the function runs; Lota does not, since a thread that waited for it
+    # would hold its GVL, and could stop the block's thread, or a
+    # collection, for good. So the engine's own code that takes that
+    # mutex, such as a font made from an ImageData, is not kept out.
     #
     # === Example
     #

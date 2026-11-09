@@ -66,6 +66,54 @@ module NativeHelper
     reader&.close
   end
 
+  # Runs Ruby, with warnings on, on +arguments+ in a process of its own
+  # that loads Lota as this one did, the sanitized bundle under rake
+  # test:native among them, and returns its output and Process::Status.
+  # A test that makes a Ractor makes it there: once a process has made
+  # one, ObjectSpace no longer finds the objects other tests count
+  # (physics_callbacks_test.rb). A process that has not ended after
+  # +timeout+ seconds, as one that deadlocks never does, is killed.
+  #
+  # Under AddressSanitizer, Ruby raising in a Ractor's thread can make ASan
+  # print, once, that it ignores __asan_handle_no_return for a stack it
+  # cannot size, and that false reports may follow (google/sanitizers#189):
+  # a notice of three lines, not a report. It is taken out of the output;
+  # a report of ASan's own, an "ERROR: AddressSanitizer", stays, and ends
+  # the process with a failing status.
+  def ruby_of_its_own(*, environment: {}, timeout: 120)
+    native = File.dirname(File.dirname(loaded("lota/native")))
+    load_path = [native, File.join(ROOT, "lib")].uniq.join(File::PATH_SEPARATOR)
+    variables = ENV.to_h.merge(environment).compact.map { |name, value| "#{name}=#{value}" }
+    reader, writer = IO.pipe
+    begin
+      pid = NativeHelper.spawn([RbConfig.ruby, "-w", "-I#{load_path}", *], writer, variables)
+    ensure
+      writer.close
+    end
+    [read_with_timeout(reader, pid, timeout), Process.wait2(pid).last]
+  ensure
+    reader&.close
+  end
+
+  # What +reader+ reads until the process +pid+ closes it, which kills the
+  # process once +timeout+ seconds pass first, as a deadlocked one would
+  # never end; the output says so.
+  def read_with_timeout(reader, pid, timeout)
+    output = Thread.new { reader.read }
+    unless output.join(timeout)
+      Process.kill(:KILL, pid)
+      return "#{output.value}\n(killed after #{timeout} seconds)\n"
+    end
+    output.value.gsub(ASAN_NO_RETURN_NOTICE, "")
+  end
+
+  # The notice ruby_of_its_own takes out of a sanitized run's output.
+  ASAN_NO_RETURN_NOTICE = Regexp.new(
+    "==\\d+==WARNING: ASan is ignoring requested __asan_handle_no_return: .*\n" \
+      "False positive error reports may follow\n" \
+      "For details see #{Regexp.escape('https://github.com/google/sanitizers/issues/189')}\n"
+  )
+
   # Starts +command+ with exactly +variables+ (NAME=value strings), its
   # standard input reading nothing and its standard output and error
   # writing to the IO +output+, and returns its process ID. Ruby forks to

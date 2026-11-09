@@ -50,7 +50,7 @@ module Lota
       private_class_method def self.from_native(native)
         image_data = allocate
         image_data.instance_variable_set(:@native, native)
-        image_data
+        image_data.freeze
       end
 
       # Makes an ImageData, matching love.image.newImageData
@@ -97,6 +97,7 @@ module Lota
           Native::Image.new_sized_image_data(source, Integer(height), format && EnumName.of(format), bytes)
         else Native::Image.new_image_data(Image.__send__(:data_of, source))
         end
+        freeze
       end
 
       # Makes this ImageData, a copy of +source+ by Ruby's +clone+ or
@@ -112,6 +113,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The width in pixels, as an Integer, matching ImageData:getWidth as

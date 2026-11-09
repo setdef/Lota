@@ -35,7 +35,7 @@ module Lota
       private_class_method def self.from_native(native)
         file_data = allocate
         file_data.instance_variable_set(:@native, native)
-        file_data
+        file_data.freeze
       end
 
       # Makes this FileData, a copy of +source+ by Ruby's +clone+ or
@@ -50,6 +50,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # The file's name, matching FileData:getFilename

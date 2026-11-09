@@ -27,7 +27,7 @@ module Lota
       private_class_method def self.from_native(native)
         data = allocate
         data.instance_variable_set(:@native, native)
-        data
+        data.freeze
       end
 
       # Makes a ByteData, matching love.data.newByteData
@@ -69,6 +69,7 @@ module Lota
       def initialize_copy(source)
         super
         @native = source.native.clone
+        freeze
       end
 
       # Copies a String's bytes into the ByteData at a byte offset,
