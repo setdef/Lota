@@ -28,6 +28,19 @@ module Lovetest
     # its Lua global Font.
     attr_reader :font
 
+    # Lövetest's Lua global TextCommand (vendor/love/testing/main.lua:
+    # 55 and 138): the line its love.draw prints first, the command the
+    # tests run with, "--all" unless a test sets it.
+    attr_writer :text_command
+
+    # Lövetest's Lua global TextRun (classes/TestSuite.lua:79): the line
+    # its love.draw prints second, the name of the test that runs.
+    attr_writer :text_run
+
+    def text_command = @text_command ||= "--all"
+
+    def text_run = @text_run ||= ""
+
     # The logo Lövetest's love.load makes, which its draw test draws: its
     # Lua global Logo, a texture and a quad of all of it.
     attr_reader :logo
@@ -62,6 +75,42 @@ module Lovetest
       @font = Lota::Graphics::Font.new("resources/font.ttf", 8, :normal)
     end
     @loaded = true
+  end
+
+  # Translated to Ruby from Lövetest's love.draw (vendor/love/testing/main.lua:
+  # 179-188), which draws a little logo and the two lines of text that name
+  # the run, as the screen the screenshot test compares. A frame of love.run
+  # (vendor/love/src/modules/love/callbacks.lua:192-198) resets the
+  # transformation and clears the screen to the background color before it
+  # draws, so draw_frame does, when the graphics are active. The font
+  # Lövetest's draw sets stays set in Lövetest, where every test starts after
+  # a frame drawn with it; here the translation puts the state back, so the
+  # tests of a process that waits for frames in some of them and not in
+  # others do not depend on the order Minitest runs them in. setFont becomes
+  # a writer (rule 5), and the whole state is saved and restored by push and
+  # pop, with push's block (rule 11).
+  def self.draw
+    return unless @logo
+
+    Lota::Graphics.push(:all) do
+      lw = (Lota::Graphics.width - 128) / 2.0
+      lh = (Lota::Graphics.height - 128) / 2.0
+      Lota::Graphics.draw(@logo.texture, @logo.img, lw, lh, 0, 2, 2)
+      Lota::Graphics.font = @font
+      Lota::Graphics.print(text_command, 4, 12, 0, 2, 2)
+      Lota::Graphics.print(text_run, 4, 32, 0, 2, 2)
+    end
+  end
+
+  # What love.run does before it presents a frame: when the graphics are
+  # active, resets the transformation, clears to the background color, and
+  # draws.
+  def self.draw_frame
+    return unless Lota::Graphics.active?
+
+    Lota::Graphics.origin
+    Lota::Graphics.clear(*Lota::Graphics.background_color)
+    draw
   end
 
   # Lövetest's GITHUB_RUNNER (vendor/love/testing/main.lua:86-111): true
@@ -118,6 +167,7 @@ module Lovetest
     def setup
       EngineHelper.open_window
       Lovetest.load
+      Lovetest.text_run = "love.#{self.class.name.to_s.delete_suffix('Test').downcase}.#{lovetest_method}"
       @rgba_tolerance = 0
       @pixel_tolerance = 0
       @imgs = 1
@@ -167,12 +217,12 @@ module Lovetest
     end
 
     # Lets +frames+ frames go by, as waitFrames (lines 389-391) yields to
-    # love.run for each: each handles the queued events and shows the
-    # window, as a frame of Lota.run does, with nothing drawn, since the
-    # test has no draw callback.
+    # love.run for each: each handles the queued events, draws Lövetest's
+    # screen, and shows the window, as a frame of Lota.run does.
     def wait_frames(frames)
       frames.times do
         Lota::Event.pump
+        Lovetest.draw_frame
         Lota::Graphics.present
       end
     end

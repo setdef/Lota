@@ -2165,6 +2165,40 @@ class GraphicsTest < Lovetest::TestMethod
     compare_img(imgdata)
   end
 
+  # Translated to Ruby from love.test.graphics.captureScreenshot
+  # (vendor/love/testing/tests/graphics.lua:1648-1673): captureScreenshot
+  # becomes capture_screenshot (rule 13), its callback a block (rule 12),
+  # love.filesystem.exists and remove exists and remove (rule 13), the
+  # TextCommand global Lovetest.text_command, and waitFrames wait_frames.
+  # The frame it captures is the screen Lövetest's love.draw shows
+  # (Lovetest.draw), which is what the expected image holds.
+  def test_capture_screenshot
+    Lota::Graphics.capture_screenshot("example-screenshot.png")
+    wait_frames(1)
+    # need to wait until end of the frame for the screenshot
+    assert_true(Lota::Filesystem.exists("example-screenshot.png"))
+    Lota::Filesystem.remove("example-screenshot.png")
+    # test callback version
+    cbdata = nil
+    prevtextcommand = Lovetest.text_command
+    Lovetest.text_command = "Capturing screenshot"
+    Lota::Graphics.capture_screenshot do |idata|
+      refute_equal(nil, idata, "check we have image data")
+      cbdata = idata
+    end
+    wait_frames(1)
+    Lovetest.text_command = prevtextcommand
+    assert_not_nil(cbdata)
+
+    if Lovetest.os?("iOS", "Android")
+      # Mobile operating systems don't let us control the window resolution,
+      # so we can't compare the reference image properly.
+      assert_true(true, "skip test")
+    else
+      compare_img(cbdata)
+    end
+  end
+
   # Translated to Ruby from love.test.graphics.newArrayImage
   # (vendor/love/testing/tests/graphics.lua:1678-1682), by the rules
   # test_draw_layer names.
