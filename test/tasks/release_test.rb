@@ -157,6 +157,39 @@ class ReleaseTest < Minitest::Test
     end
   end
 
+  def test_unreleased_is_the_lines_under_unreleased_up_to_the_next_section
+    in_tree do |root|
+      repository(root, changelog: "# Changelog\n\n## [Unreleased]\n\n- New.\n\n## [0.0.1] - 2026-01-01\n\n- Old.\n")
+
+      assert_equal ["\n", "- New.\n", "\n"], Release.new(root:).unreleased
+    end
+  end
+
+  def test_tags_are_the_release_tags_and_tagged_is_the_commit_an_annotated_tag_names
+    in_tree do |root|
+      repository(root)
+      run!(root, "git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "tag", "--annotate", "v0.0.0", "-m", "Lota 0.0.0")
+      run!(root, "git", "tag", "other")
+      release = Release.new(root:)
+
+      assert_equal ["v0.0.0"], release.tags
+      assert_equal run!(root, "git", "rev-parse", "HEAD").chomp, release.tagged("v0.0.0")
+      assert_nil release.tagged("v9.9.9")
+    end
+  end
+
+  def test_export_writes_the_files_under_a_path_as_a_commit_has_them
+    in_tree do |root|
+      repository(root)
+      write(root, "lib/lota/version.rb", "changed since\n")
+      out = File.join(root, "out")
+      Release.new(root:).export("HEAD", "lib", out)
+
+      assert_equal ["lib/lota/version.rb"], Dir.glob("**/*", base: out).select { |path| File.file?(File.join(out, path)) }
+      assert_equal VERSION_RB, File.read(File.join(out, "lib/lota/version.rb"))
+    end
+  end
+
   def test_check_refuses_a_tag_the_version_file_disagrees_with
     in_tree do |root|
       repository(root)

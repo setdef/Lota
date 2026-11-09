@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Image
+    class ImageData < Data[Native::ImageData]
+      private def self.from_native: (Native::ImageData native) -> ImageData
+
+      def self.new: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> ImageData
+                  | (file source) -> ImageData
+
+      def initialize: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> void
+                    | (file source) -> void
+
+      def initialize_copy: (ImageData source) -> void
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def dimensions: () -> [Integer, Integer]
+
+      def format: () -> Symbol
+
+      def linear=: (bool linear) -> void
+
+      def linear?: () -> bool
+
+      def paste: (ImageData source, Integer | Float dx, Integer | Float dy, ?(Integer | Float) sx, ?(Integer | Float) sy, ?(Integer | Float)? sw, ?(Integer | Float)? sh) -> nil
+
+      def encode: (Symbol | String format, ?String? filename) -> Filesystem::FileData
+
+      def pixel: (Float | Integer x, Float | Integer y) -> Array[Float]
+
+      def pixel=: (Array[Float | Integer | Array[Float | Integer]] arguments) -> void
+
+      def map_pixel: (?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? width, ?(Float | Integer)? height) { (Integer, Integer, Float, Float, Float, Float) -> Array[Float | Integer] } -> nil
+
+      private
+
+      def data_bytes: (Data data) -> String
+    end
+  end
+end
