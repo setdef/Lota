@@ -262,12 +262,15 @@ class ReferenceCacheTest < Minitest::Test
     assert_equal 2, runs
   end
 
+  # The test puts back the value the run was given, so that a run given 0,
+  # as CI's and the gate's are, keeps the cache off for the tests after it.
   def test_lota_parity_cache_0_turns_the_cache_off
+    given = ENV.fetch("LOTA_PARITY_CACHE", nil)
     ENV["LOTA_PARITY_CACHE"] = "0"
 
     assert_nil Parity::ReferenceCache.default
   ensure
-    ENV.delete("LOTA_PARITY_CACHE")
+    ENV["LOTA_PARITY_CACHE"] = given
   end
 
   # Past the limit, the entries read least recently go first; the newest
