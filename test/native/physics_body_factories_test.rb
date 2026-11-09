@@ -12,8 +12,9 @@ require_relative "../engine_helper"
 # newCircleBody, newRectangleBody, newPolygonBody, newEdgeBody, and
 # newChainBody each make a Body and a Shape on it and return both
 # (wrap_Physics.cpp:85-280), so each is a module function that returns
-# the two as an Array (ADR 001, rules 17 and 4). Where each puts the Body
-# and its Shape is Physics.cpp's (lines 63-131).
+# the two as an Array (rules 17 and 4 of
+# doc/contributors/design/translation.md). Where each puts the Body and its
+# Shape is Physics.cpp's (lines 63-131).
 class PhysicsBodyFactoriesTest < Minitest::Test
   include NativeHelper
 

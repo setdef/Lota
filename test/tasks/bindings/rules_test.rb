@@ -151,11 +151,11 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.graphics.transformPoint")
   end
 
-  # ADR 001, rule 17: factories that make several objects stay methods.
-  # newCircleBody makes a Body and a CircleShape and returns both
-  # (wrap_Physics.cpp:85-107), and Ruby's new makes one object, so it keeps
-  # its name and returns the two as an Array by rule 4. The analysis reads
-  # the five such factories from their pushes, so no list names them.
+  # Rule 17 of doc/contributors/design/translation.md: factories that make
+  # several objects stay methods. newCircleBody makes a Body and a CircleShape
+  # and returns both (wrap_Physics.cpp:85-107), and Ruby's new makes one object,
+  # so it keeps its name and returns the two as an Array by rule 4. The analysis
+  # reads the five such factories from their pushes, so no list names them.
   def test_rule_17_a_factory_that_returns_several_objects_stays_a_method
     %w[Circle Rectangle Polygon Edge Chain].each do |kind|
       love_name = "love.physics.new#{kind}Body"

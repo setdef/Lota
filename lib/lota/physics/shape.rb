@@ -784,10 +784,10 @@ module Lota
 
     # LÖVE's deprecated love.physics.newFixture, from LÖVE 11, where a
     # Fixture attached a Shape to a Body. In LÖVE 12 a Shape is its own
-    # fixture and LÖVE has no Fixture class, so rule 2 of ADR 001 makes
-    # Fixture a module whose +new+ returns the new Shape, and whose
-    # <tt>===</tt> is true of every Shape, as RectangleShape === is of
-    # every PolygonShape.
+    # fixture and LÖVE has no Fixture class, so rules 25 and 27 of
+    # doc/contributors/design/translation.md makes Fixture a module whose +new+
+    # returns the new Shape, and whose <tt>===</tt> is true of every Shape, as
+    # RectangleShape === is of every PolygonShape.
     #
     # === Example
     #

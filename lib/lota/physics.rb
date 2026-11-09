@@ -155,11 +155,13 @@ module Lota
     # Lota::Physics::Body and its Lota::Physics::CircleShape, matching
     # love.physics.newCircleBody (src/modules/physics/box2d/wrap_Physics.cpp,
     # w_newCircleBody), which returns both. Ruby's +new+ makes one object,
-    # so a factory that makes two stays a method (ADR 001, rule 17), and
-    # returns the two as an Array (rule 4).
+    # so a factory that makes two stays a method (rule 17 of
+    # doc/contributors/design/translation.md), and returns the two as an Array
+    # (rule 4).
     #
     # [type] Symbol <tt>:static</tt>, <tt>:dynamic</tt>, or
-    #   <tt>:kinematic</tt> (ADR 001, rule 9), which LÖVE requires here.
+    #   <tt>:kinematic</tt> (rule 9 of doc/contributors/design/translation.md),
+    #   which LÖVE requires here.
     # [x] Float or Integer position along x of the Body, and of the
     #   circle's center, in pixels.
     # [y] Float or Integer position along y.

@@ -296,7 +296,7 @@ module Lota
     # The address of the Data's bytes, as a Fiddle::Pointer of no size,
     # matching Data:getPointer (src/modules/data/wrap_Data.cpp,
     # w_Data_getPointer), which gives Lua the address as a raw pointer
-    # (ADR 001, section 7).
+    # (doc/contributors/design/translation.md).
     #
     # The pointer is valid only while the Data lives, as in LÖVE: once the
     # Data is released or garbage collected, reading or writing through it

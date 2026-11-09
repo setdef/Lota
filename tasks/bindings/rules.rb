@@ -316,13 +316,13 @@ module Bindings
         Rules.snake_case(@name)
       end
 
-      # ADR 001, rule 17: factories that make several objects stay methods.
-      # Rule 2 makes a factory a constructor, but Ruby's new makes one
-      # object, so a factory that returns more than one, as newCircleBody
-      # returns its Body and its CircleShape (wrap_Physics.cpp:85-107) and
-      # newCubeFaces its six faces (wrap_Image.cpp:131-139), keeps its
-      # name, in snake case, and returns what it makes as an Array by rule
-      # 4, with no module and no ===.
+      # Rule 17 of doc/contributors/design/translation.md: factories that make
+      # several objects stay methods. Rule 2 makes a factory a constructor, but
+      # Ruby's new makes one object, so a factory that returns more than one, as
+      # newCircleBody returns its Body and its CircleShape
+      # (wrap_Physics.cpp:85-107) and newCubeFaces its six faces
+      # (wrap_Image.cpp:131-139), keeps its name, in snake case, and returns
+      # what it makes as an Array by rule 4, with no module and no ===.
       private def several_objects
         @rules.push(17, 4)
         Rules.snake_case(@name)

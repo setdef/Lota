@@ -124,8 +124,9 @@ class PhysicsFixtureTest < Minitest::Test
     assert_match(%r{\ALota - Warning: #{Regexp.escape(__FILE__)}:\d+: Using deprecated function Lota::Physics::Fixture\.new \(replaced by Lota::Physics::Circle/Rectangle/Polygon/Edge/ChainShape\.new\)\n\z}, out)
   end
 
-  # Rule 2 of ADR 001: newFixture makes a Shape, which records nothing of
-  # the factory that made it, so Fixture === is true of every Shape.
+  # Rule 27 of doc/contributors/design/translation.md: newFixture makes a Shape,
+  # which records nothing of the factory that made it, so Fixture === is true of
+  # every Shape.
   def test_fixture_matches_every_shape
     assert_operator Physics::Fixture, :===, Physics::CircleShape.new(@body, 5)
     assert_operator Physics::Fixture, :===, Physics::Fixture.new(@body, Physics::CircleShape.new(5))
