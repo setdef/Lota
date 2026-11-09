@@ -80,7 +80,7 @@ A commit holds work of one provenance and says which in a `Provenance:` trailer 
 - Before changing what other agents are likely changing too, such as the binding generator, `ext/lota/bindings.rb`, or a test that counts Lövetest's tests, say so first.
 - Work too big for one commit lands as small commits behind a feature flag or by branch by abstraction.
 - A red build on `trunk` stops all other work until it is fixed or the commit that broke it is reverted.
-- Never tag or release.
+- Before 1.0.0, tag and release only a commit CI has proven green, as `doc/contributors/releasing.md` describes, and never publish to RubyGems.org. From 1.0.0 on, never tag or release.
 - Include any plan or ADR change in the commit whose work it describes.
 - Conventional Commits, plain text, wrapped at 72. The body explains why this approach over alternatives, in prose (no lists, no markdown, no file inventories). Types: `lib/ext/sig` feat/fix/refactor/perf; `bin/tasks`/CI chore; `examples/` and `doc/` docs; `test/` test. End with a `Red-before-green: none (reason)` trailer when the commit waives that check, then the `Provenance:` trailer, then the AI footer shown by `git log -n1`.
 
