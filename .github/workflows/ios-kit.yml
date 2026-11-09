@@ -10,7 +10,7 @@
 # The project job lays the game out as a Fledge project (ipad/prepare.rb:
 # lota fuse's entry script, or the game's own program), with Lota from
 # this checkout as a path gem and SDL's iOS host from the gem's
-# ext/lota/phone/host/ios, and has fledge build ios (Fledge 0.9.0) write
+# ext/lota/phone/host/ios, and has fledge build ios (Fledge 0.10.0) write
 # the Xcode project, which it
 # zips with its symbolic links and uploads as the ios-kit artifact. A
 # second, fresh runner without Lota, Fledge, or XcodeGen unpacks that zip,
@@ -201,7 +201,7 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  FLEDGE_REF: v0.9.0
+  FLEDGE_REF: v0.10.0
   # Pushed, the workflow checks winkit, which prints what Lota sees and
   # quits with 0 after its WINKIT_SECONDS; its touch launch runs the DPI
   # probe (test/games/winkit/main.rb).
