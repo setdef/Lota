@@ -33,6 +33,8 @@ class RedBeforeGreen
   # The commit trailer that waives the check, and the form its value takes.
   TRAILER = "Red-before-green"
   WAIVER = /\Anone \(\S.*\)\z/
+  STRAY = "#{TRAILER} waiver is not in the trailer block (a blank line separates it from the last " \
+    "paragraph); put it with Provenance: and Co-Authored-By: in one paragraph"
 
   # What the parent's code is taken from; test/ comes from the commit.
   IMPLEMENTATION = %w[lib ext exe tasks bin].freeze
@@ -99,11 +101,13 @@ class RedBeforeGreen
   end
 
   # A commit's +verdicts+, or the reason it went unchecked as a whole
-  # (+unchecked+), or the trailer's value that waived it (+waiver+).
-  class Report < Data.define(:commit, :subject, :waiver, :unchecked, :verdicts)
+  # (+unchecked+), or the trailer's value that waived it (+waiver+). A
+  # +stray+ waiver is a line git does not read as a trailer.
+  class Report < Data.define(:commit, :subject, :waiver, :stray, :unchecked, :verdicts)
     # Whether the commit passes: no test of it passed against its parent,
     # and a trailer, if it has one, is in the form TRAILER takes.
     def passed?
+      return false if stray
       return waiver.match?(WAIVER) if waiver
 
       verdicts.none? { |verdict| verdict.outcome == :never_red }
@@ -112,6 +116,7 @@ class RedBeforeGreen
     # The report as lines for a person to read.
     def lines
       head = "#{commit[0, 12]} #{subject}"
+      return [head, "  #{STRAY}"] if stray
       return [head, "  waived: #{TRAILER}: #{waiver}"] if waiver&.match?(WAIVER)
       return [head, "  MALFORMED #{TRAILER} trailer: #{waiver.inspect}; write: #{TRAILER}: none (reason)"] if waiver
       return [head, "  unchecked: #{unchecked}"] if unchecked
@@ -174,8 +179,9 @@ class RedBeforeGreen
   # Checks +commit+ and returns its Report.
   def check(commit)
     subject = git("log", "-1", "--format=%s", commit).chomp
-    report = Report.new(commit:, subject:, waiver: waiver(commit), unchecked: nil, verdicts: [])
-    return report if report.waiver
+    report = Report.new(commit:, subject:, waiver: waiver(commit), stray: stray?(commit), unchecked: nil,
+      verdicts: [])
+    return report if report.waiver || report.stray
 
     parent = git("rev-parse", "#{commit}^").chomp
     tests = changed_tests(parent, commit)
@@ -197,6 +203,14 @@ class RedBeforeGreen
   private def waiver(commit)
     value = git("log", "-1", "--format=%(trailers:key=#{TRAILER},valueonly,separator=%x0A)", commit).strip
     value.empty? ? nil : value
+  end
+
+  # Whether the message has a waiver line that git does not read as a
+  # trailer, because a blank line cuts it off from the last paragraph.
+  private def stray?(commit)
+    return false if waiver(commit)
+
+    git("log", "-1", "--format=%B", commit).match?(/^#{TRAILER}:/i)
   end
 
   private def blob(revision, path)
