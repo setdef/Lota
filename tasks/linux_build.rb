@@ -188,7 +188,23 @@ class LinuxBuild
 
   # Builds love from the commit the git checkout +love+ is at, against
   # the dependencies, unless it is current, and returns its executable.
+  #
+  # The gate's two parity lanes each ask for it at the same moment
+  # (tasks/gate.rake), and when the dependencies came from a cache
+  # without it, each would run the Makefile's configure of love in the
+  # same build folder, and one fails ("CMAKE_C_COMPILER not set, after
+  # EnableLanguage"). So a build holds a lock beside +root+, which the
+  # other waits for, and then finds love current, as ReferenceLove#build
+  # does on macOS.
   def love(love)
+    FileUtils.mkdir_p(File.dirname(@root))
+    File.open("#{@root}.lock", File::RDWR | File::CREAT, 0o644) do |lock|
+      lock.flock(File::LOCK_EX)
+      love_alone(love)
+    end
+  end
+
+  private def love_alone(love)
     dependencies
     commit = git(love, "rev-parse", "HEAD")
     if current?("love", commit)

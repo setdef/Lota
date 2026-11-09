@@ -70,8 +70,8 @@ class LinuxBuildTest < Minitest::Test
 
   # A Makefile with the real one's download variables, whose rules make
   # each download and each library by writing a file, and love from
-  # love2d-$(LOVE_BRANCH), logging each target to make.log.
-  def fake_makefile(dir, fail: nil)
+  # love2d-$(LOVE_BRANCH) in +seconds+, logging each target to make.log.
+  def fake_makefile(dir, fail: nil, seconds: 0)
     names = LinuxBuild::DOWNLOADS.keys.to_h { |name| [name, "#{name.downcase}-1"] }
     downloads = LinuxBuild::DOWNLOADS.map { |name, rule| rule.include?("%s") ? format(rule, "$(#{name})") : rule }
     libraries = LinuxBuild::LIBRARIES.join(" ")
@@ -89,7 +89,7 @@ class LinuxBuildTest < Minitest::Test
       #{(fail == :build) ? "\tfalse" : ''}
 
       installdir/bin/love: $(LOVE_PATH)/CMakeLists.txt
-      \tmkdir -p $(dir $@) && cp $(LOVE_PATH)/CMakeLists.txt $@ && echo "$@ $(LOVE_PATH)" >> make.log
+      \tsleep #{seconds} && mkdir -p $(dir $@) && cp $(LOVE_PATH)/CMakeLists.txt $@ && echo "$@ $(LOVE_PATH)" >> make.log
     MAKE
   end
 
@@ -177,6 +177,24 @@ class LinuxBuildTest < Minitest::Test
       assert_equal "installdir/bin/love love2d-#{commit}", log(dir, "root").last
       refute_path_exists File.join(dir, "root/love2d-#{commit}/uncommitted.txt")
       linux.love(love)
+      assert_equal 1, log(dir, "root").count { |line| line.start_with?("installdir/bin/love") }
+    end
+  end
+
+  # The gate's two parity lanes each ask for love at the same time
+  # (tasks/gate.rake). The second waits for the first and finds it
+  # current, rather than running the Makefile's build of love beside it.
+  def test_a_love_another_process_builds_meanwhile_is_waited_for_and_built_once
+    in_tree do |dir|
+      fake_makefile(dir, seconds: 1)
+      love, = fake_love(dir)
+      linux = build(dir)
+      linux.fetch
+      linux.dependencies
+
+      builds = Array.new(2) { Thread.new { build(dir).love(love) } }
+
+      assert_equal [linux.executable] * 2, builds.map(&:value)
       assert_equal 1, log(dir, "root").count { |line| line.start_with?("installdir/bin/love") }
     end
   end
