@@ -199,12 +199,23 @@ def verdict(entries, alive, dir)
 }
 end
 
-def start_test(udid, test, dir, env)
-  log = File.join(dir, "xcodebuild-#{test.split('/').last}.log")
+# Starts the UI test +test+ on +udid+; +again+ names a second attempt's
+# log and result bundle apart from the first's, which xcodebuild will not
+# write over.
+def start_test(udid, test, dir, env, again: "")
+  log = File.join(dir, "xcodebuild-#{test.split('/').last}#{again}.log")
   runner = env.to_h { |key, value| ["TEST_RUNNER_#{key}", value] }
   Process.spawn(runner, "xcodebuild", "test-without-building", "-xctestrun", XCTESTRUN, "-destination", "id=#{udid}",
-    "-only-testing:#{UITESTS}/#{test}", "-resultBundlePath", File.join(dir, "#{test.split('/').first}.xcresult"),
+    "-only-testing:#{UITESTS}/#{test}", "-resultBundlePath", File.join(dir, "#{test.split('/').first}#{again}.xcresult"),
     out: log, err: [:child, :out])
+end
+
+# Ends the UI test +pid+ if it still runs.
+def stop_test(pid)
+  return if done?(pid)
+
+  Process.kill("TERM", pid)
+  Process.wait(pid)
 end
 
 def wait_for(file, pid, seconds)
@@ -246,9 +257,20 @@ device_types(os, wanted).each do |type|
     hold = nil
     if orientation == "landscape"
       ready = File.join(device_dir, "hold-ready")
-      hold = start_test(udid, "KitHold/testHold", device_dir,
-        "KIT_ORIENTATION" => "landscape", "KIT_READY" => ready, "KIT_DONE" => File.join(device_dir, "hold-done"))
-      raise "#{name}: the UI test never turned the device (#{device_dir}/xcodebuild-testHold.log)" unless wait_for(ready, hold, 420)
+      hold_env = { "KIT_ORIENTATION" => "landscape", "KIT_READY" => ready, "KIT_DONE" => File.join(device_dir, "hold-done") }
+      hold = start_test(udid, "KitHold/testHold", device_dir, hold_env)
+      # The UI test on a runner's first Simulator has spent seven minutes
+      # starting its runner app, which then ended without ever connecting
+      # ("Early unexpected exit, operation never finished bootstrapping"),
+      # while every later device's test turned it. So a test that never
+      # turns the device is ended and started once more on the same
+      # device, now warm, before the device fails.
+      unless wait_for(ready, hold, 420)
+        stop_test(hold)
+        puts "  the UI test never turned the device (#{device_dir}/xcodebuild-testHold.log); starting it once more"
+        hold = start_test(udid, "KitHold/testHold", device_dir, hold_env, again: "-again")
+        raise "#{name}: the UI test never turned the device, twice (#{device_dir}/xcodebuild-testHold-again.log)" unless wait_for(ready, hold, 420)
+      end
 
       system("xcrun", "simctl", "io", udid, "screenshot", File.join(device_dir, "turned.png"), out: File::NULL, err: File::NULL)
     end
