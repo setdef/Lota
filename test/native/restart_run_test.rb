@@ -77,8 +77,8 @@ class RestartRunTest < Minitest::Test
     assert_equal %w[load at_exit load at_exit], kinds, "the first run ended before the second began"
     first, first_exit, second, second_exit = log.map(&:last)
 
-    assert_equal first["pid"], second["pid"], "exec keeps the process"
-    assert_equal [first["pid"]] * 2, [first_exit["pid"], second_exit["pid"]]
+    assert_exec_replaced_the_process([first["pid"], second["pid"]])
+    assert_equal [first["pid"], second["pid"]], [first_exit["pid"], second_exit["pid"]]
     assert_equal "nil", first["restart"]
     assert_equal "\"café\\nline\"", second["restart"]
     assert_equal %w[false false], [first["variable"], second["variable"]], "the value is read once and removed"
@@ -171,6 +171,7 @@ class RestartRunTest < Minitest::Test
   # installs as lota, with the .bat beside it that Windows runs, whose
   # first line Bundler reads to know it runs Ruby.
   def test_a_restart_under_bundle_exec_runs_the_game_again_and_not_bundle
+    skip("on Windows the tests run without the bundle, whose gems RubyInstaller's Ruby would compile") if TestHome::WINDOWS
     wrapper = File.join(@directory, "lota")
     File.write(wrapper, "#!/usr/bin/env ruby\nload #{File.join(ROOT, 'exe/lota').inspect}\n")
     File.chmod(0o755, wrapper)
@@ -240,22 +241,31 @@ class RestartRunTest < Minitest::Test
   # game: a program of its own that runs Ruby inside its own process, on
   # the entry script LOTA_LAUNCHER_ENTRY names, with its own arguments
   # after it, so that the program the process runs is not Ruby's. It sets
-  # the locale first, as Ruby's own main.c does.
+  # the locale first, and has Ruby set the process up before it reads the
+  # arguments, as Ruby's own main.c does, since on Windows ruby_sysinit
+  # replaces them with the process's own command line, as UTF-8
+  # (win32/win32.c, rb_w32_sysinit). On Windows a program's
+  # name ends in .exe, and MinGW's linker opens its output through the
+  # system's ANSI code page, which cannot name every folder, so it links
+  # the launcher beside its source and moves it into place.
   def build_launcher(path)
+    path = "#{path}.exe" if TestHome::WINDOWS
+    linked = TestHome::WINDOWS ? File.join(@directory, "launcher.exe") : path
     source = File.join(@directory, "launcher.c")
     File.write(source, <<~C)
       #include <locale.h>
       #include <ruby.h>
       #include <stdlib.h>
+      #include <string.h>
 
       int main(int argc, char **argv) {
+        setlocale(LC_CTYPE, "");
+        ruby_sysinit(&argc, &argv);
         char **options = calloc((size_t)argc + 2, sizeof(char *));
         int count = argc + 1;
-        setlocale(LC_CTYPE, "");
         options[0] = argv[0];
-        options[1] = getenv("LOTA_LAUNCHER_ENTRY");
+        options[1] = strdup(getenv("LOTA_LAUNCHER_ENTRY"));
         for (int i = 1; i < argc; i++) options[i + 1] = argv[i];
-        ruby_sysinit(&count, &options);
         {
           RUBY_INIT_STACK;
           ruby_init();
@@ -271,7 +281,7 @@ class RestartRunTest < Minitest::Test
       "-I#{config.fetch('rubyarchhdrdir')}",
       source,
       "-o",
-      path,
+      linked,
       "-L#{libdir}",
       "-Wl,-rpath,#{libdir}",
       *Shellwords.split(config.fetch("LIBRUBYARG")),
@@ -280,6 +290,7 @@ class RestartRunTest < Minitest::Test
     output, status = capture2e(TOOL_ENV, *command)
 
     assert_predicate status, :success?, output
+    FileUtils.mv(linked, path) unless linked == path
     path
   end
 

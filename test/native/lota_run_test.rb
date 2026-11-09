@@ -8,6 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../lovetest/unseen_desktop"
+require_relative "../lovetest/held_foreground"
 require "json"
 require "rbconfig"
 require "tmpdir"
@@ -106,13 +107,13 @@ class LotaRunTest < Minitest::Test
     reader, writer = IO.pipe
     native = File.dirname(File.dirname(loaded("lota/native")))
     pid = Dir.chdir(game("order")) do
-      LotaNativeTest.spawn([
+      NativeHelper.spawn([
         RbConfig.ruby,
         "-w",
         "-I#{native}#{File::PATH_SEPARATOR}#{File.join(ROOT, 'lib')}",
         File.join(ROOT, "exe/lota"),
         "run",
-], writer.fileno, ENV.map { |name, value| "#{name}=#{value}" })
+], writer, ENV.map { |name, value| "#{name}=#{value}" })
     end
     writer.close
     output = reader.read
@@ -160,7 +161,7 @@ class LotaRunTest < Minitest::Test
   # while the game runs could change the answer between the two.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
-    skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX
+    skipped = ENV["GITHUB_ACTIONS"] == "true" && !TestHome::LINUX && !TestHome::WINDOWS
     assertions = skipped ? 91160 - (3 * 32 * 32) + 1 : 91160
     # Its mountCommonPath test mounts the desktop folder except on Linux,
     # where it has none (test/lovetest/tests/filesystem.rb).
@@ -185,10 +186,14 @@ class LotaRunTest < Minitest::Test
     assertions += 10 * sensors
     # It also skips getSource, setSource, and RecordingDevice, whose OpenAL
     # Soft cannot record (Lovetest::PLAYBACK_ONLY), as Lövetest skips them.
-    skips = UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) + (sensors.zero? ? 3 : 0))
+    skips = HeldForeground.skips(UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) +
+      (sensors.zero? ? 3 : 0)))
     # On a desktop macOS does not draw, the isOccluded test skips before
-    # its one assertion (test/lovetest/unseen_desktop.rb).
+    # its one assertion (test/lovetest/unseen_desktop.rb), and on a Windows
+    # desktop whose foreground is held, the setGrabbed test before its two
+    # (test/lovetest/held_foreground.rb).
     assertions -= 1 if UnseenDesktop.on?
+    assertions -= 2 if HeldForeground.on?
     assertions -= (16 * 16) - 1 unless supported.glsl3
     assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
     renderer = Lota::Graphics.renderer_info.first
@@ -302,6 +307,7 @@ class LotaRunTest < Minitest::Test
   # (event/sdl/Event.cpp:100-103, event/Event.cpp:108-130): the frame runs
   # again inside the pump of the frame under way, and draws.
   def test_the_frame_draws_while_the_system_resizes_the_window
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.draw
@@ -323,6 +329,7 @@ class LotaRunTest < Minitest::Test
   # the callback's name (event/sdl/Event.cpp:172-182), and reaches the
   # game's error handler from there.
   def test_an_error_the_frame_raises_while_the_window_is_resized_comes_out_of_the_pump
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.draw
@@ -346,6 +353,7 @@ class LotaRunTest < Minitest::Test
   # to the event module, the error handler's too (boot.lua:497-500 and
   # 510-514).
   def test_the_error_handlers_frame_draws_while_the_system_resizes_the_window
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.update(dt) = raise("broken")
@@ -368,6 +376,7 @@ class LotaRunTest < Minitest::Test
   # When love.init or love.run fails, boot.lua hands no frame to the event
   # module, the error handler's neither (boot.lua:471 and 490-500).
   def test_the_error_handlers_frame_is_not_handed_on_when_the_game_failed_to_start
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.load(*) = raise("broken")
@@ -392,6 +401,7 @@ class LotaRunTest < Minitest::Test
   # so once call has returned no frame of the game is drawn, though Lota's
   # module stays open.
   def test_the_frame_is_not_drawn_once_the_game_has_ended
+    skip_where_sdl_is_apart
     in_game("main.rb" => <<~RUBY) do |directory|
       #{MODAL_FRAME}
       def Lota.draw
@@ -740,7 +750,7 @@ class LotaRunTest < Minitest::Test
   # physfs/Filesystem.cpp:608-616).
   def self.save_directory(identity, fused: false)
     support = TestHome.application_data(ENV.fetch("LOTA_TEST_HOME"))
-    File.join(*[support, (TestHome::LOTA_FOLDER unless fused), identity].compact)
+    TestHome.system_path(File.join(*[support, (TestHome::LOTA_FOLDER unless fused), identity].compact))
   end
 
   # boot.lua names the save directory after the game's folder, without
@@ -795,6 +805,7 @@ class LotaRunTest < Minitest::Test
   # the display has more pixels than points, high DPI doubles the pixels
   # and leaves the units alone; without it, a unit is a pixel.
   def test_a_touch_and_a_mouse_share_the_graphics_units_with_high_dpi_on_and_off
+    skip_where_sdl_is_apart
     main = <<~RUBY
       require "json"
       require "lota_native_test"

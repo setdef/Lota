@@ -33,10 +33,15 @@ class BindingTest < Minitest::Test
     end
   end
 
-  # native.cpp's compile command, compiling +probe+ for syntax only.
+  # native.cpp's compile command, compiling +probe+ for syntax only. On
+  # Windows CMake writes its paths there with Windows' separators, which a
+  # POSIX shell's words would take as escapes, so they become slashes, but
+  # for a backslash that escapes a quote.
   def command_for(probe)
     entry = JSON.parse(File.read(COMPILE_COMMANDS)).find { |command| command["file"].end_with?("/native/native.cpp") }
-    words = Shellwords.split(entry.fetch("command"))
+    command = entry.fetch("command")
+    command = command.gsub(/\\(?!")/, "/") if TestHome::WINDOWS
+    words = Shellwords.split(command)
     output = words.index("-o")
     words.slice!(output, 2)
     words.slice!(words.index("-c"), 2)

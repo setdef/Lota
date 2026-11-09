@@ -76,7 +76,7 @@ An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left 
 
 - Lota needs Ruby 4.0 (4.0.1 or newer).
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
-- On Windows, CI installs the gem and runs a game that opens no window and plays a sound, and a manual workflow (`fuse.yml`) runs such a game from an app `lota fuse` built. GitHub's Windows runners have no GPU, so nothing has yet tested drawing, input, or a real audio device on Windows, or `lota run`'s Windows save folder below, which comes from reading the code.
+- On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so nothing has yet tested drawing on a GPU, a person's input, or a real audio device on Windows.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
 - Phones and tablets (iOS, iPadOS, and Android) have no gem yet. A game builds for them, experimentally, with Fledge and a clone of Lota, which compiles LÖVE's engine for the phone: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has the steps. Such a build has run in the iOS Simulator, on an Android emulator, and on a real iPad and iPhone. On one Android phone it has started and run without crashing, and nothing more has been tried on real Android hardware.
 

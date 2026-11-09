@@ -13,6 +13,7 @@ require_relative "../test_helper"
 # provides it.
 $LOAD_PATH.push(File.expand_path("../../tmp/engine/build/lib", __dir__))
 require "lota_native_test"
+require_relative "windows_support" if TestHome::WINDOWS
 
 # Helpers for tests of the extensions.
 module NativeHelper
@@ -54,7 +55,7 @@ module NativeHelper
     variables = ENV.to_h.merge(environment).compact.map { |name, value| "#{name}=#{value}" }
     reader, writer = IO.pipe
     begin
-      pid = LotaNativeTest.spawn(command, writer.fileno, variables)
+      pid = NativeHelper.spawn(command, writer, variables)
     ensure
       writer.close
     end
@@ -62,6 +63,26 @@ module NativeHelper
     [output, Process.wait2(pid).last]
   ensure
     reader&.close
+  end
+
+  # Starts +command+ with exactly +variables+ (NAME=value strings), its
+  # standard input reading nothing and its standard output and error
+  # writing to the IO +output+, and returns its process ID. Ruby forks to
+  # start a process on macOS and Linux, so there the test extension starts
+  # it with posix_spawn (LotaNativeTest.spawn); Windows has no fork, and
+  # Ruby starts it there itself (WindowsSupport.spawn).
+  def self.spawn(command, output, variables)
+    return WindowsSupport.spawn(command, output, variables) if TestHome::WINDOWS
+
+    LotaNativeTest.spawn(command, output.fileno, variables)
+  end
+
+  # Skips a test whose game calls the test extension's functions that work
+  # through its SDL, on Windows, where that SDL is not Lota's
+  # (WindowsSupport::SDL_APART). In this process those functions skip by
+  # themselves.
+  def skip_where_sdl_is_apart
+    skip(WindowsSupport::SDL_APART) if TestHome::WINDOWS
   end
 
   # Where the running process loaded a bundle from.

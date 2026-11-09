@@ -3,12 +3,11 @@
 
 # The gate contributors run, bundle exec rake, on every push and pull
 # request; then the precompiled gem it builds, installed on a fresh runner
-# and run from there (Plan 001, the walking skeleton: "Continuous
-# integration" and "Delivery"), once for each platform Lota ships a gem
-# for: Apple Silicon macOS, Linux on x86_64 and arm64 (Plan 001, story 6),
-# and Windows on x64 and ARM64 (ADR 002, section 4), whose jobs build the
-# engine and check it without the gate, which needs windows (the Windows
-# jobs say why). The macOS, Linux, and Windows jobs run side by side.
+# and run from there, once for each platform Lota ships a gem for: Apple
+# Silicon macOS, Linux on x86_64 and arm64, and Windows on x64 and ARM64
+# (ADR 002, section 4), whose jobs build the engine, check it, and run
+# Lota's tests without the gate's Rake tasks (the Windows jobs say why).
+# The macOS, Linux, and Windows jobs run side by side.
 #
 # macOS: LÖVE's own CI runs its tests on macOS runners with the normal
 # video driver (vendor/love/.github/workflows/main.yml, the macOS job),
@@ -620,19 +619,20 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # Lota on Windows (ADR 002, section 4; Plan 002, item 10): LÖVE's
+  # Lota on Windows (ADR 002, section 4): LÖVE's
   # dependencies built from source at LÖVE's versions (tasks/windows_build.rb),
-  # LÖVE's engine and Lota's extension built with MinGW against
-  # RubyInstaller's UCRT Ruby, the extension's closure of DLLs checked, its
-  # DLLs shown to load from the gem's own directory and nowhere else, the
-  # tests that open no window and need no test-only extension run from a
-  # PATH a player's machine might have, and the precompiled gem built. x64
+  # LÖVE's engine, Lota's extension, and the test-only extension built with
+  # MinGW against RubyInstaller's UCRT Ruby, the extension's closure of
+  # DLLs checked, its DLLs shown to load from the gem's own directory and
+  # nowhere else, the precompiled gem built, and then Lota's tests run on
+  # Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest. x64
   # builds with MSYS2's UCRT64 environment (GCC), ARM64 with its CLANGARM64
   # environment (clang), the toolchains RubyInstaller builds its Ruby with
-  # for each. A runner has no GPU, and Windows' own OpenGL is 1.1, which
-  # LÖVE's renderer cannot use, so the one window opened here shows only
-  # that SDL makes an OpenGL context; the gate (bundle exec rake), whose
-  # tests draw, does not run on Windows.
+  # for each. The gate (bundle exec rake) does not run here: its Bundler
+  # would compile gems RubyInstaller's Ruby has no build of, and its other
+  # checks, RuboCop, Steep, clang-tidy, and the sanitizers among them, read
+  # the same sources on macOS and Linux; so the tests run file by file,
+  # without its Rake tasks (windows_checks.rb tests).
   windows-build:
     name: Windows build (${{ matrix.platform }})
     strategy:
@@ -643,6 +643,8 @@ jobs:
             platform: x64-mingw-ucrt
             msystem: UCRT64
             compiler: gcc:p
+            mesa: ""
+            foreground_held: ""
             cc: gcc
             cxx: g++
             ccache: D:/ccache
@@ -652,11 +654,15 @@ jobs:
             platform: aarch64-mingw-ucrt
             msystem: CLANGARM64
             compiler: clang:p lld:p llvm-tools:p
+            mesa: mesa:p
+            # A window of the shell's holds this runner's foreground
+            # (test/lovetest/held_foreground.rb).
+            foreground_held: "1"
             cc: clang
             cxx: clang++
             ccache: C:/ccache
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 75
+    timeout-minutes: 150
     defaults:
       run:
         shell: msys2 {0}
@@ -695,7 +701,7 @@ jobs:
           path-type: inherit
           update: true
           install: patch make
-          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p
+          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p ${{ matrix.mesa }}
 
       # The REUSE tool, at the version mise.toml pins, which checks the
       # gem's licensing as it is built (tasks/native_gem.rb), into the
@@ -779,7 +785,8 @@ jobs:
           ccache --zero-stats
           mkdir -p tmp/ext
           cd tmp/ext
-          ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$GITHUB_WORKSPACE/tmp/engine/build")"
+          ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$GITHUB_WORKSPACE/tmp/engine/build")" \
+            --enable-native-test
 
       - name: Build the engine and the extension
         run: |
@@ -847,28 +854,6 @@ jobs:
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
           PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb opengl
 
-      # The PATH adds the directory of Git for Windows' commands, which holds
-      # no DLL, since the gemspec the version test loads lists its files
-      # with git. A dry run may go on past a failing test, but never on a
-      # tag (the ignore_gate_failures input).
-      - name: Run the headless tests
-        timeout-minutes: 15
-        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
-        run: |
-          gem install minitest -v '~> 6.0' --no-document
-          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Program Files/Git/cmd"
-          status=0
-          for test in test/version_test.rb test/info_test.rb test/error_message_test.rb test/settings_test.rb \
-            test/record_test.rb test/deprecation_test.rb test/boot_test.rb test/callbacks_test.rb \
-            test/variant_test.rb test/restart_test.rb; do
-            echo "== $test"
-            code=0
-            PATH="$clean" /usr/bin/timeout -k 5 180 ruby -Ilib -Itest "$test" > tmp/test.log 2>&1 || code=$?
-            tail -15 tmp/test.log
-            [ "$code" = 0 ] || { echo "== $test exited $code"; status=1; }
-          done
-          exit $status
-
       # The gem's SHA-256 travels with it, as on the other platforms. The
       # package check builds it from what this job built, with the gem's
       # REUSE record checked, and its binaries read for the DLLs they
@@ -886,6 +871,71 @@ jobs:
           name: lota-${{ matrix.platform }}
           path: pkg/lota-*-${{ matrix.platform }}.gem*
           if-no-files-found: error
+          retention-days: 14
+
+      # The tests draw, and a runner has no GPU, and Windows' own OpenGL is
+      # 1.1, which LÖVE's renderer refuses. LÖVE's own Windows CI runs
+      # Lövetest on Mesa's software OpenGL, llvmpipe, from mesa-dist-win's
+      # release 24.2.4 (vendor/love/.github/workflows/main.yml, the Windows
+      # job's "Install Mesa"), on x64 alone, since mesa-dist-win builds for
+      # no ARM64. So x64 takes that release, checked by its SHA-256, and
+      # ARM64 MSYS2's CLANGARM64 build of Mesa. Either goes beside Ruby's
+      # program, where Windows finds it before System32's for the
+      # opengl32.dll SDL loads by name (windows_checks.rb mesa), rather than
+      # into System32, as LÖVE's does, and only after the gem is built, so
+      # nothing of it reaches the gem.
+      - name: Put Mesa's OpenGL beside Ruby
+        env:
+          MESA_DIST_WIN: https://github.com/pal1000/mesa-dist-win/releases/download/24.2.4/mesa3d-24.2.4-release-msvc.7z
+          MESA_SHA256: e3919de795bee231edc88e9c996f2c1851250dff3bc9b51b9121760ae2250db0
+        run: |
+          if [ "$MSYSTEM" = CLANGARM64 ]; then
+            ruby .github/windows_checks.rb mesa "$(cygpath -m "$MINGW_PREFIX/bin")"
+          else
+            curl --fail --location --silent --show-error --retry 5 -o "$RUNNER_TEMP/mesa.7z" "$MESA_DIST_WIN"
+            (cd "$RUNNER_TEMP" && echo "$MESA_SHA256  mesa.7z" | sha256sum --check -)
+            7z x -y -o"$(cygpath -w "$RUNNER_TEMP/mesa")" "$(cygpath -w "$RUNNER_TEMP/mesa.7z")" > /dev/null
+            ls "$RUNNER_TEMP/mesa/x64"
+            ruby .github/windows_checks.rb mesa "$(cygpath -m "$RUNNER_TEMP/mesa/x64")"
+          fi
+
+      # What the tests need beside Ruby's own gems: Minitest, and the
+      # desktop input lock, from its tag, as the Gemfile takes it.
+      - name: Install the tests' gems
+        run: |
+          gem install minitest -v '~> 6.0' --no-document
+          git clone --quiet --depth 1 --branch v0.2.0 https://github.com/setdef/DesktopInputLock.git "$RUNNER_TEMP/desktop_input_lock"
+          (cd "$RUNNER_TEMP/desktop_input_lock" && gem build --quiet ./*.gemspec && gem install --local --no-document ./*.gem)
+
+      # Lota's tests, each file in a Ruby of its own, as rake test runs
+      # them, with a PATH of Ruby, Windows, Windows PowerShell, which the
+      # desktop input lock speaks through, Git for Windows' commands, since
+      # the gemspec the version test loads lists its files with git, and,
+      # last, MSYS2's, for the compiler and the tools some tests run.
+      # RubyInstaller has Windows look for a DLL in Ruby's directories, those
+      # it adds, and System32 alone (SetDefaultDllDirectories), never on
+      # PATH, so no DLL there can answer for one of Lota's. GALLIUM_DRIVER
+      # chooses llvmpipe, as Fledge's Windows trial drew with it. A dry run
+      # may go on past a failing test, but never on a tag (the
+      # ignore_gate_failures input).
+      - name: Run the tests
+        timeout-minutes: 100
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
+        env:
+          GALLIUM_DRIVER: llvmpipe
+          # llvmpipe's linear rasterizer, from Mesa 25, reads the wrong uniform array and matrix elements.
+          LP_PERF: no_rast_linear
+          LOTA_FOREGROUND_HELD: ${{ matrix.foreground_held }}
+        run: |
+          clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd"
+          PATH="$clean:$MINGW_PREFIX/bin" ruby .github/windows_checks.rb tests tmp/windows-tests
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-tests-${{ matrix.platform }}
+          path: tmp/windows-tests
+          if-no-files-found: ignore
           retention-days: 14
 
   # The Windows gem the build job built, on a runner that never built it,
