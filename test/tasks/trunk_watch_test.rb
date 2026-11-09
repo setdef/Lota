@@ -334,8 +334,10 @@ class TrunkWatchTest < Minitest::Test
 
   def test_without_git_a_real_failure_stops_at_once
     gh = FakeGh.new([run_row(30, RED, "failure")], CODE_LOG)
+    out = StringIO.new
 
-    assert_equal 30, TrunkWatch.new(repository: "o/r", gh:, out: StringIO.new, pause: -> (_) {}).check.id
+    assert_equal 30, TrunkWatch.new(repository: "o/r", gh:, out:, pause: -> (_) {}).check.id
     assert(gh.calls.none? { |call| call[1] == "rerun" })
+    assert_includes out.string, "TRUNK RED: run 30"
   end
 end

@@ -308,6 +308,14 @@ class GraphicsStateTest < Minitest::Test
     assert_equal Graphics.texture_formats(canvas: true, readable: true).depth16, Graphics.canvas_formats(true).depth16
     assert_nil canvas["DXT1"]
 
+    [nil, true, false].each do |readable|
+      answer = Graphics.canvas_formats(readable).to_h
+
+      assert_equal Graphics.texture_formats(canvas: true, readable:).to_h.slice(*answer.keys), answer,
+        "readable: #{readable.inspect}"
+    end
+    refute_equal Graphics.canvas_formats(true).to_h, Graphics.canvas_formats(false).to_h
+
     image = assert_deprecated("Lota::Graphics.image_formats", "replaced by Lota::Graphics.texture_formats") do
       Graphics.image_formats
     end
