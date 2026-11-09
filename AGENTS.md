@@ -65,12 +65,17 @@ Provenance belongs to each change, not to a kind of file, so one file can hold w
 - **Tests:** the Lua side of every parity test comes from LÖVE's own Lövetest or from published LÖVE games, never from an agent, so a test checks Lota against something an agent did not write.
 - **Generated code** is marked as generated in its header and is never edited by hand; change the rules or the generator instead.
 
-A commit holds work of one provenance and says which in a `Provenance:` trailer (`written`, `wrought`, or `requested`). A session that produced both makes one commit of each.
+A commit holds work of one provenance and says which in a `Provenance:` trailer (`written`, `wrought`, or `requested`). Work of both kinds goes in separate commits.
 
 ## Committing
 
-- One commit per working session and provenance (see Provenance), on `trunk`, after the gate passes. Never push or release.
-- Include any plan or ADR the session produced.
+- Work on `trunk`, never on a branch. Your working copy holds only commits you have not pushed yet, for minutes, not hours: sync with `origin/trunk`, make one small, complete change that keeps the build green, run the gate, sync again, and push. If the push is rejected, rebase onto `origin/trunk`, run the gate again, and push.
+- Take other agents' work only from `trunk`, never from their working copies.
+- Before changing what other agents are likely changing too, such as the binding generator, `ext/lota/bindings.rb`, or a test that counts Lövetest's tests, say so first.
+- Work too big for one commit lands as small commits behind a feature flag or by branch by abstraction.
+- A red build on `trunk` stops all other work until it is fixed or the commit that broke it is reverted.
+- Never tag or release.
+- Include any plan or ADR change in the commit whose work it describes.
 - Conventional Commits, plain text, wrapped at 72. The body explains why this approach over alternatives, in prose (no lists, no markdown, no file inventories). Types: `lib/ext/sig` feat/fix/refactor/perf; `bin/tasks`/CI chore; `examples/` and `doc/` docs; `test/` test. End with the `Provenance:` trailer, then the AI footer shown by `git log -n1`.
 
 ## Changelog
