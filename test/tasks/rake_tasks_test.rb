@@ -346,10 +346,13 @@ class RakeTasksTest < Minitest::Test
   # RecordingDevice tests, the last of which skips where OpenAL Soft plays
   # into the wave writer, as the suite's does everywhere
   # (test/lovetest/tests/filesystem.rb and audio.rb), and, on a GitHub
-  # runner on Linux, seven window tests more (window.rb). Lövetest's isEnabled, getName, and
-  # getData sensor tests skip too where the machine has neither an
-  # accelerometer nor a gyroscope (test/lovetest/tests/sensor.rb), which
-  # this asks the machine, opening the sensor module as the suite will.
+  # runner on Linux, seven window tests more (window.rb). Off Linux, the
+  # sanitizers' own LeakSanitizer test skips, as LeakSanitizer runs at exit
+  # on Linux only (test/sanitizers/sanitizer_test.rb). Lövetest's
+  # isEnabled, getName, and getData sensor tests skip too where the machine
+  # has neither an accelerometer nor a gyroscope
+  # (test/lovetest/tests/sensor.rb), which this asks the machine, opening
+  # the sensor module as the suite will.
   def test_the_native_suite_passes_under_the_sanitizers
     task = Rake::Task["test:native"].tap(&:reenable)
     failure = nil
@@ -363,7 +366,7 @@ class RakeTasksTest < Minitest::Test
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
     skips = (ENV["GITHUB_ACTIONS"] == "true" && RbConfig::CONFIG["host_os"].include?("linux")) ? 17 : 10
-    skips = UnseenDesktop.skips(skips + (sensorless ? 3 : 0))
+    skips = UnseenDesktop.skips(skips + (TestHome::LINUX ? 0 : 1) + (sensorless ? 3 : 0))
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end
