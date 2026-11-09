@@ -33,8 +33,8 @@ On Linux, a game needs a desktop with X11 or Wayland and OpenGL, as a
 LÖVE game does. On Windows, continuous integration draws on a software
 renderer, and a game has also been played on a Windows PC with a GPU.
 iPhone, iPad, and Android builds are experimental and built from source.
-Lota binds every module of LÖVE's but love.thread, whose binding is
-under way.
+Lota binds every module of LÖVE's; its threads are Ruby Ractors, which
+Ruby 4.0 calls experimental.
 
 On another platform or Ruby, such as Alpine Linux, whose C library is
 musl, RubyGems picks Lota's source gem, which stops and says so: Lota

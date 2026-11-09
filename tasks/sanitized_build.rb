@@ -100,8 +100,19 @@ class SanitizedBuild
   # The environment that loads the runtime into Ruby.
   def environment
     separator = (@platform == "linux") ? " " : ":"
-    { PRELOADS.fetch(@platform) => preloaded.join(separator), "ASAN_OPTIONS" => OPTIONS.fetch(@platform) }
+    { PRELOADS.fetch(@platform) => preloaded.join(separator), "ASAN_OPTIONS" => OPTIONS.fetch(@platform),
+      "RUBY_MN_THREADS" => ONE_TO_ONE }
   end
+
+  # Ruby runs the threads of a Ractor other than the main one M:N, on
+  # stacks it switches between itself, and tells ASan of a switch only when
+  # Ruby is built with ASan (Ruby 4.0.7, thread_pthread.c:1215-1236), which
+  # this Ruby is not. ASan then cannot clear the frames a throw leaves
+  # there, and reports its own stack-buffer-underflow at the next one.
+  # Ruby 4.1's RUBY_MN_THREADS=-1 runs every thread 1:1, on a native
+  # thread's own stack, which ASan knows (Ruby 4.1 NEWS, "M:N thread
+  # scheduler"); Ruby 4.0 reads it as 0, its default.
+  ONE_TO_ONE = "-1"
 
   # The command, for Kernel#system or Rake's sh, that runs the Minitest
   # files +tests+ in a sanitized Ruby. The tree's lib comes first on the

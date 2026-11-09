@@ -12,6 +12,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `love.thread`, on Ruby 4.1 and newer: `Lota::Thread`, which boot opens unless `t.modules.thread` is false, and `lota.thread`; `Lota::Thread.channel`; `Lota::Thread::Channel` (`new`, `push`, `supply`, `pop`, `demand`, `peek`, `count`, `read?`, `clear`, `perform_atomic`), which carries values Ractors share and frozen copies of others; and `Lota::Thread::Thread` (`new`, `start`, `wait`, `error`, `running?`), whose code runs in a Ractor of its own. On Ruby 4.0, `start` raises `NotImplementedError`.
+- `Lota.threaderror(thread, error)`, called when a thread's code raises; its default raises the error in the game, as `love.threaderror` does.
+- On Ruby 4.1 and newer, a Ractor other than the main one may call Lota's modules, each holding wrappers of its own for the engine objects it reads, but `Lota::Graphics` and `Lota::Window` raise `ThreadError` there and are `nil` through `lota.graphics` and `lota.window`, and `Lota::Joystick`, `Lota::Keyboard`, `Lota::Mouse`, `Lota::Sensor`, `Lota::System`, and `Lota::Touch` raise `Ractor::UnsafeError`.
 - `Lota::Image::ImageData.new` decodes a `Lota::Filesystem::File` or any `Lota::Data`, as `love.image.newImageData` does, and raises `TypeError` for anything else.
 - `Lota::Image.new_cube_faces`, returning the six `ImageData` of a cube map in one image, translating `love.image.newCubeFaces`.
 - `Lota::Graphics.points` takes an Array of points, each an Array of its x, y, and optionally red, green, blue, and alpha, as `love.graphics.points` takes a table of tables.

@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Thread
+    class Channel < Object[Native::Thread::Channel]
+      private def self.from_native: (Native::Thread::Channel native) -> Channel
+
+      def self.new: () -> Channel
+
+      def push: (::Object? value) -> Integer
+
+      def supply: (::Object? value, ?::Object? timeout) -> bool
+
+      def pop: () -> ::Object?
+
+      def demand: (?::Object? timeout) -> ::Object?
+
+      def peek: () -> ::Object?
+
+      def count: () -> Integer
+
+      def read?: (::Object id) -> bool
+
+      def clear: () -> nil
+
+      def perform_atomic: [T] (*::Object? arguments) { (Channel channel, *::Object? arguments) -> T } -> T
+
+      private def seconds: (::Object? timeout) -> Float?
+    end
+  end
+end

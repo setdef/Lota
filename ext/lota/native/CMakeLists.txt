@@ -33,6 +33,7 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	sound.cpp
 	system.cpp
 	texture.cpp
+	thread.cpp
 	timer.cpp
 	touch.cpp
 	video.cpp

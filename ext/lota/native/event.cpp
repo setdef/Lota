@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/ruby.hpp"
+#include "native/thread.hpp"
 
 #include "audio/Source.h"
 #include "common/Exception.h"
@@ -167,12 +168,14 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // a modal draw callback make of a function, becomes nil, as
 // luax_pushvariant's default pushes. An engine object becomes its one
 // Ruby wrapper (WrapperIdentities, native/binding.hpp), as luax_pushtype
-// pushes the one userdata Lua keeps for it. LÖVE's engine puts two kinds
-// in a message: joysticks, which its event module does
-// (event/sdl/Event.cpp:618-757), and the Sources that stopped when the
-// audio device went away, in the table of an audiodisconnected message
-// (audio/openal/Pool.cpp:33-41 and 126-133). Lota's own love.event
-// functions put none there yet.
+// pushes the one userdata Lua keeps for it. LÖVE's engine puts three
+// kinds in a message: joysticks, which its event module does
+// (event/sdl/Event.cpp:618-757), the Sources that stopped when the audio
+// device went away, in the table of an audiodisconnected message
+// (audio/openal/Pool.cpp:33-41 and 126-133), and a thread that ended
+// with an error, in a threaderror message (LuaThread::onError, which
+// native/thread.cpp ports). Lota's own love.event functions put none
+// there yet.
 const Variant::SharedTable *push_value(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
@@ -203,6 +206,8 @@ const Variant::SharedTable *push_value(Rice::Array &result, const Variant &varia
     } else if (data.objectproxy.type != nullptr &&
                data.objectproxy.type->isa(love::audio::Source::type)) {
       result.push(dynamic_cast<love::audio::Source *>(data.objectproxy.object), false);
+    } else if (data.objectproxy.type != nullptr && data.objectproxy.type->isa(Thread::type)) {
+      result.push(dynamic_cast<Thread *>(data.objectproxy.object), false);
     } else {
       throw love::Exception("Lota cannot pass this event's arguments to Ruby yet.");
     }

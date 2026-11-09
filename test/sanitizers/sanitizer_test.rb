@@ -114,4 +114,49 @@ class SanitizerTest < Minitest::Test
     assert_includes output, "runtime error: signed integer overflow: 2147483647 + 1"
     refute_includes output, "the bug went unreported"
   end
+
+  # A Ractor other than the main one runs its Ruby threads on stacks Ruby
+  # switches between itself, whose bounds ASan cannot find, so Lota clears
+  # the stack below each engine call there (native/binding.hpp,
+  # forget_abandoned_frames). ASan still reports an overflow there: after
+  # the engine has raised in the Ractor, in a block an engine call runs,
+  # on the stack and on the heap.
+  def test_asan_reports_a_stack_overflow_in_another_ractor
+    output, status = run_in_a_ractor("LotaNativeTest.stack_overflow(4)")
+
+    refute status.success?
+    assert_includes output, "ERROR: AddressSanitizer: stack-buffer-overflow"
+    assert_includes output, "stack_overflow"
+    refute_includes output, "the bug went unreported"
+  end
+
+  def test_asan_reports_a_heap_overflow_in_another_ractor
+    output, status = run_in_a_ractor("LotaNativeTest.heap_overflow(4)")
+
+    refute status.success?
+    assert_includes output, "ERROR: AddressSanitizer: heap-buffer-overflow"
+    assert_includes output, "heap_overflow"
+    refute_includes output, "the bug went unreported"
+  end
+
+  # Runs +bug+ in a Ractor other than the main one, in a child Ruby, after
+  # the engine has raised there three times, from inside a block
+  # Lota::Native's perform_atomic calls.
+  def run_in_a_ractor(bug)
+    capture2e({}, RbConfig.ruby, "-I#{sanitized_lib}", "-I#{File.join(ROOT, 'lib')}", "-e", <<~RUBY)
+      require "lota_native_test"
+      require "lota/native"
+      Warning[:experimental] = false
+      Lota::Native::Data.open
+      Ractor.new do
+        3.times do
+          Lota::Native::Graphics.open?
+        rescue ThreadError
+          nil
+        end
+        Lota::Native::Data.new_byte_data_of_size(4).perform_atomic([proc { #{bug} }])
+      end.join
+      puts "the bug went unreported"
+    RUBY
+  end
 end

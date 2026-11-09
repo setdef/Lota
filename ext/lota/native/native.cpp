@@ -21,11 +21,13 @@
 #include "native/particle_system.hpp"
 #include "native/physics.hpp"
 #include "native/random_generator.hpp"
+#include "native/ruby.hpp"
 #include "native/sensor.hpp"
 #include "native/shader.hpp"
 #include "native/sound.hpp"
 #include "native/system.hpp"
 #include "native/texture.hpp"
+#include "native/thread.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
 #include "native/video.hpp"
@@ -52,6 +54,13 @@ std::size_t queued_releases() { return lota::native::ReleaseQueue::instance().si
 // Ruby calls this when it loads the bundle (require "lota/native"). It is
 // the only symbol the bundle exports (cmake/LotaExtension.cmake).
 extern "C" __attribute__((visibility("default"))) void Init_native() {
+  // Every method defined from here on may be called from any Ractor, but
+  // those of the modules define_module keeps on the main Ractor
+  // (native/binding.hpp, ractor_safe_module), so that other Ractors reach
+  // the engine as LÖVE's threads do (ADR 007).
+  const lota::native::RactorSafety safety(true);
+  // The values the engine keeps for Ruby in C++ (native/ruby.hpp, Marks).
+  lota::native::ruby::Marks::instance().install();
   // Before any binding can ask whether it runs there (native/binding.hpp).
   lota::native::record_main_thread();
   // Before any binding, so that every error the engine raises reaches Ruby
@@ -61,30 +70,32 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   // one Lua userdata for each (native/binding.hpp, WrapperIdentities).
   lota::native::WrapperIdentities::instance().keep();
   Rice::Module native = Rice::define_module_under(Rice::define_module("Lota"), "Native");
-  lota::native::define_random_generator(native);
-  lota::native::define_math(native);
-  lota::native::define_data(native);
-  lota::native::define_filesystem(native);
-  lota::native::define_image(native);
-  lota::native::define_font(native);
-  lota::native::define_timer(native);
-  lota::native::define_event(native);
-  lota::native::define_keyboard(native);
-  lota::native::define_joystick(native);
-  lota::native::define_mouse(native);
-  lota::native::define_touch(native);
-  lota::native::define_sensor(native);
-  lota::native::define_sound(native);
-  lota::native::define_audio(native);
-  lota::native::define_system(native);
-  lota::native::define_window(native);
-  lota::native::define_graphics(native);
-  lota::native::define_texture(native);
-  lota::native::define_shader(native);
-  lota::native::define_buffer(native);
-  lota::native::define_particle_system(native);
-  lota::native::define_video(native);
-  lota::native::define_physics(native);
+  using lota::native::define_module;
+  define_module("math", &lota::native::define_random_generator, native);
+  define_module("math", &lota::native::define_math, native);
+  define_module("data", &lota::native::define_data, native);
+  define_module("filesystem", &lota::native::define_filesystem, native);
+  define_module("image", &lota::native::define_image, native);
+  define_module("font", &lota::native::define_font, native);
+  define_module("timer", &lota::native::define_timer, native);
+  define_module("thread", &lota::native::define_thread, native);
+  define_module("event", &lota::native::define_event, native);
+  define_module("keyboard", &lota::native::define_keyboard, native);
+  define_module("joystick", &lota::native::define_joystick, native);
+  define_module("mouse", &lota::native::define_mouse, native);
+  define_module("touch", &lota::native::define_touch, native);
+  define_module("sensor", &lota::native::define_sensor, native);
+  define_module("sound", &lota::native::define_sound, native);
+  define_module("audio", &lota::native::define_audio, native);
+  define_module("system", &lota::native::define_system, native);
+  define_module("window", &lota::native::define_window, native);
+  define_module("graphics", &lota::native::define_graphics, native);
+  define_module("graphics", &lota::native::define_texture, native);
+  define_module("graphics", &lota::native::define_shader, native);
+  define_module("graphics", &lota::native::define_buffer, native);
+  define_module("graphics", &lota::native::define_particle_system, native);
+  define_module("video", &lota::native::define_video, native);
+  define_module("physics", &lota::native::define_physics, native);
   // After the hand-written bindings, which define the classes the
   // generated ones add methods to.
   lota::native::define_generated(native);
