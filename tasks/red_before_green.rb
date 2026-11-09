@@ -44,6 +44,12 @@ class RedBeforeGreen
   # How long a test file may run against the parent.
   BUDGET = 900
 
+  # What a test of the parity harness raises when it needs the reference
+  # love, which only test:parity builds (test/parity/parity_helper.rb). It
+  # would fail so against any parent, which shows nothing, so such a test
+  # goes unchecked.
+  NEEDS_REFERENCE = /LOTA_REFERENCE_LOVE is not set/
+
   # Loaded with ruby -r into each test file run against a parent: writes
   # each test's name, result code, and first message, one JSON object a
   # line, to the file RED_BEFORE_GREEN_RESULTS names, where what a test
@@ -337,6 +343,8 @@ class RedBeforeGreen
     case result.fetch("code")
     when "." then Verdict.new(test:, outcome: :never_red, detail: "passed against the parent, so it was never seen failing")
     when "S" then Verdict.new(test:, outcome: :skipped, detail: "skipped against the parent: #{result.fetch('message')}")
+    when -> (code) { code == "E" && result.fetch("message").match?(NEEDS_REFERENCE) }
+      Verdict.new(test:, outcome: :unchecked, detail: "it needs the reference love, which only test:parity builds")
     else Verdict.new(test:, outcome: :red, detail: "fails against the parent: #{result.fetch('message').lines.first&.chomp}")
     end
   end

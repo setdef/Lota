@@ -7,6 +7,12 @@
 
 require_relative "red_before_green"
 
+# The test files whose tests red_before_green checks: test:ruby's, and the
+# parity harness's unit tests (PARITY_UNITS in tasks/test.rake). Tests in
+# test/sanitizers need the sanitized build, and the parity games the
+# reference love, so they go unchecked.
+def red_before_green_suites = TEST_SUITES.fetch(:ruby) + PARITY_UNITS
+
 # The commits red_before_green checks when given none: those not yet on
 # origin's trunk, or else HEAD alone.
 def red_before_green_range
@@ -17,7 +23,7 @@ end
 desc "Check that each test the commits of RANGE (default: the unpushed ones) add or change fails against " \
   "each commit's parent's lib/ and ext/"
 task :red_before_green, [:range] => :compile do |_task, args|
-  checker = RedBeforeGreen.new(root: Dir.pwd, suites: TEST_SUITES.fetch(:ruby), compile: %w[bundle exec rake compile])
+  checker = RedBeforeGreen.new(root: Dir.pwd, suites: red_before_green_suites, compile: %w[bundle exec rake compile])
   reports = checker.check_range(args[:range] || red_before_green_range)
   failed = reports.reject(&:passed?)
   next puts("red_before_green: every test checked was seen failing first") if failed.empty?

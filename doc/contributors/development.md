@@ -69,7 +69,7 @@ bundle exec rake "gate:remote[prepush]"
 
 A test you never saw fail proves nothing. `bundle exec rake red_before_green` runs each test your unpushed commits add or change against each commit's parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`. It prints each test as `red`, with the first line of its failure, or as `NEVER RED`, which fails the task. Pass a range as `git rev-list` takes it to check other commits.
 
-It works in your checkout, which must be clean in those folders and in `test/`, and it puts them back afterward. It skips a commit whose parent's engine differs from `HEAD`'s, since rebuilding LÖVE's engine is slow, and it skips `test/parity` and `test/sanitizers`, which need the reference `love` or the sanitized build.
+It works in your checkout, which must be clean in those folders and in `test/`, and it puts them back afterward. It skips a commit whose parent's engine differs from `HEAD`'s, since rebuilding LÖVE's engine is slow. It checks the tests `rake test` runs and the parity harness's own unit tests, which `PARITY_UNITS` in `tasks/test.rake` names. It skips the parity games and `test/sanitizers`, which need the reference `love` or the sanitized build, and marks `unchecked` any test that stops because the reference `love` is not built.
 
 A commit that changes no behavior, such as a refactor or tests of behavior already there, waives the check with a trailer above `Provenance:` that says why:
 

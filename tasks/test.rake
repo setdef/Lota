@@ -50,6 +50,17 @@ PARITY_SHARDS = {
   shards.merge(parity: (Dir[*TEST_SUITES.fetch(:parity)] - shards.values.flat_map { |globs| Dir[*globs] }).sort).freeze
 end
 
+# The parity harness's own unit tests, which run neither the reference
+# love nor a game and draw nothing, so rake red_before_green checks them
+# as it checks test:ruby's (tasks/red_before_green.rake). A test of
+# theirs that does run the reference love goes unchecked there
+# (RedBeforeGreen::NEEDS_REFERENCE).
+PARITY_UNITS = %w[
+  test/parity/mismatch_message_test.rb
+  test/parity/reference_cache_test.rb
+  test/parity/run_test.rb
+].freeze
+
 # The pre-push tier (rake prepush, tasks/gate.rake) runs every test of
 # test:ruby and test:parity but those PREPUSH_LEAVES_OUT names, as
 # "Class" for all of a class's tests or "Class#test" for one, less those

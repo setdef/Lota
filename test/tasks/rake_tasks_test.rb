@@ -245,6 +245,20 @@ class RakeTasksTest < Minitest::Test
     refute_match pattern, "test_the_native_suite_passes_under_the_sanitizers"
   end
 
+  # red_before_green checks the parity harness's unit tests with
+  # test:ruby's, but neither its games nor the sanitized suite, which
+  # need the reference love or the sanitized build.
+  def test_red_before_green_checks_the_parity_units_but_not_the_games
+    suites = Dir.chdir(ROOT) { Dir[*red_before_green_suites] }
+
+    assert_includes suites, "test/parity/run_test.rb"
+    assert_includes suites, "test/parity/mismatch_message_test.rb"
+    assert_includes suites, "test/tasks/red_before_green_test.rb"
+    refute_includes suites, "test/parity/gravity_wars_test.rb"
+    refute_includes suites, "test/sanitizers/sanitizer_test.rb"
+    assert_empty PARITY_UNITS - Dir.chdir(ROOT) { Dir[*TEST_SUITES.fetch(:parity)] }
+  end
+
   # The engine tree is configured only through extconf.rb, which
   # rake-compiler reruns when extconf.rb changes.
   def test_configuring_the_engine_runs_extconf

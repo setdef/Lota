@@ -139,6 +139,25 @@ class RedBeforeGreenTest < Minitest::Test
     end
   end
 
+  # A parity test that runs the reference love fails without it against
+  # any parent, which tells nothing, while one beside it that needs no
+  # love is checked as any other.
+  def test_a_test_that_needs_the_reference_love_goes_unchecked
+    in_repository do |root|
+      needs = "raise \"LOTA_REFERENCE_LOVE is not set; bundle exec rake test:parity builds the reference love\""
+      sha = commit(root, "feat: double",
+        "lib/calc.rb" => CALC.sub("  end\nend", "  end\n\n  def self.double(value)\n    value * 2\n  end\nend"),
+        "test/calc_test.rb" => CALC_TEST.sub("  end\nend", "  end\n\n  def test_double\n    assert_equal 4, " \
+          "Calc.double(2)\n  end\n\n  def test_against_love\n    #{needs}\n  end\nend"))
+
+      report = checker(root).check(sha)
+
+      assert_equal({ "CalcTest#test_double" => :red, "CalcTest#test_against_love" => :unchecked }, outcomes(report))
+      assert_predicate report, :passed?
+      assert_match(/unchecked CalcTest#test_against_love .*needs the reference love/, report.lines.join("\n"))
+    end
+  end
+
   # A test defined outside the suite's files is run by the suite file that
   # loads it, as test/lovetest/system_test.rb runs tests/system.rb.
   def test_a_test_in_a_loaded_file_runs_through_the_file_that_loads_it
