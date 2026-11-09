@@ -147,8 +147,11 @@ class Gate
     end
   end
 
+  # A lane with a display of its own gives it to the parity harness's games
+  # too (LOTA_PARITY_DISPLAY, Parity.display), so that each lane that runs
+  # a parity shard runs its games where no other lane's windows open.
   private def run_lane(lane, number, display)
-    environment = display ? { "DISPLAY" => display } : {}
+    environment = display ? { "DISPLAY" => display, "LOTA_PARITY_DISPLAY" => display } : {}
     deadline = @clock.now + @lane_timeout
     lane.each_with_object([]) do |check, outcomes|
       break outcomes if failed?

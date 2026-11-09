@@ -21,7 +21,7 @@ class GateTest < Minitest::Test
     task(:quick) { File.write("quick.at", Time.now.to_f.to_s); puts "quick ran" }
     task(:bad) { puts "bad output"; abort "bad failed" }
     task(:needs_built => :built) { puts "needs built" }
-    task(:display) { puts "display \#{ENV.fetch('DISPLAY', 'none')}" }
+    task(:display) { puts "display \#{ENV.fetch('DISPLAY', 'none')} parity \#{ENV.fetch('LOTA_PARITY_DISPLAY', 'none')}" }
     task(:fine) { File.write("fine.pid", Process.pid.to_s); puts "fine ran" }
     SLEEPER = [RbConfig.ruby, "-e", "File.write('sleeper.pid', Process.pid.to_s); sleep"].freeze
     task(:hang) { puts "hang started"; system(*SLEEPER) }
@@ -305,16 +305,17 @@ class GateTest < Minitest::Test
     end
   end
 
-  # Each lane's checks open their windows on the lane's own display, and a
-  # lane past the last display keeps the gate's.
+  # Each lane's checks open their windows, and the parity harness's games,
+  # on the lane's own display, and a lane past the last display keeps the
+  # gate's.
   def test_each_lane_runs_on_its_own_display
     in_tree do |root|
       gate, out = gate(root, [[check("display"), check("ok")], [check("ok", "display")], [check("quick", "display")]],
         displays: %w[:97 :96])
       gate.run { nil }
 
-      assert_equal ["display :97", "display :96", "display #{ENV.fetch('DISPLAY', 'none')}"],
-        out.string.scan(/^display .*$/)
+      kept = "display #{ENV.fetch('DISPLAY', 'none')} parity #{ENV.fetch('LOTA_PARITY_DISPLAY', 'none')}"
+      assert_equal ["display :97 parity :97", "display :96 parity :96", kept], out.string.scan(/^display .*$/)
     end
   end
 end

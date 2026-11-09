@@ -371,12 +371,14 @@ jobs:
       DISPLAY: ":99"
       # The parity harness's own display, where no window of the gate's
       # other checks, which run at the same time, opens over its runs and
-      # takes the pointer moves its scripts make (Parity.display).
+      # takes the pointer moves its scripts make (Parity.display); in the
+      # gate, each parity shard's lane gives the harness its own display.
       LOTA_PARITY_DISPLAY: ":98"
-      # A display for each of the gate's lanes but the last, whose checks
-      # open no window, in the order of tasks/gate.rake's lanes, so that no
-      # lane's windows open over another's and take the pointer moves its
-      # tests make (tasks/gate.rb); the parity harness's lane has its own.
+      # A display for each of the gate's lanes but the last two, whose
+      # checks open no window, in the order of tasks/gate.rake's lanes, so
+      # that no lane's windows open over another's and take the pointer
+      # moves its tests make (tasks/gate.rb); each parity shard's lane has
+      # its own.
       LOTA_GATE_DISPLAYS: ":99 :97 :96 :98"
     steps:
       # The engine builds from vendor/love, and its dependencies with

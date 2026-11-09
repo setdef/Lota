@@ -113,11 +113,19 @@ class RakeTasksTest < Minitest::Test
     assert_equal %w[package:check package:install], windowed.last(2).flat_map(&:tasks)
   end
 
-  # The parity harness runs in the gate, against the reference love built
-  # from vendor/love and Lota compiled from this tree.
+  # The parity harness runs in the gate, as its shards, against the
+  # reference love built from vendor/love and Lota compiled from this tree,
+  # and the shards hold exactly its files, each once.
   def test_default_task_runs_the_parity_harness_after_compiling
-    assert_includes gate_tasks, "test:parity"
-    assert_operator gate_tasks.index("compile"), :<, gate_tasks.index("test:parity")
+    shards = PARITY_SHARDS.values.flat_map { |globs| Dir.chdir(ROOT) { Dir[*globs] } }
+
+    assert_equal Dir.chdir(ROOT) { Dir[*TEST_SUITES.fetch(:parity)] }.sort, shards.sort
+    assert_equal shards.uniq, shards
+    PARITY_SHARDS.each_key do |name|
+      assert_includes gate_tasks, "test:shard:#{name}"
+      assert_operator gate_tasks.index("compile"), :<, gate_tasks.index("test:shard:#{name}")
+      assert_equal %w[compile reference:love], prerequisites("test:shard:#{name}")
+    end
     assert_equal %w[compile reference:love], prerequisites("test:parity")
   end
 
@@ -127,12 +135,13 @@ class RakeTasksTest < Minitest::Test
     assert_equal File.join(ROOT, "tmp/dependencies/installdir/bin/love"), LINUX_BUILD.executable
   end
 
+  # Every shard, test:ruby's and test:parity's, compiles first.
   def test_default_task_compiles_before_it_tests
     shards = gate_tasks.grep(/\Atest:shard:/)
 
-    refute_empty shards
+    assert_includes shards, "test:shard:gravity_wars"
     shards.each { |shard| assert_operator gate_tasks.index("compile"), :<, gate_tasks.index(shard) }
-    shards.each { |shard| assert_equal %w[compile], prerequisites(shard) }
+    shards.each { |shard| assert_equal "compile", prerequisites(shard).first, shard }
     assert_equal %w[test:ruby], prerequisites("test")
   end
 
@@ -143,21 +152,55 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal Dir[*TEST_SUITES.fetch(:ruby)].sort, shards.sort
     assert_equal shards.uniq, shards
-    assert_equal RUBY_SHARDS.keys.map { |name| "test:shard:#{name}" }.sort, gate_tasks.grep(/\Atest:shard:/).sort
+    names = (RUBY_SHARDS.keys + PARITY_SHARDS.keys).map { |name| "test:shard:#{name}" }
+    assert_equal names.sort, gate_tasks.grep(/\Atest:shard:/).sort
   end
 
-  # The pre-push tier's lanes are the gate's, one for one, so each opens
-  # its windows on the display the gate's lane of that number does, and
-  # it runs a part of every kind of check the gate runs.
-  def test_prepush_runs_the_fast_checks_in_lanes_laid_out_as_the_gates
-    prepush = PREPUSH_LANES.flatten.flat_map(&:tasks)
+  # The checks that open windows, which on Linux need a display of their
+  # lane's own.
+  WINDOWED = %w[
+    test:shard:rake_tasks
+    package:check
+    package:install
+    test:shard:native
+    test:shard:gravity_wars
+    test:shard:parity
+    test:prepush:sanitized
+    test:prepush:native
+    test:prepush:parity
+  ].freeze
 
-    assert_equal GATE_LANES.size, PREPUSH_LANES.size
-    assert_equal ["test:prepush:parity"], PREPUSH_LANES[GATE_LANES.index { |lane| lane.flat_map(&:tasks) == ["test:parity"] }]
-      .flat_map(&:tasks)
-    assert_equal %w[test:prepush:sanitized package:check cpp:format cpp:no_nolint lint steep].sort,
-      (prepush - %w[test:prepush:native test:prepush:tasks test:prepush:parity]).sort
-    prepush.each { |name| assert Rake::Task.task_defined?(name), name }
+  # The displays CI's Linux gate starts, one for each lane that opens
+  # windows, in order.
+  def ci_displays
+    File.read(File.join(ROOT, ".github/workflows/ci.yml"))[/^\s*LOTA_GATE_DISPLAYS: "([^"]*)"/, 1].split
+  end
+
+  # Every lane whose checks open windows, in the gate and the pre-push
+  # tier, comes before the lanes CI starts no display for, and no check of
+  # the lanes after them opens any.
+  def test_only_the_lanes_with_a_display_open_windows
+    [GATE_LANES, PREPUSH_LANES].each do |lanes|
+      windowed = lanes.map { |lane| lane.flat_map(&:tasks).intersect?(WINDOWED) }
+
+      assert_operator windowed.count(true), :<=, ci_displays.size, lanes.inspect
+      assert_equal windowed.sort_by { |open| open ? 0 : 1 }, windowed, lanes.inspect
+    end
+  end
+
+  # The pre-push tier runs a part of every kind of check the gate runs, its
+  # lanes that open windows first.
+  def test_prepush_runs_the_fast_checks_and_a_part_of_the_slow_ones
+    lanes = [
+      %w[test:prepush:sanitized package:check],
+      %w[test:prepush:native],
+      %w[test:prepush:parity],
+      %w[test:prepush:tasks],
+      %w[cpp:format cpp:no_nolint lint steep],
+    ]
+
+    assert_equal lanes, PREPUSH_LANES.map { |lane| lane.flat_map(&:tasks) }
+    lanes.flatten.each { |name| assert Rake::Task.task_defined?(name), name }
     assert_equal %w[compile reference:love], prerequisites("test:prepush:parity")
     assert_equal %w[compile compile:sanitized], prerequisites("test:prepush:sanitized")
     assert_empty PREPUSH_SANITIZED - Dir.chdir(ROOT) { Dir[*TEST_SUITES.fetch(:native)] }

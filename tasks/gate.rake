@@ -20,15 +20,18 @@ require_relative "remote_gate"
 # move the pointer (Lövetest's mouse tests, and the game package:install
 # runs in front) hold the desktop input lock (the desktop_input_lock gem), so
 # they wait for each other.
-# test:ruby runs as its shards (tasks/test.rake), and cpp, lint, and steep
-# are short enough to share a lane.
+# test:ruby and test:parity run as their shards (tasks/test.rake), each
+# parity shard in a lane of its own, since together they were the longest
+# check; the generator's and the tasks' shards, and cpp, lint, and steep,
+# are short enough to share a lane, and open no window.
 #
 # LOTA_GATE_JOBS=1 runs the same checks one after another, in the order of
 # the lanes below, for finding which check a problem belongs to.
 #
 # LOTA_GATE_DISPLAYS lists, separated by spaces, an X display for each lane
-# in the order below, so that on Linux no lane's windows open over
-# another's (tasks/gate.rb); CI's Linux gate starts them.
+# in the order below that opens windows, the first four, so that on Linux
+# no lane's windows open over another's (tasks/gate.rb); CI's Linux gate
+# starts them.
 #
 # LOTA_GATE_LANE_TIMEOUT is how many seconds a lane may run before the gate
 # prints what it is doing and ends it, failing its check as TIMED OUT
@@ -39,21 +42,22 @@ GATE_PREPARE = %w[lint:fix engine compile].freeze
 GATE_LANES = [
   [Gate::Check.of("test:shard:rake_tasks"), Gate::Check.of("package:check"), Gate::Check.of("package:install")],
   [Gate::Check.of("test:shard:native")],
+  [Gate::Check.of("test:shard:gravity_wars")],
+  [Gate::Check.of("test:shard:parity")],
   [Gate::Check.of("test:shard:generator"), Gate::Check.of("test:shard:tasks")],
-  [Gate::Check.of("test:parity")],
   [Gate::Check.of("cpp"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 
 # The pre-push tier, bundle exec rake prepush: the gate's checks that take
-# seconds, and of its slow ones a part, in lanes laid out as the gate's
-# are, so each lane's windows open on the display the gate's lane of the
-# same number uses (tasks/test.rake says which tests it leaves out).
+# seconds, and of its slow ones a part, in lanes whose checks that open
+# windows come first, as the gate's do, so each opens them on a display
+# of its own (tasks/test.rake says which tests it leaves out).
 # cpp:tidy, package:install, and the parity games are the gate's alone.
 PREPUSH_LANES = [
   [Gate::Check.of("test:prepush:sanitized"), Gate::Check.of("package:check")],
   [Gate::Check.of("test:prepush:native")],
-  [Gate::Check.of("test:prepush:tasks")],
   [Gate::Check.of("test:prepush:parity")],
+  [Gate::Check.of("test:prepush:tasks")],
   [Gate::Check.of("cpp:format", "cpp:no_nolint"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 

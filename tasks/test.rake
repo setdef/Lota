@@ -40,6 +40,16 @@ RUBY_SHARDS = {
   ).freeze
 end
 
+# The gate runs test:parity as two shards, which together hold exactly its
+# files, since the harness was the gate's longest check: LÖVE's run of
+# Gravity-Wars, which every test of gravity_wars_test.rb shares, took
+# about as long on the gate runner as every other parity test together.
+PARITY_SHARDS = {
+  gravity_wars: %w[test/parity/gravity_wars_test.rb],
+}.then do |shards|
+  shards.merge(parity: (Dir[*TEST_SUITES.fetch(:parity)] - shards.values.flat_map { |globs| Dir[*globs] }).sort).freeze
+end
+
 # The pre-push tier (rake prepush, tasks/gate.rake) runs every test of
 # test:ruby and test:parity but those PREPUSH_LEAVES_OUT names, as
 # "Class" for all of a class's tests or "Class#test" for one, less those
@@ -115,6 +125,13 @@ namespace :test do
         t.test_globs = globs
       end
       task name => :compile
+    end
+
+    PARITY_SHARDS.each do |name, globs|
+      Minitest::TestTask.create(name) do |t|
+        t.test_globs = globs
+      end
+      task name => %w[compile reference:love]
     end
   end
 
