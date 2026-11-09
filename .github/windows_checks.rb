@@ -15,7 +15,8 @@
 #   out of bounds, with the extension's own command, and passes only if
 #   that fails as an error while the same file without the read compiles.
 # [closure FILE...] Every DLL each FILE loads, and those load, and passes
-#   only if each is Windows', Ruby's, or one of lib/lota/libraries.
+#   only if each is Windows', Ruby's, or one of lib/lota/libraries, and
+#   no FILE imports from Ruby's DLL a function of Windows' kernel32.dll.
 # [load MODE DECOY] Loads Lota and reports where Windows found each DLL.
 #   MODE preload requires "lota", as a game does, after DECOY, a directory
 #   with a decoy of each DLL in lib/lota/libraries (SDL3.dll and
@@ -144,6 +145,7 @@ module WindowsChecks
       done << file.downcase
       puts "#{file.delete_prefix("#{ROOT}/")}: #{File.size(file)} bytes"
       imports, = Open3.capture2(objdump, "-p", file)
+      problems.concat(windows_functions_from_ruby(file, imports))
       imports.scan(/DLL Name: (\S+)/).flatten.each do |dll|
         next if seen[dll.downcase]
 
@@ -154,8 +156,31 @@ module WindowsChecks
         puts "  #{dll} (#{where || "neither Windows', Ruby's, nor Lota's"}), needed by #{File.basename(file)}"
       end
     end
-    abort "DLLs from elsewhere: #{problems.join(', ')}" unless problems.empty?
+    abort "DLLs from elsewhere, or Windows' functions from Ruby's: #{problems.join(', ')}" unless problems.empty?
     puts "The DLLs that are not Windows' or Ruby's: #{Dir.children(LIBRARIES).sort.join(', ')}"
+  end
+
+  # Each function of kernel32.dll's that +file+ imports from Ruby's DLL,
+  # by the import table objdump printed (+imports+). Ruby's DLL exports
+  # Sleep, its rb_w32_Sleep, which needs a thread of Ruby's, so a binary
+  # that binds Windows' Sleep to it crashes when a thread Ruby does not
+  # know sleeps, as winpthreads' threads do as they start.
+  def windows_functions_from_ruby(file, imports)
+    ruby = RbConfig::CONFIG.fetch("LIBRUBY_SO")
+    section = imports.split(/^\s*DLL Name: /).find { |part| part.lines.first.to_s.strip.casecmp?(ruby) }
+    names = section.to_s.lines.drop(1).take_while { |line| !line.strip.empty? }
+      .filter_map { |line| line[/\A\s+\h+\s+(?:<none>\s+)?\h+\s+([A-Za-z_]\w*)\s*\z/, 1] }
+    names.select { |name| kernel32?(name) }.map { |name| "#{File.basename(file)} imports #{name} from #{ruby}" }
+  end
+
+  # Whether Windows' kernel32.dll exports a function named +name+.
+  def kernel32?(name)
+    require "fiddle"
+    @kernel32 ||= Fiddle::Handle.new("kernel32.dll")
+    @kernel32.sym(name)
+    true
+  rescue Fiddle::DLError
+    false
   end
 
   # Whose +dll+ is: Lota's, Ruby's, Windows', or nil for anyone else's.

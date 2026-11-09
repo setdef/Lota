@@ -82,6 +82,15 @@ function(lota_ruby_extension target feature load_directory)
 		endforeach()
 	endif()
 	target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..)
+	# Ruby's import library exports Sleep, its rb_w32_Sleep (win32/win32.c),
+	# which needs a thread of Ruby's. MinGW's DLL startup, dllcrt2.o, which
+	# comes first in every link, imports Sleep, and the linker takes it from
+	# the first library that has it, so with Ruby's first every Sleep in
+	# the extension is Ruby's, winpthreads' among them, which a thread calls
+	# as it starts and crashes there. Windows' own kernel32 goes first.
+	if(MINGW)
+		target_link_libraries(${target} PRIVATE kernel32)
+	endif()
 	target_link_libraries(${target} PRIVATE Ruby::Module lota_engine)
 	lota_strict_warnings(${target})
 
