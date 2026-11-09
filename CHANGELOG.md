@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `lota fuse --sign-command COMMAND` and `--notarize PROFILE` pass Fledge's options of the same names, signing a Windows app with a command of your own and having Apple notarize a signed macOS app, and `Lota::Fuse::Options#sign_command` and `#notarize` hold them.
+
 ### Changed
 
 - `lota fuse` builds with Fledge 0.10.0, was 0.9.0.

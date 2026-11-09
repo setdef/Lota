@@ -496,6 +496,86 @@ class FuseTest < Minitest::Test
     assert_includes read("fledge.yml"), "identifier: com.example.SampleGame\n"
   end
 
+  # The arguments the fake fledge was given, one to an element.
+  def fledge_arguments
+    File.read(@log).lines.filter_map { |line| line.chomp.delete_prefix("argument: ") if line.start_with?("argument: ") }
+  end
+
+  def fake_fledge_listing_arguments
+    fake("fledge", <<~SH)
+      for argument in "$@"; do echo "argument: $argument" >> "#{@log}"; done
+      echo "FLEDGE_SIGN_COMMAND=$FLEDGE_SIGN_COMMAND" >> "#{@log}"
+      echo "$3/Sample Game-arm64-darwin.app"
+    SH
+  end
+
+  def test_notarize_reaches_fledge_with_the_identity_it_notarizes
+    fake_fledge_listing_arguments
+    options = Lota::Fuse.options(out: File.join(@root, "dist"), sign: "Developer ID Application: Me (TEAM)",
+      notarize: "sample-profile")
+
+    capture_io { fuse(options).call }
+
+    signing = ["--sign", "Developer ID Application: Me (TEAM)", "--notarize", "sample-profile"]
+    assert_equal ["build", "--out", File.join(@root, "dist"), *signing], fledge_arguments
+  end
+
+  def test_a_sign_command_reaches_fledge_as_one_argument
+    fake_fledge_listing_arguments
+    command = 'signtool sign /fd sha256 /tr "http://timestamp.example.com" %1'
+
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), sign_command: command)).call }
+
+    assert_equal ["build", "--out", File.join(@root, "dist"), "--sign-command", command], fledge_arguments
+  end
+
+  def test_fledge_reads_its_sign_command_from_the_environment_lota_fuse_passes_on
+    fake_fledge_listing_arguments
+    ENV["FLEDGE_SIGN_COMMAND"] = "sign-it %1"
+
+    capture_io { fuse.call }
+
+    assert_includes File.read(@log).lines, "FLEDGE_SIGN_COMMAND=sign-it %1\n"
+    assert_equal ["build", "--out", File.join(@root, "dist")], fledge_arguments
+  ensure
+    ENV.delete("FLEDGE_SIGN_COMMAND")
+  end
+
+  def test_signing_options_fledge_refuses_together_are_refused_before_anything_is_written
+    notarize = "--notarize needs --sign IDENTITY, the Developer ID Application identity Apple notarizes"
+    [
+      [{ sign: "-", sign_command: "sign-it %1" }, "--sign and --sign-command each sign the app; give one of them"],
+      [{ notarize: "sample-profile" }, notarize],
+      [{ notarize: "sample-profile", sign_command: "sign-it %1" }, notarize],
+    ].each do |given, message|
+      error = assert_raises(Lota::Fuse::Error) { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), **given)).call }
+
+      assert_equal message, error.message
+    end
+    refute_path_exists @log
+    refute_path_exists project
+  end
+
+  def test_the_command_takes_notarize_and_sign_command
+    assert_equal ["game", { sign: "Me (T)", notarize: "sample-profile", sign_command: "sign-it /a %1" }],
+      Lota::CLI::Commands::Fuse.parse(["game", "--sign", "Me (T)", "--notarize", "sample-profile", "--sign-command=sign-it /a %1"])
+    %w[--notarize --sign-command].each do |option|
+      error = assert_raises(Lota::Fuse::Error) { Lota::CLI::Commands::Fuse.parse([option]) }
+
+      assert_includes error.message, "#{option} needs a value"
+    end
+  end
+
+  def test_the_command_exits_with_status_1_for_signing_options_it_refuses
+    _stdout, stderr = capture_io do
+      error = assert_raises(SystemExit) { Lota::CLI.call(["fuse", @game, "--notarize", "sample-profile"]) }
+
+      assert_equal 1, error.status
+    end
+
+    assert_equal "lota fuse: --notarize needs --sign IDENTITY, the Developer ID Application identity Apple notarizes\n", stderr
+  end
+
   def test_the_fledge_ref_can_be_named_in_the_environment
     assert_equal Lota::Fuse::FLEDGE_REF, Lota::Fuse.fledge_ref({})
     assert_equal Lota::Fuse::FLEDGE_REF, Lota::Fuse.fledge_ref({ "LOTA_FLEDGE_REF" => " " })
@@ -895,6 +975,8 @@ class FuseTest < Minitest::Test
     assert_includes stdout, "Usage: lota fuse [path] [options]"
     assert_includes stdout, "replace it before you ship"
     assert_includes stdout, "--exclude PATTERN"
+    assert_includes stdout, "--notarize PROFILE"
+    assert_includes stdout, "--sign-command COMMAND"
     assert_includes Lota::CLI.usage, "fuse [path] [options]"
   end
 end

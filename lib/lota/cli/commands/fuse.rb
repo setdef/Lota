@@ -26,8 +26,9 @@ module Lota
       #   lota fuse
       #   lota fuse path/to/game --identifier com.example.SampleGame
       #   lota fuse path/to/game --exclude server --exclude 'test/**' --exclude doc
-      #   lota fuse path/to/game --exclude server --exclude 'test/**' --exclude doc
       #   lota fuse path/to/game --out builds --sign "Developer ID Application: NAME (TEAM)"
+      #   lota fuse path/to/game --sign "Developer ID Application: NAME (TEAM)" --notarize sample-profile
+      #   lota fuse path/to/game --sign-command "signtool sign /fd sha256 /a %1"
       module Fuse
         # The words Fledge reads as a phone, which Lota cannot build for
         # yet (ADR 002, section 2).
@@ -39,6 +40,8 @@ module Lota
           "--out" => :out,
           "-o" => :out,
           "--sign" => :sign,
+          "--sign-command" => :sign_command,
+          "--notarize" => :notarize,
           "--identifier" => :identifier,
           "--app-version" => :app_version,
           "--icon" => :icon,
@@ -141,6 +144,20 @@ module Lota
                                       conf.rb and main.rb can't be left out
               --sign IDENTITY         Sign the app with IDENTITY, as Fledge's
                                       --sign does
+              --sign-command COMMAND  Sign a Windows app with COMMAND instead,
+                                      as Fledge's --sign-command does: Fledge
+                                      runs it through cmd.exe for each file,
+                                      with the file's path in place of %1, or
+                                      after COMMAND. Without either option,
+                                      Fledge reads FLEDGE_SIGN_COMMAND.
+                                      Windows only
+              --notarize PROFILE      Have Apple notarize the macOS app that
+                                      --sign signed with a Developer ID
+                                      Application identity, with the
+                                      credentials xcrun notarytool
+                                      store-credentials PROFILE stored, as
+                                      Fledge's --notarize does. Waits for
+                                      Apple, usually minutes. macOS only
               --help, -h              Show this help
 
             #{Lota::Fuse::FLEDGE_REF_VARIABLE} names the Git tag or commit of Fledge to
