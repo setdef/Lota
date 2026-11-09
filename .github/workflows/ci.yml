@@ -723,7 +723,12 @@ jobs:
       # setup-msys2 caches the packages it installs, but downloads MSYS2's
       # base from GitHub's releases each time, and an outage of those
       # downloads outlasts its own two tries, so a failed attempt is tried
-      # again two minutes later, whose failure alone fails the job.
+      # again two minutes later, whose failure alone fails the job. The
+      # retry first removes what the failed attempt left, for setup-msys2
+      # refuses to install over an MSYS2 directory that exists. setup-msys2
+      # saves its package cache with paccache, which pacman-contrib
+      # provides and the MSYS2 base does not always carry, so that is
+      # installed: a missing command is a bug to fix, not an outage to retry.
       - id: msys2
         continue-on-error: true
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
@@ -731,12 +736,14 @@ jobs:
           msystem: ${{ matrix.msystem }}
           path-type: inherit
           update: true
-          install: patch make
+          install: patch make pacman-contrib
           pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p ${{ matrix.mesa }}
       - name: Wait before setting MSYS2 up again
         if: steps.msys2.outcome == 'failure'
         shell: pwsh
-        run: Start-Sleep -Seconds 120
+        run: |
+          Start-Sleep -Seconds 120
+          Remove-Item -Recurse -Force "$env:RUNNER_TEMP\msys64" -ErrorAction SilentlyContinue
       - if: steps.msys2.outcome == 'failure'
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with: *msys2
