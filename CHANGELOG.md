@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `Lota::Image::ImageData.new` decodes a `Lota::Filesystem::File` or any `Lota::Data`, as `love.image.newImageData` does, and raises `TypeError` for anything else.
 - `Lota::Image.new_cube_faces`, returning the six `ImageData` of a cube map in one image, translating `love.image.newCubeFaces`.
 - `Lota::Graphics.points` takes an Array of points, each an Array of its x, y, and optionally red, green, blue, and alpha, as `love.graphics.points` takes a table of tables.
 - `Lota::Audio.play`, `stop`, and `pause` take several Sources, or an Array of them, as `love.audio.play`, `stop`, and `pause` take several or a table.

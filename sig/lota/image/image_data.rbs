@@ -7,10 +7,10 @@ module Lota
       private def self.from_native: (Native::ImageData native) -> ImageData
 
       def self.new: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> ImageData
-                  | (Filesystem::FileData | String source) -> ImageData
+                  | (file source) -> ImageData
 
       def initialize: (Integer width, Integer height, ?(Symbol | String)? format, ?(String | Data)? rawdata) -> void
-                    | (Filesystem::FileData | String source) -> void
+                    | (file source) -> void
 
       def initialize_copy: (ImageData source) -> void
 

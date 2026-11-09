@@ -65,15 +65,18 @@ module Lota
       #   copy of +rawdata+, a String or a Lota::Data of exactly as many bytes
       #   as the pixels take.
       # - <tt>ImageData.new(file)</tt>: the image in +file+, a String
-      #   name of an image file in the game's folder, or a
-      #   Lota::Filesystem::FileData, decoded from a format LÖVE's image
-      #   module reads, such as PNG, JPEG, or QOI. A file name is a path in
-      #   the game's folder, as Lota::Graphics::Font.new reads one.
+      #   name of an image file in the game's folder, a
+      #   Lota::Filesystem::File, which is read to its end, or any
+      #   Lota::Data, such as a Lota::Filesystem::FileData, decoded from a
+      #   format LÖVE's image module reads, such as PNG, JPEG, or QOI, as
+      #   luax_getdata reads its argument. A file name is a path in the
+      #   game's folder, as Lota::Graphics::Font.new reads one.
       #
       # Raises RuntimeError with LÖVE's message for a +width+ or +height+
       # below 1, for +rawdata+ of the wrong size, when the file cannot be
       # read or no decoder can read the data, or when the module is not
-      # open; and ArgumentError for a pixel format LÖVE does not know.
+      # open; TypeError for a +file+ that is none of those; and
+      # ArgumentError for a pixel format LÖVE does not know.
       #
       # === Examples
       #
@@ -82,6 +85,8 @@ module Lota
       #   png = File.binread("logo.png")
       #   Lota::Image::ImageData.new(Lota::Filesystem::FileData.new(png, "logo.png"))
       #   Lota::Image::ImageData.new("assets/logo.png")
+      #   file, = Lota::Filesystem.open_file("assets/logo.png", :r)
+      #   Lota::Image::ImageData.new(file)
       def initialize(source, height = nil, format = nil, rawdata = nil)
         @native = case source
         when Numeric
@@ -90,8 +95,7 @@ module Lota
           else rawdata
           end
           Native::Image.new_sized_image_data(source, Integer(height), format && EnumName.of(format), bytes)
-        when String then Native::Image.new_image_data(Native::Filesystem.file_data(source))
-        else Native::Image.new_image_data(source.native)
+        else Native::Image.new_image_data(Image.__send__(:data_of, source))
         end
       end
 

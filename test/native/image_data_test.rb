@@ -7,6 +7,7 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
+require_relative "../lovetest/lovetest_helper"
 
 # Lota::Image::ImageData's pixels, as LÖVE's LuaJIT code reads and writes
 # them in place of ImageData's C++ (src/modules/image/wrap_ImageData.lua),
@@ -266,6 +267,21 @@ class ImageDataTest < Minitest::Test
     image.linear = true
     assert_predicate image, :linear?
     assert_raises(TypeError) { image.linear = 1 }
+  end
+
+  # w_newImageData decodes whatever luax_getdata reads (wrap_Image.cpp:86-99):
+  # a file name, a File, which it reads to its end, or any Data.
+  def test_an_image_is_decoded_from_a_file_name_a_file_or_any_data
+    by_name = ImageData.new("resources/love.png")
+    file, = Lota::Filesystem.open_file("resources/love.png", :r)
+    bytes = Lota::Data::ByteData.new(File.binread(File.join(Lovetest::RESOURCES, "love.png")))
+
+    [ImageData.new(file), ImageData.new(bytes)].each do |image|
+      assert_equal [by_name.width, by_name.height], [image.width, image.height]
+      assert_equal by_name.pixel(32, 32), image.pixel(32, 32)
+    end
+    assert_equal "wrong argument type Symbol (expected filename, File, or Data)",
+      assert_raises(TypeError) { ImageData.new(:image) }.message
   end
 
   # love.image.newCubeFaces (wrap_Image.cpp:129-137, Image.cpp:124-197): the
