@@ -8,6 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../lovetest/unseen_desktop"
+require_relative "../lovetest/held_foreground"
 require "json"
 require "rbconfig"
 require "tmpdir"
@@ -185,10 +186,14 @@ class LotaRunTest < Minitest::Test
     assertions += 10 * sensors
     # It also skips getSource, setSource, and RecordingDevice, whose OpenAL
     # Soft cannot record (Lovetest::PLAYBACK_ONLY), as Lövetest skips them.
-    skips = UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) + (sensors.zero? ? 3 : 0))
+    skips = HeldForeground.skips(UnseenDesktop.skips((on_linux_runner ? 17 : 10) + (supported.glsl4 ? 0 : 1) +
+      (sensors.zero? ? 3 : 0)))
     # On a desktop macOS does not draw, the isOccluded test skips before
-    # its one assertion (test/lovetest/unseen_desktop.rb).
+    # its one assertion (test/lovetest/unseen_desktop.rb), and on a Windows
+    # desktop whose foreground is held, the setGrabbed test before its two
+    # (test/lovetest/held_foreground.rb).
     assertions -= 1 if UnseenDesktop.on?
+    assertions -= 2 if HeldForeground.on?
     assertions -= (16 * 16) - 1 unless supported.glsl3
     assertions -= 8 - 1 unless supported.glsl4 && supported.vertexwrite && supported.pixelwrite
     renderer = Lota::Graphics.renderer_info.first

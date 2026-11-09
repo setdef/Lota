@@ -660,6 +660,7 @@ jobs:
             msystem: UCRT64
             compiler: gcc:p
             mesa: ""
+            foreground_held: ""
             cc: gcc
             cxx: g++
             ccache: D:/ccache
@@ -670,6 +671,9 @@ jobs:
             msystem: CLANGARM64
             compiler: clang:p lld:p llvm-tools:p
             mesa: mesa:p
+            # A window of the shell's holds this runner's foreground
+            # (test/lovetest/held_foreground.rb).
+            foreground_held: "1"
             cc: clang
             cxx: clang++
             ccache: C:/ccache
@@ -937,6 +941,7 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
           # llvmpipe's linear rasterizer, from Mesa 25, reads the wrong uniform array and matrix elements.
           LP_PERF: no_rast_linear
+          LOTA_FOREGROUND_HELD: ${{ matrix.foreground_held }}
         run: |
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd"
           PATH="$clean:$MINGW_PREFIX/bin" ruby .github/windows_checks.rb tests tmp/windows-tests

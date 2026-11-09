@@ -9,6 +9,7 @@ require "lota"
 require "lota_native_test"
 require "desktop_input_lock"
 require_relative "../lovetest/unseen_desktop"
+require_relative "../lovetest/held_foreground"
 
 # Gives the window focus for two of Lövetest's tests alone: its
 # love.mouse.setGrabbed test (test/lovetest/tests/mouse.rb), which SDL
@@ -119,8 +120,9 @@ module FocusForTests
     @desktop_input = DesktopInputLock.acquire(speak: speaking) if speaking || holding
     keep_the_pointer_to_the_test if self.class.name == "MouseTest"
     # The isOccluded test skips on a desktop macOS does not draw, where
-    # asking for a window that can be seen would only time out.
-    @focused = focusing && !(self.class.name == "WindowTest" && UnseenDesktop.on?)
+    # asking for a window that can be seen would only time out, and no
+    # test asks on a Windows desktop whose foreground is held.
+    @focused = focusing && !(self.class.name == "WindowTest" && UnseenDesktop.on?) && !HeldForeground.on?
     take_focus if @focused
   end
 

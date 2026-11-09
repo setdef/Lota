@@ -6,6 +6,7 @@
 #++
 
 require_relative "../lovetest_helper"
+require_relative "../held_foreground"
 
 # Lövetest's love.mouse tests (vendor/love/testing/tests/mouse.lua),
 # translated to Ruby by ADR 001's rules, all 18 of them. Like the graphics
@@ -187,6 +188,7 @@ class MouseTest < Lovetest::TestMethod
   # set_relative_mode, as it returns whether it could (rule 7), and
   # getRelativeMode becomes relative_mode (rule 3).
   def test_set_grabbed
+    skip(HeldForeground::REASON) if HeldForeground.on?
     assert_equal(false, Lota::Mouse.grabbed?, "check not grabbed")
     Lota::Mouse.grabbed = true
     assert_equal(true, Lota::Mouse.grabbed?, "check now grabbed")

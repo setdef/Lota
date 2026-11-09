@@ -256,6 +256,7 @@ class RestartRunTest < Minitest::Test
       #include <locale.h>
       #include <ruby.h>
       #include <stdlib.h>
+      #include <string.h>
 
       int main(int argc, char **argv) {
         setlocale(LC_CTYPE, "");
@@ -263,7 +264,7 @@ class RestartRunTest < Minitest::Test
         char **options = calloc((size_t)argc + 2, sizeof(char *));
         int count = argc + 1;
         options[0] = argv[0];
-        options[1] = getenv("LOTA_LAUNCHER_ENTRY");
+        options[1] = strdup(getenv("LOTA_LAUNCHER_ENTRY"));
         for (int i = 1; i < argc; i++) options[i + 1] = argv[i];
         {
           RUBY_INIT_STACK;
