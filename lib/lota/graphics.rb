@@ -345,6 +345,186 @@ module Lota
       GraphicsReadback.__send__(:from_native, native)
     end
 
+    # Copies bytes of +buffer+ back from the graphics card into a
+    # Lota::Data::ByteData, matching love.graphics.readbackBuffer
+    # (src/modules/graphics/wrap_Graphics.cpp, w_readbackBuffer).
+    #
+    # [buffer] Lota::Graphics::GraphicsBuffer to read.
+    # [offset] Integer byte to start from; 0 by default.
+    # [size] Integer number of bytes to read; the rest of +buffer+ by
+    #   default.
+    # [dest] Lota::Data::ByteData to read into, which comes back, instead
+    #   of a new one.
+    # [destoffset] Integer byte in +dest+ to read to; 0 by default.
+    #
+    # The copy waits for the graphics card to finish drawing, so it is
+    # slow; read back for tests and tools, not every frame.
+    #
+    # Raises TypeError for a +buffer+ or +dest+ of another class,
+    # RuntimeError with LÖVE's message for a range the buffer does not
+    # have or a buffer that cannot be read back, and ThreadError off the
+    # main thread.
+    #
+    # === Example
+    #
+    #   bytes = Lota::Graphics.readback_buffer(positions)
+    #   bytes.size # => positions.size
+    def self.readback_buffer(buffer, offset = nil, size = nil, dest = nil, destoffset = nil)
+      check_readback(buffer, dest)
+      native = Native::Graphics.readback_buffer(buffer.__send__(:native), offset || 0, size, dest&.__send__(:native),
+        destoffset || 0)
+      dest || Lota::Data::ByteData.__send__(:from_native, native)
+    end
+
+    # Starts copying bytes of +buffer+ back from the graphics card, and
+    # returns a Lota::Graphics::GraphicsReadback that has them once it is
+    # complete, matching love.graphics.readbackBufferAsync
+    # (src/modules/graphics/wrap_Graphics.cpp, w_readbackBufferAsync).
+    #
+    # It takes what readback_buffer takes, and returns at once, where
+    # readback_buffer waits for the graphics card. Its +buffer_data+ is the
+    # bytes once it is complete.
+    #
+    # Raises what readback_buffer raises.
+    #
+    # === Example
+    #
+    #   readback = Lota::Graphics.readback_buffer_async(positions)
+    #   readback.wait
+    #   readback.buffer_data.size # => positions.size
+    def self.readback_buffer_async(buffer, offset = nil, size = nil, dest = nil, destoffset = nil)
+      check_readback(buffer, dest)
+      native = Native::Graphics.readback_buffer_async(buffer.__send__(:native), offset || 0, size,
+        dest&.__send__(:native), destoffset || 0)
+      GraphicsReadback.__send__(:from_native, native)
+    end
+
+    # The buffer and the destination readback_buffer takes, or TypeError.
+    # :nodoc:
+    private_class_method def self.check_readback(buffer, dest)
+      check_buffer(buffer, "buffer")
+      return if dest.nil? || dest.is_a?(Lota::Data::ByteData)
+
+      raise TypeError, "wrong argument type #{dest.class} for dest (expected Lota::Data::ByteData)"
+    end
+
+    # +buffer+, which must be a GraphicsBuffer, or TypeError, as
+    # luax_checkbuffer reads one. :nodoc:
+    private_class_method def self.check_buffer(buffer, name)
+      return if buffer.is_a?(GraphicsBuffer)
+
+      raise TypeError, "wrong argument type #{buffer.class} for #{name} (expected Lota::Graphics::GraphicsBuffer)"
+    end
+
+    # Copies bytes from one buffer to another on the graphics card,
+    # matching love.graphics.copyBuffer
+    # (src/modules/graphics/wrap_Graphics.cpp, w_copyBuffer).
+    #
+    # [source] Lota::Graphics::GraphicsBuffer to copy from.
+    # [dest] Lota::Graphics::GraphicsBuffer to copy to.
+    # [sourceoffset] Integer byte in +source+ to start from; 0 by default.
+    # [destoffset] Integer byte in +dest+ to start at; 0 by default.
+    # [size] Integer number of bytes; as many as both have left by
+    #   default.
+    #
+    # Returns +nil+. Raises TypeError for a buffer of another class,
+    # RuntimeError with LÖVE's message for a negative offset, a size that
+    # is not positive, or a range the buffers do not have, and
+    # ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.copy_buffer(staging, positions, 0, 0, 64)
+    def self.copy_buffer(source, dest, sourceoffset = nil, destoffset = nil, size = nil)
+      check_buffer(source, "source")
+      check_buffer(dest, "dest")
+      Native::Graphics.copy_buffer(source.__send__(:native), dest.__send__(:native), [sourceoffset, destoffset, size])
+    end
+
+    # Copies bytes of a buffer into a texture on the graphics card,
+    # matching love.graphics.copyBufferToTexture
+    # (src/modules/graphics/wrap_Graphics.cpp, w_copyBufferToTexture).
+    #
+    # [source] Lota::Graphics::GraphicsBuffer to copy from.
+    # [dest] Lota::Graphics::Texture to copy to.
+    # [sourceoffset] Integer byte in +source+ to start from; 0 by default.
+    # [sourcewidth] Integer width in pixels of a row in +source+; the
+    #   rectangle's width by default.
+    # [slice] Integer slice to copy to, counting from 1, which a texture
+    #   that is not 2D needs.
+    # [mipmap] Integer mipmap to copy to, counting from 1; the first by
+    #   default.
+    # [x] Integer left edge of the rectangle to copy to, given with +y+,
+    #   +width+, and +height+; the whole mipmap by default.
+    # [y] Integer top edge of the rectangle.
+    # [width] Integer width of the rectangle.
+    # [height] Integer height of the rectangle.
+    #
+    # Returns +nil+. Raises TypeError for a +source+ or +dest+ of another
+    # class, RuntimeError with LÖVE's message for a negative offset or a
+    # range, mipmap, slice, or rectangle the buffer or texture does not
+    # have, and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.copy_buffer_to_texture(pixels, canvas)
+    def self.copy_buffer_to_texture(source, dest, sourceoffset = nil, sourcewidth = nil, slice = nil, mipmap = nil,
+      x = nil, y = nil, width = nil, height = nil
+    )
+      check_buffer(source, "source")
+      Native::Graphics.copy_buffer_to_texture(source.__send__(:native), texture_argument(dest, "dest"),
+        [sourceoffset, sourcewidth, slice, mipmap, x, y, width, height])
+    end
+
+    # Copies pixels of a texture into a buffer on the graphics card,
+    # matching love.graphics.copyTextureToBuffer
+    # (src/modules/graphics/wrap_Graphics.cpp, w_copyTextureToBuffer).
+    #
+    # [source] Lota::Graphics::Texture to copy from.
+    # [dest] Lota::Graphics::GraphicsBuffer to copy to.
+    # [slice] Integer slice to copy from, counting from 1, which a texture
+    #   that is not 2D needs.
+    # [mipmap] Integer mipmap to copy from, counting from 1; the first by
+    #   default.
+    # [x] Integer left edge of the rectangle to copy, given with +y+,
+    #   +width+, and +height+; the whole mipmap by default.
+    # [y] Integer top edge of the rectangle.
+    # [width] Integer width of the rectangle.
+    # [height] Integer height of the rectangle.
+    # [destoffset] Integer byte in +dest+ to start at; 0 by default.
+    # [destwidth] Integer width in pixels of a row in +dest+; the
+    #   rectangle's width by default.
+    #
+    # Returns +nil+. Raises TypeError for a +source+ or +dest+ of another
+    # class, or a missing +slice+ for a texture that is not 2D,
+    # RuntimeError with LÖVE's message for a negative offset or a range,
+    # mipmap, slice, or rectangle the texture or buffer does not have,
+    # and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.copy_texture_to_buffer(canvas, pixels)
+    def self.copy_texture_to_buffer(source, dest, slice = nil, mipmap = nil, x = nil, y = nil, width = nil,
+      height = nil, destoffset = nil, destwidth = nil
+    )
+      native = texture_argument(source, "source")
+      check_buffer(dest, "dest")
+      if slice.nil? && source.texture_type != :"2d"
+        raise TypeError, "wrong argument type nil for slice (expected Integer)"
+      end
+
+      Native::Graphics.copy_texture_to_buffer(native, dest.__send__(:native),
+        [slice, mipmap, x, y, width, height, destoffset, destwidth])
+    end
+
+    # The engine's Texture of +texture+, which must be a Texture, or
+    # TypeError, as luax_checktexture reads one. :nodoc:
+    private_class_method def self.texture_argument(texture, name)
+      return texture.__send__(:native) if texture.is_a?(Texture)
+
+      raise TypeError, "wrong argument type #{texture.class} for #{name} (expected Lota::Graphics::Texture)"
+    end
+
     # Whether drawing reaches the screen, matching love.graphics.isActive
     # (src/modules/graphics/wrap_Graphics.cpp, w_isActive).
     #
@@ -1200,6 +1380,80 @@ module Lota
       end
 
       Native::Graphics.dispatch_indirect(shader.__send__(:native), argsbuffer.__send__(:native), argsindex)
+    end
+
+    # Draws with a shader that reads its vertices itself, matching
+    # love.graphics.drawFromShader
+    # (src/modules/graphics/wrap_Graphics.cpp, w_drawFromShader).
+    #
+    # [source] A primitive type, such as +:triangles+, to draw +count+
+    #   vertices of, or the Lota::Graphics::GraphicsBuffer of indices (made
+    #   with +index: true+) to draw +count+ indices of.
+    # [count] Integer number of vertices or indices.
+    # [instancecount] Integer number of instances; 1 by default.
+    # [indexstart] Integer first index to draw, counting from 1, 1 by
+    #   default; only with a buffer.
+    # [texture] Lota::Graphics::Texture to give the shader as its main
+    #   texture, or +nil+. It follows +instancecount+ when +source+ is a
+    #   primitive type, and +indexstart+ when it is a buffer.
+    #
+    # Returns +nil+. Raises TypeError for a texture that is not a Texture,
+    # ArgumentError with LÖVE's message for a primitive type that does not
+    # exist, RuntimeError with LÖVE's message for a draw the shader or
+    # renderer cannot make, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.draw_from_shader(:triangles, 6)
+    #   Lota::Graphics.draw_from_shader(indices, 6, 100) # 100 instances
+    #
+    # Its forms:
+    #
+    #   draw_from_shader(primitive, vertexcount, instancecount = 1, texture = nil)
+    #   draw_from_shader(indexbuffer, indexcount, instancecount = 1, indexstart = 1, texture = nil)
+    def self.draw_from_shader(source, count, instancecount = nil, *rest)
+      if source.is_a?(GraphicsBuffer)
+        indexstart, texture = rest
+        Native::Graphics.draw_from_shader_indexed(source.__send__(:native), [count, instancecount, indexstart],
+          drawn_texture(texture))
+      else
+        Native::Graphics.draw_from_shader_primitive(EnumName.of(source), [count, instancecount], drawn_texture(rest.first))
+      end
+    end
+
+    # Draws with a shader that reads its vertices itself, for the draw a
+    # buffer says, matching love.graphics.drawFromShaderIndirect
+    # (src/modules/graphics/wrap_Graphics.cpp, w_drawFromShaderIndirect).
+    #
+    # [source] A primitive type, such as +:triangles+, or the
+    #   Lota::Graphics::GraphicsBuffer of indices (made with +index: true+)
+    #   to draw.
+    # [argsbuffer] Lota::Graphics::GraphicsBuffer of the draw's arguments,
+    #   made with +indirectarguments: true+.
+    # [argsindex] Integer element of it to read, counting from 1, 1 when
+    #   left out.
+    # [texture] Lota::Graphics::Texture to give the shader as its main
+    #   texture, or +nil+.
+    #
+    # Returns +nil+. Raises what draw_from_shader raises.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.draw_from_shader_indirect(:triangles, arguments)
+    def self.draw_from_shader_indirect(source, argsbuffer, argsindex = nil, texture = nil)
+      check_buffer(argsbuffer, "argsbuffer")
+      args = argsbuffer.__send__(:native)
+      if source.is_a?(GraphicsBuffer)
+        Native::Graphics.draw_from_shader_indirect_indexed(source.__send__(:native), args, argsindex, drawn_texture(texture))
+      else
+        Native::Graphics.draw_from_shader_indirect_primitive(EnumName.of(source), args, argsindex, drawn_texture(texture))
+      end
+    end
+
+    # The engine's Texture of +texture+ when it is one, and +texture+ itself
+    # otherwise, nil or a value the engine refuses with TypeError. :nodoc:
+    private_class_method def self.drawn_texture(texture)
+      texture.is_a?(Texture) ? texture.__send__(:native) : texture
     end
 
     # The Lota::Graphics::GraphicsBuffer of indices that draws quads from four

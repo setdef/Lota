@@ -415,6 +415,8 @@ module Lota
       def set_layer: (Integer index, Integer layer, Quad? quad, Array[Float | Integer] placement) -> nil
 
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
+
+      def attach_attribute: (String name, Buffer | Mesh source) -> nil
     end
 
     type colored_text = [String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]
@@ -1173,6 +1175,20 @@ module Lota
       def self.dispatch_threadgroups: (Shader shader, Integer x, ?Integer? y, ?Integer? z) -> nil
 
       def self.dispatch_indirect: (Shader shader, Buffer argsbuffer, ?Integer? argsindex) -> nil
+
+      def self.copy_buffer: (Buffer source, Buffer dest, Array[Integer?] arguments) -> nil
+
+      def self.copy_buffer_to_texture: (Buffer source, Texture dest, Array[Integer?] arguments) -> nil
+
+      def self.copy_texture_to_buffer: (Texture source, Buffer dest, Array[Integer?] arguments) -> nil
+
+      def self.draw_from_shader_indexed: (Buffer indexbuffer, Array[::Object?] counts, ::Object? texture) -> nil
+
+      def self.draw_from_shader_primitive: (String primitive, Array[::Object?] counts, ::Object? texture) -> nil
+
+      def self.draw_from_shader_indirect_indexed: (Buffer indexbuffer, Buffer argsbuffer, Integer? argsindex, ::Object? texture) -> nil
+
+      def self.draw_from_shader_indirect_primitive: (String primitive, Buffer argsbuffer, Integer? argsindex, ::Object? texture) -> nil
 
       def self.new_shader: (Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> Shader
 

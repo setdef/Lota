@@ -17,6 +17,22 @@ module Lota
 
     def self.readback_texture: (Texture texture, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height, ?Lota::Image::ImageData? dest, ?Integer? destx, ?Integer? desty) -> Lota::Image::ImageData
 
+    def self.readback_buffer: (GraphicsBuffer buffer, ?Integer? offset, ?Integer? size, ?Lota::Data::ByteData? dest, ?Integer? destoffset) -> Lota::Data::ByteData
+
+    def self.readback_buffer_async: (GraphicsBuffer buffer, ?Integer? offset, ?Integer? size, ?Lota::Data::ByteData? dest, ?Integer? destoffset) -> GraphicsReadback
+
+    private def self.check_readback: (::Object? buffer, ::Object? dest) -> void
+
+    private def self.check_buffer: (::Object? buffer, String name) -> void
+
+    private def self.texture_argument: (::Object? texture, String name) -> Native::Texture
+
+    def self.copy_buffer: (GraphicsBuffer source, GraphicsBuffer dest, ?Integer? sourceoffset, ?Integer? destoffset, ?Integer? size) -> nil
+
+    def self.copy_buffer_to_texture: (GraphicsBuffer source, Texture dest, ?Integer? sourceoffset, ?Integer? sourcewidth, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height) -> nil
+
+    def self.copy_texture_to_buffer: (Texture source, GraphicsBuffer dest, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height, ?Integer? destoffset, ?Integer? destwidth) -> nil
+
     def self.readback_texture_async: (Texture texture, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height, ?Lota::Image::ImageData? dest, ?Integer? destx, ?Integer? desty) -> GraphicsReadback
 
     def self.active?: () -> bool
@@ -136,6 +152,12 @@ module Lota
     def self.dispatch_threadgroups: (Shader shader, Integer x, ?Integer? y, ?Integer? z) -> nil
 
     def self.dispatch_indirect: (Shader shader, GraphicsBuffer argsbuffer, ?Integer? argsindex) -> nil
+
+    def self.draw_from_shader: (GraphicsBuffer | Symbol | String source, Integer count, ?Integer? instancecount, *::Object? rest) -> nil
+
+    def self.draw_from_shader_indirect: (GraphicsBuffer | Symbol | String source, GraphicsBuffer argsbuffer, ?Integer? argsindex, ?Texture? texture) -> nil
+
+    private def self.drawn_texture: (::Object? texture) -> ::Object?
 
     def self.quad_index_buffer: () -> GraphicsBuffer?
 

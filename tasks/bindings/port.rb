@@ -96,6 +96,9 @@ object:,
       end
     end
 
+    # What a lua_Integer is in Lota, which has no Lua: the 64-bit integer
+    # Lua holds.
+    LUA_INTEGER = "long long"
     INTEGRAL = /\A(?:const\s+)?(?:unsigned\s+|signed\s+)?(?:int|long|short|long long|size_t|ptrdiff_t|u?int\d+(?:_t)?|lua_Integer)\z/
     # An integer of one byte, which Rice would give Ruby as a character, so
     # it is returned as the int it widens to.
@@ -580,8 +583,12 @@ line: node.line,
       end
     end
 
+    # The C++ integer +type+ names, or nil. Lua's lua_Integer is not a type
+    # Lota's extension knows; it is the 64-bit integer Lua holds, long long.
     private def integral(type)
-      type&.strip&.then { |name| name.match?(INTEGRAL) ? name.sub(/\Aconst\s+/, "") : nil }
+      type&.strip&.then do |name|
+        name.match?(INTEGRAL) ? name.sub(/\Aconst\s+/, "").sub(/\Alua_Integer\z/, LUA_INTEGER) : nil
+      end
     end
 
     # The name LÖVE gives the value: the variable it reads it into, the
@@ -1037,6 +1044,7 @@ line: node.line,
       # luax_checkfloat and luax_tofloat return the number as a float
       # (common/runtime.h), which the port casts to as they do.
       cast ||= "float" if FLOAT_READERS.include?(call.base_name) && parameter.cpp == "double"
+      cast = LUA_INTEGER if cast == "lua_Integer"
       cast_to(value, (cast == parameter.cpp) ? nil : cast)
     end
 
@@ -1056,6 +1064,7 @@ line: node.line,
     private def cast_to(value, cast)
       return value unless cast
 
+      cast = LUA_INTEGER if cast == "lua_Integer"
       "static_cast<#{cast.match?(/\Au?int(?:8|16|32|64)\z/) ? "love::#{cast}" : cast}>(#{value})"
     end
 

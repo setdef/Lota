@@ -218,6 +218,18 @@ class GeneratorTest < Minitest::Test
       .files.fetch("ext/lota/native/generated/font.cpp"), "pixelformat.h"
   end
 
+  # w_readbackBuffer reads its byte offset as a lua_Integer, a type of Lua's
+  # that the extension does not have, so the port reads a long long, which
+  # lua_Integer is.
+  def test_a_lua_integer_is_a_long_long
+    list = Bindings::BindingList.new
+    list.generate("love.graphics.readbackBuffer")
+    code = BindingsHelper.generator(list:).files.fetch("ext/lota/native/generated/graphics.cpp")
+
+    assert_includes code, "long long offset"
+    refute_includes code, "lua_Integer"
+  end
+
   # w_ParticleSystem_getEmissionArea declares a love::Vector2, so its file
   # includes the header of that name.
   def test_a_vector_declared_in_a_port_has_its_header_included

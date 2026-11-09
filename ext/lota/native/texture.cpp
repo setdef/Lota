@@ -16,6 +16,7 @@
 #include "common/pixelformat.h"
 #include "data/ByteData.h"
 #include "filesystem/FileData.h"
+#include "graphics/Buffer.h"
 #include "graphics/Graphics.h"
 #include "graphics/GraphicsReadback.h"
 #include "graphics/Texture.h"
@@ -35,6 +36,7 @@
 
 namespace lota::native {
 
+using love::graphics::Buffer;
 using love::graphics::Graphics;
 using love::graphics::Texture;
 using love::image::CompressedImageData;
@@ -985,6 +987,128 @@ Rice::Array canvas() {
   return result;
 }
 
+// luaL_checkinteger and luaL_optinteger of an argument in an Array, as a
+// 64-bit number: a byte offset or size, which does not truncate to an int.
+long long long_at(const std::vector<Rice::Object> &arguments, std::size_t index) {
+  return Rice::detail::From_Ruby<long long>().convert(element(arguments, index).value());
+}
+
+long long optional_long_at(const std::vector<Rice::Object> &arguments, std::size_t index,
+                           long long fallback) {
+  return none_or_nil(arguments, index) ? fallback : long_at(arguments, index);
+}
+
+// w_copyBuffer (wrap_Graphics.cpp:3813-3832) of the arguments after the
+// two buffers: the byte offset in the source, the byte offset in the
+// destination, and a size that is as much as both have left unless given.
+void copy_buffer(Buffer *source, Buffer *dest, Rice::Array arguments) {
+  constexpr std::size_t destoffset_index = 1;
+  constexpr std::size_t size_index = 2;
+  const Rice::Array moved = std::move(arguments);
+  const std::vector<Rice::Object> given = ruby::elements(moved);
+  Graphics &instance = graphics();
+
+  const auto sourceoffset = static_cast<std::ptrdiff_t>(optional_long_at(given, 0, 0));
+  const auto destoffset = static_cast<std::ptrdiff_t>(optional_long_at(given, destoffset_index, 0));
+
+  auto size = static_cast<std::ptrdiff_t>(
+      std::min(source->getSize() - static_cast<std::size_t>(sourceoffset),
+               dest->getSize() - static_cast<std::size_t>(destoffset)));
+  if (!none_or_nil(given, size_index)) {
+    size = static_cast<std::ptrdiff_t>(long_at(given, size_index));
+  }
+
+  if (sourceoffset < 0 || destoffset < 0) {
+    throw love::Exception("copyBuffer offsets cannot be negative.");
+  }
+  if (size <= 0) {
+    throw love::Exception("copyBuffer size must be greater than 0.");
+  }
+  instance.copyBuffer(source, dest, static_cast<std::size_t>(sourceoffset),
+                      static_cast<std::size_t>(destoffset), static_cast<std::size_t>(size));
+}
+
+// The rectangle of a texture's mipmap that w_copyBufferToTexture and
+// w_copyTextureToBuffer read from four numbers at +index+, or all of the
+// mipmap when the first is nil.
+love::Rect rect_of(const Texture &t, int mipmap, const std::vector<Rice::Object> &given,
+                   std::size_t index) {
+  love::Rect rect = {.x = 0, .y = 0, .w = t.getPixelWidth(mipmap), .h = t.getPixelHeight(mipmap)};
+  if (!none_or_nil(given, index)) {
+    rect.x = integer_at(given, index);
+    rect.y = integer_at(given, index + 1);
+    rect.w = integer_at(given, index + 2);
+    rect.h = integer_at(given, index + 3);
+  }
+  return rect;
+}
+
+// w_copyBufferToTexture (wrap_Graphics.cpp:3834-3864) of the arguments
+// after the buffer and the texture: the byte offset in the buffer, the
+// width of a row in the buffer in pixels, the slice, counting from 1, which
+// a texture that is not 2D needs, the mipmap, counting from 1, and a
+// rectangle of x, y, width, and height.
+void copy_buffer_to_texture(Buffer *source, Texture *dest, Rice::Array arguments) {
+  constexpr std::size_t sourcewidth_index = 1;
+  constexpr std::size_t slice_index = 2;
+  constexpr std::size_t mipmap_index = 3;
+  constexpr std::size_t rect_index = 4;
+  const Rice::Array moved = std::move(arguments);
+  const std::vector<Rice::Object> given = ruby::elements(moved);
+  Graphics &instance = graphics();
+
+  const auto sourceoffset = static_cast<std::ptrdiff_t>(optional_long_at(given, 0, 0));
+  if (sourceoffset < 0) {
+    throw love::Exception("copyBufferToTexture source offset cannot be negative.");
+  }
+
+  const int sourcewidth = optional_integer_at(given, sourcewidth_index, 0);
+
+  int slice = 0;
+  if (dest->getTextureType() != love::graphics::TEXTURE_2D) {
+    slice = integer_at(given, slice_index) - 1;
+  }
+
+  const int mipmap = optional_integer_at(given, mipmap_index, 1) - 1;
+  const love::Rect rect = rect_of(*dest, mipmap, given, rect_index);
+
+  instance.copyBufferToTexture(source, dest, static_cast<std::size_t>(sourceoffset), sourcewidth,
+                               slice, mipmap, rect);
+}
+
+// w_copyTextureToBuffer (wrap_Graphics.cpp:3866-3896) of the arguments
+// after the texture and the buffer: the slice, counting from 1, which a
+// texture that is not 2D needs, the mipmap, counting from 1, a rectangle
+// of x, y, width, and height, the byte offset in the buffer, and the width
+// of a row in the buffer in pixels.
+void copy_texture_to_buffer(Texture *source, Buffer *dest, Rice::Array arguments) {
+  constexpr std::size_t mipmap_index = 1;
+  constexpr std::size_t rect_index = 2;
+  constexpr std::size_t destoffset_index = 6;
+  constexpr std::size_t destwidth_index = 7;
+  const Rice::Array moved = std::move(arguments);
+  const std::vector<Rice::Object> given = ruby::elements(moved);
+  Graphics &instance = graphics();
+
+  int slice = 0;
+  if (source->getTextureType() != love::graphics::TEXTURE_2D) {
+    slice = integer_at(given, 0) - 1;
+  }
+
+  const int mipmap = optional_integer_at(given, mipmap_index, 1) - 1;
+  const love::Rect rect = rect_of(*source, mipmap, given, rect_index);
+
+  const auto destoffset = static_cast<std::ptrdiff_t>(optional_long_at(given, destoffset_index, 0));
+  if (destoffset < 0) {
+    throw love::Exception("copyTextureToBuffer dest offset cannot be negative.");
+  }
+
+  const int destwidth = optional_integer_at(given, destwidth_index, 0);
+
+  instance.copyTextureToBuffer(source, dest, slice, mipmap, rect,
+                               static_cast<std::size_t>(destoffset), destwidth);
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -1058,6 +1182,12 @@ void define_texture(const Rice::Module &native) {
       .define_singleton_function("readback_texture_async", &readback_texture_async,
                                  Rice::Arg("texture"), Rice::Arg("arguments"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("copy_buffer", &copy_buffer, Rice::Arg("source"),
+                                 Rice::Arg("dest"), Rice::Arg("arguments"))
+      .define_singleton_function("copy_buffer_to_texture", &copy_buffer_to_texture,
+                                 Rice::Arg("source"), Rice::Arg("dest"), Rice::Arg("arguments"))
+      .define_singleton_function("copy_texture_to_buffer", &copy_texture_to_buffer,
+                                 Rice::Arg("source"), Rice::Arg("dest"), Rice::Arg("arguments"))
       .define_singleton_function("reset_canvas", &reset_canvas)
       .define_singleton_function("canvas", &canvas)
       .define_singleton_function("set_canvas", &set_canvas, Rice::Arg("arguments"))

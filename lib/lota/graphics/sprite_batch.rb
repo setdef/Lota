@@ -319,6 +319,28 @@ module Lota
       def draw_range
         @native.draw_range
       end
+
+      # Takes an attribute from a buffer or a mesh for each sprite,
+      # matching SpriteBatch:attachAttribute
+      # (src/modules/graphics/wrap_SpriteBatch.cpp,
+      # w_SpriteBatch_attachAttribute).
+      #
+      # [name] The String name of the vertex attribute to give the shader.
+      # [source] The Lota::Graphics::GraphicsBuffer, or the Mesh with a
+      #   vertex buffer of its own, that holds it.
+      #
+      # It stays attached as long as the batch lives, so it has no block
+      # form. Returns +nil+. Raises RuntimeError with LÖVE's message for
+      # an attribute the source lacks or a mesh with no vertex buffer,
+      # and TypeError for a source that is neither.
+      #
+      # === Example
+      #
+      #   batch.attach_attribute("Tint", tints)
+      def attach_attribute(name, source)
+        native_source = (source.is_a?(GraphicsBuffer) || source.is_a?(Mesh)) ? source.native : source
+        @native.attach_attribute(name, native_source)
+      end
     end
   end
 end

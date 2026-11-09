@@ -388,6 +388,10 @@ module Lota
 
       def self.shader: () -> Shader?
 
+      def self.readback_buffer: (Buffer b, ?Integer offset, ?Integer? size, ?ByteData? argument4, ?Integer argument5) -> ByteData
+
+      def self.readback_buffer_async: (Buffer b, ?Integer offset, ?Integer? size, ?ByteData? argument4, ?Integer argument5) -> GraphicsReadback
+
       def self.quad_index_buffer: () -> Buffer
 
       def self.set_stencil_mode: (?String? mode, ?Integer? value) -> nil

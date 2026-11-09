@@ -18,6 +18,7 @@
 #include "common/int.h"
 #include "common/math.h"
 #include "common/pixelformat.h"
+#include "data/ByteData.h"
 #include "graphics/Buffer.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
@@ -295,6 +296,38 @@ Rice::Array w_getStencilState() {
   results.push(s.readMask, false);
   results.push(s.writeMask, false);
   return results;
+}
+
+// love.graphics.readbackBuffer: w_readbackBuffer (wrap_Graphics.cpp:2367-2387).
+love::data::ByteData *w_readbackBuffer(Buffer *b, long long offset, std::optional<long long> size,
+                                       std::optional<data::ByteData *> argument4,
+                                       size_t argument5) {
+  data::ByteData *dest = nullptr;
+  size_t destoffset = 0;
+  if (argument4.has_value()) {
+    dest = required(argument4, "argument4");
+    destoffset = argument5;
+  }
+  love::data::ByteData *data = nullptr;
+  data =
+      instance()->readbackBuffer(b, offset, size.value_or(b->getSize() - offset), dest, destoffset);
+  return data;
+}
+
+// love.graphics.readbackBufferAsync: w_readbackBufferAsync (wrap_Graphics.cpp:2389-2409).
+GraphicsReadback *w_readbackBufferAsync(Buffer *b, long long offset, std::optional<long long> size,
+                                        std::optional<data::ByteData *> argument4,
+                                        size_t argument5) {
+  data::ByteData *dest = nullptr;
+  size_t destoffset = 0;
+  if (argument4.has_value()) {
+    dest = required(argument4, "argument4");
+    destoffset = argument5;
+  }
+  GraphicsReadback *r = nullptr;
+  r = instance()->readbackBufferAsync(b, offset, size.value_or(b->getSize() - offset), dest,
+                                      destoffset);
+  return r;
 }
 
 // love.graphics.getColor: w_getColor (wrap_Graphics.cpp:2517-2525).
@@ -1910,6 +1943,16 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("set_shader", &w_setShader,
                                  Rice::Arg("shader") = std::optional<Shader *>())
       .define_singleton_function("shader", &w_getShader)
+      .define_singleton_function("readback_buffer", &w_readbackBuffer, Rice::Arg("b"),
+                                 Rice::Arg("offset") = 0,
+                                 Rice::Arg("size") = std::optional<long long>(),
+                                 Rice::Arg("argument4") = std::optional<data::ByteData *>(),
+                                 Rice::Arg("argument5") = 0, Rice::Return().takeOwnership())
+      .define_singleton_function("readback_buffer_async", &w_readbackBufferAsync, Rice::Arg("b"),
+                                 Rice::Arg("offset") = 0,
+                                 Rice::Arg("size") = std::optional<long long>(),
+                                 Rice::Arg("argument4") = std::optional<data::ByteData *>(),
+                                 Rice::Arg("argument5") = 0, Rice::Return().takeOwnership())
       .define_singleton_function("quad_index_buffer", &w_getQuadIndexBuffer)
       .define_singleton_function("set_stencil_mode", &w_setStencilMode,
                                  Rice::Arg("mode") = std::optional<std::string>(),

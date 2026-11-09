@@ -621,6 +621,23 @@ bound_by_hand "love.graphics.dispatchThreadgroups",
     "refuses in a Rice default; Lota binds them as optional integers"
 bound_by_hand "love.graphics.dispatchIndirect",
   reason: "gives its argument index the default 1, as love.graphics.dispatchThreadgroups"
+generate "love.graphics.readbackBuffer"
+generate "love.graphics.readbackBufferAsync"
+bound_by_hand "love.graphics.copyBuffer",
+  reason: "assigns a size of unsigned arithmetic to a signed variable, which clang-tidy's " \
+    "bugprone-narrowing-conversions refuses; Lota binds the arguments after the two buffers as an Array"
+bound_by_hand "love.graphics.copyBufferToTexture",
+  reason: "reads its slice only for a texture that is not 2D and its rectangle only when given, and builds the " \
+    "rectangle with an initializer list clang-tidy's modernize-use-designated-initializers refuses; Lota binds " \
+    "the arguments after the buffer and the texture as an Array"
+bound_by_hand "love.graphics.copyTextureToBuffer",
+  reason: "reads its slice only for a texture that is not 2D and its rectangle only when given, as " \
+    "love.graphics.copyBufferToTexture; Lota binds the arguments after the texture and the buffer as an Array"
+bound_by_hand "love.graphics.drawFromShader",
+  reason: "chooses its form by the type of argument 1, an index Buffer or a primitive type (luax_istype), and " \
+    "reads the arguments after it at positions that depend on the form; Lota binds each form"
+bound_by_hand "love.graphics.drawFromShaderIndirect",
+  reason: "chooses its form by the type of argument 1, as love.graphics.drawFromShader; Lota binds each form"
 bound_by_hand "Buffer:setArrayData",
   reason: "writes from Lua tables or a Data into mapped memory through luax_writebufferdata, reading the stack " \
     "at positions it computes; Lota reads the Arrays Lota::Graphics::Buffer passes"
@@ -644,6 +661,9 @@ bound_by_hand "Mesh:setAttributeEnabled",
   reason: "chooses its form by the type of argument 2 (lua_type), a name or a binding location"
 bound_by_hand "Mesh:isAttributeEnabled",
   reason: "chooses its form by the type of argument 2, as Mesh:setAttributeEnabled"
+bound_by_hand "SpriteBatch:attachAttribute",
+  reason: "chooses its form by the type of argument 3, a Buffer or a Mesh (luax_istype), and keeps the Mesh as " \
+    "well as its vertex buffer; Lota binds both, as Mesh:attachAttribute"
 bound_by_hand "Mesh:attachAttribute",
   reason: "chooses its form by the type of argument 2 and of argument 3, a Buffer or a Mesh, and reads " \
     "optional arguments at positions that depend on the form"

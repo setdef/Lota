@@ -15,6 +15,7 @@
 #include "graphics/Buffer.h"
 #include "graphics/Graphics.h"
 #include "graphics/Mesh.h"
+#include "graphics/SpriteBatch.h"
 #include "graphics/vertex.h"
 
 #include <algorithm>
@@ -36,6 +37,7 @@ using love::graphics::Buffer;
 using love::graphics::DataFormat;
 using love::graphics::Graphics;
 using love::graphics::Mesh;
+using love::graphics::SpriteBatch;
 
 namespace {
 
@@ -916,6 +918,42 @@ bool mesh_attribute_enabled(const Mesh &t, Rice::Object name) {
   return t.isAttributeEnabled(location_of(attribute));
 }
 
+// What an attribute is taken from: a Buffer, or a Mesh with a vertex buffer
+// of its own, which is then the Buffer and also the Mesh that keeps it alive
+// (w_Mesh_attachAttribute, lines 329-341, and w_SpriteBatch_attachAttribute,
+// wrap_SpriteBatch.cpp:210-230).
+struct AttachedSource {
+  Buffer *buffer = nullptr;
+  Mesh *mesh = nullptr;
+};
+
+AttachedSource attached_source(const Rice::Object &source) {
+  AttachedSource attached;
+  if (ruby::is_kind_of(source, Rice::Data_Type<Buffer>::klass())) {
+    attached.buffer = Rice::detail::From_Ruby<Buffer *>().convert(source.value());
+    return attached;
+  }
+  if (!ruby::is_kind_of(source, Rice::Data_Type<Mesh>::klass())) {
+    raise_expected(source, "Lota::Graphics::Mesh");
+  }
+  attached.mesh = Rice::detail::From_Ruby<Mesh *>().convert(source.value());
+  attached.buffer = attached.mesh->getVertexBuffer();
+  if (attached.buffer == nullptr) {
+    throw love::Exception("Mesh does not have its own vertex buffer.");
+  }
+  return attached;
+}
+
+// w_SpriteBatch_attachAttribute (wrap_SpriteBatch.cpp:210-230): the
+// attribute +name+ of this SpriteBatch, from the attribute of that name in
+// +source+, a Buffer or a Mesh with a vertex buffer of its own.
+void sprite_batch_attach_attribute(SpriteBatch &t, const std::string &name, Rice::Object from) {
+  require_main_thread(MODULE);
+  const Rice::Object source = std::move(from);
+  const AttachedSource attached = attached_source(source);
+  t.attachAttribute(name, attached.buffer, attached.mesh);
+}
+
 // w_Mesh_attachAttribute (lines 318-362): the attribute +attribute+ of
 // this Mesh, from the attribute +attach+ of +source+, a Buffer or a Mesh
 // with a vertex buffer of its own, from the element +startindex+ of it,
@@ -931,20 +969,9 @@ void mesh_attach_attribute(Mesh &t, Rice::Object named, Rice::Object from,
   const std::string name = by_name ? name_of(attribute) : std::string();
   const int location = by_name ? -1 : location_of(attribute);
 
-  Buffer *buffer = nullptr;
-  Mesh *mesh = nullptr;
-  if (ruby::is_kind_of(source, Rice::Data_Type<Buffer>::klass())) {
-    buffer = Rice::detail::From_Ruby<Buffer *>().convert(source.value());
-  } else {
-    if (!ruby::is_kind_of(source, Rice::Data_Type<Mesh>::klass())) {
-      raise_expected(source, "Lota::Graphics::Mesh");
-    }
-    mesh = Rice::detail::From_Ruby<Mesh *>().convert(source.value());
-    buffer = mesh->getVertexBuffer();
-    if (buffer == nullptr) {
-      throw love::Exception("Mesh does not have its own vertex buffer.");
-    }
-  }
+  const AttachedSource attached = attached_source(source);
+  Buffer *buffer = attached.buffer;
+  Mesh *mesh = attached.mesh;
 
   love::graphics::AttributeStep step = love::graphics::STEP_PER_VERTEX;
   if (step_name.has_value() && !love::graphics::getConstant(step_name->c_str(), step)) {
@@ -1245,6 +1272,9 @@ void define_buffer(const Rice::Module &native) {
       .define_method("vertex_map", &mesh_vertex_map)
       .define_method("attached_attributes", &mesh_attached_attributes)
       .define_method("legacy_vertex_bindings?", &mesh_legacy_vertex_bindings);
+
+  Rice::Data_Type<SpriteBatch>().define_method("attach_attribute", &sprite_batch_attach_attribute,
+                                               Rice::Arg("name"), Rice::Arg("source"));
 
   Rice::define_module_under(native, "Graphics")
       .define_singleton_function("new_buffer", &new_buffer, Rice::Arg("arguments"),

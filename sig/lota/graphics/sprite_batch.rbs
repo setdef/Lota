@@ -35,6 +35,8 @@ module Lota
       def draw_range=: (Array[Integer]? range) -> void
 
       def draw_range: () -> Array[Integer]
+
+      def attach_attribute: (String name, GraphicsBuffer | Mesh source) -> nil
     end
   end
 end
