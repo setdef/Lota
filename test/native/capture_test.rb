@@ -44,7 +44,11 @@ class CaptureTest < Minitest::Test
   end
 
   # A descriptor this process left inheritable stays out of the child.
+  # Windows has no /dev/fd to list them, and Ruby starts a process there
+  # with CreateProcess, which hands it only the three handles Ruby names
+  # (win32/win32.c, CreateChild, STARTF_USESTDHANDLES).
   def test_the_command_inherits_no_other_descriptor
+    skip("Windows has no /dev/fd") if TestHome::WINDOWS
     reader, writer = IO.pipe
     writer.close_on_exec = false
     output, = capture2e({}, "ls", "/dev/fd")
@@ -56,10 +60,12 @@ class CaptureTest < Minitest::Test
   end
 
   # Rice raises a std::system_error as SystemCallError
-  # (rice/detail/cpp_protect.hpp:84-87).
+  # (rice/detail/cpp_protect.hpp:84-87), and on Windows Process.spawn
+  # raises Errno::ENOENT itself.
   def test_a_missing_command_raises
     error = assert_raises(SystemCallError) { capture2e({}, "lota-no-such-command") }
 
-    assert_includes error.message, "lota-no-such-command: No such file or directory"
+    expected = TestHome::WINDOWS ? "No such file or directory - lota-no-such-command" : "lota-no-such-command: No such file or directory"
+    assert_includes error.message, expected
   end
 end

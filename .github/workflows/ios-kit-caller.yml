@@ -8,14 +8,12 @@
 # workflow would build its own game from game_path ".". A game's own
 # CI names Lota's workflow by a release's tag,
 # setdef/Lota/.github/workflows/ios-kit.yml@vX.Y.Z with lota_ref vX.Y.Z;
-# Lota's own calls the workflow of the same commit.
+# Lota's own calls the workflow of the same commit. CI (ci.yml) calls this
+# on every push, and it runs by hand.
 name: iOS kit, called as a game's CI calls it
 
 on:
-  push:
-    branches:
-      - "experiment/ios-kit-call-*"
-      - "experiment/phones-*"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
