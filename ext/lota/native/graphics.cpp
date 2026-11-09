@@ -1468,6 +1468,46 @@ void points(Rice::Array coordinates) {
   instance.points(positions.data(), nullptr, numpositions);
 }
 
+// luax_optnumberclamped01 (common/runtime.h) of the number at +index+ of a
+// point's Array, or 1.0 when it is nil or left out.
+float clamped_color_component(const std::vector<Rice::Object> &row, std::size_t index) {
+  if (index >= row.size() || row.at(index).is_nil()) {
+    return 1.0F;
+  }
+  return std::clamp(to_float(row.at(index)), 0.0F, 1.0F);
+}
+
+// w_points with a table of tables (wrap_Graphics.cpp:3514-3551, 3573):
+// each point an Array of x, y, and optionally the red, green, blue, and
+// alpha it is drawn in, each 1.0 when left out.
+void points_with_colors(Rice::Array rows) {
+  constexpr std::size_t red_index = 2;
+  constexpr std::size_t green_index = 3;
+  constexpr std::size_t blue_index = 4;
+  constexpr std::size_t alpha_index = 5;
+  const Rice::Array list = std::move(rows);
+  const std::vector<Rice::Object> given = elements(list);
+  Graphics &instance = graphics();
+  std::vector<love::Vector2> positions(given.size());
+  std::vector<love::Colorf> colors(given.size());
+  for (std::size_t i = 0; i < given.size(); ++i) {
+    if (!ruby::is_array(given.at(i))) {
+      ruby::raise_type_error("wrong argument type " + ruby::class_name(given.at(i)) +
+                             " (expected Array)");
+    }
+    const std::vector<Rice::Object> row = elements(Rice::Array(given.at(i).value()));
+    if (row.size() < 2) {
+      ruby::raise_type_error("wrong argument type nil (expected Float)");
+    }
+    positions.at(i).x = to_float(row.at(0));
+    positions.at(i).y = to_float(row.at(1));
+    colors.at(i) = love::Colorf(
+        clamped_color_component(row, red_index), clamped_color_component(row, green_index),
+        clamped_color_component(row, blue_index), clamped_color_component(row, alpha_index));
+  }
+  instance.points(positions.data(), colors.data(), given.size());
+}
+
 // w_polygon with its coordinates in one Array (wrap_Graphics.cpp:3742-3788),
 // as Lota::Graphics.polygon passes them however they were given: LÖVE
 // checks the draw mode, then the count, reads each coordinate as a float,
@@ -1673,6 +1713,7 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Return().takeOwnership())
       .define_singleton_function("line", &line, Rice::Arg("coordinates"))
       .define_singleton_function("points", &points, Rice::Arg("coordinates"))
+      .define_singleton_function("points_with_colors", &points_with_colors, Rice::Arg("rows"))
       .define_singleton_function("polygon", &polygon, Rice::Arg("mode"), Rice::Arg("coordinates"))
       .define_singleton_function("set_background_color", &set_background_color, Rice::Arg("red"),
                                  Rice::Arg("green"), Rice::Arg("blue"), Rice::Arg("alpha"))

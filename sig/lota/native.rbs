@@ -1344,9 +1344,11 @@ module Lota
 
       def self.arc: (String drawstr, String? arcstr, Array[Symbol | String | Float | Integer | nil] arguments) -> nil
 
-      def self.points: (Array[Float | Integer] coordinates) -> nil
+      def self.points: (Array[::Object?] coordinates) -> nil
 
-      def self.polygon: (String mode, Array[Float | Integer] coordinates) -> nil
+      def self.points_with_colors: (Array[::Object?] rows) -> nil
+
+      def self.polygon: (String mode, Array[::Object?] coordinates) -> nil
 
       def self.set_background_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 

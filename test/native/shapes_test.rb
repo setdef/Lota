@@ -56,6 +56,29 @@ class ShapesTest < Minitest::Test
     assert_equal [0.0, 0.0, 0.0, 1.0], image.pixel(6, 6)
   end
 
+  # w_points with a table of tables (wrap_Graphics.cpp:3495): each point is
+  # x, y, and optionally red, green, blue, and alpha, clamped to 0 through 1
+  # and 1 where left out.
+  def test_points_take_a_color_each_when_given_as_arrays
+    image = drawn(4) do
+      Lota::Graphics.push do
+        Lota::Graphics.translate(0.5, 0.5)
+        Lota::Graphics.points([[0, 0, 1, 0, 0, 1], [2, 0, 0, 1, 0], [0, 2, 3, -1, 0.5], [2, 2]])
+      end
+    end
+
+    assert_equal [1.0, 0.0, 0.0, 1.0], image.pixel(0, 0)
+    assert_equal [0.0, 1.0, 0.0, 1.0], image.pixel(2, 0)
+    assert_equal [1.0, 0.0, 0.5], image.pixel(0, 2).first(3).map { |component| component.round(1) }
+    assert_equal [1.0, 1.0, 1.0, 1.0], image.pixel(2, 2)
+  end
+
+  def test_a_point_with_a_color_is_an_array_of_numbers
+    assert_raises(TypeError) { Lota::Graphics.points([[0, 0], 5]) }
+    assert_raises(TypeError) { Lota::Graphics.points([[0]]) }
+    assert_raises(TypeError) { Lota::Graphics.points([[0, 0, "red"]]) }
+  end
+
   def test_a_draw_mode_may_be_a_string_as_in_lua
     image = drawn { Lota::Graphics.rectangle("fill", 0, 0, 8, 8) }
 

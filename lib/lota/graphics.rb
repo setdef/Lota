@@ -2852,21 +2852,26 @@ module Lota
     # w_points).
     #
     # [points] The x and y of each point in turn, as numbers or as one
-    #   Array of them.
+    #   Array of them; or one Array of Arrays, one for each point, of its x
+    #   and y and optionally the red, green, blue, and alpha, from 0 to 1,
+    #   that it is drawn in (1 for each that is left out).
     #
     # LÖVE reads each coordinate as a single-precision float, and so does
-    # Lota. LÖVE also takes a table of points with a color each; Lota
-    # binds that form later.
+    # Lota.
     #
     # Raises RuntimeError with LÖVE's message for an odd count of
-    # coordinates, TypeError for a coordinate that is not a number, and
-    # ThreadError off the main thread.
+    # coordinates, TypeError for a coordinate that is not a number or a
+    # point that is not an Array, and ThreadError off the main thread.
     #
     # === Examples
     #
     #   Lota::Graphics.points(10, 10, 20, 20)
     #   Lota::Graphics.points([1, 1, 7, 7, 14, 1])
+    #   Lota::Graphics.points([[1, 1, 1, 0, 0], [7, 7, 0, 1, 0, 0.5]])
     def self.points(*points)
+      rows = points.first
+      return Native::Graphics.points_with_colors(rows) if points.size == 1 && rows.is_a?(Array) && rows.first.is_a?(Array)
+
       Native::Graphics.points(coordinates(points))
     end
 

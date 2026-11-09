@@ -274,10 +274,11 @@ module Lota
     def self.renderer_info: () -> [String, String, String, String]
 
     def self.points: (*(Float | Integer | Array[Float | Integer]) points) -> nil
+                   | (Array[Array[Float | Integer]] points) -> nil
 
     def self.polygon: ((Symbol | String) mode, *(Float | Integer | Array[Float | Integer]) vertices) -> nil
 
-    private def self.coordinates: (Array[Float | Integer | Array[Float | Integer]] values) -> Array[Float | Integer]
+    private def self.coordinates: (Array[::Object?] values) -> Array[::Object?]
 
     private def self.integer: (::Object? value) -> Integer
   end

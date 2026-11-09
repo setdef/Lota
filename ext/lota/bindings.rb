@@ -527,8 +527,8 @@ bound_by_hand "love.graphics.getCanvas",
     "Lota::Graphics.canvas returns as an Array"
 bound_by_hand "love.graphics.points",
   reason: "reads its coordinates in a loop over every argument, from a table, or from a table of tables with " \
-    "colors; Lota::Graphics.points passes the numbers as one Array, as line, and the form with colors waits " \
-    "for a game that needs it"
+    "colors; Lota::Graphics.points passes the numbers as one Array, as line, and the table of tables as an " \
+    "Array of Arrays"
 bound_by_hand "love.graphics.polygon",
   reason: "reads its coordinates in a loop over every argument after the draw mode, or from a table; " \
     "Lota::Graphics.polygon passes them as one Array, as line"
