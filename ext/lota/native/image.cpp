@@ -72,6 +72,19 @@ namespace {
 // goes to the Ruby wrapper.
 ImageData *new_image_data(love::Data *data) { return image()->newImageData(data); }
 
+// w_newCubeFaces (wrap_Image.cpp:129-137): the faces of a cube map that +id+
+// holds in one image, in the order +x, -x, +y, -y, +z, -z, as an Array
+// where LÖVE returns them as several values. The Array's wrappers hold the
+// faces.
+Rice::Array new_cube_faces(ImageData *id) {
+  const std::vector<love::StrongRef<ImageData>> faces = image()->newCubeFaces(id);
+  Rice::Array result;
+  for (const love::StrongRef<ImageData> &face : faces) {
+    result.push(face.get(), false);
+  }
+  return result;
+}
+
 // w_newImageData with a width and a height (wrap_Image.cpp:35-82): blank
 // pixels of +format+, rgba8 when it is nil, or a copy of +bytes+, which
 // must be as many as the pixels take. Its one reference goes to the Ruby
@@ -712,6 +725,7 @@ void define_image(const Rice::Module &native) {
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("new_image_data", &new_image_data, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("new_cube_faces", &new_cube_faces, Rice::Arg("id"))
       .define_singleton_function("new_sized_image_data", &new_sized_image_data, Rice::Arg("w"),
                                  Rice::Arg("h"), Rice::Arg("fstr") = std::optional<std::string>(),
                                  Rice::Arg("bytes") = std::optional<std::string>(),

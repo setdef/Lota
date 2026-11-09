@@ -44,6 +44,31 @@ module Lota
       Native::Image.compressed?(data_of(file))
     end
 
+    # Cuts a cube map out of one image, matching love.image.newCubeFaces
+    # (src/modules/image/wrap_Image.cpp, w_newCubeFaces), and returns its
+    # six faces, +x, -x, +y, -y, +z, -z, each a new Lota::Image::ImageData.
+    #
+    # [image_data] Lota::Image::ImageData of the faces laid out as a cross,
+    #   three faces wide and four tall, or four wide and three tall, or in
+    #   a column of six or a row of six.
+    #
+    # A Lua function that makes several objects returns them as an Array
+    # (rules 4 and 17 of doc/contributors/design/translation.md), so this is
+    # a method, not a constructor. Raises TypeError for anything but an
+    # ImageData, and RuntimeError with LÖVE's message for an image that
+    # holds no cube map or when the module is not open.
+    #
+    # === Example
+    #
+    #   right, left, up, down, front, back = Lota::Image.new_cube_faces(cross)
+    def self.new_cube_faces(image_data)
+      unless image_data.is_a?(ImageData)
+        raise TypeError, "wrong argument type #{image_data.class} (expected Lota::Image::ImageData)"
+      end
+
+      Native::Image.new_cube_faces(image_data.__send__(:native)).map { |native| ImageData.__send__(:from_native, native) }
+    end
+
     # The engine's Data of +file+, as luax_getdata reads it
     # (src/modules/filesystem/wrap_Filesystem.cpp:381-411): a String names
     # a file in the game's folder, a Lota::Filesystem::File is read to its

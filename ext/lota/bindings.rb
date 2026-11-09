@@ -873,6 +873,9 @@ generate "ImageData:setLinear"
 bound_by_hand "love.image.newImageData",
   reason: "chooses among its forms by its arguments' kinds, and reads raw bytes from a string or any Data " \
     "(luax_istype); Lota binds the form that decodes Data and the form with a size, a pixel format, and bytes"
+bound_by_hand "love.image.newCubeFaces",
+  reason: "pushes each face in a loop and returns how many it made, which the generator does not port; Lota " \
+    "returns the faces as an Array"
 bound_by_hand "love.image.newCompressedData",
   reason: "reads its argument through luax_getdata, a file name, a File, or any Data, which the generator " \
     "does not port; Lota::Image::CompressedData.new reads it as luax_getdata does, and Lota binds the Data"

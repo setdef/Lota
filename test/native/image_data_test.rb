@@ -268,6 +268,45 @@ class ImageDataTest < Minitest::Test
     assert_raises(TypeError) { image.linear = 1 }
   end
 
+  # love.image.newCubeFaces (wrap_Image.cpp:129-137, Image.cpp:124-197): the
+  # six faces of a cube map in one image, in the order +x, -x, +y, -y, +z,
+  # -z, as an Array (rules 4 and 17).
+  def test_new_cube_faces_cuts_a_cross_into_six_faces
+    cross = ImageData.new(3, 4)
+    # +y over (+z, +x, -z) over -y over -x, a pixel for each face.
+    { [1, 1] => 0, [1, 3] => 1, [1, 0] => 2, [1, 2] => 3, [0, 1] => 4, [2, 1] => 5 }.each do |(x, y), face|
+      cross.pixel = x, y, face / 5.0, 0, 0, 1
+    end
+    faces = Lota::Image.new_cube_faces(cross)
+
+    assert_equal 6, faces.size
+    assert(faces.all?(ImageData))
+    assert_equal [1, 1], faces.first.then { |face| [face.width, face.height] }
+    faces.each_with_index { |face, index| assert_in_delta index / 5.0, face.pixel(0, 0).first, 1e-6 }
+  end
+
+  def test_new_cube_faces_cuts_a_row_or_a_column_of_six
+    row = ImageData.new(12, 2)
+    column = ImageData.new(2, 12)
+    6.times do |face|
+      row.pixel = face * 2, 0, face / 5.0, 0, 0, 1
+      column.pixel = 0, face * 2, face / 5.0, 0, 0, 1
+    end
+
+    [row, column].each do |image|
+      faces = Lota::Image.new_cube_faces(image)
+
+      assert_equal [2, 2], [faces.first.width, faces.first.height]
+      faces.each_with_index { |face, index| assert_in_delta index / 5.0, face.pixel(0, 0).first, 1e-6 }
+    end
+  end
+
+  def test_new_cube_faces_refuses_an_image_that_is_no_cube_map
+    assert_equal "Unknown cubemap image dimensions!",
+      assert_raises(RuntimeError) { Lota::Image.new_cube_faces(ImageData.new(5, 5)) }.message
+    assert_raises(TypeError) { Lota::Image.new_cube_faces(:image) }
+  end
+
   private def in_identity(identity)
     previous = Lota::Filesystem.identity
     Lota::Filesystem.identity = identity

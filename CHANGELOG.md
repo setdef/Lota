@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `Lota::Image.new_cube_faces`, returning the six `ImageData` of a cube map in one image, translating `love.image.newCubeFaces`.
 - `Lota::Graphics.points` takes an Array of points, each an Array of its x, y, and optionally red, green, blue, and alpha, as `love.graphics.points` takes a table of tables.
 - `Lota::Audio.play`, `stop`, and `pause` take several Sources, or an Array of them, as `love.audio.play`, `stop`, and `pause` take several or a table.
 - `Lota::Graphics.readback_buffer`, `readback_buffer_async`, `copy_buffer`, `copy_buffer_to_texture`, `copy_texture_to_buffer`, `draw_from_shader`, and `draw_from_shader_indirect`, and `Lota::Graphics::SpriteBatch#attach_attribute`, translating the LÖVE 12 functions of those names.
