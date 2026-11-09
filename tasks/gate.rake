@@ -6,6 +6,7 @@
 #++
 
 require_relative "gate"
+require_relative "remote_gate"
 
 # The gate, bundle exec rake, in two parts. The first, run in order in this
 # process, changes files (RuboCop's autocorrection) and builds what the
@@ -73,3 +74,18 @@ task(:gate) { run_gate(GATE_LANES) }
 
 desc "Run the pre-push tier: the gate's fast checks, and a part of its slow ones, in lanes"
 task(:prepush) { run_gate(PREPUSH_LANES) }
+
+namespace :gate do
+  # Leased capacity, for whoever has a gate runner (tasks/remote_gate.rb):
+  # LOTA_GATE_HOST names its host for ssh, LOTA_GATE_KEY an identity file
+  # for it, and LOTA_GATE_RUNNER its folder there.
+  desc "Run the gate, or the rake tasks given, on the gate runner at LOTA_GATE_HOST, on this commit or working tree"
+  task :remote do |_task, args|
+    gate = RemoteGate.new(repository: Dir.pwd, host: ENV.fetch("LOTA_GATE_HOST", RemoteGate::HOST),
+      key: ENV.fetch("LOTA_GATE_KEY", nil), runner: ENV.fetch("LOTA_GATE_RUNNER", RemoteGate::RUNNER))
+    status = gate.run(args.to_a)
+    exit status unless status.zero?
+  rescue RemoteGate::Failure => e
+    abort "❌ #{e.message}"
+  end
+end

@@ -57,6 +57,12 @@ What it leaves out is named in `tasks/test.rake`, test by test: `PREPUSH_LEAVES_
 
 The tier is a smoke test, not the gate: a change to the engine, the bindings, the patches, the packaging, or the parity harness still wants the gate before it is pushed, and CI runs the gate on every push.
 
+### A remote gate
+
+`bundle exec rake gate:remote` runs the gate on a Linux machine that has a gate runner, before a push, so neither the gate's load nor push-and-poll lands on the computer you type on. It sends HEAD, or when the working tree has changes, a commit of it as `git add --all` would stage it, made with an index of its own so nothing you staged changes, over one ssh connection as a git bundle of what `origin/trunk` lacks; the runner fetches it, runs the gate on it, and the task prints what the gate prints as it prints it and exits with the gate's status. `bundle exec rake "gate:remote[prepush]"` runs the pre-push tier there instead, and any other rake tasks can be named the same way.
+
+It is capacity some contributors have, not a requirement, and it needs nothing on CI. `LOTA_GATE_HOST` names the host as ssh does (`agent@192.168.10.114`, the maintainer's runner, unless set), `LOTA_GATE_KEY` an identity file for ssh's `-i`, and `LOTA_GATE_RUNNER` the runner's folder there (`~/lota-gate`). The runner is that folder holding a clone of Lota's origin in `lota`, a `run` script that takes a branch of that clone and the rake arguments and prints `GATE_EXIT=<status>` last, and `locks/fetch`, which every fetch into the clone holds (`tasks/remote_gate.rb`).
+
 ## Rake tasks for the native side
 
 - `bundle exec rake compile` builds the engine and the extensions and copies `Lota::Native` to `lib/lota/native.bundle`. rake-compiler runs `ext/lota/extconf.rb`, which configures the CMake project in `ext/lota` and writes a Makefile that builds it. The source gem's `gem install` runs the same script, which stops there, since the gem ships no LÖVE sources, and names the precompiled gem. CMake decides what to rebuild, so `rake compile` always calls it, and a build with no changes takes a second or two.
