@@ -42,7 +42,7 @@ jobs:
       touch_env: SAMPLE_GAME_QUIT_AFTER=120
 ```
 
-The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Sample Game, with `uses: ./.github/workflows/ios-kit.yml` and `lota_ref: ${{ github.sha }}`, the workflow of its own commit; it runs when an `experiment/ios-kit-call-*` or `experiment/phones-*` branch is pushed.
+The jobs run on your repository's macOS runners, and the artifacts land on your run. Because the game comes through `actions/checkout` with your run's token, your repository may be private. Lota's own `.github/workflows/ios-kit-caller.yml` is this call, made for Sample Game, with `uses: ./.github/workflows/ios-kit.yml` and `lota_ref: ${{ github.sha }}`, the workflow of its own commit; Lota's CI calls it on every push.
 
 ## Lota's own checks
 
@@ -57,7 +57,7 @@ gh workflow run ios-kit.yml -R setdef/Lota --ref trunk \
   -f smoke_env=SAMPLE_GAME_QUIT_AFTER=12 "-f=smoke_expect=(?m)^sample game: quitting after"
 ```
 
-Pushing to an `experiment/ios-kit-*` or `experiment/phones-*` branch builds `test/games/winkit` from that commit, with its DPI probe in the touch test.
+On every push, Lota's CI (`.github/workflows/ci.yml`) also calls `ios-kit.yml` itself for `test/games/winkit` from that commit, with its DPI probe in the touch test, and a tag releases nothing unless both kits pass.
 
 ## Open the kit
 
@@ -82,6 +82,7 @@ Every input but `game_repository`, and `lota_ref` in a call, has a default.
 - **`smoke_env`**, **`smoke_expect`**, **`smoke_seconds`**, **`touch_env`**, and **`extra_launches`** shape only CI's Simulator runs, never the app the kit builds; see below.
 - **`kit_questions`**, a plain-text file in the repository with your playtest's questions. A file whose every line but `#` comments reads `question | answer type` becomes numbered questions, each with an answer blank and a note blank: `y/n`, `yes/no`, and `yes/no + text` ask for y or n, `rating` for 1 to 5, and `choice: a/b/c` for one of those; `text` and any other type get a plain blank. Any other file is copied as it is. The kit carries them as `APP_NAME-results.txt`, under a header with blanks for the device model, the iOS version, and the date, and the game's repository, ref, and commit, Lota's commit, and the run already filled in. Empty uses a short generic questionnaire (`ipad/questions.txt`).
 - **`project_run`**, a run whose `ios-kit` artifact the checks take instead of building a new one.
+- **`artifact_name`**, in a call alone, the kit's artifact's name, `ios-kit` unless given, which also begins its checks' (`-simulator` and `-touch`); a workflow that calls this one twice in one run names each call's apart.
 
 ## What the kit holds
 

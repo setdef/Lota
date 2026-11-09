@@ -9,6 +9,14 @@
 # Lota's tests without the gate's Rake tasks (the Windows jobs say why).
 # The macOS, Linux, and Windows jobs run side by side.
 #
+# Every push also runs, as jobs of the same run, the checks of the
+# platforms Lota builds for without a gem, and of lota fuse: the phone
+# route (phones.yml), the iOS kit twice, as Lota's own CI and as a game's
+# CI calls it (ios-kit.yml, ios-kit-caller.yml), and, once each platform's
+# gem is built, lota fuse on all five with those gems (fuse.yml). So every
+# platform Lota supports that GitHub's free runners can run is checked on
+# every commit of trunk, and a red job there stops the line.
+#
 # macOS: LÖVE's own CI runs its tests on macOS runners with the normal
 # video driver (vendor/love/.github/workflows/main.yml, the macOS job),
 # since SDL's offscreen driver cannot create a Metal or OpenGL context on
@@ -33,9 +41,9 @@
 # Release: a tag such as v0.1.0, pushed on a commit of trunk, runs all of
 # the above again on that commit, and the release job publishes a GitHub
 # release of the gems the delivery jobs installed and ran, but only when
-# every platform's gate (on Windows, its build) and delivery passed. A
-# release is a promise about
-# each platform it lists, and one missing a platform would leave the
+# every platform's gate (on Windows, its build) and delivery passed, and
+# the phone, iOS kit, and fuse checks with them. A release is a promise
+# about each platform it lists, and one missing a platform would leave the
 # games that depend on it there with nothing to install
 # (doc/contributors/releasing.md). Run by hand (workflow_dispatch), the
 # release job is a dry run: it checks and assembles the release that
@@ -997,20 +1005,71 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # The phone route (phones.yml): iOS and iPadOS in the Simulator, and
+  # Android built and run on emulators. Its jobs are this run's own.
+  phones:
+    name: Phones
+    uses: ./.github/workflows/phones.yml
+
+  # The iOS kit (ios-kit.yml), built from this commit for test/games/winkit,
+  # which prints what Lota sees and quits with 0 after its WINKIT_SECONDS,
+  # and whose touch launch runs its DPI probe (test/games/winkit/main.rb).
+  ios-kit:
+    name: iOS kit
+    uses: ./.github/workflows/ios-kit.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      lota_ref: ${{ github.sha }}
+      game_repository: ${{ github.repository }}
+      game_ref: ${{ github.sha }}
+      game_path: test/games/winkit
+      display_name: Winkit
+      smoke_env: WINKIT_HIGHDPI=1
+      smoke_expect: "(?m)^exiting with 0$"
+      touch_env: WINKIT_DPI_PROBE=1 WINKIT_SECONDS=150
+      # The sample game's call in this run takes the default name, ios-kit.
+      artifact_name: ios-kit-winkit
+
+  # The iOS kit again, called as a game's own CI calls it
+  # (ios-kit-caller.yml), for test/games/sample_game.
+  ios-kit-call:
+    name: iOS kit, called as a game's CI calls it
+    uses: ./.github/workflows/ios-kit-caller.yml
+    permissions:
+      contents: read
+      actions: read
+
+  # lota fuse on each of the five platforms (fuse.yml), with the gems this
+  # run's gate and build jobs built, so it fuses with this commit's gems,
+  # never a release's.
+  fuse:
+    name: Fuse
+    needs: [gate, linux-gate, windows-build]
+    uses: ./.github/workflows/fuse.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      this_run: true
+
   # The release (doc/contributors/releasing.md), from the gems the
   # delivery jobs installed and ran, never rebuilt. It runs for a tag
   # v0.1.0 pushed to this repository, and by hand as a dry run; never for
   # a pull request, and never in a fork. It needs every platform's gate
-  # and delivery to have passed, so a tag on a commit where any platform
-  # failed publishes nothing; rerun the failed jobs, or fix the commit and
-  # tag the fix with the next version. Its token alone may write, and only
+  # and delivery, and the phone, iOS kit, and fuse checks, to have passed,
+  # so a tag on a commit where any of them failed publishes nothing; rerun
+  # the failed jobs, or fix the commit and tag the fix with the next
+  # version. Its token alone may write, and only
   # the repository's contents, which a GitHub release is; it uses no other
   # secret. A new platform joins with a job that builds its gem and a
   # delivery job that uploads it verified, as verified-lota-<platform>,
   # both in needs, and the platform in PLATFORMS.
   release:
     name: Release
-    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery]
+    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery, phones, ios-kit, ios-kit-call,
+      fuse]
     if: >-
       github.repository == 'setdef/Lota'
       && ((github.event_name == 'push' && github.ref_type == 'tag')

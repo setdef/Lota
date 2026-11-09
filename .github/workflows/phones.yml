@@ -28,14 +28,13 @@
 # IPA, and no runner can boot an arm64 Android emulator, so arm64-v8a is
 # built and never run.
 #
-# It runs on a push to an experiment/phones-* or experiment/landscape-*
-# branch and by hand.
+# CI (ci.yml) calls it on every push, so it runs on every commit of every
+# branch, and a tag releases nothing unless it passed; it also runs by hand.
 
 name: Phones
 
 on:
-  push:
-    branches: ["experiment/phones-*", "experiment/landscape-*"]
+  workflow_call:
   workflow_dispatch:
 
 permissions:

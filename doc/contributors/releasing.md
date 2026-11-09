@@ -52,7 +52,7 @@ A tag matching `v[0-9]*` runs the whole of `.github/workflows/ci.yml` on its com
 
 Windows works the same way with less. Its build job builds the engine with MinGW, runs the Windows checks, builds the gem, and then runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest, but it does not run the gate. Its delivery job installs the gem on a runner without MSYS2 and runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. So CI proves that a Windows gem installs, loads only its own DLLs and Windows', runs a game, and draws as LÖVE does on a software renderer. Only a Windows PC proves that it draws on a GPU, takes real input, and plays through a real audio device.
 
-The release job then runs only if every one of those jobs passed. It refuses, before publishing anything, when:
+The same run checks the phone route, the iOS kit, and `lota fuse` on every platform, with the gems the run built. The release job then runs only if every one of those jobs passed. It refuses, before publishing anything, when:
 
 - the tag's commit is not on trunk,
 - the tag is not `v` and the version lib/lota/version.rb gives,

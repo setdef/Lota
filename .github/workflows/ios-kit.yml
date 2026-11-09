@@ -20,18 +20,13 @@
 # a copy of the project, which the kit never holds, and runs the same
 # launches in landscape, then taps and turns the screen.
 #
-# Pushed to an experiment/ios-kit-* or experiment/phones-* branch, it
-# builds Lota's own test/games/winkit from that commit. A game's own CI calls it as a
+# Lota's CI (ci.yml) calls it on every push, to build Lota's own
+# test/games/winkit from that commit. A game's own CI calls it as a
 # reusable workflow (workflow_call), with lota_ref naming the same ref as
 # its uses line; doc/contributors/ios-kit.md shows how.
 name: iOS kit
 
 on:
-  push:
-    branches:
-      - "experiment/ios-kit-*"
-      - "!experiment/ios-kit-call-*"
-      - "experiment/phones-*"
   workflow_dispatch:
     inputs:
       game_repository:
@@ -190,6 +185,10 @@ on:
         description: Check the ios-kit artifact of this earlier run instead of building one (empty to build)
         type: string
         default: ""
+      artifact_name:
+        description: The name of the kit's artifact, and the start of its checks' (another for each call in one run)
+        type: string
+        default: ios-kit
 
 permissions:
   contents: read
@@ -202,37 +201,36 @@ defaults:
 env:
   MISE_DISABLE_TOOLS: ruby,rust
   FLEDGE_REF: v0.10.0
-  # Pushed, the workflow checks winkit, which prints what Lota sees and
-  # quits with 0 after its WINKIT_SECONDS; its touch launch runs the DPI
-  # probe (test/games/winkit/main.rb).
   # Run by a game's own CI (workflow_call), github.repository and
   # github.sha are the game's, so Lota's checkout names its own.
   LOTA_REPOSITORY: setdef/Lota
   LOTA_REF: ${{ inputs.lota_ref || github.sha }}
   LOTA_REF_NAME: ${{ inputs.lota_ref || github.ref_name }}
-  KIT_GAME_REPOSITORY: ${{ inputs.game_repository || github.repository }}
-  KIT_GAME_REF: ${{ !inputs.game_repository && github.sha || inputs.game_ref }}
-  KIT_GAME_PATH: ${{ !inputs.game_repository && 'test/games/winkit' || inputs.game_path }}
-  KIT_DISPLAY_NAME: ${{ !inputs.game_repository && 'Winkit' || inputs.display_name }}
+  KIT_GAME_REPOSITORY: ${{ inputs.game_repository }}
+  KIT_GAME_REF: ${{ inputs.game_ref }}
+  KIT_GAME_PATH: ${{ inputs.game_path }}
+  KIT_DISPLAY_NAME: ${{ inputs.display_name }}
   KIT_APP_NAME: ${{ inputs.app_name }}
   KIT_IDENTIFIER: ${{ inputs.identifier }}
   KIT_PROGRAM: ${{ inputs.program }}
   KIT_ICON: ${{ inputs.icon }}
   KIT_ORIENTATIONS: ${{ inputs.orientations }}
   KIT_AUDIO_CATEGORY: ${{ inputs.audio_category || 'ambient' }}
-  KIT_HIDE_STATUS_BAR: ${{ !inputs.game_repository || inputs.hide_status_bar }}
+  KIT_HIDE_STATUS_BAR: ${{ inputs.hide_status_bar }}
   KIT_QUESTIONS: ${{ inputs.kit_questions }}
-  KIT_SMOKE_ENV: ${{ !inputs.game_repository && 'WINKIT_HIGHDPI=1' || inputs.smoke_env }}
-  KIT_SMOKE_EXPECT: ${{ !inputs.game_repository && '(?m)^exiting with 0$' || inputs.smoke_expect }}
+  KIT_SMOKE_ENV: ${{ inputs.smoke_env }}
+  KIT_SMOKE_EXPECT: ${{ inputs.smoke_expect }}
   KIT_SMOKE_SECONDS: ${{ inputs.smoke_seconds || '40' }}
   KIT_EXTRA_LAUNCHES: ${{ inputs.extra_launches }}
-  KIT_TOUCH_ENV: ${{ !inputs.game_repository && 'WINKIT_DPI_PROBE=1 WINKIT_SECONDS=150' || inputs.touch_env }}
+  KIT_TOUCH_ENV: ${{ inputs.touch_env }}
   KIT_DEVICES: >-
     iPad Pro 13-inch (M5)|iPad Pro 13-inch (M4);
     iPad (A16)|iPad (10th generation);
     iPad mini (A17 Pro)|iPad mini (6th generation);
     iPhone 17 Pro|iPhone 16 Pro;
     ?iPhone 16e|iPhone SE (3rd generation)
+  # Each call of this workflow in one run names its artifacts apart.
+  KIT_ARTIFACT: ${{ inputs.artifact_name || 'ios-kit' }}
   KIT_TOUCH_DEVICES: iPad Pro 13-inch,iPhone 17 Pro,iPhone 16 Pro
 
 jobs:
@@ -371,7 +369,7 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ios-kit
+          name: ${{ env.KIT_ARTIFACT }}
           path: ${{ runner.temp }}/kit
           if-no-files-found: error
           retention-days: 30
@@ -394,7 +392,7 @@ jobs:
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ios-kit
+          name: ${{ env.KIT_ARTIFACT }}
           path: ${{ runner.temp }}/download
           run-id: ${{ inputs.project_run || github.run_id }}
           github-token: ${{ github.token }}
@@ -466,7 +464,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: ios-kit-simulator
+          name: ${{ env.KIT_ARTIFACT }}-simulator
           path: |
             ${{ runner.temp }}/simulator
             ${{ runner.temp }}/simapp
@@ -490,7 +488,7 @@ jobs:
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ios-kit
+          name: ${{ env.KIT_ARTIFACT }}
           path: ${{ runner.temp }}/download
           run-id: ${{ inputs.project_run || github.run_id }}
           github-token: ${{ github.token }}
@@ -545,7 +543,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: ios-kit-touch
+          name: ${{ env.KIT_ARTIFACT }}-touch
           path: |
             ${{ runner.temp }}/landscape
             ${{ runner.temp }}/build-for-testing.log
