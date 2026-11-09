@@ -72,10 +72,10 @@ module Bindings
     end
 
     # The Ruby classes of the LÖVE types that have getType, by the scope
-    # rule 16 gives their getType, sorted: those that answer get_type and
+    # rule 34 gives their getType, sorted: those that answer get_type and
     # have no type.
     def typed_classes
-      entries.select { |entry| entry.function.lua_name == "getType" && entry.translation.rules.include?(16) }
+      entries.select { |entry| entry.function.lua_name == "getType" && entry.translation.rules.include?(34) }
         .map { |entry| entry.translation.scope }.uniq.sort
     end
 
@@ -129,8 +129,9 @@ module Bindings
         elsif Rules::KEYWORDS.include?(name)
           add(entry, :several_rules, [13], "becomes #{name}, a Ruby keyword")
         elsif !entry.translation.singleton && Rules::OBJECT_METHODS.include?(name)
-          add(entry, :several_rules, (entry.translation.rules & [3, 13]) + [16],
-            "becomes #{name}, which rule 16 gives every LÖVE object for Object:type and Object:typeOf")
+          rule = Rules::OBJECT_METHOD_RULES.fetch(name)
+          add(entry, :several_rules, (entry.translation.rules & [3, 13]) + [rule],
+            "becomes #{name}, which rule #{rule} gives every LÖVE object for Object:type and Object:typeOf")
         end
       end
     end

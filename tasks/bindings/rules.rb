@@ -132,22 +132,23 @@ module Bindings
     RUBY_TYPE_NAMES = { "Buffer" => "GraphicsBuffer" }.freeze
     # The setters whose first value is itself an Array or a Data, which
     # stay methods, since a writer cannot tell that value from a list of
-    # several (rule 6), as ImageData's setPixel cannot be a plain writer
-    # of an Array.
+    # several (rule 35).
     PLAIN_SETTERS = %w[Buffer:setArrayData Mesh:setVertices Mesh:setVertexMap].freeze
-    # The methods rule 16 gives every LÖVE object, from Object:type and
-    # Object:typeOf (src/common/runtime.cpp, w__type and w__typeOf), which
-    # no wrap file lists: object_type, type as another name for it, and
-    # type_of?.
+    # The methods rules 16, 33, and 42 give every LÖVE object, from
+    # Object:type and Object:typeOf (src/common/runtime.cpp, w__type and
+    # w__typeOf), which no wrap file lists: object_type, type as another
+    # name for it, and type_of?, each with the rule that gives it.
     OBJECT_METHODS = %w[object_type type type_of?].freeze
-    # The functions rule 16 keeps prefixed on a class that also has
-    # getType, where type would be ambiguous in LÖVE itself.
+    # The rule that gives each of OBJECT_METHODS.
+    OBJECT_METHOD_RULES = { "object_type" => 42, "type" => 16, "type_of?" => 33 }.freeze
+    # The functions rule 34 keeps prefixed on a class that also has
+    # getType, where type would be ambiguous in LÖVE itself (rule 41).
     OWN_TYPE = %w[getType setType].freeze
-    # Rule 13's spelling of the words LÖVE capitalizes inside: UInt is C's
+    # Rule 36's spelling of the words LÖVE capitalizes inside: UInt is C's
     # uint (uint8_t), one word as Int is int, so getUInt8 becomes uint8.
     # The V of VSync stands for "vertical", so getVSync becomes get_vsync.
     ONE_WORD = { "UInt" => "Uint", "VSync" => "Vsync" }.freeze
-    # Rule 13: Lua's metamethods, by the name Ruby gives the same method,
+    # Rule 38: Lua's metamethods, by the name Ruby gives the same method,
     # its operator where it has one (Lua 5.1 reference manual, section
     # 2.8). One with no Ruby counterpart, such as __concat, fits no rule.
     METAMETHODS = {
@@ -183,6 +184,8 @@ module Bindings
       setMixWithSystem
       setBuffer
       setGamepadMapping
+      setPlaybackDevice
+      setNewFont
 ].freeze
 
     # Ruby's keywords, which no method defined with def can be called by
@@ -231,11 +234,12 @@ module Bindings
       "Lota::#{module_name.capitalize}"
     end
 
-    # Rule 13: a camelCase name in snake_case. An acronym is one word, and
-    # digits stay with the word they follow, as in Ruby's own use_ssl? and
-    # sha256: getDPIScale becomes dpi_scale, and isAffine2DTransform
-    # affine2d_transform?. A word starts at a capital after a lower-case
-    # letter, or at a capital followed by a lower-case letter.
+    # Rule 13: a camelCase name in snake_case. An acronym is one word
+    # (rule 36), and digits stay with the word they follow (rule 37), as in
+    # Ruby's own use_ssl? and sha256: getDPIScale becomes dpi_scale, and
+    # isAffine2DTransform affine2d_transform?. A word starts at a capital
+    # after a lower-case letter, or at a capital followed by a lower-case
+    # letter.
     def self.snake_case(name)
       one_word(name).gsub(/([A-Z\d]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z])([A-Z])/, '\1_\2').downcase
     end
@@ -246,7 +250,7 @@ module Bindings
     end
 
     # [types] The class names LÖVE registers, with their modules.
-    # [typed] The class names that have getType (rule 16).
+    # [typed] The class names that have getType (rule 41).
     def initialize(types:, typed: [])
       @types = types
       @typed = typed
@@ -288,7 +292,7 @@ module Bindings
 
       private def base_name
         return metamethod if @name.start_with?("__")
-        return no_rule("starts with an underscore, which marks a hook for LÖVE's own Lua wrapper") if @name.start_with?("_")
+        return internal if @name.start_with?("_")
         return own_type if OWN_TYPE.include?(@name) && @typed.include?(@function.type_name)
         return several_objects if @name.match?(/\Anew[A-Z]/) && several_objects?
         return factory(Regexp.last_match(1)) if @function.type_name.nil? && @name =~ /\Anew([A-Z]\w*)\z/
@@ -297,23 +301,40 @@ module Bindings
         return predicate(Regexp.last_match(2)) if @name =~ /\A(is|has|are)([A-Z]\w*)\z/
 
         @rules << 13
-        Rules.snake_case(@name)
+        snake(@name)
       end
 
-      # Rule 13: a metamethod by the name Ruby gives the same method.
+      # Rule 22: a name that starts with one underscore is LÖVE's internal
+      # and gets no Lota name, which the rule settles, so it is no
+      # collision.
+      private def internal
+        @rules << 22
+        nil
+      end
+
+      # Rule 38: a metamethod by the name Ruby gives the same method.
       private def metamethod
         name = METAMETHODS[@name] or return no_rule("is a Lua metamethod with no Ruby counterpart")
 
-        @rules << 13
+        @rules << 38
         name
       end
 
-      # Rule 16: getType and setType on a class that has getType keep
+      # Rule 13's snake case, with rule 36 for a name that holds an
+      # acronym or a word cut to one letter, and rule 37 for one that
+      # holds digits.
+      private def snake(name)
+        @rules << 36 if name.match?(/[A-Z]{2}/) || ONE_WORD.keys.any? { |word| name.include?(word) }
+        @rules << 37 if name.match?(/\d/)
+        Rules.snake_case(name)
+      end
+
+      # Rule 34: getType and setType on a class that has getType keep
       # their prefixes, as methods, since type there would mean either
-      # Object:type or getType.
+      # Object:type or getType (rule 41).
       private def own_type
-        @rules << 16
-        Rules.snake_case(@name)
+        @rules << 34
+        snake(@name)
       end
 
       # Rule 17 of doc/contributors/design/translation.md: factories that make
@@ -325,7 +346,7 @@ module Bindings
       # what it makes as an Array by rule 4, with no module and no ===.
       private def several_objects
         @rules.push(17, 4)
-        Rules.snake_case(@name)
+        snake(@name)
       end
 
       # Whether the function returns more than one engine object, as its
@@ -367,24 +388,24 @@ module Bindings
       private def getter(rest)
         @rules << 3
         @rules << 4 if results > 1
-        Rules.snake_case(rest)
+        snake(rest)
       end
 
       # Rules 5, 6, and 7.
       private def setter(rest)
-        snake = Rules.snake_case(rest)
+        spelled = snake(rest)
         if PLAIN_SETTERS.include?(@function.love_name)
-          @rules << 6
-          return "set_#{snake}"
+          @rules << 35
+          return "set_#{spelled}"
         end
         if returns_value?
           @rules << 7
           several([5, 7], "returns a value from some forms and nothing from others") if @analysis&.counts&.include?(0)
-          "set_#{snake}"
+          "set_#{spelled}"
         else
           @rules << ((arguments > 1) ? 6 : 5)
           writer_collisions
-          "#{snake}="
+          "#{spelled}="
         end
       end
 
@@ -396,7 +417,7 @@ module Bindings
         elsif @analysis && non_boolean_result
           several([8], "a predicate whose result is not true or false (#{non_boolean_result})")
         end
-        "#{Rules.snake_case(rest)}?"
+        "#{snake(rest)}?"
       end
 
       # Rules 9, 10, 12, and 14 read what a function reads, which an

@@ -128,16 +128,20 @@ class RulesTest < Minitest::Test
     refute_includes rules("love.window.setTitle"), 14
   end
 
-  def test_an_underscore_fits_no_rule
+  # Rule 22 settles a name that starts with one underscore: it gets no
+  # Lota name, and that is no collision.
+  def test_rule_22_gives_an_underscore_name_no_lota_name
     assert_nil translation("RandomGenerator:_random").name
-    assert_equal [[:no_rule, []]], collisions("RandomGenerator:_random")
+    assert_equal 22, rules("RandomGenerator:_random")[1]
+    assert_empty collisions("RandomGenerator:_random")
   end
 
-  # Rule 13: a Lua metamethod is a method like any other, named as Ruby
+  # Rule 38: a Lua metamethod is a method like any other, named as Ruby
   # names the same method, by its operator.
-  def test_rule_13_names_a_metamethod_by_its_operator
+  def test_rule_38_names_a_metamethod_by_its_operator
     assert_equal "Lota::Math::Transform#*", ruby_name("Transform:__mul")
-    assert_includes rules("Transform:__mul"), 13
+    assert_includes rules("Transform:__mul"), 38
+    refute_includes rules("Transform:__mul"), 13
     assert_empty collisions("Transform:__mul")
     assert_equal "==", Bindings::Rules::METAMETHODS.fetch("__eq")
     assert_equal "to_s", Bindings::Rules::METAMETHODS.fetch("__tostring")
@@ -196,27 +200,35 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.physics.newFixture")
   end
 
-  # Rule 13 spells LÖVE's UInt as C spells uint8_t, one word, so
-  # Data:getUInt8 is uint8, not u_int8, and leaves nothing open.
-  def test_rule_13_spells_uint_as_one_word
+  # Rule 36 spells LÖVE's UInt as C spells uint8_t, one word, so
+  # Data:getUInt8 is uint8, not u_int8, and leaves nothing open; rule 37
+  # keeps its digits.
+  def test_rule_36_spells_uint_as_one_word
     assert_equal "Lota::Data#uint8", ruby_name("Data:getUInt8")
+    assert_includes rules("Data:getUInt8"), 36
+    assert_includes rules("Data:getUInt8"), 37
     assert_equal "Lota::Data#uint32", ruby_name("Data:getUInt32")
     assert_equal "uint16", Bindings::Rules.snake_case("UInt16")
     assert_empty collisions("Data:getUInt16")
     assert_equal "int16", Bindings::Rules.snake_case("Int16")
   end
 
-  # Rule 13 spells the V of VSync, which stands for "vertical", with the
+  # Rule 36 spells the V of VSync, which stands for "vertical", with the
   # word it begins, so love.window.getVSync is vsync, not v_sync.
-  def test_rule_13_spells_vsync_as_one_word
+  def test_rule_36_spells_vsync_as_one_word
+    assert_includes rules("love.window.getVSync"), 36
     assert_equal "get_vsync", Bindings::Rules.snake_case("getVSync")
     assert_equal "vsync", Bindings::Rules.snake_case("VSync")
     assert_equal "Lota::Window.vsync", ruby_name("love.window.getVSync")
   end
 
-  # Rule 13: an acronym is one word, and digits stay with the word they
-  # follow, as in Ruby's use_ssl? and sha256, so nothing is left open.
-  def test_rule_13_keeps_an_acronym_and_its_digits_one_word
+  # Rules 36 and 37: an acronym is one word, and digits stay with the word
+  # they follow, as in Ruby's use_ssl? and sha256, so nothing is left open.
+  def test_rules_36_and_37_keep_an_acronym_and_its_digits_one_word
+    assert_includes rules("love.graphics.getDPIScale"), 36
+    refute_includes rules("love.graphics.getDPIScale"), 37
+    assert_includes rules("Transform:isAffine2DTransform"), 37
+    refute_includes rules("love.graphics.getWidth"), 36
     assert_equal "Lota::Graphics.dpi_scale", ruby_name("love.graphics.getDPIScale")
     assert_empty collisions("love.graphics.getDPIScale")
     assert_equal "Lota::Math::Transform#affine2d_transform?", ruby_name("Transform:isAffine2DTransform")
@@ -229,22 +241,22 @@ class RulesTest < Minitest::Test
     assert_includes collisions("love.window.showMessageBox"), [:several_rules, [10]]
   end
 
-  # Rule 16: on a class that also has getType, where type would be
+  # Rule 34: on a class that also has getType, where type would be
   # ambiguous, getType and setType keep their prefixes, as methods, not
   # the getter and writer rules 3 and 5 would make them, and no longer
   # collide with Object:type.
-  def test_rule_16_keeps_get_type_and_set_type_where_a_class_has_get_type
+  def test_rule_34_keeps_get_type_and_set_type_where_a_class_has_get_type
     assert_equal "Lota::Physics::Body#get_type", ruby_name("Body:getType")
     assert_equal "Lota::Physics::Body#set_type", ruby_name("Body:setType")
     assert_equal "Lota::Audio::Source#get_type", ruby_name("Source:getType")
-    assert_equal [1, 16, 9], rules("Body:getType")
+    assert_equal [1, 34, 9], rules("Body:getType")
     refute_includes rules("Body:setType"), 5
     %w[Body:getType Body:setType Shape:getType Joint:getType Source:getType Cursor:getType].each do |name|
       assert_empty collisions(name), name
     end
   end
 
-  # Rule 16 takes type from every class with getType, found in the wrap
+  # Rule 41 takes type from every class with getType, found in the wrap
   # files rather than listed by hand: its subclasses inherit getType.
   def test_the_survey_finds_every_class_with_get_type
     assert_equal %w[
@@ -256,10 +268,11 @@ class RulesTest < Minitest::Test
 ], survey.typed_classes
   end
 
-  # Rule 16 gives every object object_type, type, and type_of?, so a
-  # function that would take one of those names collides.
-  def test_rule_16s_object_methods_are_its_own
+  # Rules 42, 16, and 33 give every object object_type, type, and
+  # type_of?, so a function that would take one of those names collides.
+  def test_the_object_methods_are_the_rules_own
     assert_equal %w[object_type type type_of?], Bindings::Rules::OBJECT_METHODS
+    assert_equal({ "object_type" => 42, "type" => 16, "type_of?" => 33 }, Bindings::Rules::OBJECT_METHOD_RULES)
     assert_empty collisions("love.audio.getVolume")
   end
 
@@ -296,11 +309,12 @@ class RulesTest < Minitest::Test
 
   # Buffer.cpp's Lua type is GraphicsBuffer, so its methods are that
   # class's, and newBuffer is the module Buffer's new (rule 2); a setter
-  # whose first value is an Array or a Data stays a method (rule 6).
+  # whose first value is an Array or a Data stays a method (rule 35).
   def test_graphics_buffer_is_the_class_and_array_first_setters_are_methods
     assert_equal "Lota::Graphics::GraphicsBuffer#clear", translation("Buffer:clear").ruby_name
     assert_equal "Lota::Graphics::Buffer.new", translation("love.graphics.newBuffer").ruby_name
     assert_equal "Lota::Graphics::GraphicsBuffer#set_array_data", translation("Buffer:setArrayData").ruby_name
+    assert_includes rules("Mesh:setVertices"), 35
     assert_equal "Lota::Graphics::Mesh#set_vertices", translation("Mesh:setVertices").ruby_name
     assert_equal "Lota::Graphics::Mesh#set_vertex_map", translation("Mesh:setVertexMap").ruby_name
     assert_equal "Lota::Graphics::Mesh#vertex=", translation("Mesh:setVertex").ruby_name
@@ -313,7 +327,8 @@ class RulesTest < Minitest::Test
     survey.entries.each do |entry|
       translation = entry.translation
       no_rule = translation.collisions.any? { |collision| collision.kind == :no_rule && collision.rules.empty? }
-      assert(translation.name || no_rule, "#{entry.function.love_name} has no name and no collision")
+      assert(translation.name || no_rule || translation.rules.include?(22),
+        "#{entry.function.love_name} has no name and no collision")
     end
     named = survey.entries.select { |entry| entry.translation.name && entry.source != :lua }
     clashing = named.group_by { |entry| entry.translation.ruby_name }.select { |_, group| group.size > 1 }
@@ -344,13 +359,11 @@ class RulesTest < Minitest::Test
   # Rule 7's reasons name its setters by Lua name alone, and setFilter is
   # also a writer on Font, Texture, and Video. setPlaybackDevice returns
   # false and the engine's message from a catch block (wrap_Audio.cpp:
-  # 609-628), which the parser reads since it learned try blocks, so rule
-  # 7 covers it, and RULE_7_SETTERS, which only the maintainer changes,
-  # does not name it yet.
+  # 609-628), so RULE_7_SETTERS names it, as translation.md does.
   def test_the_report_checks_the_rule_7_list
     missing, returning_nothing, unread = Bindings::Report.new(survey).rule_7_difference
 
-    assert_equal %w[love.audio.setPlaybackDevice], missing
+    assert_empty missing
     assert_equal %w[Font:setFilter Texture:setFilter Video:setFilter], returning_nothing.sort
     assert_includes unread, "love.window.setMode"
   end

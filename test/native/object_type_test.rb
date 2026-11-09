@@ -9,7 +9,7 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../../tasks/bindings/survey"
 
-# Rule 16 of doc/contributors/design/translation.md: every object Lota hands a
+# Rules 16, 33, 41, and 42 of doc/contributors/design/translation.md: every object Lota hands a
 # game answers +object_type+ with LÖVE's name for its type, as Object:type does,
 # +type+ as another name for it unless its class has LÖVE's getType, and
 # <tt>type_of?</tt> for that type and each type it inherits from, as
