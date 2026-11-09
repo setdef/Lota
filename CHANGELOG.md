@@ -18,6 +18,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `lota fuse` builds with Fledge 0.10.0, was 0.9.0.
 
+### Fixed
+
+- On iOS 27 and iPadOS 27, a game launched in landscape gets a landscape window, where SDL gave it a portrait one, cut off at the bottom and black on the right: the iOS host reports the window scene's orientation where UIKit's `statusBarOrientation` no longer does.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added
@@ -52,7 +56,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - On Android, a game keeps running when dark mode, the font's size or weight, the language, or the system's overlays change (as a new wallpaper's colours change them on Android 12 and later), and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`; before, Android restarted the activity and SDL closed the app.
 - On Android, a game keeps running when the display size (density) changes, and keeps the scale it launched with; before, Android restarted the activity and SDL closed the app.
 - On Android, a game on Vulkan no longer crashes when it leaves the screen (Home, another app, the screen turned off, or a share sheet): the host waits for the game to pause before SDL releases its window, and the game stops while hidden and draws again when it returns.
-- On iOS 27 and iPadOS 27, a game launched in landscape gets a landscape window, where SDL gave it a portrait one, cut off at the bottom and black on the right: the iOS host reports the window scene's orientation where UIKit's `statusBarOrientation` no longer does.
 
 ## [0.2.2] - 2026-11-06
 

@@ -30,16 +30,23 @@ extern int SDL_RunApp(int argc, char *argv[], SDL_main_func main_function, void 
 static os_log_t app_log;
 
 // The app's UIApplication, which Info.plist names as NSPrincipalClass, so
-// that UIApplicationMain, called by SDL_RunApp with no class of its own,
-// makes one. SDL 3.4.10 reads the screen's orientation only from
-// statusBarOrientation (SDL_uikitvideo.m, line 240; SDL_uikitmodes.m,
-// lines 333, 487, and 521), and iOS 27 makes that a no-op that answers
-// Unknown, which SDL takes for portrait: a game launched in landscape got
-// a portrait window, cut off at the bottom and black on the right
+// that UIApplicationMain, called by SDL_RunApp with no class of its own
+// (SDL_uikitappdelegate.m at release-3.4.10, line 60), makes one. SDL
+// 3.4.10 reads the screen's orientation only from statusBarOrientation
+// (SDL_uikitvideo.m, line 240; SDL_uikitmodes.m, lines 333, 487, and
+// 521), and iOS 27 makes that a no-op that answers Unknown, which SDL
+// takes for portrait: a game launched in landscape gets a portrait window,
+// cut off at the bottom and black on the right
 // (doc/contributors/upstream/019.md). Where UIKit still answers, its
-// answer stands; where it answers Unknown, the app's window scene says,
+// answer stands. Where it answers Unknown, the app's window scene says,
 // as Apple's deprecation of statusBarOrientation directs and as SDL 3.4.20
-// does (UIKit_GetInterfaceOrientation, SDL_uikitvideo.m).
+// does (UIKit_GetInterfaceOrientation, SDL_uikitvideo.m). A scene may not
+// know its orientation yet while the app launches (SDL's issue 16436), and
+// SDL would swap the window's frame then too, so for Unknown the answer
+// follows the shape of the scene, or of the screen if there is none:
+// landscape when wider than tall (LandscapeRight, SDL's
+// SDL_ORIENTATION_LANDSCAPE, a guess at the side), else portrait. SDL then
+// leaves the frame as UIKit made it, as SDL 3.4.20 does.
 @interface LotaApplication : UIApplication
 @end
 
@@ -52,14 +59,24 @@ static os_log_t app_log;
   UIInterfaceOrientation orientation = [super statusBarOrientation];
   if (orientation != UIInterfaceOrientationUnknown)
     return orientation;
-  if (@available(iOS 16.0, *)) {
-    for (UIScene *scene in self.connectedScenes) {
-      if ([scene isKindOfClass:UIWindowScene.class] &&
-          [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication])
-        return ((UIWindowScene *)scene).effectiveGeometry.interfaceOrientation;
+  UIWindowScene *window_scene = nil;
+  for (UIScene *scene in self.connectedScenes) {
+    if ([scene isKindOfClass:UIWindowScene.class] &&
+        [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+      window_scene = (UIWindowScene *)scene;
+      break;
     }
   }
-  return orientation;
+  if (@available(iOS 16.0, *)) {
+    if (window_scene)
+      orientation = window_scene.effectiveGeometry.interfaceOrientation;
+  }
+  if (orientation != UIInterfaceOrientationUnknown)
+    return orientation;
+  CGSize size =
+      window_scene ? window_scene.coordinateSpace.bounds.size : UIScreen.mainScreen.bounds.size;
+  return size.width > size.height ? UIInterfaceOrientationLandscapeRight
+                                  : UIInterfaceOrientationPortrait;
 }
 #pragma clang diagnostic pop
 

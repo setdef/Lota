@@ -128,8 +128,9 @@ class PhoneHostTest < Minitest::Test
   # launched in landscape a portrait window
   # (doc/contributors/upstream/019.md). SDL_RunApp passes UIApplicationMain
   # no class (SDL_uikitappdelegate.m, line 60), so the app's class is the
-  # one Info.plist names, and it must keep UIKit's answer and read the
-  # window scene's only when UIKit's is Unknown.
+  # one Info.plist names. It must keep UIKit's answer, read the window
+  # scene's only when UIKit's is Unknown, and, while the scene's is Unknown
+  # too, answer the scene's shape, so SDL does not swap the frame.
   def test_the_ios_app_reads_the_scenes_orientation_where_uikit_reports_none
     plist = File.read(File.join(HOST, "ios/Host/Info.plist")).gsub(/<!--.*?-->/m, "")
     main = File.read(File.join(HOST, "ios/Host/main.m"))
@@ -142,6 +143,10 @@ class PhoneHostTest < Minitest::Test
   if \(orientation != UIInterfaceOrientationUnknown\)
     return orientation;\n/, method)
     assert_includes method, "[scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]"
-    assert_includes method, "return ((UIWindowScene *)scene).effectiveGeometry.interfaceOrientation;"
+    assert_includes method, "orientation = window_scene.effectiveGeometry.interfaceOrientation;"
+    shape = method.lines.last(4).join.squeeze(" ").delete("\n")
+    assert_includes shape, "window_scene ? window_scene.coordinateSpace.bounds.size : UIScreen.mainScreen.bounds.size;"
+    assert_match(/ return size\.width > size\.height \? UIInterfaceOrientationLandscapeRight : UIInterfaceOrientationPortrait;\z/,
+      shape)
   end
 end
