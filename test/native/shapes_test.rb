@@ -177,13 +177,28 @@ class ShapesTest < Minitest::Test
     assert_equal "Invalid line style 'wavy', expected one of: 'rough', 'smooth'", error.message
   end
 
-  def test_a_color_needs_three_or_four_numbers
-    two = assert_raises(ArgumentError) { Lota::Graphics.color = 1, 0 }
-    five = assert_raises(ArgumentError) { Lota::Graphics.color = 1, 0, 0, 1, 1 }
+  # w_setColor reads a table's first four elements, so the elements after
+  # them are ignored, and a table of fewer than three fails at the first
+  # of red, green, and blue it lacks (wrap_Graphics.cpp:2491-2505), with
+  # the slot lua_rawgeti pushed the element to, counting from the top.
+  def test_a_color_reads_four_elements_and_ignores_the_rest
+    Lota::Graphics.color = 1, 0, 0, 0.5, 9, "ignored"
 
-    assert_equal "wrong number of arguments (given 2, expected 3 or 4)", two.message
-    assert_equal "wrong number of arguments (given 5, expected 3 or 4)", five.message
-    assert_raises(TypeError) { Lota::Graphics.color = 1, "0", 0 }
+    assert_equal [1.0, 0.0, 0.0, 0.5], Lota::Graphics.color
+  ensure
+    Lota::Graphics.color = 1, 1, 1, 1
+  end
+
+  def test_a_color_with_fewer_than_three_elements_raises_loves_error
+    two = assert_raises(TypeError) { Lota::Graphics.color = 1, 0 }
+    none = assert_raises(TypeError) { Lota::Graphics.color = [] }
+    text = assert_raises(TypeError) { Lota::Graphics.color = 1, "0", 0 }
+    alpha = assert_raises(TypeError) { Lota::Graphics.color = 1, 0, 0, "1" }
+
+    assert_equal "bad argument #-2 to 'Lota::Graphics.color=' (number expected, got nil)", two.message
+    assert_equal "bad argument #-4 to 'Lota::Graphics.color=' (number expected, got nil)", none.message
+    assert_equal "bad argument #-3 to 'Lota::Graphics.color=' (number expected, got string)", text.message
+    assert_equal "bad argument #-1 to 'Lota::Graphics.color=' (number expected, got string)", alpha.message
   end
 
   # w_rectangle rounds the corners when given a radius, with the vertical

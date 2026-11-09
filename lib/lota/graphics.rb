@@ -859,16 +859,19 @@ module Lota
     # w_setColor).
     #
     # [color] Red, green, blue, and optionally alpha, each a Float or
-    #   Integer from 0 to 1, as several values or one Array; alpha is 1
-    #   when left out.
+    #   Integer from 0 to 1, as one Array; alpha is 1 when left out.
     #
     # Shapes take this color as they are drawn, and keep it, so set it
     # before each thing you draw in a different color. It starts as opaque
     # white. LÖVE stores each component as a single-precision float,
     # clamped to 0 through 1, and so does Lota.
     #
-    # Raises ArgumentError for any count of components but 3 or 4,
-    # TypeError for one that is not a number, and ThreadError off the main
+    # An Array is LÖVE's table form, which reads its first four elements
+    # and ignores any after them (<tt>lua_rawgeti</tt> for 1 through 4).
+    # Raises TypeError, with LÖVE's message, for a red, green, or blue that
+    # is not a number, as when the Array has fewer than three elements
+    # (<tt>luaL_checknumber</tt> at the table's elements), and for an alpha
+    # that is neither a number nor +nil+. Raises ThreadError off the main
     # thread.
     #
     # === Examples
@@ -877,13 +880,31 @@ module Lota
     #   Lota::Graphics.color = 0, 0, 1, 0.5  # half-transparent blue
     #   Lota::Graphics.color = [1, 1, 1]     # an Array works too
     def self.color=(color)
-      components = Array(color)
-      unless components.size == 3 || components.size == 4
-        raise ArgumentError, "wrong number of arguments (given #{components.size}, expected 3 or 4)"
-      end
+      elements = color.is_a?(::Array) ? color : [color]
+      red = color_element(elements, 0)
+      green = color_element(elements, 1)
+      blue = color_element(elements, 2)
+      alpha = elements[3].nil? ? 1.0 : color_element(elements, 3)
+      Native::Graphics.set_color(red, green, blue, alpha)
+    end
 
-      Native::Graphics.set_color(components.fetch(0), components.fetch(1), components.fetch(2),
-        components.fetch(3, 1.0))
+    # The number at +index+ of a color's elements, or the TypeError
+    # <tt>luaL_checknumber</tt> raises for it at the stack slot
+    # +lua_rawgeti+ pushed it to, which counts from the top: LÖVE's
+    # message names the function by Lota's name (rule 23 of
+    # doc/contributors/design/translation.md). :nodoc:
+    private_class_method def self.color_element(elements, index)
+      value = elements[index]
+      return value if value.is_a?(Numeric)
+
+      lua_type = case value
+      when nil then "nil"
+      when true, false then "boolean"
+      when String then "string"
+      when ::Array, ::Hash then "table"
+      else "userdata"
+      end
+      raise TypeError, "bad argument ##{index - 4} to 'Lota::Graphics.color=' (number expected, got #{lua_type})"
     end
 
     # The color everything is drawn in, as an Array of red, green, blue,

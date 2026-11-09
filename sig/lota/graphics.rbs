@@ -114,6 +114,7 @@ module Lota
     def self.dimensions: () -> Array[Integer]
 
     def self.color=: (Array[Float | Integer] color) -> void
+    private def self.color_element: (Array[Float | Integer] elements, Integer index) -> (Float | Integer)
 
     def self.color: () -> Array[Float]
 
