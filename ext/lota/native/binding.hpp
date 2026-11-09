@@ -80,6 +80,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -310,9 +311,9 @@ Base *open_module(love::Module::ModuleType type) {
 // Ruby's ObjectSpace::WeakMap drops each object the marking found dead
 // before the sweep begins, and moves its values along when GC.compact
 // moves them, which is what an identity map needs. It is keyed by the
-// object's love::Object address, as an Integer, which a WeakMap compares
-// by identity; Integers of that size are immediates, so equal ones are
-// identical.
+// object's love::Object address, which a WeakMap compares by identity,
+// and holds weakly like its values, so the key must be an immediate,
+// whose equal values are identical and never collected (key, below).
 //
 // Init_native turns it on for Lota::Native. Another bundle, such as the
 // test extension, makes a new wrapper each time it wraps an object, once
@@ -373,8 +374,22 @@ public:
 private:
   WrapperIdentities() = default;
 
+  // The address as an Integer where Ruby holds one that large as a
+  // Fixnum, an immediate, which is every address on macOS and Linux. On
+  // Windows a long has 32 bits, and Ruby's Fixnums 31 (RUBY_FIXNUM_MAX is
+  // LONG_MAX / 2, ruby/internal/arithmetic/long.h), so an address there is
+  // a Bignum, a new object each time, which the map neither finds again
+  // nor keeps. There the key is the address as a Float, which 64-bit Ruby
+  // holds as an immediate flonum, and which holds exactly every address
+  // below 2^53, beyond any a process has.
   static Rice::Object key(love::Object *object) {
-    return {ULL2NUM(std::bit_cast<std::uintptr_t>(object))};
+    static_assert(USE_FLONUM != 0, "a Float key must be an immediate");
+    const auto address = std::bit_cast<std::uintptr_t>(object);
+    constexpr auto fixnum_max = static_cast<std::uintptr_t>(std::numeric_limits<long>::max() / 2);
+    if (address <= fixnum_max) {
+      return {LONG2NUM(static_cast<long>(address))};
+    }
+    return {DBL2NUM(static_cast<double>(address))};
   }
 
   VALUE map_ = Qnil;
