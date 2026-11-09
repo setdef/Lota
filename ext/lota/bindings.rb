@@ -560,7 +560,7 @@ bound_by_hand "love.graphics.captureScreenshot",
     "story 7's Ractor channels"
 bound_by_hand "love.graphics.getStats",
   reason: "fills in a table it is given or makes, field by field (lua_setfield), which the generator does not " \
-    "port; Lota returns the fields as a Hash, which Lota::Graphics.stats makes a frozen Data (rule 10)"
+    "port; Lota returns the fields as a Hash, which Lota::Graphics.stats makes a frozen Data (rule 28)"
 bound_by_hand "love.graphics.getSupported",
   reason: "fills in a table with a field for each feature, in a loop over the features' names, as " \
     "love.graphics.getStats fills its own"

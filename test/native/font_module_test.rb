@@ -256,7 +256,7 @@ class FontModuleFunctionsTest < Minitest::Test
     assert_raises(TypeError) { rasterizer.glyphs?(:a) }
   end
 
-  # Rule 2: each kind's module matches what its factory makes, which
+  # Rule 26: each kind's module matches what its factory makes, which
   # LÖVE's engine makes of a C++ class of its own: Font::newRasterizer
   # makes a TrueType or a BMFont rasterizer as the file holds
   # (font/freetype/Font.cpp:49-57), and newImageRasterizer an image one.

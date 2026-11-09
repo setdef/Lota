@@ -286,7 +286,7 @@ module Lota
     # (src/modules/audio/wrap_Audio.cpp, w_getEffect), as a frozen
     # Lota::Audio::Effect, or +nil+ when there is none. LÖVE also fills in
     # a table the caller passes; an Effect is frozen, so Lota makes a new
-    # one each time and takes no table (rule 10).
+    # one each time and takes no table (rule 29).
     #
     # === Example
     #

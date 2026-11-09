@@ -146,7 +146,7 @@ class WindowTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.window.getMode
   # (window.lua:99-104): getMode becomes mode (rule 3), its three results
-  # an Array (rule 4), and its table a frozen Mode (rule 10), whose fields
+  # an Array (rule 4), and its table a frozen Mode (rule 28), whose fields
   # Ruby reads with a dot where Lua indexes with a string.
   def test_get_mode
     w, h, flags = Lota::Window.mode
@@ -340,7 +340,7 @@ class WindowTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.window.getVSync and
   # love.test.window.setVSync (window.lua:138-140 and 354-357): getVSync
-  # becomes vsync (rule 13: the V stands for "vertical", so VSync is one
+  # becomes vsync (rule 36: the V stands for "vertical", so VSync is one
   # word) and setVSync the writer vsync= (rule 5). Lövetest leaves vsync
   # off; this puts it back.
   def test_get_vsync

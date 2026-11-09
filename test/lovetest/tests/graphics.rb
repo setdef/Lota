@@ -194,7 +194,7 @@ class GraphicsTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.graphics.newImageFont
   # (vendor/love/testing/tests/graphics.lua:1728-1732): newImageFont
-  # becomes ImageFont.new, a module (rule 2).
+  # becomes ImageFont.new, a module (rule 25).
   def test_new_image_font
     assert_object(Lota::Graphics::ImageFont.new("resources/love.png", "ABCD", 1))
   end
@@ -209,8 +209,8 @@ class GraphicsTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.graphics.Font
   # (vendor/love/testing/tests/graphics.lua:264-322): newFont becomes
-  # Font.new (rule 2) and newImageFont ImageFont.new, a module (rule 2),
-  # the getters drop get (rule 3), getDPIScale is dpi_scale (rule 13),
+  # Font.new (rule 2) and newImageFont ImageFont.new, a module (rule 25),
+  # the getters drop get (rule 3), getDPIScale is dpi_scale (rule 36),
   # getFilter's results an Array whose first Lua keeps (rule 4),
   # setFilter, setLineHeight, and setFallbacks writers (rules 5 and 6),
   # hasGlyphs glyphs? (rule 8), and getWrap's two results an Array, its
@@ -1597,7 +1597,7 @@ class GraphicsTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.graphics.getDPIScale
   # (vendor/love/testing/tests/graphics.lua:2795-2797): getDPIScale
-  # becomes dpi_scale (rules 3 and 13).
+  # becomes dpi_scale (rules 3 and 36).
   def test_get_dpi_scale
     assert_not_nil(Lota::Graphics.dpi_scale)
   end
@@ -1641,7 +1641,7 @@ class GraphicsTest < Lovetest::TestMethod
   # (vendor/love/testing/tests/graphics.lua:2863-2885): getTextureFormats
   # becomes texture_formats (rule 3), whose table of settings becomes
   # keywords and whose table of results a record that answers brackets
-  # (rule 10); Lua's numeric for loop becomes each.
+  # (rule 28); Lua's numeric for loop becomes each.
   def test_get_texture_formats
     formats = %w[
       hdr
@@ -1737,7 +1737,7 @@ class GraphicsTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.graphics.getStats
   # (vendor/love/testing/tests/graphics.lua:2899-2908): getStats becomes
-  # stats (rule 3), a record that answers brackets (rule 10).
+  # stats (rule 3), a record that answers brackets (rule 28).
   def test_get_stats
     stattypes = %w[
       drawcalls
@@ -1756,7 +1756,7 @@ class GraphicsTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.graphics.getSupported
   # (vendor/love/testing/tests/graphics.lua:2912-2925): getSupported
-  # becomes supported (rule 3), a record that answers brackets (rule 10).
+  # becomes supported (rule 3), a record that answers brackets (rule 28).
   def test_get_supported
     # cant check values as hardware dependent but we can check the keys in the
     # table match what the documentation lists
@@ -1783,7 +1783,7 @@ class GraphicsTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.graphics.getSystemLimits
   # (vendor/love/testing/tests/graphics.lua:2929-2941): getSystemLimits
   # becomes system_limits (rule 3), a record that answers brackets
-  # (rule 10).
+  # (rule 28).
   def test_get_system_limits
     # cant check values as hardware dependent but we can check the keys in the
     # table match what the documentation lists
@@ -1811,7 +1811,7 @@ class GraphicsTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.graphics.getTextureTypes
   # (vendor/love/testing/tests/graphics.lua:2945-2955): getTextureTypes
   # becomes texture_types (rule 3), a record whose 2d field reads with
-  # brackets, as in Lua (rule 10).
+  # brackets, as in Lua (rule 28).
   def test_get_texture_types
     # cant check values as hardware dependent but we can check the keys in the
     # table match what the documentation lists
@@ -1825,7 +1825,7 @@ class GraphicsTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.graphics.flushBatch
   # (vendor/love/testing/tests/graphics.lua:1508-1520): flushBatch becomes
   # flush_batch (rule 13), getStats stats, whose drawcalls reads with
-  # brackets as in Lua (rules 3 and 10), and setCanvas the writer canvas=
+  # brackets as in Lua (rules 3 and 28), and setCanvas the writer canvas=
   # (rule 5).
   def test_flush_batch
     Lota::Graphics.flush_batch
@@ -1845,7 +1845,7 @@ class GraphicsTest < Lovetest::TestMethod
   # (vendor/love/testing/tests/graphics.lua:102-256): newCanvas becomes Canvas.new
   # (rule 2), with its settings table keywords (rule 10) whose names are
   # symbols (rule 9), :"2d" among them; the getters drop get (rule 3), and
-  # getDPIScale and getMSAA are dpi_scale and msaa (rule 13); the
+  # getDPIScale and getMSAA are dpi_scale and msaa (rule 36); the
   # predicates isCanvas, isComputeWritable, and isReadable canvas?,
   # compute_writable?, and readable? (rule 8); getFilter, getWrap,
   # getMipmapFilter, getDimensions, and getPixelDimensions return Arrays

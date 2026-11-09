@@ -23,7 +23,7 @@ module Lota
   # love.font.newRasterizer does, and the modules TrueTypeRasterizer,
   # BMFontRasterizer, and ImageRasterizer make one of each kind, as LÖVE's
   # newTrueTypeRasterizer, newBMFontRasterizer, and newImageRasterizer do
-  # (rule 2 of doc/contributors/design/translation.md). This module is love.font
+  # (rule 25 of doc/contributors/design/translation.md). This module is love.font
   # and Lota::Graphics::Font is love.graphics' Font, as rule 1 names them, so
   # inside <tt>module Lota</tt> a bare +Font+ means this module.
   #

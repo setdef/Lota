@@ -78,7 +78,7 @@ class CaptureScreenshotTest < Minitest::Test
 
   # Lota::Graphics.capture_screenshot takes what LÖVE keeps to call once
   # the frame is presented as a block or any object that answers call
-  # (rule 12 of doc/contributors/design/translation.md), and hands it a
+  # (rule 31 of doc/contributors/design/translation.md), and hands it a
   # Lota::Image::ImageData.
   def test_a_block_receives_the_frame_as_image_data
     frames = []

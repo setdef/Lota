@@ -7,7 +7,7 @@
 
 module Lota
   # What every record Lota returns where LÖVE returns a table of fields
-  # answers besides its readers (rule 10 of
+  # answers besides its readers (rule 28 of
   # doc/contributors/design/translation.md): +[]+ with a field's name, as a Lua
   # table answers brackets.
   #

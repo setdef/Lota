@@ -36,7 +36,7 @@ module Lota
       # returns, translated from the table love.graphics's
       # Shader:getBufferFormat makes (src/modules/graphics/wrap_Shader.cpp,
       # w_Shader_getBufferFormat): a frozen value with LÖVE's field names
-      # (rule 10 of doc/contributors/design/translation.md).
+      # (rule 28 of doc/contributors/design/translation.md).
       #
       # [name] The member's String name.
       # [format] Symbol of its data format, such as +:floatvec2+.

@@ -171,7 +171,7 @@ module Lota
 
     # The window's width, height, and settings, as an Array (rule 4 of
     # doc/contributors/design/translation.md) of two Integers and a frozen Mode
-    # with LÖVE's field names (rule 10), matching love.window.getMode
+    # with LÖVE's field names (rule 28), matching love.window.getMode
     # (src/modules/window/wrap_Window.cpp, w_getMode).
     #
     # LÖVE also fills in a table the caller passes; a Mode is frozen, so
@@ -373,7 +373,7 @@ module Lota
     end
 
     # The modes a display can be set to, as an Array of frozen
-    # FullscreenModes (rules 4 and 10 of
+    # FullscreenModes (rules 4 and 28 of
     # doc/contributors/design/translation.md), matching
     # love.window.getFullscreenModes (src/modules/window/wrap_Window.cpp,
     # w_getFullscreenModes).

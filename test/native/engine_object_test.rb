@@ -12,7 +12,7 @@ require_relative "../engine_helper"
 # inherits from Object, and every Data from Data (src/common/Object.h,
 # src/common/Data.h, and each type's header). Every object answers the
 # methods LÖVE gives every object (src/common/runtime.cpp:530-552):
-# release, __eq as ==, and __tostring as to_s (rule 13 of
+# release, __eq as ==, and __tostring as to_s (rule 38 of
 # doc/contributors/design/translation.md). And a game reaches only LÖVE's calls
 # and Ruby's own: what Lota's classes use to reach one another is not public.
 class EngineObjectTest < Minitest::Test

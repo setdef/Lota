@@ -515,7 +515,7 @@ class FilesystemTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.filesystem.getInfo
   # (filesystem.lua:279-293): getInfo becomes info (rule 3), and its table
-  # a frozen Info, whose fields keep LÖVE's names (rule 10).
+  # a frozen Info, whose fields keep LÖVE's names (rule 28).
   def test_get_info
     # create a dir and subdir with a file
     Lota::Filesystem.create_directory("foo/bar")

@@ -124,7 +124,7 @@ Rice::Array get_fullscreen() {
 
 // w_getFullscreenModes (wrap_Window.cpp:272-309): the modes of a display,
 // each as an Array of its width, height, and refresh rate, which
-// Lota::Window.fullscreen_modes makes frozen FullscreenModes (rule 10). The
+// Lota::Window.fullscreen_modes makes frozen FullscreenModes (rule 28). The
 // display counts from 1, as the table's does, and is the window's own
 // when nil.
 Rice::Array get_fullscreen_modes(std::optional<int> display) {

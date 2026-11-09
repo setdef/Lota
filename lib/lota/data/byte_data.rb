@@ -141,7 +141,7 @@ module Lota
 
       # Writes unsigned 8-bit integers from a byte offset, matching
       # ByteData:setUInt8 (src/modules/data/wrap_ByteData.cpp:113-116), as
-      # #int8= writes. Rule 13 of doc/contributors/design/translation.md spells
+      # #int8= writes. Rule 36 of doc/contributors/design/translation.md spells
       # LÖVE's UInt as C's uint, one word.
       #
       # === Example

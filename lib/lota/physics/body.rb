@@ -18,7 +18,7 @@ module Lota
     # Each method raises RuntimeError ("Attempt to use destroyed body.")
     # once the Body is destroyed, but #destroyed? and #destroy. LÖVE's
     # Body:getType and setType are #get_type and #set_type, and a Body has
-    # no +type+ (rule 16 of doc/contributors/design/translation.md).
+    # no +type+ (rules 34 and 41 of doc/contributors/design/translation.md).
     #
     # === Example
     #
@@ -176,7 +176,7 @@ module Lota
       end
 
       # Whether the Body is static, dynamic, or kinematic, as a Symbol,
-      # matching Body:getType (rules 9 and 16 of
+      # matching Body:getType (rules 9 and 34 of
       # doc/contributors/design/translation.md).
       #
       # === Example
@@ -187,7 +187,7 @@ module Lota
       end
 
       # Sets whether the Body is static, dynamic, or kinematic, matching
-      # Body:setType, with a Symbol (rules 9 and 16 of
+      # Body:setType, with a Symbol (rules 9 and 34 of
       # doc/contributors/design/translation.md).
       #
       # === Example

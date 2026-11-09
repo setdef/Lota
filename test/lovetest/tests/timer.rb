@@ -19,7 +19,7 @@ class TimerTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.timer.getAverageDelta,
   # love.test.timer.getDelta, and love.test.timer.getFPS
   # (vendor/love/testing/tests/timer.lua:13-28): the getters drop get
-  # (rule 3), and getFPS is fps (rule 13, which makes FPS one word).
+  # (rule 3), and getFPS is fps (rule 36, which makes FPS one word).
   def test_get_average_delta
     assert_not_nil(Lota::Timer.average_delta)
   end

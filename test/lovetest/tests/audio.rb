@@ -430,7 +430,7 @@ class AudioTest < Lovetest::TestMethod
 
   # Translated to Ruby from love.test.audio.getEffect and
   # love.test.audio.setEffect (audio.lua:258-271 and 425-436): getEffect
-  # becomes effect (rule 3), whose table is a frozen Effect (rule 10), with
+  # becomes effect (rule 3), whose table is a frozen Effect (rule 28), with
   # its type a symbol (rule 9). Minitest refuses assert_equal with nil, so
   # Lua's assertEquals(nil, ...) becomes assert_nil.
   def test_get_effect

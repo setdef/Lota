@@ -436,7 +436,7 @@ module Lota
 
     # +count+ unsigned 8-bit integers from byte +offset+, as an Array of
     # Integers, matching Data:getUInt8 (src/modules/data/wrap_Data.cpp,
-    # w_Data_getUInt8), as #float reads them. Rule 13 of
+    # w_Data_getUInt8), as #float reads them. Rule 36 of
     # doc/contributors/design/translation.md spells LÖVE's UInt as C's uint, one
     # word.
     #

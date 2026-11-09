@@ -14,7 +14,7 @@ module Lota
     # CompressedImageData, and love.image has no CompressedData class of
     # its own (love.data's CompressedData, Lota::Data::CompressedData, is
     # another thing: bytes squeezed by zlib or LZ4). So CompressedData is a
-    # module, as Lota::Graphics::Image is (rule 2 of
+    # module, as Lota::Graphics::Image is (rule 25 of
     # doc/contributors/design/translation.md), whose +new+ returns a
     # CompressedImageData. Only this factory makes one, so
     # <tt>CompressedData === data</tt> is true of every CompressedImageData, and

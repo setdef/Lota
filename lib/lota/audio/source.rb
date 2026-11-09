@@ -594,7 +594,7 @@ module Lota
       # (src/modules/audio/wrap_Source.cpp, w_Source_getFilter), as a
       # frozen Lota::Audio::Filter, or +nil+ when it has none. LÖVE also
       # fills in a table the caller passes; a Filter is frozen, so Lota
-      # makes a new one each time and takes no table (rule 10).
+      # makes a new one each time and takes no table (rule 29).
       #
       # === Example
       #
@@ -631,7 +631,7 @@ module Lota
       # (src/modules/audio/wrap_Source.cpp, w_Source_getEffect), as an
       # Array (rule 4): <tt>[false]</tt>, <tt>[true]</tt>, or +true+ and a
       # frozen Lota::Audio::Filter. LÖVE also fills in a table the caller
-      # passes; Lota takes none (rule 10).
+      # passes; Lota takes none (rule 29).
       #
       # === Example
       #
@@ -671,7 +671,7 @@ module Lota
       # How the Source holds its sound, as a Symbol, matching
       # Source:getType (src/modules/audio/wrap_Source.cpp,
       # w_Source_getType): <tt>:static</tt>, <tt>:stream</tt>, or
-      # <tt>:queue</tt> (rules 9 and 16 of
+      # <tt>:queue</tt> (rules 9 and 34 of
       # doc/contributors/design/translation.md).
       #
       # A Source has no +type+, as LÖVE's Source answers both Object:type

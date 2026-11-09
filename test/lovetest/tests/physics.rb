@@ -13,7 +13,7 @@ require_relative "../lovetest_helper"
 # (test/lovetest/physics_test.rb) and under lota run (test/lovetest/game).
 #
 # getType and setType on a Body, Shape, or Joint keep their prefixes, as
-# get_type and set_type (rule 16), and a World's contact callbacks are
+# get_type and set_type (rule 34), and a World's contact callbacks are
 # callables its callbacks= writer takes as one Array (rules 31 and 32 of
 # doc/contributors/design/translation.md), each receiving only as many arguments as
 # it declares (doc/contributors/design/game.md), so a Lua function() end
@@ -52,7 +52,7 @@ class PhysicsTest < Lovetest::TestMethod
   # are an Array (rule 4), whose size Lua's # counts. Lua's table of user
   # data becomes a Hash. Lövetest's assertRange becomes Minitest's
   # assert_includes of the Range, and assertNotEquals refute_equal.
-  # getType and setType become get_type and set_type (rule 16).
+  # getType and setType become get_type and set_type (rule 34).
   def test_body
     # create body
     world = Lota::Physics::World.new(1, 1, true)
@@ -346,7 +346,7 @@ class PhysicsTest < Lovetest::TestMethod
   # (rule 2), whose collideConnected follows its anchors. Lua's
   # rx2, ry2 = joint:getReactionTorque(1) takes the one Float it returns
   # and nil, as Ruby's multiple assignment does. getType becomes get_type
-  # (rule 16).
+  # (rule 34).
   def test_joint
     # make joint
     world = Lota::Physics::World.new(1, 1, true)
@@ -398,7 +398,7 @@ class PhysicsTest < Lovetest::TestMethod
   # are an Array (rule 4), so Lua's {shape1:getCategory()} is that Array,
   # and getMask's none, which Lua reads as nil, is its first, nil.
   # setCategory and setMask take their several values as an Array (rule
-  # 6). getType becomes get_type (rule 16). setCallbacks becomes the
+  # 6). getType becomes get_type (rule 34). setCallbacks becomes the
   # writer callbacks= (rules 5 and 6), whose four Lua functions become
   # lambdas, which declare no arguments as the Lua functions declare none.
   def test_shape

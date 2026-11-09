@@ -382,7 +382,7 @@ module Lota
 
       # The DPI scale the font was made at, matching Font:getDPIScale
       # (src/modules/graphics/wrap_Font.cpp, w_Font_getDPIScale), named by
-      # rule 13 of doc/contributors/design/translation.md.
+      # rule 36 of doc/contributors/design/translation.md.
       #
       # === Example
       #

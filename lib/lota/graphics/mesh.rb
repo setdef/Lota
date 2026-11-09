@@ -30,7 +30,7 @@ module Lota
       # Mesh#vertex_format returns, translated from the table
       # love.graphics's Mesh:getVertexFormat makes
       # (src/modules/graphics/wrap_Mesh.cpp, w_Mesh_getVertexFormat): a
-      # frozen value with LÖVE's field names (rule 10 of
+      # frozen value with LÖVE's field names (rule 28 of
       # doc/contributors/design/translation.md).
       #
       # [name] The attribute's String name, such as +"VertexPosition"+.

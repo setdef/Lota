@@ -163,7 +163,7 @@ module Lota
     # What the filesystem knows of a file or directory, as a frozen Info,
     # or +nil+ when there is none, matching love.filesystem.getInfo
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getInfo), whose table
-    # becomes an Info (rule 10 of doc/contributors/design/translation.md).
+    # becomes an Info (rule 28 of doc/contributors/design/translation.md).
     #
     # [path] String path, found in the save directory or the game's
     #   folder.

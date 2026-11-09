@@ -72,7 +72,7 @@ class PhysicsBindingsTest < Minitest::Test
   # newRectangleShape makes a PolygonShape (wrap_Physics.cpp:338-370), and
   # a PolygonShape records nothing of which factory made it, so
   # RectangleShape === is true of every PolygonShape, as Image === is of
-  # every Texture (rule 2 of doc/contributors/design/translation.md).
+  # every Texture (rule 27 of doc/contributors/design/translation.md).
   def test_rectangle_shape_matches_every_polygon_shape
     rectangle = Physics::RectangleShape.new(@body, 10, 10)
 

@@ -58,7 +58,7 @@ module Lota
     # The settings of an effect, as Lota::Audio.effect returns them,
     # matching the table love.audio.getEffect returns
     # (src/modules/audio/wrap_Audio.cpp, w_getEffect), a frozen record
-    # with LÖVE's field names (rule 10 of
+    # with LÖVE's field names (rule 28 of
     # doc/contributors/design/translation.md).
     #
     # LÖVE's table holds the settings the effect was given, which depend

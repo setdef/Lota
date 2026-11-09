@@ -14,7 +14,7 @@ module Lota
     # Each Shape is of one of its subclasses: CircleShape, PolygonShape
     # (which RectangleShape.new makes), EdgeShape, or ChainShape, which
     # #get_type names, as LÖVE's Shape:getType does; a Shape has no +type+
-    # (rule 16 of doc/contributors/design/translation.md).
+    # (rules 34 and 41 of doc/contributors/design/translation.md).
     #
     # === Example
     #

@@ -577,8 +577,8 @@ private:
 // Defines Lota::Native's class +name+ under +parent+ for the engine class
 // T, with the methods every LÖVE object has: +object_type+, LÖVE's name
 // for T, and +type_of?+, whether T is the type of that name or one of its
-// parents (rule 16 of doc/contributors/design/translation.md); +to_s+ and +==+,
-// its __tostring and __eq (rule 13); and +release+. Every engine class Lota
+// parents (rule 33 of doc/contributors/design/translation.md); +to_s+ and +==+,
+// its __tostring and __eq (rule 38); and +release+. Every engine class Lota
 // binds is defined through here, once, so every one answers them. Base, when
 // given, is the bound class Ruby's class inherits from, as Rice's
 // define_class_under takes it.

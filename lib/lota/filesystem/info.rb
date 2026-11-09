@@ -11,7 +11,7 @@ module Lota
     # Lota::Filesystem.info returns, translated from the table
     # love.filesystem.getInfo returns
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getInfo): a frozen
-    # value with LÖVE's field names (rule 10 of
+    # value with LÖVE's field names (rule 28 of
     # doc/contributors/design/translation.md).
     #
     # [type] What it is: +:file+, +:directory+, +:symlink+, or +:other+.

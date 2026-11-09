@@ -453,7 +453,7 @@ bool set_effect(const std::string &namestr, Rice::Object given) {
 
 // w_getEffect (wrap_Audio.cpp:449-509): the settings of the effect
 // +namestr+ as an Array of [name, value] pairs, which
-// Lota::Audio.effect makes a frozen record (rule 10 of
+// Lota::Audio.effect makes a frozen record (rule 28 of
 // doc/contributors/design/translation.md), or nil when there is no such effect.
 Rice::Object effect(const std::string &namestr) {
   std::map<Effect::Parameter, float> params;

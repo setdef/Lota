@@ -33,7 +33,7 @@ class ImageTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.image.CompressedImageData
   # (vendor/love/testing/tests/image.lua:12-40): newCompressedData becomes
   # CompressedData.new, a module whose new returns a CompressedImageData
-  # (rule 2), the getters drop get (rule 3), getDimensions' results are an
+  # (rule 25), the getters drop get (rule 3), getDimensions' results are an
   # Array (rule 4), the format a symbol (rule 9), setLinear a writer
   # (rule 5), and isLinear linear? (rule 8).
   def test_compressed_image_data

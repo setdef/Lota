@@ -73,7 +73,7 @@ class DataTest < Minitest::Test
 
   # getUInt8, getUInt16, and getUInt32 read unsigned integers of their C
   # type (wrap_Data.cpp:138-161), named uint8, uint16, and uint32, as C
-  # names uint8_t (rule 13 of doc/contributors/design/translation.md), so the
+  # names uint8_t (rule 37 of doc/contributors/design/translation.md), so the
   # bytes int8 reads as -1 are 255.
   def test_unsigned_numbers_are_read_by_their_c_type
     data = file_data([255, 7].pack("C2") + [65_535].pack("S<") + [4_294_967_295].pack("L<"))
@@ -178,7 +178,7 @@ class DataTest < Minitest::Test
 
   # Source:getType (wrap_Source.cpp:591-602) names how a Source holds its
   # sound, and a copy holds it as its original does; a Source has no type
-  # (rule 16 of doc/contributors/design/translation.md).
+  # (rule 41 of doc/contributors/design/translation.md).
   def test_a_source_gets_its_type
     assert_equal :static, Lota::Audio::Source.new("resources/click.ogg", :static).clone.get_type
     assert_equal :stream, Lota::Audio::Source.new("resources/click.ogg", :stream).get_type

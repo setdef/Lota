@@ -234,7 +234,7 @@ module Lota
     # with, matching love.event.setModalDrawCallback
     # (src/modules/event/wrap_Event.cpp, w_setModalDrawCallback), which
     # rule 5 of doc/contributors/design/translation.md makes a writer and its
-    # rule 12 lets take any object that answers +call+.
+    # rule 31 lets take any object that answers +call+.
     #
     # [callable] Anything that answers +call+ with no arguments, or +nil+
     #   for none.

@@ -34,7 +34,7 @@ module Lovetest
   end
 
   # Lövetest's Logo table (vendor/love/testing/main.lua:50-54): its
-  # texture and img fields, a record of two, as rule 10 makes a table
+  # texture and img fields, a record of two, as rule 28 makes a table
   # with named fields.
   Logo = Data.define(:texture, :img)
 

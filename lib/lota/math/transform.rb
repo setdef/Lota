@@ -136,7 +136,7 @@ module Lota
 
       # A new Transform that does +other+ first and then this one, matching
       # Transform's __mul (src/modules/math/wrap_Transform.cpp,
-      # w_Transform__mul), which Ruby names by its operator (rule 13 of
+      # w_Transform__mul), which Ruby names by its operator (rule 38 of
       # doc/contributors/design/translation.md). Neither Transform changes.
       #
       # [other] Lota::Math::Transform.

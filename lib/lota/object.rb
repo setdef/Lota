@@ -9,10 +9,10 @@ module Lota
   # LÖVE's root type, Object, whose methods every one of LÖVE's objects
   # answers, whatever its class: +object_type+, +type+, and
   # <tt>type_of?</tt>, translated from Object:type and Object:typeOf
-  # (src/common/runtime.cpp, w__type and w__typeOf; rule 16 of
+  # (src/common/runtime.cpp, w__type and w__typeOf; rules 16 and 33 of
   # doc/contributors/design/translation.md), +release+, from Object:release
   # (w__release), and +to_s+ and +==+, from the __tostring and __eq LÖVE gives
-  # every object (w__tostring and w__eq; rule 13).
+  # every object (w__tostring and w__eq; rule 38).
   #
   # Every class that wraps an engine object inherits from it, as every
   # type in LÖVE inherits from Object, so every such object is a
@@ -25,7 +25,7 @@ module Lota
   # A class that also has LÖVE's getType, such as Lota::Physics::Body,
   # answers it as +get_type+, and has no +type+, since +type+ there would
   # mean either: defining +get_type+ in a subclass takes +type+ away from
-  # it and its subclasses (rule 16).
+  # it and its subclasses (rule 41).
   #
   # It takes the name of LÖVE's root type, Object, so inside
   # <tt>module Lota</tt> a bare +Object+ means this class, and Ruby's
@@ -60,7 +60,7 @@ module Lota
       native.object_type
     end
 
-    # Another name for #object_type, as rule 16 of
+    # Another name for #object_type, as rule 42 of
     # doc/contributors/design/translation.md gives it, on every class but those
     # with LÖVE's getType, which answer +get_type+ instead and have no +type+.
     #

@@ -13,7 +13,7 @@ module Lota
     # Each Joint is of one of its subclasses, made by that class's +new+.
     # Each method raises RuntimeError ("Attempt to use destroyed joint.")
     # once the Joint is destroyed, but #destroyed? and #destroy. LÖVE's
-    # Joint:getType is #get_type, and a Joint has no +type+ (rule 16 of
+    # Joint:getType is #get_type, and a Joint has no +type+ (rules 34 and 41 of
     # doc/contributors/design/translation.md).
     #
     # === Example
@@ -34,7 +34,7 @@ module Lota
       end
 
       # Which kind of Joint this is, as a Symbol, matching Joint:getType:
-      # <tt>:distance</tt>, <tt>:revolute</tt>, and so on (rules 9 and 16 of
+      # <tt>:distance</tt>, <tt>:revolute</tt>, and so on (rules 9 and 34 of
       # doc/contributors/design/translation.md).
       #
       # === Example

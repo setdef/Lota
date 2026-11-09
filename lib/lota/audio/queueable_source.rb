@@ -13,7 +13,7 @@ module Lota
     # no QueueableSource class: the factory makes a Source of the type
     # <tt>:queue</tt>, so this is a module whose +new+ returns a Source and
     # whose <tt>===</tt> asks a Source's type, as
-    # Lota::Graphics::Canvas asks whether a Texture is a canvas (rule 2 of
+    # Lota::Graphics::Canvas asks whether a Texture is a canvas (rule 26 of
     # doc/contributors/design/translation.md).
     #
     # === Example

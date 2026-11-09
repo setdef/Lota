@@ -11,7 +11,7 @@ require_relative "../engine_helper"
 # LÖVE 12 has no Canvas class: love.graphics.newCanvas returns a Texture
 # (vendor/love/changes.txt, "Changed the Texture class and implementation
 # to no longer have separate Canvas and Image subclasses";
-# vendor/love/src/modules/graphics/wrap_Graphics.cpp, w_newCanvas). By rule 2 of
+# vendor/love/src/modules/graphics/wrap_Graphics.cpp, w_newCanvas). By rules 25 and 26 of
 # doc/contributors/design/translation.md, Lota::Graphics::Canvas is a module
 # whose new returns a Lota::Graphics::Texture and whose === asks the texture
 # whether it is a canvas (Texture:isCanvas, wrap_Texture.cpp:282-287).

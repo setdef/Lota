@@ -2402,7 +2402,7 @@ module Lota
     # The renderer's counts, as a frozen Lota::Graphics::Stats, matching
     # love.graphics.getStats (src/modules/graphics/wrap_Graphics.cpp,
     # w_getStats). LÖVE also fills in a table it is given; a frozen record
-    # cannot be filled, so Lota takes none (rule 10 of
+    # cannot be filled, so Lota takes none (rule 29 of
     # doc/contributors/design/translation.md).
     #
     # Raises ThreadError off the main thread.
@@ -2560,7 +2560,7 @@ module Lota
     # [target] A String file name, to save the frame in the save
     #   directory, in the format its extension names (+png+ or +tga+); or
     #   any object that answers +call+, or a block, which LÖVE keeps to
-    #   call with the frame as a Lota::Image::ImageData (rule 12 of
+    #   call with the frame as a Lota::Image::ImageData (rule 31 of
     #   doc/contributors/design/translation.md), as Signal.trap keeps its
     #   handler.
     #

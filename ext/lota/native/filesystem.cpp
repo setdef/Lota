@@ -108,7 +108,7 @@ constexpr love::int64 LARGEST_EXACT_DOUBLE = 0x20000000000000LL;
 // out because the filesystem could not tell, or nil when there is no such
 // file, or none of the type +filtertype+ names. The table LÖVE fills in
 // when given one is not bound: Lota::Filesystem.info makes a frozen Data
-// of the fields (rule 10 of doc/contributors/design/translation.md).
+// of the fields (rule 28 of doc/contributors/design/translation.md).
 Rice::Object info(const std::string &filepath, const std::optional<std::string> &filtertype) {
   using love::filesystem::Filesystem;
   Filesystem::Info info = {};

@@ -41,7 +41,7 @@ class MathTest < Lovetest::TestMethod
   # snake_case (rule 13). clone is Ruby's clone, which makes LÖVE's copy.
   # Lövetest's assertCoords (classes/TestMethod.lua:228-245) compares two pairs
   # of numbers, as assert_coords does. isAffine2DTransform becomes
-  # affine2d_transform? (rules 8 and 13), its acronym and digit one word.
+  # affine2d_transform? (rules 8, 36, and 37), its acronym and digit one word.
   def test_transform
     # create obj
     transform = Lota::Math::Transform.new(0, 0, 0, 1, 1, 0, 0, 0, 0)

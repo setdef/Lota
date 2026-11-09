@@ -10,7 +10,7 @@ require_relative "../engine_helper"
 
 # Lota::Window.mode and update_mode, beyond what Lövetest's tests for them
 # check (test/lovetest/tests/window.rb): getMode's table as a frozen Mode
-# (rule 10 of doc/contributors/design/translation.md), and what updateMode keeps
+# (rule 28 of doc/contributors/design/translation.md), and what updateMode keeps
 # and refuses.
 class WindowModeTest < Minitest::Test
   def setup

@@ -12,7 +12,7 @@ module Lota
     # love.graphics.getTextureFormats returns
     # (src/modules/graphics/wrap_Graphics.cpp, w_getTextureFormats): a
     # frozen value with a field for each of LÖVE's pixel format names
-    # (rule 10 of doc/contributors/design/translation.md), +true+ or +false+.
+    # (rule 28 of doc/contributors/design/translation.md), +true+ or +false+.
     #
     # Some names start with a capital, as LÖVE spells them; read those
     # with +[]+, as Lua reads them with brackets.

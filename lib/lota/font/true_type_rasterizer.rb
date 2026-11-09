@@ -8,7 +8,7 @@
 module Lota
   module Font
     # Makes rasterizers from TrueType and OpenType fonts, matching
-    # love.font.newTrueTypeRasterizer, named by rule 2 of
+    # love.font.newTrueTypeRasterizer, named by rule 25 of
     # doc/contributors/design/translation.md.
     #
     # LÖVE has no TrueTypeRasterizer class that a game can see: a TrueType
@@ -18,7 +18,7 @@ module Lota
     #
     # LÖVE's C++ makes a TrueType rasterizer of a class of its own, so
     # <tt>TrueTypeRasterizer === rasterizer</tt> is true only of a TrueType
-    # rasterizer, as rule 2 of doc/contributors/design/translation.md asks of a
+    # rasterizer, as rule 26 of doc/contributors/design/translation.md asks of a
     # module's ===.
     #
     # Use it to rasterize a font file, or LÖVE's default font, at a size

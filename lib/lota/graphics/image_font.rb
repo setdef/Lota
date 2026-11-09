@@ -19,7 +19,7 @@ module Lota
     #
     # The engine cannot tell an image font from another font, so
     # <tt>ImageFont === font</tt> is true of every Font, as
-    # <tt>Image === texture</tt> is of every Texture (rule 2 of
+    # <tt>Image === texture</tt> is of every Texture (rule 27 of
     # doc/contributors/design/translation.md).
     #
     # Use it to draw text in a font drawn as pixel art.

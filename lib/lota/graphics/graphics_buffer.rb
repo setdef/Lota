@@ -20,7 +20,7 @@ module Lota
     #
     # LÖVE has no class named Buffer: its Lua type is +GraphicsBuffer+, which
     # #object_type returns, and +newBuffer+ makes one. So Buffer is a
-    # module, as Image is (rule 2 of doc/contributors/design/translation.md):
+    # module, as Image is (rule 25 of doc/contributors/design/translation.md):
     # Buffer.new returns a GraphicsBuffer, and <tt>Buffer === object</tt> is
     # true of every GraphicsBuffer.
     #
@@ -36,7 +36,7 @@ module Lota
       # One member of the format of a buffer, which GraphicsBuffer#format returns,
       # translated from the table love.graphics's GraphicsBuffer:getFormat
       # makes (src/modules/graphics/wrap_Buffer.cpp, w_Buffer_getFormat):
-      # a frozen value with LÖVE's field names (rule 10 of
+      # a frozen value with LÖVE's field names (rule 28 of
       # doc/contributors/design/translation.md).
       #
       # [name] The member's String name, empty if it has none.
@@ -66,7 +66,7 @@ module Lota
 
       # Makes a buffer, matching love.graphics.newBuffer
       # (src/modules/graphics/wrap_Graphics.cpp, w_newBuffer and
-      # luax_newbuffer), named by rule 2 of
+      # luax_newbuffer), named by rule 25 of
       # doc/contributors/design/translation.md.
       #
       # [format] The format of one element: a Symbol of a data format, such
