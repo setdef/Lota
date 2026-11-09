@@ -212,9 +212,13 @@ The options:
 - `--app-version VERSION` is the app's version, such as `1.0.0`; without it, Fledge's `0.0.0`. A game's `t.version` names the version of LÖVE it was written for, so it never becomes the app's.
 - `--icon PATH` gives the app the icon files at `PATH` in the game's folder, without their extension, as Fledge takes them: `--icon icons/icon` for `icons/icon.icns` (macOS), `icons/icon.ico` (Windows), and `icons/icon-16.png` to `icons/icon-512.png` (Linux). Without it the app has no icon of its own.
 - `--sign IDENTITY` signs the app, as Fledge's `--sign` does: a signing identity from your keychain on macOS, a certificate's SHA-1 thumbprint on Windows. Unsigned, Gatekeeper and SmartScreen warn the people who download it.
+- `--sign-command COMMAND` signs a Windows app with a command of your own instead, as Fledge's `--sign-command` does, for a certificate kept in a cloud or hardware service: Fledge runs `COMMAND` through `cmd.exe` for each program and library, the uninstaller, and the setup program, with the file's path in place of `%1`, or after `COMMAND` if it has no `%1`. Given neither option on Windows, Fledge takes the command from `FLEDGE_SIGN_COMMAND`.
+- `--notarize PROFILE` has Apple notarize the macOS app that `--sign` signed with a Developer ID Application identity, and staples Apple's ticket to it, as Fledge's `--notarize` does, with the credentials that `xcrun notarytool store-credentials PROFILE` stored in your keychain. It waits for Apple, usually minutes.
 - `--exclude PATTERN` leaves paths out of the app; see below. Give it as often as you like.
 - `--out DIR` writes to `DIR` instead of `dist`.
 - `LOTA_FLEDGE_REF` names another tag or commit of Fledge to build with.
+
+`--sign` and `--sign-command` together, or `--notarize` without `--sign`, stop `lota fuse` before it writes anything. Fledge refuses `--sign-command` on any system but Windows, `--notarize` on any but macOS or with the ad hoc identity `-`, and an app Apple will not notarize, and `lota fuse` stops after Fledge says why.
 
 The app holds your game's folder as it is, but for `.git`, `.bundle`, `vendor/bundle`, and `vendor/cache`, which it always leaves out. To leave out more, such as a server's code, your tests, and your docs, give `--exclude` a pattern for each:
 

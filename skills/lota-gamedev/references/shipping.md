@@ -6,7 +6,8 @@
 run it on, through [Fledge](https://github.com/setdef/Fledge): a folder and
 archive, and where Fledge makes them an installer. See the README's "Sharing a
 game" for what each platform needs installed and the exact options
-(`--out`, `--identifier`, `--icon`, `--app-version`, `--sign`, `--exclude`).
+(`--out`, `--identifier`, `--icon`, `--app-version`, `--sign`,
+`--sign-command`, `--notarize`, `--exclude`).
 
 Things a game author should know:
 

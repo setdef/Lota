@@ -11,6 +11,10 @@ module Lota
 
       attr_reader sign: String?
 
+      attr_reader sign_command: String?
+
+      attr_reader notarize: String?
+
       attr_reader identifier: String?
 
       attr_reader app_version: String?
@@ -19,14 +23,14 @@ module Lota
 
       attr_reader exclude: Array[String]
 
-      def self.new: (out: String, sign: String?, identifier: String?, app_version: String?, icon: String?, exclude: Array[String]) -> instance
+      def self.new: (out: String, sign: String?, sign_command: String?, notarize: String?, identifier: String?, app_version: String?, icon: String?, exclude: Array[String]) -> instance
     end
 
     NO_PATTERNS: Array[String]
 
-    DEFAULT_OPTIONS: { out: String, sign: String?, identifier: String?, app_version: String?, icon: String?, exclude: Array[String] }
+    DEFAULT_OPTIONS: { out: String, sign: String?, sign_command: String?, notarize: String?, identifier: String?, app_version: String?, icon: String?, exclude: Array[String] }
 
-    def self.options: (?out: String, ?sign: String?, ?identifier: String?, ?app_version: String?, ?icon: String?, ?exclude: Array[String]) -> Options
+    def self.options: (?out: String, ?sign: String?, ?sign_command: String?, ?notarize: String?, ?identifier: String?, ?app_version: String?, ?icon: String?, ?exclude: Array[String]) -> Options
 
     FLEDGE_GIT: String
 
@@ -101,6 +105,8 @@ module Lota
     private def check_game: () -> void
 
     private def check_exclude: () -> void
+
+    private def check_signing: () -> void
 
     private def excludes?: (String pattern, String relative, directory: bool) -> bool
 

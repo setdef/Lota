@@ -97,6 +97,15 @@ module Lota
     #   writes the app and Fuse writes the project it builds from.
     # [sign] String identity Fledge signs the app with (its
     #   <tt>--sign</tt>), or +nil+ for none.
+    # [sign_command] String command Fledge signs a Windows app with, in
+    #   place of +sign+ (its <tt>--sign-command</tt>), or +nil+, when
+    #   Fledge signs a Windows app with FLEDGE_SIGN_COMMAND if that is set
+    #   and +sign+ is +nil+ too. Fledge refuses it for any other system.
+    # [notarize] String name of the keychain profile, which
+    #   <tt>xcrun notarytool store-credentials</tt> stored, that Fledge
+    #   has Apple notarize the app with after +sign+ signs it (its
+    #   <tt>--notarize</tt>), or +nil+ for none. Fledge refuses it for any
+    #   system but macOS, and with an ad hoc +sign+.
     # [identifier] String reverse-DNS name the system knows the app by, or
     #   +nil+ for a placeholder under IDENTIFIER_PREFIX.
     # [app_version] String version of the app, or +nil+ for Fledge's
@@ -109,15 +118,29 @@ module Lota
     # [exclude] Array of String patterns for paths the app leaves out, in
     #   addition to LEFT_OUT. See Fuse for how they match.
     #
+    # Fuse refuses +sign+ with +sign_command+, and +notarize+ without
+    # +sign+, before it writes anything, as Fledge refuses them as it reads
+    # its command line; what Fledge refuses only as it builds, it says
+    # itself.
+    #
     # Make one with Fuse.options, which fills in DEFAULT_OPTIONS.
-    class Options < ::Data.define(:out, :sign, :identifier, :app_version, :icon, :exclude)
+    class Options < ::Data.define(:out, :sign, :sign_command, :notarize, :identifier, :app_version, :icon, :exclude)
     end
 
     # The exclusions of an Options that is given none.
     NO_PATTERNS = Array.new(0, "").freeze
 
     # What each of Options is when <tt>lota fuse</tt> is not given it.
-    DEFAULT_OPTIONS = { out: "dist", sign: nil, identifier: nil, app_version: nil, icon: nil, exclude: NO_PATTERNS }.freeze
+    DEFAULT_OPTIONS = {
+      out: "dist",
+      sign: nil,
+      sign_command: nil,
+      notarize: nil,
+      identifier: nil,
+      app_version: nil,
+      icon: nil,
+      exclude: NO_PATTERNS,
+    }.freeze
 
     # Options with DEFAULT_OPTIONS for each that +given+ leaves out.
     #
@@ -224,6 +247,7 @@ module Lota
     def call
       check_game
       check_exclude
+      check_signing
       platform = lota_platform
       locked = read_lockfile(platform)
       gem = @gem_file || Fuse.installed_gem(@platform)
@@ -351,6 +375,18 @@ module Lota
 
         raise Error, "--exclude #{pattern} would leave out #{file}, which the game needs to start"
       end
+    end
+
+    # Raises Error for the signing options Fledge refuses together, with
+    # the words Fledge refuses them with (its
+    # lib/fledge/cli/build/options.rb, Options.check, at FLEDGE_REF), so
+    # that the build stops before it locks and fetches for minutes, not
+    # after.
+    private def check_signing
+      raise Error, "--sign and --sign-command each sign the app; give one of them" if @options.sign && @options.sign_command
+      return unless @options.notarize && !@options.sign
+
+      raise Error, "--notarize needs --sign IDENTITY, the Developer ID Application identity Apple notarizes"
     end
 
     # Whether +pattern+ matches the path +relative+, a folder's if
@@ -643,13 +679,17 @@ module Lota
     end
 
     # Runs <tt>fledge build</tt> in the project, from Fledge's own
-    # Gemfile, printing each path it reports, and returns them. Raises
+    # Gemfile, with the signing options of Options that are given, as
+    # Fledge's own options of the same names, printing each path it
+    # reports, and returns them. Fledge reads FLEDGE_SIGN_COMMAND from
+    # the environment, which it runs in as this program does. Raises
     # Error, saying +why+ it may have failed, if one is given, when it
     # fails.
     private def build(bundle, why: nil)
       command = [*bundle, "exec", "fledge", "build", "--out", out]
-      sign = @options.sign
-      command.push("--sign", sign) if sign
+      { "--sign" => @options.sign, "--sign-command" => @options.sign_command, "--notarize" => @options.notarize }.each do |option, value|
+        command.push(option, value) if value
+      end
       reader, writer = IO.pipe
       pid = spawn(environment(tools), *command, chdir: project, out: writer)
       writer.close
