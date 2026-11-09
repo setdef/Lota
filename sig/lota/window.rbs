@@ -91,6 +91,8 @@ module Lota
 
     def self.system_theme: () -> Symbol
 
+    def self.pointer: () -> Fiddle::Pointer
+
     def self.show_message_box: (String title, String message, ?(Array[String] | Symbol | String)? buttons_or_type, *(Symbol | String | bool)? options, ?enterbutton: Integer?, ?escapebutton: Integer?) -> (bool | Integer)
 
     def self.title=: (String title) -> void

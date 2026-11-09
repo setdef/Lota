@@ -95,6 +95,36 @@ class DataTest < Minitest::Test
     assert_equal :again, Thread.new { data.perform_atomic { :again } }.value
   end
 
+  # Data:getPointer gives the bytes' address (wrap_Data.cpp:61-66), which
+  # Lota gives as a Fiddle::Pointer: reading through it reads the Data's
+  # own bytes, and writing through it writes them.
+  def test_pointer_points_at_the_datas_own_bytes
+    data = Lota::Data::ByteData.new("helloworld")
+    pointer = data.pointer
+
+    assert_instance_of Fiddle::Pointer, pointer
+    assert_equal "o", pointer[4, 1]
+    pointer[0, 5] = "HELLO"
+
+    assert_equal "HELLOworld", data.string
+    assert_equal pointer.to_i, data.pointer.to_i
+  end
+
+  # Data:getFFIPointer is LuaJIT's FFI pointer to the same address
+  # (wrap_Data.cpp:166-176), which in Ruby is Fiddle's, sized as the Data
+  # is, so it reads the whole Data, whatever its class.
+  def test_ffi_pointer_is_the_same_address_with_the_datas_size
+    data = Lota::Data::ByteData.new("helloworld")
+
+    assert_equal data.pointer.to_i, data.ffi_pointer.to_i
+    assert_equal 10, data.ffi_pointer.size
+    assert_equal "helloworld", data.ffi_pointer.to_str
+    image = Lota::Image::ImageData.new(2, 1)
+
+    assert_equal image.size, image.ffi_pointer.size
+    assert_equal image.string, image.ffi_pointer.to_str
+  end
+
   # FileData:clone copies the bytes and the name into a new FileData.
   def test_a_file_data_copy_is_its_own
     data = file_data("helloworld")

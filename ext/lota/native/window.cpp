@@ -11,6 +11,8 @@
 #include "window/Window.h"
 #include "window/sdl/Window.h"
 
+#include <bit>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -204,6 +206,11 @@ int show_message_box_with_buttons(const std::string &title, const std::string &m
   return window().showMessageBox(data) + 1;
 }
 
+// w_getPointer (wrap_Window.cpp:766-770): the address of SDL's window,
+// which LÖVE pushes as a lightuserdata, as an Integer, 0 while no window
+// is open, which Lota::Window.pointer makes a Fiddle::Pointer.
+std::uintptr_t pointer() { return std::bit_cast<std::uintptr_t>(window().getHandle()); }
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -247,6 +254,7 @@ void define_window(const Rice::Module &native) {
       .define_singleton_function("set_vsync", &set_vsync, Rice::Arg("vsync"))
       .define_singleton_function("close", &close_window)
       .define_singleton_function("set_high_dpi_allowed", &set_high_dpi_allowed, Rice::Arg("enable"))
+      .define_singleton_function("pointer", &pointer)
       .define_singleton_function(
           "show_message_box", &show_message_box, Rice::Arg("title"), Rice::Arg("message"),
           Rice::Arg("type") = std::optional<std::string>(), Rice::Arg("attachtowindow") = true)

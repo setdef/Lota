@@ -82,6 +82,7 @@ Where LÖVE reads a whole number, such as a font's size, Lota takes a Float too 
 
 A Shader has LÖVE's `send`, which replaces Ruby's `Object#send` on a Shader: `glow.send("strength", 1.5)` sends a uniform. Use `__send__` for Ruby's.
 
+A raw pointer, which LÖVE gives Lua from `Data:getPointer`, `Data:getFFIPointer`, and `love.window.getPointer`, is a `Fiddle::Pointer` to the same address, Ruby's own FFI where LuaJIT has its `ffi`: `data.ffi_pointer.to_str` reads a Data's bytes. It is valid only while the Data or the window it points into lives, as in LÖVE. Lota does not depend on Fiddle, so add `gem "fiddle"` to your game's Gemfile to use them.
 
 ## Numbers that match LÖVE's
 

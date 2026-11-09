@@ -24,4 +24,10 @@ gem "flog", "4.8.0"
 gem "steep"
 gem "rdoc", "~> 7.0"
 
+# Lota's raw pointers are Fiddle's (Lota::Data#pointer), which a game adds
+# to its own Gemfile when it wants them; Lota's tests use them.
+group :development, :test do
+  gem "fiddle"
+end
+
 gem "desktop_input_lock", git: "https://github.com/setdef/DesktopInputLock.git", tag: "v0.2.0"

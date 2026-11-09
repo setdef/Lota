@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `Lota::Physics.new_circle_body`, `new_rectangle_body`, `new_polygon_body`, `new_edge_body`, and `new_chain_body`, each returning a new Body and its Shape.
 - LÖVE's deprecated forms of `Lota::Physics::CircleShape.new`, `RectangleShape.new`, `PolygonShape.new`, `EdgeShape.new`, and `ChainShape.new` without a Body, and the deprecated `Lota::Physics::Fixture.new`, which attaches a copy of such a Shape to a Body; `Fixture ===` is true of every Shape.
+- `Lota::Data#pointer`, `Lota::Data#ffi_pointer`, and `Lota::Window.pointer`, each a `Fiddle::Pointer` to the address LÖVE gives Lua, the Data's sized as the Data is; they need `gem "fiddle"` in the game's Gemfile, which Lota does not depend on.
 
 ### Fixed
 

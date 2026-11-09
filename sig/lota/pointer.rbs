@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Pointer
+    MISSING: String
+
+    def self.at: (Integer address, ?Integer size) -> Fiddle::Pointer
+  end
+end

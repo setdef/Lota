@@ -51,8 +51,10 @@ class LotaTest < Minitest::Test
   # extension, its callbacks, its command line, the methods every engine
   # object has, what every record answers, its record of deprecated
   # names, the enum names it passes the engine, the translator of the
-  # engine's error messages, and the restart that crosses exec are not LÖVE modules. Lota::Data is both LÖVE's root type Data and love.data's
-  # module (ADR 001, section 7), so it has one.
+  # engine's error messages, the restart that crosses exec, and the maker
+  # of its raw pointers are not LÖVE modules. Lota::Data is both LÖVE's
+  # root type Data and love.data's module (ADR 001, section 7), so it has
+  # one.
   def test_no_module_lacks_an_accessor
     EngineHelper.open_window
     own = %w[
@@ -68,6 +70,7 @@ class LotaTest < Minitest::Test
       Lota::ErrorMessage
       Lota::Restart
       Lota::Variant
+      Lota::Pointer
     ]
     modules = Lota.constants.map { |name| Lota.const_get(name) }.grep(Module)
     modules.reject! { |mod| mod.is_a?(Class) || own.include?(mod.name) }

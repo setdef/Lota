@@ -7,6 +7,7 @@
 
 require_relative "window/fullscreen_mode"
 require_relative "window/mode"
+require_relative "pointer"
 
 module Lota
   # The game's window, translated from love.window.
@@ -786,6 +787,27 @@ module Lota
     #   Lota::Window.system_theme # => :dark
     def self.system_theme
       Native::Window.system_theme.to_sym
+    end
+
+    # SDL's window, the SDL_Window LÖVE opened, as a Fiddle::Pointer to it,
+    # matching love.window.getPointer (src/modules/window/wrap_Window.cpp,
+    # w_getPointer), which gives Lua its address as a raw pointer (ADR 001,
+    # section 7). It is a null pointer while no window is open.
+    #
+    # The pointer is valid only while the window it points to is open, as
+    # in LÖVE: closing the window, or setting a mode that opens a new one,
+    # leaves it pointing at freed memory. Ask again after either.
+    #
+    # Needs the fiddle gem, which Lota does not depend on: add
+    # <tt>gem "fiddle"</tt> to the game's Gemfile. Raises LoadError, saying
+    # so, when Fiddle will not load (Lota::Pointer). Raises ThreadError
+    # off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Window.pointer.null? # => false
+    def self.pointer
+      Pointer.at(Native::Window.pointer)
     end
 
     # Shows a message box, matching love.window.showMessageBox

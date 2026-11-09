@@ -33,9 +33,10 @@ module Lota
   # has Data's methods, and none of ByteData's. LÖVE has no function that
   # makes one otherwise, so Lota::Data has no +new+.
   #
-  # Data's getPointer and getFFIPointer give Lua a raw pointer and a
-  # LuaJIT FFI pointer, which Ruby has no use for, so Lota leaves them
-  # out.
+  # Data's getPointer and getFFIPointer give Lua the bytes' address, as a
+  # raw pointer and as a pointer LuaJIT's FFI reads. Ruby's own FFI is
+  # Fiddle, so #pointer and #ffi_pointer give a Fiddle::Pointer to the same
+  # address, with the fiddle gem in the game's Gemfile.
   #
   # === Examples
   #
@@ -291,6 +292,49 @@ module Lota
       native.size
     end
 
+    # The address of the Data's bytes, as a Fiddle::Pointer of no size,
+    # matching Data:getPointer (src/modules/data/wrap_Data.cpp,
+    # w_Data_getPointer), which gives Lua the address as a raw pointer
+    # (ADR 001, section 7).
+    #
+    # The pointer is valid only while the Data lives, as in LÖVE: once the
+    # Data is released or garbage collected, reading or writing through it
+    # reads or writes freed memory. Keep the Data while the pointer is in
+    # use.
+    #
+    # Needs the fiddle gem, which Lota does not depend on: add
+    # <tt>gem "fiddle"</tt> to the game's Gemfile. Raises LoadError, saying
+    # so, when Fiddle will not load (Lota::Pointer).
+    #
+    # === Example
+    #
+    #   data = Lota::Data::ByteData.new("helloworld")
+    #   data.pointer[4, 1] # => "o"
+    def pointer
+      Pointer.at(native.pointer)
+    end
+
+    # The address of the Data's bytes, as a Fiddle::Pointer whose size is
+    # the Data's, matching Data:getFFIPointer
+    # (src/modules/data/wrap_Data.lua), which gives a game running on
+    # LuaJIT a pointer its FFI reads. Lota's Ruby has Fiddle where LuaJIT
+    # has its FFI, so the pointer is Fiddle's, to the address #pointer
+    # gives, and Fiddle::Pointer#size is #size.
+    #
+    # The pointer is valid only while the Data lives, as #pointer is.
+    #
+    # Needs the fiddle gem, which Lota does not depend on: add
+    # <tt>gem "fiddle"</tt> to the game's Gemfile. Raises LoadError, saying
+    # so, when Fiddle will not load (Lota::Pointer).
+    #
+    # === Example
+    #
+    #   data = Lota::Data::ByteData.new("helloworld")
+    #   data.ffi_pointer.to_str # => "helloworld"
+    def ffi_pointer
+      Pointer.at(native.pointer, size)
+    end
+
     # The Data's bytes, as a String, matching Data:getString
     # (src/modules/data/wrap_Data.cpp, w_Data_getString).
     #
@@ -427,6 +471,7 @@ module Lota
   end
 end
 
+require_relative "pointer"
 require_relative "data/packing"
 require_relative "data/byte_data"
 require_relative "data/compressed_data"

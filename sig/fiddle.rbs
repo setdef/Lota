@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Fiddle
+  class Pointer
+    def initialize: (Integer address, ?Integer size) -> void
+
+    def to_i: () -> Integer
+
+    def size: () -> Integer
+
+    def null?: () -> bool
+
+    def []: (Integer offset) -> Integer
+          | (Integer offset, Integer length) -> String
+
+    def to_str: (?Integer length) -> String
+  end
+end

@@ -616,6 +616,15 @@ Rice::Array touch_devices() {
   return ids;
 }
 
+// The address of the first window SDL has, the one LÖVE opened, as an
+// Integer, or 0 for none, for Lota::Window.pointer to be checked against.
+std::uintptr_t window_address() {
+  int count = 0;
+  const std::unique_ptr<SDL_Window *, void (*)(void *)> windows(SDL_GetWindows(&count), SDL_free);
+  SDL_Window *window = (windows && count > 0) ? *windows : nullptr;
+  return std::bit_cast<std::uintptr_t>(window);
+}
+
 // The size of the first window in its own coordinates, which SDL reports
 // a mouse's position in, as [width, height].
 Rice::Array window_size() {
@@ -1158,6 +1167,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("set_virtual_hat", &set_virtual_hat, Rice::Arg("id"),
                               Rice::Arg("hat"), Rice::Arg("value"))
       .define_module_function("window_size", &window_size)
+      .define_module_function("window_address", &window_address)
       .define_module_function("click_mouse", &click_mouse, Rice::Arg("button"), Rice::Arg("down"))
       .define_module_function("render_loopback", &render_loopback, Rice::Arg("path"),
                               Rice::Arg("dt"))

@@ -39,7 +39,10 @@ class DataModuleTest < Lovetest::TestMethod
   # Ruby's clone, which makes LÖVE's copy (ADR 001, section 7). Lövetest
   # reads the bytes through getFFIPointer only where its global ffi is
   # set, which neither Lövetest's main.lua nor its classes set, so LÖVE
-  # skips that check; Lota has no FFI pointer, and leaves it out.
+  # skips that check, and so does the translation; Lota's ffi_pointer,
+  # Fiddle's, is checked in test/native/data_test.rb. Were the check to
+  # run, it would fail in LÖVE too, comparing the byte, a number, with the
+  # string "o" (doc/contributors/upstream/021.md).
   def test_byte_data
     # create new obj
     data = Lota::Data::ByteData.new("helloworld")

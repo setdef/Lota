@@ -1412,6 +1412,12 @@ bound_by_hand "Data:getUInt16",
   reason: "returns w_Data_getT<uint16>, as Data:getFloat"
 bound_by_hand "Data:getUInt32",
   reason: "returns w_Data_getT<uint32>, as Data:getFloat"
+bound_by_hand "Data:getPointer",
+  reason: "pushes its bytes' address as a lightuserdata (lua_pushlightuserdata), which Ruby has no kind of; Lota " \
+    "gives the address as an Integer, which Lota::Data#pointer makes a Fiddle::Pointer"
+bound_from_lua "Data:getFFIPointer",
+  note: "LuaJIT's FFI pointer is Fiddle's in Ruby: Lota::Data#ffi_pointer makes a Fiddle::Pointer of the address " \
+    "Data:getPointer gives, with the Data's size"
 generate "Decoder:getChannelCount"
 generate "Decoder:getBitDepth"
 generate "Decoder:getSampleRate"
@@ -1489,6 +1495,9 @@ generate "love.window.isMaximized"
 generate "love.window.isMinimized"
 generate "love.window.requestAttention"
 generate "love.window.getSystemTheme"
+bound_by_hand "love.window.getPointer",
+  reason: "pushes SDL's window handle as a lightuserdata (lua_pushlightuserdata), as Data:getPointer pushes its " \
+    "address; Lota gives the address as an Integer, which Lota::Window.pointer makes a Fiddle::Pointer"
 bound_by_hand "love.window.getFullscreen",
   reason: "raises with luaL_error after it has read the window's settings, which the generator does not port; " \
     "Lota returns the Array (rule 4) and raises love::Exception"

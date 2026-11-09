@@ -165,6 +165,8 @@ module Lota
 
         def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
 
+        def pointer: () -> Integer
+
         def perform_atomic: [T, R] (Array[(^(*T) -> R) | T | nil] call) -> R
 
         def float: (Float | Integer offset, ?Integer? count) -> Array[Float]
@@ -1063,6 +1065,8 @@ module Lota
       def self.close: () -> nil
 
       def self.set_high_dpi_allowed: (bool enable) -> nil
+
+      def self.pointer: () -> Integer
 
       def self.show_message_box: (String title, String message, ?String? type, ?bool attachtowindow) -> bool
 

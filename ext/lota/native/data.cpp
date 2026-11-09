@@ -22,7 +22,9 @@
 #include "thread/threads.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <optional>
@@ -128,6 +130,13 @@ std::string data_string(const love::Data &data, double offset_number,
   const std::span<const char> part =
       bytes.subspan(static_cast<std::size_t>(offset), static_cast<std::size_t>(size));
   return {part.begin(), part.end()};
+}
+
+// w_Data_getPointer (wrap_Data.cpp:61-66): the address of the Data's
+// bytes, which LÖVE pushes as a lightuserdata, as an Integer, which
+// Lota::Data#pointer and #ffi_pointer make a Fiddle::Pointer.
+std::uintptr_t data_pointer(const love::Data &data) {
+  return std::bit_cast<std::uintptr_t>(data.getData());
 }
 
 // w_Data_performAtomic (wrap_Data.cpp:82-100), with +call+ the block, as
@@ -505,6 +514,7 @@ void define_data(const Rice::Module &native) {
   define_engine_class<love::Data>(data_module, "Data")
       .define_method("string", &data_string, Rice::Arg("offset") = 0.0,
                      Rice::Arg("size") = std::optional<double>())
+      .define_method("pointer", &data_pointer)
       .define_method("perform_atomic", &perform_atomic, Rice::Arg("call"))
       .define_method("float", &data_values<float>, Rice::Arg("offset"),
                      Rice::Arg("count") = std::optional<int>())

@@ -196,6 +196,17 @@ class WindowQueriesTest < Minitest::Test
     assert_raises(ArgumentError) { Lota::Window.show_message_box("Title", "Message", %w[A], :info, true, true) }
   end
 
+  # love.window.getPointer gives the address of SDL's window
+  # (wrap_Window.cpp:766-770, Window::getHandle), which Lota gives as a
+  # Fiddle::Pointer: the window SDL itself lists.
+  def test_pointer_points_at_sdls_window
+    pointer = Lota::Window.pointer
+
+    assert_instance_of Fiddle::Pointer, pointer
+    refute_predicate pointer, :null?
+    assert_equal LotaNativeTest.window_address, pointer.to_i
+  end
+
   # Asserts that the block's request for vsync reached the system, which
   # keeps it, so that vsync answers +expected+, or refuses it and says
   # why. LÖVE's Window::setVSync ignores a refusal, and its getVSync

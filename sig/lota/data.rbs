@@ -35,6 +35,10 @@ module Lota
 
     def size: () -> Integer
 
+    def pointer: () -> Fiddle::Pointer
+
+    def ffi_pointer: () -> Fiddle::Pointer
+
     def string: (?(Float | Integer) offset, ?(Float | Integer)? size) -> String
 
     def perform_atomic: [T, R] (*T arguments) { (*T) -> R } -> R
