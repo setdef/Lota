@@ -49,6 +49,14 @@ A commit that changes no behavior, such as a refactor, or that adds tests of beh
 Red-before-green: none (refactor)
 ```
 
+### The pre-push tier
+
+`bundle exec rake prepush` is the build to run before every push. It fixes and builds as the gate does, then runs, in lanes laid out as the gate's, the checks that take seconds and a part of each slow one: every test but those that took more than about a second and a half on the maintainer's Linux gate runner, a part of the sanitized suite, the parity harness's own tests with one short game, `package:check`, clang-format, the lint and RBS checks, and Steep. With nothing to rebuild it takes about a minute on that runner while other gates run beside it, where the gate takes eight or nine.
+
+What it leaves out is named in `tasks/test.rake`, test by test: `PREPUSH_LEAVES_OUT` lists the tests, or whole classes, too slow for it, and `PREPUSH_KEEPS` the few of those classes it runs anyway, so that `lota run`, a restart, and a parity game still run once. Most of what is left out runs a whole game in a process of its own (`LotaRunTest`, `RestartRunTest`, the parity games, `lota run` of Lövetest), runs the generator over all of LÖVE's `wrap_*.cpp` files, or builds a gem. The sanitized suite becomes `PREPUSH_SANITIZED`: the deliberate memory bugs, the tests of how wrappers hold and release the engine's objects, and Lövetest's graphics tests. `cpp:tidy`, `package:install`, and the rest of the parity harness run only in the gate, and `test/tasks/rake_tasks_test.rb` fails when a name in either list stops naming a test Minitest runs, so a renamed slow test cannot come back into the tier unnoticed.
+
+The tier is a smoke test, not the gate: a change to the engine, the bindings, the patches, the packaging, or the parity harness still wants the gate before it is pushed, and CI runs the gate on every push.
+
 ## Rake tasks for the native side
 
 - `bundle exec rake compile` builds the engine and the extensions and copies `Lota::Native` to `lib/lota/native.bundle`. rake-compiler runs `ext/lota/extconf.rb`, which configures the CMake project in `ext/lota` and writes a Makefile that builds it. The source gem's `gem install` runs the same script, which stops there, since the gem ships no LÖVE sources, and names the precompiled gem. CMake decides what to rebuild, so `rake compile` always calls it, and a build with no changes takes a second or two.

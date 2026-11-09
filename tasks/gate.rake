@@ -43,14 +43,33 @@ GATE_LANES = [
   [Gate::Check.of("cpp"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 
-desc "Run the gate's checks in lanes, after fixing, engine, and compile"
-task :gate do
-  jobs = Integer(ENV.fetch("LOTA_GATE_JOBS", GATE_LANES.size))
+# The pre-push tier, bundle exec rake prepush: the gate's checks that take
+# seconds, and of its slow ones a part, in lanes laid out as the gate's
+# are, so each lane's windows open on the display the gate's lane of the
+# same number uses (tasks/test.rake says which tests it leaves out).
+# cpp:tidy, package:install, and the parity games are the gate's alone.
+PREPUSH_LANES = [
+  [Gate::Check.of("test:prepush:sanitized"), Gate::Check.of("package:check")],
+  [Gate::Check.of("test:prepush:native")],
+  [Gate::Check.of("test:prepush:tasks")],
+  [Gate::Check.of("test:prepush:parity")],
+  [Gate::Check.of("cpp:format", "cpp:no_nolint"), Gate::Check.of("lint"), Gate::Check.of("steep")],
+].freeze
+
+# Runs +lanes+ after GATE_PREPARE, as the gate does.
+def run_gate(lanes)
+  jobs = Integer(ENV.fetch("LOTA_GATE_JOBS", lanes.size))
   displays = ENV.fetch("LOTA_GATE_DISPLAYS", "").split
   lane_timeout = Float(ENV.fetch("LOTA_GATE_LANE_TIMEOUT", Gate::LANE_TIMEOUT))
   heartbeat = Float(ENV.fetch("LOTA_GATE_HEARTBEAT", Gate::HEARTBEAT))
-  Gate.new(prepared: GATE_PREPARE, lanes: GATE_LANES, jobs:, displays:, lane_timeout:, heartbeat:)
+  Gate.new(prepared: GATE_PREPARE, lanes:, jobs:, displays:, lane_timeout:, heartbeat:)
     .run { |name| Rake::Task[name].invoke }
 rescue Gate::Failure => e
   abort "❌ #{e.message}"
 end
+
+desc "Run the gate's checks in lanes, after fixing, engine, and compile"
+task(:gate) { run_gate(GATE_LANES) }
+
+desc "Run the pre-push tier: the gate's fast checks, and a part of its slow ones, in lanes"
+task(:prepush) { run_gate(PREPUSH_LANES) }

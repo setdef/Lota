@@ -146,6 +146,61 @@ class RakeTasksTest < Minitest::Test
     assert_equal RUBY_SHARDS.keys.map { |name| "test:shard:#{name}" }.sort, gate_tasks.grep(/\Atest:shard:/).sort
   end
 
+  # The pre-push tier's lanes are the gate's, one for one, so each opens
+  # its windows on the display the gate's lane of that number does, and
+  # it runs a part of every kind of check the gate runs.
+  def test_prepush_runs_the_fast_checks_in_lanes_laid_out_as_the_gates
+    prepush = PREPUSH_LANES.flatten.flat_map(&:tasks)
+
+    assert_equal GATE_LANES.size, PREPUSH_LANES.size
+    assert_equal ["test:prepush:parity"], PREPUSH_LANES[GATE_LANES.index { |lane| lane.flat_map(&:tasks) == ["test:parity"] }]
+      .flat_map(&:tasks)
+    assert_equal %w[test:prepush:sanitized package:check cpp:format cpp:no_nolint lint steep].sort,
+      (prepush - %w[test:prepush:native test:prepush:tasks test:prepush:parity]).sort
+    prepush.each { |name| assert Rake::Task.task_defined?(name), name }
+    assert_equal %w[compile reference:love], prerequisites("test:prepush:parity")
+    assert_equal %w[compile compile:sanitized], prerequisites("test:prepush:sanitized")
+    assert_empty PREPUSH_SANITIZED - Dir.chdir(ROOT) { Dir[*TEST_SUITES.fetch(:native)] }
+  end
+
+  # The tests pre-push leaves out are named, so a test renamed or removed
+  # must leave its name behind here, or the slow test it was would come
+  # back into the tier unnoticed: every name is a test Minitest would run.
+  def test_every_test_prepush_leaves_out_or_keeps_is_one_minitest_runs
+    files = Dir.chdir(ROOT) { Dir[*TEST_SUITES.values_at(:ruby, :parity).flatten].map { |path| File.expand_path(path) } }
+    lister = <<~RUBY
+      require "minitest"
+      def Minitest.autorun = nil
+      ARGV.each { |path| require path }
+      Minitest.seed = 0
+      Minitest::Runnable.runnables.each { |runnable| runnable.runnable_methods.each { |name| puts "\#{runnable}#\#{name}" } }
+    RUBY
+    output, status = Open3.capture2e(RbConfig.ruby, "-I#{File.join(ROOT, 'lib')}", "-I#{File.join(ROOT, 'test')}",
+      "-e", lister, *files, chdir: ROOT)
+    assert status.success?, output
+    tests = output.lines(chomp: true)
+
+    (PREPUSH_LEAVES_OUT + PREPUSH_KEEPS).each do |name|
+      if name.include?("#")
+        assert_includes tests, name
+      else
+        assert tests.any? { |test| test.start_with?("#{name}#") }, "no tests of #{name}"
+      end
+    end
+  end
+
+  # The pattern leaves out a test it names, every test of a class it
+  # names but those it keeps, and nothing else.
+  def test_prepush_excludes_the_slow_tests_and_keeps_the_rest
+    pattern = Regexp.new(PREPUSH_EXCLUDE[%r{\A/(.*)/\z}, 1])
+
+    assert_match pattern, "RakeTasksTest#test_the_native_suite_passes_under_the_sanitizers"
+    assert_match pattern, "GravityWarsTest#test_the_translation_matches_love_frame_by_frame"
+    refute_match pattern, "ArkanoidTest#test_1_01_theballthebricktheplatform_matches_love_frame_by_frame"
+    refute_match pattern, "RakeTasksTest#test_default_task_is_the_gate"
+    refute_match pattern, "test_the_native_suite_passes_under_the_sanitizers"
+  end
+
   # The engine tree is configured only through extconf.rb, which
   # rake-compiler reruns when extconf.rb changes.
   def test_configuring_the_engine_runs_extconf
