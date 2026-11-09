@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-require "pathname"
 require "rbs"
 
 # Lota's public API as two trees of signatures declare it, compared
@@ -124,7 +123,7 @@ class ApiDiff
 
       seen << name
       parents = entry.each_decl.flat_map do |decl|
-        supers = decl.is_a?(RBS::AST::Declarations::Class) && decl.super_class ? [decl.super_class.name] : []
+        supers = (decl.is_a?(RBS::AST::Declarations::Class) && decl.super_class) ? [decl.super_class.name] : []
         supers + decl.members.grep(RBS::AST::Members::Include).map(&:name)
       end
       [name] + parents.uniq.flat_map { |parent| ancestors(parent, seen) }
@@ -201,23 +200,22 @@ class ApiDiff
     private def collect_method(owner, member)
       return if member.kind == :instance && PRIVATE.include?(member.name)
 
-      name =
-        if member.kind == :instance && member.name == :initialize
-          "#{owner}.new"
-        else
-          method_name(owner, member.kind == :instance ? :instance : :singleton, member.name)
-        end
+      name = if member.kind == :instance && member.name == :initialize
+        "#{owner}.new"
+      else
+        method_name(owner, (member.kind == :instance) ? :instance : :singleton, member.name)
+      end
       member.overloads.each { |overload| add(name, overload.method_type) }
     end
 
     private def add_attribute(owner, member, reader:, writer:)
-      kind = member.kind == :singleton ? :singleton : :instance
+      kind = (member.kind == :singleton) ? :singleton : :instance
       add(method_name(owner, kind, member.name), RBS::Parser.parse_method_type("() -> #{member.type}")) if reader
       add(method_name(owner, kind, :"#{member.name}="), RBS::Parser.parse_method_type("(#{member.type} value) -> #{member.type}")) if writer
     end
 
     private def method_name(owner, kind, name)
-      "#{owner}#{kind == :instance ? '#' : '.'}#{name}"
+      "#{owner}#{(kind == :instance) ? '#' : '.'}#{name}"
     end
   end
 
@@ -267,7 +265,7 @@ class ApiDiff
 
     private def slot(function, index)
       list = function.required_positionals + function.optional_positionals
-      index < list.size ? list[index] : function.rest_positionals
+      (index < list.size) ? list[index] : function.rest_positionals
     end
 
     private def keywords_kept?
