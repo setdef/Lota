@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+# A tool for anyone keeping trunk green. It checks the trunk's GitHub
+# Actions runs every few minutes, runs again those that failed only
+# because a download or a runner broke, and exits non-zero, printing the
+# run and its first errors, when a run is red for any other reason, so
+# whoever runs it in the background is woken. It exits 0 on SIGINT or
+# SIGTERM. Needs the GitHub CLI (gh), logged in.
+#
+#   bin/trunk-watch [--interval SECONDS] [FLOOR_RUN_ID]
+#
+# FLOOR_RUN_ID skips runs with that id or lower, the ones already dealt
+# with. SECONDS is 180 by default.
+
+require "optparse"
+require "open3"
+require_relative "../tasks/trunk_watch"
+
+interval = 180
+parser = OptionParser.new("usage: bin/trunk-watch [--interval SECONDS] [FLOOR_RUN_ID]") do |opts|
+  opts.on("--interval SECONDS", Integer, "seconds between checks (180)") { |seconds| interval = seconds }
+end
+floor = Integer(parser.parse!.first || 0)
+
+gh = lambda do |*args|
+  output, _error, status = Open3.capture3("gh", *args)
+  output if status.success?
+end
+
+repository = gh.call("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner")&.strip
+abort "bin/trunk-watch: gh cannot name this repository" if repository.nil? || repository.empty?
+
+%w[INT TERM].each { |signal| trap(signal) { exit 0 } }
+
+exit 1 if TrunkWatch.new(repository:, gh:, floor:, interval:).run
