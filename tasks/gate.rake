@@ -7,6 +7,7 @@
 
 require_relative "gate"
 require_relative "remote_gate"
+require_relative "remote_windows"
 
 # The gate, bundle exec rake, in two parts. The first, run in order in this
 # process, changes files (RuboCop's autocorrection) and builds what the
@@ -91,6 +92,23 @@ namespace :gate do
     status = gate.run(args.to_a)
     exit status unless status.zero?
   rescue RemoteGate::Failure => e
+    abort "❌ #{e.message}"
+  end
+
+  # Leased Windows capacity, for whoever has a Windows computer with a
+  # desktop job runner (tasks/remote_windows.rb): LOTA_WINDOWS_HOST names
+  # it for ssh, LOTA_WINDOWS_KEY an identity file for it, and
+  # LOTA_WINDOWS_RUNNER the folder under its home that holds the clone.
+  desc "Run Lota's Windows checks on the Windows computer at LOTA_WINDOWS_HOST, on this commit or working tree"
+  task :windows do
+    host = ENV.fetch("LOTA_WINDOWS_HOST", "")
+    abort "❌ gate:windows needs LOTA_WINDOWS_HOST, the Windows computer's ssh destination" if host.empty?
+
+    windows = RemoteWindows.new(repository: Dir.pwd, host:, key: ENV.fetch("LOTA_WINDOWS_KEY", nil),
+      runner: ENV.fetch("LOTA_WINDOWS_RUNNER", RemoteWindows::RUNNER))
+    status = windows.run
+    exit status unless status.zero?
+  rescue RemoteGate::Failure, RemoteWindows::Failure => e
     abort "❌ #{e.message}"
   end
 end

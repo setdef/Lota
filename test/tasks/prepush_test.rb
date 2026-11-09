@@ -141,6 +141,57 @@ class PrePushTest < Minitest::Test
     assert_instance_of RemoteGate, runner.gate(TIP)
   end
 
+  # Stands in for the Windows checks: records each tip it was asked to
+  # check and answers with the status it was given.
+  class FakeWindows
+    attr_reader :tips
+
+    def initialize(status = 0)
+      @status = status
+      @tips = []
+    end
+
+    def host = "pc.test"
+
+    def run(tip)
+      @tips << tip
+      @status
+    end
+  end
+
+  def test_the_windows_checks_run_on_the_pushed_tip_after_the_rake_checks
+    windows = FakeWindows.new
+    status = PrePush.new(input: StringIO.new(line), output: @out, env: {}, runner: @runner, known: -> (_) { true },
+      windows:, clock: [0.0, 1.0].cycle).run
+
+    assert_equal 0, status
+    assert_equal [TIP], windows.tips
+    assert_equal 2, @runner.calls.size
+    assert_operator @out.string.index("rake red_before_green"), :<, @out.string.index("the Windows checks (on pc.test)")
+  end
+
+  def test_failing_windows_checks_refuse_the_push_and_a_failing_tier_skips_them
+    windows = FakeWindows.new(4)
+    hook = lambda do |runner|
+      PrePush.new(input: StringIO.new(line), output: @out, env: {}, runner:, known: -> (_) { true }, windows:)
+    end
+
+    assert_equal 1, hook.call(@runner).run
+    assert_includes @out.string, "push refused: the Windows checks failed"
+    assert_equal 1, hook.call(FakeRunner.new("prepush" => 2)).run
+    assert_equal [TIP], windows.tips
+  end
+
+  def test_the_windows_checks_run_only_where_a_host_is_named
+    assert_nil PrePush.windows({}, "/repo")
+    assert_nil PrePush.windows({ "LOTA_WINDOWS_HOST" => "" }, "/repo")
+    runner = PrePush.windows({ "LOTA_WINDOWS_HOST" => "agent@pc.test", "LOTA_WINDOWS_KEY" => "/k" }, "/repo")
+
+    assert_equal "agent@pc.test", runner.host
+    assert_equal ["ssh", "-i", "/k", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "agent@pc.test", "x"],
+      runner.windows(TIP).command("x")
+  end
+
   def test_the_pushes_are_parsed_from_the_hooks_input
     push = PrePush.pushes(StringIO.new(line)).first
 

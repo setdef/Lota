@@ -7,6 +7,7 @@
 
 require "open3"
 require_relative "remote_gate"
+require_relative "remote_windows"
 
 # What .githooks/pre-push runs: the checks a push needs, over what the
 # push brings. For each ref git is about to update (it names them on the
@@ -17,7 +18,11 @@ require_relative "remote_gate"
 #
 # The checks run on the gate runner (rake gate:remote) when LOTA_GATE_KEY
 # is set, so the computer you type on does no heavy work, and otherwise
-# here. Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run nothing;
+# here. When LOTA_WINDOWS_HOST names a Windows computer with a desktop job
+# runner (tasks/remote_windows.rb), Lota's Windows checks then run there
+# on the pushed tip too, with LOTA_WINDOWS_KEY as ssh's identity file and
+# LOTA_WINDOWS_RUNNER as the folder under its home that holds the clone.
+# Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run nothing;
 # the last is for emergencies. git push --no-verify skips the hook
 # itself, as git always allows.
 class PrePush
@@ -72,9 +77,42 @@ class PrePush
     1
   end
 
+  # Runs Lota's Windows checks on the Windows computer +env+ names, on the
+  # commit being pushed.
+  class WindowsRunner
+    def initialize(repository, env)
+      @repository = repository
+      @env = env
+    end
+
+    # The host the checks run on.
+    def host = @env.fetch("LOTA_WINDOWS_HOST")
+
+    # The RemoteWindows that runs on +tip+.
+    def windows(tip)
+      RemoteWindows.new(repository: @repository, commit: tip, host:, key: @env.fetch("LOTA_WINDOWS_KEY", nil),
+        runner: @env.fetch("LOTA_WINDOWS_RUNNER", RemoteWindows::RUNNER))
+    end
+
+    # Runs the checks on +tip+ and returns their exit status, or 1, after
+    # saying why, when the commit cannot be sent.
+    def run(tip)
+      windows(tip).run
+    rescue RemoteGate::Failure, RemoteWindows::Failure => e
+      warn e.message
+      1
+    end
+  end
+
   # The runner for +env+: the gate runner when LOTA_GATE_KEY is set and not empty.
   def self.runner(env, repository)
     env.fetch("LOTA_GATE_KEY", "").empty? ? LocalRunner.new(repository) : RemoteRunner.new(repository, env)
+  end
+
+  # The WindowsRunner for +env+ when LOTA_WINDOWS_HOST is set and not
+  # empty, or nil.
+  def self.windows(env, repository)
+    WindowsRunner.new(repository, env) unless env.fetch("LOTA_WINDOWS_HOST", "").empty?
   end
 
   # Parses the hook's standard input into its Pushes.
@@ -96,13 +134,16 @@ class PrePush
   # [env] The environment.
   # [runner] What runs rake tasks: #run(tip, args) answering an exit status.
   # [known] Answers whether this clone has a commit.
+  # [windows] What runs the Windows checks, #host and #run(tip) answering
+  #           an exit status, or nil for none.
   # [clock] Answers the time in seconds, with #next.
-  def initialize(input:, output:, env:, runner:, known:, clock: nil)
+  def initialize(input:, output:, env:, runner:, known:, windows: nil, clock: nil)
     @input = input
     @output = output
     @env = env
     @runner = runner
     @known = known
+    @windows = windows
     @clock = clock || Enumerator.new { |y| loop { y << Process.clock_gettime(Process::CLOCK_MONOTONIC) } }
   end
 
@@ -127,22 +168,29 @@ class PrePush
   end
 
   private def check(push)
-    [["prepush"], ["red_before_green[#{range(push)}]"]].all? do |args|
-      @output.puts "pre-push: rake #{args.first} (#{(@runner.class.name.split('::').last == 'RemoteRunner') ? 'on the gate runner' : 'here'})"
-      started = @clock.next
-      status = @runner.run(push.local_sha, args)
-      @output.puts "pre-push: rake #{args.first} #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
-      next true if status.zero?
-
-      @output.puts "pre-push: push refused: rake #{args.first} failed. Fix it and push again " \
-        "(git push --no-verify skips the hook, LOTA_PREPUSH=skip is for emergencies)."
-      false
+    where = (@runner.class.name.split("::").last == "RemoteRunner") ? "on the gate runner" : "here"
+    checks = [["prepush"], ["red_before_green[#{range(push)}]"]].map do |args|
+      ["rake #{args.first}", where, -> { @runner.run(push.local_sha, args) }]
     end
+    checks << ["the Windows checks", "on #{@windows.host}", -> { @windows.run(push.local_sha) }] if @windows
+    checks.all? { |name, place, check| passed?(name, place, check) }
+  end
+
+  private def passed?(name, place, check)
+    @output.puts "pre-push: #{name} (#{place})"
+    started = @clock.next
+    status = check.call
+    @output.puts "pre-push: #{name} #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
+    return true if status.zero?
+
+    @output.puts "pre-push: push refused: #{name} failed. Fix it and push again " \
+      "(git push --no-verify skips the hook, LOTA_PREPUSH=skip is for emergencies)."
+    false
   end
 end
 
 if $PROGRAM_NAME == __FILE__
   repository = Dir.pwd
   exit PrePush.new(input: $stdin, output: $stdout, env: ENV, runner: PrePush.runner(ENV, repository),
-    known: -> (sha) { PrePush.known?(sha, repository) }).run
+    known: -> (sha) { PrePush.known?(sha, repository) }, windows: PrePush.windows(ENV, repository)).run
 end

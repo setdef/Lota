@@ -43,10 +43,12 @@
 #   loads by name, ahead of System32's, whose OpenGL 1.1 LÖVE refuses:
 #   opengl32.dll, its driver libgallium_wgl.dll, and every DLL of BIN
 #   either needs, but none Ruby has already.
-# [tests LOGS] Runs each file of the tests rake test runs (TEST_SUITES in
-#   tasks/test.rake), but those WINDOWS_EXCLUDED leaves out, in a Ruby of
-#   its own, as Minitest's task does, each within TEST_BUDGET seconds,
-#   keeps what each printed in LOGS, and passes only if every file passed.
+# [tests LOGS [--prepush]] Runs each file of the tests rake test runs
+#   (TEST_SUITES in tasks/test.rake), but those WINDOWS_EXCLUDED leaves
+#   out, in a Ruby of its own, as Minitest's task does, each within
+#   TEST_BUDGET seconds, keeps what each printed in LOGS, and passes only
+#   if every file passed. With --prepush each file leaves out the tests
+#   the pre-push tier leaves out (PREPUSH_EXCLUDE in tasks/test.rake).
 #
 # package, deliver, and tests load tasks/*.rake without Bundler, whose
 # Gemfile holds gems RubyInstaller's Ruby would have to compile.
@@ -339,10 +341,12 @@ module WindowsChecks
   # How long a file of tests may run, in seconds.
   TEST_BUDGET = 900
 
-  def tests(logs)
+  def tests(logs, tier = nil)
+    abort "tests takes LOGS and, optionally, --prepush" unless [nil, "--prepush"].include?(tier)
     FileUtils.mkdir_p(logs)
     files = test_files
-    results = files.map { |file| run_test_file(file, logs) }
+    options = tier ? ["--exclude", PREPUSH_EXCLUDE] : []
+    results = files.map { |file| run_test_file(file, logs, options) }
     report(results)
     WINDOWS_EXCLUDED.each { |file, reason| puts "Not run: #{file}, #{reason}" }
     failed = results.reject { |result| result[:passed] }
@@ -362,14 +366,14 @@ module WindowsChecks
   end
 
   # Runs +file+ as Minitest's task does, with its tests' names and times,
-  # and its output kept in +logs+. RUBYLIB holds lib, as Bundler's setup,
+  # Minitest's +options+, and its output kept in +logs+. RUBYLIB holds lib, as Bundler's setup,
   # which the gate runs under, puts the gemspec's lib on the load path of
   # every Ruby a test starts.
-  def run_test_file(file, logs)
+  def run_test_file(file, logs, options = [])
     log = File.join(logs, "#{file.delete_suffix('.rb').tr('/', '-')}.log")
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     pid = Process.spawn({ "RUBYLIB" => File.join(ROOT, "lib") }, RbConfig.ruby, "-w", "-Ilib", "-Itest", file,
-      "--verbose", chdir: ROOT, in: File::NULL, out: log, err: %i[child out])
+      "--verbose", *options, chdir: ROOT, in: File::NULL, out: log, err: %i[child out])
     status = wait_within(pid, TEST_BUDGET)
     seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     # A Ruby on Windows writes its lines with CRLF.

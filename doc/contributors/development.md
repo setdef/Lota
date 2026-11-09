@@ -81,7 +81,7 @@ Red-before-green: none (refactor)
 
 `bin/setup` installs a hook that runs `rake prepush`, then `rake red_before_green` over exactly the commits you push, before git sends anything. It prints each check and how long it took, and refuses the push if one fails (`.githooks/pre-push` and `tasks/prepush.rb`).
 
-When `LOTA_GATE_KEY` is set, both checks run on the gate runner through `gate:remote`, so your own computer does none of the work. Pushing a tag or deleting a ref runs nothing. In an emergency, such as pushing a revert to a red trunk, `LOTA_PREPUSH=skip git push` skips the checks.
+When `LOTA_GATE_KEY` is set, both checks run on the gate runner through `gate:remote`, so your own computer does none of the work. When `LOTA_WINDOWS_HOST` names a Windows computer of yours, Lota's Windows checks then run there too, as `rake gate:windows` runs them ([windows.md](windows.md)). Pushing a tag or deleting a ref runs nothing. In an emergency, such as pushing a revert to a red trunk, `LOTA_PREPUSH=skip git push` skips the checks.
 
 The hook lives in the clone's shared hooks folder as a stub that runs `.githooks/pre-push` from whichever worktree pushes, so every worktree has it. `bin/setup` leaves alone a `pre-push` it did not write, and says so.
 
