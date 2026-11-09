@@ -102,12 +102,6 @@ Cursor *new_cursor(Rice::Array images, int hotx, int hoty) {
   return instance->newCursor(data, hotx, hoty);
 }
 
-// Frees what SDL allocated, as SDL_GetDisplays' documentation says its
-// caller must (SDL_video.h).
-struct SDLFree {
-  void operator()(void *memory) const { SDL_free(memory); }
-};
-
 // w_getGlobalPosition (wrap_Mouse.cpp:192-201) and the
 // Mouse::getGlobalPosition it calls (mouse/sdl/Mouse.cpp:166-197): the
 // pointer's place on the display it is on, and that display, counting
@@ -124,7 +118,10 @@ Rice::Array global_position() {
   SDL_GetGlobalMouseState(&globalx, &globaly);
 
   int displaycount = 0;
-  const std::unique_ptr<SDL_DisplayID, SDLFree> displays(SDL_GetDisplays(&displaycount));
+  // SDL_GetDisplays allocates the list, which its caller frees with
+  // SDL_free (SDL_video.h).
+  const std::unique_ptr<SDL_DisplayID, void (*)(void *)> displays(SDL_GetDisplays(&displaycount),
+                                                                  SDL_free);
   std::vector<SDL_Rect> bounds;
   if (displays != nullptr && displaycount > 0) {
     const std::span<const SDL_DisplayID> ids(displays.get(),
