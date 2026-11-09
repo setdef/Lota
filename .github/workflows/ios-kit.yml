@@ -4,7 +4,8 @@
 # The iOS kit, for any Lota game in a public repository: an Xcode project
 # that builds the game as one app for iPhone and iPad, which a studio or
 # a game's maintainer opens, signs with their own Apple ID or team, and
-# owns (doc/contributors/ios-kit.md is the guide).
+# owns (doc/guide/phones.md is the guide, and doc/contributors/ci.md says
+# what it checks).
 #
 # The project job lays the game out as a Fledge project (ipad/prepare.rb:
 # lota fuse's entry script, or the game's own program), with Lota from
@@ -22,7 +23,7 @@
 # Lota's CI (ci.yml) calls it on every push, to build Lota's own
 # test/games/winkit from that commit. A game's own CI calls it as a
 # reusable workflow (workflow_call), with lota_ref naming the same ref as
-# its uses line; doc/contributors/ios-kit.md shows how.
+# its uses line; doc/guide/phones.md shows how.
 name: iOS kit
 
 on:

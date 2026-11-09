@@ -3,7 +3,7 @@
 
 # What a game's own CI holds to build its iOS kit: a call to Lota's
 # ios-kit.yml as a reusable workflow, with lota_ref naming the ref its
-# uses line names (doc/contributors/ios-kit.md). Here it builds Lota's
+# uses line names (doc/guide/phones.md). Here it builds Lota's
 # own made-up game, test/games/sample_game, as a game repository's
 # workflow would build its own game from game_path ".". A game's own
 # CI names Lota's workflow by a release's tag,

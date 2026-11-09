@@ -7,31 +7,120 @@
 
 Phones and tablets are where many games are played, and a Lota game runs there on the same engine as on a desktop. But a phone runs no `lota run`, and `lota fuse` builds only for the computer it runs on. A phone app is a project in its maker's own tools, an Xcode project for iOS and iPadOS and a Gradle project for Android, which you build, sign, and submit as you would any other app.
 
-[Fledge](https://github.com/setdef/Fledge) writes that project. It puts a Ruby of its own and your game in it, and compiles Lota's engine and extension for the phone while it does. This page takes your game folder through Fledge to an app on a Simulator, an emulator, and a device, and on to the files the App Store and Google Play take.
+[Fledge](https://github.com/setdef/Fledge) writes that project. It puts a Ruby of its own and your game in it, and compiles Lota's engine for the phone while it does. This page takes your game from its folder to an app in a Simulator, an emulator, and on a device, and on to the files the App Store and Google Play take.
 
-The phone route is experimental. Read [What has run, and what has not](#what-has-run-and-what-has-not) before you promise anyone a phone build: a game has run on a real iPad and iPhone, and an Android build has started on one real Android phone without crashing, which is all that has been tried there.
+The phone route is experimental. Games have run on real iPads and iPhones and on one Android phone; [What has run](#what-has-run) says exactly what, so read it before you promise anyone a phone build.
 
-## What you need
+## Two ways to build
+
+- **The iOS kit.** If your game lives in a GitHub repository, your game's CI can call Lota's iOS kit workflow. It builds everything on GitHub's macOS runners, checks the app in iPhone and iPad Simulators, and hands you a zipped Xcode project. To open it, you need a Mac with Xcode and an Apple ID, and no Ruby, Lota, or Fledge.
+- **By hand.** You build Lota's parts from a clone of Lota, lay out a Fledge project, and run `fledge build`. This is the only route to Android, and the one to take when you change Lota or its hosts.
+
+Both routes use the same host, the startup files that run your game on the phone, so a game behaves the same either way.
+
+## The iOS kit
+
+### Call it from your game's CI
+
+Add this workflow to your game's repository. It calls Lota's as a reusable workflow, so your CI copies no scripts. Name a release of Lota by its tag, such as `v0.3.0`, in both `uses` and `lota_ref`; the two must match.
+
+```yaml
+# .github/workflows/ios-kit.yml in your game's repository
+name: iOS kit
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  ios-kit:
+    uses: setdef/Lota/.github/workflows/ios-kit.yml@v0.3.0
+    with:
+      lota_ref: v0.3.0
+      game_repository: ${{ github.repository }}
+      game_ref: ${{ github.sha }}
+      display_name: "Sample Game"
+      identifier: com.example.SampleGame
+      icon: icons/icon-*.png
+      smoke_env: SAMPLE_GAME_QUIT_AFTER=12
+```
+
+The jobs run on your repository's macOS runners, and the kit lands on your run. Your run's token checks the game out, so your repository may be private.
+
+### Its inputs
+
+Only `lota_ref` and `game_repository` are required.
+
+- **`lota_ref`** is the tag your `uses` line names.
+- **`game_repository`** is the game's repository as `OWNER/NAME`, usually `${{ github.repository }}`.
+- **`game_ref`** is a tag, branch, or commit; empty takes the default branch.
+- **`game_path`** is the game's folder in the repository, the one with `main.rb`; `.` by default.
+- **`display_name`** is the name under the icon. It may hold spaces and any Unicode. Empty takes the repository's name.
+- **`app_name`** is the Xcode target's and the program's name: ASCII letters and digits, starting with a letter. Empty derives it from `display_name`, so "Sample Game" becomes `SampleGame`.
+- **`identifier`** is the bundle identifier. Empty gives `com.example.APP_NAME`, a placeholder you change when you sign.
+- **`program`** is the Ruby program the app runs, relative to `game_path`. Empty writes the program `lota fuse` writes, which boots your game as a shipped game. Name your own to boot the game another way.
+- **`icon`** is a folder, a glob such as `icons/icon-*.png`, or a PNG, relative to the repository's root. The workflow takes the 1024 by 1024 PNG, from which Xcode makes every other size. Without one the app gets a plain generated icon, and the run warns you.
+- **`orientations`** reads like `iphone: portrait landscape; ipad: all`, which is the default. The words are `portrait`, `upside-down`, `landscape-left`, `landscape-right`, `landscape` (both), and `all`. A list without `iphone:` or `ipad:` sets both.
+- **`audio_category`** is the audio session's category: `ambient` (the default, which mixes with other apps' audio and which the silent switch mutes), `solo-ambient`, `playback`, or `default`.
+- **`hide_status_bar`** is true by default. On an iPad, a game whose window is not fullscreen still shows the status bar; set `t.window.fullscreen = true` to cover the whole screen.
+- **`kit_questions`** names a text file of playtest questions. A line such as `Does the paddle follow your finger? | y/n` becomes a numbered question with blanks for an answer and a note. The types are `y/n`, `yes/no`, `yes/no + text`, `rating` (1 to 5), `choice: a/b/c`, and `text`. The kit carries the questions as `APP_NAME-results.txt`, with the game's and Lota's commits already filled in. Empty uses a short generic questionnaire.
+- **`artifact_name`** names the kit's artifact, `ios-kit` by default. Give each call its own name if one workflow calls the kit twice.
+- **`project_run`** checks the kit an earlier run built instead of building a new one.
+
+These inputs shape only CI's own Simulator runs, never the app you get:
+
+- **`smoke_env`** passes `NAME=VALUE` pairs, separated by spaces, to the game in each normal launch. Give your game a setting that makes it play itself and quit, and pass it here, so CI sees more than a title screen.
+- **`smoke_expect`** is a Ruby regular expression the game's output must match.
+- **`smoke_seconds`** is how long a normal launch may run, 40 by default.
+- **`touch_env`** adds pairs to `smoke_env` for the launch the touch test taps, such as one that keeps the game running longer.
+- **`extra_launches`** adds portrait launches, separated by `;`, each with pairs of its own, such as a replay of a saved game.
+
+A launch passes when the app neither crashes nor prints `[BUG]`, and either exits with status 0 or is still running when its time is up. So a game that quits by itself must quit with 0.
+
+### What CI checks
+
+The workflow builds the kit, then unpacks it on a second Mac with no Lota, Fledge, or XcodeGen, and builds it there for the Simulator and, unsigned, for devices. It runs the game in several iPad and iPhone Simulators in portrait, then in landscape, and taps the screen and turns it on two of them, keeping screenshots and the game's output. No Simulator signs, installs over a cable, reads a real accelerometer, or plays through a speaker; that is what the playtest questions are for.
+
+### Open the kit
+
+When the run is green, download its `ios-kit` artifact:
+
+```sh
+gh run download RUN -R OWNER/NAME -n ios-kit
+```
+
+It holds `APP_NAME-ios.zip`, `kit.json` (what the run made of your inputs), and `SHA256SUMS`. Unpack the zip with `ditto -x -k` or Finder, which keep its symbolic links; the frameworks inside rely on them. Then follow the `README.txt` inside: add your Apple ID in Xcode, choose your team, set the bundle identifier, pair the device by cable, turn on Developer Mode, trust the developer, and press Run.
+
+The zip holds the Xcode project, already generated, with one target for iPhone and iPad; the host, `Host/main.m` and `Host/Info.plist`; Ruby and Lota's engine, built for devices and the Simulator; your game in `fledge/`; and `BUILD-INFO.txt`, which names every commit and tool that made it. The project is yours to brand, sign, and change.
+
+## Build by hand
+
+### What you need
 
 For both systems:
 
-- A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`. Its `bundle install` brings Rice, whose headers the build reads.
-- Ruby 4.0 and Bundler, Git, CMake 3.21 or newer, and Ninja. LÖVE's engine and its libraries build with CMake and Ninja, so have both on your `PATH`.
-- Fledge v0.10.0, which your phone project's `Gemfile` names by its Git tag. Fledge downloads its Ruby runtime for each phone the first time it builds.
+- A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`.
+- Ruby 4.0 with Bundler, Git, CMake 3.21 or newer, and Ninja, all on your `PATH`.
+- Fledge v0.10.0, which your phone project's `Gemfile` names by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
 
 For iOS and iPadOS, a Mac with:
 
-- Xcode, with its iOS platform installed, and its command line tools.
+- Xcode, with its iOS platform and its command line tools.
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), which Fledge runs to make the Xcode project.
-- An Apple Developer account, to run the app on a device or send it to the App Store.
+- An Apple ID, to run the app on a device, or an Apple Developer account, to send it to the App Store.
 
 For Android, on x86-64 Linux:
 
 - A JDK, 17 or newer.
-- The Android SDK, with its `platform-tools`, and the Android NDK, 30.0.16248370.
-- `make` and a shell, which two of LÖVE's libraries build with, through their `configure` scripts.
+- The Android SDK with its `platform-tools`, and the Android NDK 30.0.16248370.
+- `make` and a shell, which two of LÖVE's libraries build with.
 
-The SDK starts as its command-line tools: download "Command line tools only" for Linux from [Android Studio's download page](https://developer.android.com/studio), and unpack the zip's `cmdline-tools` folder as `cmdline-tools/latest` in a folder for the SDK, such as `~/Android/Sdk`, where `sdkmanager` expects it. Name that folder in `ANDROID_HOME`, accept the SDK's licences, and install the platform tools and the NDK:
+The SDK starts as its command-line tools. Download "Command line tools only" for Linux from [Android Studio's download page](https://developer.android.com/studio), and unpack the zip's `cmdline-tools` folder as `cmdline-tools/latest` in a folder for the SDK, such as `~/Android/Sdk`. Then accept the licences and install the rest:
 
 ```sh
 export ANDROID_HOME="$HOME/Android/Sdk"
@@ -41,24 +130,11 @@ sdkmanager "platform-tools" "ndk;30.0.16248370"
 export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/30.0.16248370"
 ```
 
-Gradle installs the rest, Android's platform 36 and `build-tools` 36.0.0, the first time it builds the app, so that first build needs the network.
+Gradle installs Android's platform 36 and its `build-tools` the first time it builds the app, so that first build needs the network. Lota's own checks build Android on Ubuntu 24.04; Fledge also builds Android on a Mac and on Windows, but Lota's Android libraries have not been built there.
 
-Lota's own checks build Android on Ubuntu 24.04. Fledge also builds Android projects on a Mac and on Windows, but Lota's Android libraries have not been built there yet.
+### Build Lota's parts once
 
-## What is prebuilt, and what you build
-
-Today you build Lota for a phone from source, on your own computer:
-
-- **Lota's engine and extension** compile while `fledge build` runs, for each iOS slice (device and Simulator) or Android ABI (`arm64-v8a` and `x86_64`), from your clone. Lota publishes no prebuilt phone libraries yet.
-- **SDL3** you build once, from LÖVE's release, 3.4.10. For iOS, `rake ios:sdl3` builds it as static libraries; for Android, `rake android:deps` builds it as `libSDL3.so`, and Lota's Android host carries the same release's Java classes, which must match the library the app loads.
-- **LÖVE's other libraries** for iOS are prebuilt: the static archives in `vendor/love-apple-dependencies`, which LÖVE's own project publishes, and Apple's frameworks. For Android, `rake android:deps` builds them from each release's source archive, pinned by its SHA-256: zlib, libogg, libvorbis, libtheora, FreeType, HarfBuzz, and libmodplug as static libraries, and OpenAL Soft as `libopenal.so`.
-- **Ruby** is Fledge's prebuilt runtime for each phone, downloaded and checked against the SHA-256 Fledge pins.
-
-Building takes a while. On GitHub's runners, `rake ios:sdl3` took about 2 minutes and `fledge build ios` about 9; `rake android:deps` took about 5 minutes, SDL included, `fledge build android` 8, and Gradle's three builds 2. You run `rake ios:sdl3` and `rake android:deps` once (`rake android:deps` skips the build when its recipe and the NDK have not changed), but each `fledge build` compiles the engine again, once for each slice or ABI.
-
-## Build Lota's parts once
-
-Clone Lota with its submodules, here into `~/Lota`, and install its bundle:
+Lota publishes no prebuilt phone libraries yet, so you build them. Clone Lota, here into `~/Lota`, and install its bundle:
 
 ```sh
 git clone --recurse-submodules https://github.com/setdef/Lota.git ~/Lota
@@ -66,15 +142,13 @@ cd ~/Lota
 bundle install
 ```
 
-The commands below run in `~/Lota`.
-
-For iOS, build SDL3 into `tmp/ios/sdl3`:
+For iOS, build SDL3 into `tmp/ios/sdl3`. LÖVE's other libraries for iOS come prebuilt, in `vendor/love-apple-dependencies`, beside Apple's frameworks.
 
 ```sh
 bundle exec rake ios:sdl3
 ```
 
-For Android, build LÖVE's libraries and SDL3 into `tmp/android/deps`, with `ANDROID_NDK_ROOT` set as above:
+For Android, with `ANDROID_NDK_ROOT` set, build SDL3 and LÖVE's other libraries into `tmp/android/deps`. Each comes from its release's source archive, pinned by its SHA-256. The task skips the build when its recipe and the NDK have not changed.
 
 ```sh
 bundle exec rake android:deps
@@ -89,11 +163,11 @@ gem unpack tmp/phone/lota.gem --target tmp/phone
 gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
 ```
 
-Run these again after you pull a new version of Lota.
+Run these again after you pull a new version of Lota. Lota's engine itself compiles each time `fledge build` runs, once for each iOS slice (device and Simulator) or Android ABI (`arm64-v8a` and `x86_64`), so a build takes several minutes.
 
-## Lay out the phone project
+### Lay out the phone project
 
-Fledge builds from a project folder that holds a program, a `Gemfile`, and a `fledge.yml`. Keep it beside your game, not inside it: everything in the project folder but the hosts goes into the app. Lay it out as `lota fuse` lays out its own, with your game in `game/` under its identity, here `MyGame`:
+Fledge builds from a project folder that holds a program, a `Gemfile`, and a `fledge.yml`. Everything in it but the hosts goes into the app, so keep it beside your game, not inside it. Put your game in `game/` under its identity, here `MyGame`, as `lota fuse` does:
 
 ```
 MyGame-phone/
@@ -102,7 +176,7 @@ MyGame-phone/
   main.rb
   game/MyGame/       a copy of your game folder: conf.rb, main.rb, assets
   host/ios/          Lota's iOS host
-  host/android/      Lota's Android host, with SDL's Java classes
+  host/android/      Lota's Android host
 ```
 
 Copy the game and Lota's hosts in:
@@ -113,7 +187,7 @@ cp -R path/to/my_game MyGame-phone/game/MyGame
 cp -R ~/Lota/tmp/phone/lota/ext/lota/phone/host MyGame-phone/host
 ```
 
-`main.rb` starts the game as a shipped game starts, as the program `lota fuse` writes does:
+`main.rb` boots the game as a shipped game, as the program `lota fuse` writes does:
 
 ```ruby
 # frozen_string_literal: true
@@ -146,9 +220,9 @@ android:
   host: host/android
 ```
 
-`name` is the Xcode target's and the app's name: letters and digits. The identifier is the reverse-DNS name the App Store and Google Play know the app by, under a domain of yours in place of `example.com`; changing it later makes a new app. A game's `t.version` names the version of LÖVE it was written for, so the app's version is `fledge.yml`'s.
+`name` is the Xcode target's and the app's name, in letters and digits. The identifier is the reverse-DNS name the App Store and Google Play know the app by, under a domain of yours in place of `example.com`; changing it later makes a new app. The app's version comes from here, since a game's `t.version` names the version of LÖVE it was written for.
 
-Then tell Bundler where Lota's clone and its builds are, and lock the `ruby` platform, which Fledge builds a phone's gems for. Ask the clone's bundle for Rice's folder first, while you are still in `~/Lota`. Once `BUNDLE_GEMFILE` names the phone project, `bundle info rice` reads that project's bundle, which has no Rice, and prints nothing, and `fledge build` then stops with `RICE_DIR () holds no include/rice/rice.hpp`.
+Last, tell Bundler where Lota's clone and its builds are, and lock the `ruby` platform, which Fledge builds a phone's gems for. Ask the clone's bundle for Rice's folder first, while you are still in `~/Lota`: in the phone project, `bundle info rice` finds nothing, and `fledge build` then stops with `RICE_DIR () holds no include/rice/rice.hpp`.
 
 ```sh
 rice=$(bundle info rice --path)
@@ -158,28 +232,13 @@ bundle lock --add-platform ruby
 bundle install
 ```
 
-For Android, name Android's libraries, SDL among them, instead:
+For Android, name Android's libraries instead:
 
 ```sh
 bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-android-deps=$HOME/Lota/tmp/android/deps --with-rice-dir=$rice"
 ```
 
-### The hosts
-
-SDL owns a phone's screen and its main loop, so a Lota app starts through SDL's startup files rather than Fledge's. Fledge builds the app, and ships no SDL: it links the libraries Lota's build names and copies a host folder over the project it writes (`ios: host:` and `android: host:`). Lota provides both, the SDL build (`rake ios:sdl3`, `rake android:deps`) and the hosts, in its gem, in `ext/lota/phone/host`; Fledge's own SDL example served as a reference, and nothing here runs it. They are yours to change once copied:
-
-- **iOS** (`host/ios`): `Host/main.m` runs the game's Ruby on the main thread inside `SDL_RunApp`, with a 64 MB stack, and sends what the game prints to the unified log under the app's identifier. `Host/Info.plist` hides the status bar, runs at the screen's own size, turns to every orientation an iPad has and to portrait and both landscapes on an iPhone, reads a mouse or trackpad, and sets the audio session to `ambient`, which mixes with other apps' audio and which the silent switch mutes (`LotaAudioSessionCategory`: `ambient`, `soloAmbient`, or `playback`). The name under the icon is the target's; set `CFBundleDisplayName` for another. In the iPadOS 26.2 Simulator a game whose window is not fullscreen still showed the status bar; `t.window.fullscreen = true` hides it there, as it hides it for a LÖVE game on iOS, whose status bar LÖVE leaves to SDL, and SDL hides only for a fullscreen or borderless window. One departure from LÖVE: SDL shows the accelerometer as a joystick on iOS, and the host turns that off (`SDL_ACCELEROMETER_AS_JOYSTICK=0`), since an early Lota crashed reading that joystick; read the accelerometer through `Lota::Sensor`. A second departure, in `Host/main.m` and `Info.plist`'s `NSPrincipalClass`: iOS 27 no longer reports the interface orientation through `UIApplication`'s `statusBarOrientation`, the only place SDL 3.4.10 reads it, and SDL then gives a game launched in landscape a portrait window, cut off at the bottom and black on the right, in LÖVE's own iOS app as well (`doc/contributors/upstream/019.md`). The host's `LotaApplication` answers with the window scene's orientation when UIKit answers none, or with the scene's shape while the scene has none yet, and leaves UIKit's answer alone otherwise. Keep both when you change the host.
-- **Android** (`host/android`): `MainActivity.java` is SDL's Activity. It loads SDL, OpenAL Soft, Ruby, and the app's extensions, runs the game's Ruby on a thread with a 64 MB stack, and has the methods LÖVE's engine calls on it, as LÖVE's own Android app has them. `AndroidManifest.xml` asks for OpenGL ES 3.0, vibration, and a full screen without a title bar. One departure from LÖVE: Android restarts an activity for any change of configuration its manifest does not list, and SDL then ends the game and closes the app. LÖVE's Android app lists only a turn of the screen and a keyboard coming or going, so in LÖVE a change to dark mode, the font's size or weight, the language, or the display size ends the game, and so does a change to the system's overlays, which Android 12 and newer make when the wallpaper's colours change. The host also lists `uiMode`, `fontScale`, `fontWeightAdjustment`, `locale`, `layoutDirection`, `assetsPaths`, and `density` in `android:configChanges`, so the game keeps running and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`. A change of display size reaches the game as no event, and the game keeps the scale it launched with, as in LÖVE. Keep them when you change the manifest. A second departure, in `MainActivity.java`: when the game leaves the screen, SDL lets its window go at once unless the window is OpenGL's, and LÖVE's Vulkan renderer, still drawing a frame, then crashes on the window that is gone, in LÖVE's own Android app as well (`doc/contributors/upstream/017.md`). The host's surface waits, up to 2 seconds and usually a few milliseconds, until the game's event pump has paused it, as SDL waits for OpenGL. Lota's extension tells the host when that happens through the activity's `gamePaused` method. Keep the method and `createSDLSurface` when you change the activity.
-
-SDL turns the screen to suit the game's window: a window wider than it is tall, such as the default 800 by 600, puts a phone in landscape, and one taller than wide in portrait. Either way the window takes the whole screen, at the size the phone gives it, so read `Lota::Graphics.dimensions` rather than assuming the size `conf.rb` asked for.
-
-Android's Back reaches the game as `Lota.keypressed(:escape, :acback)`, and then SDL closes the app, as in LÖVE: the game gets `Lota.quit`, as on a desktop whose window closes. A game that decides what Back does adds this inside `<application>` in its `host/android/src/main/AndroidManifest.xml`, and the host also keeps Android 13 and newer from closing the app with predictive back:
-
-```xml
-<meta-data android:name="SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON" android:value="1" />
-```
-
-## iPhone and iPad
+### iPhone and iPad
 
 `fledge build ios` writes the Xcode project, `dist/MyGame-ios`, with Ruby and Lota for both the device and the Simulator:
 
@@ -190,26 +249,7 @@ open dist/MyGame-ios/MyGame.xcodeproj
 
 In Xcode, choose a Simulator and press Run. For a device, choose your team under Signing & Capabilities, connect the device, turn on its Developer Mode, and press Run.
 
-From the command line, build for a device connected by cable, with your team, then install and launch it with `devicectl`:
-
-```sh
-xcodebuild -project MyGame.xcodeproj -scheme MyGame -configuration Debug -destination generic/platform=iOS \
-  -derivedDataPath build DEVELOPMENT_TEAM=YOURTEAMID -allowProvisioningUpdates build
-xcrun devicectl list devices
-xcrun devicectl device install app --device DEVICE build/Build/Products/Debug-iphoneos/MyGame.app
-xcrun devicectl device process launch --device DEVICE com.example.MyGame
-```
-
-What stood in the way the first time a game went onto an iPad and an iPhone this way:
-
-- **Developer Mode is off.** Turn it on in Settings, Privacy & Security, Developer Mode, and let the device restart.
-- **No signing certificate.** A team has none until the first build with `-allowProvisioningUpdates`, which makes one.
-- **The device is trusted but not paired.** `devicectl manage pair` failed with a transport error; unplugging the cable and plugging it in again fixed it.
-- **A free Personal Team has limits.** It signs at most 3 apps on a device and 10 App IDs a week, and its profile expires after about 7 days. The first launch also needs Settings, General, VPN & Device Management, and trusting the developer.
-- **Xcode must know the device's iOS.** An older Xcode cannot install on a newer iOS.
-- **Keep `OS_ACTIVITY_DT_MODE` out of the scheme's environment.** With it set, the host leaves the game's output on its own streams, so the unified log gets none of it.
-
-From the command line, build for the Simulator and run it there:
+From the command line, build for the Simulator, run the game there, and read what it printed:
 
 ```sh
 cd dist/MyGame-ios
@@ -220,7 +260,24 @@ xcrun simctl launch booted com.example.MyGame
 xcrun simctl spawn booted log show --last 5m --predicate 'subsystem == "com.example.MyGame"'
 ```
 
-The last line shows what the game printed.
+For a device connected by cable, build with your team, then install and launch with `devicectl`:
+
+```sh
+xcodebuild -project MyGame.xcodeproj -scheme MyGame -configuration Debug -destination generic/platform=iOS \
+  -derivedDataPath build DEVELOPMENT_TEAM=YOURTEAMID -allowProvisioningUpdates build
+xcrun devicectl list devices
+xcrun devicectl device install app --device DEVICE build/Build/Products/Debug-iphoneos/MyGame.app
+xcrun devicectl device process launch --device DEVICE com.example.MyGame
+```
+
+If the device refuses, check these first:
+
+- **Developer Mode is off.** Turn it on in Settings, Privacy & Security, Developer Mode, and let the device restart.
+- **There is no signing certificate.** A team has none until the first build with `-allowProvisioningUpdates` makes one.
+- **The device is trusted but not paired.** If `devicectl manage pair` fails with a transport error, unplug the cable and plug it in again.
+- **A free Personal Team has limits.** It signs at most 3 apps on a device and 10 App IDs a week, and its profile expires after about 7 days. The first launch also needs Settings, General, VPN & Device Management, and trusting the developer.
+- **Xcode does not know the device's iOS.** An older Xcode cannot install on a newer iOS.
+- **The game prints nothing to the log.** Keep `OS_ACTIVITY_DT_MODE` out of the scheme's environment. With it set, the host leaves the game's output on its own streams, so the unified log gets none of it.
 
 For the App Store, archive the app with your team, then export it as an IPA:
 
@@ -231,29 +288,9 @@ xcodebuild -exportArchive -archivePath build/MyGame.xcarchive -exportPath build/
   -exportOptionsPlist ExportOptions.plist -allowProvisioningUpdates
 ```
 
-`ExportOptions.plist` names the method, `app-store-connect` for the App Store or `release-testing` for devices you register, and your `teamID`; Xcode's Organizer writes one when you export there once. Or archive from Xcode (Product, then Archive) and distribute from the Organizer.
+`ExportOptions.plist` names the method, `app-store-connect` for the App Store or `release-testing` for devices you register, and your `teamID`. Xcode's Organizer writes one when you export there once. Or archive from Xcode (Product, then Archive) and distribute from the Organizer.
 
-### The privacy manifest
-
-An App Store listing wants a privacy manifest, `PrivacyInfo.xcprivacy`, that names each category of "required reason" API your app calls and why. Without the right entries, App Store Connect emails you about the upload.
-
-`fledge build ios` writes `Host/PrivacyInfo.xcprivacy` with two entries: file timestamps (`NSPrivacyAccessedAPICategoryFileTimestamp`, reason `C617.1`) and system boot time (`NSPrivacyAccessedAPICategorySystemBootTime`, reason `35F9.1`). From reading their source, Lota's engine and SDL add no category beyond those two. LÖVE's timer and SDL's timer call `mach_absolute_time`, and PhysicsFS and LÖVE's filesystem call `stat` on files inside the app's container.
-
-Three things change that list:
-
-- **A host folder replaces the file whole.** If your `host/ios` has its own `Host/PrivacyInfo.xcprivacy`, it takes the place of Fledge's with no merging (Fledge's ADR 025, section 5). Repeat both entries in it.
-- **Showing file dates to the player.** A game that shows a file's date, from `Lota::Filesystem::Info#modtime` for example, adds `DDA9.1` to the file timestamp entry's reasons.
-- **Opening files the player chose.** A game that declares document types in `Info.plist`, or adds a file picker of its own, adds `3B52.1` to the same entry.
-
-SDL reads the system's scroll direction through `CFPreferences` when a mouse or trackpad connects. Apple's list of required reason APIs does not name that API, and Lota declares nothing for it.
-
-This list comes from reading the source of LÖVE, SDL, and Lota's host, and from the import check in `phones.yml`, which compares what the built app's executable imports with its manifest. No App Store upload has validated it yet. If App Store Connect names a category this section leaves out, add it to your manifest and tell Lota.
-
-### Or let your game's CI build the Xcode project
-
-If your game is in a GitHub repository, Lota's iOS kit workflow takes the steps above on GitHub's macOS runners, with the same host, and hands you the Xcode project as a zip, checked in iPhone and iPad Simulators in portrait and landscape: you need only a Mac with Xcode to open, sign, and run it. Your repository calls Lota's workflow by a release's tag; no release carries it yet, so until one does, name the commit of Lota's `trunk` that holds it. [The iOS kit](../contributors/ios-kit.md) has the call, its inputs, and what it checks. Unpack the zip with `ditto -x -k`, which keeps its symbolic links.
-
-## Android
+### Android
 
 `fledge build android` writes the Gradle project, `dist/MyGame-android`, with Ruby and Lota for `arm64-v8a` and `x86_64`:
 
@@ -271,7 +308,7 @@ adb shell am start -n com.example.MyGame/org.setdef.fledge.host.MainActivity
 adb logcat
 ```
 
-For Google Play, build the release App Bundle, and a release APK for anywhere else. Gradle leaves both unsigned; sign them with your own key, which `keytool` makes once:
+For Google Play, build the release App Bundle, and a release APK for anywhere else. Gradle leaves both unsigned, so sign them with your own key, which `keytool` makes once:
 
 ```sh
 ./gradlew assembleRelease bundleRelease
@@ -283,49 +320,98 @@ apksigner sign --ks release.jks --out MyGame.apk MyGame-aligned.apk
 
 `zipalign` and `apksigner` are in the SDK's `build-tools`. Upload the `.aab` to Google Play, which signs what it delivers with its own key once you enroll in Play App Signing; keep `release.jks` as your upload key. Or name the key in a `signingConfigs` block of `build.gradle`.
 
+## The hosts
+
+SDL owns a phone's screen and its main loop, so a Lota app starts through SDL's startup files rather than Fledge's own. Lota's gem carries a host for each system in `ext/lota/phone/host`, and Fledge copies it over the project it writes. Once you copy a host into your project it is yours to change, but keep the parts this section marks.
+
+**iOS** (`host/ios`). `Host/main.m` runs the game's Ruby on the main thread inside SDL, with a 64 MB stack, and sends what the game prints to the unified log under the app's identifier. `Host/Info.plist` hides the status bar, runs at the screen's own size, allows every orientation on an iPad and portrait and both landscapes on an iPhone, reads a mouse or trackpad, and sets the audio session to `ambient` (`LotaAudioSessionCategory`: `ambient`, `soloAmbient`, or `playback`). The name under the icon is the target's; set `CFBundleDisplayName` for another. The host departs from LÖVE's iOS app twice:
+
+- SDL shows the accelerometer as a joystick on iOS, and the host turns that off (`SDL_ACCELEROMETER_AS_JOYSTICK=0`). Read the accelerometer through `Lota::Sensor`. A paired controller is still a joystick.
+- On iOS 27, SDL gives a game launched in landscape a portrait window, cut off and black on one side, in LÖVE's own iOS app as well, because it reads the orientation from a place iOS 27 no longer fills (`doc/contributors/upstream/019.md`). The host's `LotaApplication`, named as `NSPrincipalClass` in `Info.plist`, answers with the window scene's orientation instead. Keep both.
+
+**Android** (`host/android`). `MainActivity.java` is SDL's Activity. It loads SDL, OpenAL Soft, Ruby, and the app's extensions, runs the game's Ruby on a thread with a 64 MB stack, and has the methods LÖVE's engine calls on it. `AndroidManifest.xml` asks for OpenGL ES 3.0, vibration, and a full screen. The host departs from LÖVE's Android app twice:
+
+- Android restarts an activity for any change of configuration its manifest does not list, and SDL then closes the app. LÖVE's app lists only a turn of the screen and a keyboard coming or going, so a change to dark mode, the font, the language, or the display size ends a LÖVE game. Lota's manifest also lists `uiMode`, `fontScale`, `fontWeightAdjustment`, `locale`, `layoutDirection`, `assetsPaths`, and `density` in `android:configChanges`, so the game keeps running, and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`. Keep them when you change the manifest.
+- When the game leaves the screen, SDL lets go of its window at once, and LÖVE's Vulkan renderer, still drawing a frame, then crashes, in LÖVE's own Android app as well (`doc/contributors/upstream/017.md`). The host waits, up to 2 seconds and usually a few milliseconds, until the game has paused. Keep `gamePaused` and `createSDLSurface` when you change the activity.
+
+## Screens and input
+
+SDL turns the screen to suit the game's window. A window wider than it is tall, such as the default 800 by 600, puts a phone in landscape, and one taller than wide puts it in portrait. Either way the window takes the whole screen at the size the phone gives it, so read `Lota::Graphics.dimensions` rather than assuming the size `conf.rb` asked for.
+
+With `t.highdpi = true` a game draws at the screen's own pixels; without it, as in LÖVE, it draws at 1x. `t.window.usedpiscale` decides what units the game counts in. When it is true, the default, sizes, positions, and touches count in points: an iPhone 17 Pro in portrait is 402 by 874 at a DPI scale of 3. When it is false, they count in pixels, `Lota::Graphics.dimensions` equals `pixel_dimensions`, and a touch at a quarter of the screen's width reads a quarter of `pixel_dimensions`' width. `Lota::Window.safe_area` counts in the same units.
+
+On an iPad, a game whose window is not fullscreen still shows the status bar over its top edge, as a LÖVE game does. Set `t.window.fullscreen = true` to cover it.
+
+Android's Back reaches the game as `Lota.keypressed(:escape, :acback)`, and then SDL closes the app, as in LÖVE: the game gets `Lota.quit`, as on a desktop whose window closes. To decide what Back does yourself, add this inside `<application>` in `host/android/src/main/AndroidManifest.xml`; the host then also keeps Android 13 and newer from closing the app with predictive back:
+
+```xml
+<meta-data android:name="SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON" android:value="1" />
+```
+
+A phone cannot restart a program in place, so `Lota::Event.restart` ends the game as a quit does.
+
+## The privacy manifest
+
+An App Store listing wants a privacy manifest, `PrivacyInfo.xcprivacy`, that names each category of "required reason" API your app calls and why. Without the right entries, App Store Connect emails you about the upload.
+
+`fledge build ios` writes `Host/PrivacyInfo.xcprivacy` with two entries: file timestamps (`NSPrivacyAccessedAPICategoryFileTimestamp`, reason `C617.1`) and system boot time (`NSPrivacyAccessedAPICategorySystemBootTime`, reason `35F9.1`). Lota's engine and SDL need no other category: their timers call `mach_absolute_time`, and their filesystems call `stat` on files inside the app's container. Three things change that list:
+
+- **A `Host/PrivacyInfo.xcprivacy` in your host folder** replaces Fledge's whole, with no merging. Repeat both entries in it.
+- **Showing file dates to the player**, from `Lota::Filesystem::Info#modtime` for example, adds `DDA9.1` to the file timestamp entry's reasons.
+- **Opening files the player chose**, through document types in `Info.plist` or a file picker of your own, adds `3B52.1` to the same entry.
+
+That list comes from reading the source of LÖVE, SDL, and Lota's host, and Lota's CI checks what the built app imports against it. No App Store upload has validated it yet. If App Store Connect names a category this section leaves out, add it to your manifest and tell Lota.
+
 ## Licences and notices
 
-An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem folder goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app. Fledge is MIT-licensed from 0.8.0, so its runtime adds no source for you to offer.
+An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app. Fledge is MIT-licensed, so its runtime adds no source for you to offer.
 
-Lota writes the rest, the notices of LÖVE's engine and the libraries a phone build links, into the phone project's `NOTICES.txt`, which goes into the app's `app/` folder, as `lota fuse` writes a desktop app's. Run it in the clone, before `fledge build`, and again after you pull a new version of Lota:
+Lota writes the rest, the notices of LÖVE's engine and the libraries a phone build links, into the phone project's `NOTICES.txt`, which goes into the app's `app/` folder, as `lota fuse` writes a desktop app's. Run it in the clone before `fledge build`, and again after you pull a new version of Lota:
 
 ```sh
 bundle exec rake ios:notices[$HOME/MyGame-phone]
 bundle exec rake android:notices[$HOME/MyGame-phone]
 ```
 
-The file names Lota and each library, with its version, licences, and notices of copyright, and ends with the text of every licence it names. It comes from the clone's record of who wrote what, `ext/lota/licenses.rb`. FreeType's licence also asks that the app's documentation credit the FreeType Team, in words the file quotes; put them there too.
+The file names Lota and each library, with its version, licences, and copyright notices, and ends with the text of every licence it names. FreeType's licence also asks that the app's documentation credit the FreeType Team, in words the file quotes; put them there too.
 
 OpenAL Soft is under the GNU Library General Public License, version 2 or later, which lets a player replace it with a build of their own:
 
-- **Android** links it as `libopenal.so`, a shared library apart from Lota's `libfledgeext.so`, as LÖVE's Android app does. Its source must go with the app, so `rake android:notices` also copies its release's archive, the one `rake android:deps` builds from, into the project's `sources/` folder, downloading it if it has to and checking its SHA-256, and the notices say where it is in the app.
+- **Android** links it as `libopenal.so`, apart from Lota's `libfledgeext.so`, as LÖVE's Android app does. Its source must go with the app, so `rake android:notices` also copies its release's archive into the project's `sources/` folder, checking its SHA-256, and the notices say where it is in the app.
 - **iOS** plays sound through Apple's OpenAL framework, as LÖVE's iOS build does, so no LGPL code is in an iOS app.
 
-## What has run, and what has not
+## What has run
 
-Lota's `phones.yml` workflow, which Lota's CI runs on every push, takes this page's commands on Lota's own sample game, `test/games/phone`, on GitHub's runners:
+On every push, Lota's CI takes this page's steps on a sample game:
 
-- iOS, with Xcode 26.3 and XcodeGen 2.46.0 on macOS 15: the project builds for the Simulator, and for devices, Debug and Release, with signing off, and archives with signing off. The game runs in an iPhone 17 Pro and an iPad Pro 13-inch (M5) Simulator of iOS 26.2: it draws on Metal at the screen's own pixels (2622 by 1206 on the iPhone, in landscape), plays its tone, saves a file, finds graphics from another thread refused, quits after its 12 seconds, about 1,600 frames, and Ruby exits with status 0. Each line it prints reaches the log as it prints it, which Fledge v0.5.1 brought.
-- Android, with the NDK 30.0.16248370 and Java 21 on Ubuntu 24.04: the project builds a debug APK, a release APK, and an App Bundle for `arm64-v8a` and `x86_64`, and the release APK and bundle sign with a key made for the run. The debug APK runs on an `x86_64` emulator of Android 16 (API 36): the game draws with OpenGL ES 3.0 through the emulator's software renderer, plays its tone through OpenSL ES, saves a file, takes a tap as a touch, finds graphics from another thread refused, quits, and Ruby exits with status 0; Back reaches it as `:escape` with the scancode `:acback`, and the game then quits. The same APK runs on an emulator of Android 13 (API 33), where the software renderer gives LÖVE Vulkan. On both, the game is sent home, to the recent apps, and to a dark screen, and brought back each time. It hears `Lota.visible` each way, draws again, and plays to its end in the same process.
+- **iOS**, in an iPhone 17 Pro and an iPad Pro 13-inch (M5) Simulator. The project builds for the Simulator and, unsigned, for devices, Debug and Release, and archives. The game draws on Metal at the screen's own pixels, plays a tone, saves a file, finds graphics from another thread refused, and quits with status 0. The iOS kit's checks run its sample games in more Simulators, in portrait and landscape, with taps and turns.
+- **Android**, on `x86_64` emulators of Android 16 and Android 13. The project builds a debug APK, a release APK, and an App Bundle, and the release builds sign. On Android 16 the game draws with OpenGL ES through the emulator's software renderer, plays its tone, saves a file, takes a tap, and quits with status 0, and Back reaches it as `:escape`. On Android 13 the same APK draws with Vulkan. On both, sent home, to the recent apps, and to a dark screen, it comes back each time and draws again.
 
-On real devices, outside Lota's CI: a game's own build took this route from a clone of Lota at v0.1.3, with `rake ios:sdl3`, the same `build.lota` options, Fledge v0.5.1, and host files of the game's own, and installed it from a Mac by cable with `xcodebuild` (a Personal Team, `-allowProvisioningUpdates`) and `devicectl`, on an iPad Pro 12.9-inch (6th generation) with iPadOS 26.7.1 and an iPhone 13 mini with iOS 18.7.8. On both the game ran fullscreen with no status bar, in portrait and both landscapes; taps landed under the finger; sound played, and the silent switch muted it; tilting moved the accelerometer, which the Simulator has none of; and on the iPad a Bluetooth Xbox controller worked. On the iPhone 13 mini a thin column of the wrong colour showed at the right edge in landscape. A game at a display scale that is not a whole number (the iPhone 12 mini and 13 mini report 2.88) that keeps the default stencil, or depth, or MSAA, gets undrawn right-hand columns there on Metal: LÖVE's Metal backend makes the backbuffer's stencil and depth texture from the window's size in units times a scale it reads from the height (`src/modules/graphics/metal/Graphics.mm`, about lines 500 to 531), 2336 pixels where the drawable is 2338, and the render pass stops at the narrower. That is confirmed in the iPhone 13 mini Simulator (iOS 26.1); the check on the physical phone is pending. If a game uses none of them, set `t.window.stencil = false`, `t.window.depth = false`, and `t.window.msaa = 0`.
+On real devices, outside CI:
 
-Later, a game's builds on Lota v0.2.2's iOS engine and host, the Xcode project from `fledge build ios` with the game's own lightly customised copy of Lota's host, ran on an iPad Pro 12.9-inch (6th generation, iPadOS 26.7.1), an iPhone 13 mini (iOS 18.7.8), and an iPhone 12 mini (iOS 27.0). On the iPhone 12 mini the game showed a share sheet and went to the background and back, which Metal survived. The runs above were at v0.1.3 with Fledge v0.5.1.
+- A game's builds, with a lightly customised copy of Lota's iOS host, ran on an iPad Pro 12.9-inch (6th generation) with iPadOS 26, an iPhone 13 mini with iOS 18, and an iPhone 12 mini with iOS 27: fullscreen with no status bar, in portrait and both landscapes, with taps under the finger, sound that the silent switch mutes, the accelerometer, and, on the iPad, a Bluetooth game controller. On the iPhone 12 mini it went to the background and back, and Metal survived.
+- An `arm64-v8a` build with Lota's own Android host ran on a OnePlus Nord N30 5G with Android 14 and an Adreno 619 GPU, on Vulkan, which LÖVE's engine chose there. It survived Home, the recent apps, a share sheet, and the screen turning off, each time in the same process and drawing again, and drew with vsync off.
 
-On 2026-11-06 an `arm64-v8a` build with Lota's own Android host, from a clone of Lota at v0.2.2 with `rake android:deps` and Fledge v0.6.0, ran on a OnePlus Nord N30 5G with Android 14 and an Adreno 619 GPU. LÖVE's engine chose Vulkan there, and the app ran without crashing until it left the screen. On 2026-11-07 the same phone, with Lota 0.2.2 and Fledge 0.7.0, crashed a game on Vulkan when it went home, to the recent apps, or to an app picked from a share sheet: 6 times in 6 cycles, and never on OpenGL ES. The host now waits for the game to pause. A game's build with that change and Vulkan forced then came through 6 of 6 cycles of Home and the recent apps on the same phone, and a share sheet to Messages and back, each in the same process and drawing again. It also survived the screen turned off, with its surface destroyed and made again. Unlocking was not tried, since the phone has a PIN. The wait for the game to pause took about 15 milliseconds.
+### Known problems
 
-On 2026-11-09 the same phone, with Lota 0.3.1 and Fledge 0.10.0, stopped a game on Vulkan with vsync off within its first six frames: `Lota::Graphics.present` raised `IndexError` with the message `vector`, and the error screen then crashed. LÖVE's own Android app did the same with a portrait game. The phone gave the swap chain that LÖVE rebuilds early in a game one image more than the first, which LÖVE made no semaphore for (`doc/contributors/upstream/024.md`), and a present that fails there leaves LÖVE's Vulkan renderer unable to record what the error screen draws (`doc/contributors/upstream/025.md`). Lota patches both. With the patches, a game in landscape with vsync off drew 210 frames on Vulkan, the last 10 of 120,000 rectangles each, and a build that made one present fail showed the error screen and kept drawing it.
+On an iPhone 12 mini or 13 mini in landscape, a thin column at the right edge can show the wrong colour. These phones have a display scale that is not a whole number (2.88), and at such a scale LÖVE's Metal renderer makes the stencil, depth, and MSAA buffers two pixels narrower than the screen, so the last columns are never drawn (`doc/contributors/upstream/011.md`). A Simulator confirms it; a physical phone with the fix below has not been checked yet. If your game uses none of them, turn all three off:
 
-Not yet tried:
+```ruby
+def Lota.conf(t)
+  t.window.stencil = false
+  t.window.depth = false
+  t.window.msaa = 0
+end
+```
 
-- Any other real Android phone, and any Android tablet. No free runner boots an arm64 emulator, so the `arm64-v8a` build, which most Android phones use, has run only on the one phone above.
-- The device commands above as Lota's own CI would run them, and an iPad or iPhone with Lota's own unmodified host, which no device has run; a game's builds ran a lightly customised copy.
-- iOS 27 and iPadOS 27 with Lota's own host, on a device or in a Simulator. Its orientation fix is the one a game's own host made on an iPad Pro 12.9-inch (6th generation) with iPadOS 27.2; CI builds with Xcode 26.3, whose Simulators are iOS 26.2.
+### Not yet tried
+
+- Any other Android phone, and any Android tablet. No free runner boots an arm64 emulator, so the `arm64-v8a` build has run only on the one phone above.
+- Lota's own unmodified iOS host on a device, and iOS 27 in a Simulator; CI's Simulators run iOS 26.
 - Signing with a paid Apple team, exporting an IPA, TestFlight, App Review, and Google Play's review.
 - Building Android on a Mac or on Windows.
-- A game whose own `Gemfile` names other gems; this page's project asks for Lota and Fledge alone.
-- Android's opt-in to handle Back, which an earlier experiment tried on the same emulator and this workflow does not.
-- Restarting: a phone cannot restart a game by `exec`, so `Lota::Event.restart` ends it as a quit does.
+- A game whose `Gemfile` names other gems.
+- Android's opt-in to handle Back.
 - On Android, a real speaker, a real accelerometer, and the frame rate on a device.
 
-Fledge's phone runtimes have no JIT (iOS gives an app no memory it may write code into and run, and Ruby builds none for Android; Fledge's ADR 011), so a game's Ruby runs slower on a phone than on a desktop with YJIT.
+Fledge's phone runtimes have no JIT, since iOS gives an app no memory it may write code into and run, and Ruby builds none for Android. A game's Ruby therefore runs slower on a phone than on a desktop with YJIT, and each call into the engine costs several times what it costs on a desktop.
