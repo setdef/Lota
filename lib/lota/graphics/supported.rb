@@ -11,8 +11,8 @@ module Lota
     # Lota::Graphics.supported returns, translated from the table
     # love.graphics.getSupported returns
     # (src/modules/graphics/wrap_Graphics.cpp, w_getSupported): a frozen
-    # value with a field for each of LÖVE's feature names (ADR 001, rule
-    # 10), +true+ or +false+.
+    # value with a field for each of LÖVE's feature names (rule 10 of
+    # doc/contributors/design/translation.md), +true+ or +false+.
     #
     # === Example
     #

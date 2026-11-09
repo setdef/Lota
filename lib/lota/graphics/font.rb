@@ -30,7 +30,8 @@ module Lota
     #   Lota::Graphics.font = Lota::Graphics::Font.new(data, 8, :mono)
     class Font < Object
       # Its +new+, the constructor love.graphics.newFont becomes
-      # (ADR 001, rule 2), which Lota::Object leaves private.
+      # (rule 2 of doc/contributors/design/translation.md), which Lota::Object
+      # leaves private.
       public_class_method :new
 
       # Wraps a Font the engine made, such as the default font
@@ -65,12 +66,13 @@ module Lota
       #
       # The hinting and DPI scale come either after the size, as in LÖVE's
       # older form, or as keywords, which translate the table of settings
-      # LÖVE 12 also takes (ADR 001, rule 10). After the size, LÖVE reads
-      # the DPI scale only after a hinting mode, and so does Lota. Given
-      # +data+ and no size, LÖVE reads the font at its own default size and
-      # ignores the settings, and so does Lota. A file name is a path in the game's
-      # folder, as LÖVE's filesystem reads it (Lota::Boot makes the folder
-      # its source, as boot.lua does), with forward slashes and no "..".
+      # LÖVE 12 also takes (rule 10 of doc/contributors/design/translation.md).
+      # After the size, LÖVE reads the DPI scale only after a hinting mode, and
+      # so does Lota. Given +data+ and no size, LÖVE reads the font at its own
+      # default size and ignores the settings, and so does Lota. A file name is
+      # a path in the game's folder, as LÖVE's filesystem reads it (Lota::Boot
+      # makes the folder its source, as boot.lua does), with forward slashes and
+      # no "..".
       #
       # A BMFont, a font LÖVE reads from a text definition and the images
       # of its glyphs, takes the definition in +data+ and then the images
@@ -213,7 +215,8 @@ module Lota
       end
 
       # The width of the widest line and the lines of +text+ wrapped at
-      # +wraplimit+, as an Array (ADR 001, rule 4), matching Font:getWrap
+      # +wraplimit+, as an Array (rule 4 of
+      # doc/contributors/design/translation.md), matching Font:getWrap
       # (src/modules/graphics/wrap_Font.cpp, w_Font_getWrap).
       #
       # [text] A String, or colored text as Lota::Graphics.print takes it.
@@ -272,7 +275,8 @@ module Lota
       end
 
       # The filters when scaled down and up, as Symbols, and the Integer
-      # anisotropy, as an Array (ADR 001, rule 4), matching Font:getFilter
+      # anisotropy, as an Array (rule 4 of
+      # doc/contributors/design/translation.md), matching Font:getFilter
       # (src/modules/graphics/wrap_Font.cpp, w_Font_getFilter).
       #
       # === Example
@@ -358,8 +362,9 @@ module Lota
       # Sets the fonts whose glyphs stand in, in order, for those this one
       # lacks, matching Font:setFallbacks
       # (src/modules/graphics/wrap_Font.cpp, w_Font_setFallbacks), which
-      # takes them as an Array (ADR 001, rule 6). An empty Array clears
-      # them. LÖVE has no getter for them.
+      # takes them as an Array (rule 6 of
+      # doc/contributors/design/translation.md). An empty Array clears them.
+      # LÖVE has no getter for them.
       #
       # Raises TypeError for anything but a Font.
       #
@@ -377,7 +382,7 @@ module Lota
 
       # The DPI scale the font was made at, matching Font:getDPIScale
       # (src/modules/graphics/wrap_Font.cpp, w_Font_getDPIScale), named by
-      # ADR 001, rule 13.
+      # rule 13 of doc/contributors/design/translation.md.
       #
       # === Example
       #

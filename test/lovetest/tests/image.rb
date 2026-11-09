@@ -8,9 +8,10 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.image tests (vendor/love/testing/tests/image.lua),
-# translated to Ruby by ADR 001's rules, every one of them. They run in the
-# test suite's own process (test/lovetest/image_test.rb) and under lota
-# run (test/lovetest/game), also from the installed precompiled gem.
+# translated to Ruby by the rules of doc/contributors/design/translation.md,
+# every one of them. They run in the test suite's own process
+# (test/lovetest/image_test.rb) and under lota run (test/lovetest/game), also
+# from the installed precompiled gem.
 class ImageTest < Lovetest::TestMethod
   TYPES = %w[CompressedImageData ImageData].freeze
 

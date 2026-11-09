@@ -65,8 +65,8 @@ module Lota
     # Turns the sensor of a type on or off, matching
     # love.sensor.setEnabled.
     #
-    # [setting] The sensor's type and whether it is on, as an Array (ADR
-    #   001, rule 6).
+    # [setting] The sensor's type and whether it is on, as an Array (rule 6 of
+    # doc/contributors/design/translation.md).
     #
     # Turning on a sensor the device does not have does nothing. Raises
     # RuntimeError when SDL cannot open one it has.
@@ -95,9 +95,9 @@ module Lota
 
     # The name SDL gives the sensor of +sensor_type+, matching
     # love.sensor.getName (src/modules/sensor/wrap_Sensor.cpp:81-89), which
-    # ADR 001's rule 3 names +name+; or, given no argument, Ruby's own
-    # Module#name of this module, +"Lota::Sensor"+, since getName requires
-    # its sensor type.
+    # rule 3 of doc/contributors/design/translation.md names +name+; or, given
+    # no argument, Ruby's own Module#name of this module, +"Lota::Sensor"+,
+    # since getName requires its sensor type.
     #
     # Raises RuntimeError while the sensor is off.
     #

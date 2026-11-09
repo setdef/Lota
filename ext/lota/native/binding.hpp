@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Rice, as Lota's bindings include it: with LÖVE's memory model (ADR 001,
-// section 5) in place before any binding can wrap a love::Object.
+// Rice, as Lota's bindings include it: with LÖVE's memory model
+// (doc/contributors/design/engine.md) in place before any binding can wrap a
+// love::Object.
 //
 // Every binding includes this header instead of Rice's own. A translation
 // unit that included <rice/rice.hpp> alone would wrap love::Object pointers
@@ -169,8 +170,9 @@ template <typename T> const T &required(const std::optional<T> &argument, const 
 // What luax_ioError returns (vendor/love/src/modules/filesystem/
 // wrap_File.cpp:34-46): nil and the message +format+ makes of +arguments+,
 // which LÖVE formats with lua_pushvfstring and Lota with love::Exception's
-// own formatting, as an Array, as ADR 001's rule 4 returns a function's
-// several values on failure too.
+// own formatting, as an Array, as rule 4 of
+// doc/contributors/design/translation.md returns a function's several values on
+// failure too.
 template <typename... Arguments> Rice::Array io_error(const char *format, Arguments... arguments) {
   const love::Exception error(format, arguments...);
   Rice::Array results;
@@ -221,9 +223,9 @@ template <> struct Companion<love::physics::box2d::Contact> {
 };
 
 // Releases that Ruby's garbage collector asked for off the main thread, for
-// the main thread to carry out (ADR 001, section 5). Ruby frees a wrapper
-// on whichever thread triggered the collection; the queue takes over the
-// wrapper's reference, so the object outlives the wrapper until the main
+// the main thread to carry out (doc/contributors/design/engine.md). Ruby frees
+// a wrapper on whichever thread triggered the collection; the queue takes over
+// the wrapper's reference, so the object outlives the wrapper until the main
 // thread drains the queue.
 //
 // Each bundle has its own queue, as it has its own copy of LÖVE's engine
@@ -322,8 +324,8 @@ Base *open_module(love::Module::ModuleType type) {
 // Init_native turns it on for Lota::Native. Another bundle, such as the
 // test extension, makes a new wrapper each time it wraps an object, once
 // it turns Rice's registry off itself. A WeakMap is not shareable, and only the main Ractor
-// reaches it: Lota::Native does not declare itself Ractor-safe yet (ADR
-// 001, section 6), so Ruby lets no other Ractor call into it.
+// reaches it: Lota::Native does not declare itself Ractor-safe yet
+// (doc/contributors/design/engine.md), so Ruby lets no other Ractor call into it.
 class WrapperIdentities {
 public:
   static WrapperIdentities &instance() {
@@ -575,11 +577,11 @@ private:
 // Defines Lota::Native's class +name+ under +parent+ for the engine class
 // T, with the methods every LÖVE object has: +object_type+, LÖVE's name
 // for T, and +type_of?+, whether T is the type of that name or one of its
-// parents (ADR 001, rule 16); +to_s+ and +==+, its __tostring and __eq
-// (rule 13); and +release+. Every engine class Lota binds is defined
-// through here, once, so every one answers them. Base, when given, is the
-// bound class Ruby's class inherits from, as Rice's define_class_under
-// takes it.
+// parents (rule 16 of doc/contributors/design/translation.md); +to_s+ and +==+,
+// its __tostring and __eq (rule 13); and +release+. Every engine class Lota
+// binds is defined through here, once, so every one answers them. Base, when
+// given, is the bound class Ruby's class inherits from, as Rice's
+// define_class_under takes it.
 //
 // LÖVE registers each type it pushes to Lua before pushing one, which
 // initializes the type (luax_register_type), and love::Type::byName finds

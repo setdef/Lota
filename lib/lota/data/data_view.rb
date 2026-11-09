@@ -53,7 +53,7 @@ module Lota
       # Makes this DataView, a copy of +source+ by Ruby's +clone+ or
       # +dup+, LÖVE's copy, matching DataView:clone
       # (src/modules/data/wrap_DataView.cpp:34-42): a new view of the same
-      # bytes of the same Data (ADR 001, section 7).
+      # bytes of the same Data (doc/contributors/design/translation.md).
       #
       # === Example
       #

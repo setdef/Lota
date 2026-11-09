@@ -11,7 +11,8 @@ require_relative "../lovetest/lovetest_helper"
 
 # Lota::Data, LÖVE's root type Data (src/modules/data/wrap_Data.cpp),
 # which every Data class includes, and the copies Ruby's clone and dup
-# make of each type that has LÖVE's clone (ADR 001, section 7).
+# make of each type that has LÖVE's clone
+# (doc/contributors/design/translation.md).
 class DataTest < Minitest::Test
   def setup
     EngineHelper.open_window
@@ -51,8 +52,9 @@ class DataTest < Minitest::Test
 
   # getFloat, getDouble, and getInt8 to getInt32 read numbers of their
   # C type at a byte offset, as many as asked, Floats for the floats and
-  # Integers for the integers (ADR 001, rule 14), always as an Array,
-  # since they return several (rule 4).
+  # Integers for the integers (rule 14 of
+  # doc/contributors/design/translation.md), always as an Array, since they
+  # return several (rule 4).
   def test_numbers_are_read_by_their_c_type
     data = file_data([1.5, -2.0].pack("e2") + [-1, 7].pack("c2") + [-300, 70_000].pack("s<l<"))
 
@@ -71,8 +73,8 @@ class DataTest < Minitest::Test
 
   # getUInt8, getUInt16, and getUInt32 read unsigned integers of their C
   # type (wrap_Data.cpp:138-161), named uint8, uint16, and uint32, as C
-  # names uint8_t (ADR 001, rule 13), so the bytes int8 reads as -1 are
-  # 255.
+  # names uint8_t (rule 13 of doc/contributors/design/translation.md), so the
+  # bytes int8 reads as -1 are 255.
   def test_unsigned_numbers_are_read_by_their_c_type
     data = file_data([255, 7].pack("C2") + [65_535].pack("S<") + [4_294_967_295].pack("L<"))
 
@@ -176,7 +178,7 @@ class DataTest < Minitest::Test
 
   # Source:getType (wrap_Source.cpp:591-602) names how a Source holds its
   # sound, and a copy holds it as its original does; a Source has no type
-  # (ADR 001, rule 16).
+  # (rule 16 of doc/contributors/design/translation.md).
   def test_a_source_gets_its_type
     assert_equal :static, Lota::Audio::Source.new("resources/click.ogg", :static).clone.get_type
     assert_equal :stream, Lota::Audio::Source.new("resources/click.ogg", :stream).get_type

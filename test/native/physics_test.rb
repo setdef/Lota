@@ -72,7 +72,7 @@ class PhysicsBindingsTest < Minitest::Test
   # newRectangleShape makes a PolygonShape (wrap_Physics.cpp:338-370), and
   # a PolygonShape records nothing of which factory made it, so
   # RectangleShape === is true of every PolygonShape, as Image === is of
-  # every Texture (ADR 001, rule 2).
+  # every Texture (rule 2 of doc/contributors/design/translation.md).
   def test_rectangle_shape_matches_every_polygon_shape
     rectangle = Physics::RectangleShape.new(@body, 10, 10)
 
@@ -149,8 +149,8 @@ class PhysicsBindingsTest < Minitest::Test
     assert_equal "Raycast callback didn't return a number!", error.message
   end
 
-  # A ray that hits nothing returns no values, an empty Array (ADR 001,
-  # rule 4).
+  # A ray that hits nothing returns no values, an empty Array (rule 4 of
+  # doc/contributors/design/translation.md).
   def test_a_ray_that_misses_returns_an_empty_array
     assert_equal [], @world.ray_cast_closest(100, 100, 200, 200)
     assert_equal [], @world.ray_cast_any(100, 100, 200, 200)

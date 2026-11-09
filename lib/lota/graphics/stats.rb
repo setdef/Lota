@@ -10,7 +10,8 @@ module Lota
     # The renderer's counts, which Lota::Graphics.stats returns, translated
     # from the table love.graphics.getStats returns
     # (src/modules/graphics/wrap_Graphics.cpp, w_getStats): a frozen value
-    # with LÖVE's field names (ADR 001, rule 10), each an Integer.
+    # with LÖVE's field names (rule 10 of
+    # doc/contributors/design/translation.md), each an Integer.
     #
     # [drawcalls] Draw calls since the last present.
     # [drawcallsbatched] Draw calls LÖVE saved by drawing several things

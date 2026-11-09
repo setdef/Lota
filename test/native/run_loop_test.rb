@@ -64,7 +64,8 @@ class RunLoopTest < Minitest::Test
     assert_operator received, :>=, 0
   end
 
-  # The status is an Integer, as love.cpp holds it (ADR 001, rule 14).
+  # The status is an Integer, as love.cpp holds it (rule 14 of
+  # doc/contributors/design/translation.md).
   def test_a_quit_event_ends_the_game_with_its_status
     record(:update)
     Lota::Event.quit(3)

@@ -13,8 +13,9 @@ module Lota
       # LÖVE game.
       #
       # A Lota game is a folder holding main.rb, and conf.rb if it changes
-      # its settings (ADR 003). Typing the Ruby that loads Lota and starts
-      # the game's loop, every time you try a change, gets in the way.
+      # its settings (doc/contributors/design/game.md). Typing the Ruby that
+      # loads Lota and starts the game's loop, every time you try a change, gets
+      # in the way.
       #
       # This command starts the game in the folder you name, or in the
       # current directory, with Lota::Boot, and exits with the status the

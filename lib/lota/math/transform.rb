@@ -66,7 +66,7 @@ module Lota
       # +dup+, LÖVE's copy, matching Transform:clone
       # (src/modules/math/wrap_Transform.cpp, w_Transform_clone): a new
       # Transform with +source+'s matrix, which it then keeps apart from
-      # +source+'s (ADR 001, section 7).
+      # +source+'s (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -136,8 +136,8 @@ module Lota
 
       # A new Transform that does +other+ first and then this one, matching
       # Transform's __mul (src/modules/math/wrap_Transform.cpp,
-      # w_Transform__mul), which Ruby names by its operator (ADR 001, rule
-      # 13). Neither Transform changes.
+      # w_Transform__mul), which Ruby names by its operator (rule 13 of
+      # doc/contributors/design/translation.md). Neither Transform changes.
       #
       # [other] Lota::Math::Transform.
       #
@@ -224,7 +224,7 @@ module Lota
       # Replaces what it does with a placement, matching
       # Transform:setTransformation (src/modules/math/wrap_Transform.cpp,
       # w_Transform_setTransformation). LÖVE returns the Transform itself,
-      # so it is a writer (ADR 001, section 7).
+      # so it is a writer (doc/contributors/design/translation.md).
       #
       # [placement] Up to nine numbers, as one value or an Array, in the
       #   order Transform.new takes them, each taking its default when
@@ -255,14 +255,14 @@ module Lota
 
       # Replaces its matrix, matching Transform:setMatrix
       # (src/modules/math/wrap_Transform.cpp, w_Transform_setMatrix). LÖVE
-      # returns the Transform itself, so it is a writer (ADR 001, section
-      # 7).
+      # returns the Transform itself, so it is a writer
+      # (doc/contributors/design/translation.md).
       #
       # [matrix] The layout first, optionally: +:row+ (the default) when
       #   the elements go row by row, or +:column+ when they go column by
-      #   column (ADR 001, rule 9). Then the sixteen elements, each a Float
-      #   or an Integer, given in turn, as one Array, or as four Arrays of
-      #   four, one for each row or column.
+      #   column (rule 9 of doc/contributors/design/translation.md). Then the
+      #   sixteen elements, each a Float or an Integer, given in turn, as one
+      #   Array, or as four Arrays of four, one for each row or column.
       #
       # Raises ArgumentError for an unknown layout or a count of elements
       # other than sixteen, and TypeError for an element that is not a
@@ -283,8 +283,8 @@ module Lota
       # [x] Float or Integer.
       # [y] Float or Integer.
       #
-      # Returns the moved point's x and y, as an Array of Floats (ADR 001,
-      # rule 4).
+      # Returns the moved point's x and y, as an Array of Floats (rule 4 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -302,7 +302,7 @@ module Lota
       # [y] Float or Integer.
       #
       # Returns the point's x and y before the Transform, as an Array of
-      # Floats (ADR 001, rule 4).
+      # Floats (rule 4 of doc/contributors/design/translation.md).
       #
       # === Example
       #

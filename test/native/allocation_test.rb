@@ -11,7 +11,7 @@ require_relative "../engine_helper"
 # The calls a game makes every frame allocate no Ruby object of their own
 # to pass an enum's name: a Symbol's name is a frozen String Ruby keeps
 # (Symbol#name), where Symbol#to_s makes a new one each call. These are
-# the calls the fixture games draw with (ADR 001, section 8).
+# the calls the fixture games draw with (doc/contributors/design/engine.md).
 class AllocationTest < Minitest::Test
   def setup
     EngineHelper.open_window

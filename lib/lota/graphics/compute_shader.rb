@@ -12,10 +12,11 @@ module Lota
     # A compute shader runs on the graphics card without drawing: it reads
     # and writes buffers and textures, for work such as moving thousands of
     # particles. LÖVE has no ComputeShader class, newComputeShader makes a
-    # Shader, so by ADR 001, rule 2, ComputeShader is a module whose new
-    # returns a Lota::Graphics::Shader and whose <tt>===</tt> asks the
-    # shader whether it has a compute stage, as Canvas === asks
-    # <tt>canvas?</tt>. Run one with Lota::Graphics.dispatch_threadgroups.
+    # Shader, so by rule 2 of doc/contributors/design/translation.md,
+    # ComputeShader is a module whose new returns a Lota::Graphics::Shader and
+    # whose <tt>===</tt> asks the shader whether it has a compute stage, as
+    # Canvas === asks <tt>canvas?</tt>. Run one with
+    # Lota::Graphics.dispatch_threadgroups.
     #
     # === Example
     #

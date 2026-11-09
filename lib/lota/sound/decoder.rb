@@ -43,8 +43,9 @@ module Lota
       # [buffer_size] Integer bytes to decode at a time.
       # [type] For a file name, Symbol <tt>:file</tt>, which decodes from
       #   the open file, or <tt>:memory</tt>, which reads all of it first
-      #   (ADR 001, rule 9); +nil+ or left out for <tt>:file</tt>. A
-      #   FileData is decoded from memory, whatever +type+ says.
+      #   (rule 9 of doc/contributors/design/translation.md); +nil+ or left out
+      #   for <tt>:file</tt>. A FileData is decoded from memory, whatever +type+
+      #   says.
       #
       # Raises ArgumentError, with LÖVE's message, for a +type+ LÖVE does
       # not know, and RuntimeError for a file it cannot open or decode, and
@@ -67,7 +68,7 @@ module Lota
       # LÖVE's copy, matching Decoder:clone
       # (src/modules/sound/wrap_Decoder.cpp, w_Decoder_clone): a new
       # Decoder of the same sound, which decodes it from its start however
-      # far +source+ has decoded (ADR 001, section 7).
+      # far +source+ has decoded (doc/contributors/design/translation.md).
       #
       # === Example
       #

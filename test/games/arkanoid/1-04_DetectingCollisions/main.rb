@@ -11,18 +11,18 @@
 #
 # Translated to Ruby from the arkanoid tutorial's fourth snapshot,
 # test/fixtures/love2d_arkanoid_tutorial/1-04_DetectingCollisions/main.lua
-# (lines 1-290), by ADR 001's rules and as the third snapshot is
-# (test/games/arkanoid/1-03_BricksAndWalls/main.rb). The collisions table
-# holds functions alone, so it becomes a module of them, and the
-# rectangles it builds as tables of fields a Struct. Its
+# (lines 1-290), by the rules of doc/contributors/design/translation.md and as
+# the third snapshot is (test/games/arkanoid/1-03_BricksAndWalls/main.rb). The
+# collisions table holds functions alone, so it becomes a module of them, and
+# the rectangles it builds as tables of fields a Struct. Its
 # platform_walls_collision declares no parameters, though it is called
 # with two, which Lua drops; Ruby would raise, so it takes and ignores any.
 # love.keyreleased becomes Lota.keyreleased, whose key arrives as a
-# symbol, and love.event.quit Lota::Event.quit (rule 9; ADR 003). Lua's
-# pairs visits the walls in an order Lua leaves unspecified, and a Ruby
-# Hash in the order they were added; each wall's collision only prints the
-# same line, so no frame or line depends on the order. The snapshot has no
-# conf.lua, so this game has no conf.rb.
+# symbol, and love.event.quit Lota::Event.quit (rule 9;
+# doc/contributors/design/game.md). Lua's pairs visits the walls in an order Lua
+# leaves unspecified, and a Ruby Hash in the order they were added; each wall's
+# collision only prints the same line, so no frame or line depends on the order.
+# The snapshot has no conf.lua, so this game has no conf.rb.
 
 # Ball (lines 1-21)
 Ball = Struct.new(:position_x, :position_y, :speed_x, :speed_y, :radius) do

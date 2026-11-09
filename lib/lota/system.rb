@@ -94,7 +94,7 @@ module Lota
 
     # The state of the battery, matching love.system.getPowerInfo
     # (src/modules/system/wrap_System.cpp, w_getPowerInfo), as an Array of
-    # three values (ADR 001, rule 4).
+    # three values (rule 4 of doc/contributors/design/translation.md).
     #
     # The first is the state as a Symbol: +:unknown+, +:battery+ (on
     # battery), +:nobattery+ (on mains power, with no battery),

@@ -11,7 +11,8 @@ module Lota
     # Lota::Window.fullscreen_modes returns, translated from the tables
     # love.window.getFullscreenModes returns
     # (src/modules/window/wrap_Window.cpp, w_getFullscreenModes): a frozen
-    # value with LÖVE's field names (ADR 001, rule 10).
+    # value with LÖVE's field names (rule 10 of
+    # doc/contributors/design/translation.md).
     #
     # [width] Integer width, in pixels.
     # [height] Integer height, in pixels.

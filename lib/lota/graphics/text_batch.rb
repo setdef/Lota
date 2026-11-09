@@ -36,7 +36,7 @@ module Lota
 
       # Makes a batch drawn in +font+, matching love.graphics.newTextBatch
       # (src/modules/graphics/wrap_Graphics.cpp, w_newTextBatch), named by
-      # ADR 001, rule 2.
+      # rule 2 of doc/contributors/design/translation.md.
       #
       # [font] Lota::Graphics::Font the text is drawn in.
       # [text] String, or an Array of colored text as Lota::Graphics.print
@@ -204,9 +204,9 @@ module Lota
       end
 
       # The width and height of all the text, or of the text at +index+,
-      # as an Array of two Floats (ADR 001, rule 4), matching
-      # TextBatch:getDimensions
-      # (src/modules/graphics/wrap_TextBatch.cpp,
+      # as an Array of two Floats (rule 4 of
+      # doc/contributors/design/translation.md), matching
+      # TextBatch:getDimensions (src/modules/graphics/wrap_TextBatch.cpp,
       # w_TextBatch_getDimensions).
       #
       # === Example

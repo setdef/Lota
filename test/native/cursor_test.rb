@@ -84,7 +84,7 @@ class CursorTest < Minitest::Test
   end
 
   # getPosition reports a double (w_getX), so x is a Float wherever the
-  # pointer is (ADR 001, rule 14).
+  # pointer is (rule 14 of doc/contributors/design/translation.md).
   def test_x_is_a_float
     assert_instance_of Float, Lota::Mouse.x
   end

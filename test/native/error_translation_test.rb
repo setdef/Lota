@@ -8,10 +8,10 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 
-# ADR 001, section 7: where LÖVE's own C++ raises a message that names a
-# Lua module, Lota rewrites the name by rule 1, and a function by the name
-# the rules give it in the binding generator's name table, and leaves the
-# rest of the message word for word (lib/lota/error_message.rb, which the
+# doc/contributors/design/translation.md: where LÖVE's own C++ raises a message
+# that names a Lua module, Lota rewrites the name by rule 1, and a function by
+# the name the rules give it in the binding generator's name table, and leaves
+# the rest of the message word for word (lib/lota/error_message.rb, which the
 # handler in ext/lota/native/errors.hpp calls as the engine raises).
 class ErrorTranslationTest < Minitest::Test
   include NativeHelper

@@ -11,13 +11,12 @@ require_relative "statements"
 module Bindings
   # What one wrap function reads, returns, and raises, read from its body.
   #
-  # A wrap function is the specification of a binding (ADR 001, section
-  # 4): its luaL_check* and luaL_opt* calls are the arguments and their
-  # defaults, its lua_push* calls the results, its luaL_error and
-  # luax_enumerror calls the errors. Analysis reads those calls by the
-  # patterns LÖVE writes them in. Where a body does something those
-  # patterns do not cover, such as reading an argument at a position it
-  # computes at run time, the analysis records a problem instead of
+  # A wrap function is the specification of a binding (ADR 006): its luaL_check*
+  # and luaL_opt* calls are the arguments and their defaults, its lua_push*
+  # calls the results, its luaL_error and luax_enumerror calls the errors.
+  # Analysis reads those calls by the patterns LÖVE writes them in. Where a body
+  # does something those patterns do not cover, such as reading an argument at a
+  # position it computes at run time, the analysis records a problem instead of
   # guessing, and the function counts as unreadable.
   class Analysis
     # One read of an argument.

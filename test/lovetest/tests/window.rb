@@ -9,9 +9,9 @@ require_relative "../lovetest_helper"
 require_relative "../unseen_desktop"
 
 # Lövetest's love.window tests (vendor/love/testing/tests/window.lua),
-# translated to Ruby by ADR 001's rules. Like the graphics tests, they run
-# in the test suite's own process (test/lovetest/window_test.rb) and under
-# lota run (test/lovetest/game).
+# translated to Ruby by the rules of doc/contributors/design/translation.md.
+# Like the graphics tests, they run in the test suite's own process
+# (test/lovetest/window_test.rb) and under lota run (test/lovetest/game).
 #
 # The tests that fill the screen, or maximize, minimize, raise, or move
 # the window, change what the person at the computer sees, so each runs

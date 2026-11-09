@@ -46,8 +46,8 @@ module Lota
       end
 
       # Makes a particle system, matching love.graphics.newParticleSystem
-      # (src/modules/graphics/wrap_Graphics.cpp, w_newParticleSystem), named by ADR
-      # 001, rule 2.
+      # (src/modules/graphics/wrap_Graphics.cpp, w_newParticleSystem), named by
+      # rule 2 of doc/contributors/design/translation.md.
       #
       # [texture] Lota::Graphics::Texture each particle shows.
       # [size] Integer most particles alive at once, 1000 when +nil+ or left
@@ -71,7 +71,7 @@ module Lota
       # Makes this particle system a copy of +system+ by Ruby's +clone+ or +dup+,
       # matching ParticleSystem:clone (src/modules/graphics/wrap_ParticleSystem.cpp,
       # w_ParticleSystem_clone): a new one with the same rules and texture, which it
-      # keeps apart from +system+'s (ADR 001, section 7).
+      # keeps apart from +system+'s (doc/contributors/design/translation.md).
       #
       # === Example
       #

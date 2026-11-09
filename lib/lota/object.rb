@@ -9,10 +9,10 @@ module Lota
   # LÖVE's root type, Object, whose methods every one of LÖVE's objects
   # answers, whatever its class: +object_type+, +type+, and
   # <tt>type_of?</tt>, translated from Object:type and Object:typeOf
-  # (src/common/runtime.cpp, w__type and w__typeOf; ADR 001, rule 16),
-  # +release+, from Object:release (w__release), and +to_s+ and +==+, from
-  # the __tostring and __eq LÖVE gives every object (w__tostring and
-  # w__eq; rule 13).
+  # (src/common/runtime.cpp, w__type and w__typeOf; rule 16 of
+  # doc/contributors/design/translation.md), +release+, from Object:release
+  # (w__release), and +to_s+ and +==+, from the __tostring and __eq LÖVE gives
+  # every object (w__tostring and w__eq; rule 13).
   #
   # Every class that wraps an engine object inherits from it, as every
   # type in LÖVE inherits from Object, so every such object is a
@@ -35,7 +35,7 @@ module Lota
 
     # Takes +type+ away when a subclass defines +get_type+, LÖVE's getType,
     # so that a call meant for either fails loudly instead of answering the
-    # other (ADR 001, rule 16).
+    # other (rule 16 of doc/contributors/design/translation.md).
     private_class_method def self.method_added(name)
       super
       undef_method(:type) if name == :get_type && method_defined?(:type)
@@ -60,9 +60,9 @@ module Lota
       native.object_type
     end
 
-    # Another name for #object_type, as ADR 001's rule 16 gives it, on
-    # every class but those with LÖVE's getType, which answer +get_type+
-    # instead and have no +type+.
+    # Another name for #object_type, as rule 16 of
+    # doc/contributors/design/translation.md gives it, on every class but those
+    # with LÖVE's getType, which answer +get_type+ instead and have no +type+.
     #
     # === Example
     #
@@ -77,7 +77,7 @@ module Lota
     #
     # [name] Symbol or String name of a LÖVE type, such as +:Texture+,
     #   +:Drawable+, or +:Object+, which are names, not text, so Symbols,
-    #   as ADR 001's rule 9 makes LÖVE's names.
+    #   as rule 9 of doc/contributors/design/translation.md makes LÖVE's names.
     #
     # Every object is an +:Object+. A name LÖVE has no type for is +false+,
     # as in LÖVE. Raises TypeError for a +name+ that is neither, where

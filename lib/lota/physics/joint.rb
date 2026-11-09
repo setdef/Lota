@@ -13,8 +13,8 @@ module Lota
     # Each Joint is of one of its subclasses, made by that class's +new+.
     # Each method raises RuntimeError ("Attempt to use destroyed joint.")
     # once the Joint is destroyed, but #destroyed? and #destroy. LÖVE's
-    # Joint:getType is #get_type, and a Joint has no +type+ (ADR 001, rule
-    # 16).
+    # Joint:getType is #get_type, and a Joint has no +type+ (rule 16 of
+    # doc/contributors/design/translation.md).
     #
     # === Example
     #
@@ -34,8 +34,8 @@ module Lota
       end
 
       # Which kind of Joint this is, as a Symbol, matching Joint:getType:
-      # <tt>:distance</tt>, <tt>:revolute</tt>, and so on (ADR 001, rules 9
-      # and 16).
+      # <tt>:distance</tt>, <tt>:revolute</tt>, and so on (rules 9 and 16 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -241,8 +241,8 @@ module Lota
       end
 
       # Moves the point the joint pulls its Body toward, matching
-      # MouseJoint:setTarget, whose two values rule 6 of ADR 001 makes one
-      # Array.
+      # MouseJoint:setTarget, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -491,8 +491,8 @@ module Lota
       end
 
       # Sets the joint's lower and upper limits at once, matching
-      # RevoluteJoint:setLimits, whose two values rule 6 of ADR 001 makes one
-      # Array.
+      # RevoluteJoint:setLimits, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -809,8 +809,8 @@ module Lota
       end
 
       # Sets the joint's lower and upper limits at once, matching
-      # PrismaticJoint:setLimits, whose two values rule 6 of ADR 001 makes one
-      # Array.
+      # PrismaticJoint:setLimits, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -1200,8 +1200,8 @@ module Lota
       end
 
       # Sets the offset the joint drives the second Body to, matching
-      # MotorJoint:setLinearOffset, whose two values rule 6 of ADR 001 makes
-      # one Array.
+      # MotorJoint:setLinearOffset, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #

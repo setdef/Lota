@@ -8,8 +8,8 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 
-# ADR 001, section 5: Ruby's garbage collector frees a wrapper on whichever
-# thread triggered the collection, but objects of love.graphics and
+# doc/contributors/design/engine.md: Ruby's garbage collector frees a wrapper on
+# whichever thread triggered the collection, but objects of love.graphics and
 # love.window are released only on the main thread. A wrapper of one freed
 # elsewhere hands its reference to a queue, which the main thread drains
 # (ext/lota/native/binding.hpp, ReleaseQueue).

@@ -11,9 +11,9 @@
 #
 # Translated to Ruby from KleleAtoms' conf.lua
 # (test/fixtures/klele_atoms/conf.lua, lines 1-17): love.conf becomes
-# Lota.conf (ADR 003), with the settings' names unchanged (ADR 003,
-# section 5). Lota does not set the window's icon from t.window.icon yet,
-# which only the Dock shows.
+# Lota.conf (doc/contributors/design/game.md), with the settings' names
+# unchanged (doc/contributors/design/game.md). Lota does not set the window's
+# icon from t.window.icon yet, which only the Dock shows.
 def Lota.conf(t)
   t.identity = "kleleatoms"
   t.version = "11.3"

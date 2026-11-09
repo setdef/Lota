@@ -37,14 +37,14 @@ module Lota
 
     # The tokens of +value+, read as luax_checkvariant reads a Lua value:
     # nil, a boolean, a number, which becomes a Float, a String, a Symbol,
-    # which becomes the String of its name (ADR 001, rule 9), and a table,
-    # an Array, whose keys are 1 to its size, or a Hash, whose keys and
-    # values are read so. A Proc or a Method is of unknown type, as a Lua
-    # function is, and so is a table with one among its keys or values.
-    # Raises RuntimeError for a table that holds itself, with LÖVE's
-    # message, TypeError for any other value, and SystemStackError for
-    # tables nested too deeply for Ruby's stack, where Lua's would
-    # overflow. :nodoc:
+    # which becomes the String of its name (rule 9 of
+    # doc/contributors/design/translation.md), and a table, an Array, whose keys
+    # are 1 to its size, or a Hash, whose keys and values are read so. A Proc or
+    # a Method is of unknown type, as a Lua function is, and so is a table with
+    # one among its keys or values. Raises RuntimeError for a table that holds
+    # itself, with LÖVE's message, TypeError for any other value, and
+    # SystemStackError for tables nested too deeply for Ruby's stack, where
+    # Lua's would overflow. :nodoc:
     def self.tokens(value)
       tokens = [] #: Array[token]
       outer = {} #: Hash[::Object, bool]

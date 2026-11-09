@@ -28,7 +28,8 @@ module Lota
 end
 
 # The engine's error messages name LÖVE's Lua API, so the extension hands
-# each to Lota::ErrorMessage as Ruby raises it (ADR 001, section 7).
+# each to Lota::ErrorMessage as Ruby raises it
+# (doc/contributors/design/translation.md).
 require_relative "lota/restart"
 require_relative "lota/error_message"
 # Windows has no rpath, and finds a DLL by its name in directories the
@@ -43,8 +44,8 @@ Lota::Restart.__send__(:install)
 
 # Ruby runs exit procs on the main thread, after the game and before it
 # frees what is left. Releases the collector queued on other threads happen
-# here, so none is lost (ADR 001, section 5); Ruby itself then frees the
-# remaining wrappers on the main thread.
+# here, so none is lost (doc/contributors/design/engine.md); Ruby itself then
+# frees the remaining wrappers on the main thread.
 at_exit { Lota::Native.drain_release_queue }
 
 require_relative "lota/enum_name"
@@ -76,8 +77,9 @@ require_relative "lota/info"
 require_relative "lota/boot"
 
 # The lowercase spelling of each module, so that a LÖVE tutorial's
-# love.graphics becomes lota.graphics and nothing else changes (ADR 003,
-# section 4). Lota::Graphics remains the idiomatic spelling.
+# love.graphics becomes lota.graphics and nothing else changes
+# (doc/contributors/design/game.md). Lota::Graphics remains the idiomatic
+# spelling.
 #
 # Each accessor returns +nil+ until its module is open, and for good when
 # the settings turn the module off (<tt>t.modules.timer = false</tt>), as
@@ -294,7 +296,7 @@ end
 # Ruby's Kernel, to which Lota adds one private method, +lota+.
 module Kernel
   # Lota, from anywhere, as LÖVE's love table is everywhere in a LÖVE
-  # game (ADR 003, section 4).
+  # game (doc/contributors/design/game.md).
   #
   # It is private, as +puts+ and +require+ are, so it adds no method to
   # any object's public interface.

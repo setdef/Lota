@@ -8,10 +8,11 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 
-# The memory rule (ADR 001, section 5; ext/lota/native/binding.hpp): a
-# Ruby wrapper retains its engine object when created and releases it when
-# Ruby's garbage collector frees the wrapper. LotaNativeTest::Counted is a
-# love::Object that counts its own constructions and destructions.
+# The memory rule (doc/contributors/design/engine.md;
+# ext/lota/native/binding.hpp): a Ruby wrapper retains its engine object when
+# created and releases it when Ruby's garbage collector frees the wrapper.
+# LotaNativeTest::Counted is a love::Object that counts its own constructions
+# and destructions.
 class MemoryTest < Minitest::Test
   include NativeHelper
 

@@ -7,8 +7,9 @@
 
 module Lota
   # What every record Lota returns where LÖVE returns a table of fields
-  # answers besides its readers (ADR 001, rule 10): +[]+ with a field's
-  # name, as a Lua table answers brackets.
+  # answers besides its readers (rule 10 of
+  # doc/contributors/design/translation.md): +[]+ with a field's name, as a Lua
+  # table answers brackets.
   #
   # A field Lua reads only with brackets reads the same way in Ruby, as
   # Lota::Graphics.texture_types' +2d+ does, which no reader can be

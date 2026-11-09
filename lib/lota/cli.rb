@@ -18,9 +18,10 @@ module Lota
   # find the game's files, and start its loop.
   #
   # This module dispatches to subcommands. It routes <tt>run</tt> to
-  # Commands::Run, which starts a game from its folder (ADR 002, section
-  # 5; ADR 003), and <tt>fuse</tt> to Commands::Fuse, which builds a game
-  # into an app that runs without Ruby (ADR 002, section 5).
+  # Commands::Run, which starts a game from its folder
+  # (doc/contributors/design/packaging.md; doc/contributors/design/game.md), and
+  # <tt>fuse</tt> to Commands::Fuse, which builds a game into an app that runs
+  # without Ruby (doc/contributors/design/packaging.md).
   #
   # Use it via the +lota+ executable.
   #

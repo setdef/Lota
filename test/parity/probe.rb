@@ -19,7 +19,8 @@ module Parity
   #
   # It prepends Callbacks to Lota's singleton class, so the game's own
   # <tt>def Lota.update</tt> and <tt>def Lota.draw</tt> run inside the
-  # harness's, as ADR 003 has a game-state library wrap callbacks.
+  # harness's, as a game-state library wraps callbacks
+  # (doc/contributors/design/game.md).
   # Lota.update holds the scripted keys down or lets them up in SDL's
   # keyboard state, which Lota::Keyboard.down? reads, then calls the
   # game's update with 1 / LOTA_PARITY_FPS, then pushes the key events of
@@ -150,7 +151,7 @@ module Parity
       end
 
       # The arguments +method+ declares, of +arguments+, as Lota passes a
-      # callback's (ADR 003, section 3).
+      # callback's (doc/contributors/design/game.md).
       def declared(method, arguments)
         parameters = method.parameters
         return arguments if parameters.any? { |type, _| type == :rest }

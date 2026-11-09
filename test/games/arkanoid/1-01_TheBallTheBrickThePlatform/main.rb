@@ -11,12 +11,12 @@
 #
 # Translated to Ruby from the arkanoid tutorial's first snapshot,
 # test/fixtures/love2d_arkanoid_tutorial/1-01_TheBallTheBrickThePlatform/
-# main.lua (lines 1-57), by ADR 001's rules: love.keyboard.isDown becomes
-# Lota::Keyboard.down? (rule 8), the draw modes and key names symbols (rule
-# 9), and each function love.x a method Lota.x (ADR 003). Lua's local
-# tables become Structs, held in constants so the callbacks can reach
-# them, as Lua's callbacks reach the file's locals. The snapshot has no
-# conf.lua, so this game has no conf.rb.
+# main.lua (lines 1-57), by the rules of doc/contributors/design/translation.md:
+# love.keyboard.isDown becomes Lota::Keyboard.down? (rule 8), the draw modes and
+# key names symbols (rule 9), and each function love.x a method Lota.x
+# (doc/contributors/design/game.md). Lua's local tables become Structs, held in
+# constants so the callbacks can reach them, as Lua's callbacks reach the file's
+# locals. The snapshot has no conf.lua, so this game has no conf.rb.
 
 Ball = Struct.new(:position_x, :position_y, :speed_x, :speed_y, :radius)
 Platform = Struct.new(:position_x, :position_y, :speed_x, :width, :height)

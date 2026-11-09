@@ -7,8 +7,9 @@
 
 require_relative "bindings_helper"
 
-# ADR 001's rules, applied to LÖVE's real functions. The examples are the
-# rule table's own, so the engine and the table cannot drift apart.
+# the rules of doc/contributors/design/translation.md, applied to LÖVE's real
+# functions. The examples are the rule table's own, so the engine and the table
+# cannot drift apart.
 class RulesTest < Minitest::Test
   include BindingsHelper
 
@@ -29,10 +30,10 @@ class RulesTest < Minitest::Test
     assert_equal "Lota::Physics::Body", translation("Body:applyForce").scope
   end
 
-  # LÖVE's root type Data keeps its name inside Lota (ADR 001, section 7),
-  # so Data's methods are Lota::Data's, which every Data includes, as
-  # Object's are Lota::Object's, while love.data's other types are classes
-  # in that module.
+  # LÖVE's root type Data keeps its name inside Lota
+  # (doc/contributors/design/translation.md), so Data's methods are
+  # Lota::Data's, which every Data includes, as Object's are Lota::Object's,
+  # while love.data's other types are classes in that module.
   def test_the_root_type_data_is_lota_data
     assert_equal "Lota::Data#size", ruby_name("Data:getSize")
     assert_equal "Lota::Data#string", ruby_name("Data:getString")
@@ -97,7 +98,8 @@ class RulesTest < Minitest::Test
   end
 
   # Transform:setTransformation returns the Transform itself
-  # (wrap_Transform.cpp), so it is a writer (ADR 001, after the table).
+  # (wrap_Transform.cpp), so it is a writer (rule 7 of
+  # doc/contributors/design/translation.md).
   def test_a_setter_that_returns_itself_is_a_writer
     assert_equal "Lota::Math::Transform#transformation=", ruby_name("Transform:setTransformation")
   end
@@ -267,7 +269,8 @@ class RulesTest < Minitest::Test
     assert_includes collisions("love.sensor.getName"), [:several_rules, [13]]
   end
 
-  # The open collision ADR 001 already names (File:open, wrap_File.cpp).
+  # The open collision doc/contributors/design/translation.md already names
+  # (File:open, wrap_File.cpp).
   def test_file_open_collides_with_rule_11
     assert_includes collisions("File:open"), [:several_rules, [11]]
     assert_empty collisions("love.graphics.push")
@@ -275,8 +278,8 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.filesystem.mount"), "rule 11 decides mount and unmount have no block"
   end
 
-  # ADR 001 decides that a Source's play and stop are not a rule 11 pair:
-  # a sound plays across frames (section 7, after the table).
+  # Rule 11 decides that a Source's play and stop are not a pair: a sound
+  # plays across frames (doc/contributors/design/translation.md).
   def test_playing_and_stopping_a_source_is_no_pair
     assert_empty collisions("Source:play")
     assert_empty collisions("love.audio.play")
@@ -338,13 +341,13 @@ class RulesTest < Minitest::Test
       counts.fetch(:readable) + counts.fetch(:unreadable) + counts.fetch(:lua) + counts.fetch(:outside)
   end
 
-  # ADR 001 names its rule 7 setters by Lua name alone, and setFilter is
+  # Rule 7's reasons name its setters by Lua name alone, and setFilter is
   # also a writer on Font, Texture, and Video. setPlaybackDevice returns
   # false and the engine's message from a catch block (wrap_Audio.cpp:
   # 609-628), which the parser reads since it learned try blocks, so rule
-  # 7 covers it, and ADR 001's list, which only the maintainer changes,
+  # 7 covers it, and RULE_7_SETTERS, which only the maintainer changes,
   # does not name it yet.
-  def test_the_report_checks_adr_001s_rule_7_list
+  def test_the_report_checks_the_rule_7_list
     missing, returning_nothing, unread = Bindings::Report.new(survey).rule_7_difference
 
     assert_equal %w[love.audio.setPlaybackDevice], missing

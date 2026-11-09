@@ -108,7 +108,7 @@ constexpr love::int64 LARGEST_EXACT_DOUBLE = 0x20000000000000LL;
 // out because the filesystem could not tell, or nil when there is no such
 // file, or none of the type +filtertype+ names. The table LÖVE fills in
 // when given one is not bound: Lota::Filesystem.info makes a frozen Data
-// of the fields (ADR 001, rule 10).
+// of the fields (rule 10 of doc/contributors/design/translation.md).
 Rice::Object info(const std::string &filepath, const std::optional<std::string> &filtertype) {
   using love::filesystem::Filesystem;
   Filesystem::Info info = {};
@@ -151,7 +151,8 @@ Rice::Object info(const std::string &filepath, const std::optional<std::string> 
 // w_read into a string (wrap_Filesystem.cpp:618-659): the first +size+
 // bytes of +filename+, or all of it when +size+ is negative, and how many
 // it read, or luax_ioError's nil and message when it cannot read the
-// file, as one Array either way (ADR 001, rule 4).
+// file, as one Array either way (rule 4 of
+// doc/contributors/design/translation.md).
 Rice::Array read(const std::string &filename, long long size) {
   FileData *data = nullptr;
   try {
@@ -218,8 +219,8 @@ love::int64 write_length(std::size_t length, std::optional<long long> size) {
 // w_write_or_append (wrap_Filesystem.cpp:661-701): writes, or with
 // File::MODE_APPEND appends, +size+ bytes of +input+, which holds
 // +length+, to +filename+ in the save directory, and returns true, or
-// luax_ioError's nil and message, as one Array either way (ADR 001,
-// rule 4).
+// luax_ioError's nil and message, as one Array either way (rule 4 of
+// doc/contributors/design/translation.md).
 Rice::Array write_or_append(const std::string &filename, const void *input, std::size_t length,
                             std::optional<long long> size, File::Mode mode) {
   const love::int64 len = write_length(length, size);
@@ -339,8 +340,8 @@ bool unmount_data(love::Data *data) { return filesystem()->unmount(data); }
 // or as many as the file holds when +size+ is negative, as LÖVE asks for
 // the file's size then, as a String, or as a FileData when +container+
 // is "data", and how many bytes they are, as one Array, or luax_ioError's
-// nil and message (ADR 001, rule 4). Ruby's wrapper keeps its own
-// reference to a FileData.
+// nil and message (rule 4 of doc/contributors/design/translation.md). Ruby's
+// wrapper keeps its own reference to a FileData.
 Rice::Array file_read(File &file, const std::optional<std::string> &container, double size) {
   love::data::ContainerType ctype = love::data::CONTAINER_STRING;
   if (container.has_value() && !love::data::getConstant(container->c_str(), ctype)) {
@@ -370,8 +371,8 @@ Rice::Array file_read(File &file, const std::optional<std::string> &container, d
 
 // w_File_getSize (wrap_File.cpp:51-73): +file+'s size, as an Array of
 // the Integer, or of luax_ioError's nil and message when the engine
-// cannot tell it or a Lua number could not hold it exactly (ADR 001,
-// rule 4).
+// cannot tell it or a Lua number could not hold it exactly (rule 4 of
+// doc/contributors/design/translation.md).
 Rice::Array file_size(File &file) {
   love::int64 size = -1;
   try {
@@ -394,7 +395,7 @@ Rice::Array file_size(File &file) {
 
 // w_File_tell (wrap_File.cpp:213-225): where in +file+ the next read or
 // write is, as an Array of the Integer, or of luax_ioError's nil and
-// message (ADR 001, rule 4).
+// message (rule 4 of doc/contributors/design/translation.md).
 Rice::Array file_tell(File &file) {
   const love::int64 pos = file.tell();
   // Push nil on failure or if pos does not fit into a double precision floating-point number.
@@ -422,8 +423,9 @@ bool file_seek(File &file, double pos) {
 
 // w_File_write (wrap_File.cpp:147-188): +size+ bytes of +input+, which
 // holds +length+, written to +file+, and whether they were, or
-// luax_ioError's nil and message, as one Array (ADR 001, rule 4). Lota
-// writes at most +length+, as love.filesystem.write does.
+// luax_ioError's nil and message, as one Array (rule 4 of
+// doc/contributors/design/translation.md). Lota writes at most +length+, as
+// love.filesystem.write does.
 Rice::Array file_write(File &file, const void *input, std::size_t length,
                        std::optional<long long> size) {
   bool result = false;
@@ -453,8 +455,8 @@ Rice::Array file_write_data(File &file, const love::Data *data, std::optional<lo
 // w_File_lines, wrap_File.cpp:349-372, and w_File_lines_i, wrap_File.cpp:
 // 241-347, whose upvalues are this class's members).
 // Lota::Filesystem.lines and Lota::Filesystem::File#lines turn it into an
-// Enumerator (ADR 001, rule 15). The file is open for reading once it is
-// made, and closes once the last line is read.
+// Enumerator (rule 15 of doc/contributors/design/translation.md). The file is
+// open for reading once it is made, and closes once the last line is read.
 class Lines {
 public:
   // Opens +filename+ in the game's filesystem for reading, or raises the

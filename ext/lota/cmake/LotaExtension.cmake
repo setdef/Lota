@@ -152,7 +152,7 @@ function(lota_link_linux target name map load_directory)
 endfunction()
 
 # MinGW's linker (GNU ld with GCC, LLD with clang), for a DLL Ruby loads
-# (ADR 002, section 4). Windows has no rpath: the DLLs the extension links
+# (ADR 011). Windows has no rpath: the DLLs the extension links
 # are loaded before it, by their absolute paths (preload/).
 function(lota_link_mingw target name map)
 	# Export Init_<name> alone. A module definition file is an explicit

@@ -43,7 +43,7 @@ module Lota
       # (src/modules/image/wrap_CompressedImageData.cpp,
       # w_CompressedImageData_clone): a new one with a copy of the bytes of
       # every mipmap, so setting one linear leaves the other as it was
-      # (ADR 001, section 7).
+      # (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -86,7 +86,8 @@ module Lota
       end
 
       # The width and height in pixels of +mipmap+, as #width measures
-      # them, as an Array of two Integers (ADR 001, rule 4), matching
+      # them, as an Array of two Integers (rule 4 of
+      # doc/contributors/design/translation.md), matching
       # CompressedImageData:getDimensions
       # (src/modules/image/wrap_CompressedImageData.cpp,
       # w_CompressedImageData_getDimensions).
@@ -110,12 +111,13 @@ module Lota
         @native.mipmap_count
       end
 
-      # The compressed pixel format, as a Symbol (ADR 001, rule 9), such
-      # as +:DXT1+, +:ETC2rgb+, or +:ASTC4x4+, or +:unknown+ for one LÖVE
-      # has no name for, matching CompressedImageData:getFormat
+      # The compressed pixel format, as a Symbol (rule 9 of
+      # doc/contributors/design/translation.md), such as +:DXT1+, +:ETC2rgb+, or
+      # +:ASTC4x4+, or +:unknown+ for one LÖVE has no name for, matching
+      # CompressedImageData:getFormat
       # (src/modules/image/wrap_CompressedImageData.cpp,
-      # w_CompressedImageData_getFormat). LÖVE reads every format as
-      # linear when it loads it, so the format never ends in +srgb+.
+      # w_CompressedImageData_getFormat). LÖVE reads every format as linear when
+      # it loads it, so the format never ends in +srgb+.
       #
       # === Example
       #

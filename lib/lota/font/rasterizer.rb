@@ -30,7 +30,8 @@ module Lota
     #   Lota::Graphics.font = Lota::Graphics::Font.new(rasterizer)
     class Rasterizer < Object
       # Its +new+, the constructor love.font.newRasterizer becomes
-      # (ADR 001, rule 2), which Lota::Object leaves private.
+      # (rule 2 of doc/contributors/design/translation.md), which Lota::Object
+      # leaves private.
       public_class_method :new
 
       # Wraps a Rasterizer the engine made. :nodoc:

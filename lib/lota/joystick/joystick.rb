@@ -341,7 +341,8 @@ module Lota
       #   otherwise.
       #
       # A device that cannot rumble returns +false+ rather than raising,
-      # so a game falls back on its own (ADR 001, rule 7).
+      # so a game falls back on its own (rule 7 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -393,7 +394,7 @@ module Lota
       # +joysticksensorupdated+ callback only while it is on.
       #
       # [setting] The sensor's type and whether it is on, as an Array
-      #   (ADR 001, rule 6).
+      #   (rule 6 of doc/contributors/design/translation.md).
       #
       # Raises RuntimeError when the gamepad has no such sensor.
       #

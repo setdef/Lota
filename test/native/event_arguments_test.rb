@@ -10,10 +10,11 @@ require_relative "../engine_helper"
 require_relative "../callback_helper"
 
 # Events reach a game's callbacks with the numbers LÖVE's C++ holds as
-# integers as Integers, and the rest as Floats (ADR 001, rule 14). Each
-# test pushes an event into SDL's queue, where LÖVE's own Event::convert
-# (vendor/love/src/modules/event/sdl/Event.cpp) turns it into a message,
-# and Lota's loop then calls the callback.
+# integers as Integers, and the rest as Floats (rule 14 of
+# doc/contributors/design/translation.md). Each test pushes an event into SDL's
+# queue, where LÖVE's own Event::convert
+# (vendor/love/src/modules/event/sdl/Event.cpp) turns it into a message, and
+# Lota's loop then calls the callback.
 class EventArgumentsTest < Minitest::Test
   include CallbackHelper
 
@@ -69,8 +70,9 @@ class EventArgumentsTest < Minitest::Test
   end
 
   # A key event gives the key's and the scancode's names, which are names
-  # in LÖVE and so symbols (Event.cpp:284-317; ADR 001, rule 9). Escape's
-  # scancode is 41 on every layout (SDL_scancode.h).
+  # in LÖVE and so symbols (Event.cpp:284-317; rule 9 of
+  # doc/contributors/design/translation.md). Escape's scancode is 41 on every
+  # layout (SDL_scancode.h).
   def test_a_key_press_gives_its_key_and_scancode_as_symbols
     key, scancode, isrepeat = received(:keypressed) { LotaNativeTest.press_key(41, true) }
 

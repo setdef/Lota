@@ -11,7 +11,7 @@ require_relative "../engine_helper"
 # Lota::Graphics::ParticleSystem beyond what Lövetest's tests for it check
 # (test/lovetest/tests/graphics.rb): the forms of the setters that take a
 # range, sizes, colors, and quads, and the errors each raises
-# (wrap_ParticleSystem.cpp:41-618), the clone ADR 001 maps to Ruby's, and
+# (wrap_ParticleSystem.cpp:41-618), the clone rule 20 maps to Ruby's, and
 # the drawing of a system placed by numbers or a Transform.
 class ParticleSystemTest < Minitest::Test
   def setup

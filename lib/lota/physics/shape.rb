@@ -14,7 +14,7 @@ module Lota
     # Each Shape is of one of its subclasses: CircleShape, PolygonShape
     # (which RectangleShape.new makes), EdgeShape, or ChainShape, which
     # #get_type names, as LÖVE's Shape:getType does; a Shape has no +type+
-    # (ADR 001, rule 16).
+    # (rule 16 of doc/contributors/design/translation.md).
     #
     # === Example
     #
@@ -63,7 +63,8 @@ module Lota
 
       # Which kind of Shape this is, as a Symbol, matching Shape:getType:
       # <tt>:circle</tt>, <tt>:polygon</tt>, <tt>:edge</tt>, or
-      # <tt>:chain</tt> (ADR 001, rules 9 and 16).
+      # <tt>:chain</tt> (rules 9 and 16 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -178,8 +179,9 @@ module Lota
       end
 
       # Puts the Shape in the +categories+, from 1 to 16, matching
-      # Shape:setCategory, whose several values rule 6 of ADR 001 makes one
-      # Array, as it does LÖVE's table of them.
+      # Shape:setCategory, whose several values rule 6 of
+      # doc/contributors/design/translation.md makes one Array, as it does
+      # LÖVE's table of them.
       #
       # Raises RuntimeError ("Values must be in range 1-16.") outside that
       # range.
@@ -242,8 +244,8 @@ module Lota
       end
 
       # Sets the category bits, the mask bits, and the group at once,
-      # matching Shape:setFilterData, whose three Integers rule 6 of ADR
-      # 001 makes one Array.
+      # matching Shape:setFilterData, whose three Integers rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -282,8 +284,8 @@ module Lota
       # Where the ray from +x1+, +y1+ to +x2+, +y2+, as far as
       # +max_fraction+ of its length, hits the Shape, matching
       # Shape:rayCast: an Array of the normal's x and y and the fraction of
-      # the ray at the hit, or an empty Array when it misses (ADR 001, rule
-      # 4).
+      # the ray at the hit, or an empty Array when it misses (rule 4 of
+      # doc/contributors/design/translation.md).
       #
       # [arguments] The child to cast against, counting from 1, or the
       #   Shape's own x, y, and angle to place it at, then the child.
@@ -439,8 +441,8 @@ module Lota
       end
 
       # Moves the circle's center in its Body's frame, matching
-      # CircleShape:setPoint, whose two values rule 6 of ADR 001 makes one
-      # Array.
+      # CircleShape:setPoint, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -560,7 +562,8 @@ module Lota
       end
 
       # Sets the vertex after the edge, matching EdgeShape:setNextVertex,
-      # whose two values rule 6 of ADR 001 makes one Array.
+      # whose two values rule 6 of doc/contributors/design/translation.md makes
+      # one Array.
       #
       # === Example
       #
@@ -581,8 +584,8 @@ module Lota
       end
 
       # Sets the vertex before the edge, matching
-      # EdgeShape:setPreviousVertex, whose two values rule 6 of ADR 001
-      # makes one Array.
+      # EdgeShape:setPreviousVertex, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -686,8 +689,8 @@ module Lota
       end
 
       # Sets the vertex after the chain's last, matching
-      # ChainShape:setNextVertex, whose two values rule 6 of ADR 001 makes
-      # one Array.
+      # ChainShape:setNextVertex, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -708,8 +711,8 @@ module Lota
       end
 
       # Sets the vertex before the chain's first, matching
-      # ChainShape:setPreviousVertex, whose two values rule 6 of ADR 001
-      # makes one Array.
+      # ChainShape:setPreviousVertex, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -721,10 +724,10 @@ module Lota
     end
 
     # LÖVE's love.physics.newRectangleShape, which makes a PolygonShape:
-    # LÖVE has no RectangleShape class, so rule 2 of ADR 001 makes
-    # RectangleShape a module whose +new+ returns the PolygonShape, and
-    # whose <tt>===</tt> is true of every PolygonShape, as Image === is of
-    # every Texture.
+    # LÖVE has no RectangleShape class, so rule 2 of
+    # doc/contributors/design/translation.md makes RectangleShape a module whose
+    # +new+ returns the PolygonShape, and whose <tt>===</tt> is true of every
+    # PolygonShape, as Image === is of every Texture.
     #
     # === Example
     #

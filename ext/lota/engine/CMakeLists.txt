@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# LÖVE's engine as one static library, without its Lua layer (ADR 001,
-# section 1). LÖVE's own CMakeLists.txt cannot build it: each module target
-# lists its wrap_*.cpp files, so none links without Lua. The sources come
-# from a list `rake engine:sources` generates from LÖVE's CMakeLists.txt.
+# LÖVE's engine as one static library, without its Lua layer
+# (doc/contributors/design/engine.md). LÖVE's own CMakeLists.txt cannot build
+# it: each module target lists its wrap_*.cpp files, so none links without Lua.
+# The sources come from a list `rake engine:sources` generates from LÖVE's
+# CMakeLists.txt.
 
 # rake engine:sources generates each platform's list on that platform, and
 # iOS's on macOS, which has Xcode's iOS SDKs.
@@ -18,7 +19,7 @@ elseif(APPLE)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_linux.cmake)
 elseif(MINGW)
-	# Windows, with MinGW (ADR 002, section 4).
+	# Windows, with MinGW (ADR 011).
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_windows.cmake)
 else()
 	message(FATAL_ERROR "Lota builds its engine for macOS, iOS, Android, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
@@ -26,7 +27,7 @@ endif()
 
 # Lota's patches of LÖVE's engine, each applied to a copy of the files it
 # changes in the build tree, which the engine compiles in place of
-# vendor/love's: physics.patch (ADR 001, section 2) to LÖVE's physics
+# vendor/love's: physics.patch (ADR 005) to LÖVE's physics
 # module, and mesh.patch, which frees a Mesh's vertex data as it was
 # allocated, to graphics/Mesh.cpp, lz4.patch, which backports LZ4's own
 # fix for its arithmetic on null pointers, to libraries/lz4/lz4.c, and for
@@ -142,7 +143,8 @@ target_compile_definitions(lota_engine PUBLIC
 )
 
 target_compile_options(lota_engine PRIVATE
-	# LÖVE's warnings are LÖVE's to fix, upstream (ADR 001, section 1).
+	# LÖVE's warnings are LÖVE's to fix, upstream
+	# (doc/contributors/design/engine.md).
 	-w
 )
 # data/Compressor.cpp:91 and filesystem/NativeFile.cpp:341

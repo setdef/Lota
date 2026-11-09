@@ -225,8 +225,9 @@ class ImageDataTest < Minitest::Test
   end
 
   # w_openFile (wrap_Filesystem.cpp:230-252): a File, or nil and LÖVE's
-  # message, each as an Array (ADR 001, rule 4); File:close says whether
-  # the file was open (wrap_File.cpp:96-101).
+  # message, each as an Array (rule 4 of
+  # doc/contributors/design/translation.md); File:close says whether the file
+  # was open (wrap_File.cpp:96-101).
   def test_open_file_returns_a_file_or_nil_and_why
     in_identity("lota-encode-test") do
       Lota::Filesystem.write("opened.txt", "hi")

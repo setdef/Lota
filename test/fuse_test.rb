@@ -14,10 +14,10 @@ require "rubygems/package"
 require "tmpdir"
 
 # lota fuse writes a Fledge project for a game folder and runs fledge
-# build in it (ADR 002, section 5). Fledge comes from Git and builds an
-# app for minutes, so here a fake bundle stands in for Bundler, recording
-# each command it is given and running the program after exec, and a fake
-# fledge on PATH records its arguments and folder and reports a path, as
+# build in it (doc/contributors/design/packaging.md). Fledge comes from Git and
+# builds an app for minutes, so here a fake bundle stands in for Bundler,
+# recording each command it is given and running the program after exec, and a
+# fake fledge on PATH records its arguments and folder and reports a path, as
 # Fledge reports each file it writes. Each records the Gemfile Bundler is
 # pointed at. Everything lota fuse writes is real and read back as
 # written. One test locks with the real Bundler. The real build is CI's

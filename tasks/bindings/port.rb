@@ -335,8 +335,9 @@ object:,
     # Rule 4: a function that returns several values returns an Array of
     # all of them, whatever it returns on the way, so a form that can
     # return more than one value returns an Array on every path, empty
-    # where LÖVE returns none (ADR 001, section 7). A form that returns
-    # one value on some paths and none on others is not one rule 4 covers.
+    # where LÖVE returns none (doc/contributors/design/translation.md). A form
+    # that returns one value on some paths and none on others is not one rule 4
+    # covers.
     private def result_mode
       counts = returns(@body)
       return :none if counts == [1] && pushes(@body).all? { |push| own_object?(push) } && !pushes(@body).empty?

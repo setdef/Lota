@@ -13,8 +13,8 @@ module Lota
     #
     # A device records into a buffer of its own once it starts, which
     # #data empties. Recording runs across frames, as a Source plays, so
-    # #start and #stop are not a pair with a block form (ADR 001,
-    # section 7).
+    # #start and #stop are not a pair with a block form
+    # (doc/contributors/design/translation.md).
     #
     # === Example
     #

@@ -14,8 +14,8 @@ require "open3"
 # No one reviews the native code line by line (AGENTS.md, Provenance), so
 # these gates do: clang-format for layout and clang-tidy, with every warning
 # an error, for everything else. They read only Lota's own files under
-# ext/, never vendor/, whose code is LÖVE's (ADR 001, section 1). A gate
-# with no files to check passes, so the gates run from the first commit,
+# ext/, never vendor/, whose code is LÖVE's (doc/contributors/design/engine.md).
+# A gate with no files to check passes, so the gates run from the first commit,
 # before Lota has any C++ of its own.
 module CppGates
   # Extensions of the files the gates read.

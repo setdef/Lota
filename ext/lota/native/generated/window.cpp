@@ -31,7 +31,7 @@ using namespace love::window;
 constexpr const char *MODULE = "Lota::Window";
 
 // The window module, as LÖVE's instance() macro reaches it
-// (wrap_Window.cpp:30), on the main thread only (ADR 001, section 6).
+// (wrap_Window.cpp:30), on the main thread only (ADR 007).
 Window *instance() {
   require_main_thread(MODULE);
   auto *instance = love::Module::getInstance<Window>(love::Module::M_WINDOW);

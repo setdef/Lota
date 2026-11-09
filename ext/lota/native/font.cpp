@@ -170,11 +170,11 @@ bool rasterizer_has_glyph(const Rasterizer &rasterizer, double glyph) {
 namespace {
 
 // Whether +rasterizer+ is of the C++ class Kind, the class the factory
-// ADR 001's rule 2 names a module for makes: love.font.newTrueTypeRasterizer
-// a TrueTypeRasterizer (font/freetype/Font.cpp:59-67), newBMFontRasterizer
-// a BMFontRasterizer, and newImageRasterizer an ImageRasterizer
-// (font/Font.cpp:53-78), so that the module's === matches what its
-// factory makes.
+// rule 2 of doc/contributors/design/translation.md names a module for makes:
+// love.font.newTrueTypeRasterizer a TrueTypeRasterizer
+// (font/freetype/Font.cpp:59-67), newBMFontRasterizer a BMFontRasterizer, and
+// newImageRasterizer an ImageRasterizer (font/Font.cpp:53-78), so that the
+// module's === matches what its factory makes.
 template <typename Kind> bool rasterizer_is(const Rasterizer &rasterizer) {
   return dynamic_cast<const Kind *>(&rasterizer) != nullptr;
 }

@@ -11,8 +11,8 @@ module Lota
     # Lota::Graphics.texture_types returns, translated from the table
     # love.graphics.getTextureTypes returns
     # (src/modules/graphics/wrap_Graphics.cpp, w_getTextureTypes): a frozen
-    # value with a field for each of LÖVE's texture type names (ADR 001,
-    # rule 10), +true+ or +false+.
+    # value with a field for each of LÖVE's texture type names (rule 10 of
+    # doc/contributors/design/translation.md), +true+ or +false+.
     #
     # No Ruby method can be called +2d+ without +public_send+, so read it
     # with +[]+, as Lua reads it with brackets.

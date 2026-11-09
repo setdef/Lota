@@ -16,12 +16,12 @@ require_relative "parity_helper"
 # (main.lua:87-133, state.lua:34-39), and its pause menu saves the game
 # (states/game/gamepause.lua:63-77), under LÖVE's save directory, which
 # the harness keeps in a home of its own. Lota's run does the same in a
-# home of its own, where it saves in a Lota folder (ADR 003, section 8),
-# and both runs must save the same files, byte for byte. Both runs mix
-# the game's sounds on the harness's loopback device, once a frame, for
-# the frame's dt (ext/lota/native_test/loopback.cpp), and must mix the
-# same samples; and both decode the sound files SOUNDS lists, which must
-# decode to the same samples too.
+# home of its own, where it saves in a Lota folder
+# (doc/contributors/design/game.md), and both runs must save the same files,
+# byte for byte. Both runs mix the game's sounds on the harness's loopback
+# device, once a frame, for the frame's dt (ext/lota/native_test/loopback.cpp),
+# and must mix the same samples; and both decode the sound files SOUNDS lists,
+# which must decode to the same samples too.
 class KleleAtomsTest < Minitest::Test
   GAME = File.join(Parity::ROOT, "test/fixtures/klele_atoms")
   TRANSLATED = File.join(Parity::ROOT, "test/games/klele_atoms")
@@ -105,7 +105,7 @@ class KleleAtomsTest < Minitest::Test
   end
 
   # The file +name+ Lota saved for the translation, in Lota's folder where
-  # LÖVE's is LOVE (ADR 003, section 8).
+  # LÖVE's is LOVE (doc/contributors/design/game.md).
   def saved_by_lota(name)
     File.binread(File.join(TestHome.application_data(lota.home), TestHome::LOTA_FOLDER, "kleleatoms", name))
   end

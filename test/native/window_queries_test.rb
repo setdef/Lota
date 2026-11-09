@@ -10,9 +10,9 @@ require_relative "../engine_helper"
 
 # Lota::Window's queries and settings, beyond what Lövetest's tests for
 # them check (test/lovetest/tests/window.rb): what they return, in which
-# form (ADR 001, rules 4, 9, and 10), and what they raise
-# (src/modules/window/wrap_Window.cpp). None of them takes the keyboard
-# or the pointer, or fills the screen.
+# form (rules 4, 9 of doc/contributors/design/translation.md, and 10), and what
+# they raise (src/modules/window/wrap_Window.cpp). None of them takes the
+# keyboard or the pointer, or fills the screen.
 class WindowQueriesTest < Minitest::Test
   def setup
     EngineHelper.open_window

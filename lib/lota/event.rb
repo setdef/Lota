@@ -52,10 +52,10 @@ module Lota
     #
     # In LÖVE, poll returns an iterator for Lua's +for+; in Lota it returns
     # an Enumerator, or with a block calls the block for each message
-    # (ADR 001, rule 15). Each step takes the next message out of the
-    # queue, as LÖVE's iterator does, until the queue is empty, so a
-    # message is seen once, by whichever loop takes it first; pump the
-    # queue first to gather what the system has reported. A message's name
+    # (rule 15 of doc/contributors/design/translation.md). Each step takes the
+    # next message out of the queue, as LÖVE's iterator does, until the queue is
+    # empty, so a message is seen once, by whichever loop takes it first; pump
+    # the queue first to gather what the system has reported. A message's name
     # is a Symbol, as are its arguments that are names in LÖVE, such as a
     # key (rule 9), and numbers LÖVE's C++ holds as integers are Integers
     # (rule 14). A table, which #push and #restart carry, comes back as an
@@ -136,15 +136,15 @@ module Lota
     # (src/modules/event/wrap_Event.cpp, w_wait), which LÖVE has
     # deprecated in favor of the +wait_timeout+ of #pump. The first use
     # prints LÖVE's notice (Lota::Deprecation), word for word but for the
-    # function names ADR 001, section 7, rewrites.
+    # function names doc/contributors/design/translation.md, rewrites.
     #
-    # It returns the message's name and arguments as one Array (ADR 001,
-    # rule 4), as #poll yields them, or +nil+ when what arrives is nothing
-    # LÖVE passes on. Unlike #poll it waits for what the operating system
-    # reports, not for what is already in the queue, so it blocks the game
-    # until something happens. Waiting while a canvas is the target raises
-    # RuntimeError, as pump does. Raises RuntimeError when the event
-    # module is not open.
+    # It returns the message's name and arguments as one Array (rule 4 of
+    # doc/contributors/design/translation.md), as #poll yields them, or +nil+
+    # when what arrives is nothing LÖVE passes on. Unlike #poll it waits for
+    # what the operating system reports, not for what is already in the queue,
+    # so it blocks the game until something happens. Waiting while a canvas is
+    # the target raises RuntimeError, as pump does. Raises RuntimeError when the
+    # event module is not open.
     #
     # === Example
     #
@@ -179,9 +179,10 @@ module Lota
     # +quit+ callback, which can return a truthy value to keep the game
     # running, as LÖVE's love.quit can. The status leaves the queue as an
     # Integer, as LÖVE's C++ holds an exit status (love.cpp, runlove), so
-    # <tt>quit(3)</tt> exits with 3 (ADR 001, rule 14). Returns +true+.
-    # LÖVE also takes <tt>"restart"</tt> to start the game again; Lota
-    # has Event.restart for that.
+    # <tt>quit(3)</tt> exits with 3 (rule 14 of
+    # doc/contributors/design/translation.md). Returns +true+. LÖVE also takes
+    # <tt>"restart"</tt> to start the game again; Lota has Event.restart for
+    # that.
     #
     # === Example
     #
@@ -232,8 +233,8 @@ module Lota
     # Sets the callable the operating system's own loop draws the window
     # with, matching love.event.setModalDrawCallback
     # (src/modules/event/wrap_Event.cpp, w_setModalDrawCallback), which
-    # ADR 001's rule 5 makes a writer and its rule 12 lets take any object
-    # that answers +call+.
+    # rule 5 of doc/contributors/design/translation.md makes a writer and its
+    # rule 12 lets take any object that answers +call+.
     #
     # [callable] Anything that answers +call+ with no arguments, or +nil+
     #   for none.

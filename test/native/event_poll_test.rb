@@ -11,9 +11,9 @@ require_relative "../engine_helper"
 # Lota::Event.poll, translated from love.event.poll, whose Lua iterator
 # takes the next message out of the queue each time a for loop asks
 # (vendor/love/src/modules/event/wrap_Event.lua, and w_poll_i in
-# wrap_Event.cpp:52-65), is an Enumerator that also takes a block (ADR
-# 001, rule 15). Lota::Event.push and clear queue and drop messages, as
-# w_push and w_clear do (lines 85-121).
+# wrap_Event.cpp:52-65), is an Enumerator that also takes a block (rule 15 of
+# doc/contributors/design/translation.md). Lota::Event.push and clear queue and
+# drop messages, as w_push and w_clear do (lines 85-121).
 class EventPollTest < Minitest::Test
   def setup
     EngineHelper.open_window
@@ -96,7 +96,8 @@ class EventPollTest < Minitest::Test
 
   # A table whose keys are not 1 to n comes back a Hash, its keys converted
   # as its values are: they are data, not LÖVE's names, so a Symbol key
-  # comes back a String (ADR 001, rule 9, is for enum strings).
+  # comes back a String (rule 9 of doc/contributors/design/translation.md, is
+  # for enum strings).
   def test_a_hash_is_carried_as_a_table_and_comes_back_a_hash
     Lota::Event.push(:test, { :name => "Ada", "level" => 3, 0 => false, true => [1], 2.5 => { inner: nil } })
 
@@ -182,7 +183,8 @@ class EventPollTest < Minitest::Test
 
   # The exit status love.event.quit queues is an int in love.cpp's runlove
   # (vendor/love/src/love.cpp:282-283), so it leaves the queue an Integer
-  # (ADR 001, rule 14), truncated as the C++ cast truncates it.
+  # (rule 14 of doc/contributors/design/translation.md), truncated as the C++
+  # cast truncates it.
   def test_a_quits_status_leaves_the_queue_an_integer
     Lota::Event.quit(3)
     Lota::Event.quit(2.7)

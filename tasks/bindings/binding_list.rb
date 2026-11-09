@@ -34,9 +34,9 @@ module Bindings
     end
 
     # A LÖVE function whose wrap_*.lua code replaces its C++, which Lota
-    # ports by hand from the Lua (ADR 001, section 7). The generator knows
-    # which Lua replaces which C++, so the reason is its own: the file, the
-    # line, and the guards it runs behind.
+    # ports by hand from the Lua (doc/contributors/design/translation.md). The
+    # generator knows which Lua replaces which C++, so the reason is its own:
+    # the file, the line, and the guards it runs behind.
     #
     # [note] What else the port does, when it says more than the Lua.
     class FromLua < Data.define(:love_name, :note)
@@ -85,11 +85,12 @@ module Bindings
   # Names the rules leave open, decided once and recorded with a reason,
   # as binding_exceptions.rb lists them.
   #
-  # ADR 001 settles names by rule, and a function no rule fits goes to the
-  # maintainer as a question. A few such functions were bound before the
-  # generator existed, so their names were decided by hand. This file
-  # records those decisions, each with why, so the generator reproduces
-  # them and the collision report still lists the function.
+  # The translation rules (doc/contributors/design/translation.md) settle
+  # names, and a function no rule fits goes to the maintainer as a
+  # question. A few such functions were bound before the generator
+  # existed, so their names were decided by hand. This file records those
+  # decisions, each with why, so the generator reproduces them and the
+  # collision report still lists the function.
   class BindingExceptions
     # A Lota::Native name decided outside the rules.
     class Name < Data.define(:love_name, :native, :reason)

@@ -8,12 +8,12 @@
 module Lota
   # Calls a game's callbacks, as LÖVE's callbacks.lua does. :nodoc:
   #
-  # A game's callbacks are methods it defines on Lota (ADR 003, section
-  # 2). Lota calls one only when the game defined it, and passes it only
-  # as many of LÖVE's arguments as it declares (section 3), so
-  # <tt>def Lota.keypressed(key)</tt> receives the key alone; a required
-  # parameter beyond LÖVE's receives +nil+, as in Lua, and an optional one
-  # keeps its default.
+  # A game's callbacks are methods it defines on Lota
+  # (doc/contributors/design/game.md). Lota calls one only when the game defined
+  # it, and passes it only as many of LÖVE's arguments as it declares (section
+  # 3), so <tt>def Lota.keypressed(key)</tt> receives the key alone; a required
+  # parameter beyond LÖVE's receives +nil+, as in Lua, and an optional one keeps
+  # its default.
   module Callbacks
     # The arguments after the game's folder on the command line, which
     # Lota's loop passes to the load callback first. :nodoc:
@@ -42,12 +42,12 @@ module Lota
     #
     # A callback that takes a splat receives every argument. A required
     # parameter LÖVE does not pass receives +nil+, as a Lua function
-    # receives nil for arguments its caller left out (ADR 003, section 3).
-    # An optional parameter LÖVE does not pass keeps its default: Lua has
-    # no defaults, so one is the game's own Ruby, which Lota leaves alone.
-    # LÖVE passes no keywords, so a keyword parameter keeps its default,
-    # and a required one raises ArgumentError, as Ruby does for any call
-    # that leaves it out.
+    # receives nil for arguments its caller left out
+    # (doc/contributors/design/game.md). An optional parameter LÖVE does not
+    # pass keeps its default: Lua has no defaults, so one is the game's own
+    # Ruby, which Lota leaves alone. LÖVE passes no keywords, so a keyword
+    # parameter keeps its default, and a required one raises ArgumentError, as
+    # Ruby does for any call that leaves it out.
     def self.call(name, *arguments)
       return unless Lota.respond_to?(name)
 
@@ -65,8 +65,8 @@ module Lota
     end
 
     # As many of +arguments+ as +parameters+ declare, as #call passes a
-    # game's callback (ADR 003, section 3): every one to a splat, +nil+
-    # for each required parameter beyond them, and none for an optional
+    # game's callback (doc/contributors/design/game.md): every one to a splat,
+    # +nil+ for each required parameter beyond them, and none for an optional
     # parameter beyond them, which keeps its default. A Proc that is not a
     # lambda declares each of its parameters optional, and so receives as
     # many as it names. :nodoc:
@@ -79,10 +79,10 @@ module Lota
     end
 
     # Event arguments that are names in LÖVE (enum strings), by event and
-    # position, so that they reach a callback as symbols (ADR 001, rule
-    # 9); the positions are those event/sdl/Event.cpp gives them. Every
-    # other String, such as the text of a +textinput+, stays a String.
-    # :nodoc:
+    # position, so that they reach a callback as symbols (rule 9 of
+    # doc/contributors/design/translation.md); the positions are those
+    # event/sdl/Event.cpp gives them. Every other String, such as the text of a
+    # +textinput+, stays a String. :nodoc:
     ENUM_ARGUMENTS = {
       keypressed: [0, 1],
       keyreleased: [0, 1],
@@ -104,14 +104,14 @@ module Lota
     # SPDX-License-Identifier: Zlib
     #
     # Event arguments LÖVE's C++ holds as integers, by event and position,
-    # so that they reach a callback as Integers (ADR 001, rule 14). LÖVE
-    # passes every number through its Variant as a double; these are the
-    # ones event/sdl/Event.cpp casts to double from an integer: a text
-    # edit's start and length (SDL's Sint32, lines 326-327), a mouse
-    # button as LÖVE numbers it and its click count (int and Uint8, lines
-    # 358-379), a joystick's button, axis, and hat, counting from 1 (Uint8
-    # plus 1, lines 645, 657, and 672), and a rotated display's index,
-    # counting from 1 (line 507). A window's new size is the graphics
+    # so that they reach a callback as Integers (rule 14 of
+    # doc/contributors/design/translation.md). LÖVE passes every number through
+    # its Variant as a double; these are the ones event/sdl/Event.cpp casts to
+    # double from an integer: a text edit's start and length (SDL's Sint32,
+    # lines 326-327), a mouse button as LÖVE numbers it and its click count (int
+    # and Uint8, lines 358-379), a joystick's button, axis, and hat, counting
+    # from 1 (Uint8 plus 1, lines 645, 657, and 672), and a rotated display's
+    # index, counting from 1 (line 507). A window's new size is the graphics
     # module's int width and height (lines 811-835), while that module is
     # open (argument). A quit's first argument is the program's exit
     # status, which love.cpp's runlove holds as an int
@@ -455,12 +455,12 @@ module Lota
     # 221-349).
     #
     # When your game raises, Lota calls <tt>Lota.errorhandler</tt> with
-    # what it raised, as LÖVE calls love.errorhandler (ADR 003, section 7).
-    # This one prints the error and its backtrace, then, in the game's
-    # window, opening one at 800 by 600 if the game has none, puts the
-    # mouse and the drawing state back as they start and shows the error
-    # in white, in LÖVE's default font at 15 pixels, on LÖVE's blue: the
-    # word "Error", the error's text, and its backtrace under
+    # what it raised, as LÖVE calls love.errorhandler
+    # (doc/contributors/design/game.md). This one prints the error and its
+    # backtrace, then, in the game's window, opening one at 800 by 600 if the
+    # game has none, puts the mouse and the drawing state back as they start and
+    # shows the error in white, in LÖVE's default font at 15 pixels, on LÖVE's
+    # blue: the word "Error", the error's text, and its backtrace under
     # "Traceback", without the frames of Lota's boot.rb, as LÖVE leaves out
     # those of its boot.lua. Where LÖVE shows a Lua traceback, Lota shows
     # Ruby's backtrace. When no window can open it shows the error in a

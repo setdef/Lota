@@ -12,9 +12,10 @@
 # Translated to Ruby from Gravity Wars' keyboard.lua
 # (test/fixtures/gravity_wars/keyboard.lua, lines 1-52), as globals.rb
 # describes: love.keypressed and keyreleased become Lota.keypressed and
-# keyreleased (ADR 003), whose key is a symbol (ADR 001, rule 9), which
-# Ruby's puts prints as Lua's print prints the name. Lua's os.exit ends
-# the program at once, with status 0, as Ruby's exit does.
+# keyreleased (doc/contributors/design/game.md), whose key is a symbol (rule 9
+# of doc/contributors/design/translation.md), which Ruby's puts prints as Lua's
+# print prints the name. Lua's os.exit ends the program at once, with status 0,
+# as Ruby's exit does.
 
 #--------------------------------------------------------------------------------------------------
 # Code related to keyboard interactions

@@ -8,10 +8,10 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.sensor tests (vendor/love/testing/tests/sensor.lua),
-# translated to Ruby by ADR 001's rules, all four. Three of them skip
-# where the machine has neither an accelerometer nor a gyroscope, as
-# Lövetest skips them, which on a desktop computer is usual. Like the
-# graphics tests, they run in the test suite's own process
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# four. Three of them skip where the machine has neither an accelerometer nor a
+# gyroscope, as Lövetest skips them, which on a desktop computer is usual. Like
+# the graphics tests, they run in the test suite's own process
 # (test/lovetest/sensor_test.rb) and under lota run (test/lovetest/game).
 class SensorTest < Lovetest::TestMethod
   # SPDX-SnippetBegin

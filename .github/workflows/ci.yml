@@ -5,7 +5,7 @@
 # request; then the precompiled gem it builds, installed on a fresh runner
 # and run from there, once for each platform Lota ships a gem for: Apple
 # Silicon macOS, Linux on x86_64 and arm64, and Windows on x64 and ARM64
-# (ADR 002, section 4), whose jobs build the engine, check it, and run
+# (ADR 011), whose jobs build the engine, check it, and run
 # Lota's tests without the gate's Rake tasks (the Windows jobs say why).
 # The macOS, Linux, and Windows jobs run side by side.
 #
@@ -22,9 +22,9 @@
 # since SDL's offscreen driver cannot create a Metal or OpenGL context on
 # macOS; Lota's tests open real windows too. Every macOS job runs on
 # macos-15: Apple Silicon, macOS 15 (actions/runner-images README,
-# "Available Images"), the oldest macOS Lota supports (ADR 002, section
-# 3), named rather than macos-latest, which moves to each new macOS. The
-# image logs its user in to a GUI session at boot
+# "Available Images"), the oldest macOS Lota supports
+# (doc/contributors/design/packaging.md), named rather than macos-latest, which
+# moves to each new macOS. The image logs its user in to a GUI session at boot
 # (images/macos/scripts/build/configure-autologin.sh, which
 # templates/macOS-15.arm64.anka.pkr.hcl runs), so windows open as on a
 # contributor's Mac.
@@ -644,7 +644,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # Lota on Windows (ADR 002, section 4): LÖVE's
+  # Lota on Windows (ADR 011): LÖVE's
   # dependencies built from source at LÖVE's versions (tasks/windows_build.rb),
   # LÖVE's engine, Lota's extension, and the test-only extension built with
   # MinGW against RubyInstaller's UCRT Ruby, the extension's closure of

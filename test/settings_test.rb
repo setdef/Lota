@@ -9,7 +9,7 @@ require_relative "test_helper"
 
 # Lota::Settings starts with the defaults love.init gives its settings
 # table (vendor/love/src/modules/love/boot.lua:178-238), under LÖVE's
-# names, with enum strings as symbols (ADR 003, section 5).
+# names, with enum strings as symbols (doc/contributors/design/game.md).
 class SettingsTest < Minitest::Test
   def settings
     @settings ||= Lota::Settings.new
@@ -114,7 +114,7 @@ class SettingsTest < Minitest::Test
     assert_equal 800, settings.window.width
   end
 
-  # ADR 003, section 5: reading a setting never set returns nil, as
+  # doc/contributors/design/game.md: reading a setting never set returns nil, as
   # reading a missing key of a Lua table does, at every level of the
   # settings. It answers respond_to? only once set, so Ruby's implicit
   # conversions (to_ary, to_str) still find no method.

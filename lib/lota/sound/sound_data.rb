@@ -69,7 +69,7 @@ module Lota
       # +dup+, LÖVE's copy, matching SoundData:clone
       # (src/modules/sound/wrap_SoundData.cpp, w_SoundData_clone): a new
       # SoundData with a copy of every sample, so a change to one leaves
-      # the other as it was (ADR 001, section 7).
+      # the other as it was (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -159,8 +159,8 @@ module Lota
 
       # Sets a sample of the sound, matching SoundData:setSample as LÖVE
       # runs it, in the LuaJIT code that takes over from its C++
-      # (src/modules/sound/wrap_SoundData.lua), whose several values rule 6
-      # of ADR 001 makes one Array.
+      # (src/modules/sound/wrap_SoundData.lua), whose several values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # [arguments] An Array of the sample's position and its Float or
       #   Integer value, from -1 to 1, or of its position, its Integer

@@ -483,7 +483,7 @@ module NativeFormat
   end
 
   # PE, on Windows, with MinGW against the UCRT, for RubyInstaller's Ruby
-  # (ADR 002, section 4). Windows has no rpath: it finds a DLL a binary
+  # (ADR 011). Windows has no rpath: it finds a DLL a binary
   # imports by its name alone, in directories the process chooses, never
   # the extension's own. So the gem carries, beside the bundle, the
   # preloader (ext/lota/preload), which loads each DLL in

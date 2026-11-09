@@ -10,10 +10,11 @@
 # SPDX-License-Identifier: MIT
 #
 # Translated to Ruby from Gravity Wars' globals.lua
-# (test/fixtures/gravity_wars/globals.lua, lines 1-85), by ADR 001's
-# rules: love.graphics.newImage becomes Lota::Graphics::Image.new and
-# newFont Font.new (rule 2), getFont font (rule 3), and getSystemCursor
-# system_cursor (rule 3), with the cursor's name a symbol (rule 9).
+# (test/fixtures/gravity_wars/globals.lua, lines 1-85), by the rules of
+# doc/contributors/design/translation.md: love.graphics.newImage becomes
+# Lota::Graphics::Image.new and newFont Font.new (rule 2), getFont font (rule
+# 3), and getSystemCursor system_cursor (rule 3), with the cursor's name a
+# symbol (rule 9).
 #
 # Gravity Wars keeps its state in Lua's global variables, which every one
 # of its files reads and assigns. Ruby's nearest equivalent is one object

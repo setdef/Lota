@@ -12,12 +12,12 @@ module Bindings
   # The collision report: every LÖVE function the rules cannot translate
   # alone, for the maintainer to settle by new rules.
   #
-  # ADR 001 settles names by rule, never case by case, and a function that
-  # fits no rule or several becomes a question for a new rule (section 7).
-  # Report lists them all, grouped by LÖVE module, each with the file and
-  # line of its C++ and why it collides, then the functions the parser
-  # could not read, which no rule can be checked against yet. It answers
-  # nothing itself.
+  # The translation rules (doc/contributors/design/translation.md) settle
+  # names, never case by case, and a function that fits no rule or several
+  # becomes a question for a new rule. Report lists them all, grouped by
+  # LÖVE module, each with the file and line of its C++ and why it
+  # collides, then the functions the parser could not read, which no rule
+  # can be checked against yet. It answers nothing itself.
   class Report
     KINDS = {
       no_rule: "Fits no rule",
@@ -49,8 +49,8 @@ module Bindings
     end
 
     # The setters that return a value, by the wrap files, against the list
-    # ADR 001 gives after its rule table: [missing from the list, listed
-    # but returning nothing].
+    # doc/contributors/design/translation.md gives under rule 7's reasons:
+    # [missing from the list, listed but returning nothing].
     # The third Array lists the listed setters the parser cannot read.
     def rule_7_difference
       setters = @survey.entries.select { |entry| entry.source == :cpp && entry.function.lua_name.start_with?("set") }
@@ -67,10 +67,10 @@ module Bindings
 
     private def header
       <<~TEXT
-        Lota binding report: every LÖVE function the rules of ADR 001 cannot translate alone.
+        Lota binding report: every LÖVE function the translation rules (doc/contributors/design/translation.md) cannot translate alone.
 
         Each entry gives the function in LÖVE's notation, where its C++ is, and why it fits no rule,
-        fits several, or leaves a rule's decision open. Settle each by a new rule in ADR 001's table,
+        fits several, or leaves a rule's decision open. Settle each by a new rule in that table,
         never case by case. Unreadable functions follow; the parser does not guess at their shape.
       TEXT
     end
@@ -128,7 +128,7 @@ module Bindings
     private def rule_7
       missing, extra, unread = rule_7_difference.map { |names| names.empty? ? "none" : names.join(", ") }
       <<~TEXT
-        == ADR 001's list of rule 7 setters, against the wrap files
+        == The translation rules' list of rule 7 setters, against the wrap files
           Setters that return a value but are not on the list: #{missing}
           Setters of a listed name that return nothing: #{extra}
           Setters of a listed name the parser cannot read: #{unread}

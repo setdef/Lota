@@ -6,14 +6,14 @@
 #++
 
 module Bindings
-  # ADR 001's translation rules, applied to one LÖVE function.
+  # The translation rules (doc/contributors/design/translation.md), applied to one LÖVE function.
   #
   # The rules turn every LÖVE name into a Ruby one without a decision per
-  # function (ADR 001, section 7): newSpriteBatch becomes SpriteBatch.new,
-  # setTitle becomes title=, isDown becomes down?. Some rules read only the
-  # name; others need the function's shape, which an Analysis gives: what
-  # it returns, whether it takes an option table or a function. Rules
-  # reports the Ruby name, the rules that gave it, and every way the
+  # function (doc/contributors/design/translation.md): newSpriteBatch becomes
+  # SpriteBatch.new, setTitle becomes title=, isDown becomes down?. Some rules
+  # read only the name; others need the function's shape, which an Analysis
+  # gives: what it returns, whether it takes an option table or a function.
+  # Rules reports the Ruby name, the rules that gave it, and every way the
   # function fits no rule or more than one, which goes to the maintainer
   # as a question, never answered here.
   class Rules
@@ -45,21 +45,22 @@ module Bindings
     class Collision < Data.define(:kind, :rules, :why)
     end
 
-    # The rule table's decisions that live in ADR 001's prose rather than
-    # its table, each cited, so that every decision the rules depend on
-    # is written down once.
+    # The rule table's decisions that live in the prose of
+    # doc/contributors/design/translation.md rather than in its table, each
+    # cited, so that every decision the rules depend on is written down
+    # once.
     #
     # Rule 11's explicit pairs, as its examples name them:
     # love.graphics.push and pop, File:open and close.
     PAIRS = { "love.graphics.push" => "love.graphics.pop", "File:open" => "File:close" }.freeze
     # Pairs rule 11 decides against: mount and unmount, which "get no
     # block form until a game needs one", and a Source's play and stop,
-    # since "a sound plays across frames while the game runs" (ADR 001,
-    # section 7, after the table), whether the Source's own methods or
-    # love.audio's, which play and stop the Sources they are given; a
-    # ParticleSystem's start and stop, which run across frames likewise;
-    # and a Mesh's attachAttribute and detachAttribute, which follow mount
-    # and unmount: an attribute stays attached as long as the mesh lives,
+    # since "a sound plays across frames while the game runs"
+    # (doc/contributors/design/translation.md, under the table), whether the
+    # Source's own methods or love.audio's, which play and stop the Sources they
+    # are given; a ParticleSystem's start and stop, which run across frames
+    # likewise; and a Mesh's attachAttribute and detachAttribute, which follow
+    # mount and unmount: an attribute stays attached as long as the mesh lives,
     # so the pair gets no block form until a game needs one.
     NOT_PAIRS = {
       "love.filesystem.mount" => "love.filesystem.unmount",
@@ -163,13 +164,13 @@ module Bindings
       "__call" => "call",
       "__tostring" => "to_s",
     }.freeze
-    # LÖVE's root types, which keep their names inside Lota (ADR 001,
-    # section 7): Data's methods are Lota::Data's, a module every Data
-    # includes, as Object's are Lota::Object's. Data is love.data's type,
-    # so Lota::Data is also that module, whose module functions are
-    # love.data's.
+    # LÖVE's root types, which keep their names inside Lota
+    # (doc/contributors/design/translation.md): Data's methods are Lota::Data's,
+    # a module every Data includes, as Object's are Lota::Object's. Data is
+    # love.data's type, so Lota::Data is also that module, whose module
+    # functions are love.data's.
     ROOT_TYPES = { "Data" => "Lota::Data" }.freeze
-    # Rule 7's setters, as ADR 001 lists them after the table.
+    # Rule 7's setters, as doc/contributors/design/translation.md lists them under the table.
     RULE_7_SETTERS = %w[
       setMode
       setFullscreen

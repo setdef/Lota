@@ -14,7 +14,8 @@ module Lota
     # The settings of a Source's filter, as Source#filter and
     # Source#effect return them, matching the table Source:getFilter
     # returns (src/modules/audio/wrap_Source.cpp, getFilterWriteFilter), a
-    # frozen record with LÖVE's field names (ADR 001, rule 10).
+    # frozen record with LÖVE's field names (rule 10 of
+    # doc/contributors/design/translation.md).
     #
     # Its +type+, the one String setting the engine gives, is
     # <tt>:lowpass</tt>, <tt>:highpass</tt>, or <tt>:bandpass</tt> (rule

@@ -8,7 +8,8 @@
 module Lota
   module Font
     # Makes rasterizers from TrueType and OpenType fonts, matching
-    # love.font.newTrueTypeRasterizer, named by ADR 001, rule 2.
+    # love.font.newTrueTypeRasterizer, named by rule 2 of
+    # doc/contributors/design/translation.md.
     #
     # LÖVE has no TrueTypeRasterizer class that a game can see: a TrueType
     # rasterizer is an ordinary Lota::Font::Rasterizer, which draws its
@@ -17,7 +18,8 @@ module Lota
     #
     # LÖVE's C++ makes a TrueType rasterizer of a class of its own, so
     # <tt>TrueTypeRasterizer === rasterizer</tt> is true only of a TrueType
-    # rasterizer, as rule 2 of ADR 001 asks of a module's ===.
+    # rasterizer, as rule 2 of doc/contributors/design/translation.md asks of a
+    # module's ===.
     #
     # Use it to rasterize a font file, or LÖVE's default font, at a size
     # of your choosing.
@@ -52,8 +54,9 @@ module Lota
       #
       # The hinting and DPI scale come either after the size, as in LÖVE's
       # older form, or as keywords, which translate the table of settings
-      # LÖVE 12 also takes (ADR 001, rule 10). After the size, LÖVE reads
-      # the DPI scale only after a hinting mode, and so does Lota.
+      # LÖVE 12 also takes (rule 10 of doc/contributors/design/translation.md).
+      # After the size, LÖVE reads the DPI scale only after a hinting mode, and
+      # so does Lota.
       #
       # Raises ArgumentError for an unknown hinting mode, settings given
       # both ways, or too many arguments, TypeError for an argument of the

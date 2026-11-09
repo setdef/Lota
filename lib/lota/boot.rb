@@ -8,10 +8,10 @@
 module Lota
   # Starts a game from its folder, as LÖVE's boot.lua starts one.
   #
-  # A game is a folder holding conf.rb and main.rb (ADR 003). Before its
-  # code runs, something has to read its settings, open the modules it
-  # wants, and open its window, in the order LÖVE does them, or a game
-  # that works in LÖVE breaks in Lota.
+  # A game is a folder holding conf.rb and main.rb
+  # (doc/contributors/design/game.md). Before its code runs, something has to
+  # read its settings, open the modules it wants, and open its window, in the
+  # order LÖVE does them, or a game that works in LÖVE breaks in Lota.
   #
   # Boot does that. <tt>lota run</tt> makes one for the folder you name
   # and calls it: it builds the settings, loads conf.rb and calls
@@ -23,7 +23,8 @@ module Lota
   #
   # An error in the game shows LÖVE's error screen in the game's window,
   # with Ruby's backtrace, as LÖVE's love.errorhandler does, or whatever
-  # the game's own <tt>Lota.errorhandler</tt> shows (ADR 003, section 7).
+  # the game's own <tt>Lota.errorhandler</tt> shows
+  # (doc/contributors/design/game.md).
   #
   # === Examples
   #
@@ -79,12 +80,13 @@ module Lota
     # [fused] Whether the game is fused into an application of its own, as
     #   a shipped game is, which LÖVE's boot.lua decides from where it
     #   found the game (boot.lua:76-96) and Lota from who starts it:
-    #   <tt>lota run</tt> leaves it +false+, and ADR 002's launcher, which
-    #   ships a game, is to pass +true+. A fused game saves in the
-    #   system's application data folder under its identity alone, where
-    #   LÖVE's fused games save; one that is not saves in a +Lota+ folder
-    #   there (ADR 003, section 8). Only the first Boot in a process sets
-    #   it, as LÖVE sets it once (Lota::Filesystem.fused=).
+    #   <tt>lota run</tt> leaves it +false+, and the entry script
+    #   <tt>lota fuse</tt> writes, which ships a game, passes +true+. A
+    #   fused game saves in the system's application data folder under its
+    #   identity alone, where LÖVE's fused games save; one that is not
+    #   saves in a +Lota+ folder there (doc/contributors/design/game.md).
+    #   Only the first Boot in a process sets it, as LÖVE sets it once
+    #   (Lota::Filesystem.fused=).
     #
     # === Examples
     #
@@ -118,10 +120,10 @@ module Lota
     #
     # Lota drains its release queue after every frame, so that graphics
     # objects Ruby's garbage collector freed on another thread are released
-    # on the main thread (ADR 001, section 5). A frame that returns an
-    # Integer or Float exits with it; any other truthy value exits with 0,
-    # as LÖVE's love.cpp treats a value that is not a number. A frame that
-    # returns <tt>"restart"</tt>, alone or first in an Array with the
+    # on the main thread (doc/contributors/design/engine.md). A frame that
+    # returns an Integer or Float exits with it; any other truthy value exits
+    # with 0, as LÖVE's love.cpp treats a value that is not a number. A frame
+    # that returns <tt>"restart"</tt>, alone or first in an Array with the
     # value the game restarts with, as love.run returns them after
     # Lota::Event.restart (callbacks.lua:177-187), ends the game with
     # status 0 and makes #restart? true, and the process starts the game
@@ -484,8 +486,8 @@ module Lota
     # without leading dots or its last extension, and with every other dot
     # an underscore (lines 145-147). A name left empty becomes "lotagame",
     # where LÖVE's is "lovegame" (line 148), so that Lota's own folder
-    # names carry Lota's name, as ADR 003, section 8 names the folder it
-    # saves in.
+    # names carry Lota's name, as doc/contributors/design/game.md names the
+    # folder it saves in.
     private def identity
       Boot.folder_identity(@directory)
     end
@@ -562,8 +564,8 @@ module Lota
     # Setup window here (boot.lua:398-426), its icon first, from
     # t.window.icon, an image file's name or anything else
     # Lota::Image::ImageData.new takes, as love.image.newImageData takes it.
-    # The assertion's message names Lota's own conf and module (ADR 001,
-    # section 7).
+    # The assertion's message names Lota's own conf and module
+    # (doc/contributors/design/translation.md).
     private def open_window
       window = @settings.window
       return unless window && @settings.modules.window

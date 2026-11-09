@@ -31,7 +31,8 @@ module Lota
       # Makes this CompressedData, a copy of +source+ by Ruby's +clone+ or
       # +dup+, LÖVE's copy, matching CompressedData:clone
       # (src/modules/data/wrap_CompressedData.cpp:35-42): a new one with a
-      # copy of the bytes and the same format (ADR 001, section 7).
+      # copy of the bytes and the same format
+      # (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -41,9 +42,9 @@ module Lota
         @native = source.native.clone
       end
 
-      # How its bytes were compressed, as a Symbol (ADR 001, rule 9):
-      # +:lz4+, +:zlib+, +:gzip+, or +:deflate+, matching
-      # CompressedData:getFormat
+      # How its bytes were compressed, as a Symbol (rule 9 of
+      # doc/contributors/design/translation.md): +:lz4+, +:zlib+, +:gzip+, or
+      # +:deflate+, matching CompressedData:getFormat
       # (src/modules/data/wrap_CompressedData.cpp:44-54).
       #
       # === Example

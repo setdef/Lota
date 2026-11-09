@@ -8,10 +8,10 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.graphics tests (vendor/love/testing/tests/graphics.lua),
-# translated to Ruby by ADR 001's rules. Two runners load them:
-# test/lovetest/graphics_test.rb, in the test suite's own process, and
-# test/lovetest/game, a game folder that runs them from its update callback
-# under lota run, as Lövetest runs them from love.update.
+# translated to Ruby by the rules of doc/contributors/design/translation.md. Two
+# runners load them: test/lovetest/graphics_test.rb, in the test suite's own
+# process, and test/lovetest/game, a game folder that runs them from its update
+# callback under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
   TYPES = %w[Buffer Canvas Font Image Mesh ParticleSystem Quad Shader ShaderStorageBuffer SpriteBatch Text Video].freeze
@@ -1539,7 +1539,7 @@ class GraphicsTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.graphics.resetProjection
   # (vendor/love/testing/tests/graphics.lua:2762-2783): setProjection
   # becomes the writer projection=, taking its layout and elements as one
-  # Array (rule 6), as ADR 001 makes Transform:setMatrix matrix=, with
+  # Array (rule 6), as rules 6 and 7 make Transform:setMatrix matrix=, with
   # the layout a symbol (rule 9), and resetProjection reset_projection
   # (rule 13).
   def test_reset_projection

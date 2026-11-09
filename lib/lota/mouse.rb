@@ -118,7 +118,8 @@ module Lota
 
     # The pointer's position in the window, as an Array of two Floats,
     # matching love.mouse.getPosition (src/modules/mouse/wrap_Mouse.cpp,
-    # w_getPosition), whose two values rule 4 of ADR 001 makes one Array.
+    # w_getPosition), whose two values rule 4 of
+    # doc/contributors/design/translation.md makes one Array.
     #
     # A position outside the window, as while the player drags out of it,
     # is moved to its nearest edge, as LÖVE moves it. Raises RuntimeError
@@ -185,7 +186,8 @@ module Lota
 
     # Moves the pointer to a place in the window, matching
     # love.mouse.setPosition (src/modules/mouse/wrap_Mouse.cpp,
-    # w_setPosition), whose two values rule 6 of ADR 001 makes one Array.
+    # w_setPosition), whose two values rule 6 of
+    # doc/contributors/design/translation.md makes one Array.
     #
     # [position] An Array of the Float or Integer position across and
     #   down the window.
@@ -276,9 +278,10 @@ module Lota
     # In relative mode the pointer is hidden and stays where it is, and the
     # +mousemoved+ callback reports how far the mouse moved, as a game that
     # turns a camera with the mouse needs. Returns +false+ when the system
-    # cannot turn it on, so it stays a method rather than a writer (ADR
-    # 001, rule 7). Raises TypeError unless +relative+ is +true+ or
-    # +false+, and RuntimeError when the mouse module is not open.
+    # cannot turn it on, so it stays a method rather than a writer (rule 7 of
+    # doc/contributors/design/translation.md). Raises TypeError unless
+    # +relative+ is +true+ or +false+, and RuntimeError when the mouse module is
+    # not open.
     #
     # === Example
     #

@@ -18,7 +18,7 @@ module Lota
     # Each method raises RuntimeError ("Attempt to use destroyed body.")
     # once the Body is destroyed, but #destroyed? and #destroy. LÖVE's
     # Body:getType and setType are #get_type and #set_type, and a Body has
-    # no +type+ (ADR 001, rule 16).
+    # no +type+ (rule 16 of doc/contributors/design/translation.md).
     #
     # === Example
     #
@@ -44,7 +44,8 @@ module Lota
       # [x] Float or Integer position along x, in pixels.
       # [y] Float or Integer position along y.
       # [type] Symbol <tt>:static</tt>, <tt>:dynamic</tt>, or
-      #   <tt>:kinematic</tt> (ADR 001, rule 9).
+      #   <tt>:kinematic</tt> (rule 9 of
+      #   doc/contributors/design/translation.md).
       #
       # Raises ArgumentError for a type LÖVE does not know, and
       # RuntimeError for a destroyed World.
@@ -102,8 +103,8 @@ module Lota
         @native.position
       end
 
-      # Moves the Body, matching Body:setPosition, whose two values rule 6
-      # of ADR 001 makes one Array.
+      # Moves the Body, matching Body:setPosition, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -142,7 +143,7 @@ module Lota
       end
 
       # Moves and turns the Body, matching Body:setTransform, whose three
-      # values rule 6 of ADR 001 makes one Array.
+      # values rule 6 of doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -164,7 +165,7 @@ module Lota
 
       # Sets the position, the angle, the linear velocity, and the angular
       # velocity at once, matching Body:setKinematicState, whose six values
-      # rule 6 of ADR 001 makes one Array.
+      # rule 6 of doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -175,7 +176,8 @@ module Lota
       end
 
       # Whether the Body is static, dynamic, or kinematic, as a Symbol,
-      # matching Body:getType (ADR 001, rules 9 and 16).
+      # matching Body:getType (rules 9 and 16 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -185,7 +187,8 @@ module Lota
       end
 
       # Sets whether the Body is static, dynamic, or kinematic, matching
-      # Body:setType, with a Symbol (ADR 001, rules 9 and 16).
+      # Body:setType, with a Symbol (rules 9 and 16 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -515,8 +518,8 @@ module Lota
       end
 
       # Sets the center of mass, the mass, and the inertia, matching
-      # Body:setMassData, whose four values rule 6 of ADR 001 makes one
-      # Array.
+      # Body:setMassData, whose four values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #
@@ -636,7 +639,7 @@ module Lota
       end
 
       # Sets the velocity, matching Body:setLinearVelocity, whose two values
-      # rule 6 of ADR 001 makes one Array.
+      # rule 6 of doc/contributors/design/translation.md makes one Array.
       #
       # === Example
       #

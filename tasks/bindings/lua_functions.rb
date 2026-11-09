@@ -16,10 +16,10 @@ module Bindings
   # name, as SoundData:getSample's LuaJIT code replaces
   # w_SoundData_getSample, once the file's guards pass: LÖVE's builds run
   # LuaJIT with its compiler on and its FFI loaded, so a game runs the Lua,
-  # and Lota ports the Lua rather than the C++ (ADR 001, section 7).
-  # LuaFunctions lists them, by name and parameter list, with the guards
-  # each runs behind, for the rules, the generator, and the report; Lota
-  # ports them by hand.
+  # and Lota ports the Lua rather than the C++
+  # (doc/contributors/design/translation.md). LuaFunctions lists them, by name
+  # and parameter list, with the guards each runs behind, for the rules, the
+  # generator, and the report; Lota ports them by hand.
   module LuaFunctions
     # A function defined in a wrap_*.lua file.
     #

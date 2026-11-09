@@ -11,15 +11,15 @@
 #
 # Translated to Ruby from the arkanoid tutorial's third snapshot,
 # test/fixtures/love2d_arkanoid_tutorial/1-03_BricksAndWalls/main.lua
-# (lines 1-200), by ADR 001's rules and as the second snapshot is
+# (lines 1-200), by the rules of doc/contributors/design/translation.md and as
+# the second snapshot is
 # (test/games/arkanoid/1-02_GameObjectsAsLuaTables/main.rb):
-# love.graphics.getWidth and getHeight become Lota::Graphics.width and
-# height (rule 3). Lua's pairs visits the walls, which the snapshot keys by
-# name, in an order Lua leaves unspecified (the reference love's LuaJIT
-# visits top, bottom, left, right), and a Ruby Hash visits them in the
-# order they were added; all four are drawn alike, so no frame depends on
-# the order. The snapshot has no conf.lua, so this game has no
-# conf.rb.
+# love.graphics.getWidth and getHeight become Lota::Graphics.width and height
+# (rule 3). Lua's pairs visits the walls, which the snapshot keys by name, in an
+# order Lua leaves unspecified (the reference love's LuaJIT visits top, bottom,
+# left, right), and a Ruby Hash visits them in the order they were added; all
+# four are drawn alike, so no frame depends on the order. The snapshot has no
+# conf.lua, so this game has no conf.rb.
 
 # Ball (lines 1-21)
 Ball = Struct.new(:position_x, :position_y, :speed_x, :speed_y, :radius) do

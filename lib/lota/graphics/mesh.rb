@@ -30,7 +30,8 @@ module Lota
       # Mesh#vertex_format returns, translated from the table
       # love.graphics's Mesh:getVertexFormat makes
       # (src/modules/graphics/wrap_Mesh.cpp, w_Mesh_getVertexFormat): a
-      # frozen value with LÖVE's field names (ADR 001, rule 10).
+      # frozen value with LÖVE's field names (rule 10 of
+      # doc/contributors/design/translation.md).
       #
       # [name] The attribute's String name, such as +"VertexPosition"+.
       # [location] Integer binding location, or -1 if it has none.
@@ -58,8 +59,8 @@ module Lota
 
       # Makes a mesh, matching love.graphics.newMesh
       # (src/modules/graphics/wrap_Graphics.cpp, w_newMesh), named by
-      # ADR 001, rule 2. LÖVE chooses among three forms by the types of the
-      # arguments, as this does:
+      # rule 2 of doc/contributors/design/translation.md. LÖVE chooses among
+      # three forms by the types of the arguments, as this does:
       #
       # :call-seq:
       #   new(vertices, mode, usage = :dynamic)
@@ -241,7 +242,7 @@ module Lota
       # Replaces vertices, matching Mesh:setVertices
       # (src/modules/graphics/wrap_Mesh.cpp, w_Mesh_setVertices). Its first
       # argument is itself an Array or a Data, so it stays a method rather
-      # than a writer (ADR 001, rule 6).
+      # than a writer (rule 6 of doc/contributors/design/translation.md).
       #
       # [data] An Array of Arrays of numbers, each the numbers of every
       #   attribute of a vertex, or a Lota::Data of bytes.
@@ -264,7 +265,8 @@ module Lota
 
       # Replaces one vertex, matching Mesh:setVertex
       # (src/modules/graphics/wrap_Mesh.cpp, w_Mesh_setVertex), whose
-      # several values rule 6 of ADR 001 makes one Array.
+      # several values rule 6 of doc/contributors/design/translation.md makes
+      # one Array.
       #
       # [arguments] The Integer index of the vertex, counting from 1,
       # followed by the numbers of its attributes, one after another or as
@@ -301,8 +303,8 @@ module Lota
 
       # Replaces one attribute of one vertex, matching
       # Mesh:setVertexAttribute (src/modules/graphics/wrap_Mesh.cpp,
-      # w_Mesh_setVertexAttribute), whose several values rule 6 of ADR 001
-      # makes one Array.
+      # w_Mesh_setVertexAttribute), whose several values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # [arguments] The Integer index of the vertex and the Integer index
       # of the attribute in the format, each counting from 1, followed by
@@ -358,8 +360,8 @@ module Lota
 
       # Turns an attribute on or off for drawing, matching
       # Mesh:setAttributeEnabled (src/modules/graphics/wrap_Mesh.cpp,
-      # w_Mesh_setAttributeEnabled), whose two values rule 6 of ADR 001
-      # makes one Array.
+      # w_Mesh_setAttributeEnabled), whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # [arguments] The attribute's String name or Integer binding
       #   location, and +true+ or +false+.
@@ -479,7 +481,7 @@ module Lota
       # Sets the order the vertices are used in, matching Mesh:setVertexMap
       # (src/modules/graphics/wrap_Mesh.cpp, w_Mesh_setVertexMap). Its first
       # argument is itself an Array or a Data, so it stays a method rather
-      # than a writer (ADR 001, rule 6).
+      # than a writer (rule 6 of doc/contributors/design/translation.md).
       #
       # [map] Integer vertex indices, counting from 1, as several
       #   arguments or one Array; or a Lota::Data of indices, then the
@@ -628,8 +630,9 @@ module Lota
       # 1, and how many, or an empty Array when every vertex is drawn,
       # matching Mesh:getDrawRange (src/modules/graphics/wrap_Mesh.cpp,
       # w_Mesh_getDrawRange); a function that returns several values
-      # returns an Array of all it returns (ADR 001, rule 4), so
-      # <tt>.first</tt> is +nil+ where Lua's first result is.
+      # returns an Array of all it returns (rule 4 of
+      # doc/contributors/design/translation.md), so <tt>.first</tt> is +nil+
+      # where Lua's first result is.
       #
       # === Examples
       #

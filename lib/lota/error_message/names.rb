@@ -16,7 +16,8 @@ module Lota
   end
 end
 
-# Every function of LÖVE's Lua API that ADR 001's rules name, in
+# Every function of LÖVE's Lua API that the translation rules
+# (doc/contributors/design/translation.md) name, in
 # LÖVE's notation (love.window.setMode, ImageData:getPixel), with
 # the Ruby name the rules give it (Lota::Window.set_mode,
 # Lota::Image::ImageData#pixel), from tasks/bindings/rules.rb, sorted

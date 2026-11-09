@@ -20,9 +20,9 @@ module Lota
     #
     # LÖVE has no class named Buffer: its Lua type is +GraphicsBuffer+, which
     # #object_type returns, and +newBuffer+ makes one. So Buffer is a
-    # module, as Image is (ADR 001, rule 2): Buffer.new returns a
-    # GraphicsBuffer, and <tt>Buffer === object</tt> is true of every
-    # GraphicsBuffer.
+    # module, as Image is (rule 2 of doc/contributors/design/translation.md):
+    # Buffer.new returns a GraphicsBuffer, and <tt>Buffer === object</tt> is
+    # true of every GraphicsBuffer.
     #
     # === Example
     #
@@ -36,7 +36,8 @@ module Lota
       # One member of the format of a buffer, which GraphicsBuffer#format returns,
       # translated from the table love.graphics's GraphicsBuffer:getFormat
       # makes (src/modules/graphics/wrap_Buffer.cpp, w_Buffer_getFormat):
-      # a frozen value with LÖVE's field names (ADR 001, rule 10).
+      # a frozen value with LÖVE's field names (rule 10 of
+      # doc/contributors/design/translation.md).
       #
       # [name] The member's String name, empty if it has none.
       # [format] Symbol of its data format, such as +:floatvec2+.
@@ -65,7 +66,8 @@ module Lota
 
       # Makes a buffer, matching love.graphics.newBuffer
       # (src/modules/graphics/wrap_Graphics.cpp, w_newBuffer and
-      # luax_newbuffer), named by ADR 001, rule 2.
+      # luax_newbuffer), named by rule 2 of
+      # doc/contributors/design/translation.md.
       #
       # [format] The format of one element: a Symbol of a data format, such
       #   as +:uint16+ for indices, or an Array with a Hash for each
@@ -213,7 +215,8 @@ module Lota
       # GraphicsBuffer:setArrayData
       # (src/modules/graphics/wrap_Buffer.cpp, w_Buffer_setArrayData).
       # Its first argument is itself an Array or a Data, so it stays a
-      # method rather than a writer (ADR 001, rule 6).
+      # method rather than a writer (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # [data] An Array of Arrays of numbers, an Array of the numbers of
       #   every element one after another, or a Lota::Data of bytes.
@@ -336,9 +339,9 @@ module Lota
     end
 
     # Makes buffers, matching love.graphics.newBuffer: LÖVE has no Buffer
-    # class, so by ADR 001, rule 2, Buffer is a module whose new returns a
-    # GraphicsBuffer and whose <tt>===</tt> is true of every GraphicsBuffer,
-    # as Image is for Texture.
+    # class, so by rule 2 of doc/contributors/design/translation.md, Buffer is a
+    # module whose new returns a GraphicsBuffer and whose <tt>===</tt> is true
+    # of every GraphicsBuffer, as Image is for Texture.
     #
     # === Example
     #

@@ -11,8 +11,8 @@ module Lota
   module CLI
     module Commands
       # Builds the game in a folder into an app a player runs without Ruby,
-      # as a LÖVE game is fused into an executable of its own (ADR 002,
-      # section 5).
+      # as a LÖVE game is fused into an executable of its own
+      # (doc/contributors/design/packaging.md).
       #
       # A player has no Ruby and no Lota, and should not need either. This
       # command hands the game to Fledge with Lota::Fuse, prints the paths
@@ -31,7 +31,7 @@ module Lota
       #   lota fuse path/to/game --sign-command "signtool sign /fd sha256 /a %1"
       module Fuse
         # The words Fledge reads as a phone, which Lota cannot build for
-        # yet (ADR 002, section 2).
+        # yet (doc/contributors/design/packaging.md).
         PHONES = %w[ios android].freeze
 
         # The options that take a value, each with the Lota::Fuse::Options
@@ -91,7 +91,7 @@ module Lota
 
               (options[key] ||= []) << value
             elsif PHONES.include?(argument)
-              raise Lota::Fuse::Error, "Lota cannot build for #{argument} yet: its engine is not built for phones (ADR 002, section 2)."
+              raise Lota::Fuse::Error, "Lota cannot build for #{argument} yet: its engine is not built for phones (doc/contributors/design/packaging.md)."
             elsif argument.start_with?("-")
               raise Lota::Fuse::Error, "unrecognized option '#{argument}'\n#{usage}"
             else

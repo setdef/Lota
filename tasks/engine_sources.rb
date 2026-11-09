@@ -20,9 +20,9 @@ require "open3"
 #
 # LÖVE's module targets list their wrap_*.cpp files and other Lua glue, so
 # their sources cannot be used as they are. #generate drops what RULES name
-# (ADR 001, section 1) and renders the rest as a CMake file, with every
-# dropped file and its reason listed as a comment so a submodule bump shows
-# up in review. #problems compares that rendering with the committed file.
+# (doc/contributors/design/engine.md) and renders the rest as a CMake file, with
+# every dropped file and its reason listed as a comment so a submodule bump
+# shows up in review. #problems compares that rendering with the committed file.
 class EngineSources
   # A rule that leaves a LÖVE source out of the engine.
   #
@@ -38,12 +38,12 @@ class EngineSources
   # What the engine leaves out of LÖVE's sources. The first matching rule
   # names the reason.
   RULES = [
-    Rule.new(%r{(\A|/)wrap_[^/]*\z}, "Lua binding (wrap_*), ADR 001 section 1"),
-    Rule.new(%r{\Asrc/common/(runtime|Reference)\.}, "Lua glue, ADR 001 section 1"),
-    Rule.new(%r{\Asrc/modules/love/}, "Lua boot sequence, ADR 001 section 1"),
+    Rule.new(%r{(\A|/)wrap_[^/]*\z}, "Lua binding (wrap_*), doc/contributors/design/engine.md"),
+    Rule.new(%r{\Asrc/common/(runtime|Reference)\.}, "Lua glue, doc/contributors/design/engine.md"),
+    Rule.new(%r{\Asrc/modules/love/}, "Lua boot sequence, doc/contributors/design/engine.md"),
     Rule.new(%r{\Asrc/modules/thread/(LuaThread|ThreadModule|Channel)\.},
-      "Lua threads and channels, ADR 001 section 1"),
-    Rule.new(%r{\Asrc/libraries/enet/enet\.cpp\z}, "lua-enet binding, ADR 001 section 1"),
+      "Lua threads and channels, doc/contributors/design/engine.md"),
+    Rule.new(%r{\Asrc/libraries/enet/enet\.cpp\z}, "lua-enet binding, doc/contributors/design/engine.md"),
     Rule.new(%r{\Asrc/love\.cpp\z}, "main() of the love executable, which boots Lua"),
     Rule.new(%r{\Aextra/windows/}, "the love executable's Windows resources"),
     Rule.new(%r{\Asrc/libraries/(lua53|luasocket|luahttps)/}, "Lua, or a library only Lua calls"),

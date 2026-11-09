@@ -12,9 +12,9 @@ require_relative "../lib/lota/version"
 # when the fuse workflow ran it (.github/workflows/fuse.yml): that it quit
 # with 3, for test/games/fuse that it restarted once, as LÖVE's fused game
 # restarts, ran fused, saved a file under its identity alone, where LÖVE's
-# fused game saves (ADR 003, section 8), played its sound, and printed
-# the lines that say its gems reached the app. Given the file of what the
-# app printed to stderr and the name of an OpenAL Soft backend, it also
+# fused game saves (doc/contributors/design/game.md), played its sound, and
+# printed the lines that say its gems reached the app. Given the file of what
+# the app printed to stderr and the name of an OpenAL Soft backend, it also
 # checks that OpenAL Soft (run with ALSOFT_LOGLEVEL=3) chose that backend
 # and opened a device through it.
 #

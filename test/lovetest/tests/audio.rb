@@ -8,12 +8,12 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.audio tests (vendor/love/testing/tests/audio.lua),
-# translated to Ruby by ADR 001's rules, all 31 of them. They run in the
-# test suite's own process (test/lovetest/audio_test.rb), whose OpenAL Soft
-# plays into a wave file, as Lövetest's does on LÖVE's CI
-# (test/alsoft.conf), and under lota run (test/lovetest/game), also from
-# the installed precompiled gem, which carries OpenAL Soft
-# (ext/lota/licenses.rb).
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# 31 of them. They run in the test suite's own process
+# (test/lovetest/audio_test.rb), whose OpenAL Soft plays into a wave file, as
+# Lövetest's does on LÖVE's CI (test/alsoft.conf), and under lota run
+# (test/lovetest/game), also from the installed precompiled gem, which carries
+# OpenAL Soft (ext/lota/licenses.rb).
 class AudioTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type
   # (love.test.audio.RecordingDevice and love.test.audio.Source).

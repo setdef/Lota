@@ -8,8 +8,8 @@
 # Replaces Lota's game loop with its own, as a LÖVE game can replace
 # love.run, for test/native/lota_run_test.rb. Its first frame drops
 # canvases and collects them on another thread, which queues their
-# releases for the main thread (ADR 001, section 5); its second frame
-# reports whether Lota drained the queue between frames, then quits with
+# releases for the main thread (doc/contributors/design/engine.md); its second
+# frame reports whether Lota drained the queue between frames, then quits with
 # status 5.
 $stdout.sync = true
 

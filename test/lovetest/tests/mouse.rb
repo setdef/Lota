@@ -9,8 +9,8 @@ require_relative "../lovetest_helper"
 require_relative "../held_foreground"
 
 # Lövetest's love.mouse tests (vendor/love/testing/tests/mouse.lua),
-# translated to Ruby by ADR 001's rules, all 18 of them. Like the graphics
-# tests, they run in the test suite's own process
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# 18 of them. Like the graphics tests, they run in the test suite's own process
 # (test/lovetest/mouse_test.rb) and under lota run (test/lovetest/game).
 class MouseTest < Lovetest::TestMethod
   # Lövetest runs a module's tests in the order of their names

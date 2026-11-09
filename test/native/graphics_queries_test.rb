@@ -9,9 +9,9 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 
 # What Lövetest's tests of the renderer's queries do not reach: the types
-# of their fields (ADR 001, rule 14), and the checks w_getTextureFormats
-# makes of its settings (wrap_Graphics.cpp:3022-3064), which become
-# keywords (rule 10).
+# of their fields (rule 14 of doc/contributors/design/translation.md), and the
+# checks w_getTextureFormats makes of its settings
+# (wrap_Graphics.cpp:3022-3064), which become keywords (rule 10).
 class GraphicsQueriesTest < Minitest::Test
   include NativeHelper
 

@@ -15,7 +15,7 @@ require_relative "notices"
 
 module Lota
   # Turns a game folder into an app a player runs without Ruby, as LÖVE
-  # fuses a game into its own executable (ADR 002, section 5).
+  # fuses a game into its own executable (doc/contributors/design/packaging.md).
   #
   # A player of a Lota game has no Ruby, no Lota, and no LÖVE. Fledge
   # (github.com/setdef/Fledge) packages a Ruby program with a Ruby of its
@@ -26,8 +26,8 @@ module Lota
   # name and <tt>t.identity</tt> from conf.rb without opening a window
   # (Lota::Boot#read_settings), copies the game into a folder named for
   # its identity, so the fused game saves where LÖVE's fused game saves
-  # (ADR 003, section 8), writes a Gemfile that pins Lota to this version,
-  # puts the installed Lota gem in the project's <tt>vendor/cache</tt>,
+  # (doc/contributors/design/game.md), writes a Gemfile that pins Lota to this
+  # version, puts the installed Lota gem in the project's <tt>vendor/cache</tt>,
   # since Lota is not on RubyGems.org, writes <tt>fledge.yml</tt> and an
   # entry script that turns YJIT on where the runtime has it, boots the
   # game fused, and starts it again when it restarts (Lota::Restart),
@@ -110,7 +110,8 @@ module Lota
     #   +nil+ for a placeholder under IDENTIFIER_PREFIX.
     # [app_version] String version of the app, or +nil+ for Fledge's
     #   default. A game's <tt>t.version</tt> names the version of LÖVE it
-    #   was written for, so it never becomes the app's (ADR 002, section 5).
+    #   was written for, so it never becomes the app's
+    #   (doc/contributors/design/packaging.md).
     # [icon] String path of the app's icon files in the game's folder,
     #   without their extension, as Fledge names them (<tt>icons/icon</tt>
     #   for <tt>icons/icon.icns</tt>, <tt>icons/icon.ico</tt>, and

@@ -10,7 +10,8 @@ require_relative "callback_helper"
 
 # Lota calls a game's callbacks as LÖVE's callbacks.lua does: only those
 # the game defined, with as many of LÖVE's arguments as each declares
-# (ADR 003, sections 2 and 3), through LÖVE's handler for each event.
+# (doc/contributors/design/game.md), through LÖVE's handler
+# for each event.
 class CallbacksTest < Minitest::Test
   include CallbackHelper
 
@@ -122,7 +123,8 @@ class CallbacksTest < Minitest::Test
     assert_equal :moved, Lota::Callbacks.call(:update, 1)
   end
 
-  # Game-state libraries wrap callbacks with prepend (ADR 003).
+  # Game-state libraries wrap callbacks with prepend
+  # (doc/contributors/design/game.md).
   def test_a_prepended_wrapper_receives_every_argument_and_calls_super
     calls = []
     define_callback(:keypressed) { |key| calls << [:game, key] }

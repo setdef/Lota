@@ -12,10 +12,10 @@
 # Translated to Ruby from Gravity Wars' touch.lua
 # (test/fixtures/gravity_wars/touch.lua, lines 1-131), as globals.rb and
 # logic.rb describe: love.mousepressed, mousereleased, and update become
-# Lota's (ADR 003), love.mouse.setCursor becomes cursor= (rule 5), with
-# setCursor() as cursor = nil, and getX x (rule 3). clamp's math.max of
-# math.min, which keeps a value within bounds the game always gives in
-# order, is Ruby's clamp. Lua's clickNearShip,
+# Lota's (doc/contributors/design/game.md), love.mouse.setCursor becomes cursor=
+# (rule 5), with setCursor() as cursor = nil, and getX x (rule 3). clamp's
+# math.max of math.min, which keeps a value within bounds the game always gives
+# in order, is Ruby's clamp. Lua's clickNearShip,
 # forceOffset, distance, diff, and angle are globals no other function
 # reads, so they are Ruby locals.
 

@@ -105,7 +105,8 @@ module Lota
     # Raises ArgumentError for a name LÖVE does not know, and when a hat
     # has no direction, and RuntimeError ("Invalid joystick GUID: ...")
     # for a GUID that is not 32 characters. A mapping SDL refuses returns
-    # +false+, as LÖVE returns it (ADR 001, rule 7).
+    # +false+, as LÖVE returns it (rule 7 of
+    # doc/contributors/design/translation.md).
     #
     # === Example
     #

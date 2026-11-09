@@ -11,10 +11,10 @@
 #
 # Translated to Ruby from the arkanoid tutorial's snapshot
 # test/fixtures/love2d_arkanoid_tutorial/1-A_LevelsAsStrings/main.lua
-# (lines 1-403), by ADR 001's rules and as the sixth snapshot is
-# (test/games/arkanoid/1-06_Levels/main.rb), whose notes hold here too.
-# Each level is a string, as in the snapshot: Lua's long bracket string,
-# which drops the newline right after its opening bracket, becomes a
+# (lines 1-403), by the rules of doc/contributors/design/translation.md and as
+# the sixth snapshot is (test/games/arkanoid/1-06_Levels/main.rb), whose notes
+# hold here too. Each level is a string, as in the snapshot: Lua's long bracket
+# string, which drops the newline right after its opening bracket, becomes a
 # heredoc that ends with the same newline. gmatch('(.-)\n') visits each
 # line that ends with a newline, without it, as each_line(chomp: true)
 # does for a string that ends with one, and gmatch('.') each character,

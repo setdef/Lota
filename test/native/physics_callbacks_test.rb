@@ -120,8 +120,8 @@ class PhysicsCallbacksTest < Minitest::Test
     assert_equal [:end], events.map(&:first)
   end
 
-  # ADR 003, section 3: each callback receives as many arguments as it
-  # declares, nil for a required one LÖVE does not pass.
+  # doc/contributors/design/game.md: each callback receives as many arguments as
+  # it declares, nil for a required one LÖVE does not pass.
   def test_a_callback_receives_only_the_arguments_it_declares
     received = {}
     recorder = Recorder.new

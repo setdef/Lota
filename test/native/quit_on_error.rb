@@ -7,8 +7,8 @@
 
 # Loaded with ruby -r into lota run by test/native/lota_run_test.rb, for a
 # game that raises: wraps Lota's error handler, as a game may with prepend
-# (ADR 003, section 2), so that once the error screen is up a quit waits
-# in the event queue, and the screen's first frame ends the program, as a
+# (doc/contributors/design/game.md), so that once the error screen is up a quit
+# waits in the event queue, and the screen's first frame ends the program, as a
 # player closing the window would.
 require "lota"
 

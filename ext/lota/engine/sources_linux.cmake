@@ -319,9 +319,9 @@ set(ENGINE_SOURCES
 )
 
 # Excluded:
-#   src/common/Reference.cpp: Lua glue, ADR 001 section 1
-#   src/common/runtime.cpp: Lua glue, ADR 001 section 1
-#   src/libraries/enet/enet.cpp: lua-enet binding, ADR 001 section 1
+#   src/common/Reference.cpp: Lua glue, doc/contributors/design/engine.md
+#   src/common/runtime.cpp: Lua glue, doc/contributors/design/engine.md
+#   src/libraries/enet/enet.cpp: lua-enet binding, doc/contributors/design/engine.md
 #   src/libraries/lua53/lstrlib.c: Lua, or a library only Lua calls
 #   src/libraries/lua53/lutf8lib.c: Lua, or a library only Lua calls
 #   src/libraries/luahttps/src/android/AndroidClient.cpp: Lua, or a library only Lua calls
@@ -357,81 +357,81 @@ set(ENGINE_SOURCES
 #   src/libraries/luasocket/libluasocket/usocket.c: Lua, or a library only Lua calls
 #   src/libraries/luasocket/luasocket.cpp: Lua, or a library only Lua calls
 #   src/love.cpp: main() of the love executable, which boots Lua
-#   src/modules/audio/wrap_Audio.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/audio/wrap_RecordingDevice.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/audio/wrap_Source.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/data/wrap_ByteData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/data/wrap_CompressedData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/data/wrap_Data.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/data/wrap_DataModule.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/data/wrap_DataView.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/event/wrap_Event.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/filesystem/wrap_File.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/filesystem/wrap_FileData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/filesystem/wrap_Filesystem.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/filesystem/wrap_NativeFile.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/font/wrap_Font.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/font/wrap_GlyphData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/font/wrap_Rasterizer.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Buffer.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Font.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Graphics.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_GraphicsReadback.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Mesh.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_ParticleSystem.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Quad.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Shader.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_SpriteBatch.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_TextBatch.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Texture.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/graphics/wrap_Video.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/image/wrap_CompressedImageData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/image/wrap_Image.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/image/wrap_ImageData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/joystick/wrap_Joystick.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/joystick/wrap_JoystickModule.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/keyboard/wrap_Keyboard.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/love/love.cpp: Lua boot sequence, ADR 001 section 1
-#   src/modules/math/wrap_BezierCurve.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/math/wrap_Math.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/math/wrap_RandomGenerator.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/math/wrap_Transform.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/mouse/wrap_Cursor.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/mouse/wrap_Mouse.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_Body.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_ChainShape.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_CircleShape.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_Contact.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_DistanceJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_EdgeShape.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_FrictionJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_GearJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_Joint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_MotorJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_MouseJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_Physics.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_PolygonShape.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_PrismaticJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_PulleyJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_RevoluteJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_RopeJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_Shape.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_WeldJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_WheelJoint.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/physics/box2d/wrap_World.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/sensor/wrap_Sensor.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/sound/wrap_Decoder.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/sound/wrap_Sound.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/sound/wrap_SoundData.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/system/wrap_System.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/thread/Channel.cpp: Lua threads and channels, ADR 001 section 1
-#   src/modules/thread/LuaThread.cpp: Lua threads and channels, ADR 001 section 1
-#   src/modules/thread/ThreadModule.cpp: Lua threads and channels, ADR 001 section 1
-#   src/modules/thread/wrap_Channel.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/thread/wrap_LuaThread.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/thread/wrap_ThreadModule.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/timer/wrap_Timer.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/touch/wrap_Touch.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/video/wrap_Video.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/video/wrap_VideoStream.cpp: Lua binding (wrap_*), ADR 001 section 1
-#   src/modules/window/wrap_Window.cpp: Lua binding (wrap_*), ADR 001 section 1
+#   src/modules/audio/wrap_Audio.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/audio/wrap_RecordingDevice.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/audio/wrap_Source.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/data/wrap_ByteData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/data/wrap_CompressedData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/data/wrap_Data.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/data/wrap_DataModule.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/data/wrap_DataView.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/event/wrap_Event.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/filesystem/wrap_File.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/filesystem/wrap_FileData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/filesystem/wrap_Filesystem.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/filesystem/wrap_NativeFile.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/font/wrap_Font.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/font/wrap_GlyphData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/font/wrap_Rasterizer.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Buffer.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Font.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Graphics.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_GraphicsReadback.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Mesh.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_ParticleSystem.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Quad.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Shader.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_SpriteBatch.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_TextBatch.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Texture.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/graphics/wrap_Video.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/image/wrap_CompressedImageData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/image/wrap_Image.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/image/wrap_ImageData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/joystick/wrap_Joystick.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/joystick/wrap_JoystickModule.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/keyboard/wrap_Keyboard.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/love/love.cpp: Lua boot sequence, doc/contributors/design/engine.md
+#   src/modules/math/wrap_BezierCurve.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/math/wrap_Math.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/math/wrap_RandomGenerator.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/math/wrap_Transform.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/mouse/wrap_Cursor.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/mouse/wrap_Mouse.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_Body.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_ChainShape.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_CircleShape.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_Contact.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_DistanceJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_EdgeShape.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_FrictionJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_GearJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_Joint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_MotorJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_MouseJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_Physics.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_PolygonShape.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_PrismaticJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_PulleyJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_RevoluteJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_RopeJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_Shape.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_WeldJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_WheelJoint.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/physics/box2d/wrap_World.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/sensor/wrap_Sensor.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/sound/wrap_Decoder.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/sound/wrap_Sound.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/sound/wrap_SoundData.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/system/wrap_System.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/thread/Channel.cpp: Lua threads and channels, doc/contributors/design/engine.md
+#   src/modules/thread/LuaThread.cpp: Lua threads and channels, doc/contributors/design/engine.md
+#   src/modules/thread/ThreadModule.cpp: Lua threads and channels, doc/contributors/design/engine.md
+#   src/modules/thread/wrap_Channel.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/thread/wrap_LuaThread.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/thread/wrap_ThreadModule.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/timer/wrap_Timer.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/touch/wrap_Touch.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/video/wrap_Video.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/video/wrap_VideoStream.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md
+#   src/modules/window/wrap_Window.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md

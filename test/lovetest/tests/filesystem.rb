@@ -8,11 +8,12 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.filesystem tests (vendor/love/testing/tests/
-# filesystem.lua), translated to Ruby by ADR 001's rules. Like the
-# graphics tests, they run in the test suite's own process
-# (test/lovetest/filesystem_test.rb) and under lota run
-# (test/lovetest/game). The tests that write files write them to the
-# runner's save directory, in the test's own home (test/test_helper.rb).
+# filesystem.lua), translated to Ruby by the rules of
+# doc/contributors/design/translation.md. Like the graphics tests, they
+# run in the test suite's own process (test/lovetest/filesystem_test.rb)
+# and under lota run (test/lovetest/game). The tests that write files
+# write them to the runner's save directory, in the test's own home
+# (test/test_helper.rb).
 class FilesystemTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type
   # (love.test.filesystem.File and love.test.filesystem.FileData).
@@ -104,7 +105,7 @@ class FilesystemTest < Lovetest::TestMethod
   # (filesystem.lua:82-100): newFileData becomes FileData.new (rule 2),
   # getFilename, getExtension, getString, and getSize filename,
   # extension, string, and size (rule 3), and clone Ruby's clone, which
-  # makes LÖVE's copy (ADR 001, section 7).
+  # makes LÖVE's copy (doc/contributors/design/translation.md).
   def test_file_data
     # create new obj
     fdata = Lota::Filesystem::FileData.new("helloworld", "test.txt")

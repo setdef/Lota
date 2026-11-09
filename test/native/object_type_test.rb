@@ -9,12 +9,12 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../../tasks/bindings/survey"
 
-# ADR 001, rule 16: every object Lota hands a game answers +object_type+
-# with LÖVE's name for its type, as Object:type does, +type+ as another
-# name for it unless its class has LÖVE's getType, and <tt>type_of?</tt>
-# for that type and each type it inherits from, as Object:typeOf does
-# (vendor/love/src/common/runtime.cpp:65-80). The parents are LÖVE's own,
-# as each type names its parent: graphics/Texture.cpp:160,
+# rule 16 of doc/contributors/design/translation.md: every object Lota hands a
+# game answers +object_type+ with LÖVE's name for its type, as Object:type does,
+# +type+ as another name for it unless its class has LÖVE's getType, and
+# <tt>type_of?</tt> for that type and each type it inherits from, as
+# Object:typeOf does (vendor/love/src/common/runtime.cpp:65-80). The parents are
+# LÖVE's own, as each type names its parent: graphics/Texture.cpp:160,
 # graphics/Drawable.cpp:29, graphics/Font.cpp:53, image/ImageData.cpp:34,
 # filesystem/FileData.cpp:32, mouse/Cursor.cpp:28, graphics/Quad.cpp:32,
 # graphics/SpriteBatch.cpp:41, and common/Data.cpp:28.

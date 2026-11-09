@@ -8,11 +8,11 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.touch tests (vendor/love/testing/tests/touch.lua),
-# translated to Ruby by ADR 001's rules, all three. Lövetest notes that
-# the module cannot be tested fully without the hardware, so they check
-# only that its functions are there; test/native/touch_test.rb checks
-# what they do with fingers pushed through SDL's queue. Like the graphics
-# tests, they run in the test suite's own process
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# three. Lövetest notes that the module cannot be tested fully without the
+# hardware, so they check only that its functions are there;
+# test/native/touch_test.rb checks what they do with fingers pushed through
+# SDL's queue. Like the graphics tests, they run in the test suite's own process
 # (test/lovetest/touch_test.rb) and under lota run (test/lovetest/game).
 class TouchTest < Lovetest::TestMethod
   # SPDX-SnippetBegin

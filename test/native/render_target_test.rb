@@ -91,7 +91,8 @@ class RenderTargetTest < Minitest::Test
   end
 
   # setCanvas's table of tables: each target an Array of its texture and
-  # a Hash of its layer, face, and mipmap (ADR 001, rule 10).
+  # a Hash of its layer, face, and mipmap (rule 10 of
+  # doc/contributors/design/translation.md).
   def test_targets_with_their_layer_and_mipmap
     layers = Graphics::Canvas.new(2, 2, 3)
     flat = Graphics::Canvas.new(4, 4, mipmaps: :manual)
@@ -120,7 +121,7 @@ class RenderTargetTest < Minitest::Test
 
   # getCanvas returns each 2D canvas at its first mipmap as a value of its
   # own, and every other set of targets as one table, so Lota returns an
-  # Array of them either way (ADR 001, rule 4).
+  # Array of them either way (rule 4 of doc/contributors/design/translation.md).
   def test_canvas_returns_what_love_returns_as_an_array
     first = Graphics::Canvas.new(2, 2)
     second = Graphics::Canvas.new(2, 2)

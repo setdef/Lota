@@ -36,7 +36,7 @@ module Lota
       # returns, translated from the table love.graphics's
       # Shader:getBufferFormat makes (src/modules/graphics/wrap_Shader.cpp,
       # w_Shader_getBufferFormat): a frozen value with LÖVE's field names
-      # (ADR 001, rule 10).
+      # (rule 10 of doc/contributors/design/translation.md).
       #
       # [name] The member's String name.
       # [format] Symbol of its data format, such as +:floatvec2+.
@@ -413,8 +413,9 @@ module Lota
       # w_Shader_getLocalThreadgroupSize).
       #
       # Returns an Array of the Integer x, y, and z sizes, or of +nil+ for a
-      # shader with no compute stage, as LÖVE returns nil (ADR 001,
-      # rule 4). Raises ThreadError off the main thread.
+      # shader with no compute stage, as LÖVE returns nil (rule 4 of
+      # doc/contributors/design/translation.md). Raises ThreadError off the main
+      # thread.
       #
       # === Example
       #

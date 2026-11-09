@@ -162,11 +162,11 @@ Rice::Object perform_atomic(love::Data &data, Rice::Array call_given) {
 
 // w_Data_getT (wrap_Data.cpp:102-121), which getFloat, getDouble,
 // getInt8 to getInt32, and getUInt8 to getUInt32 call with their C types: +count+ values
-// of type T from byte +offset+, as an Array, since it returns several (ADR
-// 001, rule 4): Integers for the integer types and Floats for float and
-// double (rule 14), where LÖVE pushes each as a Lua number. Offset and
-// count are read as LÖVE reads them, a Lua number truncated to an int64
-// and an int.
+// of type T from byte +offset+, as an Array, since it returns several (rule 4
+// of doc/contributors/design/translation.md): Integers for the integer types
+// and Floats for float and double (rule 14), where LÖVE pushes each as a Lua
+// number. Offset and count are read as LÖVE reads them, a Lua number truncated
+// to an int64 and an int.
 template <typename T>
 Rice::Array data_values(const love::Data &data, double offset_number,
                         std::optional<int> count_given) {
@@ -475,11 +475,12 @@ void set_values(ByteData &data, double offset_number, Rice::Array values_given) 
 } // namespace
 
 void define_data(const Rice::Module &native) {
-  // love.data's module, which Lota::Data is too (ADR 001, section 7): it
-  // opens, answers whether it is open, and holds love.data's functions.
-  // LÖVE's root type Data is its class Data, as the generator puts a class
-  // named for its own module under that module once the module has
-  // functions of its own (tasks/bindings/generator.rb, home).
+  // love.data's module, which Lota::Data is too
+  // (doc/contributors/design/translation.md): it opens, answers whether it is
+  // open, and holds love.data's functions. LÖVE's root type Data is its class
+  // Data, as the generator puts a class named for its own module under that
+  // module once the module has functions of its own
+  // (tasks/bindings/generator.rb, home).
   const Rice::Module data_module =
       Rice::define_module_under(native, "Data")
           .define_singleton_function("open", &open)

@@ -11,11 +11,11 @@
 #
 # Translated to Ruby from the arkanoid tutorial's sixth snapshot,
 # test/fixtures/love2d_arkanoid_tutorial/1-06_Levels/main.lua (lines
-# 1-399), by ADR 001's rules and as the fifth snapshot is
-# (test/games/arkanoid/1-05_ResolvingCollisions/main.rb), whose notes on
-# dividing, on removing bricks while walking them, and on the order of
-# the walls hold here too. love.graphics.printf keeps its name (rule 13),
-# with its alignment a symbol (rule 9), and Lua's .. joins strings as
+# 1-399), by the rules of doc/contributors/design/translation.md and as the
+# fifth snapshot is (test/games/arkanoid/1-05_ResolvingCollisions/main.rb),
+# whose notes on dividing, on removing bricks while walking them, and on the
+# order of the walls hold here too. love.graphics.printf keeps its name (rule
+# 13), with its alignment a symbol (rule 9), and Lua's .. joins strings as
 # Ruby's + does. Lua's ipairs counts from 1, and so do the rows and
 # columns here, through each.with_index(1). The levels are numbered from
 # 1, as in Lua, so level n is sequence[n - 1] of a Ruby Array, and Lua's

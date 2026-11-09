@@ -61,8 +61,8 @@ module Lota
       # What kind of Cursor this is, as a Symbol, matching Cursor:getType
       # (src/modules/mouse/wrap_Cursor.cpp, w_Cursor_getType):
       # <tt>:image</tt> for one made from an image, and a system cursor's
-      # shape, such as <tt>:hand</tt>, for one of the system's (ADR 001,
-      # rules 9 and 16).
+      # shape, such as <tt>:hand</tt>, for one of the system's (rules 9 and 16
+      # of doc/contributors/design/translation.md).
       #
       # === Example
       #

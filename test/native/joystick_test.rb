@@ -173,10 +173,11 @@ class JoystickEventsTest < Minitest::Test
 
   # The test's joysticks have motors that refuse every request, so
   # setVibration returns false rather than raising, passing on what SDL
-  # answers (ADR 001, rule 7; joystick/sdl/Joystick.cpp:495-528). Stopping
-  # motors that are not running asks the device nothing, and SDL answers
-  # true (src/joystick/SDL_joystick.c, SDL_RumbleJoystick). getVibration,
-  # which LÖVE 12 deprecated, returns zeros (lines 530-535).
+  # answers (rule 7 of doc/contributors/design/translation.md;
+  # joystick/sdl/Joystick.cpp:495-528). Stopping motors that are not running
+  # asks the device nothing, and SDL answers true (src/joystick/SDL_joystick.c,
+  # SDL_RumbleJoystick). getVibration, which LÖVE 12 deprecated, returns zeros
+  # (lines 530-535).
   def test_vibration_returns_whether_the_device_took_it
     attach(gamepad: true)
     Lota.run.call

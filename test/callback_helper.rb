@@ -6,7 +6,7 @@
 #++
 
 # For tests that define a game's callbacks, which are methods on Lota
-# (ADR 003, section 2), and so outlive the test that defines them.
+# (doc/contributors/design/game.md), and so outlive the test that defines them.
 #
 # Before each test it takes away the callbacks a game defined, such as the
 # Lota.conf that test/lovetest/conf.rb defines once EngineHelper boots,

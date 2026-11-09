@@ -30,7 +30,8 @@ module Lota
   #   Lota.deprecation_output = false
   module Info
     # The engine's version, as an Array of its major, minor, and revision
-    # numbers and its codename (ADR 001, rule 4), matching love.getVersion
+    # numbers and its codename (rule 4 of
+    # doc/contributors/design/translation.md), matching love.getVersion
     # (love.cpp, w_love_getVersion).
     #
     # This is the version of the engine Lota builds, not of Lota itself,

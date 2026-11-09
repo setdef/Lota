@@ -8,10 +8,10 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.data tests (vendor/love/testing/tests/data.lua),
-# translated to Ruby by ADR 001's rules. They run in the test suite's own
-# process (test/lovetest/data_test.rb) and under lota run
-# (test/lovetest/game). love.data's container types, formats, and hash
-# functions are Symbols (rule 9). The class is DataModuleTest, as Lota's
+# translated to Ruby by the rules of doc/contributors/design/translation.md.
+# They run in the test suite's own process (test/lovetest/data_test.rb) and
+# under lota run (test/lovetest/game). love.data's container types, formats, and
+# hash functions are Symbols (rule 9). The class is DataModuleTest, as Lota's
 # is LotaModuleTest, since DataTest is test/native/data_test.rb's.
 class DataModuleTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.data.ByteData).
@@ -36,13 +36,14 @@ class DataModuleTest < Lovetest::TestMethod
   # (vendor/love/testing/tests/data.lua:12-40): newByteData becomes
   # ByteData.new (rule 2), getString and getSize string and size (rule 3),
   # setString the writer string= of its two values (rule 6), and clone
-  # Ruby's clone, which makes LÖVE's copy (ADR 001, section 7). Lövetest
-  # reads the bytes through getFFIPointer only where its global ffi is
-  # set, which neither Lövetest's main.lua nor its classes set, so LÖVE
-  # skips that check, and so does the translation; Lota's ffi_pointer,
-  # Fiddle's, is checked in test/native/data_test.rb. Were the check to
-  # run, it would fail in LÖVE too, comparing the byte, a number, with the
-  # string "o" (doc/contributors/upstream/021.md).
+  # Ruby's clone, which makes LÖVE's copy
+  # (doc/contributors/design/translation.md). Lövetest reads the bytes through
+  # getFFIPointer only where its global ffi is set, which neither Lövetest's
+  # main.lua nor its classes set, so LÖVE skips that check, and so does the
+  # translation; Lota's ffi_pointer, Fiddle's, is checked in
+  # test/native/data_test.rb. Were the check to run, it would fail in LÖVE too,
+  # comparing the byte, a number, with the string "o"
+  # (doc/contributors/upstream/021.md).
   def test_byte_data
     # create new obj
     data = Lota::Data::ByteData.new("helloworld")

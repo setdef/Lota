@@ -8,12 +8,12 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.joystick tests (vendor/love/testing/tests/joystick.lua),
-# translated to Ruby by ADR 001's rules, all six. Lövetest notes that
-# the module cannot be tested fully without the hardware, and LÖVE's CI
-# runs them with none attached; test/native/joystick_test.rb plugs in
-# joysticks SDL makes in software. Like the graphics tests, they run in
-# the test suite's own process (test/lovetest/joystick_test.rb) and under
-# lota run (test/lovetest/game).
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# six. Lövetest notes that the module cannot be tested fully without the
+# hardware, and LÖVE's CI runs them with none attached;
+# test/native/joystick_test.rb plugs in joysticks SDL makes in software. Like
+# the graphics tests, they run in the test suite's own process
+# (test/lovetest/joystick_test.rb) and under lota run (test/lovetest/game).
 class JoystickTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

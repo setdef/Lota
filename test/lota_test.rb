@@ -9,11 +9,11 @@ require_relative "test_helper"
 require_relative "engine_helper"
 
 # lota is always there, and each module has a lowercase accessor, so a
-# tutorial's love. becomes lota. and nothing else changes (ADR 003,
-# section 4). An accessor returns its module once the module is open, so
-# the tests that read them open the engine first. That a module the
-# settings turn off is nil is test/native/lota_run_test.rb's to prove, in
-# a process of its own.
+# tutorial's love. becomes lota. and nothing else changes
+# (doc/contributors/design/game.md). An accessor returns its module once the
+# module is open, so the tests that read them open the engine first. That a
+# module the settings turn off is nil is test/native/lota_run_test.rb's to
+# prove, in a process of its own.
 class LotaTest < Minitest::Test
   def test_lota_returns_lota_from_anywhere
     assert_same Lota, lota
@@ -54,8 +54,8 @@ class LotaTest < Minitest::Test
   # names, the enum names it passes the engine, the translator of the
   # engine's error messages, the restart that crosses exec, and the maker
   # of its raw pointers are not LÖVE modules. Lota::Data is both LÖVE's
-  # root type Data and love.data's module (ADR 001, section 7), so it has
-  # one.
+  # root type Data and love.data's module
+  # (doc/contributors/design/translation.md), so it has one.
   def test_no_module_lacks_an_accessor
     EngineHelper.open_window
     own = %w[

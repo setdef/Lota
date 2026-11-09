@@ -8,9 +8,9 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.sound tests (vendor/love/testing/tests/sound.lua),
-# translated to Ruby by ADR 001's rules. They run in the test suite's own
-# process (test/lovetest/sound_test.rb) and under lota run
-# (test/lovetest/game), also from the installed precompiled gem.
+# translated to Ruby by the rules of doc/contributors/design/translation.md.
+# They run in the test suite's own process (test/lovetest/sound_test.rb) and
+# under lota run (test/lovetest/game), also from the installed precompiled gem.
 class SoundTest < Lovetest::TestMethod
   TYPES = %w[Decoder SoundData].freeze
 
@@ -21,10 +21,11 @@ class SoundTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.sound.Decoder
   # (vendor/love/testing/tests/sound.lua:12-39): newDecoder becomes
   # Decoder.new (rule 2), its getters drop get (rule 3), clone keeps its
-  # name, as Ruby's clone makes LÖVE's copy (ADR 001, section 7), and Lövetest's
-  # assertMatch, which looks for the value in a list, and assertRange,
-  # which asks whether it lies in a range (classes/TestMethod.lua:126-163),
-  # become Minitest's assert_includes of the list and of the Range.
+  # name, as Ruby's clone makes LÖVE's copy
+  # (doc/contributors/design/translation.md), and Lövetest's assertMatch, which
+  # looks for the value in a list, and assertRange, which asks whether it lies
+  # in a range (classes/TestMethod.lua:126-163), become Minitest's
+  # assert_includes of the list and of the Range.
   def test_decoder
     # create obj
     decoder = Lota::Sound::Decoder.new("resources/click.ogg")

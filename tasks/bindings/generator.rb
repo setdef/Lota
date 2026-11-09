@@ -115,8 +115,9 @@ module Bindings
 
     # Where LÖVE replaces a C++ wrap function with Lua, a game runs the
     # Lua, so Lota ports the Lua by hand and the generator never ports the
-    # C++ (ADR 001, section 7): each such function must be listed with
-    # bound_from_lua, and only such a function may be.
+    # C++ (rule 21 of doc/contributors/design/translation.md): each such
+    # function must be listed with bound_from_lua, and only such a function
+    # may be.
     private def check_lua
       @list.generated.each do |binding|
         lua = survey.replaced_by_lua(binding.love_name) or next
@@ -278,7 +279,7 @@ module Bindings
       <<~CPP
 
         // The #{name} module, as LÖVE's instance() macro reaches it
-        // (#{File.basename(wrap.path)}:#{define}), #{main ? 'on the main thread only (ADR 001, section 6)' : 'on any thread'}.
+        // (#{File.basename(wrap.path)}:#{define}), #{main ? 'on the main thread only (ADR 007)' : 'on any thread'}.
         #{type} *instance() {#{main ? "\n  require_main_thread(MODULE);" : ''}
           auto *instance = love::Module::getInstance<#{type}>(love::Module::#{constant});
           if (instance == nullptr) {
@@ -537,18 +538,20 @@ module Bindings
     # The name table: each function of LÖVE's API that the rules name, in
     # LÖVE's notation, with its Ruby name, sorted by LÖVE's name, which
     # Lota::ErrorMessage looks up when a message LÖVE's C++ raises names
-    # one (ADR 001, section 7). A name LÖVE defines twice, in C++ and again
-    # in Lua, takes the translation Survey#[] gives it.
+    # one (rule 23 of doc/contributors/design/translation.md). A name LÖVE
+    # defines twice, in C++ and again in Lua, takes the translation Survey#[]
+    # gives it.
     def name_table
       survey.entries.group_by { |entry| entry.function.love_name }.transform_values(&:first)
         .select { |_, entry| entry.translation.name }.sort.to_h { |love_name, entry| [love_name, entry.translation.ruby_name] }
     end
 
     # The name table as a Ruby Hash literal, which the magic comment makes
-    # deeply frozen, so every Ractor can read it (ADR 001, section 6). It is
-    # assigned by its full name, outside the modules' bodies, so that the
-    # table is data rather than a module 1,100 lines long. Its header is
-    # laid out as rake lint:normalize_ruby lays out every Ruby file's.
+    # deeply frozen, so every Ractor can read it
+    # (doc/contributors/design/engine.md). It is assigned by its full name,
+    # outside the modules' bodies, so that the table is data rather than a
+    # module 1,100 lines long. Its header is laid out as rake
+    # lint:normalize_ruby lays out every Ruby file's.
     private def names
       rows = name_table.map { |love_name, ruby_name| %(  #{love_name.dump} => #{ruby_name.dump},) }
       spdx, notice = banner("#").lines.partition { |line| line.include?("SPDX-") }
@@ -566,7 +569,8 @@ module Bindings
           end
         end
 
-        # Every function of LÖVE's Lua API that ADR 001's rules name, in
+        # Every function of LÖVE's Lua API that the translation rules
+        # (doc/contributors/design/translation.md) name, in
         # LÖVE's notation (love.window.setMode, ImageData:getPixel), with
         # the Ruby name the rules give it (Lota::Window.set_mode,
         # Lota::Image::ImageData#pixel), from tasks/bindings/rules.rb, sorted

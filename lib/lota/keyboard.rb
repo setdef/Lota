@@ -110,7 +110,8 @@ module Lota
 
     # Turns text input on or off, matching love.keyboard.setTextInput
     # (src/modules/keyboard/wrap_Keyboard.cpp, w_setTextInput), which
-    # ADR 001's rule 6 makes a writer for its form with a rectangle.
+    # rule 6 of doc/contributors/design/translation.md makes a writer for its
+    # form with a rectangle.
     #
     # [enable] +true+ to receive the +textinput+ callback for the text the
     #   player types, or +false+ to stop. Or an Array of +enable+ and the

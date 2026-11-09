@@ -7,12 +7,13 @@
 
 # Lota::Native names the binding generator would not give, decided
 # before it existed, so it reproduces them (tasks/bindings/binding_list.rb).
-# The generator names a binding by ADR 001's rules, except that a setter
-# stays set_x and a factory new_x, for the Ruby side to translate by rules
-# 2, 5, and 6; a name no rule gives goes to the maintainer instead. Each
-# entry must explain WHY its name differs, and a function listed here still
-# appears in `rake bindings:report` if it collides. Review carefully before
-# adding new entries.
+# The generator names a binding by the rules of
+# doc/contributors/design/translation.md, except that a setter stays set_x and a
+# factory new_x, for the Ruby side to translate by rules 2, 5, and 6; a name no
+# rule gives goes to the maintainer instead. Each entry must explain WHY its
+# name differs, and a function listed here still appears in
+# `rake bindings:report` if it collides. Review carefully before adding new
+# entries.
 
 # Lota::Native keeps setters as set_x, because the Ruby side applies rules
 # 5 and 6, but no Ruby class wraps RandomGenerator yet, so its setter was

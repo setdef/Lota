@@ -8,10 +8,10 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.font tests (vendor/love/testing/tests/font.lua),
-# translated to Ruby by ADR 001's rules. They run in the test suite's own
-# process (test/lovetest/font_test.rb) and under lota run
-# (test/lovetest/game). love.font's factories become constructors (rule
-# 2): newRasterizer and newGlyphData the classes' own, Rasterizer.new and
+# translated to Ruby by the rules of doc/contributors/design/translation.md.
+# They run in the test suite's own process (test/lovetest/font_test.rb) and
+# under lota run (test/lovetest/game). love.font's factories become constructors
+# (rule 2): newRasterizer and newGlyphData the classes' own, Rasterizer.new and
 # GlyphData.new, and newTrueTypeRasterizer, newBMFontRasterizer, and
 # newImageRasterizer modules of those names, since LÖVE has no such
 # classes, whose new returns a Rasterizer. The class is FontModuleTest,

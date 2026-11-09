@@ -9,10 +9,10 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 
 # Lota::Graphics and Lota::Window run only on the process's main thread,
-# as LÖVE keeps love.graphics and love.window there (ADR 001, section 6);
-# every other call raises ThreadError there. Lota::Image and
-# Lota::Filesystem run anywhere, as LÖVE lets love.image and
-# love.filesystem run on its threads.
+# as LÖVE keeps love.graphics and love.window there
+# (doc/contributors/design/engine.md); every other call raises ThreadError
+# there. Lota::Image and Lota::Filesystem run anywhere, as LÖVE lets love.image
+# and love.filesystem run on its threads.
 class MainThreadTest < Minitest::Test
   include NativeHelper
 

@@ -15,11 +15,12 @@
 # ext/lota/native/*.cpp instead, with the reason the generator cannot
 # write it. `bound_from_lua` lists a function whose C++ LÖVE replaces with
 # Lua of its own, in a wrap_*.lua file, which Lota ports by hand, as a game
-# runs the Lua (ADR 001, section 7); the generator knows which those are
-# (tasks/bindings/lua_functions.rb), refuses to port their C++, and says
-# where the Lua is and when it runs. LÖVE's boot-time functions in src/modules/love/love.cpp
-# (_setGammaCorrect, _setRenderers, _setHighDPIAllowed, and the like) are
-# not wrap functions, so they are bound by hand and not listed here.
+# runs the Lua (doc/contributors/design/translation.md); the generator knows
+# which those are (tasks/bindings/lua_functions.rb), refuses to port their C++,
+# and says where the Lua is and when it runs. LÖVE's boot-time functions in
+# src/modules/love/love.cpp (_setGammaCorrect, _setRenderers,
+# _setHighDPIAllowed, and the like) are not wrap functions, so they are bound by
+# hand and not listed here.
 
 # love.audio
 generate "love.audio.getActiveSourceCount"
@@ -164,7 +165,7 @@ bound_by_hand "love.data.hash",
     "(lua_isstring); Lota marks the variant in Ruby and binds the hash of either"
 bound_by_hand "love.data.pack",
   reason: "packs its values through lua53_str_pack, Lua 5.3's string.pack, which reads them from the lua_State " \
-    "and which Lota does not build (ADR 001, section 1); Lota::Data.pack ports it to Ruby and writes the bytes " \
+    "and which Lota does not build (doc/contributors/design/engine.md); Lota::Data.pack ports it to Ruby and writes the bytes " \
     "through the engine"
 bound_by_hand "love.data.unpack",
   reason: "unpacks through lua53_str_unpack, as love.data.pack packs; Lota::Data.unpack ports it to Ruby over " \

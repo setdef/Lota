@@ -8,16 +8,16 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.event tests (vendor/love/testing/tests/event.lua),
-# translated to Ruby by ADR 001's rules, all six, two of them skipped as
-# Lövetest skips them (pump and wait). Like the graphics tests, they run in
-# the test suite's own process (test/lovetest/event_test.rb) and under
-# lota run (test/lovetest/game). Lövetest runs each test from its
-# love.update, after love.run has taken every message from the queue; in
-# the suite's own process nothing has, so each test starts with the queue
-# empty, as Lövetest's does. The test of quit relies on Lövetest's
-# love.quit, which cancels the quit; here the test takes the message out of
-# the queue itself, as no loop is there to hand it to a quit callback, and
-# as Lota.run's would end the game that runs the test.
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# six, two of them skipped as Lövetest skips them (pump and wait). Like the
+# graphics tests, they run in the test suite's own process
+# (test/lovetest/event_test.rb) and under lota run (test/lovetest/game).
+# Lövetest runs each test from its love.update, after love.run has taken every
+# message from the queue; in the suite's own process nothing has, so each test
+# starts with the queue empty, as Lövetest's does. The test of quit relies on
+# Lövetest's love.quit, which cancels the quit; here the test takes the message
+# out of the queue itself, as no loop is there to hand it to a quit callback,
+# and as Lota.run's would end the game that runs the test.
 class EventTest < Lovetest::TestMethod
   def setup
     super

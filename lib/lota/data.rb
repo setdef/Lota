@@ -20,10 +20,11 @@ module Lota
   # Lota::Image::ImageData, Lota::Filesystem::FileData,
   # Lota::Data::ByteData, Lota::Data::CompressedData, and
   # Lota::Data::DataView, inherits from this class, as each inherits from
-  # Data in LÖVE (src/common/Data.h). Rule 1 of ADR 001 gives love.data the
-  # name Lota::Data, and LÖVE's root type keeps its name there too, so it
-  # is one class, and inside <tt>module Lota</tt> a bare +Data+ means this
-  # class, and Ruby's own is written <tt>::Data</tt>.
+  # Data in LÖVE (src/common/Data.h). Rule 1 of
+  # doc/contributors/design/translation.md gives love.data the name Lota::Data,
+  # and LÖVE's root type keeps its name there too, so it is one class, and
+  # inside <tt>module Lota</tt> a bare +Data+ means this class, and Ruby's own
+  # is written <tt>::Data</tt>.
   #
   # Its class methods are love.data's: they compress and decompress,
   # encode and decode base64 and hex, hash, and pack numbers and strings
@@ -210,8 +211,8 @@ module Lota
 
     # The values +format+ packed in +source+, matching love.data.unpack
     # (src/modules/data/wrap_DataModule.cpp:399-417), then the position of
-    # the byte after them, counted from 1, all in one Array (ADR 001, rule
-    # 4).
+    # the byte after them, counted from 1, all in one Array (rule 4 of
+    # doc/contributors/design/translation.md).
     #
     # [format] String format, as Lota::Data.pack takes it.
     # [source] String or Lota::Data of the bytes.
@@ -356,8 +357,8 @@ module Lota
     # Calls the block with +arguments+ while no other thread can use the
     # Data, and returns what the block returns, matching
     # Data:performAtomic (src/modules/data/wrap_Data.cpp,
-    # w_Data_performAtomic), whose function becomes the block (ADR 001,
-    # rule 12).
+    # w_Data_performAtomic), whose function becomes the block (rule 12 of
+    # doc/contributors/design/translation.md).
     #
     # [arguments] Anything, passed on to the block.
     #
@@ -435,8 +436,9 @@ module Lota
 
     # +count+ unsigned 8-bit integers from byte +offset+, as an Array of
     # Integers, matching Data:getUInt8 (src/modules/data/wrap_Data.cpp,
-    # w_Data_getUInt8), as #float reads them. Rule 13 of ADR 001 spells
-    # LÖVE's UInt as C's uint, one word.
+    # w_Data_getUInt8), as #float reads them. Rule 13 of
+    # doc/contributors/design/translation.md spells LÖVE's UInt as C's uint, one
+    # word.
     #
     # === Example
     #

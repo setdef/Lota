@@ -70,7 +70,8 @@ void set_seed(RandomGenerator &rng, double low, std::optional<double> high) {
 // low and high 32 bits, which LÖVE reads from the halves of its union
 // (RandomGenerator.h:46-59), as the halves of the 64-bit number, without
 // reaching into the union. Each is a uint32 in LÖVE's C++, so each is an
-// Integer (ADR 001, rule 14), in an Array of the two (rule 4).
+// Integer (rule 14 of doc/contributors/design/translation.md), in an Array of
+// the two (rule 4).
 Rice::Array get_seed(const RandomGenerator &rng) {
   constexpr unsigned half = 32U;
   constexpr love::uint64 low_bits = 0xFFFFFFFFULL;

@@ -9,8 +9,8 @@ require_relative "test_helper"
 
 # Lota::Record: a record Lota returns where LÖVE returns a table of fields
 # answers +[]+ with a field's name, as a Lua table answers brackets
-# (ADR 001, rule 10), so a field no reader can name, such as
-# getTextureTypes' +2d+, reads as Lua reads it.
+# (rule 10 of doc/contributors/design/translation.md), so a field no reader can
+# name, such as getTextureTypes' +2d+, reads as Lua reads it.
 class RecordTest < Minitest::Test
   def types
     Lota::Graphics::TextureTypes.new("2d": true, volume: false, array: true, cube: true)

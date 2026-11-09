@@ -59,7 +59,8 @@ module Lota
       # [width] Integer width, in place of an image, for a texture with no
       #   pixels yet, followed by its Integer height and, for an array
       #   texture, its Integer layer count.
-      # [settings] LÖVE's settings table, as keywords (ADR 001, rule 10):
+      # [settings] LÖVE's settings table, as keywords (rule 10 of
+      # doc/contributors/design/translation.md):
       #   +canvas+, whether you can also draw into it; +mipmaps+, +true+
       #   for mipmaps you give, +false+, or +:none+, +:manual+, or
       #   +:auto+, which makes them as you draw; +mipmapcount+; +format+,
@@ -155,8 +156,9 @@ module Lota
       end
 
       # The texture's width and height, as width and height measure them,
-      # as an Array (ADR 001, rule 4), matching Texture:getDimensions
-      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getDimensions).
+      # as an Array (rule 4 of doc/contributors/design/translation.md), matching
+      # Texture:getDimensions (src/modules/graphics/wrap_Texture.cpp,
+      # w_Texture_getDimensions).
       #
       # === Example
       #
@@ -221,9 +223,9 @@ module Lota
         @native.pixel_height(mipmap)
       end
 
-      # The texture's pixel_width and pixel_height as an Array (ADR 001,
-      # rule 4), matching Texture:getPixelDimensions
-      # (src/modules/graphics/wrap_Texture.cpp,
+      # The texture's pixel_width and pixel_height as an Array (rule 4 of
+      # doc/contributors/design/translation.md), matching
+      # Texture:getPixelDimensions (src/modules/graphics/wrap_Texture.cpp,
       # w_Texture_getPixelDimensions).
       #
       # === Example
@@ -414,9 +416,9 @@ module Lota
       end
 
       # The filters when drawn smaller and larger, as Symbols, and the
-      # Integer maximum anisotropy, as an Array (ADR 001, rule 4), matching
-      # Texture:getFilter (src/modules/graphics/wrap_Texture.cpp,
-      # w_Texture_getFilter).
+      # Integer maximum anisotropy, as an Array (rule 4 of
+      # doc/contributors/design/translation.md), matching Texture:getFilter
+      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getFilter).
       #
       # === Example
       #
@@ -455,9 +457,10 @@ module Lota
       end
 
       # The mipmap filter, as a Symbol, +:none+ when the texture does not
-      # use its mipmaps, and the Float sharpness, as an Array (ADR 001,
-      # rule 4), matching Texture:getMipmapFilter
-      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getMipmapFilter).
+      # use its mipmaps, and the Float sharpness, as an Array (rule 4 of
+      # doc/contributors/design/translation.md), matching
+      # Texture:getMipmapFilter (src/modules/graphics/wrap_Texture.cpp,
+      # w_Texture_getMipmapFilter).
       #
       # === Example
       #
@@ -487,8 +490,9 @@ module Lota
       end
 
       # How the texture repeats horizontally, vertically, and in depth, as
-      # Symbols in an Array (ADR 001, rule 4), matching Texture:getWrap
-      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getWrap).
+      # Symbols in an Array (rule 4 of doc/contributors/design/translation.md),
+      # matching Texture:getWrap (src/modules/graphics/wrap_Texture.cpp,
+      # w_Texture_getWrap).
       #
       # === Example
       #
@@ -581,7 +585,8 @@ module Lota
       # Draws to this canvas while the block runs, then draws where it drew
       # before, matching Texture:renderTo
       # (src/modules/graphics/wrap_Texture.cpp, w_Texture_renderTo), whose
-      # function becomes the block (ADR 001, rule 12).
+      # function becomes the block (rule 12 of
+      # doc/contributors/design/translation.md).
       #
       # [slice] Integer slice to draw to, counting from 1, for a texture
       #   that is not 2D; a 2D texture takes none.

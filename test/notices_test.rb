@@ -9,8 +9,8 @@ require_relative "test_helper"
 require "json"
 require "lota/notices"
 
-# Lota::Notices writes the notices file lota fuse puts in an app (ADR 002,
-# Consequences): Lota's own license statement, always, then each
+# Lota::Notices writes the notices file lota fuse puts in an app
+# (doc/contributors/design/packaging.md): Lota's own license statement, always, then each
 # component the gem's manifest names, and the text of every license. The
 # components here are the shapes NativeGem writes into each platform's
 # gem (Licensing#notices), and the license texts are the repository's

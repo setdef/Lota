@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Lota::Native: LÖVE's engine, bound to Ruby with Rice (ADR 001, section 4).
+// Lota::Native: LÖVE's engine, bound to Ruby with Rice (ADR 006).
 
 #include "native/audio.hpp"
 #include "native/binding.hpp"
@@ -40,9 +40,9 @@
 namespace {
 
 // The point where the main thread carries out the releases Ruby's garbage
-// collector asked for on other threads (ADR 001, section 5). The game loop
-// calls it once a frame; until then, whoever drives the engine does, and
-// lib/lota.rb drains it at exit.
+// collector asked for on other threads (doc/contributors/design/engine.md). The
+// game loop calls it once a frame; until then, whoever drives the engine does,
+// and lib/lota.rb drains it at exit.
 std::size_t drain_release_queue() { return lota::native::ReleaseQueue::instance().drain(); }
 
 std::size_t queued_releases() { return lota::native::ReleaseQueue::instance().size(); }

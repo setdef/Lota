@@ -26,7 +26,8 @@ module Lota
     #   glyph.format     # => :la8
     class GlyphData < Data
       # Its +new+, the constructor love.font.newGlyphData becomes
-      # (ADR 001, rule 2), which Lota::Object leaves private.
+      # (rule 2 of doc/contributors/design/translation.md), which Lota::Object
+      # leaves private.
       public_class_method :new
 
       # Wraps a GlyphData the engine made. :nodoc:
@@ -73,7 +74,8 @@ module Lota
       # Makes this GlyphData, a copy of +source+ by Ruby's +clone+ or
       # +dup+, LÖVE's copy, matching GlyphData:clone
       # (src/modules/font/wrap_GlyphData.cpp:33-40): a new GlyphData with
-      # a copy of the pixels and the same metrics (ADR 001, section 7).
+      # a copy of the pixels and the same metrics
+      # (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -104,8 +106,8 @@ module Lota
       end
 
       # The width and height of its pixels, as an Array of two Integers
-      # (ADR 001, rule 4), matching GlyphData:getDimensions
-      # (src/modules/font/wrap_GlyphData.cpp:56-62).
+      # (rule 4 of doc/contributors/design/translation.md), matching
+      # GlyphData:getDimensions (src/modules/font/wrap_GlyphData.cpp:56-62).
       #
       # === Example
       #
@@ -153,8 +155,9 @@ module Lota
       end
 
       # How far its top-left pixel is right of the pen and up from the
-      # baseline, as an Array of two Integers (ADR 001, rule 4), matching
-      # GlyphData:getBearing (src/modules/font/wrap_GlyphData.cpp:87-93).
+      # baseline, as an Array of two Integers (rule 4 of
+      # doc/contributors/design/translation.md), matching GlyphData:getBearing
+      # (src/modules/font/wrap_GlyphData.cpp:87-93).
       #
       # === Example
       #
@@ -164,8 +167,8 @@ module Lota
       end
 
       # The box its outline fits in, as an Array of four Integers, its x,
-      # y, width, and height (ADR 001, rule 4), matching
-      # GlyphData:getBoundingBox
+      # y, width, and height (rule 4 of doc/contributors/design/translation.md),
+      # matching GlyphData:getBoundingBox
       # (src/modules/font/wrap_GlyphData.cpp:95-113).
       #
       # === Example
@@ -175,8 +178,9 @@ module Lota
         @native.bounding_box
       end
 
-      # The pixel format of its pixels, as a Symbol (ADR 001, rule 9), such
-      # as +:la8+ for a TrueType glyph, matching GlyphData:getFormat
+      # The pixel format of its pixels, as a Symbol (rule 9 of
+      # doc/contributors/design/translation.md), such as +:la8+ for a TrueType
+      # glyph, matching GlyphData:getFormat
       # (src/modules/font/wrap_GlyphData.cpp:115-125).
       #
       # === Example

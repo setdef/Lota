@@ -9,8 +9,8 @@ require "json"
 require_relative "version"
 
 module Lota
-  # The notices file an app built with <tt>lota fuse</tt> carries (ADR
-  # 002, Consequences).
+  # The notices file an app built with <tt>lota fuse</tt> carries
+  # (doc/contributors/design/packaging.md, "Licenses and notices").
   #
   # A fused game ships Lota and the libraries Lota's gem carries: LÖVE's
   # engine and what it bundles, compiled into Lota's extension, and the

@@ -11,20 +11,20 @@
 #
 # Translated to Ruby from the arkanoid tutorial's fifth snapshot,
 # test/fixtures/love2d_arkanoid_tutorial/1-05_ResolvingCollisions/
-# main.lua (lines 1-341), by ADR 001's rules and as the fourth snapshot is
+# main.lua (lines 1-341), by the rules of doc/contributors/design/translation.md
+# and as the fourth snapshot is
 # (test/games/arkanoid/1-04_DetectingCollisions/main.rb).
-# check_rectangles_overlap returns three values, which Ruby returns as an
-# Array and its callers take apart. Lua divides as floats, so a width's
-# half is width / 2.0. ball_bricks_collision removes a brick from the list
-# it is walking, as the snapshot does with table.remove inside pairs; Lua
-# then goes on from the next index, past the brick that moved into the
-# removed one's place, and so does Ruby's Array#each_with_index, so the
-# same bricks are skipped. Each wall's collision moves the ball or the
-# platform along one axis and may flip a speed, from a rectangle taken
-# before the walls are visited, and two walls that meet at a corner push
-# the ball along different axes, so the order in which pairs and a Ruby
-# Hash visit the walls changes nothing the parity harness can see. The snapshot has no
-# conf.lua, so this game has no conf.rb.
+# check_rectangles_overlap returns three values, which Ruby returns as an Array
+# and its callers take apart. Lua divides as floats, so a width's half is width
+# / 2.0. ball_bricks_collision removes a brick from the list it is walking, as
+# the snapshot does with table.remove inside pairs; Lua then goes on from the
+# next index, past the brick that moved into the removed one's place, and so
+# does Ruby's Array#each_with_index, so the same bricks are skipped. Each wall's
+# collision moves the ball or the platform along one axis and may flip a speed,
+# from a rectangle taken before the walls are visited, and two walls that meet
+# at a corner push the ball along different axes, so the order in which pairs
+# and a Ruby Hash visit the walls changes nothing the parity harness can see.
+# The snapshot has no conf.lua, so this game has no conf.rb.
 
 # Ball (lines 1-39)
 Ball = Struct.new(:position_x, :position_y, :speed_x, :speed_y, :radius) do

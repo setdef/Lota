@@ -86,11 +86,11 @@ module Lota
     # LÖVE reads its table; a number for +depth+, LÖVE 11's form, is
     # whether it is not zero. The first use of each deprecated form prints
     # LÖVE's notice (Lota::Deprecation). Returns +false+ when the system
-    # refuses the mode, so the game can fall back (ADR 001, rule 7).
-    # Raises ArgumentError for an unknown +fullscreentype+, TypeError for a
-    # +display+ that is not a number or a +highdpi+ that is not +true+ or
-    # +false+, RuntimeError with LÖVE's message while a canvas is the
-    # target, and ThreadError off the main thread.
+    # refuses the mode, so the game can fall back (rule 7 of
+    # doc/contributors/design/translation.md). Raises ArgumentError for an
+    # unknown +fullscreentype+, TypeError for a +display+ that is not a number
+    # or a +highdpi+ that is not +true+ or +false+, RuntimeError with LÖVE's
+    # message while a canvas is the target, and ThreadError off the main thread.
     #
     # === Example
     #
@@ -119,10 +119,11 @@ module Lota
     # a table of settings only when given one, the window's position is
     # kept when no setting is given, and follows +x+, +y+, and +centered+,
     # as set_mode's does, when any is. Returns +false+
-    # when the system refuses the mode (ADR 001, rule 7). Raises
-    # RuntimeError (<tt>"Expected at least one argument"</tt>) given
-    # neither a size nor a setting, as LÖVE does given nothing, and
-    # otherwise raises as set_mode does.
+    # when the system refuses the mode (rule 7 of
+    # doc/contributors/design/translation.md). Raises RuntimeError
+    # (<tt>"Expected at least one argument"</tt>) given neither a size nor a
+    # setting, as LÖVE does given nothing, and otherwise raises as set_mode
+    # does.
     #
     # === Examples
     #
@@ -168,9 +169,9 @@ module Lota
       Native::Window.set_mode(w, h, settings)
     end
 
-    # The window's width, height, and settings, as an Array (ADR 001,
-    # rule 4) of two Integers and a frozen Mode with LÖVE's field names
-    # (rule 10), matching love.window.getMode
+    # The window's width, height, and settings, as an Array (rule 4 of
+    # doc/contributors/design/translation.md) of two Integers and a frozen Mode
+    # with LÖVE's field names (rule 10), matching love.window.getMode
     # (src/modules/window/wrap_Window.cpp, w_getMode).
     #
     # LÖVE also fills in a table the caller passes; a Mode is frozen, so
@@ -197,9 +198,10 @@ module Lota
 ]
     end
 
-    # The width and height of a display, as an Array (ADR 001, rule 4),
-    # matching love.window.getDesktopDimensions
-    # (src/modules/window/wrap_Window.cpp, w_getDesktopDimensions).
+    # The width and height of a display, as an Array (rule 4 of
+    # doc/contributors/design/translation.md), matching
+    # love.window.getDesktopDimensions (src/modules/window/wrap_Window.cpp,
+    # w_getDesktopDimensions).
     #
     # [displayindex] Integer display, counting from 1; the one the window
     #   is on when +nil+ or left out.
@@ -214,8 +216,9 @@ module Lota
     end
 
     # The part of the window nothing of the system's covers, such as a
-    # phone's notch, as an Array (ADR 001, rule 4) of its Integer x, y,
-    # width, and height, matching love.window.getSafeArea
+    # phone's notch, as an Array (rule 4 of
+    # doc/contributors/design/translation.md) of its Integer x, y, width, and
+    # height, matching love.window.getSafeArea
     # (src/modules/window/wrap_Window.cpp, w_getSafeArea).
     #
     # Raises ThreadError off the main thread.
@@ -351,9 +354,10 @@ module Lota
       Native::Window.display_name(index).force_encoding(Encoding::UTF_8)
     end
 
-    # The way a display is turned, as a Symbol (ADR 001, rule 9),
-    # matching love.window.getDisplayOrientation
-    # (src/modules/window/wrap_Window.cpp, w_getDisplayOrientation).
+    # The way a display is turned, as a Symbol (rule 9 of
+    # doc/contributors/design/translation.md), matching
+    # love.window.getDisplayOrientation (src/modules/window/wrap_Window.cpp,
+    # w_getDisplayOrientation).
     #
     # [displayindex] Integer display, counting from 1; the one the window
     #   is on when +nil+ or left out.
@@ -369,9 +373,10 @@ module Lota
     end
 
     # The modes a display can be set to, as an Array of frozen
-    # FullscreenModes (ADR 001, rules 4 and 10), matching
-    # love.window.getFullscreenModes
-    # (src/modules/window/wrap_Window.cpp, w_getFullscreenModes).
+    # FullscreenModes (rules 4 and 10 of
+    # doc/contributors/design/translation.md), matching
+    # love.window.getFullscreenModes (src/modules/window/wrap_Window.cpp,
+    # w_getFullscreenModes).
     #
     # [displayindex] Integer display, counting from 1; the one the window
     #   is on when +nil+ or left out.
@@ -389,8 +394,8 @@ module Lota
     end
 
     # Whether the window is fullscreen and its fullscreen type, as an
-    # Array (ADR 001, rule 4) of a boolean and +:desktop+ or +:exclusive+
-    # (rule 9), matching love.window.getFullscreen
+    # Array (rule 4 of doc/contributors/design/translation.md) of a boolean and
+    # +:desktop+ or +:exclusive+ (rule 9), matching love.window.getFullscreen
     # (src/modules/window/wrap_Window.cpp, w_getFullscreen).
     #
     # The type is the one the window will use when it goes fullscreen, so
@@ -413,9 +418,9 @@ module Lota
     #   desktop, or +:exclusive+ to change the display's mode; the type
     #   the window already has when +nil+ or left out.
     #
-    # Returns +false+ when the system refuses (ADR 001, rule 7). Raises
-    # ArgumentError for an unknown +fullscreentype+, and ThreadError off the
-    # main thread.
+    # Returns +false+ when the system refuses (rule 7 of
+    # doc/contributors/design/translation.md). Raises ArgumentError for an
+    # unknown +fullscreentype+, and ThreadError off the main thread.
     #
     # === Example
     #
@@ -437,10 +442,11 @@ module Lota
       Native::Window.close
     end
 
-    # The window's position, as an Array (ADR 001, rule 4) of the
-    # Integer x and y of its top left corner on its display and that
-    # display, counting from 1, matching love.window.getPosition
-    # (src/modules/window/wrap_Window.cpp, w_getPosition).
+    # The window's position, as an Array (rule 4 of
+    # doc/contributors/design/translation.md) of the Integer x and y of its top
+    # left corner on its display and that display, counting from 1, matching
+    # love.window.getPosition (src/modules/window/wrap_Window.cpp,
+    # w_getPosition).
     #
     # Raises ThreadError off the main thread.
     #
@@ -453,7 +459,7 @@ module Lota
 
     # Moves the window, matching love.window.setPosition
     # (src/modules/window/wrap_Window.cpp, w_setPosition), whose values
-    # rule 6 of ADR 001 makes one Array.
+    # rule 6 of doc/contributors/design/translation.md makes one Array.
     #
     # [position] An Array of the Integer x and y of the window's top left
     #   corner, then optionally the Integer display, counting from 1,
@@ -492,9 +498,9 @@ module Lota
     # [imagedata] Lota::Image::ImageData to show as the icon.
     #
     # LÖVE stores the icon before the system can refuse it, so +icon+
-    # answers it even when this returns +false+ (ADR 001, rule 7). Raises
-    # TypeError for anything but an ImageData, and ThreadError off the
-    # main thread.
+    # answers it even when this returns +false+ (rule 7 of
+    # doc/contributors/design/translation.md). Raises TypeError for anything but
+    # an ImageData, and ThreadError off the main thread.
     #
     # === Example
     #
@@ -744,8 +750,9 @@ module Lota
     # [wx] Float or Integer length, or position across.
     # [wy] Float or Integer position down, when converting a position.
     #
-    # Returns a Float for one number, and an Array (ADR 001, rule 4) of two
-    # Floats for two. Raises ThreadError off the main thread.
+    # Returns a Float for one number, and an Array (rule 4 of
+    # doc/contributors/design/translation.md) of two Floats for two. Raises
+    # ThreadError off the main thread.
     #
     # === Examples
     #
@@ -763,8 +770,9 @@ module Lota
     # [px] Float or Integer length, or position across.
     # [py] Float or Integer position down, when converting a position.
     #
-    # Returns a Float for one number, and an Array (ADR 001, rule 4) of two
-    # Floats for two. Raises ThreadError off the main thread.
+    # Returns a Float for one number, and an Array (rule 4 of
+    # doc/contributors/design/translation.md) of two Floats for two. Raises
+    # ThreadError off the main thread.
     #
     # === Examples
     #
@@ -775,9 +783,10 @@ module Lota
       py.nil? ? converted.first : converted
     end
 
-    # The theme the system shows its windows in, as a Symbol (ADR 001,
-    # rule 9), matching love.window.getSystemTheme
-    # (src/modules/window/wrap_Window.cpp, w_getSystemTheme).
+    # The theme the system shows its windows in, as a Symbol (rule 9 of
+    # doc/contributors/design/translation.md), matching
+    # love.window.getSystemTheme (src/modules/window/wrap_Window.cpp,
+    # w_getSystemTheme).
     #
     # It is +:unknown+, +:light+, or +:dark+. Raises ThreadError off the
     # main thread.

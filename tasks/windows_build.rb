@@ -16,8 +16,7 @@ require_relative "source_archive"
 
 # LÖVE's dependencies on Windows, built from source with MinGW, in MSYS2's
 # UCRT64 environment (GCC) on x64 and its CLANGARM64 environment (clang) on
-# ARM64, the toolchains RubyInstaller builds its Ruby with (ADR 002,
-# section 4).
+# ARM64, the toolchains RubyInstaller builds its Ruby with (ADR 011).
 #
 # LÖVE's own Windows build compiles its dependencies from megasource
 # (love2d/megasource), with Microsoft's compiler, which Lota cannot use

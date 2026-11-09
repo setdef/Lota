@@ -31,7 +31,8 @@ module Lota
     #   Lota::Filesystem::FileData.new(png, "anything.png")
     class FileData < Data
       # Its +new+, the constructor love.filesystem.newFileData becomes
-      # (ADR 001, rule 2), which Lota::Object leaves private.
+      # (rule 2 of doc/contributors/design/translation.md), which Lota::Object
+      # leaves private.
       public_class_method :new
 
       # Wraps a FileData the engine made, such as one
@@ -63,8 +64,8 @@ module Lota
       # Makes this FileData, a copy of +source+ by Ruby's +clone+ or
       # +dup+, LÖVE's copy, matching FileData:clone
       # (src/modules/filesystem/wrap_FileData.cpp, w_FileData_clone): a new
-      # FileData with a copy of the bytes and the name (ADR 001, section
-      # 7).
+      # FileData with a copy of the bytes and the name
+      # (doc/contributors/design/translation.md).
       #
       # === Example
       #

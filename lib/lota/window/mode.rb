@@ -10,8 +10,8 @@ module Lota
     # The window's settings, which Lota::Window.mode returns, translated
     # from the table love.window.getMode returns
     # (src/modules/window/wrap_Window.cpp, w_getMode): a frozen value with
-    # LÖVE's field names (ADR 001, rule 10), each as Lota::Window.set_mode
-    # takes it.
+    # LÖVE's field names (rule 10 of doc/contributors/design/translation.md),
+    # each as Lota::Window.set_mode takes it.
     #
     # [fullscreentype] +:desktop+ or +:exclusive+.
     # [fullscreen] Whether the window fills the screen.

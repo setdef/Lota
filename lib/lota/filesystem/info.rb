@@ -11,7 +11,8 @@ module Lota
     # Lota::Filesystem.info returns, translated from the table
     # love.filesystem.getInfo returns
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getInfo): a frozen
-    # value with LÖVE's field names (ADR 001, rule 10).
+    # value with LÖVE's field names (rule 10 of
+    # doc/contributors/design/translation.md).
     #
     # [type] What it is: +:file+, +:directory+, +:symlink+, or +:other+.
     # [readonly] Whether the game cannot write to it, as for a file in the

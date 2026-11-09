@@ -8,7 +8,8 @@
 module Lota
   module Graphics
     # The name LÖVE 11 gave TextBatch, which LÖVE 12 still accepts as
-    # love.graphics.newText but has deprecated, named by ADR 001, rule 2.
+    # love.graphics.newText but has deprecated, named by rule 2 of
+    # doc/contributors/design/translation.md.
     #
     # LÖVE has no Text class: <tt>Text.new</tt> makes a
     # Lota::Graphics::TextBatch, and prints LÖVE's notice of the

@@ -8,7 +8,8 @@
 module Lota
   module Graphics
     # Makes fonts from a picture of their glyphs, matching
-    # love.graphics.newImageFont, named by ADR 001, rule 2.
+    # love.graphics.newImageFont, named by rule 2 of
+    # doc/contributors/design/translation.md.
     #
     # LÖVE has no ImageFont class: an image font is an ordinary
     # Lota::Graphics::Font, whose glyphs come from one image. The image
@@ -18,7 +19,8 @@ module Lota
     #
     # The engine cannot tell an image font from another font, so
     # <tt>ImageFont === font</tt> is true of every Font, as
-    # <tt>Image === texture</tt> is of every Texture (ADR 001, rule 2).
+    # <tt>Image === texture</tt> is of every Texture (rule 2 of
+    # doc/contributors/design/translation.md).
     #
     # Use it to draw text in a font drawn as pixel art.
     #

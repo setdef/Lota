@@ -8,15 +8,16 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.physics tests (vendor/love/testing/tests/physics.lua),
-# translated to Ruby by ADR 001's rules, every one of their checks among
-# them. They run in the test suite's own process
+# translated to Ruby by the rules of doc/contributors/design/translation.md,
+# every one of their checks among them. They run in the test suite's own process
 # (test/lovetest/physics_test.rb) and under lota run (test/lovetest/game).
 #
 # getType and setType on a Body, Shape, or Joint keep their prefixes, as
 # get_type and set_type (rule 16), and a World's contact callbacks are
-# callables its callbacks= writer takes as one Array (ADR 001, after the
-# table), each receiving only as many arguments as it declares (ADR 003,
-# section 3), so a Lua function() end becomes -> {}.
+# callables its callbacks= writer takes as one Array (rules 31 and 32 of
+# doc/contributors/design/translation.md), each receiving only as many arguments as
+# it declares (doc/contributors/design/game.md), so a Lua function() end
+# becomes -> {}.
 class PhysicsTest < Lovetest::TestMethod
   TYPES = %w[Body Joint Shape World].freeze
 
@@ -256,7 +257,7 @@ class PhysicsTest < Lovetest::TestMethod
   # (physics.lua:216-296), by the rules of test_body. setCallbacks
   # becomes the writer callbacks= (rules 5 and 6), whose four Lua
   # functions become lambdas that declare the arguments the Lua functions
-  # declare, and so receive those alone (ADR 003, section 3).
+  # declare, and so receive those alone (doc/contributors/design/game.md).
   # getChildren's, getShapes's, getNormal's, and getPositions's several
   # values are Arrays (rule 4), and Lua's tostring an interpolation.
   def test_contact

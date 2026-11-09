@@ -80,7 +80,7 @@ module Lota
       # The control point at +index+, counted from 1, as an Array of its x
       # and y Floats, matching BezierCurve:getControlPoint
       # (src/modules/math/wrap_BezierCurve.cpp:52-67), which returns both
-      # (ADR 001, rule 4).
+      # (rule 4 of doc/contributors/design/translation.md).
       #
       # [index] Integer, counted from 1, or back from the last when
       #   negative.
@@ -98,7 +98,7 @@ module Lota
       # Moves the control point at +index+ to +x+ and +y+, matching
       # BezierCurve:setControlPoint
       # (src/modules/math/wrap_BezierCurve.cpp:69-81), which takes the
-      # three as one Array (ADR 001, rule 6).
+      # three as one Array (rule 6 of doc/contributors/design/translation.md).
       #
       # [point] Array of the Integer index, counted from 1 as
       #   #control_point counts it, and the Float or Integer x and y.
@@ -189,7 +189,8 @@ module Lota
       # The point +t+ of the way along the curve, from 0 at its start to 1
       # at its end, as an Array of its x and y Floats, matching
       # BezierCurve:evaluate (src/modules/math/wrap_BezierCurve.cpp:
-      # 145-158), which returns both (ADR 001, rule 4).
+      # 145-158), which returns both (rule 4 of
+      # doc/contributors/design/translation.md).
       #
       # Raises RuntimeError, with LÖVE's message, for a +t+ outside 0 to 1
       # and for a curve of fewer than two control points.

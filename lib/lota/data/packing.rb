@@ -10,7 +10,7 @@ module Lota
     # Lua 5.3's string.pack, string.unpack, and string.packsize, which
     # love.data.pack, unpack, and getPackedSize call in the copy LÖVE
     # bundles (src/libraries/lua53/lstrlib.c:155-599), ported to Ruby,
-    # since Lota builds no Lua (ADR 001, section 1). :nodoc:
+    # since Lota builds no Lua (doc/contributors/design/engine.md). :nodoc:
     #
     # The sizes are those of the machine's C types, as LÖVE's build
     # compiles them: a long is 4 bytes on Windows and 8 elsewhere, and a

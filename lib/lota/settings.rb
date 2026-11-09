@@ -14,16 +14,17 @@ module Lota
   #
   # So Lota builds a Settings with LÖVE's defaults and passes it to
   # <tt>Lota.conf</tt>, if your game's conf.rb defines one, before it
-  # opens any module (ADR 003). Each setting keeps the name and nesting of
-  # LÖVE's <tt>t</tt> table, so <tt>t.window.width = 1280</tt> reads as it
-  # does in a LÖVE tutorial, and names that were strings in LÖVE are
-  # symbols here (<tt>t.window.fullscreentype = :exclusive</tt>).
+  # opens any module (doc/contributors/design/game.md). Each setting keeps the
+  # name and nesting of LÖVE's <tt>t</tt> table, so
+  # <tt>t.window.width = 1280</tt> reads as it does in a LÖVE tutorial, and
+  # names that were strings in LÖVE are symbols here
+  # (<tt>t.window.fullscreentype = :exclusive</tt>).
   #
   # Use it in conf.rb to size and title the window and to turn off modules
   # your game does not use.
   #
   # A setting LÖVE does not know is accepted and ignored, as LÖVE ignores
-  # a key it does not read in its table (ADR 003, section 5), so a
+  # a key it does not read in its table (doc/contributors/design/game.md), so a
   # translated conf.lua that sets keys of its own still runs. Reading one
   # back returns what was set, and reading a setting never set returns
   # +nil+, as reading a missing key does in Lua.
@@ -61,8 +62,8 @@ module Lota
 
       # Keeps +value+ for <tt>name=</tt>, or returns what was kept for
       # +name+, or +nil+ for a setting never set, as Lua returns nil for a
-      # missing key (ADR 003, section 5). Anything else, such as a reader
-      # given arguments, raises NoMethodError.
+      # missing key (doc/contributors/design/game.md). Anything else, such as a
+      # reader given arguments, raises NoMethodError.
       private def method_missing(name, *arguments)
         if WRITER.match?(name) && arguments.size == 1
           kept = @unknown_settings ||= {} #: Hash[Symbol, top]

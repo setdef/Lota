@@ -61,7 +61,7 @@ module Lota
       # Makes this ByteData, a copy of +source+ by Ruby's +clone+ or
       # +dup+, LÖVE's copy, matching ByteData:clone
       # (src/modules/data/wrap_ByteData.cpp:37-45): a new ByteData with a
-      # copy of the bytes (ADR 001, section 7).
+      # copy of the bytes (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -74,7 +74,7 @@ module Lota
       # Copies a String's bytes into the ByteData at a byte offset,
       # matching ByteData:setString
       # (src/modules/data/wrap_ByteData.cpp:47-64), which takes them as
-      # one Array (ADR 001, rule 6).
+      # one Array (rule 6 of doc/contributors/design/translation.md).
       #
       # [string_and_offset] The String, or an Array of it and the Integer
       #   byte to start at, 0 when left out.
@@ -94,8 +94,8 @@ module Lota
 
       # Writes 32-bit floats from a byte offset, matching
       # ByteData:setFloat (src/modules/data/wrap_ByteData.cpp:66-101),
-      # which takes the offset and the values as one Array (ADR 001, rule
-      # 6).
+      # which takes the offset and the values as one Array (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # [offset_and_values] An Array of the Integer byte offset, then each
       #   Float or Integer value, or an Array of them, as LÖVE takes a
@@ -141,8 +141,8 @@ module Lota
 
       # Writes unsigned 8-bit integers from a byte offset, matching
       # ByteData:setUInt8 (src/modules/data/wrap_ByteData.cpp:113-116), as
-      # #int8= writes. Rule 13 of ADR 001 spells LÖVE's UInt as C's uint,
-      # one word.
+      # #int8= writes. Rule 13 of doc/contributors/design/translation.md spells
+      # LÖVE's UInt as C's uint, one word.
       #
       # === Example
       #

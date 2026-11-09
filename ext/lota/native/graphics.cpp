@@ -65,7 +65,7 @@ namespace {
 
 constexpr const char *MODULE = "Lota::Graphics";
 
-// The graphics module, on the main thread only (ADR 001, section 6).
+// The graphics module, on the main thread only (ADR 007).
 Graphics &graphics() {
   require_main_thread(MODULE);
   auto *instance = love::Module::getInstance<Graphics>(love::Module::M_GRAPHICS);
@@ -275,7 +275,7 @@ void set_fields(Rice::Hash &fields, const std::span<const T, N> values,
 
 // w_getStats (wrap_Graphics.cpp:3206-3243): the renderer's counts since
 // the last present, by LÖVE's field names, each an Integer as the C++
-// holds it (ADR 001, rule 14).
+// holds it (rule 14 of doc/contributors/design/translation.md).
 Rice::Hash stats() {
   const Graphics::Stats stats = graphics().getStats();
   Rice::Hash fields;

@@ -365,7 +365,8 @@ class GeneratorTest < Minitest::Test
 
   # Rule 4: w_SpriteBatch_getDrawRange returns nothing when the batch
   # draws every sprite and two values otherwise, so the port returns an
-  # Array on both paths, empty on the first (ADR 001, section 7).
+  # Array on both paths, empty on the first
+  # (doc/contributors/design/translation.md).
   def test_a_form_that_returns_several_values_returns_an_array_on_every_path
     port = port("SpriteBatch:getDrawRange", main_thread: "Lota::Graphics")
 
@@ -963,10 +964,10 @@ class GeneratorTest < Minitest::Test
     end
   end
 
-  # The name table Lota::ErrorMessage translates LÖVE's messages with (ADR
-  # 001, section 7): every function a rule names, with the Ruby name the
-  # rules give it, sorted by LÖVE's name; a function no rule names is not
-  # in it.
+  # The name table Lota::ErrorMessage translates LÖVE's messages with
+  # (doc/contributors/design/translation.md): every function a rule names, with
+  # the Ruby name the rules give it, sorted by LÖVE's name; a function no rule
+  # names is not in it.
   def test_the_name_table_gives_each_function_the_name_the_rules_give_it
     table = BindingsHelper.generator.name_table
 

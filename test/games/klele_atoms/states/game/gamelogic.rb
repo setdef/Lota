@@ -11,9 +11,9 @@
 #
 # Translated to Ruby from KleleAtoms' states/game/gamelogic.lua
 # (test/fixtures/klele_atoms/states/game/gamelogic.lua, lines 1-414), as
-# main.rb describes, by ADR 001's rules: newSource becomes
-# Lota::Audio::Source.new (rule 2) with its type a symbol (rule 9),
-# love.audio.play Lota::Audio.play, Source:setPitch pitch= (rule 5),
+# main.rb describes, by the rules of doc/contributors/design/translation.md:
+# newSource becomes Lota::Audio::Source.new (rule 2) with its type a symbol
+# (rule 9), love.audio.play Lota::Audio.play, Source:setPitch pitch= (rule 5),
 # newCanvas Canvas.new (rule 2), Canvas:renderTo render_to with a block
 # (rule 12), love.filesystem.getInfo info (rule 3), and read and write
 # Lota::Filesystem's, whose results are Arrays, of which Lua's single

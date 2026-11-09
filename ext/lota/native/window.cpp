@@ -102,8 +102,9 @@ Rice::Array fullscreen_types() {
 }
 
 // w_getFullscreen (wrap_Window.cpp:332-345): whether the window is
-// fullscreen and the name of its fullscreen type, as an Array (ADR 001,
-// rule 4). Unlike w_getMode, it raises for a type Window has no name for.
+// fullscreen and the name of its fullscreen type, as an Array (rule 4 of
+// doc/contributors/design/translation.md). Unlike w_getMode, it raises for a
+// type Window has no name for.
 Rice::Array get_fullscreen() {
   int width = 0;
   int height = 0;

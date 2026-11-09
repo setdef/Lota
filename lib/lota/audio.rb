@@ -101,7 +101,8 @@ module Lota
 
     # Sets the listener's position, matching love.audio.setPosition
     # (src/modules/audio/wrap_Audio.cpp, w_setPosition): x, y, and
-    # optionally z, 0 by default, as an Array (ADR 001, rule 6).
+    # optionally z, 0 by default, as an Array (rule 6 of
+    # doc/contributors/design/translation.md).
     #
     # A mono Source plays louder and from its side the nearer and the more
     # to that side of the listener it is. Raises TypeError for a value that
@@ -115,8 +116,8 @@ module Lota
       Native::Audio.set_position(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
     end
 
-    # The listener's position, as an Array of three Floats (ADR 001, rule
-    # 4), matching love.audio.getPosition
+    # The listener's position, as an Array of three Floats (rule 4 of
+    # doc/contributors/design/translation.md), matching love.audio.getPosition
     # (src/modules/audio/wrap_Audio.cpp, w_getPosition).
     #
     # === Example
@@ -129,7 +130,7 @@ module Lota
     # Sets the listener's orientation, matching love.audio.setOrientation
     # (src/modules/audio/wrap_Audio.cpp, w_setOrientation): the forward
     # vector's x, y, and z, then the up vector's, six numbers in an Array
-    # (ADR 001, rule 6).
+    # (rule 6 of doc/contributors/design/translation.md).
     #
     # Raises TypeError for fewer than six numbers, or one that is not a
     # number.
@@ -149,9 +150,10 @@ module Lota
 ])
     end
 
-    # The listener's forward and up vectors, as an Array of six Floats (ADR
-    # 001, rule 4), matching love.audio.getOrientation
-    # (src/modules/audio/wrap_Audio.cpp, w_getOrientation).
+    # The listener's forward and up vectors, as an Array of six Floats (rule 4
+    # of doc/contributors/design/translation.md), matching
+    # love.audio.getOrientation (src/modules/audio/wrap_Audio.cpp,
+    # w_getOrientation).
     #
     # === Example
     #
@@ -172,8 +174,8 @@ module Lota
       Native::Audio.set_velocity(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
     end
 
-    # The listener's velocity, as an Array of three Floats (ADR 001, rule
-    # 4), matching love.audio.getVelocity
+    # The listener's velocity, as an Array of three Floats (rule 4 of
+    # doc/contributors/design/translation.md), matching love.audio.getVelocity
     # (src/modules/audio/wrap_Audio.cpp, w_getVelocity).
     #
     # === Example
@@ -208,8 +210,8 @@ module Lota
     # matching love.audio.setDistanceModel
     # (src/modules/audio/wrap_Audio.cpp, w_setDistanceModel): +:none+,
     # +:inverse+, +:inverseclamped+ (the default), +:linear+,
-    # +:linearclamped+, +:exponent+, or +:exponentclamped+ (ADR 001, rule
-    # 9).
+    # +:linearclamped+, +:exponent+, or +:exponentclamped+ (rule 9 of
+    # doc/contributors/design/translation.md).
     #
     # Raises ArgumentError, with LÖVE's message, for a model it does not
     # know.
@@ -254,7 +256,8 @@ module Lota
     # Makes, changes, or removes a named effect that Sources can play
     # through, matching love.audio.setEffect
     # (src/modules/audio/wrap_Audio.cpp, w_setEffect), and returns whether
-    # it could (ADR 001, rule 7), as with no effects on the system.
+    # it could (rule 7 of doc/contributors/design/translation.md), as with no
+    # effects on the system.
     #
     # [name] String name of the effect, which Source#set_effect takes.
     # [settings] LÖVE's table, as keywords (rule 10): +type+, one of
@@ -339,10 +342,11 @@ module Lota
 
     # Sets whether the game's sound mixes with other apps' sound, matching
     # love.audio.setMixWithSystem (src/modules/audio/wrap_Audio.cpp,
-    # w_setMixWithSystem), and returns whether it could (ADR 001, rule 7):
-    # only iOS and Android can, so on the desktop it returns +false+.
-    # Lota::Boot calls it with <tt>t.audio.mixwithsystem</tt> before the
-    # audio module opens, as LÖVE's boot does.
+    # w_setMixWithSystem), and returns whether it could (rule 7 of
+    # doc/contributors/design/translation.md): only iOS and Android can, so on
+    # the desktop it returns +false+. Lota::Boot calls it with
+    # <tt>t.audio.mixwithsystem</tt> before the audio module opens, as LÖVE's
+    # boot does.
     #
     # === Example
     #
@@ -400,7 +404,8 @@ module Lota
     # Turns on or off playing through headphones' spatial filter, matching
     # love.audio.setOutputSpatialization
     # (src/modules/audio/wrap_Audio.cpp, w_setOutputSpatialization), and
-    # returns whether it could (ADR 001, rule 7).
+    # returns whether it could (rule 7 of
+    # doc/contributors/design/translation.md).
     #
     # [enable] Whether to.
     # [filter] String name of one of output_spatialization_filters, or

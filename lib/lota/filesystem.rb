@@ -26,9 +26,10 @@ module Lota
   # your home without it), then a folder named +Lota+, or on Linux +lota+,
   # as LÖVE names its own +LOVE+ and +love+, then the game's identity,
   # which is its folder's name until its conf.rb names another
-  # (<tt>t.identity</tt>). A shipped game, which ADR 002's launcher fuses,
-  # saves without Lota's folder, where LÖVE's fused games save (ADR 003,
-  # section 8). FileData carries bytes and a name into the engine.
+  # (<tt>t.identity</tt>). A shipped game, which <tt>lota fuse</tt> fuses,
+  # saves without Lota's folder, where LÖVE's fused games save
+  # (doc/contributors/design/game.md). FileData carries bytes and a name into
+  # the engine.
   #
   # === Example
   #
@@ -63,8 +64,8 @@ module Lota
     # Only the first call counts, as in LÖVE, and Lota::Boot makes it
     # before the game's code runs, so a game cannot change it: it is how
     # the program that starts a game says what it is. <tt>lota run</tt>
-    # marks the game not fused; ADR 002's launcher, which ships a game,
-    # will mark it fused (Lota::Boot.new's +fused+).
+    # marks the game not fused; the entry script <tt>lota fuse</tt> writes,
+    # which ships a game, marks it fused (Lota::Boot.new's +fused+).
     #
     # === Example
     #
@@ -90,7 +91,8 @@ module Lota
     # Names the game's save directory, matching
     # love.filesystem.setIdentity
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_setIdentity), with
-    # its two values as one Array (ADR 001, rule 6).
+    # its two values as one Array (rule 6 of
+    # doc/contributors/design/translation.md).
     #
     # [identity] The String name, or an Array of the name and whether the
     #   save directory is searched after the game's folder rather than
@@ -161,7 +163,7 @@ module Lota
     # What the filesystem knows of a file or directory, as a frozen Info,
     # or +nil+ when there is none, matching love.filesystem.getInfo
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getInfo), whose table
-    # becomes an Info (ADR 001, rule 10).
+    # becomes an Info (rule 10 of doc/contributors/design/translation.md).
     #
     # [path] String path, found in the save directory or the game's
     #   folder.
@@ -192,12 +194,12 @@ module Lota
     # [size] Integer most bytes to read; the whole file when +nil+, left
     #   out, or negative.
     #
-    # Returns an Array of LÖVE's two results (ADR 001, rule 4): the
-    # contents as a String and how many bytes they are, or +nil+ and a
-    # message String when the file cannot be read, so <tt>.first</tt> is
-    # +nil+ exactly when Lua's first result is. The String is in Ruby's
-    # default external encoding, as File.read's is, holding the file's
-    # bytes as they are. LÖVE can also read into a FileData, given
+    # Returns an Array of LÖVE's two results (rule 4 of
+    # doc/contributors/design/translation.md): the contents as a String and how
+    # many bytes they are, or +nil+ and a message String when the file cannot be
+    # read, so <tt>.first</tt> is +nil+ exactly when Lua's first result is. The
+    # String is in Ruby's default external encoding, as File.read's is, holding
+    # the file's bytes as they are. LÖVE can also read into a FileData, given
     # <tt>"data"</tt> first; Lota binds that form later.
     #
     # === Examples
@@ -295,13 +297,14 @@ module Lota
 
     # Opens +filename+ in +mode+, matching love.filesystem.openFile
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_openFile), and
-    # returns an Array of the Lota::Filesystem::File (ADR 001, rule 4), or
-    # of +nil+ and LÖVE's message when it cannot be opened.
+    # returns an Array of the Lota::Filesystem::File (rule 4 of
+    # doc/contributors/design/translation.md), or of +nil+ and LÖVE's message
+    # when it cannot be opened.
     #
     # [filename] The file's name, in the game's folder or its save
     #   directory, which a file opened to write or append is in.
     # [mode] +:r+ to read, +:w+ to write, +:a+ to append, or +:c+ to leave
-    #   it closed (ADR 001, rule 9).
+    #   it closed (rule 9 of doc/contributors/design/translation.md).
     #
     # Raises ArgumentError for a mode LÖVE does not know.
     #
@@ -350,10 +353,10 @@ module Lota
     # [size] Integer number of bytes of +data+ to write; all of them when
     #   +nil+ or left out.
     #
-    # Returns an Array (ADR 001, rule 4): <tt>[true]</tt>, or +nil+ and a
-    # message String when the file cannot be written, so
-    # <tt>.first</tt> is truthy exactly when Lua's result is. LÖVE writes
-    # +size+ bytes even past the end of +data+, reading memory beyond it;
+    # Returns an Array (rule 4 of doc/contributors/design/translation.md):
+    # <tt>[true]</tt>, or +nil+ and a message String when the file cannot be
+    # written, so <tt>.first</tt> is truthy exactly when Lua's result is. LÖVE
+    # writes +size+ bytes even past the end of +data+, reading memory beyond it;
     # Lota writes no more than +data+ holds. Raises TypeError for +data+
     # that is neither.
     #
@@ -372,8 +375,8 @@ module Lota
     # The lines of a file, each a String without its line ending, as an
     # Enumerator, or each given to the block, matching
     # love.filesystem.lines (src/modules/filesystem/wrap_Filesystem.cpp,
-    # w_lines), whose iterator for Lua's +for+ becomes an Enumerator (ADR
-    # 001, rule 15).
+    # w_lines), whose iterator for Lua's +for+ becomes an Enumerator (rule 15 of
+    # doc/contributors/design/translation.md).
     #
     # [filename] String path of the file, found in the save directory or
     # the game's folder.
@@ -426,10 +429,10 @@ module Lota
     # [size] Integer number of bytes of +data+ to add; all of them when
     #   +nil+ or left out.
     #
-    # Returns an Array (ADR 001, rule 4), <tt>[true]</tt>, or +nil+ and a
-    # message String when the file cannot be written, as
-    # Lota::Filesystem.write does. Lota adds no more than +data+ holds.
-    # Raises TypeError for +data+ that is neither.
+    # Returns an Array (rule 4 of doc/contributors/design/translation.md),
+    # <tt>[true]</tt>, or +nil+ and a message String when the file cannot be
+    # written, as Lota::Filesystem.write does. Lota adds no more than +data+
+    # holds. Raises TypeError for +data+ that is neither.
     #
     # === Example
     #
@@ -464,9 +467,9 @@ module Lota
     # The directory a file is found in, matching
     # love.filesystem.getRealDirectory
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getRealDirectory), as
-    # an Array (ADR 001, rule 4) of the full path of the save directory,
-    # the game's folder, or the archive it is in, or of +nil+ and LÖVE's
-    # message when there is no such file.
+    # an Array (rule 4 of doc/contributors/design/translation.md) of the full
+    # path of the save directory, the game's folder, or the archive it is in, or
+    # of +nil+ and LÖVE's message when there is no such file.
     #
     # [filename] String path of the file.
     #
@@ -480,7 +483,8 @@ module Lota
     # Whether +path+ names a file or directory the filesystem can find,
     # matching love.filesystem.exists
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_exists). Its name
-    # keeps LÖVE's, as it is neither +is+ nor +has+ (ADR 001, rule 13).
+    # keeps LÖVE's, as it is neither +is+ nor +has+ (rule 13 of
+    # doc/contributors/design/translation.md).
     #
     # === Example
     #
@@ -508,8 +512,9 @@ module Lota
     # [append] Whether its files are found after the ones already mounted
     #   rather than before them.
     #
-    # Mounts last until unmount, so they take no block (ADR 001, section
-    # 7). LÖVE also mounts a NativeFile, which Lota does not bind yet.
+    # Mounts last until unmount, so they take no block
+    # (doc/contributors/design/translation.md). LÖVE also mounts a NativeFile,
+    # which Lota does not bind yet.
     #
     # === Examples
     #
@@ -756,9 +761,9 @@ module Lota
     # filesystem, matching love.filesystem.getRequirePath
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getRequirePath): its
     # patterns joined by semicolons, each +?+ standing for a module's
-    # name. Ruby's +require+ searches $LOAD_PATH instead (ADR 003,
-    # section 6), so Lota keeps the path as LÖVE does and reads nothing
-    # with it.
+    # name. Ruby's +require+ searches $LOAD_PATH instead
+    # (doc/contributors/design/game.md), so Lota keeps the path as LÖVE does and
+    # reads nothing with it.
     #
     # === Example
     #

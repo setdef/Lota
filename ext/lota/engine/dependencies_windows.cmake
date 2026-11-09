@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# LÖVE's dependencies on Windows, with MinGW (ADR 002, section 4): the
+# LÖVE's dependencies on Windows, with MinGW (ADR 011): the
 # libraries tasks/windows_build.rb builds from source into its installdir,
 # where `rake dependencies` puts them. Included by CMakeLists.txt beside
 # this file, once lota_engine exists.

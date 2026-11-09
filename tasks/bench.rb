@@ -12,7 +12,7 @@ require "rbconfig"
 
 # rake bench: what a draw call costs in Lota, under the interpreter, YJIT,
 # and ZJIT, and what the same call costs a LÖVE game in the reference love
-# (ADR 001, section 8).
+# (doc/contributors/design/engine.md).
 #
 # Two games do the measuring from inside a real window, one for each
 # engine: tasks/bench/lota (with Bench::Recorder, tasks/bench/recorder.rb)

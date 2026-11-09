@@ -8,7 +8,7 @@
 module Lota
   module Font
     # Makes rasterizers from BMFonts, matching love.font.newBMFontRasterizer,
-    # named by ADR 001, rule 2.
+    # named by rule 2 of doc/contributors/design/translation.md.
     #
     # A BMFont is a font drawn ahead of time: a text definition that says
     # where each glyph is in one or more images, its pages. LÖVE has no
@@ -17,7 +17,8 @@ module Lota
     #
     # LÖVE's C++ makes a BMFont rasterizer of a class of its own, so
     # <tt>BMFontRasterizer === rasterizer</tt> is true only of a BMFont
-    # rasterizer, as rule 2 of ADR 001 asks of a module's ===.
+    # rasterizer, as rule 2 of doc/contributors/design/translation.md asks of a
+    # module's ===.
     #
     # Use it to rasterize a font made with a BMFont tool.
     #

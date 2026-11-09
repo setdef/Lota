@@ -10,12 +10,13 @@
 # SPDX-License-Identifier: MIT
 #
 # Translated to Ruby from KleleAtoms' main.lua
-# (test/fixtures/klele_atoms/main.lua, lines 1-182), by ADR 001's rules:
-# love.filesystem.getInfo becomes Lota::Filesystem.info (rule 3), whose
-# table is a frozen Info (rule 10), lines an Enumerator (rule 15),
-# setDefaultFilter a writer of several values (rules 5 and 6), newFont
-# Font.new (rule 2), and getOS os (rule 3). love.load and the callbacks
-# become methods on Lota (ADR 003), each calling the state's.
+# (test/fixtures/klele_atoms/main.lua, lines 1-182), by the rules of
+# doc/contributors/design/translation.md: love.filesystem.getInfo becomes
+# Lota::Filesystem.info (rule 3), whose table is a frozen Info (rule 10), lines
+# an Enumerator (rule 15), setDefaultFilter a writer of several values (rules 5
+# and 6), newFont Font.new (rule 2), and getOS os (rule 3). love.load and the
+# callbacks become methods on Lota (doc/contributors/design/game.md), each
+# calling the state's.
 #
 # KleleAtoms keeps its settings in Lua globals named _CA..., and reads and
 # writes some of them by name through _G. Ruby's nearest equivalent is one

@@ -18,7 +18,7 @@ This project follows a strict and specific documentation style designed to be he
 
 ## 2. LÖVE Parity in Documentation
 
-Lota binds LÖVE's own C++ engine and translates its Lua API into Ruby by fixed rules (ADR 001). Code parity is mechanical: the nouns, verbs, argument order, defaults, and error messages follow `vendor/love`, and tests verify the mapping. Documentation parity is not mechanical, so it works in two tiers.
+Lota binds LÖVE's own C++ engine and translates its Lua API into Ruby by fixed rules ([translation.md](design/translation.md)). Code parity is mechanical: the nouns, verbs, argument order, defaults, and error messages follow `vendor/love`, and tests verify the mapping. Documentation parity is not mechanical, so it works in two tiers.
 
 ### Behavioral Contracts: Port Faithfully
 

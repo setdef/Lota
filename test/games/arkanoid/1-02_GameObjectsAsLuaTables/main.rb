@@ -11,14 +11,15 @@
 #
 # Translated to Ruby from the arkanoid tutorial's second snapshot,
 # test/fixtures/love2d_arkanoid_tutorial/1-02_GameObjectsAsLuaTables/
-# main.lua (lines 1-117), by ADR 001's rules, as the first snapshot is
-# (test/games/arkanoid/1-01_TheBallTheBrickThePlatform/main.rb). Each Lua
-# table that holds an object's fields and the functions that act on them
-# becomes a Struct with those fields and methods, and the local that held
-# the table a constant that holds the one Struct, so that function
-# ball.update becomes Ball#update, called as BALL.update. A brick, which
-# bricks.new_brick returns as a table of fields alone, is a Struct with no
-# methods. The snapshot has no conf.lua, so this game has no conf.rb.
+# main.lua (lines 1-117), by the rules of
+# doc/contributors/design/translation.md, as the first snapshot is
+# (test/games/arkanoid/1-01_TheBallTheBrickThePlatform/main.rb). Each Lua table
+# that holds an object's fields and the functions that act on them becomes a
+# Struct with those fields and methods, and the local that held the table a
+# constant that holds the one Struct, so that function ball.update becomes
+# Ball#update, called as BALL.update. A brick, which bricks.new_brick returns as
+# a table of fields alone, is a Struct with no methods. The snapshot has no
+# conf.lua, so this game has no conf.rb.
 
 # Ball (lines 1-21)
 Ball = Struct.new(:position_x, :position_y, :speed_x, :speed_y, :radius) do

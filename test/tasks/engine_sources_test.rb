@@ -31,15 +31,15 @@ class EngineSourcesTest < Minitest::Test
   ] + (RUBY_PLATFORM.include?("darwin") ? %w[src/modules/window/macos.mm] : [])).freeze
 
   DROPPED = {
-    "src/modules/graphics/wrap_Graphics.cpp" => "Lua binding (wrap_*), ADR 001 section 1",
-    "src/common/runtime.cpp" => "Lua glue, ADR 001 section 1",
-    "src/common/Reference.cpp" => "Lua glue, ADR 001 section 1",
-    "src/modules/love/love.cpp" => "Lua boot sequence, ADR 001 section 1",
-    "src/modules/thread/LuaThread.cpp" => "Lua threads and channels, ADR 001 section 1",
-    "src/modules/thread/ThreadModule.cpp" => "Lua threads and channels, ADR 001 section 1",
-    "src/modules/thread/Channel.cpp" => "Lua threads and channels, ADR 001 section 1",
-    "src/libraries/enet/enet.cpp" => "lua-enet binding, ADR 001 section 1",
-    "src/modules/physics/box2d/wrap_World.cpp" => "Lua binding (wrap_*), ADR 001 section 1",
+    "src/modules/graphics/wrap_Graphics.cpp" => "Lua binding (wrap_*), doc/contributors/design/engine.md",
+    "src/common/runtime.cpp" => "Lua glue, doc/contributors/design/engine.md",
+    "src/common/Reference.cpp" => "Lua glue, doc/contributors/design/engine.md",
+    "src/modules/love/love.cpp" => "Lua boot sequence, doc/contributors/design/engine.md",
+    "src/modules/thread/LuaThread.cpp" => "Lua threads and channels, doc/contributors/design/engine.md",
+    "src/modules/thread/ThreadModule.cpp" => "Lua threads and channels, doc/contributors/design/engine.md",
+    "src/modules/thread/Channel.cpp" => "Lua threads and channels, doc/contributors/design/engine.md",
+    "src/libraries/enet/enet.cpp" => "lua-enet binding, doc/contributors/design/engine.md",
+    "src/modules/physics/box2d/wrap_World.cpp" => "Lua binding (wrap_*), doc/contributors/design/engine.md",
     "src/love.cpp" => "main() of the love executable, which boots Lua",
     "src/libraries/lua53/lstrlib.c" => "Lua, or a library only Lua calls",
     "src/libraries/luasocket/luasocket.cpp" => "Lua, or a library only Lua calls",
@@ -162,7 +162,7 @@ class EngineSourcesTest < Minitest::Test
 
       expected = [
         "+ \t${ENGINE_SOURCE_DIR}/src/modules/graphics/Canvas.cpp",
-        "+ #   src/modules/graphics/wrap_Canvas.cpp: Lua binding (wrap_*), ADR 001 section 1",
+        "+ #   src/modules/graphics/wrap_Canvas.cpp: Lua binding (wrap_*), doc/contributors/design/engine.md",
       ]
       assert_equal expected, sources(root).problems(list)
     end
@@ -183,7 +183,7 @@ class EngineSourcesTest < Minitest::Test
   def test_reason_matches_whole_names_only
     engine = EngineSources.new(source: ".", build: "build")
 
-    assert_equal "Lua binding (wrap_*), ADR 001 section 1", engine.reason("wrap_top.cpp")
+    assert_equal "Lua binding (wrap_*), doc/contributors/design/engine.md", engine.reason("wrap_top.cpp")
     assert_nil engine.reason("src/modules/graphics/unwrap_Graphics.cpp")
     assert_nil engine.reason("src/modules/thread/sdl/threads.cpp")
     assert_nil engine.reason("src/libraries/enet/enet.cpp.in")

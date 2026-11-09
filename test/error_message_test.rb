@@ -10,9 +10,9 @@ require "open3"
 require "rbconfig"
 
 # Lota::ErrorMessage, which rewrites the Lua names in LÖVE's error
-# messages by ADR 001's rules (section 7). test/native/
-# error_translation_test.rb checks the messages the engine raises, through
-# the handler that calls it; these check the translator itself, in Ruby.
+# messages by rule 23 of doc/contributors/design/translation.md.
+# test/native/ error_translation_test.rb checks the messages the engine raises,
+# through the handler that calls it; these check the translator itself, in Ruby.
 class ErrorMessageTest < Minitest::Test
   def translate(message)
     Lota::ErrorMessage.translate(message)

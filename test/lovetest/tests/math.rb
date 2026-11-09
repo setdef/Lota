@@ -8,9 +8,9 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.math tests (vendor/love/testing/tests/math.lua),
-# translated to Ruby by ADR 001's rules, every one of them. Like the
-# graphics tests, they run in the test suite's own process
-# (test/lovetest/math_test.rb) and under lota run (test/lovetest/game).
+# translated to Ruby by the rules of doc/contributors/design/translation.md,
+# every one of them. Like the graphics tests, they run in the test suite's own
+# process (test/lovetest/math_test.rb) and under lota run (test/lovetest/game).
 class MathTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.math.Transform).
   TYPES = %w[BezierCurve RandomGenerator Transform].freeze
@@ -36,11 +36,11 @@ class MathTest < Lovetest::TestMethod
   # Translated to Ruby from love.test.math.Transform
   # (vendor/love/testing/tests/math.lua:111-176): newTransform becomes Transform.new (rule 2), setTransformation and
   # setMatrix the writers transformation= and matrix=, taking their
-  # values as one Array (ADR 001, section 7), getMatrix matrix (rule 3),
-  # whose sixteen results are an Array (rule 4), and the rest snake_case
-  # (rule 13). clone is Ruby's clone, which makes LÖVE's copy. Lövetest's
-  # assertCoords (classes/TestMethod.lua:228-245) compares two pairs of
-  # numbers, as assert_coords does. isAffine2DTransform becomes
+  # values as one Array (doc/contributors/design/translation.md), getMatrix
+  # matrix (rule 3), whose sixteen results are an Array (rule 4), and the rest
+  # snake_case (rule 13). clone is Ruby's clone, which makes LÖVE's copy.
+  # Lövetest's assertCoords (classes/TestMethod.lua:228-245) compares two pairs
+  # of numbers, as assert_coords does. isAffine2DTransform becomes
   # affine2d_transform? (rules 8 and 13), its acronym and digit one word.
   def test_transform
     # create obj

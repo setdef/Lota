@@ -304,7 +304,8 @@ Rice::Array output_spatialization_filters() {
 
 // The name Lua's lua_typename gives the value Lua would hold for +value+,
 // for luax_effecterror's message: a Symbol is a name, as a string is in
-// Lua (ADR 001, rule 9), and an Array or a Hash a table.
+// Lua (rule 9 of doc/contributors/design/translation.md), and an Array or a
+// Hash a table.
 const char *lua_type_name(const Rice::Object &value) {
   if (ruby::is_nil(value)) {
     return "nil";
@@ -438,8 +439,8 @@ constexpr float BOOLEAN_THRESHOLD = 0.5F;
 
 // w_setEffect (wrap_Audio.cpp:349-447): sets the effect +namestr+ to
 // +settings+, an Array of [name, value] pairs that Lota::Audio.set_effect
-// makes of its keywords (ADR 001, rule 10), or unsets it when +settings+
-// is nil, and returns whether it could.
+// makes of its keywords (rule 10 of doc/contributors/design/translation.md), or
+// unsets it when +settings+ is nil, and returns whether it could.
 bool set_effect(const std::string &namestr, Rice::Object given) {
   const Rice::Object settings = std::move(given);
   auto *audio = module<Audio>(love::Module::M_AUDIO, "Lota::Audio");
@@ -452,8 +453,8 @@ bool set_effect(const std::string &namestr, Rice::Object given) {
 
 // w_getEffect (wrap_Audio.cpp:449-509): the settings of the effect
 // +namestr+ as an Array of [name, value] pairs, which
-// Lota::Audio.effect makes a frozen record (ADR 001, rule 10), or nil
-// when there is no such effect.
+// Lota::Audio.effect makes a frozen record (rule 10 of
+// doc/contributors/design/translation.md), or nil when there is no such effect.
 Rice::Object effect(const std::string &namestr) {
   std::map<Effect::Parameter, float> params;
   if (!module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getEffect(namestr.c_str(), params)) {
@@ -601,7 +602,7 @@ bool source_set_effect(Source &source, const std::string &namestr, bool enabled,
 
 // w_Source_getEffect (wrap_Source.cpp:494-516): whether +source+ has the
 // effect +namestr+, and its filter's settings as pairs when it has one,
-// as one Array (ADR 001, rule 4).
+// as one Array (rule 4 of doc/contributors/design/translation.md).
 Rice::Array source_effect(Source &source, const std::string &namestr) {
   std::map<Filter::Parameter, float> params;
   Rice::Array results;

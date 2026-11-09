@@ -9,7 +9,7 @@ require "minitest"
 require_relative "../engine_helper"
 
 # Lövetest, LÖVE's own test suite (vendor/love/testing), translated to Ruby
-# by ADR 001's rules. Each translated test
+# by the rules of doc/contributors/design/translation.md. Each translated test
 # runs in a real window, as Lövetest does, and compares what Lota draws
 # with the images LÖVE drew.
 module Lovetest
@@ -215,7 +215,8 @@ module Lovetest
     # (lines 211-223): not nil, an object of the engine's, which Lua calls
     # userdata and Lota makes a Lota::Object, and one with a type, which
     # obj:type() gives in Lua and obj.object_type in Ruby, on every object,
-    # those with getType among them (ADR 001, rule 16).
+    # those with getType among them (rule 16 of
+    # doc/contributors/design/translation.md).
     def assert_object(obj)
       assert_not_nil(obj)
       assert_equal(true, obj.is_a?(Lota::Object), "check is userdata")

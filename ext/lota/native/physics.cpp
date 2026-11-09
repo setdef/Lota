@@ -87,10 +87,10 @@ private:
 // set, which World:getCallbacks and getContactFilter give back exactly, and
 // the Proc Lota::Physics::World made to call it, which wraps the engine's
 // objects in Lota's classes and passes the callable only the arguments it
-// declares (ADR 003, section 3). Both are roots of Ruby's garbage collector
-// while the World holds this, as a Lua reference keeps its function in the
-// registry: the World deletes it when another replaces it, and lets it go
-// (unref) when the World is destroyed, as LÖVE does (World::destroy).
+// declares (doc/contributors/design/game.md). Both are roots of Ruby's garbage
+// collector while the World holds this, as a Lua reference keeps its function
+// in the registry: the World deletes it when another replaces it, and lets it
+// go (unref) when the World is destroyed, as LÖVE does (World::destroy).
 class RubyCallback {
 public:
   // +pair+ holds the callable, then the Proc that calls it.
@@ -888,7 +888,7 @@ void ray_cast(World &world, double x1, double y1, double x2, double y2, Rice::Ar
 
 // w_World_rayCastAny and w_World_rayCastClosest (wrap_World.cpp:212-228):
 // the Shape hit, the point, the normal, and the fraction, or none, as an
-// empty Array (ADR 001, rule 4).
+// empty Array (rule 4 of doc/contributors/design/translation.md).
 Rice::Array ray_cast_one(World &world, double x1, double y1, double x2, double y2,
                          std::optional<long long> mask, bool any) {
   check(world);

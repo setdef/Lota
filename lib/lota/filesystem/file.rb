@@ -13,10 +13,10 @@ module Lota
     # LÖVE no longer refers to does.
     #
     # Each method that LÖVE lets fail with +nil+ and a message returns an
-    # Array on every path (ADR 001, rule 4): its results, or +nil+ and the
-    # message, so <tt>.first</tt> is what Lua's first result is. Modes are
-    # Symbols (rule 9): +:r+ to read, +:w+ to write, +:a+ to append, and
-    # +:c+ for closed.
+    # Array on every path (rule 4 of doc/contributors/design/translation.md):
+    # its results, or +nil+ and the message, so <tt>.first</tt> is what Lua's
+    # first result is. Modes are Symbols (rule 9): +:r+ to read, +:w+ to write,
+    # +:a+ to append, and +:c+ for closed.
     #
     # === Example
     #
@@ -67,7 +67,8 @@ module Lota
 
       # Closes the file, matching File:close
       # (src/modules/filesystem/wrap_File.cpp, w_File_close), and returns
-      # whether it was open to close (ADR 001, rule 7).
+      # whether it was open to close (rule 7 of
+      # doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -266,7 +267,8 @@ module Lota
       # The file's lines, each a String without its line ending, as an
       # Enumerator, or each given to the block, matching File:lines
       # (src/modules/filesystem/wrap_File.cpp, w_File_lines), whose
-      # iterator becomes an Enumerator (ADR 001, rule 15).
+      # iterator becomes an Enumerator (rule 15 of
+      # doc/contributors/design/translation.md).
       #
       # A file not open to read is opened to read, and one open to read
       # keeps the position its own reads and seeks leave it at, as in

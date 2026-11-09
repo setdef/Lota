@@ -41,7 +41,8 @@ module Lota
     #   Lota::Graphics.readback_texture(canvas).pixel(8, 8) # => [1.0, 1.0, 0.0, 1.0]
     class ImageData < Data
       # Its +new+, the constructor love.image.newImageData becomes
-      # (ADR 001, rule 2), which Lota::Object leaves private.
+      # (rule 2 of doc/contributors/design/translation.md), which Lota::Object
+      # leaves private.
       public_class_method :new
 
       # Wraps an ImageData the engine made, such as one read back from a
@@ -59,9 +60,10 @@ module Lota
       # - <tt>ImageData.new(width, height, format = :rgba8, rawdata =
       #   nil)</tt>: +width+ by +height+ pixels, as Integers, of the
       #   pixel format +format+, a Symbol such as <tt>:rgba8</tt>,
-      #   <tt>:r16</tt>, or <tt>:rgba32f</tt> (ADR 001, rule 9), all
-      #   transparent black, or a copy of +rawdata+, a String or a
-      #   Lota::Data of exactly as many bytes as the pixels take.
+      #   <tt>:r16</tt>, or <tt>:rgba32f</tt> (rule 9 of
+      #   doc/contributors/design/translation.md), all transparent black, or a
+      #   copy of +rawdata+, a String or a Lota::Data of exactly as many bytes
+      #   as the pixels take.
       # - <tt>ImageData.new(file)</tt>: the image in +file+, a String
       #   name of an image file in the game's folder, or a
       #   Lota::Filesystem::FileData, decoded from a format LÖVE's image
@@ -97,7 +99,7 @@ module Lota
       # +dup+, LÖVE's copy, matching ImageData:clone
       # (src/modules/image/wrap_ImageData.cpp, w_ImageData_clone): a new
       # ImageData with a copy of every pixel, so a change to one leaves
-      # the other as it was (ADR 001, section 7).
+      # the other as it was (doc/contributors/design/translation.md).
       #
       # === Example
       #
@@ -130,9 +132,10 @@ module Lota
         @native.height
       end
 
-      # The width and height in pixels, as an Array of two Integers (ADR
-      # 001, rule 4), matching ImageData:getDimensions as LÖVE runs it, in
-      # its LuaJIT code (src/modules/image/wrap_ImageData.lua).
+      # The width and height in pixels, as an Array of two Integers (rule 4 of
+      # doc/contributors/design/translation.md), matching
+      # ImageData:getDimensions as LÖVE runs it, in its LuaJIT code
+      # (src/modules/image/wrap_ImageData.lua).
       #
       # === Example
       #
@@ -141,9 +144,9 @@ module Lota
         [@native.width, @native.height]
       end
 
-      # The pixel format, as a Symbol (ADR 001, rule 9), matching
-      # ImageData:getFormat as LÖVE runs it, in its LuaJIT code
-      # (src/modules/image/wrap_ImageData.lua).
+      # The pixel format, as a Symbol (rule 9 of
+      # doc/contributors/design/translation.md), matching ImageData:getFormat as
+      # LÖVE runs it, in its LuaJIT code (src/modules/image/wrap_ImageData.lua).
       #
       # === Example
       #
@@ -208,7 +211,7 @@ module Lota
       # pixel.
       #
       # [format] +:png+, +:tga+, +:exr+, or another encoded image format
-      #   LÖVE knows (ADR 001, rule 9).
+      #   LÖVE knows (rule 9 of doc/contributors/design/translation.md).
       # [filename] When given, the name the file is also written to in the
       #   save directory, as LÖVE writes it; +Image.+ and the format's name
       #   otherwise, as the FileData's name.
@@ -248,7 +251,8 @@ module Lota
 
       # Sets the color of a pixel, matching ImageData:setPixel as LÖVE
       # runs it, in its LuaJIT code (src/modules/image/wrap_ImageData.lua),
-      # whose several values rule 6 of ADR 001 makes one Array.
+      # whose several values rule 6 of doc/contributors/design/translation.md
+      # makes one Array.
       #
       # [arguments] An Array of the pixel's column and row, each rounded
       #   down, then its red, green, and blue, and an optional alpha, each
@@ -273,7 +277,7 @@ module Lota
       # rectangle, and sets the pixel to the color it returns, matching
       # ImageData:mapPixel as LÖVE runs it, in its LuaJIT code
       # (src/modules/image/wrap_ImageData.lua), whose function becomes
-      # the block (ADR 001, rule 12).
+      # the block (rule 12 of doc/contributors/design/translation.md).
       #
       # [x] Float or Integer left column of the rectangle, 0 by default.
       # [y] Float or Integer top row, 0 by default.

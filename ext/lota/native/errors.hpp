@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // LÖVE's error messages, passed on to Ruby with their Lua names translated
-// (ADR 001, section 7: "Error messages follow the same rules").
+// (rule 23 of doc/contributors/design/translation.md).
 //
 // LÖVE's C++ throws love::Exception, whose message sometimes names a Lua
 // module, a module function, or a method ("love.image must be loaded in
@@ -44,8 +44,9 @@ inline VALUE translated(std::string_view message) {
 
 } // namespace errors_detail
 
-// +message+ with every Lua name of LÖVE's API translated by ADR 001's
-// rules, and nothing else changed (Lota::ErrorMessage.translate).
+// +message+ with every Lua name of LÖVE's API translated by the rules of
+// doc/contributors/design/translation.md, and nothing else changed
+// (Lota::ErrorMessage.translate).
 inline std::string translate_love_names(std::string_view message) {
   const Rice::String ruby(errors_detail::translated(message));
   return ruby.str();
@@ -73,7 +74,8 @@ inline void translate_engine_error() {
 //
 // Ported from luax_enumerror (vendor/love/src/common/runtime.cpp:
 // 1120-1137), and changed to raise Ruby's ArgumentError, which Lota raises
-// for a caller's mistake where LÖVE raises a Lua error (ADR 001, rule 7).
+// for a caller's mistake where LÖVE raises a Lua error (rule 7 of
+// doc/contributors/design/translation.md).
 
 // Raises ArgumentError for +value+, which names no +enum_name+.
 [[noreturn]] inline void raise_enum_error(const char *enum_name, const std::string &value) {
@@ -96,7 +98,8 @@ inline void translate_engine_error() {
 // SPDX-SnippetEnd
 
 // Raises ArgumentError with +message+, as Lota raises for a caller's
-// mistake where LÖVE raises luaL_argerror (ADR 001, rule 7).
+// mistake where LÖVE raises luaL_argerror (rule 7 of
+// doc/contributors/design/translation.md).
 [[noreturn]] inline void raise_argument_error(const char *message) {
   throw Rice::Exception(rb_eArgError, "%s", message);
 }

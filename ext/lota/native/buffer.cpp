@@ -271,8 +271,8 @@ template <typename T, Kind K> double component_value(T component) {
 
 // readData, readSNormData, and readUNormData: +components+ numbers of type
 // T from +in+, pushed on +out+. The C++ holds a plain integer format's
-// numbers as integers, so they are Integers (ADR 001, rule 14), as the
-// rest are Floats.
+// numbers as integers, so they are Integers (rule 14 of
+// doc/contributors/design/translation.md), as the rest are Floats.
 template <typename T, Kind K>
 void read_components(Rice::Array &out, std::size_t components, std::span<const std::byte> in) {
   if (in.size() < components * sizeof(T)) {

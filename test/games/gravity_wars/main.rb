@@ -12,16 +12,16 @@
 # Translated to Ruby from Gravity Wars' main.lua
 # (test/fixtures/gravity_wars/main.lua, lines 1-221), as globals.rb and
 # the files it requires describe: Lua's require of a file beside main.lua
-# is Ruby's require of the one beside main.rb (ADR 003, section 6),
-# love.load and draw become Lota.load and draw (ADR 003), setMode becomes
-# Lota::Window.set_mode (rule 7), newCanvas Canvas.new (rule 2) with its
-# settings table as keywords (rule 10), and math.randomseed and os.time
-# Lota::Math.random_seed= (rule 5) and Time.now.to_i, Ruby's seconds since
-# the epoch. Lua's math.pow and math.abs are Ruby's ** and abs, and
-# math.sin and math.floor Math.sin and floor. Lua's angleDiff, forceDiff,
-# xOffset, fontOpacity, and bulletsInFlight are globals no other function
-# reads, so they are Ruby locals. The game has no conf.lua, so this game
-# has no conf.rb.
+# is Ruby's require of the one beside main.rb (doc/contributors/design/game.md),
+# love.load and draw become Lota.load and draw
+# (doc/contributors/design/game.md), setMode becomes Lota::Window.set_mode (rule
+# 7), newCanvas Canvas.new (rule 2) with its settings table as keywords (rule
+# 10), and math.randomseed and os.time Lota::Math.random_seed= (rule 5) and
+# Time.now.to_i, Ruby's seconds since the epoch. Lua's math.pow and math.abs are
+# Ruby's ** and abs, and math.sin and math.floor Math.sin and floor. Lua's
+# angleDiff, forceDiff, xOffset, fontOpacity, and bulletsInFlight are globals no
+# other function reads, so they are Ruby locals. The game has no conf.lua, so
+# this game has no conf.rb.
 
 #--------------------------------------------------------------------------------------------------
 # Code for imports, the initial load, and the `draw` loop

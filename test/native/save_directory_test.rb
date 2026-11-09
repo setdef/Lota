@@ -29,7 +29,7 @@ class SaveDirectoryTest < Minitest::Test
 
   # Where LÖVE's getFullCommonPath puts the save directory of a game that
   # is not fused (physfs/Filesystem.cpp:608-616), with Lota's folder in
-  # place of LÖVE's (ADR 003, section 8).
+  # place of LÖVE's (doc/contributors/design/game.md).
   def save_directory
     TestHome.system_path(File.join(TestHome.application_data(ENV.fetch("LOTA_TEST_HOME")), TestHome::LOTA_FOLDER,
       IDENTITY))

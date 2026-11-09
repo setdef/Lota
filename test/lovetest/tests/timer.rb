@@ -8,9 +8,9 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.timer tests (vendor/love/testing/tests/timer.lua),
-# translated to Ruby by ADR 001's rules, all six. Like the graphics tests,
-# they run in the test suite's own process (test/lovetest/timer_test.rb)
-# and under lota run (test/lovetest/game).
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# six. Like the graphics tests, they run in the test suite's own process
+# (test/lovetest/timer_test.rb) and under lota run (test/lovetest/game).
 class TimerTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

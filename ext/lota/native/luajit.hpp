@@ -3,11 +3,11 @@
 
 // LuaJIT's conversions of a Lua number, as LÖVE's FFI code in its
 // wrap_*.lua files relies on them, for the bindings that port that code
-// (ADR 001, section 7: where LÖVE replaces a C++ wrap function with LuaJIT
-// code, Lota ports the Lua). A Lua number is a double; LuaJIT converts it
-// when the FFI stores it in a C integer field and when its bit library
-// takes it, each in its own way, and C++ leaves the same casts undefined
-// out of range, so each is written out here.
+// (doc/contributors/design/translation.md: where LÖVE replaces a C++ wrap
+// function with LuaJIT code, Lota ports the Lua). A Lua number is a double;
+// LuaJIT converts it when the FFI stores it in a C integer field and when its
+// bit library takes it, each in its own way, and C++ leaves the same casts
+// undefined out of range, so each is written out here.
 
 #ifndef LOTA_NATIVE_LUAJIT_HPP
 #define LOTA_NATIVE_LUAJIT_HPP

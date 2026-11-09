@@ -308,8 +308,8 @@ module Lota
       # (src/modules/graphics/wrap_SpriteBatch.cpp,
       # w_SpriteBatch_getDrawRange), which returns nothing then: a function
       # that returns several values returns an Array of all it returns
-      # (ADR 001, rule 4), so <tt>.first</tt> is +nil+ where Lua's first
-      # result is.
+      # (rule 4 of doc/contributors/design/translation.md), so <tt>.first</tt>
+      # is +nil+ where Lua's first result is.
       #
       # === Examples
       #

@@ -19,7 +19,7 @@ module Lota
     # and its contact filter decides which Shapes collide at all
     # (#contact_filter=). Each is anything that answers +call+, as LÖVE's
     # are Lua functions, and receives only as many arguments as it declares
-    # (ADR 001, after the table; ADR 003, section 3).
+    # (rules 31 and 32 of doc/contributors/design/translation.md; doc/contributors/design/game.md).
     #
     # === Example
     #
@@ -100,7 +100,8 @@ module Lota
       # Sets the World's four contact callbacks, matching
       # World:setCallbacks (src/modules/physics/box2d/wrap_World.cpp,
       # w_World_setCallbacks; World.cpp, World::ContactCallback), whose
-      # four functions rule 6 of ADR 001 makes one Array.
+      # four functions rule 6 of doc/contributors/design/translation.md makes
+      # one Array.
       #
       # [callbacks] An Array of up to four, each anything that answers
       #   +call+, or +nil+ for none:
@@ -114,10 +115,10 @@ module Lota
       # Each receives the two Shapes, the Contact, and for post_solve the
       # impulses, as Floats: the first point's normal impulse, its tangent
       # impulse, then the second point's. It receives only as many of them
-      # as it declares (ADR 003, section 3), so <tt>-> {}</tt> receives
-      # none and <tt>proc { |a, b| }</tt> the two Shapes, and a required
-      # parameter beyond them receives +nil+, as in Lua. Each replaces what
-      # was set before, and the World holds it until another replaces it or
+      # as it declares (doc/contributors/design/game.md), so <tt>-> {}</tt>
+      # receives none and <tt>proc { |a, b| }</tt> the two Shapes, and a
+      # required parameter beyond them receives +nil+, as in Lua. Each replaces
+      # what was set before, and the World holds it until another replaces it or
       # the World is destroyed.
       #
       # Raises TypeError, and changes nothing, for one that is neither
@@ -235,8 +236,8 @@ module Lota
         @native.gravity
       end
 
-      # Sets the gravity, matching World:setGravity, whose two values rule
-      # 6 of ADR 001 makes one Array.
+      # Sets the gravity, matching World:setGravity, whose two values rule 6 of
+      # doc/contributors/design/translation.md makes one Array.
       #
       # [gravity] An Array of the x and y Floats or Integers.
       #
@@ -302,7 +303,8 @@ module Lota
 
       # Calls the block with each Shape whose bounding box overlaps the area
       # from +x1+, +y1+ to +x2+, +y2+, matching World:queryShapesInArea,
-      # whose function becomes the block (ADR 001, rule 12).
+      # whose function becomes the block (rule 12 of
+      # doc/contributors/design/translation.md).
       #
       # [arguments] Anything, passed to the block after the Shape, as LÖVE
       #   passes the arguments after its function.
@@ -335,7 +337,7 @@ module Lota
 
       # Calls the block with each Shape the ray from +x1+, +y1+ to +x2+,
       # +y2+ hits, matching World:rayCast, whose function becomes the block
-      # (ADR 001, rule 12).
+      # (rule 12 of doc/contributors/design/translation.md).
       #
       # [arguments] Anything, passed to the block after the hit, as LÖVE
       #   passes the arguments after its function.
@@ -358,7 +360,7 @@ module Lota
       # The first Shape the ray from +x1+, +y1+ to +x2+, +y2+ is found to
       # hit, matching World:rayCastAny: an Array of the Shape, the point,
       # the normal, and the fraction, or an empty Array when it hits none
-      # (ADR 001, rule 4).
+      # (rule 4 of doc/contributors/design/translation.md).
       #
       # [mask] Integer bits of the categories to look for; every category
       #   by default.
@@ -412,7 +414,8 @@ module Lota
       # The callable and the lambda the engine calls for it, or +nil+ for
       # none. The lambda wraps the engine's Shapes and Contact in Lota's
       # classes, and passes +callable+ as many of them, and of the
-      # impulses, as it declares (ADR 003, section 3), which it reads once.
+      # impulses, as it declares (doc/contributors/design/game.md), which it
+      # reads once.
       private def contact_function(callable)
         return unless callable
 

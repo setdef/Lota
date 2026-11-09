@@ -8,10 +8,10 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's tests of the table LÖVE's modules hang from (vendor/love/
-# testing/tests/love.lua), translated to Ruby by ADR 001's rules, all six.
-# That table is Lota (rule 1). Like the graphics tests, they run in the test suite's own
-# process (test/lovetest/lota_test.rb) and under lota run
-# (test/lovetest/game).
+# testing/tests/love.lua), translated to Ruby by the rules of
+# doc/contributors/design/translation.md, all six. That table is Lota (rule 1).
+# Like the graphics tests, they run in the test suite's own process
+# (test/lovetest/lota_test.rb) and under lota run (test/lovetest/game).
 class LotaModuleTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

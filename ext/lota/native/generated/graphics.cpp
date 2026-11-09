@@ -52,7 +52,7 @@ using namespace love::graphics;
 constexpr const char *MODULE = "Lota::Graphics";
 
 // The graphics module, as LÖVE's instance() macro reaches it
-// (wrap_Graphics.cpp:54), on the main thread only (ADR 001, section 6).
+// (wrap_Graphics.cpp:54), on the main thread only (ADR 007).
 Graphics *instance() {
   require_main_thread(MODULE);
   auto *instance = love::Module::getInstance<Graphics>(love::Module::M_GRAPHICS);

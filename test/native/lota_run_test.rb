@@ -393,9 +393,9 @@ class LotaRunTest < Minitest::Test
   end
 
   # An engine error a game meets reaches its error handler with its Lua
-  # names translated (ADR 001, section 7), and so does one the handler
-  # itself meets, which error_printer prints: what ImageData:getPixel
-  # raises for an ImageData whose pixels it does not convert
+  # names translated (doc/contributors/design/translation.md), and so does one
+  # the handler itself meets, which error_printer prints: what
+  # ImageData:getPixel raises for an ImageData whose pixels it does not convert
   # (ImageData.cpp:549).
   def test_an_engine_error_reaches_the_error_handler_and_the_printer_translated
     srgba8 = "Lota::Image::ImageData#pixel does not currently support the srgba8 pixel format."
@@ -498,9 +498,9 @@ class LotaRunTest < Minitest::Test
     end
   end
 
-  # Numbers LÖVE's C++ holds as integers reach the game as Integers (ADR
-  # 001, rule 14): opening the window and changing its mode each resize
-  # it, with the graphics module's int width and height
+  # Numbers LÖVE's C++ holds as integers reach the game as Integers (rule 14 of
+  # doc/contributors/design/translation.md): opening the window and changing its
+  # mode each resize it, with the graphics module's int width and height
   # (vendor/love/src/modules/event/sdl/Event.cpp:811-835).
   def test_a_resize_reaches_the_game_with_integers
     in_game("main.rb" => <<~RUBY) do |directory|
@@ -519,9 +519,9 @@ class LotaRunTest < Minitest::Test
     end
   end
 
-  # Lua passes nil for parameters its caller left out (ADR 003, section
-  # 3); update receives one argument and draw none. Lua has no defaults,
-  # so draw's is the game's own and stays.
+  # Lua passes nil for parameters its caller left out
+  # (doc/contributors/design/game.md); update receives one argument and draw
+  # none. Lua has no defaults, so draw's is the game's own and stays.
   def test_a_required_parameter_love_does_not_pass_receives_nil
     in_game("main.rb" => <<~RUBY) do |directory|
       def Lota.update(dt, extra) = (@update = [dt.class, extra])
@@ -538,8 +538,8 @@ class LotaRunTest < Minitest::Test
   end
 
   # A module the settings turn off is nil through its accessor, as
-  # love.timer is nil in LÖVE, while its constant stays defined (ADR 003,
-  # section 6).
+  # love.timer is nil in LÖVE, while its constant stays defined
+  # (doc/contributors/design/game.md).
   def test_a_module_the_settings_turn_off_is_nil_through_its_accessor
     in_game("conf.rb" => "def Lota.conf(t) = (t.modules.timer = false; t.modules.keyboard = false; " \
               "t.modules.data = false)\n", "main.rb" => <<~RUBY) do |directory|
@@ -556,8 +556,8 @@ class LotaRunTest < Minitest::Test
   end
 
   # LÖVE's require searches the game's folder, from conf.lua as from
-  # main.lua, and LÖVE leaves the working directory alone (ADR 003,
-  # section 6).
+  # main.lua, and LÖVE leaves the working directory alone
+  # (doc/contributors/design/game.md).
   def test_a_game_requires_files_from_its_folder_and_keeps_the_working_directory
     in_game("conf.rb" => "require 'title'\ndef Lota.conf(t) = (t.window.title = TITLE)\n",
       "title.rb" => "TITLE = 'Required'\n",
@@ -716,8 +716,8 @@ class LotaRunTest < Minitest::Test
 
   # Where a game's saves go: the system's application data folder under
   # the tests' home of their own (test/test_helper.rb), then Lota's folder
-  # unless the game is fused, then its identity (ADR 003, section 8;
-  # physfs/Filesystem.cpp:608-616).
+  # unless the game is fused, then its identity
+  # (doc/contributors/design/game.md; physfs/Filesystem.cpp:608-616).
   def self.save_directory(identity, fused: false)
     support = TestHome.application_data(ENV.fetch("LOTA_TEST_HOME"))
     TestHome.system_path(File.join(*[support, (TestHome::LOTA_FOLDER unless fused), identity].compact))
@@ -747,8 +747,8 @@ class LotaRunTest < Minitest::Test
   end
 
   # A game shipped fused into an application of its own saves where LÖVE's
-  # fused game saves, without Lota's folder (ADR 003, section 8), which is
-  # how ADR 002's launcher is to start one.
+  # fused game saves, without Lota's folder (doc/contributors/design/game.md),
+  # which is how the entry script lota fuse writes starts one.
   def test_a_fused_game_saves_where_loves_fused_game_saves
     in_game("conf.rb" => "def Lota.conf(t) = (t.identity = 'kleleatoms')\n",
       "main.rb" => "def Lota.load = (p [Lota::Filesystem.save_directory, Lota::Filesystem.fused?]; " \

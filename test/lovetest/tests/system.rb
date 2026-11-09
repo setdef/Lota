@@ -8,11 +8,11 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.system tests (vendor/love/testing/tests/system.lua),
-# translated to Ruby by ADR 001's rules, all ten, two of them skipped as
-# Lövetest skips them (openURL and vibrate). Like the graphics tests, they
-# run in the test suite's own process (test/lovetest/system_test.rb) and
-# under lota run (test/lovetest/game). They replace the clipboard's text,
-# as Lövetest's do.
+# translated to Ruby by the rules of doc/contributors/design/translation.md, all
+# ten, two of them skipped as Lövetest skips them (openURL and vibrate). Like
+# the graphics tests, they run in the test suite's own process
+# (test/lovetest/system_test.rb) and under lota run (test/lovetest/game). They
+# replace the clipboard's text, as Lövetest's do.
 class SystemTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

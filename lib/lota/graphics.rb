@@ -117,14 +117,14 @@ module Lota
     #   mask drawing into a canvas.
     #
     # The options are LÖVE's table of targets and options as keywords
-    # (ADR 001, rule 10). A target can also be an Array of its texture and
-    # a Hash of its options, +layer+ or +face+ and +mipmap+, each counting
-    # from 1, as LÖVE's table of tables gives each target a table of its
-    # own: the layer a texture that is not 2D needs, and the mipmap to draw
-    # to; +depthstencil+ takes one too. Returns +nil+. Raises TypeError for a target that is not a
-    # Texture, RuntimeError with LÖVE's message when the engine refuses the
-    # targets, as for a texture that is not a canvas, and ThreadError off
-    # the main thread.
+    # (rule 10 of doc/contributors/design/translation.md). A target can also be
+    # an Array of its texture and a Hash of its options, +layer+ or +face+ and
+    # +mipmap+, each counting from 1, as LÖVE's table of tables gives each
+    # target a table of its own: the layer a texture that is not 2D needs, and
+    # the mipmap to draw to; +depthstencil+ takes one too. Returns +nil+. Raises
+    # TypeError for a target that is not a Texture, RuntimeError with LÖVE's
+    # message when the engine refuses the targets, as for a texture that is not
+    # a canvas, and ThreadError off the main thread.
     #
     # === Examples
     #
@@ -410,7 +410,8 @@ module Lota
     # pop can bring it back, matching love.graphics.push
     # (src/modules/graphics/wrap_Graphics.cpp, w_push). With a block, it
     # pops once the block is done, also when the block raises, and returns
-    # what the block returns (ADR 001, rule 11).
+    # what the block returns (rule 11 of
+    # doc/contributors/design/translation.md).
     #
     # [stack] +:transform+ (the default, also when +nil+) saves the
     #   transformation alone, and +:all+ the color, font, canvas, and the
@@ -571,7 +572,8 @@ module Lota
     # [y] Float or Integer.
     #
     # Returns the point's x and y on the screen, as an Array of Floats
-    # (ADR 001, rule 4). Raises ThreadError off the main thread.
+    # (rule 4 of doc/contributors/design/translation.md). Raises ThreadError off
+    # the main thread.
     #
     # === Example
     #
@@ -591,7 +593,8 @@ module Lota
     # [y] Float or Integer.
     #
     # Returns the point's x and y before the transformation, as an Array of
-    # Floats (ADR 001, rule 4). Raises ThreadError off the main thread.
+    # Floats (rule 4 of doc/contributors/design/translation.md). Raises
+    # ThreadError off the main thread.
     #
     # === Example
     #
@@ -1766,11 +1769,11 @@ module Lota
       Native::Graphics.blend_state.map { |name| name&.to_sym }
     end
 
-    # Where drawing goes, as an Array (ADR 001, rule 4), matching
-    # love.graphics.getCanvas (src/modules/graphics/wrap_Graphics.cpp,
-    # w_getCanvas): empty while it goes to the window; the canvases
-    # Lota::Graphics.canvas= or set_canvas set, each a
-    # Lota::Graphics::Texture, in order; or, where LÖVE returns its table
+    # Where drawing goes, as an Array (rule 4 of
+    # doc/contributors/design/translation.md), matching love.graphics.getCanvas
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvas): empty while it goes
+    # to the window; the canvases Lota::Graphics.canvas= or set_canvas set, each
+    # a Lota::Graphics::Texture, in order; or, where LÖVE returns its table
     # of tables, for a depth and stencil texture, a mipmap but the first,
     # or a texture that is not 2D, one Array of the targets, each its
     # Texture and a Hash of its +layer+ or +face+ and its +mipmap+, as
@@ -1956,11 +1959,11 @@ module Lota
     # [debugname] As Lota::Graphics::Shader.new takes it.
     # [write] As Lota::Graphics::Shader.new takes it.
     #
-    # Returns an Array of LÖVE's results (ADR 001, rule 4): +[true]+, or
-    # +false+ and LÖVE's message, so <tt>.first</tt> is whether it
-    # compiles. Raises TypeError for a +gles+ that is not true or false,
-    # and as Lota::Graphics::Shader.new raises for its sources and
-    # options.
+    # Returns an Array of LÖVE's results (rule 4 of
+    # doc/contributors/design/translation.md): +[true]+, or +false+ and LÖVE's
+    # message, so <tt>.first</tt> is whether it compiles. Raises TypeError for a
+    # +gles+ that is not true or false, and as Lota::Graphics::Shader.new raises
+    # for its sources and options.
     #
     # === Example
     #
@@ -2399,7 +2402,8 @@ module Lota
     # The renderer's counts, as a frozen Lota::Graphics::Stats, matching
     # love.graphics.getStats (src/modules/graphics/wrap_Graphics.cpp,
     # w_getStats). LÖVE also fills in a table it is given; a frozen record
-    # cannot be filled, so Lota takes none (ADR 001, rule 10).
+    # cannot be filled, so Lota takes none (rule 10 of
+    # doc/contributors/design/translation.md).
     #
     # Raises ThreadError off the main thread.
     #
@@ -2440,7 +2444,8 @@ module Lota
     # frozen Lota::Graphics::TextureFormats, matching
     # love.graphics.getTextureFormats
     # (src/modules/graphics/wrap_Graphics.cpp, w_getTextureFormats), whose
-    # table of settings becomes keywords (ADR 001, rule 10).
+    # table of settings becomes keywords (rule 10 of
+    # doc/contributors/design/translation.md).
     #
     # [canvas] +true+ or +false+: whether the texture is to be drawn
     #   into; required, as LÖVE requires it.
@@ -2555,8 +2560,9 @@ module Lota
     # [target] A String file name, to save the frame in the save
     #   directory, in the format its extension names (+png+ or +tga+); or
     #   any object that answers +call+, or a block, which LÖVE keeps to
-    #   call with the frame as a Lota::Image::ImageData (ADR 001, rule
-    #   12), as Signal.trap keeps its handler.
+    #   call with the frame as a Lota::Image::ImageData (rule 12 of
+    #   doc/contributors/design/translation.md), as Signal.trap keeps its
+    #   handler.
     #
     # The capture happens once the frame is presented, at the end of the
     # loop's draw. LÖVE prints, rather than raises, an error in saving the

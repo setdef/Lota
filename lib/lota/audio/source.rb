@@ -40,9 +40,9 @@ module Lota
       #   <tt>:static</tt> Source; or a Lota::Sound::Decoder, which it
       #   streams.
       # [type] Symbol <tt>:static</tt>, which decodes the whole file now,
-      #   or <tt>:stream</tt>, which decodes it as it plays (ADR 001, rule
-      #   9); a SoundData or a Decoder takes none, as LÖVE reads none for
-      #   them.
+      #   or <tt>:stream</tt>, which decodes it as it plays (rule 9 of
+      #   doc/contributors/design/translation.md); a SoundData or a Decoder
+      #   takes none, as LÖVE reads none for them.
       # [streamtype] For a <tt>:stream</tt> Source from a file, how its
       #   Decoder reads the file: <tt>:file</tt>, as it plays, by default,
       #   or <tt>:memory</tt>, all of it first, as Lota::Sound::Decoder.new
@@ -91,8 +91,8 @@ module Lota
       # (src/modules/audio/wrap_Source.cpp, w_Source_clone): a new Source
       # of the same sound, stopped, with +source+'s pitch, volume,
       # looping, and other settings, which it then keeps apart from
-      # +source+'s (ADR 001, section 7). A streaming Source's copy streams
-      # the file again from its start.
+      # +source+'s (doc/contributors/design/translation.md). A streaming
+      # Source's copy streams the file again from its start.
       #
       # === Example
       #
@@ -235,7 +235,8 @@ module Lota
 
       # Sets the Source's position in space, in the units the listener's position is in, matching Source:setPosition
       # (src/modules/audio/wrap_Source.cpp, w_Source_setPosition): x, y, and
-      # optionally z, 0 by default, as an Array (ADR 001, rule 6).
+      # optionally z, 0 by default, as an Array (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # LÖVE places only a mono Source in space; a stereo one raises
       # RuntimeError with LÖVE's message, as LÖVE does. Raises TypeError for
@@ -249,9 +250,11 @@ module Lota
         @native.set_position(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
       end
 
-      # The Source's position in space, in the units the listener's position is in, as an Array of three Floats (ADR 001, rule 4),
-      # matching Source:getPosition (src/modules/audio/wrap_Source.cpp,
-      # w_Source_getPosition). A stereo Source raises RuntimeError.
+      # The Source's position in space, in the units the listener's position is
+      # in, as an Array of three Floats (rule 4 of
+      # doc/contributors/design/translation.md), matching Source:getPosition
+      # (src/modules/audio/wrap_Source.cpp, w_Source_getPosition). A stereo
+      # Source raises RuntimeError.
       #
       # === Example
       #
@@ -262,7 +265,8 @@ module Lota
 
       # Sets the Source's velocity, which the Doppler effect reads, matching Source:setVelocity
       # (src/modules/audio/wrap_Source.cpp, w_Source_setVelocity): x, y, and
-      # optionally z, 0 by default, as an Array (ADR 001, rule 6).
+      # optionally z, 0 by default, as an Array (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # LÖVE places only a mono Source in space; a stereo one raises
       # RuntimeError with LÖVE's message, as LÖVE does. Raises TypeError for
@@ -276,7 +280,8 @@ module Lota
         @native.set_velocity(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
       end
 
-      # The Source's velocity, which the Doppler effect reads, as an Array of three Floats (ADR 001, rule 4),
+      # The Source's velocity, which the Doppler effect reads, as an Array of
+      # three Floats (rule 4 of doc/contributors/design/translation.md),
       # matching Source:getVelocity (src/modules/audio/wrap_Source.cpp,
       # w_Source_getVelocity). A stereo Source raises RuntimeError.
       #
@@ -289,7 +294,8 @@ module Lota
 
       # Sets the Source's direction, which its cone points along, matching Source:setDirection
       # (src/modules/audio/wrap_Source.cpp, w_Source_setDirection): x, y, and
-      # optionally z, 0 by default, as an Array (ADR 001, rule 6).
+      # optionally z, 0 by default, as an Array (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # LÖVE places only a mono Source in space; a stereo one raises
       # RuntimeError with LÖVE's message, as LÖVE does. Raises TypeError for
@@ -303,7 +309,8 @@ module Lota
         @native.set_direction(Source.__send__(:number, x), Source.__send__(:number, y), Source.__send__(:number, z, 0))
       end
 
-      # The Source's direction, which its cone points along, as an Array of three Floats (ADR 001, rule 4),
+      # The Source's direction, which its cone points along, as an Array of
+      # three Floats (rule 4 of doc/contributors/design/translation.md),
       # matching Source:getDirection (src/modules/audio/wrap_Source.cpp,
       # w_Source_getDirection). A stereo Source raises RuntimeError.
       #
@@ -318,7 +325,8 @@ module Lota
       # (src/modules/audio/wrap_Source.cpp, w_Source_setCone): the Float
       # inner and outer angles, in radians, then optionally the volume
       # outside the outer angle (0 by default) and its high-frequency gain
-      # (1 by default), as an Array (ADR 001, rule 6).
+      # (1 by default), as an Array (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # A stereo Source raises RuntimeError with LÖVE's message.
       #
@@ -331,9 +339,9 @@ module Lota
       end
 
       # The cone's inner and outer angles, outer volume, and outer
-      # high-frequency gain, as an Array of Floats (ADR 001, rule 4),
-      # matching Source:getCone (src/modules/audio/wrap_Source.cpp,
-      # w_Source_getCone).
+      # high-frequency gain, as an Array of Floats (rule 4 of
+      # doc/contributors/design/translation.md), matching Source:getCone
+      # (src/modules/audio/wrap_Source.cpp, w_Source_getCone).
       #
       # === Example
       #
@@ -369,8 +377,9 @@ module Lota
 
       # Sets the Source's least and greatest volume, matching
       # Source:setVolumeLimits (src/modules/audio/wrap_Source.cpp,
-      # w_Source_setVolumeLimits), as an Array of two Floats (ADR 001, rule
-      # 6), which bound the volume distance and cones leave it.
+      # w_Source_setVolumeLimits), as an Array of two Floats (rule 6 of
+      # doc/contributors/design/translation.md), which bound the volume distance
+      # and cones leave it.
       #
       # Raises RuntimeError with LÖVE's message for a least volume outside
       # 0 to 1 or a negative greatest.
@@ -383,8 +392,8 @@ module Lota
         @native.set_volume_limits(Source.__send__(:number, least), Source.__send__(:number, greatest))
       end
 
-      # The least and greatest volume, as an Array of two Floats (ADR 001,
-      # rule 4), matching Source:getVolumeLimits
+      # The least and greatest volume, as an Array of two Floats (rule 4 of
+      # doc/contributors/design/translation.md), matching Source:getVolumeLimits
       # (src/modules/audio/wrap_Source.cpp, w_Source_getVolumeLimits).
       #
       # === Example
@@ -398,7 +407,8 @@ module Lota
       # Source:setAttenuationDistances (src/modules/audio/wrap_Source.cpp,
       # w_Source_setAttenuationDistances): the Float reference distance,
       # within which it plays at full volume, and the greatest distance,
-      # beyond which it falls no further, as an Array (ADR 001, rule 6).
+      # beyond which it falls no further, as an Array (rule 6 of
+      # doc/contributors/design/translation.md).
       #
       # How the volume falls between them is Lota::Audio.distance_model.
       # Raises RuntimeError with LÖVE's message for a negative distance,
@@ -413,8 +423,8 @@ module Lota
       end
 
       # The reference and greatest distances, as an Array of two Floats
-      # (ADR 001, rule 4), matching Source:getAttenuationDistances
-      # (src/modules/audio/wrap_Source.cpp,
+      # (rule 4 of doc/contributors/design/translation.md), matching
+      # Source:getAttenuationDistances (src/modules/audio/wrap_Source.cpp,
       # w_Source_getAttenuationDistances).
       #
       # === Example
@@ -558,8 +568,9 @@ module Lota
 
       # Filters the Source's sound, matching Source:setFilter
       # (src/modules/audio/wrap_Source.cpp, w_Source_setFilter), and
-      # returns whether it could (ADR 001, rule 7), as with no effects on
-      # the system.
+      # returns whether it could (rule 7 of
+      # doc/contributors/design/translation.md), as with no effects on the
+      # system.
       #
       # [settings] LÖVE's table of the filter's settings, as keywords (rule
       #   10): +type+, <tt>:lowpass</tt>, <tt>:highpass</tt>, or
@@ -641,8 +652,8 @@ module Lota
         @native.active_effects
       end
 
-      # The numbers of a writer of several values (ADR 001, rule 6), one
-      # value or an Array. :nodoc:
+      # The numbers of a writer of several values (rule 6 of
+      # doc/contributors/design/translation.md), one value or an Array. :nodoc:
       private_class_method def self.numbers(value)
         value.is_a?(Array) ? value : [value]
       end
@@ -660,7 +671,8 @@ module Lota
       # How the Source holds its sound, as a Symbol, matching
       # Source:getType (src/modules/audio/wrap_Source.cpp,
       # w_Source_getType): <tt>:static</tt>, <tt>:stream</tt>, or
-      # <tt>:queue</tt> (ADR 001, rules 9 and 16).
+      # <tt>:queue</tt> (rules 9 and 16 of
+      # doc/contributors/design/translation.md).
       #
       # A Source has no +type+, as LÖVE's Source answers both Object:type
       # and getType; #object_type is LÖVE's name for its class.

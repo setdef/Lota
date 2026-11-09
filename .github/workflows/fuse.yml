@@ -1,23 +1,23 @@
 # SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# lota fuse, for real, on each platform Lota ships a gem for (ADR 002,
-# section 5): on a runner of that platform it installs Lota's gem for it,
-# fuses a game with this commit's lota fuse, which fetches Fledge from Git
-# and runs fledge build, then unpacks the app it built under a folder
-# named with a space, and runs it with no Ruby on its PATH and an
-# environment of only the system's own variables. Each game opens no
-# window, since a runner has no GPU, plays a sound, saves a file, and
-# quits with 3; the check reads that it ran fused and saved under its
-# identity alone, where LÖVE's fused game saves (ADR 003, section 8).
-# test/games/fuse first restarts once, as LÖVE's fused game restarts, and
-# the check reads that the value crossed and that the run after it was
-# the same process on macOS and Linux and a new one on Windows. The entry
-# script this commit's lota fuse writes calls the gem's Lota::Restart, so
-# it fuses with gems of the same commit. Every app's notices are checked in the archive a player unpacks: the
-# NOTICES.txt lota fuse writes, with Lota's own license statement, each
-# library the gem carries, FreeType's credit, OpenAL Soft's source
-# archive, and every path it names in the app.
+# lota fuse, for real, on each platform Lota ships a gem for
+# (doc/contributors/design/packaging.md): on a runner of that platform it
+# installs Lota's gem for it, fuses a game with this commit's lota fuse, which
+# fetches Fledge from Git and runs fledge build, then unpacks the app it built
+# under a folder named with a space, and runs it with no Ruby on its PATH and an
+# environment of only the system's own variables. Each game opens no window,
+# since a runner has no GPU, plays a sound, saves a file, and quits with 3; the
+# check reads that it ran fused and saved under its identity alone, where LÖVE's
+# fused game saves (doc/contributors/design/game.md). test/games/fuse first
+# restarts once, as LÖVE's fused game restarts, and the check reads that the
+# value crossed and that the run after it was the same process on macOS and
+# Linux and a new one on Windows. The entry script this commit's lota fuse
+# writes calls the gem's Lota::Restart, so it fuses with gems of the same
+# commit. Every app's notices are checked in the archive a player unpacks: the
+# NOTICES.txt lota fuse writes, with Lota's own license statement, each library
+# the gem carries, FreeType's credit, OpenAL Soft's source archive, and every
+# path it names in the app.
 #
 # Three games are fused on every platform: test/games/fuse, with no
 # Gemfile; test/games/fuse_gems, whose Gemfile asks for a gem of pure Ruby

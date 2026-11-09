@@ -8,7 +8,8 @@
 module Lota
   module Font
     # Makes rasterizers from a picture of their glyphs, matching
-    # love.font.newImageRasterizer, named by ADR 001, rule 2.
+    # love.font.newImageRasterizer, named by rule 2 of
+    # doc/contributors/design/translation.md.
     #
     # The image holds the glyphs side by side in a row, each separated
     # from the next by a column of pixels in the color of the image's
@@ -18,7 +19,8 @@ module Lota
     #
     # LÖVE's C++ makes an image rasterizer of a class of its own, so
     # <tt>ImageRasterizer === rasterizer</tt> is true only of an image
-    # rasterizer, as rule 2 of ADR 001 asks of a module's ===.
+    # rasterizer, as rule 2 of doc/contributors/design/translation.md asks of a
+    # module's ===.
     #
     # Use it to rasterize a font drawn as pixel art.
     #

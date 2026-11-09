@@ -8,8 +8,8 @@
 require_relative "error_message/names"
 
 module Lota
-  # LÖVE's error messages, with their Lua names translated (ADR 001,
-  # section 7: "Error messages follow the same rules"). :nodoc:
+  # LÖVE's error messages, with their Lua names translated (rule 23 of
+  # doc/contributors/design/translation.md). :nodoc:
   #
   # LÖVE's C++ throws love::Exception, whose message sometimes names a Lua
   # module ("love.image must be loaded in order to decode an ImageData.",
@@ -40,15 +40,15 @@ module Lota
     # matched byte by byte.
     NAME = /(?<![A-Za-z0-9_])(?:love\.([a-z]+)(?:\.([A-Za-z][A-Za-z0-9_]*))?|([A-Z][A-Za-z0-9_]*:[a-z][A-Za-z0-9_]*))/n
 
-    # +message+ with every Lua name of LÖVE's API translated by ADR 001's
-    # rules, and nothing else changed, in +message+'s encoding. A module,
-    # "love.image", becomes "Lota::Image" (rule 1). A function,
-    # "love.graphics.readbackTexture" or "ImageData:getPixel", becomes the
-    # exact Ruby name the rules give it, "Lota::Graphics.readback_texture"
-    # or "Lota::Image::ImageData#pixel", looked up in NAMES rather than
-    # respelled here. A module function NAMES does not know keeps its
-    # module's Ruby name and LÖVE's spelling after it, and a method it does
-    # not know stays as LÖVE wrote it.
+    # +message+ with every Lua name of LÖVE's API translated by the rules of
+    # doc/contributors/design/translation.md, and nothing else changed, in
+    # +message+'s encoding. A module, "love.image", becomes "Lota::Image" (rule
+    # 1). A function, "love.graphics.readbackTexture" or "ImageData:getPixel",
+    # becomes the exact Ruby name the rules give it,
+    # "Lota::Graphics.readback_texture" or "Lota::Image::ImageData#pixel",
+    # looked up in NAMES rather than respelled here. A module function NAMES
+    # does not know keeps its module's Ruby name and LÖVE's spelling after it,
+    # and a method it does not know stays as LÖVE wrote it.
     #
     # The message is read as bytes, as the engine wrote them, so a file
     # name in it that is not valid UTF-8 passes through unchanged.

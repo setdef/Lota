@@ -50,7 +50,8 @@ module Lota
       #   or left out.
       # [layers] Integer layer count, which makes an array texture; a 2D
       #   texture when left out.
-      # [settings] LÖVE's settings table, as keywords (ADR 001, rule 10),
+      # [settings] LÖVE's settings table, as keywords (rule 10 of
+      # doc/contributors/design/translation.md),
       #   as Lota::Graphics::Texture.new takes them, with +type+, +width+,
       #   +height+, and +layers+ among them: +msaa+, the antialiasing
       #   samples per pixel, which smooth the edges of shapes; +mipmaps+,

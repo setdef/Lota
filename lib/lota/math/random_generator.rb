@@ -147,7 +147,7 @@ module Lota
       # The seed's low and high 32 bits, as an Array of two Integers,
       # matching RandomGenerator:getSeed
       # (src/modules/math/wrap_RandomGenerator.cpp:95-102), which returns
-      # both (ADR 001, rule 4).
+      # both (rule 4 of doc/contributors/design/translation.md).
       #
       # === Example
       #
