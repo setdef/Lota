@@ -9,12 +9,15 @@ require_relative "graphics/texture_settings"
 require_relative "graphics/texture"
 require_relative "graphics/array_image"
 require_relative "graphics/graphics_buffer"
+require_relative "graphics/graphics_readback"
 require_relative "graphics/canvas"
+require_relative "graphics/canvas_formats"
 require_relative "graphics/compute_shader"
 require_relative "graphics/cube_image"
 require_relative "graphics/font"
 require_relative "graphics/image"
 require_relative "graphics/image_font"
+require_relative "graphics/image_formats"
 require_relative "graphics/mesh"
 require_relative "graphics/particle_system"
 require_relative "graphics/quad"
@@ -171,22 +174,29 @@ module Lota
       target.is_a?(Texture) ? target.__send__(:native) : target
     end
 
-    # Fills the active canvas, or the window, with one color, matching
-    # love.graphics.clear (src/modules/graphics/wrap_Graphics.cpp, w_clear).
+    # Fills the active canvas, or the window, with one color, and clears
+    # its stencil and depth buffers, matching love.graphics.clear
+    # (src/modules/graphics/wrap_Graphics.cpp, w_clear).
     #
-    # [red] Float or Integer, from 0 to 1.
+    # [red] Float or Integer, from 0 to 1; or, in place of the color,
+    #   +false+ to leave the color as it is, or +true+ for transparent
+    #   black.
     # [green] Float or Integer, from 0 to 1.
     # [blue] Float or Integer, from 0 to 1.
-    # [alpha] Float or Integer, from 0 to 1; 1 when left out.
+    # [alpha] Float or Integer, from 0 to 1; 1 when left out or +nil+.
+    # [stencil] Integer the stencil buffer is cleared to, or +false+ to
+    #   leave it; 0 when left out or anything else.
+    # [depth] Float the depth buffer is cleared to, or +false+ to leave it;
+    #   1 when left out or anything else.
     #
-    # With no arguments it clears to transparent black. Either way it also
-    # clears the stencil buffer to 0 and the depth buffer to 1. LÖVE
-    # reads each component as a single-precision float, and so does Lota.
-    # The scissor rectangle, once Lota binds it, bounds what gets cleared.
-    # LÖVE also clears several canvases to different colors and chooses
-    # whether to clear stencil and depth; Lota binds those forms later.
+    # With no arguments it clears to transparent black. LÖVE reads each
+    # component as a single-precision float, and so does Lota. The scissor
+    # rectangle bounds what gets cleared. LÖVE also clears several
+    # canvases to different colors, from a table of colors for each; Lota
+    # binds that form later.
     #
-    # Raises ArgumentError for any count of components but 0, 3, or 4, and
+    # Raises ArgumentError for one or two components, or more arguments
+    # than LÖVE reads, TypeError for a component that is not a number, and
     # ThreadError off the main thread.
     #
     # === Examples
@@ -194,12 +204,53 @@ module Lota
     #   Lota::Graphics.clear(0.1, 0.1, 0.2)    # a dark blue background
     #   Lota::Graphics.clear(1, 1, 0, 0.5)     # half-transparent yellow
     #   Lota::Graphics.clear                   # transparent black
-    def self.clear(*color)
-      case color.size
-      when 0 then Native::Graphics.clear(0.0, 0.0, 0.0, 0.0)
-      when 3, 4 then Native::Graphics.clear(color.fetch(0), color.fetch(1), color.fetch(2), color.fetch(3, 1.0))
-      else raise ArgumentError, "wrong number of arguments (given #{color.size}, expected 0, 3, or 4)"
+    #   Lota::Graphics.clear(false, 0, false)  # only the stencil, to 0
+    #
+    # :call-seq:
+    #   clear()
+    #   clear(red, green, blue, alpha = 1, stencil = 0, depth = 1)
+    #   clear(color, stencil = 0, depth = 1)
+    def self.clear(*arguments)
+      first = arguments.first
+      if [true, false].include?(first)
+        raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 1..3)" if arguments.size > 3
+
+        return Native::Graphics.clear_buffers([first ? [0.0, 0.0, 0.0, 0.0] : nil, arguments[1], arguments[2]])
       end
+
+      red, green, blue, alpha, stencil, depth = arguments
+      case arguments.size
+      when 0 then Native::Graphics.clear(0.0, 0.0, 0.0, 0.0)
+      when 3, 4 then Native::Graphics.clear(number(red), number(green), number(blue), alpha.nil? ? 1.0 : number(alpha))
+      when 5, 6
+        color = [number(red), number(green), number(blue), alpha.nil? ? 1.0 : number(alpha)]
+        Native::Graphics.clear_buffers([color, stencil, depth])
+      else raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 0 or 3..6)"
+      end
+    end
+
+    # Tells the graphics card that the contents of the canvases drawn to,
+    # or of the window, are no longer needed, matching love.graphics.discard
+    # (src/modules/graphics/wrap_Graphics.cpp, w_discard), and returns
+    # +nil+.
+    #
+    # [color] Whether to discard the color of every canvas set, or the
+    #   window's; or an Array of whether to discard each canvas's, in the
+    #   order Lota::Graphics.set_canvas set them.
+    # [depthstencil] Whether to discard the depth and stencil buffers.
+    #
+    # Each is true unless it is +false+, as LÖVE reads it. A graphics card
+    # that keeps a frame in tiles, as phones' do, can then skip loading
+    # what it would overwrite; on some desktops it does nothing, and what
+    # is discarded is undefined, so draw over it before reading it.
+    # Raises ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.discard
+    #   Lota::Graphics.discard([true, false], false)
+    def self.discard(color = true, depthstencil = true)
+      Native::Graphics.discard([color, depthstencil])
     end
 
     # Copies pixels of +texture+ back from the graphics card into a
@@ -257,6 +308,36 @@ module Lota
       native = Native::Graphics.readback_texture(texture.__send__(:native),
         [slice, mipmap, x, y, width, height, dest&.__send__(:native), destx, desty])
       dest || Lota::Image::ImageData.__send__(:from_native, native)
+    end
+
+    # Starts copying pixels of +texture+ back from the graphics card, and
+    # returns a Lota::Graphics::GraphicsReadback that has them once it is
+    # complete, matching love.graphics.readbackTextureAsync
+    # (src/modules/graphics/wrap_Graphics.cpp, w_readbackTextureAsync).
+    #
+    # It takes what readback_texture takes, and returns at once, where
+    # readback_texture waits for the graphics card. LÖVE finishes the copy
+    # as it presents a frame; GraphicsReadback#wait finishes it now. It
+    # copies into +dest+ row by row, so a +dest+ wider than the rectangle
+    # takes the pixels on every driver.
+    #
+    # Raises what readback_texture raises.
+    #
+    # === Example
+    #
+    #   readback = Lota::Graphics.readback_texture_async(canvas)
+    #   readback.wait
+    #   readback.image_data.pixel(0, 0) # => [1.0, 1.0, 0.0, 1.0]
+    def self.readback_texture_async(texture, slice = nil, mipmap = nil, x = nil, y = nil, width = nil, height = nil,
+      dest = nil, destx = nil, desty = nil
+    )
+      unless dest.nil? || dest.is_a?(Lota::Image::ImageData)
+        raise TypeError, "wrong argument type #{dest.class} for dest (expected Lota::Image::ImageData)"
+      end
+
+      native = Native::Graphics.readback_texture_async(texture.__send__(:native),
+        [slice, mipmap, x, y, width, height, dest&.__send__(:native), destx, desty])
+      GraphicsReadback.__send__(:from_native, native)
     end
 
     # Whether drawing reaches the screen, matching love.graphics.isActive
@@ -1247,6 +1328,28 @@ module Lota
       Font.__send__(:from_native, Native::Graphics.font)
     end
 
+    # Makes a Lota::Graphics::Font as Lota::Graphics::Font.new does, draws
+    # text in it from now on, and returns it, matching the deprecated
+    # love.graphics.setNewFont (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setNewFont).
+    #
+    # It takes what Font.new takes. LÖVE 12 deprecates it with no
+    # replacement: make the font once, as a game's load does, and set it
+    # with font=, rather than make a new one each time. Prints LÖVE's
+    # notice of the deprecation the first time it is called, and raises
+    # what Font.new raises.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.set_new_font(24) # => a Font, now the font
+    def self.set_new_font(*, hinting: nil, dpiscale: nil, sdf: false)
+      Deprecation.mark("Lota::Graphics.set_new_font", :function, :noreplacement,
+        where: Deprecation.where(caller_locations(1, 1)))
+      font = Font.new(*, hinting:, dpiscale:, sdf:)
+      self.font = font
+      font
+    end
+
     # Draws text in the current font and color, or in a Font given first,
     # matching love.graphics.print (src/modules/graphics/wrap_Graphics.cpp,
     # w_print).
@@ -1496,6 +1599,49 @@ module Lota
       [min.to_sym, mag.to_sym, anisotropy]
     end
 
+    # Sets how textures made afterward with mipmaps blend between them,
+    # matching love.graphics.setDefaultMipmapFilter
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setDefaultMipmapFilter):
+    # +:linear+, +:nearest+, or +:none+, alone or in an Array with the
+    # Float sharpness (0 by default), or +nil+ for +:none+.
+    #
+    # It starts as +:linear+. A texture without mipmaps uses none,
+    # whatever this says, and Lota::Graphics::Texture#mipmap_filter=
+    # changes one texture's. A higher sharpness picks a
+    # larger mipmap, as LÖVE negates it into the engine's level-of-detail
+    # bias. Raises ArgumentError for an unknown filter, TypeError for a
+    # sharpness that is not a number, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.default_mipmap_filter = :linear
+    #   Lota::Graphics.default_mipmap_filter = :nearest, 0.5
+    #   Lota::Graphics.default_mipmap_filter = nil
+    def self.default_mipmap_filter=(filter)
+      mode, sharpness = filter.is_a?(Array) ? filter : [filter]
+      sharpness = case sharpness
+      when Integer, Float then sharpness
+      when nil then 0
+      else raise TypeError, "wrong argument type #{sharpness.class} for sharpness (expected Float)"
+      end
+      Native::Graphics.set_default_mipmap_filter(mode && EnumName.of(mode), sharpness)
+    end
+
+    # The mipmap filter textures are made with, as a Symbol, and the Float
+    # sharpness, as an Array (ADR 001, rule 4), matching
+    # love.graphics.getDefaultMipmapFilter
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getDefaultMipmapFilter).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   mode, sharpness = Lota::Graphics.default_mipmap_filter # => [:linear, 0.0]
+    def self.default_mipmap_filter
+      mode, sharpness = Native::Graphics.default_mipmap_filter
+      [mode.is_a?(String) ? mode.to_sym : nil, sharpness.to_f]
+    end
+
     # Sets the color the window is cleared to before each frame, matching
     # love.graphics.setBackgroundColor
     # (src/modules/graphics/wrap_Graphics.cpp, w_setBackgroundColor).
@@ -1563,6 +1709,54 @@ module Lota
     #   mode, alphamode = Lota::Graphics.blend_mode # => [:alpha, :alphamultiply]
     def self.blend_mode
       Native::Graphics.blend_mode.map(&:to_sym)
+    end
+
+    # Sets how what is drawn mixes with what is already there, by the
+    # graphics card's own terms, matching love.graphics.setBlendState
+    # (src/modules/graphics/wrap_Graphics.cpp, w_setBlendState).
+    #
+    # [state] Three values, an operation and a source and a destination
+    #   factor, for the color and alpha alike; or six, the color's
+    #   operation, the alpha's, the color's source factor, the alpha's, the
+    #   color's destination factor, and the alpha's; or +nil+ to turn
+    #   blending off. An operation is +:add+, +:subtract+,
+    #   +:reversesubtract+, +:min+, or +:max+; a factor is +:zero+, +:one+,
+    #   +:srccolor+, +:oneminussrccolor+, +:srcalpha+,
+    #   +:oneminussrcalpha+, +:dstcolor+, +:oneminusdstcolor+,
+    #   +:dstalpha+, +:oneminusdstalpha+, or +:srcalphasaturated+.
+    #
+    # Each pixel becomes the operation of the color drawn times its source
+    # factor and the color there times its destination factor. A state no
+    # blend mode makes is the mode +:custom+ to Lota::Graphics.blend_mode.
+    #
+    # Raises ArgumentError for an unknown operation or factor or a count
+    # of values but 3 or 6, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.blend_state = :add, :one, :zero # as blend_mode = :replace, :premultiplied
+    #   Lota::Graphics.blend_state = nil
+    def self.blend_state=(state)
+      values = Array(state)
+      names = if values.first.nil? then [] #: Array[String]
+      elsif [3, 6].include?(values.size) then values.map { |value| EnumName.of(value) }
+      else raise ArgumentError, "wrong number of arguments (given #{values.size}, expected 3 or 6)"
+      end
+      Native::Graphics.set_blend_state(names)
+    end
+
+    # The blend operations and factors, as an Array of six Symbols in the
+    # order blend_state= takes the long form, or of six +nil+ while blending
+    # is off, matching love.graphics.getBlendState
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getBlendState).
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.blend_state # => [:add, :add, :srcalpha, :one, :oneminussrcalpha, :oneminussrcalpha]
+    def self.blend_state
+      Native::Graphics.blend_state.map { |name| name&.to_sym }
     end
 
     # Where drawing goes, as an Array (ADR 001, rule 4), matching
@@ -1987,6 +2181,144 @@ module Lota
       [action.to_sym, compare.to_sym, *numbers]
     end
 
+    # Sets the stencil to one of its common uses, matching
+    # love.graphics.setStencilMode (src/modules/graphics/wrap_Graphics.cpp,
+    # w_setStencilMode).
+    #
+    # [mode] +:draw+, which writes the value into the stencil wherever
+    #   drawing goes and masks off the color; +:test+, which draws only
+    #   where the stencil holds the value; or +:off+; alone or in an Array
+    #   with the Integer value, 1 when left out. +nil+ turns the stencil
+    #   off.
+    #
+    # Each mode sets the stencil state and the color mask, which
+    # Lota::Graphics.stencil_state and Lota::Graphics.color_mask then
+    # report. Drawing tests and changes the stencil only on a target with
+    # a stencil buffer.
+    #
+    # Raises ArgumentError for an unknown mode or a value without one,
+    # RuntimeError with LÖVE's message for a canvas without a stencil
+    # buffer, and ThreadError off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Graphics.stencil_mode = :draw
+    #   Lota::Graphics.circle(:fill, 100, 100, 50)
+    #   Lota::Graphics.stencil_mode = :test
+    #   Lota::Graphics.draw(picture) # only inside the circle
+    #   Lota::Graphics.stencil_mode = nil
+    def self.stencil_mode=(mode)
+      name, value = mode.is_a?(Array) ? mode : [mode]
+      Native::Graphics.set_stencil_mode(name && EnumName.of(name), value.nil? ? nil : integer(value))
+    end
+
+    # The stencil's mode and Integer value, as an Array (ADR 001, rule 4),
+    # matching love.graphics.getStencilMode
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getStencilMode). The mode
+    # is +:custom+ for a stencil state no mode sets.
+    #
+    # Raises ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   mode, value = Lota::Graphics.stencil_mode # => [:off, 0]
+    def self.stencil_mode
+      mode, value = Native::Graphics.stencil_mode
+      [mode.to_sym, value]
+    end
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # Draws what the block draws into the stencil buffer, and not to the
+    # screen, matching the deprecated love.graphics.stencil, which LÖVE
+    # writes in Lua (src/modules/graphics/wrap_Graphics.lua:55-80).
+    #
+    # [action] How drawing changes the stencil, as
+    #   Lota::Graphics.stencil_state= names it; +:replace+ when left out.
+    # [value] The Integer value the action uses; 1 when left out.
+    # [keepvalues] Whether to keep the stencil's values; when left out, it
+    #   clears them to 0 first.
+    #
+    # It writes with the compare mode +:always+ and the color masked off
+    # while the block runs, then puts the stencil state and color mask
+    # back, also when the block raises, as LÖVE puts them back before it
+    # raises the function's error again. The block is LÖVE's function
+    # (ADR 001, rule 12). Lota::Graphics.stencil_mode= and stencil_state=
+    # replace it; prints LÖVE's notice of the deprecation the first time it
+    # is called.
+    #
+    # Raises what the block raises, LocalJumpError without a block,
+    # RuntimeError with LÖVE's message for a canvas without a stencil
+    # buffer, and ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.stencil { Lota::Graphics.circle(:fill, 100, 100, 50) }
+    #   Lota::Graphics.stencil_test = :greater, 0
+    def self.stencil(action = nil, value = nil, keepvalues = nil)
+      Deprecation.mark("Lota::Graphics.stencil", :function, :replaced, "Lota::Graphics.stencil_mode= or stencil_state=",
+        where: Deprecation.where(caller_locations(1, 1)))
+      action = :replace if action.nil?
+      clear(false, true, false) unless keepvalues
+      value = 1 if value.nil?
+      state = stencil_state
+      mask = color_mask
+      self.stencil_state = action, :always, value
+      self.color_mask = false
+      begin
+        yield
+      ensure
+        self.stencil_state = state
+        self.color_mask = mask
+      end
+    end
+
+    # Draws only where the stencil compares as +test+ says with a value,
+    # or everywhere again, matching the deprecated
+    # love.graphics.setStencilTest, which LÖVE writes in Lua
+    # (src/modules/graphics/wrap_Graphics.lua:82-90).
+    #
+    # [test] The compare mode, as Lota::Graphics.depth_mode= names them,
+    #   alone or in an Array with the Integer value, 0 when left out; or
+    #   +nil+ to stop testing the stencil.
+    #
+    # It sets the stencil state, with the action +:keep+. Lota::Graphics.stencil_mode=
+    # and stencil_state= replace it; prints LÖVE's notice of the
+    # deprecation the first time it is called. Raises what stencil_state=
+    # raises.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.stencil_test = :greater, 0
+    def self.stencil_test=(test)
+      Deprecation.mark("Lota::Graphics.stencil_test=", :function, :replaced,
+        "Lota::Graphics.stencil_mode= or stencil_state=", where: Deprecation.where(caller_locations(1, 1)))
+      mode, value = test.is_a?(Array) ? test : [test]
+      self.stencil_state = mode.nil? ? nil : [:keep, mode, value].compact
+    end
+
+    # The stencil's compare mode and Integer value, as an Array (ADR 001,
+    # rule 4), matching the deprecated love.graphics.getStencilTest, which
+    # LÖVE writes in Lua (src/modules/graphics/wrap_Graphics.lua:92-96).
+    #
+    # Lota::Graphics.stencil_mode and stencil_state replace it; prints
+    # LÖVE's notice of the deprecation the first time it is called. Raises
+    # ThreadError off the main thread.
+    #
+    # === Example
+    #
+    #   mode, value = Lota::Graphics.stencil_test # => [:always, 0]
+    def self.stencil_test
+      Deprecation.mark("Lota::Graphics.stencil_test", :function, :replaced, "Lota::Graphics.stencil_mode or stencil_state",
+        where: Deprecation.where(caller_locations(1, 1)))
+      state = stencil_state
+      [state.fetch(1), state.fetch(2)]
+    end
+
+    # SPDX-SnippetEnd
+
     # Whether colors are blended in linear space, as a game asks with
     # +t.gammacorrect+, matching love.graphics.isGammaCorrect
     # (src/modules/graphics/wrap_Graphics.cpp, w_isGammaCorrect).
@@ -1996,6 +2328,18 @@ module Lota
     #   Lota::Graphics.gamma_correct? # => false
     def self.gamma_correct?
       Native::Graphics.gamma_correct?
+    end
+
+    # Whether the game asked for the computer's integrated graphics over a
+    # faster, hungrier card, with +t.graphics.lowpower+, matching
+    # love.graphics.isLowPowerPreferred
+    # (src/modules/graphics/wrap_Graphics.cpp, w_isLowPowerPreferred).
+    #
+    # === Example
+    #
+    #   Lota::Graphics.low_power_preferred? # => false
+    def self.low_power_preferred?
+      Native::Graphics.low_power_preferred?
     end
 
     # Sets whether shapes are drawn as the outlines of their triangles,
@@ -2112,6 +2456,53 @@ module Lota
       formats = Native::Graphics.texture_formats(canvas, computewrite ? true : false, shaderatomics ? true : false,
         readable)
       TextureFormats.new(**formats.transform_keys(&:to_sym))
+    end
+
+    # Which pixel formats a canvas can have, as a frozen
+    # Lota::Graphics::CanvasFormats, matching the deprecated
+    # love.graphics.getCanvasFormats
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvasFormats).
+    #
+    # [readable] +true+ or +false+: whether shaders are to read the canvas;
+    #   when left out or anything else, true for every format but the
+    #   depth and stencil formats. LÖVE's table to fill in is dropped (ADR
+    #   001, rule 10).
+    #
+    # Compressed formats, which no canvas can have, are left out.
+    # Lota::Graphics.texture_formats replaces it; prints LÖVE's notice of
+    # the deprecation the first time it is called. Raises ThreadError off
+    # the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.canvas_formats.rgba16f # => true
+    def self.canvas_formats(readable = nil)
+      Deprecation.mark("Lota::Graphics.canvas_formats", :function, :replaced, "Lota::Graphics.texture_formats",
+        where: Deprecation.where(caller_locations(1, 1)))
+      flag = if readable == true then true
+      elsif readable == false then false
+      end
+      formats = Native::Graphics.canvas_formats(flag)
+      CanvasFormats.new(**formats.transform_keys(&:to_sym))
+    end
+
+    # Which pixel formats a texture can be drawn from, as a frozen
+    # Lota::Graphics::ImageFormats, matching the deprecated
+    # love.graphics.getImageFormats
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getImageFormats).
+    #
+    # The depth and stencil formats, which no image holds, are left out.
+    # Lota::Graphics.texture_formats replaces it; prints LÖVE's notice of
+    # the deprecation the first time it is called. Raises ThreadError off
+    # the main thread.
+    #
+    # === Example
+    #
+    #   Lota::Graphics.image_formats["DXT1"] # => false
+    def self.image_formats
+      Deprecation.mark("Lota::Graphics.image_formats", :function, :replaced, "Lota::Graphics.texture_formats",
+        where: Deprecation.where(caller_locations(1, 1)))
+      ImageFormats.new(**Native::Graphics.image_formats.transform_keys(&:to_sym))
     end
 
     # luax_checkboolflag and luax_checkboolean (src/common/runtime.cpp):

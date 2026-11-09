@@ -266,6 +266,20 @@ module Lota
         @native.format.to_sym
       end
 
+      # The pixel formats a view of the texture may have besides its own,
+      # as an Array of Symbols in the order the +viewformats+ setting listed
+      # them, empty without it, matching Texture:getViewFormats
+      # (src/modules/graphics/wrap_Texture.cpp, w_Texture_getViewFormats).
+      #
+      # Raises ThreadError off the main thread.
+      #
+      # === Example
+      #
+      #   Lota::Graphics::Canvas.new(16, 16, viewformats: [:srgba8]).view_formats # => [:srgba8]
+      def view_formats
+        @native.view_formats.map(&:to_sym)
+      end
+
       # Whether the texture's pixels are linear, not sRGB, matching
       # Texture:isFormatLinear (src/modules/graphics/wrap_Texture.cpp,
       # w_Texture_isFormatLinear).

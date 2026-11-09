@@ -12,6 +12,10 @@ module Lota
 
       def set: (Integer index, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
+      def add_layer: (Integer layer, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Integer
+
+      def layer=: (Array[Quad | Float | Integer | nil] sprite) -> void
+
       def clear: () -> nil
 
       def flush: () -> nil

@@ -103,6 +103,63 @@ module Lota
         @native.set(index, quad.is_a?(Quad) ? quad.native : nil, placement)
       end
 
+      # Adds a sprite drawn from one layer of the batch's array texture,
+      # matching SpriteBatch:addLayer
+      # (src/modules/graphics/wrap_SpriteBatch.cpp, w_SpriteBatch_addLayer),
+      # and returns its Integer index, counting from 1, for layer=.
+      #
+      # [layer] Integer layer of the texture, counting from 1.
+      # [quad] Lota::Graphics::Quad of the part of the layer the sprite
+      #   shows; the whole layer when left out.
+      # [placement] Where the sprite goes, as add places one.
+      #
+      # Only a batch of an array texture, such as
+      # Lota::Graphics::ArrayImage.new makes, has layers.
+      #
+      # :call-seq:
+      #   add_layer(layer, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+      #   add_layer(layer, quad, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+      #
+      # Raises what add raises, and RuntimeError with LÖVE's message for a
+      # batch of a texture that is not an array texture or a layer it does
+      # not have.
+      #
+      # === Example
+      #
+      #   frames = Lota::Graphics::SpriteBatch.new(Lota::Graphics::ArrayImage.new(%w[a.png b.png]))
+      #   frames.add_layer(2, 100, 50)
+      def add_layer(layer, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
+        ky = nil
+      )
+        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        @native.add_layer(layer, quad.is_a?(Quad) ? quad.native : nil, placement)
+      end
+
+      # Replaces the sprite at an index, counting from 1, as add_layer made
+      # it, matching SpriteBatch:setLayer
+      # (src/modules/graphics/wrap_SpriteBatch.cpp, w_SpriteBatch_setLayer).
+      #
+      # [sprite] The Integer index, then what add_layer takes, as an Array
+      #   (ADR 001, rule 6).
+      #
+      # Raises ArgumentError without an index and a layer, what add_layer
+      # raises, and RuntimeError with LÖVE's message for an index the batch
+      # does not hold.
+      #
+      # === Example
+      #
+      #   frames.layer = id, 1, 100, 50
+      def layer=(sprite)
+        values = sprite.is_a?(Array) ? sprite : [sprite]
+        if values.size < 2 || values.size > 12
+          raise ArgumentError, "wrong number of arguments (given #{values.size}, expected 2..12)"
+        end
+
+        index, layer, quad, x, y, r, sx, sy, ox, oy, kx, ky = values
+        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        @native.set_layer(index, layer, quad.is_a?(Quad) ? quad.native : nil, placement)
+      end
+
       # Removes every sprite, matching SpriteBatch:clear
       # (src/modules/graphics/wrap_SpriteBatch.cpp, w_SpriteBatch_clear).
       #

@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class CanvasFormats < ::Data
+      include Record
+
+      attr_reader normal: bool
+
+      attr_reader hdr: bool
+
+      attr_reader r8: bool
+
+      attr_reader r8i: bool
+
+      attr_reader r8ui: bool
+
+      attr_reader r16: bool
+
+      attr_reader r16f: bool
+
+      attr_reader r16i: bool
+
+      attr_reader r16ui: bool
+
+      attr_reader r32f: bool
+
+      attr_reader r32i: bool
+
+      attr_reader r32ui: bool
+
+      attr_reader rg8: bool
+
+      attr_reader rg8i: bool
+
+      attr_reader rg8ui: bool
+
+      attr_reader la8: bool
+
+      attr_reader rg16: bool
+
+      attr_reader rg16f: bool
+
+      attr_reader rg16i: bool
+
+      attr_reader rg16ui: bool
+
+      attr_reader rg32f: bool
+
+      attr_reader rg32i: bool
+
+      attr_reader rg32ui: bool
+
+      attr_reader rgba8: bool
+
+      attr_reader srgba8: bool
+
+      attr_reader bgra8: bool
+
+      attr_reader bgra8srgb: bool
+
+      attr_reader rgba8i: bool
+
+      attr_reader rgba8ui: bool
+
+      attr_reader rgba16: bool
+
+      attr_reader rgba16f: bool
+
+      attr_reader rgba16i: bool
+
+      attr_reader rgba16ui: bool
+
+      attr_reader rgba32f: bool
+
+      attr_reader rgba32i: bool
+
+      attr_reader rgba32ui: bool
+
+      attr_reader rgba4: bool
+
+      attr_reader rgb5a1: bool
+
+      attr_reader rgb565: bool
+
+      attr_reader rgb10a2: bool
+
+      attr_reader rgb10a2ui: bool
+
+      attr_reader rg11b10f: bool
+
+      attr_reader stencil8: bool
+
+      attr_reader depth16: bool
+
+      attr_reader depth24: bool
+
+      attr_reader depth32f: bool
+
+      attr_reader depth24stencil8: bool
+
+      attr_reader depth32fstencil8: bool
+
+      def self.new: (normal: bool, hdr: bool, r8: bool, r8i: bool, r8ui: bool, r16: bool, r16f: bool, r16i: bool, r16ui: bool, r32f: bool, r32i: bool, r32ui: bool, rg8: bool, rg8i: bool, rg8ui: bool, la8: bool, rg16: bool, rg16f: bool, rg16i: bool, rg16ui: bool, rg32f: bool, rg32i: bool, rg32ui: bool, rgba8: bool, srgba8: bool, bgra8: bool, bgra8srgb: bool, rgba8i: bool, rgba8ui: bool, rgba16: bool, rgba16f: bool, rgba16i: bool, rgba16ui: bool, rgba32f: bool, rgba32i: bool, rgba32ui: bool, rgba4: bool, rgb5a1: bool, rgb565: bool, rgb10a2: bool, rgb10a2ui: bool, rg11b10f: bool, stencil8: bool, depth16: bool, depth24: bool, depth32f: bool, depth24stencil8: bool, depth32fstencil8: bool) -> instance
+                  | (**bool fields) -> instance
+    end
+  end
+end

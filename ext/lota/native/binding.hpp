@@ -58,6 +58,7 @@
 // that every binding sees the same list (ReleasedOnMainThread, below).
 #include "graphics/Buffer.h"
 #include "graphics/Font.h"
+#include "graphics/GraphicsReadback.h"
 #include "graphics/Mesh.h"
 #include "graphics/ParticleSystem.h"
 #include "graphics/Quad.h"
@@ -193,6 +194,7 @@ template <> struct ReleasedOnMainThread<love::graphics::SpriteBatch> : std::true
 template <> struct ReleasedOnMainThread<love::graphics::Buffer> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Mesh> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::ParticleSystem> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::GraphicsReadback> : std::true_type {};
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.

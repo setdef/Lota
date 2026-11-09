@@ -20,6 +20,7 @@
 #include "graphics/Buffer.h"
 #include "graphics/Font.h"
 #include "graphics/Graphics.h"
+#include "graphics/GraphicsReadback.h"
 #include "graphics/Mesh.h"
 #include "graphics/ParticleSystem.h"
 #include "graphics/Quad.h"
@@ -179,6 +180,9 @@ bool w_isActive() { return instance()->isActive(); }
 // love.graphics.isGammaCorrect: w_isGammaCorrect (wrap_Graphics.cpp:195-199).
 bool w_isGammaCorrect() { return graphics::isGammaCorrect(); }
 
+// love.graphics.isLowPowerPreferred: w_isLowPowerPreferred (wrap_Graphics.cpp:201-205).
+bool w_isLowPowerPreferred() { return graphics::isLowPowerPreferred(); }
+
 // love.graphics.getWidth: w_getWidth (wrap_Graphics.cpp:207-211).
 int w_getWidth() { return instance()->getWidth(); }
 
@@ -216,6 +220,34 @@ Rice::Array w_getScissor() {
   results.push(static_cast<double>(rect.y), false);
   results.push(static_cast<double>(rect.w), false);
   results.push(static_cast<double>(rect.h), false);
+  return results;
+}
+
+// love.graphics.setStencilMode: w_setStencilMode (wrap_Graphics.cpp:613-630).
+void w_setStencilMode(const std::optional<std::string> &mode, std::optional<int> value) {
+  if (!value.has_value() && !mode.has_value()) {
+    instance()->setStencilMode();
+    return;
+  }
+  StencilMode mode_value = STENCIL_MODE_OFF;
+  const char *const modestr_value = required(mode, "mode").c_str();
+  if (!getConstant(modestr_value, mode_value)) {
+    raise_enum_error("stencil mode", getConstants(mode_value), modestr_value);
+  }
+  instance()->setStencilMode(mode_value, value.value_or(1));
+}
+
+// love.graphics.getStencilMode: w_getStencilMode (wrap_Graphics.cpp:632-644).
+Rice::Array w_getStencilMode() {
+  Rice::Array results;
+  int value = 0;
+  const StencilMode mode = instance()->getStencilMode(value);
+  const char *modestr = nullptr;
+  if (!getConstant(mode, modestr)) {
+    throw love::Exception("Unknown stencil mode.");
+  }
+  results.push(std::string(modestr), false);
+  results.push(value, false);
   return results;
 }
 
@@ -391,6 +423,34 @@ Rice::Array w_getDefaultFilter() {
   results.push(std::string(minstr), false);
   results.push(std::string(magstr), false);
   results.push(static_cast<int>(s.maxAnisotropy), false);
+  return results;
+}
+
+// love.graphics.setDefaultMipmapFilter: w_setDefaultMipmapFilter (wrap_Graphics.cpp:2784-2799).
+void w_setDefaultMipmapFilter(const std::optional<std::string> &str, double lod_bias) {
+  SamplerState s = instance()->getDefaultSamplerState();
+  s.mipmapFilter = SamplerState::MIPMAP_FILTER_NONE;
+  if (str.has_value()) {
+    const char *const str_value = required(str, "str").c_str();
+    if (!SamplerState::getConstant(str_value, s.mipmapFilter)) {
+      raise_enum_error("filter mode", SamplerState::getConstants(s.mipmapFilter), str_value);
+    }
+  }
+  s.lodBias = -(static_cast<float>(lod_bias));
+  instance()->setDefaultSamplerState(s);
+}
+
+// love.graphics.getDefaultMipmapFilter: w_getDefaultMipmapFilter (wrap_Graphics.cpp:2801-2814).
+Rice::Array w_getDefaultMipmapFilter() {
+  Rice::Array results;
+  const SamplerState &s = instance()->getDefaultSamplerState();
+  const char *str = nullptr;
+  if (SamplerState::getConstant(s.mipmapFilter, str)) {
+    results.push(std::string(str), false);
+  } else {
+    results.push(nullptr, false);
+  }
+  results.push(static_cast<double>(-s.lodBias), false);
   return results;
 }
 
@@ -644,6 +704,30 @@ void w_origin() { instance()->origin(); }
 
 // love.graphics.resetProjection: w_resetProjection (wrap_Graphics.cpp:4039-4043).
 void w_resetProjection() { instance()->resetProjection(); }
+
+// GraphicsReadback:isComplete: w_GraphicsReadback_isComplete (wrap_GraphicsReadback.cpp:36-41).
+bool w_GraphicsReadback_isComplete(const GraphicsReadback &t) {
+  require_main_thread(MODULE);
+  return t.isComplete();
+}
+
+// GraphicsReadback:hasError: w_GraphicsReadback_hasError (wrap_GraphicsReadback.cpp:43-48).
+bool w_GraphicsReadback_hasError(const GraphicsReadback &t) {
+  require_main_thread(MODULE);
+  return t.hasError();
+}
+
+// GraphicsReadback:wait: w_GraphicsReadback_wait (wrap_GraphicsReadback.cpp:50-55).
+void w_GraphicsReadback_wait(GraphicsReadback &t) {
+  require_main_thread(MODULE);
+  t.wait();
+}
+
+// GraphicsReadback:update: w_GraphicsReadback_update (wrap_GraphicsReadback.cpp:57-62).
+void w_GraphicsReadback_update(GraphicsReadback &t) {
+  require_main_thread(MODULE);
+  t.update();
+}
 
 // Mesh:getVertexCount: w_Mesh_getVertexCount (wrap_Mesh.cpp:235-240).
 size_t w_Mesh_getVertexCount(const Mesh &t) {
@@ -1730,7 +1814,16 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("set_shader", &w_setShader,
                                  Rice::Arg("shader") = std::optional<Shader *>())
       .define_singleton_function("shader", &w_getShader)
-      .define_singleton_function("quad_index_buffer", &w_getQuadIndexBuffer);
+      .define_singleton_function("quad_index_buffer", &w_getQuadIndexBuffer)
+      .define_singleton_function("set_stencil_mode", &w_setStencilMode,
+                                 Rice::Arg("mode") = std::optional<std::string>(),
+                                 Rice::Arg("value") = std::optional<int>())
+      .define_singleton_function("stencil_mode", &w_getStencilMode)
+      .define_singleton_function("set_default_mipmap_filter", &w_setDefaultMipmapFilter,
+                                 Rice::Arg("str") = std::optional<std::string>(),
+                                 Rice::Arg("lod_bias") = 0.0)
+      .define_singleton_function("default_mipmap_filter", &w_getDefaultMipmapFilter)
+      .define_singleton_function("low_power_preferred?", &w_isLowPowerPreferred);
   Rice::define_class_under<Buffer>(native, "Buffer")
       .define_method("element_count", &w_Buffer_getElementCount)
       .define_method("element_stride", &w_Buffer_getElementStride)
@@ -1748,6 +1841,11 @@ void define_generated_graphics(const Rice::Module &native) {
                      Rice::Arg("magstr") = std::optional<std::string>(),
                      Rice::Arg("max_anisotropy") = 1.0)
       .define_method("filter", &w_Font_getFilter);
+  Rice::define_class_under<GraphicsReadback>(native, "GraphicsReadback")
+      .define_method("complete?", &w_GraphicsReadback_isComplete)
+      .define_method("error?", &w_GraphicsReadback_hasError)
+      .define_method("wait", &w_GraphicsReadback_wait)
+      .define_method("update", &w_GraphicsReadback_update);
   Rice::define_class_under<Mesh>(native, "Mesh")
       .define_method("vertex_count", &w_Mesh_getVertexCount)
       .define_method("detach_attribute", &w_Mesh_detachAttribute, Rice::Arg("name"))

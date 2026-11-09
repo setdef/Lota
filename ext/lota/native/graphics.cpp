@@ -7,6 +7,7 @@
 #include "native/errors.hpp"
 #include "native/font.hpp"
 #include "native/math.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Color.h"
 #include "common/Data.h"
@@ -33,6 +34,7 @@
 #include "graphics/SpriteBatch.h"
 #include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
+#include "graphics/renderstate.h"
 #include "graphics/vertex.h"
 #include "image/FormatHandler.h"
 #include "image/ImageData.h"
@@ -348,6 +350,58 @@ Rice::Hash texture_types() {
   return fields;
 }
 
+// w__getFormats (wrap_Graphics.cpp:3066-3086): whether each pixel format
+// that +ignore+ does not leave out is +supported+, by the format's name.
+template <typename Supported, typename Ignore>
+Rice::Hash pixel_formats(const Supported &supported, const Ignore &ignore) {
+  Rice::Hash fields;
+  for (int i = 0; i < static_cast<int>(love::PIXELFORMAT_MAX_ENUM); i++) {
+    const auto format = static_cast<love::PixelFormat>(i);
+    const char *name = nullptr;
+    if (format == love::PIXELFORMAT_UNKNOWN || !love::getConstant(format, name) || ignore(format)) {
+      continue;
+    }
+    set_field(fields, name, supported(format));
+  }
+  return fields;
+}
+
+// w_getCanvasFormats (wrap_Graphics.cpp:3088-3127): whether a canvas can
+// have each pixel format but the compressed ones. When +readable+ is
+// given, as LÖVE's first argument when it is a boolean, the canvas is
+// sampled only when it is true; otherwise it is sampled unless its format
+// is a depth or stencil format. Lota::Graphics.canvas_formats marks the
+// function deprecated, as LÖVE marks it.
+Rice::Hash canvas_formats(std::optional<bool> readable) {
+  Graphics &instance = graphics();
+  return pixel_formats(
+      [&instance, readable](love::PixelFormat format) {
+        love::uint32 usage = love::graphics::PIXELFORMATUSAGEFLAGS_RENDERTARGET;
+        if (readable.value_or(!love::isPixelFormatDepthStencil(format))) {
+          usage |= love::graphics::PIXELFORMATUSAGEFLAGS_SAMPLE;
+        }
+        return instance.isPixelFormatSupported(format, usage);
+      },
+      [](love::PixelFormat format) { return love::isPixelFormatCompressed(format); });
+}
+
+// w_getImageFormats (wrap_Graphics.cpp:3129-3144): whether a texture can
+// be sampled in each pixel format an ImageData or a compressed image can
+// hold. Lota::Graphics.image_formats marks the function deprecated, as
+// LÖVE marks it.
+Rice::Hash image_formats() {
+  Graphics &instance = graphics();
+  return pixel_formats(
+      [&instance](love::PixelFormat format) {
+        return instance.isPixelFormatSupported(format,
+                                               love::graphics::PIXELFORMATUSAGEFLAGS_SAMPLE);
+      },
+      [](love::PixelFormat format) {
+        return !(love::image::ImageData::validPixelFormat(format) ||
+                 love::isPixelFormatCompressed(format));
+      });
+}
+
 // w_present (wrap_Graphics.cpp:177-181). LÖVE passes its lua_State, which
 // its screenshot callbacks call back into; deliver_screenshot needs
 // nothing from it.
@@ -366,6 +420,161 @@ void clear(double red, double green, double blue, double alpha) {
                            static_cast<float>(blue), static_cast<float>(alpha));
   graphics().clear(love::graphics::OptionalColorD(color), love::OptionalInt(0),
                    love::OptionalDouble(1.0));
+}
+
+// w_clear's forms without a table (wrap_Graphics.cpp:69-148), with what
+// follows the color, as Lota::Graphics.clear passes them in an Array: the
+// color, nil for LÖVE's false, which leaves the color, or an Array of its
+// four components, each read as a float; then the stencil and the depth,
+// each cleared, as LÖVE reads them, to the number given, not at all for
+// false, and to 0 and 1 for true or anything else.
+void clear_buffers(Rice::Array arguments) {
+  const Rice::Array given = std::move(arguments);
+  const Rice::Object color = ruby::entry(given, 0);
+  love::graphics::OptionalColorD clearcolor;
+  if (!ruby::is_nil(color)) {
+    const Rice::Array components(color.value());
+    const auto component = [&components](long index) -> double {
+      return static_cast<float>(
+          Rice::detail::From_Ruby<double>().convert(ruby::entry(components, index).value()));
+    };
+    clearcolor = love::graphics::OptionalColorD(
+        love::ColorD(component(0), component(1), component(2), component(3)));
+  }
+
+  const Rice::Object stencil = ruby::entry(given, 1);
+  love::OptionalInt clearstencil(0);
+  if (ruby::is_boolean(stencil)) {
+    clearstencil.hasValue = ruby::is_true(stencil);
+  } else if (ruby::is_numeric(stencil)) {
+    clearstencil.value = Rice::detail::From_Ruby<int>().convert(stencil.value());
+  }
+
+  const Rice::Object depth = ruby::entry(given, 2);
+  love::OptionalDouble cleardepth(1.0);
+  if (ruby::is_boolean(depth)) {
+    cleardepth.hasValue = ruby::is_true(depth);
+  } else if (ruby::is_numeric(depth)) {
+    cleardepth.value = Rice::detail::From_Ruby<double>().convert(depth.value());
+  }
+
+  graphics().clear(clearcolor, clearstencil, cleardepth);
+}
+
+// luax_optboolean (src/common/runtime.cpp:270-275): +value+ when it is
+// true or false, and true for anything else.
+bool optboolean(const Rice::Object &value) {
+  return ruby::is_boolean(value) ? ruby::is_true(value) : true;
+}
+
+// w_discard (wrap_Graphics.cpp:152-175), of the color and the depth and
+// stencil, as Lota::Graphics.discard passes them in an Array: discards the
+// contents of each canvas the color names, when it is an Array, or of
+// every canvas set, or the window, by one value; then of the depth and
+// stencil buffers. Each value is read as luax_optboolean reads it.
+void discard(Rice::Array arguments) {
+  const Rice::Array given = std::move(arguments);
+  Graphics &instance = graphics();
+  const Rice::Object color = ruby::entry(given, 0);
+  std::vector<bool> colorbuffers;
+  if (ruby::is_array(color)) {
+    const Rice::Array list(color.value());
+    for (long i = 0; i < ruby::length(list); i++) {
+      colorbuffers.push_back(optboolean(ruby::entry(list, i)));
+    }
+  } else {
+    const bool discardcolor = optboolean(color);
+    const std::size_t numbuffers =
+        std::max(static_cast<std::size_t>(1), instance.getRenderTargets().colors.size());
+    colorbuffers = std::vector<bool>(numbuffers, discardcolor);
+  }
+  instance.discard(colorbuffers, optboolean(ruby::entry(given, 1)));
+}
+
+// luax_checkblendop and luax_checkblendfactor (wrap_Graphics.cpp:
+// 2667-2683): the blend operation or factor +name+ names.
+love::graphics::BlendOperation blend_operation(const std::string &name) {
+  love::graphics::BlendOperation op = love::graphics::BLENDOP_ADD;
+  if (!love::graphics::getConstant(name.c_str(), op)) {
+    raise_enum_error("blend operation", love::graphics::getConstants(op), name);
+  }
+  return op;
+}
+
+love::graphics::BlendFactor blend_factor(const std::string &name) {
+  love::graphics::BlendFactor factor = love::graphics::BLENDFACTOR_ZERO;
+  if (!love::graphics::getConstant(name.c_str(), factor)) {
+    raise_enum_error("blend factor", love::graphics::getConstants(factor), name);
+  }
+  return factor;
+}
+
+// w_setBlendState (wrap_Graphics.cpp:2701-2727): blending off for no
+// names; for three, one operation and a source and a destination factor,
+// each for the color and the alpha alike; and for six, the color's and
+// the alpha's operation, then their source factors, then their
+// destination factors, in LÖVE's order. Lota::Graphics.blend_state= passes
+// no other count.
+void set_blend_state(Rice::Array names) {
+  const Rice::Array list = std::move(names);
+  long index = 0;
+  const auto next = [&list, &index] {
+    return Rice::String(ruby::entry(list, index++).value()).str();
+  };
+  love::graphics::BlendState state;
+  if (ruby::length(list) > 0) {
+    state.enable = true;
+    constexpr long long_form = 4;
+    if (ruby::length(list) >= long_form) {
+      state.operationRGB = blend_operation(next());
+      state.operationA = blend_operation(next());
+      state.srcFactorRGB = blend_factor(next());
+      state.srcFactorA = blend_factor(next());
+      state.dstFactorRGB = blend_factor(next());
+      state.dstFactorA = blend_factor(next());
+    } else {
+      state.operationRGB = state.operationA = blend_operation(next());
+      state.srcFactorRGB = state.srcFactorA = blend_factor(next());
+      state.dstFactorRGB = state.dstFactorA = blend_factor(next());
+    }
+  }
+  graphics().setBlendState(state);
+}
+
+// w_getBlendState (wrap_Graphics.cpp:2729-2749): the color's and the
+// alpha's operation, source factor, and destination factor, in
+// setBlendState's order, or six nils while blending is off.
+Rice::Array blend_state() {
+  const love::graphics::BlendState &state = graphics().getBlendState();
+  Rice::Array results;
+  constexpr int count = 6;
+  if (!state.enable) {
+    for (int i = 0; i < count; i++) {
+      results.push(Rice::Object(), false);
+    }
+    return results;
+  }
+  const auto push_operation = [&results](love::graphics::BlendOperation op) {
+    const char *str = nullptr;
+    if (!love::graphics::getConstant(op, str)) {
+      throw love::Exception("unknown blend operation");
+    }
+    results.push(Rice::String(str), false);
+  };
+  const auto push_factor = [&results](love::graphics::BlendFactor factor) {
+    const char *str = nullptr;
+    if (!love::graphics::getConstant(factor, str)) {
+      throw love::Exception("unknown blend factor");
+    }
+    results.push(Rice::String(str), false);
+  };
+  push_operation(state.operationRGB);
+  push_operation(state.operationA);
+  push_factor(state.srcFactorRGB);
+  push_factor(state.srcFactorA);
+  push_factor(state.dstFactorRGB);
+  push_factor(state.dstFactorA);
+  return results;
 }
 
 // w_setColor with three or four numbers (wrap_Graphics.cpp:2491-2515):
@@ -991,6 +1200,35 @@ void sprite_batch_set(love::graphics::SpriteBatch &batch, int index, love::graph
   }
 }
 
+// w_SpriteBatch_addLayer (wrap_SpriteBatch.cpp:59-83 and 105-113): adds a
+// sprite on +layer+ of the batch's array texture, counting from 1, of the
+// whole texture or of +quad+ unless it is nil, placed by the nine numbers,
+// and returns its index, counting from 1 as Lua does.
+int sprite_batch_add_layer(love::graphics::SpriteBatch &batch, int layer,
+                           love::graphics::Quad *quad, Rice::Array placement) {
+  require_main_thread(MODULE);
+  const Rice::Array numbers = std::move(placement);
+  const love::Matrix4 m = placement_of(numbers);
+  const int index =
+      (quad != nullptr) ? batch.addLayer(layer - 1, quad, m, -1) : batch.addLayer(layer - 1, m, -1);
+  return index + 1;
+}
+
+// w_SpriteBatch_setLayer (wrap_SpriteBatch.cpp:59-83 and 115-123):
+// replaces the sprite at +index+, counting from 1 as Lua does, as
+// sprite_batch_add_layer adds one.
+void sprite_batch_set_layer(love::graphics::SpriteBatch &batch, int index, int layer,
+                            love::graphics::Quad *quad, Rice::Array placement) {
+  require_main_thread(MODULE);
+  const Rice::Array numbers = std::move(placement);
+  const love::Matrix4 m = placement_of(numbers);
+  if (quad != nullptr) {
+    batch.addLayer(layer - 1, quad, m, index - 1);
+  } else {
+    batch.addLayer(layer - 1, m, index - 1);
+  }
+}
+
 // SpriteBatch:setColor with numbers (wrap_SpriteBatch.cpp:154-182), as
 // set_color binds love.graphics.setColor.
 void sprite_batch_set_color(love::graphics::SpriteBatch &batch, double red, double green,
@@ -1266,6 +1504,10 @@ void define_graphics(const Rice::Module &native) {
       .define_method("add", &sprite_batch_add, Rice::Arg("quad"), Rice::Arg("placement"))
       .define_method("set", &sprite_batch_set, Rice::Arg("index"), Rice::Arg("quad"),
                      Rice::Arg("placement"))
+      .define_method("add_layer", &sprite_batch_add_layer, Rice::Arg("layer"), Rice::Arg("quad"),
+                     Rice::Arg("placement"))
+      .define_method("set_layer", &sprite_batch_set_layer, Rice::Arg("index"), Rice::Arg("layer"),
+                     Rice::Arg("quad"), Rice::Arg("placement"))
       .define_method("set_color", &sprite_batch_set_color, Rice::Arg("red"), Rice::Arg("green"),
                      Rice::Arg("blue"), Rice::Arg("alpha"));
   define_engine_class<love::graphics::TextBatch>(native, "TextBatch")
@@ -1318,6 +1560,10 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("layout"), Rice::Arg("elements"))
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
+      .define_singleton_function("clear_buffers", &clear_buffers, Rice::Arg("arguments"))
+      .define_singleton_function("discard", &discard, Rice::Arg("arguments"))
+      .define_singleton_function("set_blend_state", &set_blend_state, Rice::Arg("names"))
+      .define_singleton_function("blend_state", &blend_state)
       .define_singleton_function("set_color", &set_color, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
       .define_singleton_function("capture_screenshot", &capture_screenshot, Rice::Arg("callable"))
@@ -1330,6 +1576,9 @@ void define_graphics(const Rice::Module &native) {
                                  Rice::Arg("computewrite"), Rice::Arg("shaderatomics"),
                                  Rice::Arg("readable"))
       .define_singleton_function("texture_types", &texture_types)
+      .define_singleton_function("canvas_formats", &canvas_formats,
+                                 Rice::Arg("readable") = std::optional<bool>())
+      .define_singleton_function("image_formats", &image_formats)
       .define_singleton_function("new_default_font", &new_default_font, Rice::Arg("size"),
                                  Rice::Arg("hinting"), Rice::Arg("dpiscale"), Rice::Arg("sdf"),
                                  Rice::Return().takeOwnership())

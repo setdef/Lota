@@ -125,4 +125,44 @@ class SpriteBatchTest < Minitest::Test
 
     assert_equal "Invalid mipmap index: 2", error.message
   end
+
+  # SpriteBatch:addLayer and setLayer (wrap_SpriteBatch.cpp:59-123) read
+  # the layer, counting from 1, before the quad and placement add and set
+  # read; only a batch of an array texture takes them, and only a layer it
+  # has (SpriteBatch.cpp:135-174).
+  def test_a_batch_of_an_array_texture_adds_and_sets_sprites_on_its_layers
+    layers = Lota::Graphics::Canvas.new(2, 2, 2)
+    layers.render_to(1) { Lota::Graphics.clear(0, 1, 0, 1) }
+    layers.render_to(2) { Lota::Graphics.clear(1, 0, 0, 1) }
+    batch = Lota::Graphics::SpriteBatch.new(layers)
+
+    assert_equal [1, 2], [batch.add_layer(1), batch.add_layer(1, Lota::Graphics::Quad.new(0, 0, 1, 1, layers), 2, 0)]
+
+    batch.layer = 1, 2
+    canvas = Lota::Graphics::Canvas.new(4, 2)
+    canvas.render_to do
+      Lota::Graphics.clear(0, 0, 0, 1)
+      Lota::Graphics.draw(batch)
+    end
+    pixels = Lota::Graphics.readback_texture(canvas)
+
+    assert_equal [[1.0, 0.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
+      [pixels.pixel(0, 0), pixels.pixel(2, 0), pixels.pixel(3, 0)]
+  end
+
+  def test_a_batch_raises_loves_errors_for_layers
+    layers = Lota::Graphics::Canvas.new(2, 2, 2)
+    batch = Lota::Graphics::SpriteBatch.new(layers, 1)
+    flat = assert_raises(RuntimeError) { Lota::Graphics::SpriteBatch.new(texture).add_layer(1) }
+    layer = assert_raises(RuntimeError) { batch.add_layer(3) }
+    index = assert_raises(RuntimeError) { batch.layer = 5, 1 }
+
+    assert_equal [
+      "addLayer can only be called on a SpriteBatch that uses an Array Texture.",
+      "Invalid layer: 3 (Texture has 2 layers)",
+      "Invalid sprite index: 5",
+    ], [flat.message, layer.message, index.message]
+    assert_raises(TypeError) { batch.add_layer(1, nil, 5) }
+    assert_raises(ArgumentError) { batch.layer = 1 }
+  end
 end

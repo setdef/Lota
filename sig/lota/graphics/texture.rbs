@@ -34,6 +34,8 @@ module Lota
 
       def format: () -> Symbol
 
+      def view_formats: () -> Array[Symbol]
+
       def format_linear?: () -> bool
 
       def compressed?: () -> bool

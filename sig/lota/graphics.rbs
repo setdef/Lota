@@ -11,9 +11,13 @@ module Lota
 
     private def self.render_target: (::Object? target) -> Array[::Object?]
 
-    def self.clear: (*(Float | Integer) color) -> nil
+    def self.clear: (*(Float | Integer | bool)? arguments) -> nil
+
+    def self.discard: (?(bool | Array[bool?])? color, ?bool? depthstencil) -> nil
 
     def self.readback_texture: (Texture texture, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height, ?Lota::Image::ImageData? dest, ?Integer? destx, ?Integer? desty) -> Lota::Image::ImageData
+
+    def self.readback_texture_async: (Texture texture, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?Integer? width, ?Integer? height, ?Lota::Image::ImageData? dest, ?Integer? destx, ?Integer? desty) -> GraphicsReadback
 
     def self.active?: () -> bool
 
@@ -49,6 +53,10 @@ module Lota
     def self.system_limits: () -> SystemLimits
 
     def self.texture_formats: (canvas: bool, ?computewrite: ::Object?, ?shaderatomics: ::Object?, ?readable: bool?) -> TextureFormats
+
+    def self.canvas_formats: (?::Object? readable) -> CanvasFormats
+
+    def self.image_formats: () -> ImageFormats
 
     private def self.boolean!: (Symbol name, ::Object? value) -> void
 
@@ -137,6 +145,8 @@ module Lota
 
     def self.font: () -> Font
 
+    def self.set_new_font: (*Font::argument? arguments, ?hinting: Font::argument?, ?dpiscale: Font::argument?, ?sdf: bool) -> Font
+
     def self.print: (text text, ?(Font | Math::Transform | Float | Integer)? font, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
     def self.printf: (text text, Font | Math::Transform | Float | Integer font, Math::Transform | Float | Integer x, ?(Float | Integer | Symbol | String)? y, ?(Math::Transform | Float | Integer | Symbol | String)? limit, ?(Symbol | String | Float | Integer)? align, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
@@ -159,11 +169,19 @@ module Lota
 
     def self.default_filter: () -> [Symbol, Symbol, Integer]
 
+    def self.default_mipmap_filter=: (Symbol | String | Array[Symbol | String | Integer | Float | nil] | nil filter) -> void
+
+    def self.default_mipmap_filter: () -> [Symbol?, Float]
+
     def self.background_color=: (Array[Float | Integer] color) -> void
 
     def self.blend_mode=: (Symbol | String | Array[Symbol | String] mode) -> void
 
     def self.blend_mode: () -> Array[Symbol]
+
+    def self.blend_state=: (Symbol | String | Array[Symbol | String | nil] | nil state) -> void
+
+    def self.blend_state: () -> Array[Symbol?]
 
     type render_target = [Texture, Hash[Symbol, Integer]]
 
@@ -213,7 +231,19 @@ module Lota
 
     def self.stencil_state: () -> Array[Symbol | Integer]
 
+    def self.stencil_mode=: (Symbol | String | Array[Symbol | String | Float | Integer | nil] | nil mode) -> void
+
+    def self.stencil_mode: () -> [Symbol, Integer]
+
+    def self.stencil: [T] (?(Symbol | String)? action, ?(Float | Integer)? value, ?::Object? keepvalues) { () -> T } -> T
+
+    def self.stencil_test=: (Symbol | String | Array[Symbol | String | Float | Integer | nil] | nil test) -> void
+
+    def self.stencil_test: () -> Array[Symbol | Integer]
+
     def self.gamma_correct?: () -> bool
+
+    def self.low_power_preferred?: () -> bool
 
     def self.wireframe=: (bool enable) -> void
 

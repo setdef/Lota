@@ -389,6 +389,16 @@ module Lota
       def self.shader: () -> Shader?
 
       def self.quad_index_buffer: () -> Buffer
+
+      def self.set_stencil_mode: (?String? mode, ?Integer? value) -> nil
+
+      def self.stencil_mode: () -> [String, Integer]
+
+      def self.set_default_mipmap_filter: (?String? str, ?(Float | Integer) lod_bias) -> nil
+
+      def self.default_mipmap_filter: () -> Array[String | nil | Float]
+
+      def self.low_power_preferred?: () -> bool
     end
 
     class Buffer
@@ -421,6 +431,16 @@ module Lota
 
         def filter: () -> [String, String, Integer]
       end
+    end
+
+    class GraphicsReadback
+      def complete?: () -> bool
+
+      def error?: () -> bool
+
+      def wait: () -> nil
+
+      def update: () -> nil
     end
 
     class Mesh

@@ -352,7 +352,27 @@ module Lota
 
       def replace_pixels: (ImageData imagedata, Array[(Float | Integer | bool)?] arguments) -> nil
 
+      def view_formats: () -> Array[String]
+
       def render_to: (Integer? slice, ^() -> void block) -> nil
+    end
+
+    class GraphicsReadback
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
+      def buffer_data: () -> ByteData?
+
+      def image_data: () -> ImageData?
     end
 
     class Quad
@@ -387,6 +407,10 @@ module Lota
       def add: (Quad? quad, Array[Float | Integer] placement) -> Integer
 
       def set: (Integer index, Quad? quad, Array[Float | Integer] placement) -> nil
+
+      def add_layer: (Integer layer, Quad? quad, Array[Float | Integer] placement) -> Integer
+
+      def set_layer: (Integer index, Integer layer, Quad? quad, Array[Float | Integer] placement) -> nil
 
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
     end
@@ -1172,7 +1196,17 @@ module Lota
 
       def self.clear: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
+      def self.clear_buffers: ([Array[Float | Integer]?, ::Object?, ::Object?] arguments) -> nil
+
+      def self.discard: ([::Object?, ::Object?] arguments) -> nil
+
+      def self.set_blend_state: (Array[String] names) -> nil
+
+      def self.blend_state: () -> Array[String?]
+
       def self.readback_texture: (Texture texture, Array[(Float | Integer | ImageData)?] arguments) -> ImageData
+
+      def self.readback_texture_async: (Texture texture, Array[(Float | Integer | ImageData)?] arguments) -> GraphicsReadback
 
       def self.set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
@@ -1189,6 +1223,10 @@ module Lota
       def self.texture_formats: (bool rt, bool computewrite, bool shaderatomics, bool? readable) -> Hash[String, bool]
 
       def self.texture_types: () -> Hash[String, bool]
+
+      def self.canvas_formats: (?bool? readable) -> Hash[String, bool]
+
+      def self.image_formats: () -> Hash[String, bool]
 
       def self.new_default_font: (Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Font
 

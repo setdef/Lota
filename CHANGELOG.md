@@ -18,6 +18,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Mouse.global_position`, `Lota::Sound::Decoder#seek`, and `Lota::Filesystem.open_native_file`, matching `love.mouse.getGlobalPosition`, `Decoder:seek`, and `love.filesystem.openNativeFile`.
 - `Lota::Filesystem.load(name, mode = nil)`, matching `love.filesystem.load`: reads a file of Ruby through LÖVE's filesystem, raises `SyntaxError` at once for code that does not compile, and returns `[proc]`, whose call runs the code at the top level with its arguments as `ARGV`, or `[nil, message]` for a file it cannot read; mode `:b` refuses Ruby source, which is text.
 - `Lota::Filesystem::File#open` takes a block: when the file opens, it yields the file, closes it afterward, and returns the block's value; otherwise it returns what `open` returns without a block.
+- `Lota::Graphics.stencil_mode=` and `stencil_mode`, `blend_state=` and `blend_state`, `default_mipmap_filter=` and `default_mipmap_filter`, `low_power_preferred?`, and `discard`, translating LÖVE 12's `setStencilMode`, `getStencilMode`, `setBlendState`, `getBlendState`, `setDefaultMipmapFilter`, `getDefaultMipmapFilter`, `isLowPowerPreferred`, and `discard`.
+- `Lota::Graphics.clear` takes `false` or `true` in place of the color, and the stencil and depth to clear to, or `false` to leave them, after it.
+- `Lota::Graphics.readback_texture_async`, returning a `Lota::Graphics::GraphicsReadback` (`complete?`, `error?`, `wait`, `update`, `buffer_data`, `image_data`).
+- `Lota::Graphics::Texture#view_formats`, and `Lota::Graphics::SpriteBatch#add_layer` and `layer=`, translating `SpriteBatch:addLayer` and `setLayer`.
+
+### Deprecated
+
+- `Lota::Graphics.canvas_formats` and `image_formats`, returning a frozen `Lota::Graphics::CanvasFormats` and `ImageFormats`; `set_new_font`; and `stencil`, `stencil_test=`, and `stencil_test`, translating the functions LÖVE 12 deprecates, each printing LÖVE's notice the first time it is called.
 
 ### Fixed
 

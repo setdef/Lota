@@ -14,8 +14,10 @@
 #include "common/int.h"
 #include "common/math.h"
 #include "common/pixelformat.h"
+#include "data/ByteData.h"
 #include "filesystem/FileData.h"
 #include "graphics/Graphics.h"
+#include "graphics/GraphicsReadback.h"
 #include "graphics/Texture.h"
 #include "image/CompressedImageData.h"
 #include "image/Image.h"
@@ -572,51 +574,111 @@ ImageData *readback_into_wider(Graphics &instance, Texture *t, int slice, int mi
   return dest;
 }
 
-// w_readbackTexture (wrap_Graphics.cpp:2411-2449) of the arguments after
-// the texture, as Lota::Graphics.readback_texture passes them: the slice,
-// counting from 1, which a texture that is not 2D needs; the mipmap,
+// What w_readbackTexture and w_readbackTextureAsync (wrap_Graphics.cpp:
+// 2411-2489) read after the texture, as Lota::Graphics passes it: the
+// slice, counting from 1, which a texture that is not 2D needs; the mipmap,
 // counting from 1; a rectangle of x, y, width, and height; and an
-// ImageData to read into, at a position. The new ImageData's one
+// ImageData to read into, at a position.
+struct Readback {
+  int slice = 0;
+  int mipmap = 0;
+  love::Rect rect{};
+  ImageData *dest = nullptr;
+  int destx = 0;
+  int desty = 0;
+};
+
+Readback readback_of(const Texture *t, const std::vector<Rice::Object> &given) {
+  Readback read;
+  if (t->getTextureType() != love::graphics::TEXTURE_2D) {
+    read.slice = integer_at(given, 0) - 1;
+  } else if (!none_or_nil(given, 0) && !ruby::is_numeric(element(given, 0))) {
+    ruby::raise_type_error("wrong argument type " + ruby::class_name(element(given, 0)) +
+                           " for slice (expected Integer or nil)");
+  }
+
+  read.mipmap = optional_integer_at(given, 1, 1) - 1;
+
+  read.rect.w = t->getPixelWidth(read.mipmap);
+  read.rect.h = t->getPixelHeight(read.mipmap);
+  constexpr std::size_t rect_index = 2;
+  if (!none_or_nil(given, rect_index)) {
+    read.rect.x = integer_at(given, rect_index);
+    read.rect.y = integer_at(given, rect_index + 1);
+    read.rect.w = integer_at(given, rect_index + 2);
+    read.rect.h = integer_at(given, rect_index + 3);
+  }
+
+  constexpr std::size_t dest_index = 6;
+  if (!none_or_nil(given, dest_index)) {
+    read.dest = Rice::detail::From_Ruby<ImageData *>().convert(element(given, dest_index).value());
+    read.destx = optional_integer_at(given, dest_index + 1, 0);
+    read.desty = optional_integer_at(given, dest_index + 2, 0);
+  }
+  return read;
+}
+
+// w_readbackTexture (wrap_Graphics.cpp:2411-2449) of the arguments after
+// the texture, as readback_of reads them. The new ImageData's one
 // reference goes to the Ruby wrapper; read into one given, it is that
 // one, which LÖVE retains as it returns it.
 ImageData *readback_texture(Texture *t, Rice::Array arguments) {
   const Rice::Array moved = std::move(arguments);
   const std::vector<Rice::Object> given = ruby::elements(moved);
   Graphics &instance = graphics();
+  const Readback read = readback_of(t, given);
 
-  int slice = 0;
-  if (t->getTextureType() != love::graphics::TEXTURE_2D) {
-    slice = integer_at(given, 0) - 1;
-  } else if (!none_or_nil(given, 0) && !ruby::is_numeric(element(given, 0))) {
-    ruby::raise_type_error("wrong argument type " + ruby::class_name(element(given, 0)) +
-                           " for slice (expected Integer or nil)");
+  if (read.dest != nullptr && read.dest->getWidth() != read.rect.w) {
+    return readback_into_wider(instance, t, read.slice, read.mipmap, read.rect, read.dest,
+                               read.destx, read.desty);
   }
+  return instance.readbackTexture(t, read.slice, read.mipmap, read.rect, read.dest, read.destx,
+                                  read.desty);
+}
 
-  const int mipmap = optional_integer_at(given, 1, 1) - 1;
+// w_readbackTextureAsync (wrap_Graphics.cpp:2451-2489) of the arguments
+// after the texture, as readback_of reads them: a readback that copies the
+// pixels once the graphics card has drawn them, into an ImageData of its
+// own or the one given, row by row (GraphicsReadback.cpp:186-204), so a
+// wider ImageData needs none of readback_texture's help. Graphics keeps a
+// reference to it until it completes; the one it is made with goes to the
+// Ruby wrapper.
+love::graphics::GraphicsReadback *readback_texture_async(Texture *t, Rice::Array arguments) {
+  const Rice::Array moved = std::move(arguments);
+  const std::vector<Rice::Object> given = ruby::elements(moved);
+  Graphics &instance = graphics();
+  const Readback read = readback_of(t, given);
+  return instance.readbackTextureAsync(t, read.slice, read.mipmap, read.rect, read.dest, read.destx,
+                                       read.desty);
+}
 
-  love::Rect rect = {.x = 0, .y = 0, .w = t->getPixelWidth(mipmap), .h = t->getPixelHeight(mipmap)};
-  constexpr std::size_t rect_index = 2;
-  if (!none_or_nil(given, rect_index)) {
-    rect.x = integer_at(given, rect_index);
-    rect.y = integer_at(given, rect_index + 1);
-    rect.w = integer_at(given, rect_index + 2);
-    rect.h = integer_at(given, rect_index + 3);
+// GraphicsReadback:getBufferData and getImageData
+// (wrap_GraphicsReadback.cpp:64-76): what the readback read, or nil until
+// it completes (GraphicsReadback.cpp:121-133); a texture's readback has no
+// ByteData, and a buffer's no ImageData.
+love::data::ByteData *readback_buffer_data(const love::graphics::GraphicsReadback &readback) {
+  require_main_thread(MODULE);
+  return readback.getBufferData();
+}
+
+ImageData *readback_image_data(const love::graphics::GraphicsReadback &readback) {
+  require_main_thread(MODULE);
+  return readback.getImageData();
+}
+
+// Texture:getViewFormats (wrap_Texture.cpp:303-319): the names of the
+// pixel formats the texture's viewformats setting listed, in its order.
+Rice::Array texture_view_formats(const Texture &texture) {
+  require_main_thread(MODULE);
+  Rice::Array names;
+  for (const love::PixelFormat format : texture.getViewFormats()) {
+    const char *str = nullptr;
+    if (!love::getConstant(format, str)) {
+      throw love::Exception("Unknown pixel format.");
+    }
+    names.push(Rice::String(str), false);
   }
-
-  ImageData *dest = nullptr;
-  int destx = 0;
-  int desty = 0;
-  constexpr std::size_t dest_index = 6;
-  if (!none_or_nil(given, dest_index)) {
-    dest = Rice::detail::From_Ruby<ImageData *>().convert(element(given, dest_index).value());
-    destx = optional_integer_at(given, dest_index + 1, 0);
-    desty = optional_integer_at(given, dest_index + 2, 0);
-  }
-
-  if (dest != nullptr && dest->getWidth() != rect.w) {
-    return readback_into_wider(instance, t, slice, mipmap, rect, dest, destx, desty);
-  }
-  return instance.readbackTexture(t, slice, mipmap, rect, dest, destx, desty);
+  return names;
 }
 
 // Texture:replacePixels with an ImageData (wrap_Texture.cpp:375-428), and
@@ -880,7 +942,13 @@ void define_texture(const Rice::Module &native) {
       .define_method("pixel_height", &texture_pixel_height,
                      Rice::Arg("mipmap") = std::optional<int>())
       .define_method("replace_pixels", &texture_replace_pixels, Rice::Arg("imagedata"),
-                     Rice::Arg("arguments"));
+                     Rice::Arg("arguments"))
+      .define_method("view_formats", &texture_view_formats);
+
+  // Its other methods are generated (ext/lota/native/generated/graphics.cpp).
+  define_engine_class<love::graphics::GraphicsReadback>(native, "GraphicsReadback")
+      .define_method("buffer_data", &readback_buffer_data)
+      .define_method("image_data", &readback_image_data);
 
   Rice::define_module_under(native, "Graphics")
       .define_singleton_function("canvas_size", &canvas_size)
@@ -902,6 +970,9 @@ void define_texture(const Rice::Module &native) {
                                  Rice::Return().takeOwnership())
       .define_singleton_function("readback_texture", &readback_texture, Rice::Arg("texture"),
                                  Rice::Arg("arguments"), Rice::Return().takeOwnership())
+      .define_singleton_function("readback_texture_async", &readback_texture_async,
+                                 Rice::Arg("texture"), Rice::Arg("arguments"),
+                                 Rice::Return().takeOwnership())
       .define_singleton_function("reset_canvas", &reset_canvas)
       .define_singleton_function("canvas", &canvas)
       .define_singleton_function("set_canvas", &set_canvas, Rice::Arg("arguments"))

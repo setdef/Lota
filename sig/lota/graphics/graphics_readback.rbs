@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class GraphicsReadback < Object[Native::GraphicsReadback]
+      private def self.from_native: (Native::GraphicsReadback native) -> GraphicsReadback
+
+      def complete?: () -> bool
+
+      def error?: () -> bool
+
+      def wait: () -> nil
+
+      def update: () -> nil
+
+      def buffer_data: () -> Lota::Data::ByteData?
+
+      def image_data: () -> Lota::Image::ImageData?
+    end
+  end
+end

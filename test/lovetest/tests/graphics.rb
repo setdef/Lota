@@ -577,10 +577,11 @@ class GraphicsTest < Lovetest::TestMethod
   # sprites[s][1] is sprites[s - 1][0]; the indices the batch gives and
   # takes count from 1 in both. Lua's s % 64 == 0 is Ruby's s % 64 == 0.
   #
-  # Lövetest's last part draws from an array texture made by
-  # newArrayImage, which Lota does not bind yet: rule 2 has not settled
-  # what ArrayImage === asks (rake bindings:report). It and the fifth
-  # image are left out until it does.
+  # Its last part draws from an array texture: newArrayImage becomes
+  # ArrayImage.new (rule 2), addLayer add_layer (rule 13), and setLayer the
+  # writer layer= of its several values (rules 5 and 6). Lua's
+  # math.floor(s/64) is Ruby's s / 64, which divides Integers rounding
+  # down.
   def test_sprite_batch
     # create batch
     texture1 = Lota::Graphics::Image.new("resources/cubemap.png")
@@ -678,6 +679,29 @@ class GraphicsTest < Lovetest::TestMethod
     Lota::Graphics.canvas = nil
     imgdata4 = Lota::Graphics.readback_texture(canvas)
     compare_img(imgdata4)
+
+    # array texture sbatch
+    texture3 = Lota::Graphics::ArrayImage.new([
+      "resources/love.png",
+      "resources/loveinv.png",
+    ])
+    asbatch = Lota::Graphics::SpriteBatch.new(texture3, 4096)
+    quad3 = Lota::Graphics::Quad.new(32, 52, 1, 1, texture3) # loveblue
+    sprites = []
+    (1..4096).each do |s|
+      spr = asbatch.add_layer(1, quad3, 0, s, s / 64, 1, 1)
+      sprites << [spr, s, s / 64]
+    end
+    assert_equal(4096, asbatch.count, "check max batch size applies")
+    (1..2048).each do |s|
+      asbatch.layer = sprites[s - 1][0], 2, sprites[s - 1][1], sprites[s - 1][2], 0, 1, 1
+    end
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(0, 0, 0, 1)
+    Lota::Graphics.draw(asbatch, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata5 = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata5)
   end
 
   # Translated to Ruby from love.test.graphics.newQuad

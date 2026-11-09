@@ -748,6 +748,58 @@ generate "ParticleSystem:isPaused"
 generate "ParticleSystem:isStopped"
 generate "ParticleSystem:update"
 
+# love.graphics: LÖVE 12's state and readback, and the deprecated forms
+generate "love.graphics.setStencilMode"
+generate "love.graphics.getStencilMode"
+generate "love.graphics.setDefaultMipmapFilter"
+generate "love.graphics.getDefaultMipmapFilter"
+generate "love.graphics.isLowPowerPreferred"
+generate "GraphicsReadback:isComplete"
+generate "GraphicsReadback:hasError"
+generate "GraphicsReadback:wait"
+generate "GraphicsReadback:update"
+bound_by_hand "GraphicsReadback:getBufferData",
+  reason: "pushes a null pointer, which luax_pushtype pushes as nil, until the readback completes, and always " \
+    "for a texture's readback (GraphicsReadback.cpp:121-133), and the generator types what luax_pushtype " \
+    "pushes as never nil; Lota binds the same call, typed as nil or a ByteData"
+bound_by_hand "GraphicsReadback:getImageData",
+  reason: "pushes a null pointer until the readback completes, and always for a buffer's readback, as " \
+    "GraphicsReadback:getBufferData; Lota binds the same call, typed as nil or an ImageData"
+bound_by_hand "love.graphics.readbackTextureAsync",
+  reason: "reads its slice only for a texture that is not 2D, and its rectangle and destination only when " \
+    "given, as love.graphics.readbackTexture; Lota binds the arguments after the texture as an Array, read " \
+    "as readbackTexture's"
+bound_by_hand "Texture:getViewFormats",
+  reason: "fills a table with the formats' names in a loop (lua_createtable), which the generator does not " \
+    "port; Lota returns them as an Array"
+bound_by_hand "love.graphics.setBlendState",
+  reason: "chooses its long or short form by lua_gettop, which counts an argument given as nil, which Rice " \
+    "passes as none, and reads each name through luax_checkblendop and luax_checkblendfactor, helpers the " \
+    "parser does not follow; Lota binds the names as an Array, of three or six"
+bound_by_hand "love.graphics.getBlendState",
+  reason: "pushes each name through luax_pushblendop and luax_pushblendfactor, helpers the parser does not " \
+    "follow, and six nils while blending is off; Lota returns the six as an Array"
+bound_by_hand "love.graphics.discard",
+  reason: "reads a table of booleans in a loop at a position it computes (lua_rawgeti, then index -1); Lota " \
+    "binds the color, an Array or one value, and the depth and stencil, as an Array"
+bound_by_hand "SpriteBatch:addLayer",
+  reason: "reads its layer and then its placement through w_SpriteBatch_addLayer_or_setLayer, at positions " \
+    "that depend on whether a Quad comes first, as SpriteBatch:add; Lota binds the layer, the Quad or nil, " \
+    "and the nine numbers as an Array"
+bound_by_hand "SpriteBatch:setLayer",
+  reason: "reads its layer, Quad, and placement as SpriteBatch:addLayer does"
+bound_by_hand "love.graphics.getCanvasFormats",
+  reason: "fills a table it is given or makes, choosing which formats a canvas can have by a function pointer " \
+    "to one of three lambdas, which the generator does not port; Lota returns the formats as a Hash, which " \
+    "Lota::Graphics.canvas_formats makes a frozen record and marks deprecated"
+bound_by_hand "love.graphics.getImageFormats",
+  reason: "fills a table as love.graphics.getCanvasFormats does; Lota::Graphics.image_formats marks it " \
+    "deprecated"
+bound_by_hand "love.graphics.setNewFont",
+  reason: "returns what w_newFont, bound by hand, returns, then sets the font it pushed; " \
+    "Lota::Graphics.set_new_font makes the font with Lota::Graphics::Font.new, sets it, returns it, and marks " \
+    "itself deprecated"
+
 # love.image
 bound_from_lua "ImageData:getWidth"
 bound_from_lua "ImageData:getHeight"
