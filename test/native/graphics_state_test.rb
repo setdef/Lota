@@ -296,7 +296,8 @@ class GraphicsStateTest < Minitest::Test
   # its first argument says otherwise, leaving out compressed formats;
   # getImageFormats for formats a texture can be sampled in, leaving out
   # depth and stencil formats. LÖVE marks both deprecated, replaced by
-  # getTextureFormats.
+  # getTextureFormats. Whether readable and unreadable canvases differ is
+  # the renderer's answer: under llvmpipe they do, under RADV they do not.
   def test_canvas_and_image_formats_answer_as_texture_formats_and_are_deprecated
     canvas = assert_deprecated("Lota::Graphics.canvas_formats", "replaced by Lota::Graphics.texture_formats") do
       Graphics.canvas_formats
@@ -314,7 +315,10 @@ class GraphicsStateTest < Minitest::Test
       assert_equal Graphics.texture_formats(canvas: true, readable:).to_h.slice(*answer.keys), answer,
         "readable: #{readable.inspect}"
     end
-    refute_equal Graphics.canvas_formats(true).to_h, Graphics.canvas_formats(false).to_h
+    textures = [true, false].map { |readable| Graphics.texture_formats(canvas: true, readable:).to_h }
+    canvases = [true, false].map { |readable| Graphics.canvas_formats(readable).to_h }
+
+    assert_equal textures.uniq.size, canvases.uniq.size, "canvas formats tell readable from not as texture formats do"
 
     image = assert_deprecated("Lota::Graphics.image_formats", "replaced by Lota::Graphics.texture_formats") do
       Graphics.image_formats
