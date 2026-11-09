@@ -58,6 +58,7 @@ require_relative "lota/image"
 require_relative "lota/font"
 require_relative "lota/graphics"
 require_relative "lota/timer"
+require_relative "lota/thread"
 require_relative "lota/keyboard"
 require_relative "lota/joystick"
 require_relative "lota/mouse"
@@ -145,13 +146,16 @@ module Lota
     Font if Native::Font.open?
   end
 
-  # Lota::Graphics, as love.graphics, or +nil+ when the module is not open.
+  # Lota::Graphics, as love.graphics, or +nil+ when the module is not open,
+  # and in a thread's code (Lota::Thread), as love.graphics is in a LÖVE
+  # thread, which LÖVE keeps it from loading (src/modules/thread/
+  # LuaThread.cpp:71-73).
   #
   # === Example
   #
   #   lota.graphics.clear(0, 0, 0)
   def self.graphics
-    Graphics if Native::Graphics.open?
+    Graphics if Ractor.main? && Native::Graphics.open?
   end
 
   # Lota::Data, as love.data, or +nil+ when the module is not open.
@@ -170,6 +174,15 @@ module Lota
   #   dt = lota.timer.step
   def self.timer
     Timer if Native::Timer.open?
+  end
+
+  # Lota::Thread, as love.thread, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.thread.channel("results")
+  def self.thread
+    Thread if Native::Thread.open?
   end
 
   # Lota::Event, as love.event, or +nil+ when the module is not open.
@@ -283,13 +296,14 @@ module Lota
     System if Native::System.open?
   end
 
-  # Lota::Window, as love.window, or +nil+ when the module is not open.
+  # Lota::Window, as love.window, or +nil+ when the module is not open,
+  # and in a thread's code, as love.window is in a LÖVE thread.
   #
   # === Example
   #
   #   lota.window.title = "Asteroids"
   def self.window
-    Window if Native::Window.open?
+    Window if Ractor.main? && Native::Window.open?
   end
 end
 

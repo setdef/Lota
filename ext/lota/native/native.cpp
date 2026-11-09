@@ -22,11 +22,13 @@
 #include "native/physics.hpp"
 #include "native/random_generator.hpp"
 #include "native/rice_roots.hpp"
+#include "native/ruby.hpp"
 #include "native/sensor.hpp"
 #include "native/shader.hpp"
 #include "native/sound.hpp"
 #include "native/system.hpp"
 #include "native/texture.hpp"
+#include "native/thread.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
 #include "native/video.hpp"
@@ -60,6 +62,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   const lota::native::RactorSafety safety(true);
   // Before anything roots a Ruby value (native/rice_roots.cpp).
   lota::native::install_rice_roots();
+  // The values the engine keeps for Ruby in C++ (native/ruby.hpp, Marks).
+  lota::native::ruby::Marks::instance().install();
   // Before any binding can ask whether it runs there (native/binding.hpp).
   lota::native::record_main_thread();
   // Before any binding, so that every error the engine raises reaches Ruby
@@ -77,6 +81,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   define_module("image", &lota::native::define_image, native);
   define_module("font", &lota::native::define_font, native);
   define_module("timer", &lota::native::define_timer, native);
+  define_module("thread", &lota::native::define_thread, native);
   define_module("event", &lota::native::define_event, native);
   define_module("keyboard", &lota::native::define_keyboard, native);
   define_module("joystick", &lota::native::define_joystick, native);

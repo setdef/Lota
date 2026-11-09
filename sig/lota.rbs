@@ -20,6 +20,8 @@ module Lota
 
   def self.timer: () -> singleton(Timer)?
 
+  def self.thread: () -> singleton(Thread)?
+
   def self.event: () -> singleton(Event)?
 
   def self.keyboard: () -> singleton(Keyboard)?

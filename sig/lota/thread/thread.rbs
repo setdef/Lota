@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Thread
+    class Thread < Object[Native::Thread::Thread]
+      private def self.from_native: (Native::Thread::Thread native) -> Thread
+
+      def self.new: (String | Filesystem::File | Lota::Data code) -> Thread
+
+      private def self.source: (::Object code) -> [String, String]
+
+      def start: (*::Object? arguments) -> bool
+
+      def wait: () -> nil
+
+      def error: () -> String?
+
+      def running?: () -> bool
+
+      module Body
+        def self.start: (Thread thread, Array[::Object?] arguments) -> void
+
+        private def self.quietly: [T] () { () -> T } -> T
+
+        private def self.ractor: (Thread thread, Array[::Object?] arguments) -> Ractor
+
+        def self.run: (Thread thread, Array[::Object?] arguments) -> nil
+      end
+    end
+  end
+end

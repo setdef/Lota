@@ -53,6 +53,8 @@ module Lota
   module DefaultCallbacks
     def run: () -> ^() -> ::Object?
 
+    def threaderror: (Thread::Thread t, String err) -> bot
+
     def errorhandler: (::Object msg) -> (^() -> Integer?)?
 
     def errhand: (::Object msg) -> (^() -> Integer?)?

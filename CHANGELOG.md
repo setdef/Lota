@@ -34,6 +34,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
 - A Ractor other than the main one may call Lota's modules, each holding wrappers of its own for the engine objects it reads, but `Lota::Graphics` and `Lota::Window` raise `ThreadError` there, and `Lota::Joystick`, `Lota::Keyboard`, `Lota::Mouse`, `Lota::Sensor`, `Lota::System`, and `Lota::Touch` raise `Ractor::UnsafeError`.
 - Every `Lota::Data`, such as a `ByteData`, `FileData`, `ImageData`, or `SoundData`, is frozen, and Ractors share it as itself: another Ractor reads and changes the same bytes.
+- `love.thread`: `Lota::Thread`, which boot opens unless `t.modules.thread` is false, and `lota.thread`; `Lota::Thread.channel`; `Lota::Thread::Channel` (`new`, `push`, `supply`, `pop`, `demand`, `peek`, `count`, `read?`, `clear`, `perform_atomic`), which carries values Ractors share and frozen copies of others; and `Lota::Thread::Thread` (`new`, `start`, `wait`, `error`, `running?`), whose code runs in a Ractor of its own.
+- `Lota.threaderror(thread, error)`, called when a thread's code raises; its default raises the error in the game, as `love.threaderror` does.
+- In a thread's code, `lota.graphics` and `lota.window` are `nil`, as in a LÖVE thread.
 
 ### Changed
 

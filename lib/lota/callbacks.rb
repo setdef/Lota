@@ -174,6 +174,7 @@ module Lota
         integer ? argument.to_i : argument
       when Array then sources(Variant.ruby(argument))
       when Native::Joystick::Joystick then Joystick::Joystick.__send__(:from_native, argument)
+      when Native::Thread::Thread then Thread::Thread.__send__(:from_native, argument)
       else
         argument
       end
@@ -197,9 +198,7 @@ module Lota
     # Translated from love.createhandlers
     # (vendor/love/src/modules/love/callbacks.lua:27-162). Each handler
     # takes LÖVE's arguments, with nil for any the message lacks and the
-    # rest ignored, as a Lua function does. One of LÖVE's handlers is left
-    # out: threaderror, because Lota has no love.thread, without which the
-    # event cannot arrive. The audiodisconnected handler, when the game
+    # rest ignored, as a Lua function does. The audiodisconnected handler, when the game
     # has no callback for it or its callback returns a falsy value, moves
     # playback to the system's default device (callbacks.lua:145-149).
 
@@ -248,6 +247,7 @@ module Lota
       exposed: -> (*) { Callbacks.call(:exposed) },
       occluded: -> (*) { Callbacks.call(:occluded) },
       quit: -> (*) {},
+      threaderror: -> (t = nil, err = nil, *) { Callbacks.call(:threaderror, t, err) },
       resize: -> (w = nil, h = nil, *) {
         next Callbacks.call(:resize, w, h) if Lota.respond_to?(:resize)
 
@@ -447,6 +447,27 @@ module Lota
         Timer.sleep(0.001) if Native::Timer.open?
         nil
       end
+    end
+
+    # Raises the error a thread ended with in the game: Lota's default
+    # threaderror callback, translated from love.threaderror
+    # (vendor/love/src/modules/love/callbacks.lua:211-213).
+    #
+    # When a thread's code raises (Lota::Thread::Thread), Lota's loop calls
+    # <tt>Lota.threaderror</tt> with the thread and its error, a String,
+    # as LÖVE calls love.threaderror. This one raises RuntimeError, with
+    # the message "Thread error (", the thread as LÖVE prints it, ")", an
+    # empty line, and the thread's error, so the game shows its error
+    # screen. Define <tt>Lota.threaderror</tt> yourself to handle a
+    # thread's error some other way.
+    #
+    # === Example
+    #
+    #   def Lota.threaderror(thread, error)
+    #     warn "A loader failed: #{error}"
+    #   end
+    def threaderror(t, err)
+      raise "Thread error (#{t})\n\n#{err}"
     end
 
     # Shows LÖVE's error screen for +msg+, an error your game raised, and

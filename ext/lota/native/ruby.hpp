@@ -12,7 +12,9 @@
 
 #include <ruby/thread.h>
 
+#include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace lota::native::ruby {
@@ -72,9 +74,22 @@ inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 
 inline Rice::Object nil() { return {Qnil}; }
 
-// The Ruby thread running this code, which holds a Data in perform_atomic,
-// compared by identity.
+// Marks +value+ for Ruby's collector, from a Marked's mark.
+inline void mark(VALUE value) { rb_gc_mark(value); }
+
+// The Ruby thread running this code, which holds a Data or a Channel in
+// perform_atomic, compared by identity.
 inline VALUE current_thread() { return rb_thread_current(); }
+
+// Whether Ractors share +value+, as Ractor.shareable? answers. Ruby 4.0's
+// inline rb_ractor_shareable_p (ruby/ractor.h:249-262) declares
+// rb_ractor_shareable_p_continue inside its own body, outside the header's
+// extern "C" block, so from C++ it names a mangled symbol that no Ruby
+// exports; Ruby's method links everywhere.
+inline bool shareable(const Rice::Object &value) {
+  const Rice::Object ractor(Rice::detail::protect(rb_path2class, "Ractor"));
+  return truthy(ractor.call("shareable?", value));
+}
 
 // Calls +function+ with +data+ with the GVL released, as Ruby's own sleep
 // waits, and then runs Ruby's pending interrupts, as an exception of
@@ -103,6 +118,101 @@ inline std::vector<Rice::Object> elements(const Rice::Array &array) {
 [[noreturn]] inline void raise_argument_error(const std::string &message) {
   throw Rice::Exception(rb_eArgError, "%s", message.c_str());
 }
+
+// Something the engine holds that holds Ruby values, which Ruby's garbage
+// collector must see however long the engine keeps it (Marks, below).
+class Marked {
+public:
+  Marked() = default;
+  Marked(const Marked &) = delete;
+  Marked(Marked &&) = delete;
+  Marked &operator=(const Marked &) = delete;
+  Marked &operator=(Marked &&) = delete;
+
+  // Marks the Ruby values it holds. It runs while Ruby collects, when no
+  // Ruby code runs, so it must neither allocate nor call Ruby.
+  virtual void mark() const = 0;
+
+protected:
+  ~Marked() = default;
+};
+
+// The Marked objects there are, which one hidden object, made by
+// Init_native and marked by Ruby on every collection, marks.
+//
+// A Marked object is made and destroyed in any Ractor, so a lock guards
+// the set. It guards a set only C++ allocates for, so whoever holds it
+// never waits on Ruby, and the collector, which stops every Ractor first,
+// takes it only once no Ractor's Ruby code does; a lock that Ruby could
+// wait on while it allocated would let a collection that started there
+// wait for the other Ractor, which would wait for the lock. A Marked
+// object marks only shareable values, as Ruby 4.1 asks of what a root
+// shared by every Ractor holds (Feature #22277).
+class Marks {
+public:
+  static Marks &instance() {
+    static Marks marks;
+    return marks;
+  }
+
+  Marks(const Marks &) = delete;
+  Marks(Marks &&) = delete;
+  Marks &operator=(const Marks &) = delete;
+  Marks &operator=(Marks &&) = delete;
+  ~Marks() = default;
+
+  // Makes the object Ruby marks them from, once, from Init_native, on the
+  // main Ractor. Ruby never frees it.
+  void install() {
+    if (installed_) {
+      return;
+    }
+    rb_gc_register_mark_object(rb_data_typed_object_wrap(0, this, &TYPE));
+    installed_ = true;
+  }
+
+  void add(const Marked *marked) {
+    const std::scoped_lock lock(mutex_);
+    marked_.insert(marked);
+  }
+
+  // It may run while Ruby collects another object whose release destroys
+  // +marked+, and allocates nothing.
+  void remove(const Marked *marked) noexcept {
+    const std::scoped_lock lock(mutex_);
+    marked_.erase(marked);
+  }
+
+private:
+  Marks() = default;
+
+  static void mark_all(void *data) {
+    const auto *marks = static_cast<Marks *>(data);
+    const std::scoped_lock lock(marks->mutex_);
+    for (const Marked *marked : marks->marked_) {
+      marked->mark();
+    }
+  }
+
+  static constexpr rb_data_type_t TYPE = {
+      .wrap_struct_name = "Lota::Native marks",
+      .function =
+          {
+              .dmark = &mark_all,
+              .dfree = nullptr,
+              .dsize = nullptr,
+              .dcompact = nullptr,
+              .reserved = {},
+          },
+      .parent = nullptr,
+      .data = nullptr,
+      .flags = 0,
+  };
+
+  mutable std::mutex mutex_;
+  std::unordered_set<const Marked *> marked_;
+  bool installed_ = false;
+};
 
 // A Ruby value that stays alive while this object does: a root of Ruby's
 // garbage collector, as a Lua reference keeps its value in the registry.
