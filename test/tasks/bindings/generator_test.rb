@@ -1024,6 +1024,13 @@ class GeneratorTest < Minitest::Test
     refute table.key?("Lota::Filesystem::File")
   end
 
+  # love.filesystem.write is rule 4's own example (translation.md), and
+  # returns true, or nil and a message, through w_write_or_append.
+  def test_the_rule_four_methods_include_the_filesystem_writes
+    assert_includes BindingsHelper.generator.rule_four_methods.fetch("Lota::Filesystem"), "write"
+    assert_includes BindingsHelper.generator.rule_four_methods.fetch("Lota::Filesystem"), "append"
+  end
+
   # The table is written as Ruby the cop loads, which reads back as the
   # table itself, and is checked for drift with the other generated files.
   def test_the_rule_four_methods_are_written_as_a_shareable_ruby_hash

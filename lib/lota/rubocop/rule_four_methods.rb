@@ -34,9 +34,11 @@ RuboCop::Cop::Lota::RULE_FOUR_METHODS = {
     "velocity",
   ],
   "Lota::Filesystem" => [
+    "append",
     "open_file",
     "open_native_file",
     "real_directory",
+    "write",
   ],
   "Lota::Graphics" => [
     "background_color",

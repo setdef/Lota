@@ -114,6 +114,20 @@ class AnalysisTest < Minitest::Test
     assert(analysis("love.event.wait").problems.any? { |problem| problem.start_with?("returns a computed number") })
   end
 
+  # w_write and w_append return w_write_or_append(L, mode), a helper of the
+  # same file that takes the mode besides the lua_State (wrap_Filesystem.cpp,
+  # w_write_or_append): true, or nil and a message through luax_ioError, so
+  # two values, as the helper's own body says.
+  def test_a_helper_called_with_extra_arguments_is_followed
+    %w[love.filesystem.write love.filesystem.append].each do |love_name|
+      analysis = analysis(love_name)
+
+      assert_predicate analysis, :readable?, love_name
+      assert_equal 2, analysis.result_count, love_name
+      assert_equal [1, 2, 3], analysis.reads.map(&:index).uniq, love_name
+    end
+  end
+
   def test_calling_back_into_lua_makes_a_function_unreadable
     assert(analysis("love.filesystem.load").problems.any? { |problem| problem.start_with?("calls back into Lua") })
   end
@@ -134,7 +148,7 @@ class AnalysisTest < Minitest::Test
   def test_most_functions_are_readable
     readable = survey.entries.count(&:readable?)
 
-    assert_equal 929, readable
-    assert_equal 158, survey.entries.count { |entry| entry.source == :cpp && !entry.readable? }
+    assert_equal 931, readable
+    assert_equal 156, survey.entries.count { |entry| entry.source == :cpp && !entry.readable? }
   end
 end

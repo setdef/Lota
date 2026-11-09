@@ -248,8 +248,8 @@ bound_by_hand "love.filesystem.load",
     "binds its mode check and its read, and Lota::Filesystem.load compiles the source as Ruby, or loads it as a " \
     "compiled instruction sequence when it is binary"
 bound_by_hand "love.filesystem.write",
-  reason: "returns w_write_or_append, a helper the parser does not follow, which reads a string or any Data " \
-    "(luax_istype); Lota binds the two forms as two functions"
+  reason: "returns w_write_or_append, which reads a string or any Data by its kind (luax_istype); Lota " \
+    "binds the two forms as two functions"
 bound_by_hand "love.filesystem.lines",
   reason: "returns an iterator, a C closure over the open File (w_File_lines_i), which the generator does " \
     "not port; Lota binds the iterator as a class whose next_line Lota::Filesystem.lines enumerates"

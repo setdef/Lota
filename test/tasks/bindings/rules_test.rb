@@ -85,6 +85,13 @@ class RulesTest < Minitest::Test
     assert_equal [1, 3, 14], rules("love.graphics.getWidth")
   end
 
+  # love.filesystem.write is rule 4's own example: true, or nil and a message
+  # (wrap_Filesystem.cpp, w_write_or_append, through luax_ioError).
+  def test_rule_4_covers_the_filesystem_writes_that_return_through_a_helper
+    assert_equal [1, 13, 14, 4], rules("love.filesystem.write")
+    assert_equal [1, 13, 14, 4], rules("love.filesystem.append")
+  end
+
   def test_rules_5_and_6_setters_become_writers
     assert_equal "Lota::Window.title=", ruby_name("love.window.setTitle")
     assert_includes rules("love.window.setTitle"), 5

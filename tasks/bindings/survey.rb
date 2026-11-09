@@ -88,7 +88,8 @@ module Bindings
     private def cpp_entry(function, rules)
       return Entry.new(function:, analysis: nil, translation: rules.translate(function, nil), source: :outside) unless function.definition
 
-      analysis = Analysis.new(function.definition, function.wrap.source, helpers: catalog.helpers)
+      analysis = Analysis.new(function.definition, function.wrap.source, helpers: catalog.helpers,
+        siblings: function.wrap.functions.to_h { |sibling| [sibling.name, sibling] })
       Entry.new(function:, analysis:, translation: rules.translate(function, analysis), source: :cpp)
     end
 
