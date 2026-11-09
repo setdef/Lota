@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module RuboCop
+  module Cop
+    module Lota
+      RULE_FOUR_METHODS: Hash[String, Array[String]]
+    end
+  end
+end

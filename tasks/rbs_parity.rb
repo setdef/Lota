@@ -56,12 +56,12 @@ class RbsParity
 
   private def undeclared_violations
     lib_modules.flat_map do |mod|
-      signatures = declared.fetch(mod.name, {})
+      signatures = declared.fetch(name_of(mod), {})
       public_methods_of(mod).filter_map do |kind, name|
         next if signatures.key?([kind, name])
         next if kind == :singleton && generated_class_method?(mod, name)
 
-        [key(mod.name, kind, name), "public in lib/ but has no signature"]
+        [key(name_of(mod), kind, name), "public in lib/ but has no signature"]
       end
     end
   end
@@ -116,7 +116,7 @@ class RbsParity
   end
 
   private def prepended?(mod, ancestors, owner)
-    !mod.is_a?(Class) && mod.name.nil? && !mod.singleton_class? &&
+    !mod.is_a?(Class) && name_of(mod).nil? && !mod.singleton_class? &&
       ancestors.index(mod).to_i < ancestors.index(owner).to_i
   end
 
@@ -160,8 +160,8 @@ class RbsParity
   # extension defined it (no source location) in one of our native
   # namespaces.
   private def ours?(mod)
-    file, = Object.const_source_location(mod.name)
-    return @native_namespaces.any? { |prefix| mod.name.start_with?(prefix) } if file.nil? || file.empty?
+    file, = Object.const_source_location(name_of(mod))
+    return @native_namespaces.any? { |prefix| name_of(mod).start_with?(prefix) } if file.nil? || file.empty?
 
     path = File.expand_path(file)
     @lib_dirs.any? { |dir| path.start_with?("#{dir}/") }
@@ -169,9 +169,16 @@ class RbsParity
     false
   end
 
+  # Module#name, called unbound, since a gem loaded beside lib/ may define a
+  # +name+ of its own on a module (RuboCop::AST::NodePattern::Sets.name takes
+  # an argument).
+  private def name_of(mod)
+    Module.instance_method(:name).bind_call(mod)
+  end
+
   private def lib_modules
     @lib_modules ||= ObjectSpace.each_object(Module).select do |mod|
-      mod.name && !mod.singleton_class? && ours?(mod)
+      name_of(mod) && !mod.singleton_class? && ours?(mod)
     end
   end
 

@@ -35,6 +35,7 @@ module Bindings
     HEADER = "#{CPP_DIR}/bindings.hpp".freeze
     SOURCES = "#{CPP_DIR}/sources.cmake".freeze
     NAMES = "lib/lota/error_message/names.rb"
+    RULE_FOUR = "lib/lota/rubocop/rule_four_methods.rb"
     THREAD_FILE = "src/modules/thread/LuaThread.cpp"
 
     # Raised when the lists name a function the generator cannot bind.
@@ -68,7 +69,7 @@ module Bindings
         modules = ports.group_by { |port| port.function.module_name }.sort.to_h
         cpp = modules.to_h { |name, list| ["#{CPP_DIR}/#{name}.cpp", format(module_file(name, list))] }
         cpp.merge(HEADER => format(header(modules.keys)), SOURCES => sources(modules.keys), RBS => rbs(modules),
-          NAMES => names)
+          NAMES => names, RULE_FOUR => rule_four)
       end
     end
 
@@ -544,6 +545,58 @@ module Bindings
     def name_table
       survey.entries.group_by { |entry| entry.function.love_name }.transform_values(&:first)
         .select { |_, entry| entry.translation.name }.sort.to_h { |love_name, entry| [love_name, entry.translation.ruby_name] }
+    end
+
+    # The module functions rule 4 gives an Array of results, by the module
+    # that holds them (Lota::Filesystem => ["write"]), each sorted, for the
+    # RuboCop cop that flags one used as a condition (lib/lota/rubocop).
+    # Instance methods are left out, since a cop cannot know a receiver's
+    # type, and so are constructors (Lota::Filesystem::File.new), which
+    # no call on the module names.
+    def rule_four_methods
+      survey.entries.group_by { |entry| entry.function.love_name }.transform_values(&:first)
+        .select { |_, entry| rule_four_function?(entry.translation) }
+        .values.group_by { |entry| entry.translation.scope }
+        .transform_values { |entries| entries.map { |entry| entry.translation.name }.uniq.sort }.sort.to_h
+    end
+
+    private def rule_four_function?(translation)
+      translation.name && !translation.name.end_with?(".new") && translation.singleton && translation.rules.include?(4)
+    end
+
+    # The rule 4 table as a Ruby Hash literal, in the form #names takes.
+    private def rule_four
+      rows = rule_four_methods.map do |scope, methods|
+        "  #{scope.dump} => [\n#{methods.map { |name| "    #{name.dump}," }.join("\n")}\n  ],"
+      end
+      spdx, notice = banner("#").lines.partition { |line| line.include?("SPDX-") }
+      <<~RUBY
+        # frozen_string_literal: true
+
+        #--
+        #{spdx.join}#++
+
+        # shareable_constant_value: literal
+
+        #{notice.join.delete_suffix("#\n")}
+        module RuboCop
+          # RuboCop's cops, and Lota's among them.
+          module Cop
+            # Lota's cops (lib/lota/rubocop).
+            module Lota
+            end
+          end
+        end
+
+        # Every module function whose Lua original returns several values,
+        # which rule 4 of doc/contributors/design/translation.md makes
+        # return an Array, by the module that holds it, from
+        # tasks/bindings/rules.rb. RuboCop::Cop::Lota::RuleFourCondition
+        # flags a call of one used as a condition.
+        RuboCop::Cop::Lota::RULE_FOUR_METHODS = {
+        #{rows.join("\n")}
+        }
+      RUBY
     end
 
     # The name table as a Ruby Hash literal, which the magic comment makes

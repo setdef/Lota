@@ -1009,6 +1009,36 @@ class GeneratorTest < Minitest::Test
     refute BindingsHelper.generator.files.key?("ext/lota/native/generated/names.hpp")
   end
 
+  # The RuboCop cop for rule 4 (lib/lota/rubocop) lists the module functions
+  # that return an Array: those the rules give rule 4, never a predicate
+  # (rule 8) or an instance method, grouped by module.
+  def test_the_rule_four_methods_are_the_module_functions_that_return_several_values
+    table = BindingsHelper.generator.rule_four_methods
+
+    assert_equal %w[global_position position], table.fetch("Lota::Mouse")
+    assert_includes table.fetch("Lota::Window"), "mode"
+    refute_includes table.fetch("Lota::Mouse"), "x"
+    refute(table.values.flatten.any? { |name| name.end_with?("?", ".new") })
+    assert_equal table.keys.sort, table.keys
+    assert(table.values.all? { |names| names.sort == names && names.uniq == names })
+    refute table.key?("Lota::Filesystem::File")
+  end
+
+  # The table is written as Ruby the cop loads, which reads back as the
+  # table itself, and is checked for drift with the other generated files.
+  def test_the_rule_four_methods_are_written_as_a_shareable_ruby_hash
+    source = BindingsHelper.generator.files.fetch("lib/lota/rubocop/rule_four_methods.rb")
+    table = in_tree do |root|
+      write(root, "methods.rb", source)
+      load(File.join(root, "methods.rb"), wrap = Module.new)
+      wrap::RuboCop::Cop::Lota::RULE_FOUR_METHODS
+    end
+
+    assert_match(/\A# frozen_string_literal: true\n\n#--\n# SPDX-.*#\+\+\n\n# shareable_constant_value: literal\n\n# GENERATED /m, source)
+    assert_equal BindingsHelper.generator.rule_four_methods, table
+    assert Ractor.shareable?(table)
+  end
+
   def test_the_committed_bindings_match_the_generator
     assert_empty BindingsHelper.generator.problems
   end

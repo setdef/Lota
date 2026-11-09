@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module AST
+  class Node
+    def type: () -> Symbol
+
+    def children: () -> Array[Node]
+  end
+end
+
+module Parser
+  module AST
+    class Node < ::AST::Node
+    end
+  end
+end
+
+module RuboCop
+  class Config
+  end
+
+  class ConfigLoader
+    def self.inject_defaults!: (String path) -> Config
+  end
+
+  module AST
+    class Node < ::Parser::AST::Node
+      def parent: () -> Node?
+
+      def begin_type?: () -> bool
+
+      def const_type?: () -> bool
+
+      def send_type?: () -> bool
+
+      def const_name: () -> String
+
+      def receiver: () -> Node?
+    end
+  end
+
+  module Cop
+    class Base
+      def add_offense: (AST::Node node, message: String) -> void
+    end
+  end
+end

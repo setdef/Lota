@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module RuboCop
+  module Cop
+    module Lota
+      class RuleFourCondition < Base
+        MSG: String
+
+        LOOPS: Array[Symbol]
+
+        ACCESSORS: Hash[String, String]
+
+        def on_send: (AST::Node node) -> void
+
+        private def scope_of: (AST::Node? receiver) -> String?
+
+        private def lota?: (AST::Node? node) -> bool
+
+        private def condition?: (AST::Node node) -> bool
+      end
+    end
+  end
+end

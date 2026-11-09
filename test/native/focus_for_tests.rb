@@ -224,8 +224,12 @@ module FocusForTests
 end
 
 unless FocusForTests::CLASSES.all? { |name| Object.const_defined?(name) }
+  # Module#name is called unbound, since a module that ends here may define
+  # a +name+ of its own (RuboCop::AST::NodePattern::Sets.name takes an
+  # argument).
   prepend_once = TracePoint.new(:end) do |point|
-    if FocusForTests::CLASSES.include?(point.self.name) && !point.self.ancestors.include?(FocusForTests)
+    name = Module.instance_method(:name).bind_call(point.self)
+    if FocusForTests::CLASSES.include?(name) && !point.self.ancestors.include?(FocusForTests)
       point.self.prepend(FocusForTests)
       prepend_once.disable if FocusForTests::CLASSES.all? { |name| Object.const_defined?(name) }
     end

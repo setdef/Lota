@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+Lota/RuleFourCondition:
+  Description: >-
+    A module function that returns several values returns an Array in
+    Ruby, which is always true, so it cannot be a condition.
+  Enabled: true
+  VersionAdded: "0.1"

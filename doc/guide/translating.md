@@ -93,6 +93,14 @@ contents, message = Lota::Filesystem.read("missing.dat")   # contents is nil
 saved = Lota::Filesystem.write("save.dat", data).first      # if love.filesystem.write(...) then
 ```
 
+Ruby will not warn you that `if Lota::Mouse.position` is always true, so Lota ships a RuboCop cop that does. Add it to your game's `.rubocop.yml`:
+
+```yaml
+require: lota/rubocop
+```
+
+`Lota/RuleFourCondition` is then on by default. It flags a module function that returns several values when it is used directly as a condition: the test of `if`, `unless`, `while`, `until`, or a ternary, an operand of `&&` or `||` that decides one, or the operand of `!`. It knows the module functions called on a Lota module, `Lota::Mouse.position`, or through `lota`, `lota.mouse.position`. RuboCop reads source without running it and cannot know what type a variable holds, so the cop never flags an instance method, such as `source.position`, or a module function called through a variable. Lota's `rake bindings:generate` writes the list of functions from the translation rules, so the cop follows them.
+
 ### Records are frozen Data
 
 A table LÖVE returns as a record is a frozen `Data` object with LÖVE's field names: `Lota::Filesystem.info("save.dat")&.size` is the file's size, or `nil` when there is no such file. A record also answers `[]` with a field's name, as a Lua table answers brackets, so `Lota::Graphics.texture_types["2d"]` reads the one field no Ruby method can be named.

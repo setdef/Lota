@@ -123,11 +123,14 @@ class PackageCheck
     .to_h { |name| [name, nil] }.freeze
 
   # Loads every Ruby file the package ships, so a require between packaged
-  # files that names a file the package lacks fails here.
+  # files that names a file the package lacks fails here. The files of
+  # lota/rubocop are left out, since they need RuboCop, which a game adds
+  # to its own Gemfile as it adds Fiddle, and which the package does not
+  # depend on.
   REQUIRE_ALL = <<~RUBY
     spec_dir = ARGV.fetch(0)
     Dir.glob("lib/**/*.rb", base: spec_dir).sort.each do |file|
-      next if file.end_with?("/version.rb")
+      next if file.end_with?("/version.rb") || file.start_with?("lib/lota/rubocop")
 
       require File.join(spec_dir, file)
     end
