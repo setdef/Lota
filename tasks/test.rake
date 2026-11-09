@@ -67,7 +67,6 @@ PREPUSH_LEAVES_OUT = %w[
   RestartRunTest
   PhysicsBindingsTest#test_bodies_never_returns_a_wrapper_the_collector_found_dead
   JoystickEventsTest#test_joysticks_never_returns_a_wrapper_the_collector_found_dead
-  NativeGemTest#test_the_bundle_loads_its_libraries_from_inside_the_gem
   NativeGemTest#test_a_warning_stops_the_build
   NativeGemTest#test_a_source_archive_that_is_missing_or_not_the_one_recorded_stops_the_build
   NativeGemTest#test_a_bundled_library_the_record_lacks_stops_the_build
@@ -82,6 +81,11 @@ PREPUSH_LEAVES_OUT = %w[
   ReferenceCacheTest#test_a_cached_run_of_the_reference_love_is_what_running_it_again_gives
   DirectoryTest
   RunTest#test_a_slow_run_that_keeps_showing_frames_runs_to_its_end
+] + [
+  # NativeGemTest checks how the bundle finds what the gem carries as each
+  # platform links it, libraries on Linux and frameworks on macOS, and
+  # defines only the check for the platform it runs on.
+  "NativeGemTest#test_the_bundle_loads_its_#{RUBY_PLATFORM.include?('linux') ? 'libraries' : 'frameworks'}_from_inside_the_gem",
 ].freeze
 PREPUSH_KEEPS = %w[
   LotaRunTest#test_callbacks_run_in_loves_order_and_the_game_exits_with_its_status
