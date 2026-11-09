@@ -34,6 +34,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A finger the system cancels, as iOS does when a gesture takes it, now calls `touchreleased` in order with the other events and leaves `Lota::Touch.touches`; in LÖVE it never ends.
 - On Windows, an engine object Lota hands back again, such as the Shader in use or a Shape a contact names, is the same Ruby object each time, as on macOS and Linux, where it was a new one each time.
 - On Vulkan, `Lota::Graphics.present` no longer raises `IndexError` ("vector") when a rebuilt swap chain has more images than the first, as on Android with vsync off; LÖVE's `vulkan/Graphics.cpp` is now compiled with Lota's patch `ext/lota/engine/vulkan_semaphores.patch` on Linux, Windows, and Android.
 - On Vulkan, a present that fails before its frame reaches the GPU leaves the error screen able to draw, where it crashed; LÖVE's `vulkan/Graphics.cpp` is also compiled with Lota's patch `ext/lota/engine/vulkan_submit.patch`.

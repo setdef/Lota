@@ -14,6 +14,10 @@
 #include "event/sdl/Event.h"
 #include "joystick/Joystick.h"
 
+#include <SDL3/SDL_begin_code.h>
+#include <SDL3/SDL_close_code.h>
+#include <SDL3/SDL_events.h>
+
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -115,11 +119,28 @@ void watch_android_pause() {
 }
 #endif
 
+// LÖVE means a cancelled finger, which SDL sends when the system takes a
+// touch for a gesture of its own, to end the touch: Event::convert names
+// touchreleased for it and Touch::onEvent removes it
+// (vendor/love/src/modules/event/sdl/Event.cpp:437 and
+// vendor/love/src/modules/touch/sdl/Touch.cpp:88-90). Its switch never
+// reaches that case (doc/contributors/upstream/006.md), so this filter,
+// which SDL runs on each event as it is queued, makes the event a lifted
+// finger, in its place in the queue, which Event::convert does handle the
+// same way.
+bool SDLCALL cancelled_finger_is_lifted(void * /*userdata*/, SDL_Event *event) {
+  if (event->type == SDL_EVENT_FINGER_CANCELED) {
+    event->type = SDL_EVENT_FINGER_UP;
+  }
+  return true;
+}
+
 // luaopen_love_event (vendor/love/src/modules/event/wrap_Event.cpp:
 // 263-287) creates SDL's event module once; it then lives as long as the
 // process, as LÖVE's lives until the game quits.
 void open() {
   open_module<Event, love::event::sdl::Event>(love::Module::M_EVENT);
+  SDL_SetEventFilter(cancelled_finger_is_lifted, nullptr);
 #ifdef __ANDROID__
   watch_android_pause();
 #endif

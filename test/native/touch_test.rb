@@ -138,17 +138,22 @@ class TouchEventsTest < Minitest::Test
 
   # LÖVE's Event::convert has no case for SDL_EVENT_FINGER_CANCELED, the
   # event iOS sends when the system takes a touch for a gesture of its own
-  # (Event.cpp:394-441), so a cancelled finger calls no callback and stays
-  # in love.touch's list until a finger with its id lifts. Lota matches
-  # LÖVE (doc/contributors/upstream/006.md).
-  def test_a_cancelled_finger_stays_down_as_in_love
-    received = calls(:touchreleased) do
+  # (Event.cpp:394-441), though it names touchreleased for it and
+  # Touch::onEvent removes the touch (Touch.cpp:88-90). Lota ends the
+  # touch, as LÖVE means to, in order with the other events
+  # (doc/contributors/upstream/006.md).
+  def test_a_cancelled_finger_is_released_as_love_means
+    width, height = Lota::Graphics.dimensions
+    received = calls(:touchpressed, :touchreleased) do
       LotaNativeTest.push_finger(DOWN, 7, [0.25, 0.5, 0, 0, 1])
-      LotaNativeTest.push_finger(CANCELED, 7, [0.25, 0.5, 0, 0, 1])
+      LotaNativeTest.push_finger(CANCELED, 7, [0.25, 0.5, 0, 0, 0])
     end
 
-    assert_empty received
-    assert_equal [7], Lota::Touch.touches
+    assert_equal [
+      [:touchpressed, 7, width * 0.25, height * 0.5, 0.0, 0.0, 1.0, :touchscreen, false],
+      [:touchreleased, 7, width * 0.25, height * 0.5, 0.0, 0.0, 0.0, :touchscreen, false],
+    ], received
+    assert_empty Lota::Touch.touches
   end
 
   # The mouse events SDL makes of a finger come from SDL_TOUCH_MOUSEID,
