@@ -30,6 +30,12 @@ void stay_in_background();
 // and keeps this one in the background from then on.
 void give_up_focus();
 
+#ifdef _WIN32
+// Whether the program's first window is the foreground one and holds the
+// keyboard focus, as Windows says.
+bool has_focus();
+#endif
+
 // Has SDL ask the system again whether the program's first window can be
 // seen, which SDL otherwise learns only when the system says it changed.
 void reread_occlusion();

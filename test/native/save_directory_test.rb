@@ -31,7 +31,8 @@ class SaveDirectoryTest < Minitest::Test
   # is not fused (physfs/Filesystem.cpp:608-616), with Lota's folder in
   # place of LÖVE's (ADR 003, section 8).
   def save_directory
-    File.join(TestHome.application_data(ENV.fetch("LOTA_TEST_HOME")), TestHome::LOTA_FOLDER, IDENTITY)
+    TestHome.system_path(File.join(TestHome.application_data(ENV.fetch("LOTA_TEST_HOME")), TestHome::LOTA_FOLDER,
+      IDENTITY))
   end
 
   # Writes +contents+ to +name+ in the save directory, as an earlier run
@@ -57,7 +58,7 @@ class SaveDirectoryTest < Minitest::Test
     Lota::Filesystem.identity = "#{IDENTITY}-appended", true
 
     assert_equal "#{IDENTITY}-appended", Lota::Filesystem.identity
-    assert Lota::Filesystem.save_directory.end_with?("/#{TestHome::LOTA_FOLDER}/#{IDENTITY}-appended")
+    assert Lota::Filesystem.save_directory.end_with?(TestHome.system_path("/#{TestHome::LOTA_FOLDER}/#{IDENTITY}-appended"))
   end
 
   # w_setIdentity raises when Filesystem::setIdentity refuses an empty name
@@ -127,6 +128,7 @@ class SaveDirectoryTest < Minitest::Test
   # (wrap_Filesystem.cpp:727-744), and the file closes once its last line
   # is read, after which the iterator raises (wrap_File.cpp:252-254).
   def test_lines_open_the_file_at_once_and_read_it_once
+    skip("Windows deletes no file a process holds open") if TestHome::WINDOWS
     saved("settings.txt", "a\nb")
     lines = Lota::Filesystem.lines("settings.txt")
     File.delete(File.join(save_directory, "settings.txt"))

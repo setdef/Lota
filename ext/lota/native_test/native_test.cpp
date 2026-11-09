@@ -747,6 +747,25 @@ void press_key(int scancode, bool down) {
   push(event);
 }
 
+#ifdef _WIN32
+// Makes the program's first window the foreground one, holding keyboard
+// focus (lota::native_test::activate, dialogs_windows.cpp), and says
+// whether it does. This bundle's SDL is not Lota's on Windows, so it
+// pumps nothing: Windows sends WM_SETFOCUS to the window's own procedure,
+// Lota's SDL's, on this thread, as it gives the window focus, so Lota's
+// SDL has heard by the time this returns.
+bool focus_window() {
+  lota::native_test::activate();
+  return lota::native_test::has_focus();
+}
+
+// Undoes focus_window, and says whether the window lost focus, which
+// Lota's SDL hears of as it hears of the focus (WM_KILLFOCUS).
+bool unfocus_window() {
+  lota::native_test::give_up_focus();
+  return !lota::native_test::has_focus();
+}
+#else
 // Makes this program active, with its first window holding keyboard
 // focus (lota::native_test::activate, dialogs.mm), and pumps SDL's events,
 // leaving them queued, until SDL hears that the window has focus, for up
@@ -815,6 +834,7 @@ bool unfocus_window() {
   }
   return lost;
 }
+#endif
 
 // The system redrawing the window during a live resize: SDL's window
 // exposed event with its first datum 1, which LÖVE's event watch

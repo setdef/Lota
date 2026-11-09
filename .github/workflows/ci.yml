@@ -649,6 +649,7 @@ jobs:
             platform: x64-mingw-ucrt
             msystem: UCRT64
             compiler: gcc:p
+            mesa: ""
             cc: gcc
             cxx: g++
             ccache: D:/ccache
@@ -658,6 +659,7 @@ jobs:
             platform: aarch64-mingw-ucrt
             msystem: CLANGARM64
             compiler: clang:p lld:p llvm-tools:p
+            mesa: mesa:p
             cc: clang
             cxx: clang++
             ccache: C:/ccache
@@ -701,7 +703,7 @@ jobs:
           path-type: inherit
           update: true
           install: patch make
-          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p mesa:p
+          pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p ${{ matrix.mesa }}
 
       # The REUSE tool, at the version mise.toml pins, which checks the
       # gem's licensing as it is built (tasks/native_gem.rb), into the
@@ -875,16 +877,30 @@ jobs:
 
       # The tests draw, and a runner has no GPU, and Windows' own OpenGL is
       # 1.1, which LÖVE's renderer refuses. LÖVE's own Windows CI runs
-      # Lövetest on Mesa's software OpenGL, llvmpipe, installed system-wide
-      # from mesa-dist-win, on x64 alone, since that build has no ARM64
-      # (vendor/love/.github/workflows/main.yml, the Windows job's "Install
-      # Mesa"). MSYS2 builds the same Mesa for both of Lota's Windows
-      # environments, so it comes from there, beside Ruby's program, where
-      # Windows finds it before System32's for the opengl32.dll SDL loads
-      # by name (windows_checks.rb mesa), after the gem is built, so
+      # Lövetest on Mesa's software OpenGL, llvmpipe, from mesa-dist-win's
+      # release 24.2.4 (vendor/love/.github/workflows/main.yml, the Windows
+      # job's "Install Mesa"), on x64 alone, since mesa-dist-win builds for
+      # no ARM64. So x64 takes that release, checked by its SHA-256, and
+      # ARM64 MSYS2's CLANGARM64 build of Mesa. Either goes beside Ruby's
+      # program, where Windows finds it before System32's for the
+      # opengl32.dll SDL loads by name (windows_checks.rb mesa), rather than
+      # into System32, as LÖVE's does, and only after the gem is built, so
       # nothing of it reaches the gem.
       - name: Put Mesa's OpenGL beside Ruby
-        run: ruby .github/windows_checks.rb mesa "$(cygpath -m "$MINGW_PREFIX/bin")"
+        env:
+          MESA_DIST_WIN: https://github.com/pal1000/mesa-dist-win/releases/download/24.2.4/mesa3d-24.2.4-release-msvc.7z
+          MESA_SHA256: ""
+        run: |
+          if [ "$MSYSTEM" = CLANGARM64 ]; then
+            ruby .github/windows_checks.rb mesa "$(cygpath -m "$MINGW_PREFIX/bin")"
+          else
+            curl --fail --location --silent --show-error --retry 5 -o "$RUNNER_TEMP/mesa.7z" "$MESA_DIST_WIN"
+            sha256sum "$RUNNER_TEMP/mesa.7z"
+            [ -z "$MESA_SHA256" ] || echo "$MESA_SHA256  $RUNNER_TEMP/mesa.7z" | sha256sum --check -
+            7z x -y -o"$(cygpath -w "$RUNNER_TEMP/mesa")" "$(cygpath -w "$RUNNER_TEMP/mesa.7z")" > /dev/null
+            ls "$RUNNER_TEMP/mesa/x64"
+            ruby .github/windows_checks.rb mesa "$(cygpath -m "$RUNNER_TEMP/mesa/x64")"
+          fi
 
       # What the tests need beside Ruby's own gems: Minitest, and the
       # desktop input lock, from its tag, as the Gemfile takes it.
@@ -895,12 +911,16 @@ jobs:
           (cd "$RUNNER_TEMP/desktop_input_lock" && gem build --quiet ./*.gemspec && gem install --local --no-document ./*.gem)
 
       # Lota's tests, each file in a Ruby of its own, as rake test runs
-      # them, with a PATH of only Ruby, Windows, Windows PowerShell, which
-      # the desktop input lock speaks through, and Git for Windows'
-      # commands, which hold no DLL, since the gemspec the version test
-      # loads lists its files with git. GALLIUM_DRIVER chooses llvmpipe, as
-      # Fledge's Windows trial drew with it. A dry run may go on past a
-      # failing test, but never on a tag (the ignore_gate_failures input).
+      # them, with a PATH of Ruby, Windows, Windows PowerShell, which the
+      # desktop input lock speaks through, Git for Windows' commands, since
+      # the gemspec the version test loads lists its files with git, and,
+      # last, MSYS2's, for the compiler and the tools some tests run.
+      # RubyInstaller has Windows look for a DLL in Ruby's directories, those
+      # it adds, and System32 alone (SetDefaultDllDirectories), never on
+      # PATH, so no DLL there can answer for one of Lota's. GALLIUM_DRIVER
+      # chooses llvmpipe, as Fledge's Windows trial drew with it. A dry run
+      # may go on past a failing test, but never on a tag (the
+      # ignore_gate_failures input).
       - name: Run the tests
         timeout-minutes: 100
         continue-on-error: true # PROBE ONLY: revert before landing
@@ -908,7 +928,7 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
         run: |
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd"
-          PATH="$clean" ruby .github/windows_checks.rb tests tmp/windows-tests
+          PATH="$clean:$MINGW_PREFIX/bin" ruby .github/windows_checks.rb tests tmp/windows-tests
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

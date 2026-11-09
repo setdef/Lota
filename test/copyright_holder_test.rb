@@ -7,6 +7,7 @@
 
 require_relative "test_helper"
 require "open3"
+require "lota/notices"
 
 # Lota is setdef's. A file that names anyone else as the holder of Lota's
 # copyright is a mistake, so this reads every tracked file outside vendor/

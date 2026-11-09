@@ -73,7 +73,6 @@ void CALLBACK press_return(HWND dialog, UINT /*message*/, UINT_PTR timer, DWORD 
 // message loop runs, which dispatches the timer's message.
 LRESULT CALLBACK watch_for_dialogs(int code, WPARAM wparam, LPARAM lparam) {
   if (code == HCBT_ACTIVATE) {
-    // NOLINTNEXTLINE(performance-no-int-to-ptr): HCBT_ACTIVATE's wparam is the window.
     HWND window = reinterpret_cast<HWND>(wparam);
     if (of_class(window, L"#32770")) {
       SetTimer(window, return_timer, 100, press_return);
@@ -90,7 +89,6 @@ std::vector<HWND> sdl_windows() {
         DWORD process = 0;
         GetWindowThreadProcessId(window, &process);
         if (process == GetCurrentProcessId() && of_class(window, L"SDL_app")) {
-          // NOLINTNEXTLINE(performance-no-int-to-ptr): EnumWindows passes the vector through.
           reinterpret_cast<std::vector<HWND> *>(found)->push_back(window);
         }
         return TRUE;
@@ -128,6 +126,11 @@ void activate() {
   SetForegroundWindow(window);
   SetActiveWindow(window);
   SetFocus(window);
+}
+
+bool has_focus() {
+  HWND const window = first_window();
+  return window != nullptr && GetForegroundWindow() == window && GetFocus() == window;
 }
 
 // Nothing to do: Windows has no program to activate, only windows, which

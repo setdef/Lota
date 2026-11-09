@@ -61,6 +61,14 @@ module TestHome
     File.join(File.realpath(home), LINUX ? ".local/share" : "Library/Application Support")
   end
 
+  # +path+ as LÖVE gives a save directory: on Windows with Windows'
+  # separators, since it makes it canonical with std::filesystem's
+  # weakly_canonical (src/modules/filesystem/Filesystem.cpp:194-204, which
+  # physfs/Filesystem.cpp:615 calls), whose string is the system's.
+  def self.system_path(path)
+    WINDOWS ? path.tr("/", "\\") : path
+  end
+
   # The folders macOS makes in every home, which LÖVE's user common paths
   # name (COMMONPATH_USER_DESKTOP and COMMONPATH_USER_DOCUMENTS, through
   # src/common/apple.mm) and Lövetest's mountCommonPath test mounts, as it

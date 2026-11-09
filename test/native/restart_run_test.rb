@@ -77,8 +77,8 @@ class RestartRunTest < Minitest::Test
     assert_equal %w[load at_exit load at_exit], kinds, "the first run ended before the second began"
     first, first_exit, second, second_exit = log.map(&:last)
 
-    assert_equal first["pid"], second["pid"], "exec keeps the process"
-    assert_equal [first["pid"]] * 2, [first_exit["pid"], second_exit["pid"]]
+    assert_exec_replaced_the_process([first["pid"], second["pid"]])
+    assert_equal [first["pid"], second["pid"]], [first_exit["pid"], second_exit["pid"]]
     assert_equal "nil", first["restart"]
     assert_equal "\"café\\nline\"", second["restart"]
     assert_equal %w[false false], [first["variable"], second["variable"]], "the value is read once and removed"
@@ -171,6 +171,7 @@ class RestartRunTest < Minitest::Test
   # installs as lota, with the .bat beside it that Windows runs, whose
   # first line Bundler reads to know it runs Ruby.
   def test_a_restart_under_bundle_exec_runs_the_game_again_and_not_bundle
+    skip("on Windows the tests run without the bundle, whose gems RubyInstaller's Ruby would compile") if TestHome::WINDOWS
     wrapper = File.join(@directory, "lota")
     File.write(wrapper, "#!/usr/bin/env ruby\nload #{File.join(ROOT, 'exe/lota').inspect}\n")
     File.chmod(0o755, wrapper)

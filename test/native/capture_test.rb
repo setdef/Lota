@@ -30,9 +30,11 @@ class CaptureTest < Minitest::Test
     assert_equal 3, status.exitstatus
   end
 
+  # LOTA_TEST_HOME is this process's own (test_helper.rb), where HOME
+  # would not do: Ruby on Windows sets HOME as it starts when it is unset.
   def test_the_command_runs_with_this_environment_changed
-    _, status = ruby('exit(ENV["LOTA_CAPTURE"] == "set" && !ENV.key?("HOME") && ENV.key?("PATH") ? 0 : 1)',
-      { "LOTA_CAPTURE" => "set", "HOME" => nil })
+    _, status = ruby('exit(ENV["LOTA_CAPTURE"] == "set" && !ENV.key?("LOTA_TEST_HOME") && ENV.key?("PATH") ? 0 : 1)',
+      { "LOTA_CAPTURE" => "set", "LOTA_TEST_HOME" => nil })
 
     assert_predicate status, :success?
   end

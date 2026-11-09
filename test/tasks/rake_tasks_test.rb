@@ -225,7 +225,9 @@ class RakeTasksTest < Minitest::Test
 
   # The native suite starts every process with posix_spawn, through
   # NativeHelper#capture2e: under rake test:native, a forked child can die
-  # before it runs the command (LotaNativeTest.spawn).
+  # before it runs the command (LotaNativeTest.spawn). On Windows, where
+  # Ruby never forks, Process.spawn starts it, in windows_support.rb,
+  # which only Windows loads.
   def test_no_native_suite_file_forks
     forks = %r{\bOpen3\b|\bIO\.popen\b|\bProcess\.spawn\b|(?<![./\w])(?:spawn|system|fork)\b|`|%x}
     Dir.chdir(ROOT) do
