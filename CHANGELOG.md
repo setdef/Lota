@@ -24,6 +24,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics::Texture#view_formats`, and `Lota::Graphics::SpriteBatch#add_layer` and `layer=`, translating `SpriteBatch:addLayer` and `setLayer`.
 - `Lota::Graphics::CubeTexture.new`, `ArrayTexture.new`, and `VolumeTexture.new`, translating LÖVE 12's `newCubeTexture`, `newArrayTexture`, and `newVolumeTexture`, each returning a `Texture` and matching with `===` a texture of its type; `CubeImage.new` and its kin call them.
 - `Lota::Graphics::TextureView.new`, translating `love.graphics.newTextureView` with its settings as keywords and returning a `Texture`; `TextureView === x` is true of every `Texture`.
+- `love.video`: `Lota::Video`, which boot opens unless `t.modules.video` is false, and `lota.video`; `Lota::Video::VideoStream` (`new`, `sync=`, `filename`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`).
+- `Lota::Graphics::Video` (`new` with `audio:` and `dpiscale:`, `stream`, `source`, `source=`, `width`, `height`, `dimensions`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `filter`, `filter=`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`), which `Lota::Graphics.draw` draws.
+- The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
 
 ### Deprecated
 

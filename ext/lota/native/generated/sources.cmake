@@ -23,5 +23,6 @@ set(LOTA_GENERATED_SOURCES
 	generated/system.cpp
 	generated/timer.cpp
 	generated/touch.cpp
+	generated/video.cpp
 	generated/window.cpp
 )

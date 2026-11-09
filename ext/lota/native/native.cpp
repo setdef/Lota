@@ -28,6 +28,7 @@
 #include "native/texture.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
+#include "native/video.hpp"
 #include "native/window.hpp"
 
 #include "common/version.h"
@@ -82,6 +83,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_shader(native);
   lota::native::define_buffer(native);
   lota::native::define_particle_system(native);
+  lota::native::define_video(native);
   lota::native::define_physics(native);
   // After the hand-written bindings, which define the classes the
   // generated ones add methods to.

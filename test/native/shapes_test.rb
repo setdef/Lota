@@ -271,7 +271,8 @@ class ShapesTest < Minitest::Test
     error = assert_raises(TypeError) { Lota::Graphics.draw(:canvas) }
 
     assert_equal "wrong argument type Symbol (expected Lota::Graphics::Texture, Lota::Graphics::SpriteBatch, " \
-      "Lota::Graphics::TextBatch, Lota::Graphics::Mesh, or Lota::Graphics::ParticleSystem)", error.message
+      "Lota::Graphics::TextBatch, Lota::Graphics::Mesh, Lota::Graphics::ParticleSystem, or " \
+      "Lota::Graphics::Video)", error.message
   end
 
   # A canvas made with several antialiasing samples blends the edges of

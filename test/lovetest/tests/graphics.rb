@@ -14,7 +14,7 @@ require_relative "../lovetest_helper"
 # under lota run, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
-  TYPES = %w[Buffer Canvas Font Image Mesh ParticleSystem Quad Shader ShaderStorageBuffer SpriteBatch Text].freeze
+  TYPES = %w[Buffer Canvas Font Image Mesh ParticleSystem Quad Shader ShaderStorageBuffer SpriteBatch Text Video].freeze
 
   # Lövetest runs its modules in a fixed order, graphics before window
   # (vendor/love/testing/main.lua:81-85), so its graphics tests draw in
@@ -3173,6 +3173,79 @@ class GraphicsTest < Lovetest::TestMethod
   def test_new_particle_system
     imgdata = Lota::Graphics::Image.new("resources/love.png")
     assert_object(Lota::Graphics::ParticleSystem.new(imgdata, 1000))
+  end
+
+  # Translated to Ruby from love.test.graphics.Video
+  # (vendor/love/testing/tests/graphics.lua:1261-1318): newVideo becomes
+  # Video.new (rule 2); getDimensions, getWidth, getHeight, getFilter,
+  # getSource, and getStream drop get (rule 3), and getDimensions' and
+  # getFilter's values come back as Arrays (rule 4), with the filters as
+  # Symbols (rule 9); setFilter becomes the writer filter= of an Array
+  # (rule 6), and isPlaying playing? (rule 8). waitSeconds is
+  # wait_seconds, and assertRange assert_includes of a Range, as
+  # test_source in tests/audio.rb has it; the rest as test_circle names.
+  def test_video
+    # create video obj
+    video = Lota::Graphics::Video.new("resources/sample.ogv")
+    assert_object(video)
+
+    # check dimensions
+    w, h = video.dimensions
+    assert_equal(496, w, "check vid dim w")
+    assert_equal(502, h, "check vid dim h")
+    assert_equal(w, video.width, "check vid width match")
+    assert_equal(h, video.height, "check vid height match")
+
+    # check filters
+    min1, mag1, ani1 = video.filter
+    assert_equal(:nearest, min1, "check def filter min")
+    assert_equal(:nearest, mag1, "check def filter mag")
+    assert_equal(1, ani1, "check def filter ani")
+    video.filter = :linear, :linear, 2
+    min2, mag2, ani2 = video.filter
+    assert_equal(:linear, min2, "check changed filter min")
+    assert_equal(:linear, mag2, "check changed filter mag")
+    assert_equal(2, ani2, "check changed filter ani")
+
+    # check video playing
+    assert_false(video.playing?, "check paused by default")
+    assert_equal(0, video.tell, "check 0:00 by default")
+
+    # covered by their own obj tests in video but check returns obj
+    source = video.source
+    assert_object(source)
+    stream = video.stream
+    assert_object(stream)
+
+    # check playing / pausing / seeking states
+    video.play
+    wait_seconds(0.25)
+    video.pause
+    # runners can be a bit funny and just not play anything sometimes
+    assert_includes(0.2..0.35, video.tell, "check video playing for 0.25s") unless Lovetest::GITHUB_RUNNER
+    video.seek(0.2)
+    assert_equal(0.2, video.tell, "check video seeking")
+    video.rewind
+    assert_equal(0, video.tell, "check video rewind")
+    video.filter = :nearest, :nearest, 1
+
+    # check actuall drawing with the vid
+    canvas = Lota::Graphics::Canvas.new(500, 500)
+    Lota::Graphics.canvas = canvas
+    Lota::Graphics.clear(1, 0, 0, 1)
+    Lota::Graphics.draw(video, 0, 0)
+    Lota::Graphics.canvas = nil
+    imgdata = Lota::Graphics.readback_texture(canvas)
+    compare_img(imgdata)
+  end
+
+  # Translated to Ruby from love.test.graphics.newVideo
+  # (vendor/love/testing/tests/graphics.lua:1802-1808): newVideo becomes
+  # Video.new (rule 2), and its table of settings keywords (rule 10).
+  def test_new_video
+    assert_object(Lota::Graphics::Video.new("resources/sample.ogv",
+      audio: false,
+      dpiscale: 1))
   end
 
   # SPDX-SnippetEnd

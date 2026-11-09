@@ -34,6 +34,7 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	texture.cpp
 	timer.cpp
 	touch.cpp
+	video.cpp
 	window.cpp
 )
 if(LOTA_SANITIZE)

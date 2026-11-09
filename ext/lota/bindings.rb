@@ -816,6 +816,25 @@ bound_by_hand "love.graphics.setNewFont",
     "Lota::Graphics.set_new_font makes the font with Lota::Graphics::Font.new, sets it, returns it, and marks " \
     "itself deprecated"
 
+# love.graphics: video
+bound_by_hand "love.graphics._newVideo",
+  reason: "converts a filename or File to a VideoStream through love.video's newVideoStream (luax_convobj); " \
+    "Lota::Graphics::Video.new makes the VideoStream with Lota::Video::VideoStream.new, and binds the form " \
+    "with a VideoStream"
+generate "Video:getStream"
+generate "Video:getSource"
+bound_by_hand "Video:_setSource",
+  reason: "no rule names a function only LÖVE's own Lua calls; Lota::Graphics::Video#source= ports " \
+    "wrap_Video.lua's setSource, which calls it, and Lota binds it as set_source beneath that writer"
+generate "Video:getWidth"
+generate "Video:getHeight"
+generate "Video:getDimensions"
+generate "Video:getPixelWidth"
+generate "Video:getPixelHeight"
+generate "Video:getPixelDimensions"
+generate "Video:setFilter"
+generate "Video:getFilter"
+
 # love.image
 bound_from_lua "ImageData:getWidth"
 bound_from_lua "ImageData:getHeight"
@@ -1528,6 +1547,21 @@ generate "love.touch.getPosition"
 generate "love.touch.getPressure"
 generate "love.touch.getDeviceType"
 generate "love.touch.isMouse"
+
+# love.video
+bound_by_hand "love.video.newVideoStream",
+  reason: "reads a filename or a File through luax_getfile, a helper of wrap_Filesystem.cpp the parser does " \
+    "not follow, and opens the File before making the stream; Lota binds the form with each"
+bound_by_hand "VideoStream:setSync",
+  reason: "chooses among a Source, a VideoStream, and nil by their Lua types (luax_istype), and makes a " \
+    "FrameSync of LÖVE's for each, which the generator does not port; Lota binds each form"
+generate "VideoStream:getFilename"
+generate "VideoStream:play"
+generate "VideoStream:pause"
+generate "VideoStream:seek"
+generate "VideoStream:rewind"
+generate "VideoStream:tell"
+generate "VideoStream:isPlaying"
 
 # love.window
 generate "love.window.getSafeArea"

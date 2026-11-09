@@ -64,6 +64,7 @@ require_relative "lota/touch"
 require_relative "lota/sensor"
 require_relative "lota/sound"
 require_relative "lota/audio"
+require_relative "lota/video"
 require_relative "lota/math"
 require_relative "lota/physics"
 require_relative "lota/system"
@@ -222,6 +223,15 @@ module Lota
   #   lota.sensor.sensor?(:accelerometer)
   def self.sensor
     Sensor if Native::Sensor.open?
+  end
+
+  # Lota::Video, as love.video, or +nil+ when the module is not open.
+  #
+  # === Example
+  #
+  #   lota.video # => Lota::Video
+  def self.video
+    Video if Native::Video.open?
   end
 
   # Lota::Sound, as love.sound, or +nil+ when the module is not open.

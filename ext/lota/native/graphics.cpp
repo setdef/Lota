@@ -34,6 +34,7 @@
 #include "graphics/SpriteBatch.h"
 #include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
+#include "graphics/Video.h"
 #include "graphics/renderstate.h"
 #include "graphics/vertex.h"
 #include "image/FormatHandler.h"
@@ -1032,6 +1033,18 @@ void draw_particle_system_with_transform(love::graphics::ParticleSystem *system,
   graphics().draw(system, transform->getMatrix());
 }
 
+// w_draw of a Video with numbers or a Transform (wrap_Graphics.cpp:
+// 3245-3279), which shows the stream's newest decoded frame.
+void draw_video(love::graphics::Video *video, Rice::Array placement) {
+  const Rice::Array numbers = std::move(placement);
+  graphics().draw(video, placement_of(numbers));
+}
+
+void draw_video_with_transform(love::graphics::Video *video,
+                               const love::math::Transform *transform) {
+  graphics().draw(video, transform->getMatrix());
+}
+
 // w_drawInstanced (wrap_Graphics.cpp:3313-3324): +instancecount+ copies
 // of a Mesh, placed by the nine numbers or a Transform.
 void draw_instanced(love::graphics::Mesh *mesh, int instancecount, Rice::Array placement) {
@@ -1621,6 +1634,10 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("draw_particle_system_with_transform",
                                  &draw_particle_system_with_transform, Rice::Arg("system"),
                                  Rice::Arg("transform"))
+      .define_singleton_function("draw_video", &draw_video, Rice::Arg("video"),
+                                 Rice::Arg("placement"))
+      .define_singleton_function("draw_video_with_transform", &draw_video_with_transform,
+                                 Rice::Arg("video"), Rice::Arg("transform"))
       .define_singleton_function("draw_instanced", &draw_instanced, Rice::Arg("mesh"),
                                  Rice::Arg("instancecount"), Rice::Arg("placement"))
       .define_singleton_function("draw_instanced_with_transform", &draw_instanced_with_transform,

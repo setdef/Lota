@@ -28,10 +28,11 @@ class PackageCheckTest < Minitest::Test
     libharfbuzz.so
     libopenal.so.1
     libmodplug.so.1
+    libtheoradec.so.2
     libvorbisfile.so.3
+    libogg.so.0
     libz.so.1
     libvorbis.so.0
-    libogg.so.0
 ].freeze
 
   # The libraries the bundle loads through @rpath.
@@ -41,7 +42,9 @@ class PackageCheckTest < Minitest::Test
     harfbuzz.framework/Versions/A/harfbuzz
     OpenAL-Soft.framework/Versions/A/OpenAL-Soft
     libmodplug.framework/Versions/A/libmodplug
+    theora.framework/Versions/A/theora
     vorbis.framework/Versions/A/vorbis
+    ogg.framework/Versions/A/ogg
   ].freeze
 
   # A PackageCheck of one gem, tiny, whose gemspec in +dir+ has +homepage+
@@ -86,10 +89,10 @@ class PackageCheckTest < Minitest::Test
 
   if LINUX
     # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
-    # Soft to play sound, libmodplug and libvorbisfile to decode it, and
-    # zlib, each needed by its soname and found through the bundle's
-    # rpath, and then libvorbis and libogg, which libvorbisfile's own rpath
-    # finds.
+    # Soft to play sound, libmodplug and libvorbisfile to decode it,
+    # libtheoradec and libogg to decode video, and zlib, each needed by its
+    # soname and found through the bundle's rpath, and then libvorbis,
+    # which libvorbisfile's own rpath finds.
     def test_the_extension_needs_its_libraries_and_theirs_through_their_rpaths
       assert_equal LIBRARIES.map { |name| "../../tmp/dependencies/installdir/lib/#{name}" }, ELF.dependencies(BUNDLE)
     end
@@ -116,13 +119,13 @@ class PackageCheckTest < Minitest::Test
         FileUtils.cp(BUNDLE, dir)
         escapes = ELF.escapes(File.join(dir, File.basename(BUNDLE)), dir)
 
-        assert_equal LIBRARIES.first(7).map { |name| "#{name} resolves outside #{dir}" }, escapes
+        assert_equal LIBRARIES.first(9).map { |name| "#{name} resolves outside #{dir}" }, escapes
       end
     end
   else
     # SDL3 for the window and events, FreeType and HarfBuzz for text, OpenAL
-    # Soft to play sound, and libmodplug and libvorbis to decode it, which
-    # loads libogg in turn.
+    # Soft to play sound, libmodplug and libvorbis to decode it, and
+    # libtheora and libogg to decode video.
     def test_the_extension_needs_its_frameworks_and_theirs_beside_it_through_its_rpaths
       frameworks = "../../vendor/love-apple-dependencies/macOS/Frameworks"
 
@@ -133,6 +136,7 @@ class PackageCheckTest < Minitest::Test
         "#{frameworks}/harfbuzz.framework",
         "#{frameworks}/OpenAL-Soft.framework",
         "#{frameworks}/libmodplug.framework",
+        "#{frameworks}/theora.framework",
         "#{frameworks}/vorbis.framework",
         "#{frameworks}/ogg.framework",
   ], MACHO.dependencies(BUNDLE)

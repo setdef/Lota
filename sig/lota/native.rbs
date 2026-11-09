@@ -1075,6 +1075,36 @@ module Lota
       def self.touches: (?String? filter) -> Array[Integer]
     end
 
+    class VideoStream
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+
+      def set_sync_to_source: (Source source) -> nil
+
+      def set_sync_to_stream: (VideoStream other) -> nil
+
+      def set_sync_to_delta: () -> nil
+    end
+
+    module Video
+      def self.open: () -> nil
+
+      def self.open?: () -> bool
+
+      def self.new_video_stream: (String filename) -> VideoStream
+
+      def self.new_video_stream_from_file: (File file) -> VideoStream
+    end
+
     module Window
       def self.open: () -> nil
 
@@ -1123,6 +1153,12 @@ module Lota
       def self.draw_particle_system: (ParticleSystem system, Array[Float | Integer] placement) -> nil
 
       def self.draw_particle_system_with_transform: (ParticleSystem system, Transform transform) -> nil
+
+      def self.new_video: (VideoStream stream, Float | Integer dpiscale) -> Video
+
+      def self.draw_video: (Video video, Array[Float | Integer] placement) -> nil
+
+      def self.draw_video_with_transform: (Video video, Transform transform) -> nil
 
       def self.draw_instanced: (Mesh mesh, Integer instancecount, Array[Float | Integer] placement) -> nil
 
@@ -1299,6 +1335,22 @@ module Lota
       type render_target_fields = [Texture, Integer?, Integer?, Integer]
 
       def self.canvas: () -> [bool, Array[render_target_fields], render_target_fields?]
+
+      class Video
+        def self.cpp_class: () -> String
+
+        def object_type: () -> String
+
+        def type_of?: (String name) -> bool
+
+        def to_s: () -> String
+
+        def ==: (::Object other) -> bool
+
+        def release: () -> bool
+
+        def set_source: (?Source? source) -> nil
+      end
 
       class Font
         def self.cpp_class: () -> String

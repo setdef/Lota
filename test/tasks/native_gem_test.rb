@@ -32,24 +32,27 @@ class NativeGemTest < Minitest::Test
     harfbuzz.framework
     OpenAL-Soft.framework
     libmodplug.framework
+    theora.framework
     vorbis.framework
     ogg.framework
 ].freeze
 
   # On Linux, the libraries the bundle needs, then what they need: SDL3
   # for the window and events, FreeType and HarfBuzz for text, OpenAL Soft
-  # to play sound, libmodplug and libvorbisfile to decode it, and zlib,
-  # then libvorbis and libogg, which libvorbisfile needs.
+  # to play sound, libmodplug and libvorbisfile to decode it, libtheoradec
+  # and libogg to decode video, and zlib, then libvorbis, which
+  # libvorbisfile needs.
   LIBRARIES = %w[
     libSDL3.so.0
     libfreetype.so.6
     libharfbuzz.so
     libopenal.so.1
     libmodplug.so.1
+    libtheoradec.so.2
     libvorbisfile.so.3
+    libogg.so.0
     libz.so.1
     libvorbis.so.0
-    libogg.so.0
 ].freeze
 
   # What the gem carries the bundle's dependencies as, and OpenAL Soft's

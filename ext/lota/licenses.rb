@@ -693,6 +693,34 @@ framework "ogg.framework",
   title: "libogg",
   version: "1.3.4"
 
+# libtheora 1.1, which love.video's Theora decoder links
+# (src/modules/video/theora/TheoraVideoStream.h) and which loads libogg.
+# Its binary names itself "Xiph.Org libtheora 1.1 20090822 (Thusnelda)",
+# the vendor string of the 1.1.0 and 1.1.1 releases (lib/internal.h:75 in
+# each), and its Headers are byte for byte both releases' include/theora;
+# its Resources/Info.plist says 1.1alpha1svn, as macosx/Info.plist of
+# libtheora's own Xcode project says in both. That project's framework
+# target, Theora (macosx/Theora.xcodeproj), compiles every file of lib and
+# lib/x86, the decoder and the encoder, which with include/theora point
+# to COPYING, BSD-3-Clause with the Xiph.org Foundation's notice
+# (lib/decode.c:1-11, and the same in each); lib/x86/mmxfdct.c and
+# sse2fdct.c keep a notice of 1999-2006, and lib/bitpack.c and bitpack.h
+# one of 1994-2009. Both releases' files state the same notices, read
+# file by file in 1.1.1. Its LICENSE adds On2 Technologies' promise not
+# to assert its VP3 patents against the software, which asks nothing of
+# whoever redistributes it.
+framework "theora.framework",
+  copyright: [
+    "2002-2009 Xiph.org Foundation",
+    "2002-2009 by the Xiph.Org Foundation and contributors",
+    "2002-2009 by the Xiph.Org Foundation",
+    "1994-2009 by the Xiph.Org Foundation and contributors",
+    "1999-2006 by the Xiph.Org Foundation",
+  ],
+  license: ["BSD-3-Clause"],
+  title: "libtheora",
+  version: "1.1"
+
 # libmodplug, which love.sound's tracker module decoder links
 # (src/modules/sound/lullaby/ModPlugDecoder.h), from no release: its
 # Resources/Info.plist gives 1.0, an Xcode project's from 2011, but its
@@ -1213,6 +1241,30 @@ library "libogg.so.0",
   title: "libogg",
   version: "1.3.5"
 
+# libtheoradec, from libtheora 1.2.0 (the Makefile's LIBTHEORA_VERSION),
+# which love.video's Theora decoder links, configured with
+# --disable-encode, as the Makefile builds it: the decoder's files of lib
+# (lib/Makefile.am, decoder_sources), with lib/x86's on x86_64, and the
+# headers they include, as their Autotools dependency files list them,
+# each pointing to COPYING, BSD-3-Clause with the Xiph.org Foundation's
+# notice (lib/decode.c:1-11, and the same in each). lib/bitpack.c and
+# bitpack.h keep a notice of 1994-2009, and decode.c, huffdec.c, state.c,
+# state.h, and lib/x86's mmxfrag.c, mmxidct.c, and sse2idct.c one of
+# 2002-2009,2025. Its LICENSE adds On2 Technologies' promise not to assert
+# its VP3 patents against the software, which asks nothing of whoever
+# redistributes it.
+library "libtheoradec.so.2",
+  copyright: [
+    "2002-2009 Xiph.org Foundation",
+    "2002-2009 by the Xiph.Org Foundation and contributors",
+    "2002-2009,2025 by the Xiph.Org Foundation and contributors",
+    "2002-2009 by the Xiph.Org Foundation",
+    "1994-2009 by the Xiph.Org Foundation and contributors",
+  ],
+  license: ["BSD-3-Clause"],
+  title: "libtheoradec",
+  version: "1.2.0"
+
 # zlib 1.3 (the Makefile's ZLIB_BRANCH, tag v1.3, commit
 # 09155eaa2f9270dc4ed1fa13e2b4b2613e6e4851), which LÖVE and FreeType link:
 # the notice and license of zlib.h:1-29, which every file of it points to
@@ -1290,16 +1342,17 @@ library "OpenAL32.dll",
 # recorded whole, from the files the Windows build compiles into it, as
 # its ninja dependency log lists them (Autotools' dependency files for
 # libmodplug), read for every license and notice of copyright they state.
-# libtheoradec, which the engine links, gives the bundle no member, so it
-# is not recorded.
 windows_dependencies = "tmp/dependencies/installdir/lib"
 
-# zlib, libogg, libvorbis and libvorbisfile, libmodplug, and HarfBuzz
-# compile the same files on Windows as on Linux, so they are recorded as
-# there. libvorbisenc, beside them in libvorbis's build, is not linked.
+# zlib, libogg, libtheoradec, libvorbis and libvorbisfile, libmodplug,
+# and HarfBuzz compile the same files on Windows as on Linux, so they are
+# recorded as there; libtheoradec compiles lib/x86's files on x64 and no
+# others of its own on ARM64, which state the same notices. libvorbisenc,
+# beside them in libvorbis's build, is not linked.
 {
   "zlib" => ["libzlibstatic.a", "libz.so.1"],
   "libogg" => ["libogg.a", "libogg.so.0"],
+  "libtheoradec" => ["libtheoradec.a", "libtheoradec.so.2"],
   "libvorbis" => ["libvorbis.a", "libvorbis.so.0"],
   "libvorbisfile" => ["libvorbisfile.a", "libvorbisfile.so.3"],
   "libmodplug" => ["libmodplug.a", "libmodplug.so.1"],
@@ -1432,15 +1485,15 @@ work "SDL (Windows)",
 # writes. So each is recorded as its framework is. Which files each
 # archive compiles was not read file by file, as it was for the
 # frameworks; FreeType's archive holds ftbzip2.o, whose bzip2 calls go to
-# the system's libbz2, as the framework's do. libtheoradec is linked as
-# LÖVE's iOS build links it, but love.video is not bound, so no member of
-# it should reach the app, as none reaches the macOS bundle; it is not
-# recorded until an app's link map shows one.
+# the system's libbz2, as the framework's do. Its libtheoradec.a, the
+# decoder alone, is recorded as the framework is, whose decoder and
+# encoder state the decoder's notices and one more.
 {
   "FreeType" => ["freetype", "freetype.framework"],
   "HarfBuzz" => ["harfbuzz", "harfbuzz.framework"],
   "libvorbis" => ["vorbis", "vorbis.framework"],
   "libogg" => ["ogg", "ogg.framework"],
+  "libtheora" => ["theora", "theora.framework"],
   "libmodplug" => ["modplug", "libmodplug.framework"],
 }.each do |name, (xcframework, framework)|
   recorded = framework_for(framework)
@@ -1481,13 +1534,12 @@ work "SDL (iOS)",
 # the options the Windows build gives them (AndroidBuild::ARCHIVES is
 # WindowsBuild::ARCHIVES), so each static archive is recorded as the
 # Windows one is, with its name, version, and credit; which files each
-# Android archive compiles was not read file by file. libtheoradec is linked as LÖVE's
-# Android build links it, but love.video is not bound, so, as on Windows,
-# it is not recorded until an app's link map shows a member of it.
+# Android archive compiles was not read file by file.
 android_dependencies = "tmp/android/deps/*/lib"
 {
   "zlib" => ["libz.a", "libz.so.1"],
   "libogg" => ["libogg.a", "libogg.so.0"],
+  "libtheoradec" => ["libtheoradec.a", "libtheoradec.so.2"],
   "libvorbis" => ["libvorbis.a", "libvorbis.so.0"],
   "libvorbisfile" => ["libvorbisfile.a", "libvorbisfile.so.3"],
   "libmodplug" => ["libmodplug.a", "libmodplug.so.1"],

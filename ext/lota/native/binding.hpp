@@ -66,6 +66,7 @@
 #include "graphics/SpriteBatch.h"
 #include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
+#include "graphics/Video.h"
 
 // The physics classes whose wrappers keep another object alive
 // (Companion, below).
@@ -195,6 +196,7 @@ template <> struct ReleasedOnMainThread<love::graphics::Buffer> : std::true_type
 template <> struct ReleasedOnMainThread<love::graphics::Mesh> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::ParticleSystem> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::GraphicsReadback> : std::true_type {};
+template <> struct ReleasedOnMainThread<love::graphics::Video> : std::true_type {};
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.

@@ -32,6 +32,7 @@ void define_generated_sound(const Rice::Module &native);
 void define_generated_system(const Rice::Module &native);
 void define_generated_timer(const Rice::Module &native);
 void define_generated_touch(const Rice::Module &native);
+void define_generated_video(const Rice::Module &native);
 void define_generated_window(const Rice::Module &native);
 
 inline void define_generated(const Rice::Module &native) {
@@ -51,6 +52,7 @@ inline void define_generated(const Rice::Module &native) {
   define_generated_system(native);
   define_generated_timer(native);
   define_generated_touch(native);
+  define_generated_video(native);
   define_generated_window(native);
 }
 

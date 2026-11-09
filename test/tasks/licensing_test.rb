@@ -376,6 +376,7 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
       "harfbuzz.framework" => ["MIT-Modern-Variant", "MIT", "ISC", "Unicode-DFS-2016"],
       "vorbis.framework" => ["BSD-3-Clause", "TU-Berlin-1.0"],
       "ogg.framework" => ["BSD-3-Clause"],
+      "theora.framework" => ["BSD-3-Clause"],
       "libmodplug.framework" => ["LicenseRef-libmodplug-Public-Domain", "LicenseRef-libmodplug-MikMod"],
     }.each { |name, licenses| assert_equal licenses, record.framework_for(name).license, name }
   end
@@ -465,6 +466,7 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
       harfbuzz
       vorbis
       ogg
+      theora
       libmodplug
       OpenAL-Soft
 ].to_h { |name| ["#{name}.framework", "lib/lota/frameworks/#{name}.framework"] })
@@ -477,6 +479,7 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
       libvorbisfile.so.3
       libvorbis.so.0
       libogg.so.0
+      libtheoradec.so.2
       libz.so.1
 ]
       .to_h { |name| [name, "lib/lota/libraries/#{name}"] })
@@ -496,6 +499,8 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
     assert_equal ["2021", "2024", "2024", "2021"], [macos, linux, windows, ios].map { |c| c.fetch("FreeType").fetch("credit")[/© (\d+)/, 1] }
     assert_equal "1.3.4", macos.fetch("libogg").fetch("version")
     assert_equal "1.3.5", linux.fetch("libogg").fetch("version")
+    assert_equal "1.1", macos.fetch("libtheora").fetch("version")
+    assert_equal "1.2.0", linux.fetch("libtheoradec").fetch("version")
     assert_equal "1.3", windows.fetch("zlib").fetch("version")
     assert_equal "2.4.0", macos.fetch("Box2D").fetch("version")
     assert_nil macos.fetch("libmodplug").fetch("version")

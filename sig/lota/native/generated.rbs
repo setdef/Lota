@@ -677,6 +677,30 @@ module Lota
       def debug_name: () -> String?
     end
 
+    module Graphics
+      class Video
+        def stream: () -> VideoStream
+
+        def source: () -> Source?
+
+        def width: () -> Integer
+
+        def height: () -> Integer
+
+        def dimensions: () -> [Integer, Integer]
+
+        def pixel_width: () -> Integer
+
+        def pixel_height: () -> Integer
+
+        def pixel_dimensions: () -> [Integer, Integer]
+
+        def set_filter: (String minstr, ?String? magstr, ?(Float | Integer) max_anisotropy) -> nil
+
+        def filter: () -> [String, String, Integer]
+      end
+    end
+
     class CompressedImageData
       def clone: () -> CompressedImageData
 
@@ -1443,6 +1467,22 @@ module Lota
       def self.device_type: (Integer id) -> String
 
       def self.mouse?: (Integer id) -> bool
+    end
+
+    class VideoStream
+      def filename: () -> String
+
+      def play: () -> nil
+
+      def pause: () -> nil
+
+      def seek: (Float | Integer offset) -> nil
+
+      def rewind: () -> nil
+
+      def tell: () -> Float
+
+      def playing?: () -> bool
     end
 
     module Window

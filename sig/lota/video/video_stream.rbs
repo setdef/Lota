@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Video
+    class VideoStream < Object[Native::VideoStream]
+      private def self.from_native: (Native::VideoStream native) -> VideoStream
+
+      def self.new: (String | Filesystem::File file) -> VideoStream
+
+      def sync=: (Audio::Source | VideoStream | nil sync) -> void
+
+      private def not_a_sync: (::Object sync) -> String
+
+      def filename: () -> String
+
+      def play: () -> nil
+
+      def pause: () -> nil
+
+      def seek: (Float | Integer offset) -> nil
+
+      def rewind: () -> nil
+
+      def tell: () -> Float
+
+      def playing?: () -> bool
+    end
+  end
+end

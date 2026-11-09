@@ -80,7 +80,7 @@ An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left 
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
 - Phones and tablets (iOS, iPadOS, and Android) have no gem yet. A game builds for them, experimentally, with Fledge and a clone of Lota, which compiles LÖVE's engine for the phone: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has the steps. Such a build has run in the iOS Simulator, on an Android emulator, and on a real iPad and iPhone. On one Android phone it has started and run without crashing, and nothing more has been tried on real Android hardware.
 
-Lota binds LÖVE's graphics, window, keyboard, mouse, touch, joystick and gamepad, sensor, timer, system, event, physics, math, and data modules nearly whole, and parts of its filesystem, audio, sound, image, and font modules. It does not yet bind video or threads. A game that calls a function Lota has not bound stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
+Lota binds LÖVE's graphics, window, keyboard, mouse, touch, joystick and gamepad, sensor, timer, system, event, physics, math, data, and video modules nearly whole, and parts of its filesystem, audio, sound, image, and font modules. It does not yet bind threads. A game that calls a function Lota has not bound stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
 
 ## Installation
 

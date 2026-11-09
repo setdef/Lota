@@ -772,10 +772,37 @@ line: node.line,
     private def pointer_tests(condition)
       condition.gsub(/(?<before>\A|[(]|&&|\|\|)(?<space>\s*)(?<not>!?)\s*(?<name>[A-Za-z_]\w*)(?<after>\s*)(?=\z|\)|&&|\|\|)/) do
         match = Regexp.last_match
-        next match[0] unless @analysis.declared_type(match[:name]).to_s.include?("*")
+        next match[0] unless @analysis.declared_type(match[:name]).to_s.include?("*") || auto_pointer?(match[:name])
 
         "#{match[:before]}#{match[:space]}#{match[:name]} #{match[:not].empty? ? '!=' : '=='} nullptr#{match[:after]}"
       end
+    end
+
+    # Whether LÖVE declares +name+ auto, from a call that returns a
+    # pointer, as w_Video_getSource's source is video->getSource()
+    # (graphics/wrap_Video.cpp:48).
+    private def auto_pointer?(name)
+      return false unless @analysis.declared_type(name).to_s.strip == "auto"
+
+      found = false
+      walk_texts(@body) do |text, _node|
+        initializer = text[/\A\s*(?:const\s+)?auto\s+#{Regexp.escape(name)}\s*=\s*(.+)\z/m, 1] or next
+        found ||= expression_type(initializer).to_s.include?("*")
+      end
+      found
+    end
+
+    # Whether the wrap function uses the local +name+ only in conditions
+    # once it declares it, as w_Video_getSource tests its source and then
+    # pushes video->getSource() again (graphics/wrap_Video.cpp:48-53).
+    private def only_tested?(name)
+      used = false
+      walk_texts(@body) do |text, node|
+        next if node.kind == :if || text.match?(/\A\s*(?:const\s+)?auto\s+#{Regexp.escape(name)}\s*=/)
+
+        used ||= text.match?(/\b#{Regexp.escape(name)}\b/)
+      end
+      !used
     end
 
     # A value pushed into the results Array: a string LÖVE holds as a
@@ -809,6 +836,16 @@ line: node.line,
       return "#{type}#{name}#{pointer ? ' = nullptr' : '{}'}" unless match[:rest]
       return "auto *#{name}#{match[:rest]}" if pointer && match[:rest].match?(/\A\s*=\s*new\s+#{Regexp.escape(match[:type])}\b/)
       return text.sub(/\?\s*0\s*:/, "? nullptr :").sub(/=\s*0\z/, "= nullptr") if pointer
+      # An auto that holds a pointer says so, as clang-tidy's
+      # readability-qualified-auto asks, and misc-const-correctness has it
+      # const when nothing changes it, and point to const when it is only
+      # tested.
+      local = @renames.key(name) || name
+      if match[:type] == "auto" && auto_pointer?(local)
+        return "auto *#{name}#{match[:rest]}" if modified?(local, written)
+
+        return "#{only_tested?(local) ? 'const ' : ''}auto *const #{name}#{match[:rest]}"
+      end
       return text if modified?(@renames.key(name) || name, written) || match[:type].start_with?("const ")
       return text if match[:type].include?("std::") && returned?(@renames.key(name) || name)
 

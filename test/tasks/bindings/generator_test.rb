@@ -447,6 +447,18 @@ class GeneratorTest < Minitest::Test
     assert_includes open_file.definition, "results.push(Rice::Object(Rice::detail::wrap_engine_object(t, true)), false);"
   end
 
+  # w_Video_getSource declares its Source auto (wrap_Video.cpp:45-54),
+  # which clang-tidy's readability-qualified-auto has say it is a
+  # pointer, and misc-const-correctness a const one to const, as it only
+  # tests it, for truth, which readability-implicit-bool-conversion has
+  # compare with nullptr.
+  def test_an_auto_that_holds_a_pointer_says_so_and_is_compared_with_null
+    port = port("Video:getSource")
+
+    assert_includes port.definition, "const auto *const source = video.getSource();\nif (source != nullptr) {\n"
+    assert_equal "def native: () -> Source?", port.rbs
+  end
+
   # luax_pushshape pushes a Shape as the class its type names
   # (wrap_Shape.cpp:36-63), as Rice wraps a pointer, so it is a push of the
   # Shape; and w_Body_getShape pushes nil when there is none.
@@ -912,12 +924,16 @@ class GeneratorTest < Minitest::Test
   # hooks of LÖVE's Lua wrappers, which Lota::Math::RandomGenerator and
   # Lota::Math call themselves; and love.event._setDefaultModalDrawCallback
   # and love.filesystem's init and setSource only Lota::Boot, as they
-  # serve only boot.lua.
+  # serve only boot.lua; Video:_setSource and love.graphics._newVideo
+  # only Lota::Graphics::Video, whose source= and new port the Lua of
+  # wrap_Video.lua and wrap_Graphics.lua that calls them.
   UNWRITTEN = %w[
     RandomGenerator:_random
+    Video:_setSource
     love.event._setDefaultModalDrawCallback
     love.filesystem.init
     love.filesystem.setSource
+    love.graphics._newVideo
     love.math._getRandomGenerator
   ].freeze
 

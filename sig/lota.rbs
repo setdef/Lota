@@ -32,6 +32,8 @@ module Lota
 
   def self.sensor: () -> singleton(Sensor)?
 
+  def self.video: () -> singleton(Video)?
+
   def self.sound: () -> singleton(Sound)?
 
   def self.audio: () -> singleton(Audio)?

@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Graphics
+    class Video < Object[Native::Graphics::Video]
+      private def self.from_native: (Native::Graphics::Video native) -> Video
+
+      def self.new: (String | Filesystem::File | Lota::Video::VideoStream file, ?audio: bool?, ?dpiscale: (Float | Integer)?) -> Video
+
+      private def self.audio_source: (Video video, bool? audio) -> Audio::Source?
+
+      def source=: (Audio::Source? source) -> void
+
+      def play: () -> nil
+
+      def pause: () -> nil
+
+      def seek: (Float | Integer offset) -> nil
+
+      def rewind: () -> nil
+
+      def tell: () -> Float
+
+      def playing?: () -> bool
+
+      def stream: () -> Lota::Video::VideoStream
+
+      def source: () -> Audio::Source?
+
+      def width: () -> Integer
+
+      def height: () -> Integer
+
+      def dimensions: () -> [Integer, Integer]
+
+      def pixel_width: () -> Integer
+
+      def pixel_height: () -> Integer
+
+      def pixel_dimensions: () -> [Integer, Integer]
+
+      def filter=: (Symbol | String | Array[Symbol | String | Integer | Float | nil] filter) -> void
+
+      def filter: () -> [Symbol, Symbol, Integer]
+    end
+  end
+end

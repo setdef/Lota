@@ -40,6 +40,7 @@ class LotaTest < Minitest::Test
       font: Lota::Font,
       system: Lota::System,
       sensor: Lota::Sensor,
+      video: Lota::Video,
       physics: Lota::Physics,
       data: Lota::Data,
     }

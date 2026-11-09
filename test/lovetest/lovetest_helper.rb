@@ -165,6 +165,14 @@ module Lovetest
       end
     end
 
+    # Lets +seconds+ go by, as waitSeconds (lines 398-403) yields to
+    # love.run until Lota::Timer.time has passed them, a frame at a time
+    # as wait_frames lets one go by.
+    def wait_seconds(seconds)
+      start = Lota::Timer.time
+      wait_frames(1) while Lota::Timer.time < start + seconds
+    end
+
     # Asserts that +value+ is true, as assertTrue does (lines 79-88): true
     # itself, not merely truthy.
     def assert_true(value, label = nil)

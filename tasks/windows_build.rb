@@ -37,9 +37,8 @@ require_relative "source_archive"
 # bzip2 there either); HarfBuzz with FreeType alone, no GLib, Graphite,
 # ICU, or Uniscribe; SDL without iconv; OpenAL Soft with its Windows
 # backends alone, linking the compiler's runtime statically. Theora's
-# decoder is built for the engine's video module, which compiles against
-# it, but love.video is not bound, so the extension takes no object of
-# LÖVE's that calls it, as on Linux, where the gem carries no libtheora.
+# decoder is built for the engine's video module without its encoder, as
+# the Makefile builds it for Linux.
 #
 # As LinuxBuild does, it keeps downloading apart from building, so the
 # gate never needs the network:

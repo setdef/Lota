@@ -33,6 +33,7 @@ require_relative "graphics/text_batch"
 require_relative "graphics/texture_formats"
 require_relative "graphics/texture_types"
 require_relative "graphics/texture_view"
+require_relative "graphics/video"
 require_relative "graphics/volume_texture"
 require_relative "graphics/volume_image"
 
@@ -957,8 +958,8 @@ module Lota
     # The current color tints what is drawn, so white draws it as it is.
     # LÖVE reads each number as a single-precision float, and so does
     # Lota. A drawable is a Lota::Graphics::Texture, SpriteBatch,
-    # TextBatch, Mesh, or ParticleSystem; LÖVE's other drawable, a video,
-    # waits for story 6.
+    # TextBatch, Mesh, ParticleSystem, or Video; a Video shows its current
+    # frame.
     #
     # Raises TypeError for a drawable Lota cannot draw, for a quad with a
     # drawable that is not a Texture, for +nil+ in place of a quad with
@@ -995,6 +996,7 @@ module Lota
       when TextBatch then Native::Graphics.draw_text_batch(drawable.__send__(:native), placement)
       when Mesh then Native::Graphics.draw_mesh(drawable.__send__(:native), placement)
       when ParticleSystem then Native::Graphics.draw_particle_system(drawable.__send__(:native), placement)
+      when Video then Native::Graphics.draw_video(drawable.__send__(:native), placement)
       else raise TypeError, not_drawable(drawable)
       end
     end
@@ -1024,6 +1026,7 @@ module Lota
       when TextBatch then Native::Graphics.draw_text_batch_with_transform(drawable.__send__(:native), transform.__send__(:native))
       when Mesh then Native::Graphics.draw_mesh_with_transform(drawable.__send__(:native), transform.__send__(:native))
       when ParticleSystem then Native::Graphics.draw_particle_system_with_transform(drawable.__send__(:native), transform.__send__(:native))
+      when Video then Native::Graphics.draw_video_with_transform(drawable.__send__(:native), transform.__send__(:native))
       else raise TypeError, not_drawable(drawable)
       end
     end
@@ -1032,7 +1035,7 @@ module Lota
     private_class_method def self.not_drawable(drawable)
       "wrong argument type #{drawable.class} " \
         "(expected Lota::Graphics::Texture, Lota::Graphics::SpriteBatch, Lota::Graphics::TextBatch, " \
-        "Lota::Graphics::Mesh, or Lota::Graphics::ParticleSystem)"
+        "Lota::Graphics::Mesh, Lota::Graphics::ParticleSystem, or Lota::Graphics::Video)"
     end
 
     # Draws one layer of an array texture in the current color, matching

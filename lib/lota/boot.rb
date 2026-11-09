@@ -50,7 +50,7 @@ module Lota
       sensor: -> { Native::Sensor.open },
       audio: -> { Native::Audio.open.each { |line| puts line } },
       image: -> { Native::Image.open },
-      video: nil,
+      video: -> { Native::Video.open },
       font: -> { Native::Font.open },
       window: -> { Native::Window.open },
       graphics: -> { Native::Graphics.open },

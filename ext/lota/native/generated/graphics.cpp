@@ -10,6 +10,7 @@
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 
+#include "audio/Source.h"
 #include "common/Color.h"
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -29,8 +30,10 @@
 #include "graphics/SpriteBatch.h"
 #include "graphics/TextBatch.h"
 #include "graphics/Texture.h"
+#include "graphics/Video.h"
 #include "graphics/renderstate.h"
 #include "graphics/vertex.h"
+#include "video/VideoStream.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -1731,6 +1734,99 @@ std::optional<std::string> w_Texture_getDebugName(const Texture &t) {
   return debugName;
 }
 
+// Video:getStream: w_Video_getStream (wrap_Video.cpp:38-43).
+love::video::VideoStream *w_Video_getStream(Video &video) {
+  require_main_thread(MODULE);
+  return video.getStream();
+}
+
+// Video:getSource: w_Video_getSource (wrap_Video.cpp:45-54).
+love::audio::Source *w_Video_getSource(Video &video) {
+  require_main_thread(MODULE);
+  const auto *const source = video.getSource();
+  if (source != nullptr) {
+    return video.getSource();
+  }
+  return nullptr;
+}
+
+// Video:getWidth: w_Video_getWidth (wrap_Video.cpp:69-74).
+int w_Video_getWidth(const Video &video) {
+  require_main_thread(MODULE);
+  return video.getWidth();
+}
+
+// Video:getHeight: w_Video_getHeight (wrap_Video.cpp:76-81).
+int w_Video_getHeight(const Video &video) {
+  require_main_thread(MODULE);
+  return video.getHeight();
+}
+
+// Video:getDimensions: w_Video_getDimensions (wrap_Video.cpp:83-89).
+Rice::Array w_Video_getDimensions(const Video &video) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  results.push(video.getWidth(), false);
+  results.push(video.getHeight(), false);
+  return results;
+}
+
+// Video:getPixelWidth: w_Video_getPixelWidth (wrap_Video.cpp:91-96).
+int w_Video_getPixelWidth(const Video &video) {
+  require_main_thread(MODULE);
+  return video.getPixelWidth();
+}
+
+// Video:getPixelHeight: w_Video_getPixelHeight (wrap_Video.cpp:98-103).
+int w_Video_getPixelHeight(const Video &video) {
+  require_main_thread(MODULE);
+  return video.getPixelHeight();
+}
+
+// Video:getPixelDimensions: w_Video_getPixelDimensions (wrap_Video.cpp:105-111).
+Rice::Array w_Video_getPixelDimensions(const Video &video) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  results.push(video.getPixelWidth(), false);
+  results.push(video.getPixelHeight(), false);
+  return results;
+}
+
+// Video:setFilter: w_Video_setFilter (wrap_Video.cpp:113-130).
+void w_Video_setFilter(Video &video, const std::string &minstr,
+                       const std::optional<std::string> &magstr, double max_anisotropy) {
+  require_main_thread(MODULE);
+  SamplerState s = video.getSamplerState();
+  if (!SamplerState::getConstant(minstr.c_str(), s.minFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.minFilter), minstr);
+  }
+  if (!SamplerState::getConstant(magstr.value_or(minstr.c_str()).c_str(), s.magFilter)) {
+    raise_enum_error("filter mode", SamplerState::getConstants(s.magFilter),
+                     magstr.value_or(minstr.c_str()));
+  }
+  s.maxAnisotropy = std::min(std::max(1, static_cast<int>(max_anisotropy)), LOVE_UINT8_MAX);
+  video.setSamplerState(s);
+}
+
+// Video:getFilter: w_Video_getFilter (wrap_Video.cpp:132-149).
+Rice::Array w_Video_getFilter(const Video &video) {
+  require_main_thread(MODULE);
+  Rice::Array results;
+  const SamplerState &s = video.getSamplerState();
+  const char *minstr = nullptr;
+  const char *magstr = nullptr;
+  if (!SamplerState::getConstant(s.minFilter, minstr)) {
+    throw love::Exception("Unknown filter mode.");
+  }
+  if (!SamplerState::getConstant(s.magFilter, magstr)) {
+    throw love::Exception("Unknown filter mode.");
+  }
+  results.push(std::string(minstr), false);
+  results.push(std::string(magstr), false);
+  results.push(static_cast<int>(s.maxAnisotropy), false);
+  return results;
+}
+
 // SPDX-SnippetEnd
 
 } // namespace
@@ -1993,6 +2089,19 @@ void define_generated_graphics(const Rice::Module &native) {
                      Rice::Arg("str") = std::optional<std::string>())
       .define_method("generate_mipmaps", &w_Texture_generateMipmaps)
       .define_method("debug_name", &w_Texture_getDebugName);
+  Rice::define_class_under<Video>(Rice::define_module_under(native, "Graphics"), "Video")
+      .define_method("stream", &w_Video_getStream)
+      .define_method("source", &w_Video_getSource)
+      .define_method("width", &w_Video_getWidth)
+      .define_method("height", &w_Video_getHeight)
+      .define_method("dimensions", &w_Video_getDimensions)
+      .define_method("pixel_width", &w_Video_getPixelWidth)
+      .define_method("pixel_height", &w_Video_getPixelHeight)
+      .define_method("pixel_dimensions", &w_Video_getPixelDimensions)
+      .define_method("set_filter", &w_Video_setFilter, Rice::Arg("minstr"),
+                     Rice::Arg("magstr") = std::optional<std::string>(),
+                     Rice::Arg("max_anisotropy") = 1.0)
+      .define_method("filter", &w_Video_getFilter);
 }
 
 } // namespace lota::native
