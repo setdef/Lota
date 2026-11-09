@@ -33,6 +33,7 @@ module WindowsSupport
     set_virtual_axis
     set_virtual_hat
     window_size
+    window_address
     click_mouse
     edit_text
     resize_window
