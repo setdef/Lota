@@ -149,6 +149,11 @@ jobs:
         shell: pwsh
         run: |
           "MSYS2_PATH=$env:RUNNER_TEMP\msys64" >> $env:GITHUB_ENV
+          $bin = Join-Path $env:RUNNER_TEMP "msys64\$("${{ inputs.msystem }}".ToLower())\bin"
+          "RUBY_DLL_PATH=$bin" >> $env:GITHUB_ENV
+          Get-ChildItem $bin -Filter "lib*.dll" | Where-Object { $_.Name -match "^lib(z|ssl|crypto|ffi|yaml|gcc)" } | Select-Object -ExpandProperty Name
+          $env:MSYS2_PATH = "$env:RUNNER_TEMP\msys64"; $env:RUBY_DLL_PATH = $bin
+          ruby -e 'require "ruby_installer/runtime"; p RubyInstaller::Runtime.msys2_installation.msys_path rescue p $!; require "zlib"; p Zlib::VERSION'
 
       # The REUSE tool, at the version mise.toml pins, which checks the
       # gem's licensing as it is built (tasks/native_gem.rb), into the
