@@ -55,7 +55,7 @@ end
 # "Class" for all of a class's tests or "Class#test" for one, less those
 # PREPUSH_KEEPS names, which stay as a smoke test of a class left out. What
 # it leaves out is what took more than about a second and a half on the
-# gate runner (doc/contributors/development.md, The pre-push tier):
+# gate runner (doc/contributors/development.md, "Before every push"):
 # processes that run a whole game, the parity games, the generator's
 # second and third runs over all of LÖVE (the first, which every
 # generator test shares, it keeps, in a lane of its own), and the
