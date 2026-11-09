@@ -76,8 +76,9 @@ module Lovetest
   # (vendor/love/testing/resources/alsoft.conf), or its null driver, as
   # the package check's runs play (tasks/alsoft.conf). That is why
   # Lövetest's recording test skips on a runner ("cant emulate recording
-  # devices in CI"). Without a driver that records, LÖVE still lists one
-  # recording device, which cannot start (doc/contributors/upstream/009.md).
+  # devices in CI"). Without a driver that records, LÖVE lists one
+  # nameless recording device, which cannot start, and Lota lists none
+  # (doc/contributors/upstream/009.md); the skip stays, as Lövetest's.
   PLAYBACK_ONLY = begin
     conf = ENV.fetch("ALSOFT_CONF", "")
     File.file?(conf) && File.read(conf).match?(/^\s*drivers\s*=\s*(?:wave|null)\s*$/)

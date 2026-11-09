@@ -32,6 +32,14 @@ class AudioSourceTest < Minitest::Test
     assert_equal [:static, 1, 4410.0], [source.get_type, source.channel_count, source.duration(:samples)]
   end
 
+  # OpenAL Soft here plays into the wave file writer (test/alsoft.conf),
+  # which cannot record. LÖVE lists one device named "" that cannot start
+  # (openal/Audio.cpp:573-593); its own comment says the list is empty
+  # then, and Lota's is (doc/contributors/upstream/009.md).
+  def test_a_computer_that_cannot_record_lists_no_recording_device
+    assert_equal [], Lota::Audio.recording_devices
+  end
+
   def test_a_decoder_streams_whatever_type_is_given
     decoder = Lota::Sound::Decoder.new("resources/clickmono.ogg")
 

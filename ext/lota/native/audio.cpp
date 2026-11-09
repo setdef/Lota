@@ -19,6 +19,16 @@
 #include "sound/Decoder.h"
 #include "sound/SoundData.h"
 
+#ifdef LOVE_APPLE_USE_FRAMEWORKS
+#ifdef LOVE_IOS
+#include <OpenAL/alc.h>
+#else
+#include <OpenAL-Soft/alc.h>
+#endif
+#else
+#include <alc.h>
+#endif
+
 #include <array>
 #include <cstddef>
 #include <cstdlib>
@@ -269,13 +279,31 @@ Rice::Array names_of(const std::vector<std::string> &list) {
   return names;
 }
 
+// Whether +device+ is the one LÖVE invents when nothing can record: with
+// no default capture device, Audio::getRecordingDevices opens one to read
+// its name, checks that with alGetError where alcCaptureOpenDevice sets
+// an ALC error, and lists a device named "" although its own comment says
+// to return an empty list (openal/Audio.cpp:573-591; upstream/009.md).
+// Only a device with an empty name, while OpenAL lists no capture device
+// to open, is that one.
+bool invented_recording_device(RecordingDevice &device) {
+  if (*device.getName() != '\0') {
+    return false;
+  }
+  const ALCchar *capture = alcGetString(nullptr, ALC_CAPTURE_DEVICE_SPECIFIER);
+  return capture == nullptr || *capture == '\0';
+}
+
 // w_getRecordingDevices (wrap_Audio.cpp:333-346): the recording devices,
-// as an Array where LÖVE fills a table.
+// as an Array where LÖVE fills a table, without the one it invents.
 Rice::Array recording_devices() {
   const std::vector<RecordingDevice *> &devices =
       module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getRecordingDevices();
   Rice::Array list;
   for (RecordingDevice *device : devices) {
+    if (invented_recording_device(*device)) {
+      continue;
+    }
     list.push(device, false);
   }
   return list;
