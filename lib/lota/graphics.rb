@@ -2473,7 +2473,7 @@ module Lota
     # [readable] +true+ or +false+: whether shaders are to read the canvas;
     #   when left out or anything else, true for every format but the
     #   depth and stencil formats. LÖVE's table to fill in is dropped (ADR
-    #   001, rule 10).
+    #   001, rule 29).
     #
     # Compressed formats, which no canvas can have, are left out.
     # Lota::Graphics.texture_formats replaces it; prints LÖVE's notice of

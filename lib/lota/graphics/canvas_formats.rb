@@ -12,7 +12,7 @@ module Lota
     # love.graphics.getCanvasFormats returns
     # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvasFormats): a
     # frozen value with a field for each of LÖVE's names of a pixel format
-    # that is not compressed (ADR 001, rule 10), +true+ or +false+.
+    # that is not compressed (ADR 001, rule 28), +true+ or +false+.
     #
     # Lota::Graphics::TextureFormats, from Lota::Graphics.texture_formats,
     # replaces it.

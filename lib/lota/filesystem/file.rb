@@ -42,10 +42,11 @@ module Lota
       # [mode] +:r+, +:w+, +:a+, or +:c+.
       #
       # With a block, it is LÖVE's <tt>if file:open("r") then ...
-      # file:close() end</tt> (rule 11): when the file opens, it gives the
-      # block the File, closes the file once the block is done, also when
-      # the block raises, and returns what the block returns; otherwise it
-      # gives the block nothing and returns what it returns without one.
+      # file:close() end</tt> (rules 11 and 30): when the file opens, it
+      # gives the block the File, closes the file once the block is done,
+      # also when the block raises, and returns what the block returns;
+      # otherwise it gives the block nothing and returns what it returns
+      # without one.
       # Raises ArgumentError for a mode LÖVE does not know.
       #
       # === Examples

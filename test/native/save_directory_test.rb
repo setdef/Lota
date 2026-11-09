@@ -210,7 +210,7 @@ class SaveDirectoryTest < Minitest::Test
     refute_empty message
   end
 
-  # Rule 11: open's block form is LÖVE's if file:open("r") then ...
+  # Rules 11 and 30: open's block form is LÖVE's if file:open("r") then ...
   # file:close() end, so it yields the open File, closes it after, and
   # returns what the block returns, as push's block form does.
   def test_open_with_a_block_yields_the_open_file_closes_it_and_returns_the_blocks_value

@@ -18,8 +18,8 @@ module Lota
     # linear.
     #
     # LÖVE has no TextureView class, and cannot tell a view from any other
-    # Texture. So TextureView is a module, as Image is (ADR 001, rule 2),
-    # whose +new+ returns a Texture and whose <tt>TextureView ===
+    # Texture. So TextureView is a module, as Image is (ADR 001, rules 25
+    # and 27), whose +new+ returns a Texture and whose <tt>TextureView ===
     # object</tt> is true of every Texture.
     #
     # === Example

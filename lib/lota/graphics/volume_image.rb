@@ -14,7 +14,7 @@ module Lota
     # prints no notice.
     #
     # LÖVE has no VolumeImage class. So VolumeImage is a module, as Canvas is
-    # (ADR 001, rule 2), whose +new+ returns a Texture and whose
+    # (ADR 001, rules 25 and 26), whose +new+ returns a Texture and whose
     # <tt>VolumeImage === texture</tt> asks, as VolumeTexture's does,
     # whether the texture's type is +:volume+.
     #

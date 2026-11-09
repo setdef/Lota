@@ -578,7 +578,7 @@ class GraphicsTest < Lovetest::TestMethod
   # takes count from 1 in both. Lua's s % 64 == 0 is Ruby's s % 64 == 0.
   #
   # Its last part draws from an array texture: newArrayImage becomes
-  # ArrayImage.new (rule 2), addLayer add_layer (rule 13), and setLayer the
+  # ArrayImage.new (rule 25), addLayer add_layer (rule 13), and setLayer the
   # writer layer= of its several values (rules 5 and 6). Lua's
   # math.floor(s/64) is Ruby's s / 64, which divides Integers rounding
   # down.

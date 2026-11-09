@@ -13,7 +13,7 @@ module Lota
     # (src/modules/graphics/wrap_Graphics.cpp, w_getImageFormats): a
     # frozen value with a field for each of LÖVE's names of a pixel format
     # an ImageData or a compressed image can hold, which leaves out the
-    # depth and stencil formats (ADR 001, rule 10), +true+ or +false+.
+    # depth and stencil formats (ADR 001, rule 28), +true+ or +false+.
     #
     # Some names start with a capital, as LÖVE spells them; read those
     # with +[]+, as Lua reads them with brackets. Lota::Graphics::TextureFormats,

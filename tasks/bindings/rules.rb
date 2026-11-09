@@ -93,7 +93,7 @@ module Bindings
     # TextBatch, whose products the engine cannot tell apart. CompressedData
     # === is true of every CompressedImageData, which only
     # newCompressedData makes (wrap_Image.cpp, w_newCompressedData), so
-    # rule 2's "what that factory makes" is the whole class. A texture
+    # rule 26's "what that factory makes" is the whole class. A texture
     # factory of one type makes the Textures whose getTextureType names
     # it, a getter answering what a predicate answers for newCanvas, so
     # CubeTexture === asks the type, as do the modules of LÖVE 11's names
