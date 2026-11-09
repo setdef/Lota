@@ -51,7 +51,11 @@ module Bindings
     end
 
     # One result pushed onto the stack.
-    class Push < Data.define(:pusher, :kind, :expression, :line)
+    #
+    # [looped] Whether it is pushed inside a loop, as w_newCubeFaces
+    #   pushes each face it makes (wrap_Image.cpp:131-139), so once for
+    #   each time round.
+    class Push < Data.define(:pusher, :kind, :expression, :line, :looped)
     end
 
     # An error the function raises itself.
@@ -175,7 +179,7 @@ module Bindings
     RETURN_ERRORS = /\A(?:luaL_error|luax_enumerror|luaL_argerror|luax_typerror|lua_error|luax_effecterror)\s*\(/
 
     attr_reader :reads, :tests, :tables, :pushes, :counts, :errors, :enums, :enum_results, :engine_calls,
-      :deprecation, :delegate, :problems, :count_tests, :statements
+      :deprecation, :delegate, :problems, :count_tests, :statements, :computed_count
 
     # [function] The WrapFile::Function to read.
     # [source] Its file's CppSource, for line numbers.
@@ -196,6 +200,7 @@ module Bindings
       @engine_calls = []
       @problems = []
       @count_tests = false
+      @computed_count = false
       @variables = {}
       @constants = {}
       @types = {}
@@ -284,6 +289,7 @@ module Bindings
         @delegate = target
       else
         expression(text, node.line, loops)
+        @computed_count = true
         @problems << "returns a computed number of values (return #{text})"
       end
     end
@@ -324,7 +330,7 @@ module Bindings
       elsif TESTS.include?(name) || name.match?(HELPER_TEST)
         test(call, line, loops)
       elsif TABLE_READS.include?(name) then table(call, line, loops)
-      elsif name.match?(PUSHERS) then push(call, line)
+      elsif name.match?(PUSHERS) then push(call, line, loops)
       elsif ERRORS.include?(name) then error(call, line)
       elsif LUA_CALLS.include?(name) then @problems << "calls back into Lua (#{name}, line #{line})"
       elsif @helpers.key?(name) || name.match?(HELPER_READER) then read(call, text, line, loops)
@@ -369,7 +375,7 @@ module Bindings
       tables << TableRead.new(index:, access: call.base_name, key:, line:)
     end
 
-    private def push(call, line)
+    private def push(call, line, loops)
       kind = case call.base_name
       when "lua_pushnumber" then :number
       when "lua_pushinteger" then :integer
@@ -382,7 +388,8 @@ module Bindings
       when "luax_pushvariant" then :variant
       else :helper
       end
-      pushes << Push.new(pusher: call.base_name, kind:, expression: call.arguments[1..].join(", "), line:)
+      pushes << Push.new(pusher: call.base_name, kind:, expression: call.arguments[1..].join(", "), line:,
+        looped: loops.any?)
     end
 
     private def error(call, line)

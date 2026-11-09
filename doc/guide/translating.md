@@ -15,6 +15,7 @@ Look up what a function does on [LÖVE's wiki](https://love2d.org/wiki/Main_Page
 | --- | --- | --- |
 | Modules keep their names. | `love.graphics` | `Lota::Graphics` |
 | A `new` function becomes a constructor. | `love.graphics.newSpriteBatch(img, 1000)` | `Lota::Graphics::SpriteBatch.new(img, 1000)` |
+| A `new` function that makes several objects stays a method. | `body, shape = love.physics.newCircleBody(world, "dynamic", x, y, r)` | `body, shape = Lota::Physics.new_circle_body(world, :dynamic, x, y, r)` |
 | Getters drop `get`. | `love.graphics.getDimensions()` | `Lota::Graphics.dimensions` |
 | Several results come back as one Array, on success and on failure. | `x, y = love.mouse.getPosition()` | `x, y = Lota::Mouse.position` |
 | Setters become writers. | `love.window.setTitle("Game")` | `Lota::Window.title = "Game"` |
@@ -80,6 +81,7 @@ An engine object Lota hands back, as `Lota::Graphics.canvas` hands back the canv
 Where LÖVE reads a whole number, such as a font's size, Lota takes a Float too and cuts it toward 0, as LuaJIT does: `Lota::Graphics::Font.new(12.5)` is a 12-pixel font.
 
 A Shader has LÖVE's `send`, which replaces Ruby's `Object#send` on a Shader: `glow.send("strength", 1.5)` sends a uniform. Use `__send__` for Ruby's.
+
 
 ## Numbers that match LÖVE's
 

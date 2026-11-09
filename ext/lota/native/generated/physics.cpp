@@ -1144,6 +1144,79 @@ Body *w_newBody(World *world, double x, double y, const std::optional<std::strin
   return body;
 }
 
+// love.physics.newCircleBody: w_newCircleBody (wrap_Physics.cpp:85-107).
+Rice::Array w_newCircleBody(World *world, const std::string &btype, double x, double y,
+                            double radius) {
+  Rice::Array results;
+  if (!world->isValid()) {
+    throw love::Exception("Attempt to use destroyed world.");
+  }
+  Body::Type btype_value = Body::BODY_STATIC;
+  if (!Body::getConstant(btype.c_str(), btype_value)) {
+    raise_enum_error("Body type", Body::getConstants(btype_value), btype);
+  }
+  Body *body = nullptr;
+  CircleShape *shape = nullptr;
+  body = instance()->newCircleBody(world, btype_value, static_cast<float>(x), static_cast<float>(y),
+                                   static_cast<float>(radius), shape);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(body, true)), false);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(shape, true)), false);
+  return results;
+}
+
+// love.physics.newRectangleBody: w_newRectangleBody (wrap_Physics.cpp:109-133).
+Rice::Array w_newRectangleBody(World *world, const std::string &btype, double x, double y, double w,
+                               double h, double angle) {
+  Rice::Array results;
+  if (!world->isValid()) {
+    throw love::Exception("Attempt to use destroyed world.");
+  }
+  Body::Type btype_value = Body::BODY_STATIC;
+  if (!Body::getConstant(btype.c_str(), btype_value)) {
+    raise_enum_error("Body type", Body::getConstants(btype_value), btype);
+  }
+  Body *body = nullptr;
+  PolygonShape *shape = nullptr;
+  body = instance()->newRectangleBody(world, btype_value, static_cast<float>(x),
+                                      static_cast<float>(y), static_cast<float>(w),
+                                      static_cast<float>(h), static_cast<float>(angle), shape);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(body, true)), false);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(shape, true)), false);
+  return results;
+}
+
+// love.physics.newEdgeBody: w_newEdgeBody (wrap_Physics.cpp:189-224).
+Rice::Array w_newEdgeBody(World *world, const std::string &btype, double x1, double y1, double x2,
+                          double y2, std::optional<double> prevx, std::optional<double> prevy,
+                          std::optional<double> nextx, std::optional<double> nexty) {
+  Rice::Array results;
+  if (!world->isValid()) {
+    throw love::Exception("Attempt to use destroyed world.");
+  }
+  Body::Type btype_value = Body::BODY_STATIC;
+  if (!Body::getConstant(btype.c_str(), btype_value)) {
+    raise_enum_error("Body type", Body::getConstants(btype_value), btype);
+  }
+  Body *body = nullptr;
+  EdgeShape *shape = nullptr;
+  if (!prevx.has_value()) {
+    body =
+        instance()->newEdgeBody(world, btype_value, static_cast<float>(x1), static_cast<float>(y1),
+                                static_cast<float>(x2), static_cast<float>(y2), shape);
+  } else {
+    const float prevx_value = static_cast<float>(required(prevx, "prevx"));
+    const float prevy_value = static_cast<float>(required(prevy, "prevy"));
+    const float nextx_value = static_cast<float>(required(nextx, "nextx"));
+    const float nexty_value = static_cast<float>(required(nexty, "nexty"));
+    body = instance()->newEdgeBody(
+        world, btype_value, static_cast<float>(x1), static_cast<float>(y1), static_cast<float>(x2),
+        static_cast<float>(y2), prevx_value, prevy_value, nextx_value, nexty_value, shape);
+  }
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(body, true)), false);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(shape, true)), false);
+  return results;
+}
+
 // love.physics.newDistanceJoint: w_newDistanceJoint (wrap_Physics.cpp:494-510).
 DistanceJoint *w_newDistanceJoint(Body *body1, Body *body2, double x1, double y1, double x2,
                                   double y2, bool collide_connected) {
@@ -2028,6 +2101,20 @@ void define_generated_physics(const Rice::Module &native) {
       .define_singleton_function(
           "new_body", &w_newBody, Rice::Arg("world"), Rice::Arg("x") = 0.0, Rice::Arg("y") = 0.0,
           Rice::Arg("argument4") = std::optional<std::string>(), Rice::Return().takeOwnership())
+      .define_singleton_function("new_circle_body", &w_newCircleBody, Rice::Arg("world"),
+                                 Rice::Arg("btype"), Rice::Arg("x"), Rice::Arg("y"),
+                                 Rice::Arg("radius"), Rice::Return().takeOwnership())
+      .define_singleton_function("new_rectangle_body", &w_newRectangleBody, Rice::Arg("world"),
+                                 Rice::Arg("btype"), Rice::Arg("x"), Rice::Arg("y"), Rice::Arg("w"),
+                                 Rice::Arg("h"), Rice::Arg("angle") = 0.0,
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function(
+          "new_edge_body", &w_newEdgeBody, Rice::Arg("world"), Rice::Arg("btype"), Rice::Arg("x1"),
+          Rice::Arg("y1"), Rice::Arg("x2"), Rice::Arg("y2"),
+          Rice::Arg("prevx") = std::optional<double>(),
+          Rice::Arg("prevy") = std::optional<double>(),
+          Rice::Arg("nextx") = std::optional<double>(),
+          Rice::Arg("nexty") = std::optional<double>(), Rice::Return().takeOwnership())
       .define_singleton_function(
           "new_distance_joint", &w_newDistanceJoint, Rice::Arg("body1"), Rice::Arg("body2"),
           Rice::Arg("x1"), Rice::Arg("y1"), Rice::Arg("x2"), Rice::Arg("y2"),

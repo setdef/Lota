@@ -93,7 +93,10 @@ module Bindings
     # TextBatch, whose products the engine cannot tell apart. CompressedData
     # === is true of every CompressedImageData, which only
     # newCompressedData makes (wrap_Image.cpp, w_newCompressedData), so
-    # rule 2's "what that factory makes" is the whole class.
+    # rule 2's "what that factory makes" is the whole class. The deprecated
+    # newFixture's Fixture === is true of every Shape, the one it makes
+    # being a Shape (wrap_Physics.cpp, w_newFixture), as the maintainer
+    # decided.
     MODULE_FACTORY_MATCHES = {
       "newCanvas" => "Texture:isCanvas",
       "newImage" => "Texture",
@@ -102,7 +105,13 @@ module Bindings
       "newText" => "TextBatch",
       "newComputeShader" => "Shader:hasStage",
       "newCompressedData" => "CompressedImageData",
+      "newFixture" => "Shape",
     }.freeze
+    # The pushes of an engine object: luax_pushtype, and luax_pushshape and
+    # luax_pushjoint, which push a Shape or a Joint as the class its type
+    # names (wrap_Shape.cpp:36-63, wrap_Joint.cpp:44-76), as the
+    # generator's port reads them (Port::OBJECT_PUSHERS).
+    OBJECT_PUSHERS = %w[luax_pushtype luax_pushshape luax_pushjoint].freeze
     # The Ruby class a LÖVE type's methods belong to, where LÖVE's Lua type
     # name differs from the name its wrap file registers: Buffer.cpp's type
     # is "GraphicsBuffer" (rule 2 then makes Buffer a module, as it makes
@@ -268,6 +277,7 @@ module Bindings
         return metamethod if @name.start_with?("__")
         return no_rule("starts with an underscore, which marks a hook for LÖVE's own Lua wrapper") if @name.start_with?("_")
         return own_type if OWN_TYPE.include?(@name) && @typed.include?(@function.type_name)
+        return several_objects if @name.match?(/\Anew[A-Z]/) && several_objects?
         return factory(Regexp.last_match(1)) if @name =~ /\Anew([A-Z]\w*)\z/
         return getter(Regexp.last_match(1)) if @name =~ /\Aget([A-Z]\w*)\z/
         return setter(Regexp.last_match(1)) if @name =~ /\Aset([A-Z]\w*)\z/
@@ -291,6 +301,32 @@ module Bindings
       private def own_type
         @rules << 16
         Rules.snake_case(@name)
+      end
+
+      # ADR 001, rule 17: factories that make several objects stay methods.
+      # Rule 2 makes a factory a constructor, but Ruby's new makes one
+      # object, so a factory that returns more than one, as newCircleBody
+      # returns its Body and its CircleShape (wrap_Physics.cpp:85-107) and
+      # newCubeFaces its six faces (wrap_Image.cpp:131-139), keeps its
+      # name, in snake case, and returns what it makes as an Array by rule
+      # 4, with no module and no ===.
+      private def several_objects
+        @rules.push(17, 4)
+        Rules.snake_case(@name)
+      end
+
+      # Whether the function returns more than one engine object, as its
+      # pushes and its counts of values say, which an analysis gives even
+      # for a function it cannot read whole: two objects or more and a
+      # literal count of more than one value, or an object pushed in a
+      # loop and a count computed at run time, one value for each object.
+      # A function that returns its object, or nil and a message, as
+      # newFile does through luax_ioError, returns one object.
+      private def several_objects?
+        return false unless @facts
+
+        objects = @facts.pushes.select { |push| OBJECT_PUSHERS.include?(push.pusher) }
+        (@facts.result_count > 1 && objects.size > 1) || (@facts.computed_count && objects.any?(&:looped))
       end
 
       # Rule 2.

@@ -52,6 +52,18 @@ class AnalysisTest < Minitest::Test
     assert_equal %w[c.r c.g c.b c.a], analysis.pushes.map(&:expression)
     assert_equal [:number], analysis.pushes.map(&:kind).uniq
     assert_equal 4, analysis.result_count
+    refute analysis.computed_count
+    refute analysis.pushes.any?(&:looped)
+  end
+
+  # w_newCubeFaces pushes each face in a loop and returns how many it
+  # pushed (wrap_Image.cpp:131-139), which the rules read as several
+  # objects.
+  def test_a_push_in_a_loop_and_a_computed_count_are_marked
+    analysis = analysis("love.image.newCubeFaces")
+
+    assert analysis.computed_count
+    assert_equal [true], analysis.pushes.map(&:looped)
   end
 
   # w_isDown reads its keys from a table or from every argument.

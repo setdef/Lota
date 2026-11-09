@@ -131,13 +131,49 @@ class RulesTest < Minitest::Test
     assert_empty collisions("love.graphics.transformPoint")
   end
 
-  # newCircleBody returns a Body and a CircleShape (wrap_Physics.cpp,
-  # w_newCircleBody): rule 4 makes them an Array, and rule 2 still leaves
-  # open what CircleBody === asks of a factory that makes two objects.
-  def test_a_module_factory_with_several_values_leaves_only_rule_2_open
-    assert_includes rules("love.physics.newCircleBody"), 4
-    assert_equal [[:open, [2]]], collisions("love.physics.newCircleBody")
-    assert_match(/returns 2 values/, translation("love.physics.newCircleBody").collisions.first.why)
+  # ADR 001, rule 17: factories that make several objects stay methods.
+  # newCircleBody makes a Body and a CircleShape and returns both
+  # (wrap_Physics.cpp:85-107), and Ruby's new makes one object, so it keeps
+  # its name and returns the two as an Array by rule 4. The analysis reads
+  # the five such factories from their pushes, so no list names them.
+  def test_rule_17_a_factory_that_returns_several_objects_stays_a_method
+    %w[Circle Rectangle Polygon Edge Chain].each do |kind|
+      love_name = "love.physics.new#{kind}Body"
+
+      assert_equal "Lota::Physics.new_#{kind.downcase}_body", ruby_name(love_name)
+      assert_includes rules(love_name), 17
+      assert_includes rules(love_name), 4
+      refute_includes rules(love_name), 2
+      assert_empty collisions(love_name)
+    end
+  end
+
+  # newCubeFaces pushes each face it makes in a loop and returns as many
+  # values as there are faces (wrap_Image.cpp:131-139), so rule 17 keeps it
+  # a method too, with no module or ===.
+  def test_rule_17_a_factory_that_returns_its_objects_from_a_loop_stays_a_method
+    assert_equal "Lota::Image.new_cube_faces", ruby_name("love.image.newCubeFaces")
+    assert_includes rules("love.image.newCubeFaces"), 17
+    assert_includes rules("love.image.newCubeFaces"), 4
+    assert_empty collisions("love.image.newCubeFaces")
+  end
+
+  # newFile returns its File, or nil and a message when it cannot open it
+  # (wrap_Filesystem.cpp, w_newFile, through luax_ioError): two values, but
+  # one object, so it stays a constructor.
+  def test_a_factory_that_returns_one_object_or_an_error_is_a_constructor
+    assert_equal "Lota::Filesystem::File.new", ruby_name("love.filesystem.newFile")
+    assert_includes rules("love.filesystem.newFile"), 2
+  end
+
+  # The deprecated newFixture returns one Shape (wrap_Physics.cpp:282-296),
+  # so rule 2 makes Fixture a module, and Fixture === is true of every
+  # Shape, as RectangleShape === is of every PolygonShape, as the
+  # maintainer settled.
+  def test_fixture_is_a_module_true_of_every_shape
+    assert_equal "Lota::Physics::Fixture.new", ruby_name("love.physics.newFixture")
+    assert_equal "Shape", Bindings::Rules::MODULE_FACTORY_MATCHES.fetch("newFixture")
+    assert_empty collisions("love.physics.newFixture")
   end
 
   # Rule 13 spells LÖVE's UInt as C spells uint8_t, one word, so

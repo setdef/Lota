@@ -868,6 +868,12 @@ module Lota
 
       def self.new_body: (World world, ?(Float | Integer) x, ?(Float | Integer) y, ?String? argument4) -> Body
 
+      def self.new_circle_body: (World world, String btype, Float | Integer x, Float | Integer y, Float | Integer radius) -> [Body, CircleShape]
+
+      def self.new_rectangle_body: (World world, String btype, Float | Integer x, Float | Integer y, Float | Integer w, Float | Integer h, ?(Float | Integer) angle) -> [Body, PolygonShape]
+
+      def self.new_edge_body: (World world, String btype, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer)? prevx, ?(Float | Integer)? prevy, ?(Float | Integer)? nextx, ?(Float | Integer)? nexty) -> [Body, EdgeShape]
+
       def self.new_distance_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool collide_connected) -> DistanceJoint
 
       def self.new_gear_joint: (Joint joint1, Joint joint2, ?(Float | Integer) ratio, ?bool collide_connected) -> GearJoint

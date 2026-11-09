@@ -6,6 +6,8 @@ module Lota
     class Shape[out N < Native::Shape = Native::Shape] < Object[N]
       private def self.from_native: (Native::Shape native) -> instance
 
+      private def self.mark_without_body: (String name, Array[Thread::Backtrace::Location]? locations) -> nil
+
       def body: () -> Body?
 
       def get_type: () -> Symbol
@@ -70,7 +72,7 @@ module Lota
     end
 
     class CircleShape < Shape[Native::CircleShape]
-      def self.new: (Body body, *Float | Integer arguments) -> CircleShape
+      def self.new: (Body | Float | Integer first, *Float | Integer arguments) -> CircleShape
 
       def radius=: (Float | Integer radius) -> void
 
@@ -80,7 +82,7 @@ module Lota
     end
 
     class PolygonShape < Shape[Native::PolygonShape]
-      def self.new: (Body body, *(Float | Integer | Array[Float | Integer]) coordinates) -> PolygonShape
+      def self.new: (Body | Float | Integer | Array[Float | Integer] first, *(Float | Integer | Array[Float | Integer]) coordinates) -> PolygonShape
 
       def points: () -> Array[Float]
 
@@ -88,7 +90,7 @@ module Lota
     end
 
     class EdgeShape < Shape[Native::EdgeShape]
-      def self.new: (Body body, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, *Float | Integer neighbors) -> EdgeShape
+      def self.new: (Body | Float | Integer first, *Float | Integer arguments) -> EdgeShape
 
       def points: () -> Array[Float]
 
@@ -102,7 +104,7 @@ module Lota
     end
 
     class ChainShape < Shape[Native::ChainShape]
-      def self.new: (Body body, bool loop, *(Float | Integer | Array[Float | Integer]) coordinates) -> ChainShape
+      def self.new: (Body | bool first, *(bool | Float | Integer | Array[Float | Integer]) arguments) -> ChainShape
 
       def points: () -> Array[Float]
 
@@ -123,7 +125,12 @@ module Lota
 
     module RectangleShape
       def self.===: (top object) -> bool
-      def self.new: (Body body, *Float | Integer arguments) -> PolygonShape
+      def self.new: (Body | Float | Integer first, *Float | Integer arguments) -> PolygonShape
+    end
+
+    module Fixture
+      def self.===: (top object) -> bool
+      def self.new: (Body body, Shape shape, ?(Float | Integer) density) -> Shape
     end
   end
 end

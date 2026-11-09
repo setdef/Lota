@@ -10,6 +10,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `Lota::Physics.new_circle_body`, `new_rectangle_body`, `new_polygon_body`, `new_edge_body`, and `new_chain_body`, each returning a new Body and its Shape.
+- LÖVE's deprecated forms of `Lota::Physics::CircleShape.new`, `RectangleShape.new`, `PolygonShape.new`, `EdgeShape.new`, and `ChainShape.new` without a Body, and the deprecated `Lota::Physics::Fixture.new`, which attaches a copy of such a Shape to a Body; `Fixture ===` is true of every Shape.
+
 ### Fixed
 
 - On Windows, an engine object Lota hands back again, such as the Shader in use or a Shape a contact names, is the same Ruby object each time, as on macOS and Linux, where it was a new one each time.

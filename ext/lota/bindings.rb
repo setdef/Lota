@@ -1042,10 +1042,22 @@ generate "Contact:resetRestitution"
 generate "love.physics.setMeter"
 generate "love.physics.newWorld"
 generate "love.physics.newBody"
+generate "love.physics.newCircleBody"
+generate "love.physics.newRectangleBody"
+bound_by_hand "love.physics.newPolygonBody",
+  reason: "reads its vertices in a loop over every argument, or from a table, as newPolygonShape; " \
+    "Lota::Physics.new_polygon_body passes them as one Array"
+generate "love.physics.newEdgeBody"
+bound_by_hand "love.physics.newChainBody",
+  reason: "reads its vertices in a loop over every argument, or from a table, as newPolygonShape"
+bound_by_hand "love.physics.newFixture",
+  reason: "copies the b2Shape of the Shape it is given (Physics::newAttachedShape), which a destroyed Shape no " \
+    "longer has, so LÖVE reads through a null pointer (doc/contributors/upstream/020.md); Lota refuses a " \
+    "destroyed Shape first, with Shape's own message, and prints the notice from Ruby"
 bound_by_hand "love.physics.newCircleShape",
   reason: "reads its numbers at positions that depend on whether a Body comes first (bodyidx) and chooses its " \
-    "form by their count; Lota::Physics::CircleShape.new chooses by the count, and binds the form with a " \
-    "Body"
+    "form by their count; Lota::Physics::CircleShape.new chooses by the count, binds the form with a Body, " \
+    "and passes no Body for the deprecated form without one, whose notice it prints"
 bound_by_hand "love.physics.newRectangleShape",
   reason: "reads its numbers at positions that depend on whether a Body comes first, as newCircleShape; " \
     "Lota::Physics::RectangleShape.new chooses its form by their count, and binds the numbers as an Array"

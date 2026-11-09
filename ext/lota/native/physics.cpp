@@ -4,6 +4,7 @@
 #include "native/physics.hpp"
 
 #include "native/binding.hpp"
+#include "native/errors.hpp"
 #include "native/ruby.hpp"
 
 #include "box2d/b2_math.h"
@@ -298,31 +299,43 @@ template <typename T> Rice::Array objects(const std::vector<T> &values) {
 // lua_State; where a wrap function called a method Lota's physics patch
 // changed, the port calls the method as the patch leaves it.
 
-// w_newCircleShape (wrap_Physics.cpp:307-336) with a Body, in its form with
-// a position and a radius; Lota::Physics::CircleShape.new passes 0, 0 for
-// the form with a radius alone, as LÖVE does.
+// The Body a shape's factory reads first, checked as luax_checkbody
+// checks it (wrap_Body.cpp:32-38), or none for the deprecated forms
+// without one, which luax_optbodyforshape allows (wrap_Physics.cpp:
+// 298-305): the shape then belongs to no Body, and Ruby holds its only
+// reference (Shape.cpp:62-68). Lota::Physics's Ruby chooses the form, as
+// luax_optbodyforshape does, and prints its notice.
+void check_optional(Body *body) {
+  if (body != nullptr) {
+    check(*body);
+  }
+}
+
+// w_newCircleShape (wrap_Physics.cpp:307-336), in its form with a position
+// and a radius; Lota::Physics::CircleShape.new passes 0, 0 for the form
+// with a radius alone, as LÖVE does.
 box2d::CircleShape *new_circle_shape(Body *body, double x, double y, double radius) {
-  check(body);
+  check_optional(body);
   return physics()->newCircleShape(body, static_cast<float>(x), static_cast<float>(y),
                                    static_cast<float>(radius));
 }
 
-// w_newRectangleShape (wrap_Physics.cpp:338-370) with a Body;
+// w_newRectangleShape (wrap_Physics.cpp:338-370);
 // Lota::Physics::RectangleShape.new passes 0, 0, and an angle of 0 for the
 // form with a size alone, as LÖVE does.
 box2d::PolygonShape *new_rectangle_shape(Body *body, Rice::Array placement_given) {
   const Rice::Array placement = std::move(placement_given);
-  check(body);
+  check_optional(body);
   const std::vector<double> p = numbers(placement);
   const auto [x, y, w, h] = take<4>(p, 0);
   return physics()->newRectangleShape(body, x, y, w, h, static_cast<float>(p.at(4)));
 }
 
-// w_newEdgeShape (wrap_Physics.cpp:372-397) with a Body: the edge's two
+// w_newEdgeShape (wrap_Physics.cpp:372-397): the edge's two
 // points, and its previous and next vertex when there are eight numbers.
 box2d::EdgeShape *new_edge_shape(Body *body, Rice::Array coordinates_given) {
   const Rice::Array coordinates = std::move(coordinates_given);
-  check(body);
+  check_optional(body);
   const std::vector<double> c = numbers(coordinates);
   const auto [x1, y1, x2, y2] = take<4>(c, 0);
   if (c.size() <= 4) {
@@ -346,25 +359,93 @@ std::vector<love::Vector2> vertices(const std::vector<double> &c) {
   return coords;
 }
 
-// w_newPolygonShape (wrap_Physics.cpp:399-444) with a Body.
+// w_newPolygonShape (wrap_Physics.cpp:399-444).
 box2d::PolygonShape *new_polygon_shape(Body *body, Rice::Array coordinates_given) {
   const Rice::Array coordinates = std::move(coordinates_given);
-  check(body);
+  check_optional(body);
   const std::vector<love::Vector2> coords = vertices(numbers(coordinates));
   return physics()->newPolygonShape(body, coords.data(), static_cast<int>(coords.size()));
 }
 
-// w_newChainShape (wrap_Physics.cpp:446-490) with a Body, which needs at
-// least one vertex.
+// w_newChainShape (wrap_Physics.cpp:446-490), which needs at least one
+// vertex.
 box2d::ChainShape *new_chain_shape(Body *body, bool loop, Rice::Array coordinates_given) {
   const Rice::Array coordinates = std::move(coordinates_given);
-  check(body);
+  check_optional(body);
   const std::vector<double> c = numbers(coordinates);
   if (c.empty()) {
     throw love::Exception("Number of vertex components must be a multiple of two.");
   }
   const std::vector<love::Vector2> coords = vertices(c);
   return physics()->newChainShape(body, loop, coords.data(), static_cast<int>(coords.size()));
+}
+
+// The Body type a body factory reads (wrap_Physics.cpp:139-142), which
+// it requires, and raises luax_enumerror's error for a name of none.
+Body::Type body_type(const std::string &name) {
+  Body::Type type = Body::BODY_STATIC;
+  if (!Body::getConstant(name.c_str(), type)) {
+    raise_enum_error("Body type", Body::getConstants(type), name);
+  }
+  return type;
+}
+
+// The Body and the Shape a body factory makes, as an Array, as LÖVE
+// pushes the two (wrap_Physics.cpp:182-185): each wrapper adopts the
+// reference the factory passes on, as LÖVE releases its own once it has
+// pushed them.
+template <typename S> Rice::Array body_and_shape(Body *body, S *shape) {
+  Rice::Array results;
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(body, true)), false);
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(shape, true)), false);
+  return results;
+}
+
+// w_newPolygonBody (wrap_Physics.cpp:135-187): a Body at the centroid of
+// the vertices, with a PolygonShape of them.
+Rice::Array new_polygon_body(World *world, const std::string &type, Rice::Array coordinates_given) {
+  const Rice::Array coordinates = std::move(coordinates_given);
+  check(world);
+  const Body::Type btype = body_type(type);
+  const std::vector<love::Vector2> coords = vertices(numbers(coordinates));
+  box2d::PolygonShape *shape = nullptr;
+  Body *body = physics()->newPolygonBody(world, btype, coords.data(),
+                                         static_cast<int>(coords.size()), shape);
+  return body_and_shape(body, shape);
+}
+
+// w_newChainBody (wrap_Physics.cpp:226-280): a Body at the centroid of
+// the vertices, with a ChainShape of them, which needs at least one.
+Rice::Array new_chain_body(World *world, const std::string &type, bool loop,
+                           Rice::Array coordinates_given) {
+  const Rice::Array coordinates = std::move(coordinates_given);
+  check(world);
+  const Body::Type btype = body_type(type);
+  const std::vector<double> c = numbers(coordinates);
+  if (c.empty()) {
+    throw love::Exception("Number of vertex components must be a multiple of two.");
+  }
+  const std::vector<love::Vector2> coords = vertices(c);
+  box2d::ChainShape *shape = nullptr;
+  Body *body = physics()->newChainBody(world, btype, loop, coords.data(),
+                                       static_cast<int>(coords.size()), shape);
+  return body_and_shape(body, shape);
+}
+
+// w_newFixture (wrap_Physics.cpp:282-296), deprecated, whose notice
+// Lota::Physics::Fixture.new prints: a copy of +shape+, a Shape on no
+// Body, attached to +body+ at +density+ (Physics::newAttachedShape,
+// Physics.cpp:133-163), which refuses a Shape that is part of the World.
+// A destroyed Shape is not part of the World either, but it has no
+// b2Shape left to copy, which LÖVE reads anyway, through a null pointer
+// (doc/contributors/upstream/020.md), so Lota refuses it first, as the
+// Shape's own methods do (Shape::throwIfShapeNotValid, Shape.cpp:171-175).
+Shape *new_fixture(Body *body, Shape *shape, double density) {
+  check(body);
+  if (!present(shape)->isShapeValid()) {
+    throw love::Exception("Cannot call this method on a destroyed Shape.");
+  }
+  return physics()->newAttachedShape(body, shape, static_cast<float>(density));
 }
 
 // The joints' factories (wrap_Physics.cpp:492-775), each with its numbers
@@ -1206,6 +1287,12 @@ void define_physics(const Rice::Module &native) {
                                  Rice::Arg("coordinates"), owned)
       .define_singleton_function("new_chain_shape", &new_chain_shape, Rice::Arg("body"),
                                  Rice::Arg("loop"), Rice::Arg("coordinates"), owned)
+      .define_singleton_function("new_polygon_body", &new_polygon_body, Rice::Arg("world"),
+                                 Rice::Arg("type"), Rice::Arg("coordinates"))
+      .define_singleton_function("new_chain_body", &new_chain_body, Rice::Arg("world"),
+                                 Rice::Arg("type"), Rice::Arg("loop"), Rice::Arg("coordinates"))
+      .define_singleton_function("new_fixture", &new_fixture, Rice::Arg("body"), Rice::Arg("shape"),
+                                 Rice::Arg("density"), owned)
       .define_singleton_function("new_revolute_joint", &new_revolute_joint, Rice::Arg("body1"),
                                  Rice::Arg("body2"), Rice::Arg("anchors"),
                                  Rice::Arg("collide_connected"),

@@ -151,6 +151,132 @@ module Lota
       Native::Physics.compute_angular_frequency(stiffness, damping, body1.__send__(:native), body2&.__send__(:native))
     end
 
+    # A Body in +world+ with a circle on it, as an Array of the
+    # Lota::Physics::Body and its Lota::Physics::CircleShape, matching
+    # love.physics.newCircleBody (src/modules/physics/box2d/wrap_Physics.cpp,
+    # w_newCircleBody), which returns both. Ruby's +new+ makes one object,
+    # so a factory that makes two stays a method (ADR 001, rule 17), and
+    # returns the two as an Array (rule 4).
+    #
+    # [type] Symbol <tt>:static</tt>, <tt>:dynamic</tt>, or
+    #   <tt>:kinematic</tt> (ADR 001, rule 9), which LÖVE requires here.
+    # [x] Float or Integer position along x of the Body, and of the
+    #   circle's center, in pixels.
+    # [y] Float or Integer position along y.
+    # [radius] Float or Integer radius, in pixels.
+    #
+    # Raises ArgumentError for a type LÖVE does not know, and
+    # RuntimeError for a destroyed World.
+    #
+    # === Example
+    #
+    #   body, shape = Lota::Physics.new_circle_body(world, :dynamic, 400, 0, 10)
+    def self.new_circle_body(world, type, x, y, radius)
+      body, shape = Native::Physics.new_circle_body(world.__send__(:native), EnumName.of(type), x, y, radius)
+      [Body.__send__(:from_native, body), CircleShape.__send__(:from_native, shape)]
+    end
+
+    # A Body in +world+ with a rectangle on it, as an Array of the
+    # Lota::Physics::Body and its Lota::Physics::PolygonShape, matching
+    # love.physics.newRectangleBody
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_newRectangleBody), as
+    # #new_circle_body is named.
+    #
+    # [type] Symbol, as #new_circle_body takes it.
+    # [x] Float or Integer position along x of the Body, and of the
+    #   rectangle's center, in pixels.
+    # [y] Float or Integer position along y.
+    # [width] Float or Integer width, in pixels.
+    # [height] Float or Integer height.
+    # [angle] Float or Integer angle of the rectangle on the Body, in
+    #   radians.
+    #
+    # Raises ArgumentError for a type LÖVE does not know, and
+    # RuntimeError for a destroyed World.
+    #
+    # === Example
+    #
+    #   ground, shape = Lota::Physics.new_rectangle_body(world, :static, 400, 580, 800, 40)
+    def self.new_rectangle_body(world, type, x, y, width, height, angle = 0)
+      body, shape = Native::Physics.new_rectangle_body(world.__send__(:native), EnumName.of(type), x, y, width, height,
+        angle)
+      [Body.__send__(:from_native, body), PolygonShape.__send__(:from_native, shape)]
+    end
+
+    # A Body in +world+ with a convex polygon on it, as an Array of the
+    # Lota::Physics::Body and its Lota::Physics::PolygonShape, matching
+    # love.physics.newPolygonBody
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_newPolygonBody), as
+    # #new_circle_body is named. The Body is at the vertices' average, and
+    # the polygon's vertices are where they are given, in the World.
+    #
+    # [type] Symbol, as #new_circle_body takes it.
+    # [coordinates] An x and a y Float or Integer for each of three to
+    #   eight vertices, in pixels, or an Array of them, as LÖVE takes a
+    #   table.
+    #
+    # Raises ArgumentError for a type LÖVE does not know, and
+    # RuntimeError, with LÖVE's message, for an odd number of coordinates,
+    # for a polygon Box2D cannot make, and for a destroyed World.
+    #
+    # === Example
+    #
+    #   body, triangle = Lota::Physics.new_polygon_body(world, :dynamic, 0, 0, 30, 0, 0, 30)
+    def self.new_polygon_body(world, type, *coordinates)
+      body, shape = Native::Physics.new_polygon_body(world.__send__(:native), EnumName.of(type), coordinates.flatten)
+      [Body.__send__(:from_native, body), PolygonShape.__send__(:from_native, shape)]
+    end
+
+    # A Body in +world+ with the segment from +x1+, +y1+ to +x2+, +y2+ on
+    # it, as an Array of the Lota::Physics::Body and its
+    # Lota::Physics::EdgeShape, matching love.physics.newEdgeBody
+    # (src/modules/physics/box2d/wrap_Physics.cpp, w_newEdgeBody), as
+    # #new_circle_body is named. The segment is where it is given, in the
+    # World; the Body is at half of the difference of its points, as LÖVE
+    # puts it (src/modules/physics/box2d/Physics.cpp, newEdgeBody).
+    #
+    # [type] Symbol, as #new_circle_body takes it.
+    # [prevx] Nothing, or the previous vertex's x, then its y, and the
+    #   next vertex's x and y, all four, for smooth collisions along a run
+    #   of edges, as Lota::Physics::EdgeShape.new takes them.
+    #
+    # Raises ArgumentError for a type LÖVE does not know, and
+    # RuntimeError for a destroyed World.
+    #
+    # === Example
+    #
+    #   floor, edge = Lota::Physics.new_edge_body(world, :static, 0, 600, 800, 600)
+    def self.new_edge_body(world, type, x1, y1, x2, y2, prevx = nil, prevy = nil, nextx = nil, nexty = nil)
+      body, shape = Native::Physics.new_edge_body(world.__send__(:native), EnumName.of(type), x1, y1, x2, y2, prevx,
+        prevy, nextx, nexty)
+      [Body.__send__(:from_native, body), EdgeShape.__send__(:from_native, shape)]
+    end
+
+    # A Body in +world+ with a run of edges on it, as an Array of the
+    # Lota::Physics::Body and its Lota::Physics::ChainShape, matching
+    # love.physics.newChainBody (src/modules/physics/box2d/wrap_Physics.cpp,
+    # w_newChainBody), as #new_circle_body is named. The Body is at the
+    # vertices' average, and the edges are where they are given, in the
+    # World.
+    #
+    # [type] Symbol, as #new_circle_body takes it.
+    # [loop] Whether the last vertex joins the first.
+    # [coordinates] An x and a y Float or Integer for each vertex, in
+    #   pixels, or an Array of them.
+    #
+    # Raises ArgumentError for a type LÖVE does not know, and
+    # RuntimeError ("Number of vertex components must be a multiple of
+    # two.") for none or an odd number of coordinates, and for a destroyed
+    # World.
+    #
+    # === Example
+    #
+    #   hill, chain = Lota::Physics.new_chain_body(world, :static, false, 0, 600, 400, 500, 800, 600)
+    def self.new_chain_body(world, type, loop, *coordinates)
+      body, shape = Native::Physics.new_chain_body(world.__send__(:native), EnumName.of(type), loop, coordinates.flatten)
+      [Body.__send__(:from_native, body), ChainShape.__send__(:from_native, shape)]
+    end
+
     # The Lota::Physics::Shape that wraps +native+, of its own class, or
     # +nil+. :nodoc:
     private_class_method def self.shape(native)

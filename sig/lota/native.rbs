@@ -1670,15 +1670,21 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.new_circle_shape: (Body body, Float | Integer x, Float | Integer y, Float | Integer radius) -> CircleShape
+      def self.new_circle_shape: (Body? body, Float | Integer x, Float | Integer y, Float | Integer radius) -> CircleShape
 
-      def self.new_rectangle_shape: (Body body, Array[Float | Integer] placement) -> PolygonShape
+      def self.new_rectangle_shape: (Body? body, Array[Float | Integer] placement) -> PolygonShape
 
-      def self.new_edge_shape: (Body body, Array[Float | Integer] coordinates) -> EdgeShape
+      def self.new_edge_shape: (Body? body, Array[Float | Integer] coordinates) -> EdgeShape
 
-      def self.new_polygon_shape: (Body body, Array[Float | Integer] coordinates) -> PolygonShape
+      def self.new_polygon_shape: (Body? body, Array[Float | Integer] coordinates) -> PolygonShape
 
-      def self.new_chain_shape: (Body body, bool loop, Array[Float | Integer] coordinates) -> ChainShape
+      def self.new_chain_shape: (Body? body, bool loop, Array[Float | Integer] coordinates) -> ChainShape
+
+      def self.new_polygon_body: (World world, String type, Array[Float | Integer] coordinates) -> [Body, PolygonShape]
+
+      def self.new_chain_body: (World world, String type, bool loop, Array[Float | Integer] coordinates) -> [Body, ChainShape]
+
+      def self.new_fixture: (Body body, Shape shape, Float | Integer density) -> Shape
 
       def self.new_revolute_joint: (Body body1, Body body2, Array[Float | Integer] anchors, bool collide_connected, ?(Float | Integer)? reference_angle) -> RevoluteJoint
 

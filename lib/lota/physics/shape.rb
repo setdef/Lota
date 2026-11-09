@@ -33,6 +33,23 @@ module Lota
         shape
       end
 
+      # SPDX-SnippetBegin
+      # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+      # SPDX-License-Identifier: Zlib
+
+      # Marks the deprecated form of the factory +name+ that takes no Body,
+      # as luax_optbodyforshape marks it (src/modules/physics/box2d/
+      # wrap_Physics.cpp:298-305) when the factory's first argument is
+      # neither +nil+ nor one of LÖVE's objects, and prints its notice once,
+      # naming the caller's line, which +locations+ gives. Each factory
+      # reads a Body first otherwise, which must then be a Body. :nodoc:
+      private_class_method def self.mark_without_body(name, locations)
+        Deprecation.mark(name, :functionvariant, :replaced, "variant with Body parameter",
+          where: Deprecation.where(locations))
+      end
+
+      # SPDX-SnippetEnd
+
       # The Body the Shape is attached to, or +nil+, matching
       # Shape:getBody.
       #
@@ -372,16 +389,31 @@ module Lota
       # <tt>CircleShape.new(body, radius)</tt> at the Body's origin, or
       # <tt>CircleShape.new(body, x, y, radius)</tt> centered at +x+, +y+.
       #
+      # LÖVE's deprecated forms without a Body,
+      # <tt>CircleShape.new(radius)</tt> and <tt>CircleShape.new(x, y,
+      # radius)</tt>, make a circle on no Body, for
+      # Lota::Physics::Fixture.new to copy onto one; their first use prints
+      # LÖVE's notice. Such a Shape answers its geometry, but raises
+      # RuntimeError ("Shape must be active in the physics World to use
+      # this method.") for what only a Shape on a Body has, as its density.
+      #
       # Raises RuntimeError ("Incorrect number of parameters") for any other
       # number of arguments after the Body.
       #
       # === Example
       #
       #   Lota::Physics::CircleShape.new(body, 0, 0, 20)
-      def self.new(body, *arguments)
-        native = case arguments.size
-        when 1 then Native::Physics.new_circle_shape(body.__send__(:native), 0, 0, arguments.fetch(0))
-        when 3 then Native::Physics.new_circle_shape(body.__send__(:native), arguments.fetch(0), arguments.fetch(1), arguments.fetch(2))
+      def self.new(first, *arguments)
+        if first.nil? || first.is_a?(Object)
+          body = first.__send__(:native)
+          numbers = arguments
+        else
+          mark_without_body("Lota::Physics::CircleShape.new", caller_locations(1, 1))
+          numbers = [first, *arguments]
+        end
+        native = case numbers.size
+        when 1 then Native::Physics.new_circle_shape(body, 0, 0, numbers.fetch(0))
+        when 3 then Native::Physics.new_circle_shape(body, numbers.fetch(0), numbers.fetch(1), numbers.fetch(2))
         else raise "Incorrect number of parameters"
         end
         from_native(native)
@@ -432,14 +464,24 @@ module Lota
       # [coordinates] An x and a y Float or Integer for each vertex, or an
       #   Array of them, as LÖVE takes a table.
       #
+      # Given no Body, with the coordinates first, it makes a polygon on no
+      # Body, LÖVE's deprecated form, as CircleShape.new does.
+      #
       # Raises RuntimeError, with LÖVE's message, for an odd number of
       # coordinates and for a polygon Box2D cannot make.
       #
       # === Example
       #
       #   Lota::Physics::PolygonShape.new(body, [0, 0, 2, 3, 2, 1])
-      def self.new(body, *coordinates)
-        from_native(Native::Physics.new_polygon_shape(body.__send__(:native), coordinates.flatten))
+      def self.new(first, *coordinates)
+        if first.nil? || first.is_a?(Object)
+          body = first.__send__(:native)
+          numbers = coordinates
+        else
+          mark_without_body("Lota::Physics::PolygonShape.new", caller_locations(1, 1))
+          numbers = [first, *coordinates]
+        end
+        from_native(Native::Physics.new_polygon_shape(body, numbers.flatten))
       end
 
       # Each vertex's x and y, in its Body's frame, as one Array, matching
@@ -474,14 +516,27 @@ module Lota
       # matching love.physics.newEdgeShape
       # (src/modules/physics/box2d/wrap_Physics.cpp, w_newEdgeShape).
       #
-      # [neighbors] Nothing, or the previous vertex's x and y and the next
-      #   one's, for smooth collisions along a run of edges.
+      # [arguments] +x1+, +y1+, +x2+, and +y2+, then nothing, or the
+      #   previous vertex's x and y and the next one's, for smooth
+      #   collisions along a run of edges.
+      #
+      # Given no Body, with +x1+ first, it makes a segment on no Body,
+      # LÖVE's deprecated form, as CircleShape.new does.
       #
       # === Example
       #
       #   Lota::Physics::EdgeShape.new(body, 0, 0, 10, 10)
-      def self.new(body, x1, y1, x2, y2, *neighbors)
-        from_native(Native::Physics.new_edge_shape(body.__send__(:native), [x1, y1, x2, y2, *neighbors]))
+      def self.new(first, *arguments)
+        if first.nil? || first.is_a?(Object)
+          body = first.__send__(:native)
+          numbers = arguments
+        else
+          mark_without_body("Lota::Physics::EdgeShape.new", caller_locations(1, 1))
+          numbers = [first, *arguments]
+        end
+        raise ArgumentError, "wrong number of arguments (given #{numbers.size}, expected 4+)" if numbers.size < 4
+
+        from_native(Native::Physics.new_edge_shape(body, numbers))
       end
 
       # The edge's two points in its Body's frame, as an Array of the first
@@ -553,14 +608,26 @@ module Lota
       # [coordinates] An x and a y Float or Integer for each vertex, or an
       #   Array of them.
       #
+      # Given no Body, with +loop+ first, it makes a chain on no Body,
+      # LÖVE's deprecated form, as CircleShape.new does.
+      #
       # Raises RuntimeError ("Number of vertex components must be a
       # multiple of two.") for none or an odd number.
       #
       # === Example
       #
       #   Lota::Physics::ChainShape.new(body, false, [0, 0, 10, 0, 10, 10])
-      def self.new(body, loop, *coordinates)
-        from_native(Native::Physics.new_chain_shape(body.__send__(:native), loop, coordinates.flatten))
+      def self.new(first, *arguments)
+        if first.nil? || first.is_a?(Object)
+          body = first.__send__(:native)
+          loop = arguments.first #: bool
+          coordinates = arguments.drop(1)
+        else
+          mark_without_body("Lota::Physics::ChainShape.new", caller_locations(1, 1))
+          loop = first
+          coordinates = arguments
+        end
+        from_native(Native::Physics.new_chain_shape(body, loop, coordinates.flatten))
       end
 
       # Each vertex's x and y, in its Body's frame, as one Array, matching
@@ -685,20 +752,85 @@ module Lota
       # Body's origin, or <tt>RectangleShape.new(body, x, y, width, height,
       # angle = 0)</tt> centered at +x+, +y+ and turned by +angle+.
       #
+      # Given no Body, with the numbers first, it makes a rectangle on no
+      # Body, LÖVE's deprecated form, as CircleShape.new does.
+      #
       # Raises RuntimeError ("Incorrect number of parameters") for any other
       # number of arguments after the Body.
       #
       # === Example
       #
       #   Lota::Physics::RectangleShape.new(body, 5, 5, 10, 10)
-      def self.new(body, *arguments)
-        placement = case arguments.size
-        when 2 then [0, 0, *arguments, 0]
-        when 4 then [*arguments, 0]
-        when 5 then arguments
+      def self.new(first, *arguments)
+        if first.nil? || first.is_a?(Object)
+          body = first.__send__(:native)
+          numbers = arguments
+        else
+          Shape.__send__(:mark_without_body, "Lota::Physics::RectangleShape.new", caller_locations(1, 1))
+          numbers = [first, *arguments]
+        end
+        placement = case numbers.size
+        when 2 then [0, 0, *numbers, 0]
+        when 4 then [*numbers, 0]
+        when 5 then numbers
         else raise "Incorrect number of parameters"
         end
-        PolygonShape.__send__(:from_native, Native::Physics.new_rectangle_shape(body.__send__(:native), placement))
+        PolygonShape.__send__(:from_native, Native::Physics.new_rectangle_shape(body, placement))
+      end
+    end
+
+    # LÖVE's deprecated love.physics.newFixture, from LÖVE 11, where a
+    # Fixture attached a Shape to a Body. In LÖVE 12 a Shape is its own
+    # fixture and LÖVE has no Fixture class, so rule 2 of ADR 001 makes
+    # Fixture a module whose +new+ returns the new Shape, and whose
+    # <tt>===</tt> is true of every Shape, as RectangleShape === is of
+    # every PolygonShape.
+    #
+    # === Example
+    #
+    #   prototype = Lota::Physics::CircleShape.new(20)
+    #   shape = Lota::Physics::Fixture.new(body, prototype)
+    module Fixture
+      # Whether +object+ is a Lota::Physics::Shape: newFixture makes one,
+      # and a Shape records nothing of which factory made it.
+      #
+      # === Example
+      #
+      #   Lota::Physics::Fixture === Lota::Physics::CircleShape.new(body, 1) # => true
+      #   Lota::Physics::Fixture === body                                     # => false
+      def self.===(object)
+        case object
+        when Shape then true
+        else false
+        end
+      end
+
+      # Attaches a copy of +shape+, a Shape on no Body, to +body+ at
+      # +density+, and returns the copy, of the Shape's own class,
+      # matching love.physics.newFixture
+      # (src/modules/physics/box2d/wrap_Physics.cpp, w_newFixture), which
+      # LÖVE 12 deprecates; its first use prints LÖVE's notice, with Lota's
+      # names. The Shapes CircleShape.new and its kin make given no Body
+      # are such Shapes.
+      #
+      # [density] Float or Integer density of the copy, which sets the
+      #   Body's mass.
+      #
+      # Raises RuntimeError ("The given Shape must not be part of the
+      # World.") for a Shape on a Body, as LÖVE does
+      # (src/modules/physics/box2d/Physics.cpp, newAttachedShape), and
+      # ("Cannot call this method on a destroyed Shape.") for a destroyed
+      # one, which has nothing left to copy and which LÖVE reads through a
+      # null pointer.
+      #
+      # === Example
+      #
+      #   Lota::Physics::Fixture.new(body, Lota::Physics::CircleShape.new(20), 2)
+      def self.new(body, shape, density = 1)
+        Deprecation.mark("Lota::Physics::Fixture.new", :function, :replaced,
+          "Lota::Physics::Circle/Rectangle/Polygon/Edge/ChainShape.new", where: Deprecation.where(caller_locations(1, 1)))
+        native = Native::Physics.new_fixture(body.__send__(:native), shape.__send__(:native), density)
+        Physics.__send__(:shape, native)
       end
     end
   end
