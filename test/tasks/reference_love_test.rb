@@ -61,7 +61,7 @@ class ReferenceLoveTest < Minitest::Test
 
   # A LÖVE repository whose workflow has the real macOS steps, and a
   # dependencies repository, each committed, and fake tools in +dir+/bin.
-  def fake_world(dir, fail: false)
+  def fake_world(dir, fail: false, seconds: 0)
     love = File.join(dir, "love")
     steps = %w[Build Export\ Archive].map { |name| { "name" => name, "run" => Shellwords.join(ci_step(name)) } }
     write(love, ".github/workflows/main.yml", YAML.dump("jobs" => { "macOS" => { "steps" => steps } }))
@@ -72,7 +72,7 @@ class ReferenceLoveTest < Minitest::Test
     write(dependencies, "macOS/Frameworks/SDL2.framework/SDL2", "sdl2")
     write(dependencies, "shared/Frameworks/SDL3.xcframework/Info.plist", "sdl3")
     commit(dependencies)
-    fake_tools(dir, fail:)
+    fake_tools(dir, fail:, seconds:)
     [love, dependencies]
   end
 
@@ -81,13 +81,14 @@ class ReferenceLoveTest < Minitest::Test
     run!(dir, "git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "--quiet", "-m", "x")
   end
 
-  # xcodebuild records each call in calls.log and makes love.app for
-  # -exportArchive; xcrun names a compiler in bin.
-  def fake_tools(dir, fail:)
+  # xcodebuild records each call in calls.log, takes +seconds+, and makes
+  # love.app for -exportArchive; xcrun names a compiler in bin.
+  def fake_tools(dir, fail:, seconds: 0)
     log = File.join(dir, "calls.log")
     script(dir, "xcodebuild", <<~SH)
       if [ "$1" = "-version" ]; then echo "Xcode 99.0"; exit 0; fi
       echo "$PWD $*" >> #{Shellwords.escape(log)}
+      sleep #{seconds}
       #{fail ? 'echo "error: the build broke"; exit 65' : ''}
       case "$*" in *-exportArchive*) mkdir -p love-macos/love.app/Contents/MacOS && touch love-macos/love.app/Contents/MacOS/love;; esac
     SH
@@ -138,6 +139,27 @@ class ReferenceLoveTest < Minitest::Test
 
         assert_equal 2, calls(dir).size
         assert_includes out.string, "The reference love is current"
+      end
+    end
+  end
+
+  # The gate's two parity lanes each build the reference love, at the same
+  # time, into the same root (tasks/gate.rake). The second waits for the
+  # first and finds it current, rather than deleting the build under it
+  # and copying the dependencies over the first's copy.
+  def test_a_build_another_process_starts_meanwhile_waits_for_it_and_builds_nothing
+    in_tree do |dir|
+      love, dependencies = fake_world(dir, seconds: 1)
+      root = File.join(dir, "ref")
+
+      with_tools(dir) do
+        builds = Array.new(2) do
+          Thread.new { ReferenceLove.new(love:, dependencies:, root:, out: StringIO.new).build }
+        end
+        executables = builds.map(&:value)
+
+        assert_equal [File.join(root, "src/love-macos/love.app/Contents/MacOS/love")] * 2, executables
+        assert_equal 2, calls(dir).size
       end
     end
   end

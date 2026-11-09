@@ -91,7 +91,20 @@ class ReferenceLove
 
   # Builds the reference love unless it is current, and returns its
   # executable. Raises Failure if a step fails.
+  #
+  # The gate's parity lanes each build it, at the same time
+  # (tasks/gate.rake), so a build holds a lock beside +root+ that the other
+  # waits for, and then finds the build current, where otherwise each
+  # would delete the other's build and copy over its copy.
   def build
+    FileUtils.mkdir_p(File.dirname(@root))
+    File.open("#{@root}.lock", File::RDWR | File::CREAT, 0o644) do |lock|
+      lock.flock(File::LOCK_EX)
+      build_alone
+    end
+  end
+
+  private def build_alone
     if current?
       say "✅ The reference love is current: #{executable}"
       return executable
