@@ -74,9 +74,19 @@ Ractors are still experimental in Ruby 4.0, so none of this is the default path 
 
 ## Binding cost
 
-Through Rice a call costs about 0.4 to 0.85 µs, most of it Rice rebuilding its argument map on every call. The same draw costs about 50 ns in LÖVE. So 10,000 draws a frame take about 8 ms in Lota and 0.5 ms in LÖVE. The fixture games make 100 to 150 calls a frame, under 1% of a frame, and the heaviest, flash-blip, makes 1,300 to 2,600, 7 to 13%. `rake bench` measures it.
+On a desktop a call through Rice costs about 0.4 to 0.85 µs, most of it Rice rebuilding its argument map on every call. The same draw costs about 50 ns in LÖVE. So 10,000 draws a frame take about 8 ms in Lota and 0.5 ms in LÖVE. The fixture games make 100 to 150 calls a frame, under 1% of a frame, and the heaviest, flash-blip, makes 1,300 to 2,600, 7 to 13%. `rake bench` measures it.
 
-Lota keeps Rice for now. Binding through Ruby's C API directly costs a few nanoseconds a call, and the generator could emit it. Lota revisits that when a fixture game's binding cost becomes a problem.
+A phone pays more. Its CPU is slower, and Ruby runs there without a JIT, since iOS allows none and Ruby's Android build has none. The JIT matters little: on a desktop YJIT saves only 2 to 15% of a binding call. `rake bench`'s workload, run on two phones on 2026-11-09, gave:
+
+| Call | iPhone 12 mini, iOS 27 | OnePlus Nord N30, Android 14 | LÖVE 11.5 on the Nord |
+|---|---|---|---|
+| `Lota::Graphics.rectangle` | 1.35 µs | 4.0 µs | 0.18 µs |
+| A sprite's `draw` | not measured | 6.2 µs | 0.29 µs |
+| `Lota::Graphics.width` | 0.14 µs | 0.47 µs | 0.04 µs |
+
+The iPhone 12 mini is a near-worst case for iOS, and the Nord is a mid-range Android phone. A 60 Hz frame holds about 12,000 draws on the one and about 4,000 on the other. On the Nord a profile puts about a fifth of a call in allocating and freeing memory, which fits Rice rebuilding its argument map.
+
+Lota keeps Rice for now ([ADR 006](../adr/006.md)). Binding through Ruby's C API directly costs a few nanoseconds a call, and the generator could emit it. Lota weighs the options again when a game's binding cost may become a problem, which a mid-range Android phone shows first.
 
 Neither of Ruby's JITs sees into C++. A call into a C extension is a point the JIT cannot optimize through, though it discards no compiled code. YJIT is Ruby 4.0's production JIT. ZJIT is experimental in 4.0, inlines small Ruby methods into their callers, including methods that yield, and should make the block forms of translation rules 11 and 12 cheap. As the Ruby side gets faster, binding calls become a larger share of each frame, so the benchmark runs under both JITs.
 
