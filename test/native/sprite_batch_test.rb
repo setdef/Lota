@@ -96,7 +96,24 @@ class SpriteBatchTest < Minitest::Test
     batch.color = 1, 0, 0
 
     assert_equal [1.0, 0.0, 0.0, 1.0], batch.color
-    assert_raises(ArgumentError) { batch.color = 1, 0 }
+  end
+
+  # w_SpriteBatch_setColor reads a table as w_setColor does
+  # (wrap_SpriteBatch.cpp:154-179).
+  def test_a_batch_color_reads_four_elements_and_ignores_the_rest
+    batch = Lota::Graphics::SpriteBatch.new(texture)
+    batch.color = 1, 0, 0, 0.5, 9, "ignored"
+
+    assert_equal [1.0, 0.0, 0.0, 0.5], batch.color
+  end
+
+  def test_a_batch_color_with_fewer_than_three_elements_raises_loves_error
+    batch = Lota::Graphics::SpriteBatch.new(texture)
+    two = assert_raises(TypeError) { batch.color = 1, 0 }
+    alpha = assert_raises(TypeError) { batch.color = 1, 0, 0, "1" }
+
+    assert_equal "bad argument #-2 to 'Lota::Graphics::SpriteBatch#color=' (number expected, got nil)", two.message
+    assert_equal "bad argument #-1 to 'Lota::Graphics::SpriteBatch#color=' (number expected, got string)", alpha.message
   end
 
   # nil where the quad would be is a missing quad when a number follows

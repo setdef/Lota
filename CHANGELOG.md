@@ -58,6 +58,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - A game whose audio device goes away, as when headphones are unplugged, keeps running: Lota calls `Lota.audiodisconnected(sources)` with the Sources that stopped and, unless it returns a truthy value, moves playback to the system's default device, as LÖVE does; before, the event raised an error.
 - `Lota::Graphics.color=` reads an Array as `love.graphics.setColor` reads a table: its first four elements, ignoring any after them, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
 - `Lota::Graphics.background_color=` reads an Array as `love.graphics.setBackgroundColor` reads a table, as `color=` does: its first four elements, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
+- `Lota::Graphics::SpriteBatch#color=` reads an Array as `SpriteBatch:setColor` reads a table, as `color=` does: its first four elements, and `TypeError` with LÖVE's message, not `ArgumentError`, when red, green, or blue is missing or not a number.
 
 ## [0.3.1] - 2026-11-09
 

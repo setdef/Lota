@@ -217,26 +217,23 @@ module Lota
       # (src/modules/graphics/wrap_SpriteBatch.cpp, w_SpriteBatch_setColor).
       #
       # [color] Red, green, blue, and optionally alpha, each a Float or
-      #   Integer from 0 to 1, as several values or one Array; alpha is 1
-      #   when left out.
+      #   Integer from 0 to 1, as one Array; alpha is 1 when left out.
       #
       # Sprites already in the batch keep their color. The color drawing
       # is tinted with, Lota::Graphics.color, tints the whole batch too.
       #
-      # Raises ArgumentError for any count of components but 3 or 4,
-      # TypeError for one that is not a number, and ThreadError off the main
-      # thread.
+      # An Array is LÖVE's table form, which reads its first four elements
+      # and ignores any after them. Raises TypeError, with LÖVE's message,
+      # for a red, green, or blue that is not a number, as when the Array
+      # has fewer than three elements, and for an alpha that is neither a
+      # number nor +nil+. Raises ThreadError off the main thread.
       #
       # === Example
       #
       #   batch.color = 1, 0, 0 # red from now on
       def color=(color)
-        components = Array(color)
-        unless components.size == 3 || components.size == 4
-          raise ArgumentError, "wrong number of arguments (given #{components.size}, expected 3 or 4)"
-        end
-
-        @native.set_color(components.fetch(0), components.fetch(1), components.fetch(2), components.fetch(3, 1.0))
+        red, green, blue, alpha = Graphics.__send__(:color_components, color, "Lota::Graphics::SpriteBatch#color=")
+        @native.set_color(red, green, blue, alpha)
       end
 
       # The color sprites are added in, as an Array of red, green, blue,
