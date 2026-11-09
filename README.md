@@ -64,6 +64,8 @@ window 800x600
 
 An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left and a white square moving to the right. It wraps around at the edge. Escape closes the window and ends the program.
 
+From here, [Images, sound, input, and saving](#images-sound-input-and-saving) builds a slightly larger game, and [Coming from LÖVE](#coming-from-löve) shows how to read a LÖVE tutorial as Lota code.
+
 ## Compatibility
 
 | Platform | Gem platform | Status |
@@ -73,23 +75,24 @@ An 800 by 600 window opens, titled "Hello, Lota", with the text in the top left 
 | The same Linux on arm64 | `aarch64-linux-gnu` | Released |
 | Windows on x64, with [RubyInstaller](https://rubyinstaller.org/)'s Ruby | `x64-mingw-ucrt` | Released |
 | Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | Released |
+| iPhone, iPad, and Android | none | Experimental, built from source |
 
 - Lota needs Ruby 4.0 (4.0.1 or newer).
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
-- On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so nothing has yet tested drawing on a GPU, a person's input, or a real audio device on Windows.
+- On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so those checks happen on a PC instead: a game has been played on a Windows PC, and Lövetest passes on an NVIDIA RTX 4090 with both Vulkan and OpenGL.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
-- Phones and tablets (iOS, iPadOS, and Android) have no gem yet. A game builds for them, experimentally, with Fledge and a clone of Lota, which compiles LÖVE's engine for the phone: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has the steps. Such a build has run in the iOS Simulator, on an Android emulator, and on a real iPad and iPhone. On one Android phone it has started and run without crashing, and nothing more has been tried on real Android hardware.
+- Phones and tablets have no gem yet. A game builds for them with [Fledge](https://github.com/setdef/Fledge) and a clone of Lota, or for iPhone and iPad from your game's CI: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has both routes. Games have run in the iOS Simulator, on Android emulators, on real iPads and iPhones, and on one Android phone.
 
-Lota binds LÖVE's graphics, window, keyboard, mouse, touch, joystick and gamepad, sensor, timer, system, event, physics, math, data, and video modules nearly whole, and parts of its filesystem, audio, sound, image, and font modules. It does not yet bind threads. A game that calls a function Lota has not bound stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
+Lota binds every module of LÖVE's but `love.thread`, whose binding is under way: threads will be Ruby Ractors, and a game cannot start one yet. A few functions in the other modules are not bound yet either, and a game that calls one stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
 
 ## Installation
 
 Lota is not on RubyGems.org. Each [GitHub release](https://github.com/setdef/Lota/releases) carries a precompiled gem for each platform and a `SHA256SUMS` file. The gem carries LÖVE's engine and the libraries it uses, so installing it compiles nothing.
 
-Download the gem for your platform, check it, and install it:
+Download the gem for your platform from the newest release, check it, and install it. For 0.3.0:
 
 ```sh
-version=0.1.3
+version=0.3.0
 platform=arm64-darwin   # or x86_64-linux-gnu, or aarch64-linux-gnu
 curl -LO "https://github.com/setdef/Lota/releases/download/v$version/lota-$version-$platform.gem"
 curl -LO "https://github.com/setdef/Lota/releases/download/v$version/SHA256SUMS"
@@ -98,9 +101,9 @@ gem install --local "lota-$version-$platform.gem"
 lota --version
 ```
 
-The last line prints `Lota 0.1.3`.
+The last line prints `Lota 0.3.0`.
 
-On Windows, download `lota-0.1.3-x64-mingw-ucrt.gem` (or `lota-0.1.3-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it, with RubyInstaller's Ruby.
+On Windows, download `lota-0.3.0-x64-mingw-ucrt.gem` (or `lota-0.3.0-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it, with RubyInstaller's Ruby.
 
 If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder instead, ask for the version, and install from there. Add a gem for each platform you work on; Bundler locks every platform it finds a gem for.
 
@@ -108,7 +111,7 @@ If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder in
 # Gemfile
 source "https://rubygems.org"
 
-gem "lota", "0.1.3"
+gem "lota", "0.3.0"
 ```
 
 ```sh
@@ -125,7 +128,7 @@ bundle exec lota run
 - **`main.rb`** holds your game. It defines callbacks as methods on `Lota`.
 - **`conf.rb`** is optional. It defines `Lota.conf(t)`, which Lota calls before it opens the window. Set the window's size and title there (`t.window.width = 1280`), name your save folder (`t.identity = "asteroids"`), or turn modules off (`t.modules.physics = false`). The settings keep LÖVE's names, so `conf.lua` from a tutorial translates line for line.
 - **Other Ruby files** sit beside `main.rb`. The game's folder is on `$LOAD_PATH`, so `require "player"` loads `player.rb`.
-- **Assets** such as images, fonts, and sounds go anywhere in the folder. Lota reads a file name relative to the game's folder, wherever you ran `lota run` from: `Lota::Graphics::Font.new("assets/pixel.ttf", 16)`.
+- **Assets** such as images, fonts, and sounds go anywhere in the folder. Lota reads a file name relative to the game's folder, wherever you ran `lota run` from.
 
 ### Callbacks
 
@@ -143,9 +146,64 @@ Every callback is optional. Define the ones you need:
 
 The rest of LÖVE's callbacks work the same way, under LÖVE's names. Lota passes a callback only as many arguments as it declares, so `def Lota.keypressed(key)` receives the key alone.
 
-### Translating from LÖVE
+### Images, sound, input, and saving
 
-Lota changes LÖVE's names by a few rules. These cover most tutorial code:
+Most games need the same few things beyond a rectangle. With an image at `images/ship.png` and a sound at `sounds/laser.wav` in the game folder, this `main.rb` draws a ship, moves it with the arrow keys, fires on a click, and remembers how many shots you fired, from one run to the next:
+
+```ruby
+# main.rb
+def Lota.load
+  @ship = Lota::Graphics::Image.new("images/ship.png")
+  @laser = Lota::Audio::Source.new("sounds/laser.wav", :static)
+  Lota::Graphics.font = Lota::Graphics::Font.new(24)
+  @x, @y = 400, 300
+  shots, = Lota::Filesystem.read("shots.txt")   # nil when there is no such file
+  @shots = shots.to_i
+end
+
+def Lota.update(dt)
+  @x -= 200 * dt if Lota::Keyboard.down?(:left)
+  @x += 200 * dt if Lota::Keyboard.down?(:right)
+end
+
+def Lota.draw
+  Lota::Graphics.draw(@ship, @x, @y)
+  Lota::Graphics.color = 1, 1, 0
+  Lota::Graphics.print("Shots: #{@shots}", 20, 20)
+  Lota::Graphics.color = 1, 1, 1
+end
+
+def Lota.mousepressed(x, y, button)
+  return unless button == 1
+
+  @laser.clone.play
+  @shots += 1
+end
+
+def Lota.quit
+  Lota::Filesystem.write("shots.txt", @shots.to_s)
+  false
+end
+```
+
+Three things in it differ from Lua.
+
+- **A function that can return several values always returns an Array**, on success and on failure. `Lota::Filesystem.read` returns `[contents, size]` or `[nil, message]`, so `shots, = ...` takes the first. An Array is always true in Ruby, even `[nil, message]`, so `if Lota::Filesystem.write("shots.txt", data)` is always true. Where Lua writes `if love.filesystem.write(...) then`, write `.first`:
+
+  ```ruby
+  unless Lota::Filesystem.write("shots.txt", @shots.to_s).first
+    warn "could not save the shots"
+  end
+  ```
+
+- **Setters are writers.** `love.graphics.setColor(1, 1, 0)` is `Lota::Graphics.color = 1, 1, 0`, and getters drop `get`: `love.graphics.getWidth()` is `Lota::Graphics.width`.
+- **LÖVE's names for things are Symbols.** `"left"`, `"static"`, and `"escape"` are `:left`, `:static`, and `:escape`.
+
+For a whole game to read, Lota's repository holds Ruby translations of three published LÖVE games, which its CI runs frame for frame against the originals: the [arkanoid tutorial](test/games/arkanoid), [Gravity-Wars](test/games/gravity_wars), and [KleleAtoms](test/games/klele_atoms).
+
+### Coming from LÖVE
+
+If you have a LÖVE tutorial or game in front of you, these rules cover most of its lines:
 
 | LÖVE (Lua) | Lota (Ruby) |
 | --- | --- |
@@ -161,7 +219,7 @@ Lota changes LÖVE's names by a few rules. These cover most tutorial code:
 | `love.graphics.push()` ... `love.graphics.pop()` | `Lota::Graphics.push { ... }` |
 | `body:applyForce(fx, fy)` | `body.apply_force(fx, fy)` |
 
-`lota` works anywhere as another name for `Lota`, so `lota.graphics.rectangle(...)` and `def lota.update(dt)` read as a tutorial's `love.graphics` and `function love.update(dt)` do. [Translating LÖVE code](doc/guide/translating.md) has every rule, with the cases where Ruby and Lua differ.
+`lota` works anywhere as another name for `Lota`, so `lota.graphics.rectangle(...)` and `def lota.update(dt)` read as a tutorial's `love.graphics` and `function love.update(dt)` do. [Translating LÖVE code](doc/guide/translating.md) has every rule, and the places where Ruby and Lua differ.
 
 ### Saved files
 
@@ -245,7 +303,7 @@ Your other gems go into the app whole, with the license files their packages hol
 
 A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app's program starts it again with the same arguments, with `Lota.restart` holding the value, as `lota run` and `bundle exec lota run` do.
 
-What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](doc/guide/phones.md) builds one with Fledge directly. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
+What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](doc/guide/phones.md) builds one with Fledge directly, or with the iOS kit from your game's CI. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
 
 ## Documentation
 
@@ -254,7 +312,7 @@ What a fused game does not do yet: `lota fuse` builds no phone app; [the phone g
 | `ri Lota::Graphics.rectangle` | The API reference for any class or method, installed with the gem. Most entries name the LÖVE function they translate |
 | [`lib/`](lib) | The same reference in the source, for reading on GitHub. Lota does not host its API docs online yet |
 | [Translating LÖVE code](doc/guide/translating.md) | Every naming rule, and how Lota differs from Lua where Ruby has no equivalent |
-| [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) | The experimental phone build: what you need, the commands for the Simulator, the emulator, devices, the App Store, and Google Play, the notices an app carries, and what has run |
+| [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) | The experimental phone build: the iOS kit your game's CI can call, the build by hand for iOS and Android, devices, the App Store and Google Play, the notices an app carries, and what has run |
 | [LÖVE's wiki](https://love2d.org/wiki/Main_Page) | What each function does. Look up a Lota method under its LÖVE name |
 | [CHANGELOG](CHANGELOG.md) | What changed in each release |
 | [Agent skill](skills/lota-gamedev/SKILL.md) | A skill for coding agents that write Lota games: where the API is documented, what differs on phones, and how to test and ship. It is in the installed gem (`gem contents lota \| grep SKILL.md`), and `gh skill install setdef/Lota lota-gamedev` or `npx skills add setdef/Lota` installs it from a release |
@@ -266,7 +324,7 @@ Lota's GitHub repository does not take issues yet.
 
 ## Contributing
 
-Building Lota from source, its tests, and how it checks itself against LÖVE are in [doc/contributors/development.md](doc/contributors/development.md).
+To build Lota from source, run its checks, or change it, start with [doc/contributors/development.md](doc/contributors/development.md).
 
 ## Copyright & License
 
