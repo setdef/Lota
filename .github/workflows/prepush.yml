@@ -1,0 +1,288 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The pre-push tier on every push to trunk, a first verdict on each
+# commit within about fifteen minutes while ci.yml's full jobs run on:
+# bundle exec rake prepush (doc/contributors/development.md, The
+# pre-push tier) on macOS and on x86_64 Linux, set up as ci.yml's gate
+# jobs are, and Windows' own build and tests on x64 (windows.yml), which
+# take about as long as the tier. On Linux it also checks that each test
+# the push adds or changes failed before its commit
+# (tasks/red_before_green.rb), since every push to trunk runs here.
+#
+# It is a workflow of its own, not jobs of ci.yml, because a run is done,
+# and bin/trunk-watch reads it, only once its last job is: ci.yml's
+# phone and iOS kit jobs take an hour and more, and wait for GitHub's
+# few macOS runners, so a red tier there was not seen for hours. Each
+# trunk commit has a run of its own, never cancelled, so trunk-watch can
+# judge each commit against its parent's run here and name the one that
+# broke the tier.
+
+name: Pre-push tier
+
+on:
+  push:
+    branches:
+      - trunk
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # As in ci.yml, which says why.
+  MISE_DISABLE_TOOLS: ruby,rust
+  BUNDLE_FROZEN: "true"
+  LOTA_PARITY_CACHE: "0"
+  # Minitest prints each test's name and time, so a stuck test shows
+  # which it is.
+  A: --verbose
+  # A lane may run 20 minutes, within the step's 25, before the gate
+  # prints what it is doing and ends it (tasks/gate.rb).
+  LOTA_GATE_LANE_TIMEOUT: "1200"
+
+jobs:
+  # As ci.yml's macOS gate job, which says why each step is there, but
+  # for the tier in place of the gate, and a ccache it only reads, which
+  # that job saves.
+  macos:
+    name: macOS
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+
+      - name: Report the GUI session
+        run: echo "launchctl managername is $(launchctl managername)"
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: ./.github/actions/mise
+
+      - name: Place Bundler and ccache outside the checkout
+        id: paths
+        run: |
+          {
+            echo "BUNDLE_PATH=$HOME/.cache/lota/bundle"
+            echo "CCACHE_DIR=$HOME/.cache/lota/ccache"
+          } >> "$GITHUB_ENV"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
+          echo "submodules=$(git submodule status | shasum -a 256 | cut -c 1-16)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/bundle
+          key: gems-${{ steps.paths.outputs.ruby }}-${{ hashFiles('Gemfile.lock') }}
+
+      - name: Install the bundle
+        run: bundle install
+
+      - name: Fetch the source archives
+        run: bundle exec rake sources:fetch
+
+      - name: Compile through ccache
+        run: |
+          {
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_COMPILERCHECK=%compiler% -v"
+            echo "CCACHE_MAXSIZE=2G"
+            for language in C CXX OBJC OBJCXX; do echo "CMAKE_${language}_COMPILER_LAUNCHER=ccache"; done
+          } >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-
+            ccache-${{ runner.os }}-${{ runner.arch }}-
+      - name: Zero ccache's statistics
+        run: ccache --zero-stats
+
+      - name: Run the pre-push tier
+        timeout-minutes: 25
+        run: bundle exec rake prepush
+
+      - name: Fail if the tier changed a file
+        run: |
+          changes=$(git status --porcelain)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff
+            echo "::error::bundle exec rake prepush changed files; run it locally and commit what it changes"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: prepush-parity-mismatches-arm64-darwin
+          path: tmp/parity-mismatches
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Report ccache's statistics
+        if: always()
+        run: ccache --show-stats
+
+  # As ci.yml's x86_64 Linux gate job, which says why each step is there,
+  # but for the tier in place of the gate, a display for each of the
+  # tier's four lanes that open windows (PREPUSH_LANES in tasks/gate.rake),
+  # and a ccache it only reads.
+  linux:
+    name: Linux (x86_64-linux-gnu)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      DISPLAY: ":99"
+      LOTA_PARITY_DISPLAY: ":98"
+      LOTA_GATE_DISPLAYS: ":99 :97 :96 :98"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+
+      - name: Install LÖVE's Linux build dependencies
+        run: |
+          sudo apt-get update
+          bin/apt-packages list build runner | xargs sudo apt-get install --assume-yes
+
+      - name: Start Xvfb and Openbox
+        run: |
+          read -r -a displays <<< "$LOTA_GATE_DISPLAYS"
+          for display in "${displays[@]}"; do
+            Xvfb "$display" -screen 0 1280x1024x24 &
+          done
+          sleep 3
+          for display in "${displays[@]}"; do
+            DISPLAY="$display" openbox &
+          done
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: ./.github/actions/mise
+
+      - name: Place Bundler and ccache outside the checkout
+        id: paths
+        run: |
+          {
+            echo "BUNDLE_PATH=$HOME/.cache/lota/bundle"
+            echo "CCACHE_DIR=$HOME/.cache/lota/ccache"
+          } >> "$GITHUB_ENV"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
+          echo "submodules=$(git submodule status | sha256sum | cut -c 1-16)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/bundle
+          key: gems-${{ steps.paths.outputs.ruby }}-${{ hashFiles('Gemfile.lock') }}
+
+      - name: Install the bundle
+        run: bundle install
+
+      # The keys are ci.yml's, so the tier starts from what its Linux gate
+      # cached.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/sources/linux
+          key: linux-sources-${{ runner.arch }}-${{ hashFiles('vendor/love-appimage-source/Makefile') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tmp/dependencies
+          key: linux-dependencies-ubuntu-22.04-${{ hashFiles('vendor/love-appimage-source/Makefile', 'tasks/linux_build.rb') }}
+
+      - name: Fetch the sources
+        run: bundle exec rake sources:fetch
+
+      - name: Compile through ccache
+        run: |
+          {
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_MAXSIZE=2G"
+            for language in C CXX; do echo "CMAKE_${language}_COMPILER_LAUNCHER=ccache"; done
+          } >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-
+            ccache-${{ runner.os }}-${{ runner.arch }}-
+      - name: Zero ccache's statistics
+        run: ccache --zero-stats
+
+      - name: Run the pre-push tier
+        timeout-minutes: 25
+        run: bundle exec rake prepush
+
+      - name: Fail if the tier changed a file
+        run: |
+          changes=$(git status --porcelain)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff
+            echo "::error::bundle exec rake prepush changed files; run it locally and commit what it changes"
+            exit 1
+          fi
+
+      # Each test the push's commits add or change, run against the code
+      # its commit started from, must fail there (rake red_before_green):
+      # a test that passes was never seen failing. It runs after the tier,
+      # whose build and ccache it starts from; the checkout is shallow, so
+      # it fetches the history the push spans first.
+      - name: Check that each new test failed before its commit
+        if: github.event_name == 'push'
+        timeout-minutes: 30
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          git fetch --quiet --no-tags --unshallow origin "$GITHUB_REF"
+          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..$GITHUB_SHA"; else range="$GITHUB_SHA^..$GITHUB_SHA"; fi
+          bundle exec rake "red_before_green[$range]"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: prepush-parity-mismatches-x86_64-linux-gnu
+          path: tmp/parity-mismatches
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: prepush-linux-build-log-x86_64-linux-gnu
+          path: tmp/dependencies/build.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Report ccache's statistics
+        if: always()
+        run: ccache --show-stats
+
+  # Windows has no pre-push tier of its own: its whole build and tests,
+  # as ci.yml runs them, take about as long as the tier does elsewhere.
+  # The gem it builds is checked, not kept.
+  windows:
+    name: Windows (x64-mingw-ucrt)
+    uses: ./.github/workflows/windows.yml
+    with:
+      runner: windows-2025
+      platform: x64-mingw-ucrt
+      msystem: UCRT64
+      compiler: gcc:p
+      cc: gcc
+      cxx: g++
+      ccache: D:/ccache
+      upload_gem: false

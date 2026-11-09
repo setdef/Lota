@@ -9,11 +9,15 @@ Lota ships for five desktop platforms and builds for two phone systems, and nobo
 
 ## What runs on a push
 
+Every push to trunk runs two workflows. The pre-push tier answers first, in about fifteen minutes; the full run takes an hour or more, most of it waiting for macOS runners.
+
+`.github/workflows/prepush.yml` runs `bundle exec rake prepush` ([development.md](development.md)) on `macos-15` and on Ubuntu 22.04 for x86_64, set up as the gate jobs below are, and the Windows build and tests on x64 (`windows.yml`, below), which take about as long. Its x86_64 Linux job then runs `rake red_before_green` over the commits the push brings. It is a workflow of its own because GitHub finishes a run, and `bin/trunk-watch` reads it, only when its last job ends, and the full run's phone and iOS kit jobs end an hour or more after its desktop jobs. Each trunk commit gets a run of its own, never cancelled, so the watch can judge each commit against its parent and name the one that broke the tier.
+
 `.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch; a run on trunk is never cancelled. Its jobs:
 
 - **Gate**, on macOS 15 on Apple Silicon (`macos-15`), and **Gate (x86_64-linux-gnu)** and **Gate (aarch64-linux-gnu)** on Ubuntu 22.04. Each runs `bundle exec rake`, fails if the gate changed a file (its autocorrect would otherwise pass unnoticed), and builds the precompiled gem with `rake package:native` as an artifact.
 - **Delivery**, one for each of those three, which installs that gem on a fresh runner and runs Lövetest from it.
-- **Windows build** for x64 and ARM64, which calls `windows.yml` to build and test the Windows gems without the gate, and **Delivery** for each ([windows.md](windows.md)).
+- **Windows build** and **Delivery** for x64 and ARM64, which build and test the Windows gems without the gate ([windows.md](windows.md)). The build and its tests are `windows.yml`, which the pre-push tier calls too.
 - **Phones**, which calls `phones.yml`.
 - **iOS kit** and **iOS kit, called as a game's CI calls it**, which call `ios-kit.yml` and `ios-kit-caller.yml`.
 - **Fuse**, which calls `fuse.yml` with the gems this run built, once they are built.
@@ -63,7 +67,7 @@ Three jobs run on `macos-15` with the newest Xcode there:
 
 1. **The project.** It builds SDL3 for iOS, lays the game out (`ipad/prepare.rb`), runs `fledge build ios`, fails if anything Xcode reads names a path on the runner, and uploads the kit.
 2. **A fresh Mac, in portrait.** A second runner, with no Lota, Fledge, XcodeGen, or bundle, unpacks the zip and builds it for the Simulator and, with signing off, for devices, Debug and Release. `ipad/check_app.rb` reads each built `Info.plist`: the display name character for character, the identifier, the device families, the orientations, the status bar, the launch screen, the input and audio keys, and the icon. `ipad/simulator.rb` then runs the app in an iPad Pro 13-inch, an iPad (A16), an iPad mini, an iPhone 17 Pro, and an iPhone 16e when the runtime has one: on each, two normal launches and one idle launch, keeping screenshots, the app's log, its data container, and any crash report.
-3. **Landscape, touch, and rotation.** A third runner adds a UI test target to a copy of the project, which the kit never holds. A UI test turns each Simulator to landscape and holds it there while `simctl` runs the same launches. On the iPad Pro and the iPhone 17 Pro a second UI test taps known points in portrait, turns the device, taps again, and turns it back, with a screenshot at each stage. XCTest never launches the app itself, since its launch sets `OS_ACTIVITY_DT_MODE` and the game's output would miss the log.
+3. **Landscape, touch, and rotation.** A third runner adds a UI test target to a copy of the project, which the kit never holds. A UI test turns each Simulator to landscape and holds it there while `simctl` runs the same launches. The first UI test on a fresh runner has spent seven minutes starting and then never connected, so one that has not turned its device in seven minutes is started once more before the device fails. On the iPad Pro and the iPhone 17 Pro a second UI test taps known points in portrait, turns the device, taps again, and turns it back, with a screenshot at each stage. XCTest never launches the app itself, since its launch sets `OS_ACTIVITY_DT_MODE` and the game's output would miss the log.
 
 A launch passes when no crash report appears, no line holds `[BUG]`, and the app either exits with status 0 or is still running when its time is up. A normal launch's output must also match `smoke_expect` when a caller gives one. Each job writes its verdicts to `results-portrait.json` or `results-landscape.json`.
 
@@ -94,11 +98,11 @@ Run by hand, it fuses another public game instead (`game_repository`, `game_ref`
 bin/trunk-watch [--interval SECONDS] [--no-revert] [FLOOR_RUN_ID]
 ```
 
-`bin/trunk-watch` watches trunk's runs with `gh` and is trunk's automatic revert, the backstop for a commit the local gate let through. Every three minutes it lists the failed runs above `FLOOR_RUN_ID` and reads each one's failed log:
+`bin/trunk-watch` watches trunk's runs with `gh` and is trunk's automatic revert, the backstop for a commit the local gate let through. Every three minutes it lists the failed runs above `FLOOR_RUN_ID` and reads the log of each failed job:
 
-- A run whose every error is a download or a runner breaking, such as a curl failure, an HTTP 5xx, or a lost runner, runs again, up to its third attempt. `TrunkWatch::OUTAGE` in `tasks/trunk_watch.rb` lists the outages it knows.
+- A run whose every error is a download or a runner breaking, such as a curl failure, an HTTP 5xx, or a lost runner, runs again, up to its third attempt. `TrunkWatch::OUTAGE` in `tasks/trunk_watch.rb` lists the outages it knows. An Android system image that arrived as a zip `sdkmanager` cannot open (`TrunkWatch::BROKEN_DOWNLOAD`) leaves only its step's exit status as an error, so in that job's log the exit status counts as the outage's too. Each job's log is judged alone, so one job's outage never excuses another job's failure.
 - Any other failure has its failed jobs run again once, so a flaky test cannot revert a good commit. If that passes, the watch prints that it passed on rerun, a likely flaky test worth fixing, and goes on.
-- A run still red after its rerun sends the watch looking for the commits between the last commit the red run's own workflow passed on and the red one, so a workflow cancelled on an older commit does not hide the culprit. If there is exactly one, and it is not a merge, the watch reverts it in a scratch clone of its own, never your working copy, pushes the revert to trunk without force, prints `REVERTED sha (run ID)`, and exits 1, so whoever ran it in the background is woken to tell the commit's author.
+- A run still red after its rerun sends the watch looking for the commits between the red one and the last trunk commit whose runs of the same workflow all passed. The pre-push tier runs on every commit, so its red run usually names one. If there is exactly one, and it is not a merge, the watch reverts it in a scratch clone of its own, never your working copy, pushes the revert to trunk without force, prints `REVERTED sha (run ID)`, and exits 1, so whoever ran it in the background is woken to tell the commit's author.
 - With several commits, a merge, a conflict, or an outage that will not clear, it reverts nothing. It prints `TRUNK RED` with the run, the commit range, and the first errors, and exits 1, and someone bisects.
 
 `--no-revert` reruns nothing and reverts nothing: any failure that is not an outage stops the watch with `TRUNK RED`. The watch exits 0 on SIGINT or SIGTERM. Its decisions are pure functions in `tasks/trunk_watch.rb` (`classify` and `plan`), tested with recorded `gh` and `git` output.
