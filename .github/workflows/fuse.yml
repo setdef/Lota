@@ -510,18 +510,30 @@ jobs:
         continue-on-error: true
         run: .github/sandbox_run.sh dlv com.apple.security.cs.disable-library-validation
 
+      - name: "Sandbox, restarting: app-sandbox, allow-unsigned-executable-memory, disable-library-validation"
+        continue-on-error: true
+        run: .github/sandbox_run.sh sandbox-restart com.apple.security.app-sandbox com.apple.security.cs.allow-unsigned-executable-memory com.apple.security.cs.disable-library-validation
+
       - name: "Sandbox: app-sandbox, allow-unsigned-executable-memory, disable-library-validation"
         continue-on-error: true
+        env:
+          RESTART: "0"
         run: .github/sandbox_run.sh sandbox-unsigned com.apple.security.app-sandbox com.apple.security.cs.allow-unsigned-executable-memory com.apple.security.cs.disable-library-validation
 
       - name: "Sandbox: app-sandbox, allow-jit, disable-library-validation"
         continue-on-error: true
+        env:
+          RESTART: "0"
         run: .github/sandbox_run.sh sandbox-jit com.apple.security.app-sandbox com.apple.security.cs.allow-jit com.apple.security.cs.disable-library-validation
 
       - name: "Sandbox: app-sandbox, disable-library-validation"
         continue-on-error: true
+        env:
+          RESTART: "0"
         run: .github/sandbox_run.sh sandbox-dlv com.apple.security.app-sandbox com.apple.security.cs.disable-library-validation
 
       - name: "Sandbox: app-sandbox alone"
         continue-on-error: true
+        env:
+          RESTART: "0"
         run: .github/sandbox_run.sh sandbox-only com.apple.security.app-sandbox

@@ -13,6 +13,8 @@
 #
 #   sandbox_run.sh VARIANT fledge
 #   sandbox_run.sh VARIANT KEY...
+#
+# With RESTART=0 the game does not restart.
 
 set -u
 variant=$1
@@ -47,7 +49,7 @@ codesign --display --entitlements - --xml "$app" 2> /dev/null | plutil -p - || e
 
 touch "$work/begun"
 begun=$(date +%s)
-(cd / && exec env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" "$program" > "$work/run.out" 2> "$work/run.err") &
+(cd / && exec env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" FUSE_SANDBOX_RESTART="${RESTART:-1}" "$program" > "$work/run.out" 2> "$work/run.err") &
 pid=$!
 for _ in $(seq 120); do kill -0 "$pid" 2> /dev/null || break; sleep 1; done
 if kill -0 "$pid" 2> /dev/null; then
@@ -59,13 +61,15 @@ status=$?
 echo "exit status: $status after $(( $(date +%s) - begun )) s"
 echo "--- stdout"; cat "$work/run.out"
 echo "--- stderr (last 40 lines)"; tail -n 40 "$work/run.err"
-echo "--- sandbox and code signing log (last 3 minutes)"
-log show --style compact --last 3m \
-  --predicate '(sender == "Sandbox") || (process == "kernel" AND eventMessage CONTAINS[c] "sandbox") || (eventMessage CONTAINS[c] "code signing") || (eventMessage CONTAINS[c] "Fuse Sandbox")' \
-  2> /dev/null | tail -n 40 || true
+echo "--- the system's log of the game, secinitd, and the sandbox's reports on it"
+sleep 2
+log show --style compact --info --start "$(date -r "$begun" '+%Y-%m-%d %H:%M:%S')" \
+  --predicate '(process == "Fuse Sandbox") || (process == "secinitd") || (process == "kernel" AND eventMessage CONTAINS "Fuse Sandbox") || (process == "launchd" AND eventMessage CONTAINS "Fuse Sandbox")' \
+  2> /dev/null | grep -v -e audiomxd -e MXSession | cut -c1-600 | tail -n 60 || true
 echo "--- crash reports"
-find "$HOME/Library/Logs/DiagnosticReports" -name 'Fuse Sandbox*' -newer "$work/begun" -print 2> /dev/null | while read -r report; do
-  echo "=== $report"; head -c 3000 "$report"; echo
+sleep 5
+find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports -newer "$work/begun" -type f -print 2> /dev/null | while read -r report; do
+  echo "=== $report"; head -c 6000 "$report"; echo
 done
 echo "--- the container's save folder, seen from outside"
 ls -la "$HOME/Library/Containers/"*FuseSandbox*/Data/Library/Application\ Support/FuseSandbox 2>&1 || true
@@ -75,7 +79,7 @@ out="$work/run.out"
 ok=true
 check() { if grep -Eq "$2" "$out"; then echo "ok: $1"; else echo "FAILED: $1"; ok=false; fi; }
 [ "$status" = 3 ] && echo "ok: it quit with 3" || { echo "FAILED: it quit with 3"; ok=false; }
-check "it restarted once" '^run: [0-9]+ [0-9]+\.0$'
+if [ "${RESTART:-1}" = 1 ]; then check "it restarted once" '^run: [0-9]+ [0-9]+\.0$'; fi
 check "it ran fused" '^fused: true$'
 check "YJIT is on" '^yjit: true$'
 check "YJIT compiled and entered machine code" 'compiled_iseq_count=[1-9][0-9]* compiled_iseq_entry=[1-9]'

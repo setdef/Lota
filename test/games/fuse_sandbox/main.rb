@@ -10,14 +10,15 @@ require "etc"
 # A method YJIT compiles once it is called often enough.
 def sandbox_hot(number) = (number * 3) + 1
 
-# Restarts once, as test/games/fuse does, then says whether it runs
+# Restarts once, as test/games/fuse does, unless FUSE_SANDBOX_RESTART
+# is 0, then says whether it runs
 # fused, with YJIT, and whether YJIT compiled and entered machine code;
 # whether it runs in an App Sandbox container and can list the real home
 # folder; saves a file and reads it back from the save directory; plays
 # silence; and quits with status 3.
 def Lota.load(_arguments)
   puts "run: #{Process.pid} #{Lota.restart.inspect}"
-  return Lota::Event.restart(Process.pid) if Lota.restart.nil?
+  return Lota::Event.restart(Process.pid) if Lota.restart.nil? && ENV["FUSE_SANDBOX_RESTART"] != "0"
 
   puts "fused: #{Lota::Filesystem.fused?}"
   puts "yjit: #{defined?(RubyVM::YJIT) ? RubyVM::YJIT.enabled? : 'absent'}"
