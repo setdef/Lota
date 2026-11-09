@@ -283,7 +283,9 @@ module Parity
     # - The platform: the system and its version, which on macOS fixes
     #   every system library and the Metal driver, the hardware and its
     #   displays, the time zone, and on Linux the installed packages, Mesa
-    #   among them (Key.platform).
+    #   among them (Key.platform), and the renderer the display draws with,
+    #   which the packages do not name: llvmpipe on Xvfb, or a GPU's
+    #   OpenGL or Vulkan driver (Key.renderer).
     #
     # The run's own folder is the one thing the run names that differs
     # every time: it appears in the key as <run>. The inputs an entry keeps
@@ -402,7 +404,8 @@ module Parity
       # uname, the time zone, and on macOS the system's build, the
       # hardware, and the displays, whose density decides a frame's size;
       # on Linux the distribution and the package database, which names
-      # every system library's version.
+      # every system library's version, and the display's renderer
+      # (Key.renderer).
       def self.platform
         uname = Etc.uname
         {
@@ -426,7 +429,39 @@ module Parity
         {
           "release" => File.exist?("/etc/os-release") ? File.read("/etc/os-release") : "none",
           "packages" => packages ? file(packages) : "unknown: #{SecureRandom.hex(8)}",
+          "renderer" => renderer,
         }
+      end
+
+      # The tools that say what draws on a display: glxinfo's brief report
+      # of the OpenGL renderer, and vulkaninfo's summary of the Vulkan
+      # devices and their drivers.
+      RENDERER_TOOLS = [%w[glxinfo -B], %w[vulkaninfo --summary]].freeze
+
+      # What draws on the display the reference love opens its windows on
+      # (LOTA_PARITY_DISPLAY, else DISPLAY), asked the way the run would
+      # see it: the tools get the run's display, authority and runtime
+      # folder and nothing else of this process's environment, and run on
+      # +path+. Xvfb's llvmpipe and a GPU's radeonsi or RADV give the same
+      # packages and different frames, so the packages cannot tell them
+      # apart. A tool that reports a failure is still describing the
+      # renderer (vulkaninfo says so when no Vulkan device is visible); a
+      # tool that cannot run at all gives a value no other run shares, so
+      # that a renderer this cannot describe never hits.
+      def self.renderer(environment = ENV, path: "/usr/bin:/bin:/usr/sbin:/sbin")
+        display = environment.fetch("LOTA_PARITY_DISPLAY") { environment["DISPLAY"] }
+        variables = {
+          "PATH" => path,
+          "LANG" => "C.UTF-8",
+          "DISPLAY" => display,
+          **environment.to_h.slice("XAUTHORITY", "XDG_RUNTIME_DIR"),
+        }.compact
+        RENDERER_TOOLS.to_h do |tool|
+          output, = Open3.capture2e(variables, *tool, unsetenv_others: true)
+          [tool.join(" "), output]
+        rescue SystemCallError
+          [tool.join(" "), "unknown: #{SecureRandom.hex(8)}"]
+        end
       end
 
       # What +command+ prints, or, if it cannot run, a value no other run

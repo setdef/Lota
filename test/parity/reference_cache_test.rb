@@ -141,6 +141,58 @@ class ReferenceCacheTest < Minitest::Test
     end
   end
 
+  # Tools that report a renderer from a file, so that a test can change
+  # what draws without a display.
+  def fake_renderer_tools
+    bin = File.join(@dir, "bin")
+    FileUtils.mkdir_p(bin)
+    %w[glxinfo vulkaninfo].each do |tool|
+      File.write(File.join(bin, tool), "#!/bin/sh\n/bin/cat \"#{@dir}/#{tool}.txt\"; /bin/echo \"$DISPLAY\"\n")
+      File.chmod(0o755, File.join(bin, tool))
+      File.write(File.join(@dir, "#{tool}.txt"), "#{tool} llvmpipe")
+    end
+    bin
+  end
+
+  def test_a_change_of_renderer_changes_the_platform
+    bin = fake_renderer_tools
+    environment = { "DISPLAY" => ":9" }
+    before = Parity::ReferenceCache::Key.renderer(environment, path: bin)
+
+    assert_equal before, Parity::ReferenceCache::Key.renderer(environment, path: bin)
+    File.write(File.join(@dir, "glxinfo.txt"), "glxinfo radeonsi")
+
+    refute_equal before, Parity::ReferenceCache::Key.renderer(environment, path: bin), "the OpenGL renderer"
+    File.write(File.join(@dir, "glxinfo.txt"), "glxinfo llvmpipe")
+    File.write(File.join(@dir, "vulkaninfo.txt"), "vulkaninfo RADV")
+
+    refute_equal before, Parity::ReferenceCache::Key.renderer(environment, path: bin), "the Vulkan driver"
+  end
+
+  def test_the_renderer_is_the_one_on_the_runs_display
+    bin = fake_renderer_tools
+    on_one = Parity::ReferenceCache::Key.renderer({ "DISPLAY" => ":1" }, path: bin)
+    on_other = Parity::ReferenceCache::Key.renderer({ "DISPLAY" => ":2" }, path: bin)
+    harness = Parity::ReferenceCache::Key.renderer({ "DISPLAY" => ":1", "LOTA_PARITY_DISPLAY" => ":2" }, path: bin)
+
+    refute_equal on_one, on_other
+    assert_equal on_other, harness
+  end
+
+  def test_a_renderer_that_cannot_be_asked_never_hits
+    empty = File.join(@dir, "empty")
+    FileUtils.mkdir_p(empty)
+
+    refute_equal Parity::ReferenceCache::Key.renderer({ "DISPLAY" => ":1" }, path: empty),
+      Parity::ReferenceCache::Key.renderer({ "DISPLAY" => ":1" }, path: empty)
+  end
+
+  def test_the_linux_platform_names_the_renderer
+    skip "the renderer is part of the Linux platform" unless TestHome::LINUX
+
+    assert_includes Parity::ReferenceCache::Key.platform.keys, "renderer"
+  end
+
   def test_a_change_to_the_script_the_environment_or_the_command_changes_the_key
     before = digest
 
