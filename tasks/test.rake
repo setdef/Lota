@@ -56,8 +56,11 @@ end
 # PREPUSH_KEEPS names, which stay as a smoke test of a class left out. What
 # it leaves out is what took more than about a second and a half on the
 # gate runner (doc/contributors/development.md, The pre-push tier):
-# processes that run a whole game, the parity games, the generator's runs
-# over all of LÖVE, and the sanitized suite, which it runs a part of.
+# processes that run a whole game, the parity games, the generator's
+# second and third runs over all of LÖVE (the first, which every
+# generator test shares, it keeps, in a lane of its own), and the
+# sanitized suite, which it runs a part of. The committed bindings are
+# checked before anything builds anyway (bindings:check).
 PREPUSH_LEAVES_OUT = %w[
   RakeTasksTest#test_the_native_suite_passes_under_the_sanitizers
   LotaRunTest
@@ -70,11 +73,8 @@ PREPUSH_LEAVES_OUT = %w[
   NativeGemTest#test_a_bundled_library_the_record_lacks_stops_the_build
   LicensingTest#test_the_real_bundle_carries_what_its_objects_were_compiled_from
   BenchTest#test_spawn_kills_a_run_that_takes_too_long
-  GeneratorTest#test_the_name_table_is_written_as_a_shareable_ruby_hash
   GeneratorTest#test_the_drift_gate_reports_edited_missing_and_stale_files
-  GeneratorTest#test_arguments_beyond_the_bound_form_are_pruned
   GeneratorTest#test_the_committed_bindings_match_the_generator
-  ParserTest#test_headers_give_return_types_through_bases_and_typedefs
   ArkanoidTest
   GravityWarsTest
   KleleAtomsTest
@@ -147,12 +147,13 @@ namespace :test do
   end
 
   # The pre-push tier's tests, in the gate's shards: the native tests and
-  # Lövetest, the tasks' tests with the generator's, the parity harness,
-  # and a part of the sanitized suite.
+  # Lövetest, the tasks' tests, the generator's, the parity harness, and a
+  # part of the sanitized suite.
   namespace :prepush do
     {
       native: [RUBY_SHARDS.fetch(:native), %w[compile]],
-      tasks: [RUBY_SHARDS.values_at(:tasks, :generator, :rake_tasks).flatten, %w[compile]],
+      tasks: [RUBY_SHARDS.values_at(:tasks, :rake_tasks).flatten, %w[compile]],
+      generator: [RUBY_SHARDS.fetch(:generator), %w[compile]],
       parity: [TEST_SUITES.fetch(:parity), %w[compile reference:love]],
     }.each do |name, (globs, prerequisites)|
       Minitest::TestTask.create(name) do |t|

@@ -58,6 +58,7 @@ PREPUSH_LANES = [
   [Gate::Check.of("test:prepush:native")],
   [Gate::Check.of("test:prepush:parity")],
   [Gate::Check.of("test:prepush:tasks")],
+  [Gate::Check.of("test:prepush:generator")],
   [Gate::Check.of("cpp:format", "cpp:no_nolint"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 

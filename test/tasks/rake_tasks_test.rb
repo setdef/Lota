@@ -196,6 +196,7 @@ class RakeTasksTest < Minitest::Test
       %w[test:prepush:native],
       %w[test:prepush:parity],
       %w[test:prepush:tasks],
+      %w[test:prepush:generator],
       %w[cpp:format cpp:no_nolint lint steep],
     ]
 
