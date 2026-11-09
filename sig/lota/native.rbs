@@ -311,6 +311,20 @@ module Lota
       def map_pixel: (Array[(^(Integer, Integer, Float, Float, Float, Float) -> (Array[Float | Integer] | Float | Integer)) | Float | Integer | nil] call) -> nil
     end
 
+    class CompressedImageData < Data::Data
+      def self.cpp_class: () -> String
+
+      def object_type: () -> String
+
+      def type_of?: (String name) -> bool
+
+      def to_s: () -> String
+
+      def ==: (::Object other) -> bool
+
+      def release: () -> bool
+    end
+
     class Texture
       def self.cpp_class: () -> String
 
@@ -823,6 +837,10 @@ module Lota
       def self.new_image_data: (Data::Data data) -> ImageData
 
       def self.new_sized_image_data: (Integer w, Integer h, ?String? fstr, ?String? bytes) -> ImageData
+
+      def self.new_compressed_data: (Data::Data data) -> CompressedImageData
+
+      def self.compressed?: (Data::Data data) -> bool
     end
 
     module Font

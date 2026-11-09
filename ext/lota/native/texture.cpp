@@ -161,14 +161,19 @@ void parse_dpi_scale(love::Data *data, float *dpiscale) {
 using ImagePair = std::pair<love::StrongRef<ImageData>, love::StrongRef<CompressedImageData>>;
 
 // getImageData (wrap_Graphics.cpp:714-745) of what Lota::Graphics passes
-// for one image: an ImageData as it is, or a Data, which Lota::Graphics
-// makes of a file name, a FileData, or other Data, as luax_getdata reads
-// them, decoded to an ImageData, or kept compressed in a format the image
-// module recognizes. Every caller allows compressed images.
+// for one image: an ImageData or a CompressedImageData as it is, or a
+// Data, which Lota::Graphics makes of a file name, a FileData, or other
+// Data, as luax_getdata reads them, decoded to an ImageData, or kept
+// compressed in a format the image module recognizes. Every caller allows
+// compressed images.
 ImagePair image_data_of(const Rice::Object &source, float *dpiscale) {
   ImagePair result;
   if (ruby::is_kind_of(source, Rice::Data_Type<ImageData>::klass())) {
     result.first.set(Rice::detail::From_Ruby<ImageData *>().convert(source.value()));
+    return result;
+  }
+  if (ruby::is_kind_of(source, Rice::Data_Type<CompressedImageData>::klass())) {
+    result.second.set(Rice::detail::From_Ruby<CompressedImageData *>().convert(source.value()));
     return result;
   }
   if (!ruby::is_kind_of(source, Rice::Data_Type<love::Data>::klass())) {

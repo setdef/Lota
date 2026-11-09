@@ -655,6 +655,24 @@ module Lota
       def debug_name: () -> String?
     end
 
+    class CompressedImageData
+      def clone: () -> CompressedImageData
+
+      def width: (?Integer miplevel) -> Integer
+
+      def height: (?Integer miplevel) -> Integer
+
+      def dimensions: (?Integer miplevel) -> [Integer, Integer]
+
+      def mipmap_count: () -> Integer
+
+      def format: () -> String
+
+      def set_linear: (bool linear) -> nil
+
+      def linear?: () -> bool
+    end
+
     class ImageData
       def clone: () -> ImageData
 

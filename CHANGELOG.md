@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - `lota fuse --sign-command COMMAND` and `--notarize PROFILE` pass Fledge's options of the same names, signing a Windows app with a command of your own and having Apple notarize a signed macOS app, and `Lota::Fuse::Options#sign_command` and `#notarize` hold them.
+- `love.image`'s compressed images: `Lota::Image::CompressedData.new` reads a DDS, KTX, PVR, PKM, or ASTC file into a `Lota::Image::CompressedImageData` (`clone`, `width`, `height`, `dimensions`, `mipmap_count`, `format`, `linear=`, `linear?`), and `Lota::Image.compressed?` asks whether it can; `Lota::Graphics::Texture.new` and `Image.new` also take a CompressedImageData.
 
 ### Changed
 

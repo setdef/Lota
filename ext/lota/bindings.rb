@@ -761,6 +761,20 @@ generate "ImageData:setLinear"
 bound_by_hand "love.image.newImageData",
   reason: "chooses among its forms by its arguments' kinds, and reads raw bytes from a string or any Data " \
     "(luax_istype); Lota binds the form that decodes Data and the form with a size, a pixel format, and bytes"
+bound_by_hand "love.image.newCompressedData",
+  reason: "reads its argument through luax_getdata, a file name, a File, or any Data, which the generator " \
+    "does not port; Lota::Image::CompressedData.new reads it as luax_getdata does, and Lota binds the Data"
+bound_by_hand "love.image.isCompressed",
+  reason: "reads its argument through luax_getdata, as love.image.newCompressedData; Lota::Image.compressed? " \
+    "reads it as luax_getdata does, and Lota binds the Data"
+generate "CompressedImageData:clone"
+generate "CompressedImageData:getWidth"
+generate "CompressedImageData:getHeight"
+generate "CompressedImageData:getDimensions"
+generate "CompressedImageData:getMipmapCount"
+generate "CompressedImageData:getFormat"
+generate "CompressedImageData:setLinear"
+generate "CompressedImageData:isLinear"
 
 # love.joystick
 bound_by_hand "love.joystick.getJoysticks",

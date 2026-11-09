@@ -10,7 +10,9 @@
 #include "native/binding.hpp"
 #include "native/errors.hpp"
 
+#include "common/pixelformat.h"
 #include "filesystem/FileData.h"
+#include "image/CompressedImageData.h"
 #include "image/FormatHandler.h"
 #include "image/ImageData.h"
 
@@ -33,6 +35,67 @@ using namespace love::image;
 // Ported by the generator from the wrap functions cited below
 // (vendor/love/src/modules/image), with each read of the Lua
 // stack made a parameter and each push the result.
+
+// CompressedImageData:clone: w_CompressedImageData_clone (wrap_CompressedImageData.cpp:34-41).
+CompressedImageData *w_CompressedImageData_clone(const CompressedImageData &t) {
+  CompressedImageData *c = nullptr;
+  c = t.clone();
+  return c;
+}
+
+// CompressedImageData:getWidth: w_CompressedImageData_getWidth
+// (wrap_CompressedImageData.cpp:43-53).
+int w_CompressedImageData_getWidth(const CompressedImageData &t, int miplevel) {
+  int width = 0;
+  width = t.getWidth(miplevel - 1);
+  return width;
+}
+
+// CompressedImageData:getHeight: w_CompressedImageData_getHeight
+// (wrap_CompressedImageData.cpp:55-65).
+int w_CompressedImageData_getHeight(const CompressedImageData &t, int miplevel) {
+  int height = 0;
+  height = t.getHeight(miplevel - 1);
+  return height;
+}
+
+// CompressedImageData:getDimensions: w_CompressedImageData_getDimensions
+// (wrap_CompressedImageData.cpp:67-82).
+Rice::Array w_CompressedImageData_getDimensions(const CompressedImageData &t, int miplevel) {
+  Rice::Array results;
+  int width = 0;
+  int height = 0;
+  width = t.getWidth(miplevel - 1);
+  height = t.getHeight(miplevel - 1);
+  results.push(width, false);
+  results.push(height, false);
+  return results;
+}
+
+// CompressedImageData:getMipmapCount: w_CompressedImageData_getMipmapCount
+// (wrap_CompressedImageData.cpp:84-89).
+int w_CompressedImageData_getMipmapCount(const CompressedImageData &t) {
+  return t.getMipmapCount();
+}
+
+// CompressedImageData:getFormat: w_CompressedImageData_getFormat
+// (wrap_CompressedImageData.cpp:91-104).
+std::string w_CompressedImageData_getFormat(const CompressedImageData &t) {
+  const PixelFormat format = t.getFormat();
+  const char *str = nullptr;
+  if (getConstant(format, str)) {
+    return str;
+  }
+  return "unknown";
+}
+
+// CompressedImageData:setLinear: w_CompressedImageData_setLinear
+// (wrap_CompressedImageData.cpp:106-111).
+void w_CompressedImageData_setLinear(CompressedImageData &t, bool linear) { t.setLinear(linear); }
+
+// CompressedImageData:isLinear: w_CompressedImageData_isLinear
+// (wrap_CompressedImageData.cpp:113-118).
+bool w_CompressedImageData_isLinear(const CompressedImageData &t) { return t.isLinear(); }
 
 // ImageData:clone: w_ImageData_clone (wrap_ImageData.cpp:47-54).
 ImageData *w_ImageData_clone(const ImageData &t) {
@@ -76,6 +139,15 @@ love::filesystem::FileData *w_ImageData_encode(const ImageData &t, const std::st
 } // namespace
 
 void define_generated_image(const Rice::Module &native) {
+  Rice::define_class_under<CompressedImageData>(native, "CompressedImageData")
+      .define_method("clone", &w_CompressedImageData_clone, Rice::Return().takeOwnership())
+      .define_method("width", &w_CompressedImageData_getWidth, Rice::Arg("miplevel") = 1)
+      .define_method("height", &w_CompressedImageData_getHeight, Rice::Arg("miplevel") = 1)
+      .define_method("dimensions", &w_CompressedImageData_getDimensions, Rice::Arg("miplevel") = 1)
+      .define_method("mipmap_count", &w_CompressedImageData_getMipmapCount)
+      .define_method("format", &w_CompressedImageData_getFormat)
+      .define_method("set_linear", &w_CompressedImageData_setLinear, Rice::Arg("linear"))
+      .define_method("linear?", &w_CompressedImageData_isLinear);
   Rice::define_class_under<ImageData>(native, "ImageData")
       .define_method("clone", &w_ImageData_clone, Rice::Return().takeOwnership())
       .define_method("encode", &w_ImageData_encode, Rice::Arg("format"),

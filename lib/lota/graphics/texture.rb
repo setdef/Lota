@@ -52,8 +52,9 @@ module Lota
       # getImageData).
       #
       # [image] String name of an image file in the game's folder, a
-      #   Lota::Filesystem::FileData holding an encoded image, or a
-      #   Lota::Image::ImageData; or an Array of them, the texture's
+      #   Lota::Filesystem::FileData holding an encoded image, a
+      #   Lota::Image::ImageData, or a Lota::Image::CompressedImageData,
+      #   which brings its own mipmaps; or an Array of them, the texture's
       #   mipmaps from the largest down.
       # [width] Integer width, in place of an image, for a texture with no
       #   pixels yet, followed by its Integer height and, for an array
@@ -516,11 +517,11 @@ module Lota
       # [reloadmipmaps] Whether a texture with mipmaps +:auto+ makes them
       #   again, which it does unless told +false+ with a position.
       #
-      # LÖVE also replaces pixels with a CompressedImageData, which Lota
-      # binds with love.image's compressed data. Returns +nil+. Raises
-      # RuntimeError with LÖVE's message when the pixels do not fit, or
-      # their format is not the texture's, and ThreadError off the main
-      # thread.
+      # LÖVE also replaces pixels with a mipmap of a
+      # Lota::Image::CompressedImageData, which Lota does not bind yet.
+      # Returns +nil+. Raises RuntimeError with LÖVE's message when the
+      # pixels do not fit, or their format is not the texture's, and
+      # ThreadError off the main thread.
       #
       # === Example
       #

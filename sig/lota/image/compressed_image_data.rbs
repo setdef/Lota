@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Image
+    class CompressedImageData < Data[Native::CompressedImageData]
+      private def self.from_native: (Native::CompressedImageData native) -> CompressedImageData
+
+      def initialize_copy: (CompressedImageData source) -> void
+
+      def width: (?Integer? mipmap) -> Integer
+
+      def height: (?Integer? mipmap) -> Integer
+
+      def dimensions: (?Integer? mipmap) -> [Integer, Integer]
+
+      def mipmap_count: () -> Integer
+
+      def format: () -> Symbol
+
+      def linear=: (bool linear) -> void
+
+      def linear?: () -> bool
+    end
+  end
+end

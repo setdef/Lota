@@ -8,9 +8,10 @@
 
 namespace lota::native {
 
-// Binds love::image::ImageData as <native>::ImageData, and the functions of
-// love::image::Image that Lota::Image translates as module functions of
-// <native>::Image.
+// Binds love::image::ImageData as <native>::ImageData,
+// love::image::CompressedImageData as <native>::CompressedImageData, and
+// the functions of love::image::Image that Lota::Image translates as
+// module functions of <native>::Image.
 void define_image(const Rice::Module &native);
 
 } // namespace lota::native

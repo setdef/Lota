@@ -13,6 +13,7 @@
 #include "common/Module.h"
 #include "common/floattypes.h"
 #include "common/pixelformat.h"
+#include "image/CompressedImageData.h"
 #include "image/Image.h"
 #include "image/ImageData.h"
 
@@ -33,6 +34,7 @@
 namespace lota::native {
 
 using love::PixelFormat;
+using love::image::CompressedImageData;
 using love::image::Image;
 using love::image::ImageData;
 
@@ -100,6 +102,21 @@ ImageData *new_sized_image_data(int w, int h, std::optional<std::string> fstr,
 
   return t;
 }
+
+// w_newCompressedData (wrap_Image.cpp:106-119), from the Data
+// Lota::Image::CompressedData.new reads its argument into, as
+// luax_getdata reads a file name, a File, or any Data: parses it with the
+// first of the module's format handlers that can, or raises the engine's
+// message. Its one reference goes to the Ruby wrapper.
+CompressedImageData *new_compressed_data(love::Data *data) {
+  return image()->newCompressedData(data);
+}
+
+// w_isCompressed (wrap_Image.cpp:121-129), from the Data
+// Lota::Image.compressed? reads its argument into, as
+// Lota::Image::CompressedData.new does: whether any of the module's
+// format handlers can parse it.
+bool is_compressed(love::Data *data) { return image()->isCompressed(data); }
 
 // What follows is the FFI code LÖVE runs under LuaJIT in place of
 // ImageData's C++ wrap functions (vendor/love/src/modules/image/
@@ -687,6 +704,9 @@ void define_image(const Rice::Module &native) {
       .define_method("set_pixel", &set_pixel, Rice::Arg("arguments"))
       .define_method("map_pixel", &map_pixel, Rice::Arg("call"));
 
+  // CompressedImageData's methods are generated.
+  define_engine_class<CompressedImageData, love::Data>(native, "CompressedImageData");
+
   Rice::define_module_under(native, "Image")
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
@@ -695,7 +715,10 @@ void define_image(const Rice::Module &native) {
       .define_singleton_function("new_sized_image_data", &new_sized_image_data, Rice::Arg("w"),
                                  Rice::Arg("h"), Rice::Arg("fstr") = std::optional<std::string>(),
                                  Rice::Arg("bytes") = std::optional<std::string>(),
-                                 Rice::Return().takeOwnership());
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("new_compressed_data", &new_compressed_data, Rice::Arg("data"),
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("compressed?", &is_compressed, Rice::Arg("data"));
 }
 
 } // namespace lota::native

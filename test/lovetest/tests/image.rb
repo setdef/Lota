@@ -8,13 +8,11 @@
 require_relative "../lovetest_helper"
 
 # Lövetest's love.image tests (vendor/love/testing/tests/image.lua),
-# translated to Ruby by ADR 001's rules, for the functions Lota binds: the
-# CompressedImageData, isCompressed, and newCompressedData tests wait for
-# love.image.newCompressedData, which Lota does not bind. They run in the
+# translated to Ruby by ADR 001's rules, every one of them. They run in the
 # test suite's own process (test/lovetest/image_test.rb) and under lota
 # run (test/lovetest/game), also from the installed precompiled gem.
 class ImageTest < Lovetest::TestMethod
-  TYPES = %w[ImageData].freeze
+  TYPES = %w[CompressedImageData ImageData].freeze
 
   # test_image_data leaves the Files it opened to the garbage collector,
   # as Lövetest leaves them to Lua's, and a File open in the save
@@ -31,6 +29,40 @@ class ImageTest < Lovetest::TestMethod
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
   #
+  # Translated to Ruby from love.test.image.CompressedImageData
+  # (vendor/love/testing/tests/image.lua:12-40): newCompressedData becomes
+  # CompressedData.new, a module whose new returns a CompressedImageData
+  # (rule 2), the getters drop get (rule 3), getDimensions' results are an
+  # Array (rule 4), the format a symbol (rule 9), setLinear a writer
+  # (rule 5), and isLinear linear? (rule 8).
+  def test_compressed_image_data
+    # create obj
+    idata = Lota::Image::CompressedData.new("resources/love.dxt1")
+    assert_object(idata)
+
+    # check string + size
+    refute_equal(nil, idata.string, "check data string")
+    assert_equal(2744, idata.size, "check data size")
+
+    # check img dimensions
+    iw, ih = idata.dimensions
+    assert_equal(64, iw, "check image dimension w")
+    assert_equal(64, ih, "check image dimension h")
+    assert_equal(64, idata.width, "check image direct w")
+    assert_equal(64, idata.height, "check image direct h")
+
+    # check format
+    assert_equal(:DXT1, idata.format, "check image format")
+
+    # check mipmap count
+    assert_equal(7, idata.mipmap_count, "check mipmap count")
+
+    # check linear
+    assert_false(idata.linear?, "check not linear")
+    idata.linear = true
+    assert_true(idata.linear?, "check now linear")
+  end
+
   # Translated to Ruby from love.test.image.ImageData
   # (vendor/love/testing/tests/image.lua:44-107): newImageData becomes
   # ImageData.new (rule 2), with its pixel format a symbol (rule 9), the
@@ -104,6 +136,20 @@ class ImageTest < Lovetest::TestMethod
   ensure
     read1&.close
     read2&.close
+  end
+
+  # Translated to Ruby from love.test.image.isCompressed
+  # (vendor/love/testing/tests/image.lua:118-121): isCompressed becomes
+  # compressed? (rule 8).
+  def test_is_compressed
+    assert_true(Lota::Image.compressed?("resources/love.dxt1"), "check dxt1 valid compressed image")
+  end
+
+  # Translated to Ruby from love.test.image.newCompressedData
+  # (vendor/love/testing/tests/image.lua:126-128): newCompressedData
+  # becomes CompressedData.new (rule 2).
+  def test_new_compressed_data
+    assert_object(Lota::Image::CompressedData.new("resources/love.dxt1"))
   end
 
   # Translated to Ruby from love.test.image.newImageData

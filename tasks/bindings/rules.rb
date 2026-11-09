@@ -90,7 +90,10 @@ module Bindings
     # PolygonShape, which newRectangleShape makes (wrap_Physics.cpp,
     # w_newRectangleShape), as the maintainer decided, and by the same
     # precedent ImageFont === is true of every Font and Text === of every
-    # TextBatch, whose products the engine cannot tell apart.
+    # TextBatch, whose products the engine cannot tell apart. CompressedData
+    # === is true of every CompressedImageData, which only
+    # newCompressedData makes (wrap_Image.cpp, w_newCompressedData), so
+    # rule 2's "what that factory makes" is the whole class.
     MODULE_FACTORY_MATCHES = {
       "newCanvas" => "Texture:isCanvas",
       "newImage" => "Texture",
@@ -98,6 +101,7 @@ module Bindings
       "newImageFont" => "Font",
       "newText" => "TextBatch",
       "newComputeShader" => "Shader:hasStage",
+      "newCompressedData" => "CompressedImageData",
     }.freeze
     # The Ruby class a LÖVE type's methods belong to, where LÖVE's Lua type
     # name differs from the name its wrap file registers: Buffer.cpp's type
