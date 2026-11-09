@@ -13,7 +13,7 @@ Two workflows check trunk. The pre-push tier runs on every push and answers firs
 
 `.github/workflows/prepush.yml` runs `bundle exec rake prepush` ([development.md](development.md)) on `macos-15` and on Ubuntu 22.04 for x86_64, set up as the gate jobs below are, and the Windows build and tests on x64 (`windows.yml`, below), which take about as long. Its x86_64 Linux job then runs `rake red_before_green` over the commits the push brings. It is a workflow of its own because GitHub finishes a run, and `bin/trunk-watch` reads it, only when its last job ends, and the full run's phone and iOS kit jobs end an hour or more after its desktop jobs. Each trunk commit gets a run of its own, never cancelled, so the watch can judge each commit against its parent and name the one that broke the tier.
 
-`.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch. A run on trunk is never cancelled once it starts, but only the newest push waits for it: GitHub cancels a waiting run when a newer push joins the queue. A run asks for about eight macOS jobs, some 175 runner-minutes, and GitHub's free plan runs five macOS jobs at once, so a run for every commit would queue hours deep, with the tier's macOS job behind it. Its jobs:
+`.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch. A run on trunk is never cancelled once it starts, but only the newest push waits for it: GitHub cancels a waiting run when a newer push joins the queue. A run asks for about eight macOS jobs, some 175 runner-minutes, and GitHub's free plan runs five macOS jobs at once, so a run for every commit would queue hours deep, with the tier's macOS job behind it. The one exception is a run started with the input `release_tag`, which proves a release commit: it waits in a queue of its own, so no push cancels it. Its jobs:
 
 - **Gate**, on macOS 15 on Apple Silicon (`macos-15`), and **Gate (x86_64-linux-gnu)** and **Gate (aarch64-linux-gnu)** on Ubuntu 22.04. Each runs `bundle exec rake`, fails if the gate changed a file (its autocorrect would otherwise pass unnoticed), and builds the precompiled gem with `rake package:native` as an artifact.
 - **Delivery**, one for each of those three, which installs that gem on a fresh runner and runs Lövetest from it.
@@ -21,7 +21,8 @@ Two workflows check trunk. The pre-push tier runs on every push and answers firs
 - **Phones**, which calls `phones.yml`.
 - **iOS kit**, which calls `ios-kit.yml` for `test/games/winkit`, and **iOS kit, called as a game's CI calls it**, which calls `ios-kit-caller.yml`. The second runs only for a tag and by hand; a push does not run it (see the iOS kit, below).
 - **Fuse**, which calls `fuse.yml` with the gems this run built, once they are built.
-- **Release**, which runs only for a tag, and publishes the gems only when every job above passed, the iOS kit called as a game's CI calls it among them ([releasing.md](releasing.md)).
+- **Prepare the next release**, which runs on a push to trunk once every job above that a push runs passed. When trunk has not moved on and CHANGELOG.md's `[Unreleased]` lists changes, it commits the release to trunk and starts CI on that commit with `release_tag` ([releasing.md](releasing.md)). Its failures stop the release, not trunk, so the run stays green when it fails.
+- **Release**, which runs for a tag, for a run started with `release_tag`, and by hand as a dry run. It tags the commit, for `release_tag`, and publishes the gems only when every job above passed, the iOS kit called as a game's CI calls it among them ([releasing.md](releasing.md)).
 
 ## The gate jobs
 
