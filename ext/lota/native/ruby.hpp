@@ -177,7 +177,7 @@ public:
     if (installed_) {
       return;
     }
-    rb_gc_register_mark_object(rb_data_typed_object_wrap(0, this, &TYPE));
+    rb_gc_register_mark_object(rb_data_typed_object_wrap(0, this, type()));
     installed_ = true;
   }
 
@@ -204,20 +204,17 @@ private:
     }
   }
 
-  static constexpr rb_data_type_t TYPE = {
-      .wrap_struct_name = "Lota::Native marks",
-      .function =
-          {
-              .dmark = &mark_all,
-              .dfree = nullptr,
-              .dsize = nullptr,
-              .dcompact = nullptr,
-              .reserved = {},
-          },
-      .parent = nullptr,
-      .data = nullptr,
-      .flags = 0,
-  };
+  // Ruby's description of the hidden object, every field but these two
+  // zero, whichever fields this Ruby's rb_data_type_t has.
+  static const rb_data_type_t *type() {
+    static const rb_data_type_t described = [] {
+      rb_data_type_t type{};
+      type.wrap_struct_name = "Lota::Native marks";
+      type.function.dmark = &mark_all;
+      return type;
+    }();
+    return &described;
+  }
 
   mutable std::mutex mutex_;
   std::unordered_set<const Marked *> marked_;
