@@ -128,9 +128,7 @@ jobs:
       # mise.toml pins the other tools contributors use (bin/setup), the
       # REUSE tool among them; CI installs the same pins the same way. Its
       # cache is keyed by mise.toml's hash.
-      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
-        with:
-          version: 2026.10.11
+      - uses: ./.github/actions/mise
 
       # Bundler and ccache keep their files outside the checkout, where
       # RuboCop and the REUSE tool would read them.
@@ -417,9 +415,7 @@ jobs:
 
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
 
-      - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
-        with:
-          version: 2026.10.11
+      - uses: ./.github/actions/mise
 
       - name: Place Bundler and ccache outside the checkout
         id: paths
@@ -703,13 +699,26 @@ jobs:
           windows-toolchain: none
 
       # The toolchain alone: every library LÖVE links is built from source.
-      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
-        with:
+      # setup-msys2 caches the packages it installs, but downloads MSYS2's
+      # base from GitHub's releases each time, and an outage of those
+      # downloads outlasts its own two tries, so a failed attempt is tried
+      # again two minutes later, whose failure alone fails the job.
+      - id: msys2
+        continue-on-error: true
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with: &msys2
           msystem: ${{ matrix.msystem }}
           path-type: inherit
           update: true
           install: patch make
           pacboy: ${{ matrix.compiler }} cmake:p ninja:p ccache:p ${{ matrix.mesa }}
+      - name: Wait before setting MSYS2 up again
+        if: steps.msys2.outcome == 'failure'
+        shell: pwsh
+        run: Start-Sleep -Seconds 120
+      - if: steps.msys2.outcome == 'failure'
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with: *msys2
 
       # The REUSE tool, at the version mise.toml pins, which checks the
       # gem's licensing as it is built (tasks/native_gem.rb), into the

@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The tools mise.toml pins, through jdx/mise-action, whose installs it
+# caches under a key of mise.toml's hash. Each run still downloads mise
+# itself from GitHub's releases, which mise-action tries five times two
+# seconds apart, and an outage of those downloads lasts longer, so a
+# failed attempt is tried again a minute later, and then three minutes
+# after that; only the third attempt's failure fails the job.
+name: Set up mise
+description: jdx/mise-action at the version mise.toml's tools are installed with, tried three times
+
+inputs:
+  install_args:
+    description: The tools to install, as mise-action's install_args (empty for every one mise.toml pins)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - id: first
+      continue-on-error: true
+      uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+      with:
+        version: 2026.10.11
+        install_args: ${{ inputs.install_args }}
+        cache_restore_retry_budget: 60s
+
+    - name: Wait before trying again
+      if: steps.first.outcome == 'failure'
+      shell: bash
+      run: sleep 60
+
+    - id: second
+      if: steps.first.outcome == 'failure'
+      continue-on-error: true
+      uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+      with:
+        version: 2026.10.11
+        install_args: ${{ inputs.install_args }}
+        cache_restore_retry_budget: 60s
+
+    - name: Wait longer before trying a last time
+      if: steps.second.outcome == 'failure'
+      shell: bash
+      run: sleep 180
+
+    - if: steps.second.outcome == 'failure'
+      uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+      with:
+        version: 2026.10.11
+        install_args: ${{ inputs.install_args }}
+        cache_restore_retry_budget: 60s
