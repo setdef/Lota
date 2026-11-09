@@ -245,7 +245,8 @@ bound_by_hand "love.filesystem.read",
     "string"
 bound_by_hand "love.filesystem.load",
   reason: "compiles the file it reads as a Lua chunk (luaL_loadbufferx), which calls back into Lua; Lota " \
-    "binds its mode check and its read, and Lota::Filesystem.load compiles the source as Ruby"
+    "binds its mode check and its read, and Lota::Filesystem.load compiles the source as Ruby, or loads it as a " \
+    "compiled instruction sequence when it is binary"
 bound_by_hand "love.filesystem.write",
   reason: "returns w_write_or_append, a helper the parser does not follow, which reads a string or any Data " \
     "(luax_istype); Lota binds the two forms as two functions"

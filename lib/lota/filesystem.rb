@@ -238,11 +238,19 @@ module Lota
     # its own as ARGV, so while the Proc runs ARGV holds the arguments it
     # was called with, and afterward the program's own again.
     #
-    # Ruby code is text, so +:b+, which LuaJIT gives only binary chunks,
-    # refuses every file it can read, with LuaJIT's message for a chunk of
-    # the wrong mode. Raises SyntaxError, with LÖVE's message, for code
-    # that does not compile, or in that mode, and ArgumentError for a mode
-    # LÖVE does not know, before it reads the file.
+    # A file is binary when it is Ruby's compiled instruction sequence, as
+    # RubyVM::InstructionSequence#to_binary writes it, the way a Lua file is
+    # binary when it is LuaJIT's bytecode; any other file is text, as LuaJIT
+    # tells them apart by the first byte. +:t+ loads only text, +:b+ only
+    # binary, and +:bt+, which is the default, either; a file of the other
+    # kind is refused with LuaJIT's message for a chunk of the wrong mode.
+    # A binary file keeps the name it was compiled under, and runs only on
+    # the Ruby and the platform that compiled it. Like Lua's bytecode, it is
+    # not checked: load binary files you wrote, never ones a stranger could
+    # have. Raises SyntaxError, with LÖVE's message, for code that does not
+    # compile, for a binary file this Ruby cannot load, or for a file of the
+    # wrong mode, and ArgumentError for a mode LÖVE does not know, before it
+    # reads the file.
     #
     # === Examples
     #
@@ -250,16 +258,26 @@ module Lota
     #   level, = Lota::Filesystem.load("level.rb")
     #   level.call(21) # => 42
     #   Lota::Filesystem.load("missing.rb") # => [nil, "Could not open file missing.rb. Does not exist."]
+    #
+    #   binary = RubyVM::InstructionSequence.compile("ARGV.first * 2", "level.rb").to_binary
+    #   Lota::Filesystem.write("level.rbc", binary)
+    #   Lota::Filesystem.load("level.rbc", :b).first.call(21) # => 42
     def self.load(name, mode = nil)
       source, mode_name = Native::Filesystem.load(name, mode && EnumName.of(mode))
       return [nil, mode_name] unless source
 
       # w_load raises luaL_error's message for a chunk Lua refuses as a
       # syntax error (wrap_Filesystem.cpp:796-797).
-      raise SyntaxError, "Syntax error: #{WRONG_MODE}\n" unless mode_name.include?("t")
+      binary = source.start_with?(BINARY_MAGIC)
+      raise SyntaxError, "Syntax error: #{WRONG_MODE}\n" unless mode_name.include?(binary ? "b" : "t")
 
-      [chunk(compile(source, name))]
+      [chunk(binary ? load_binary(source) : compile(source, name))]
     end
+
+    # The first bytes of a RubyVM::InstructionSequence#to_binary string,
+    # which tell a binary file from text as the first byte of LuaJIT's
+    # bytecode does. :nodoc:
+    BINARY_MAGIC = "YARB".b
 
     # +source+ compiled as the file +name+, or LÖVE's SyntaxError
     # (wrap_Filesystem.cpp:796-797) with Ruby's message. Ruby reads a file
@@ -267,6 +285,16 @@ module Lota
     private_class_method def self.compile(source, name)
       RubyVM::InstructionSequence.compile(source.force_encoding(Encoding::UTF_8), name)
     rescue SyntaxError => e
+      raise SyntaxError, "Syntax error: #{e.message}\n"
+    end
+
+    # +source+, the bytes RubyVM::InstructionSequence#to_binary wrote, loaded
+    # as LuaJIT loads bytecode, or LÖVE's SyntaxError with Ruby's message for
+    # bytes this Ruby cannot load, such as an instruction sequence another
+    # version compiled. :nodoc:
+    private_class_method def self.load_binary(source)
+      RubyVM::InstructionSequence.load_from_binary(source.b)
+    rescue ArgumentError, TypeError, RuntimeError => e
       raise SyntaxError, "Syntax error: #{e.message}\n"
     end
 

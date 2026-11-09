@@ -345,4 +345,44 @@ class SaveDirectoryTest < Minitest::Test
     error = assert_raises(ArgumentError) { Lota::Filesystem.load("missing.rb", :x) }
     assert_equal "Invalid load mode 'x', expected one of: 'b', 't', 'bt'", error.message
   end
+
+  # Ruby's compiled instruction sequence is Lota's binary chunk, as LuaJIT's
+  # bytecode is Lua's: "b" and "bt" load it, "t" refuses it with LuaJIT's
+  # message for a chunk of the wrong mode (lj_load.c, cpparser), and it keeps
+  # the arguments a chunk takes as ARGV.
+  def test_load_loads_a_compiled_instruction_sequence_in_binary_mode
+    saved("answer.rbc", RubyVM::InstructionSequence.compile("ARGV.first * 2", "answer.rb").to_binary)
+
+    assert_equal 42, Lota::Filesystem.load("answer.rbc", :b).first.call(21)
+    assert_equal 42, Lota::Filesystem.load("answer.rbc", "bt").first.call(21)
+    assert_equal 42, Lota::Filesystem.load("answer.rbc").first.call(21)
+    error = assert_raises(SyntaxError) { Lota::Filesystem.load("answer.rbc", :t) }
+    assert_equal "Syntax error: attempt to load chunk with wrong mode\n", error.message
+  end
+
+  # A binary chunk keeps the name it was compiled under, as bytecode does.
+  def test_a_binary_chunk_keeps_the_name_it_was_compiled_under
+    saved("named.rbc", RubyVM::InstructionSequence.compile("__FILE__", "compiled_as.rb").to_binary)
+
+    assert_equal "compiled_as.rb", Lota::Filesystem.load("named.rbc", :b).first.call
+  end
+
+  # A binary file this Ruby cannot load is a syntax error with Ruby's message.
+  def test_load_refuses_a_binary_chunk_another_ruby_compiled
+    binary = RubyVM::InstructionSequence.compile("1", "one.rb").to_binary
+    # The four bytes after the magic hold the major version.
+    binary[4, 4] = [99].pack("L<")
+    saved("other.rbc", binary)
+    error = assert_raises(SyntaxError) { Lota::Filesystem.load("other.rbc", :b) }
+
+    assert_match(/\ASyntax error: .*version.*\n\z/, error.message)
+  end
+
+  # Text that merely starts like a binary file is not one: only the magic
+  # tells them apart, as the first byte of bytecode does.
+  def test_text_is_not_binary_in_binary_mode
+    saved("text.rb", "42")
+
+    assert_raises(SyntaxError) { Lota::Filesystem.load("text.rb", :b) }
+  end
 end

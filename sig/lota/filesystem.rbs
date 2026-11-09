@@ -25,9 +25,13 @@ module Lota
 
     private def self.compile: (String source, String name) -> RubyVM::InstructionSequence
 
+    private def self.load_binary: (String source) -> RubyVM::InstructionSequence
+
     private def self.chunk: (RubyVM::InstructionSequence code) -> Proc
 
     WRONG_MODE: String
+
+    BINARY_MAGIC: String
 
     def self.open_file: (String filename, Symbol | String mode) -> ([File] | [nil, String])
 
@@ -101,4 +105,6 @@ end
 
 class RubyVM::InstructionSequence
   def self.compile: (String source, ?String file, ?String path, ?Integer line) -> RubyVM::InstructionSequence
+
+  def self.load_from_binary: (String binary) -> RubyVM::InstructionSequence
 end
