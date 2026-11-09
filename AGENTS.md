@@ -33,6 +33,7 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 - Research before designing: read the LÖVE source, the relevant ADR in `doc/contributors/adr/`, and the design document in `doc/contributors/design/` first.
 - Root-cause every fix. If you cannot explain why a change fixed the symptom, it is not a fix.
 - Write tests first. A test must fail if the code it covers is deleted or mutated, and must exercise real collaborators, not stubs that hide missing behavior. Where LÖVE's behavior is the contract, the acceptance test is a fixture someone else wrote, behaving as it does in LÖVE.
+- See each test fail first. After the gate, `bundle exec rake red_before_green` runs every test your unpushed commits add or change against each commit's parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`; a test it reports NEVER RED was never seen failing, so fix it before pushing. A commit that changes no behavior (a refactor, or tests of behavior already there) says so in a trailer, `Red-before-green: none (reason)`, and the reason is required.
 - Lota is a dependency of games, so the dependency points one way: nothing on trunk (code, tests, docs, comments, examples, CI) names or depends on a game that uses Lota. Examples use Lota's own sample names, such as "Sample Game". Temporary material, such as the Windows kit and experiment branches, is exempt, and history may mention a game. Likewise nothing on trunk refers to a particular agent; agents are ephemeral.
 - Never edit `vendor/love`. Engine changes go in patch files in this repository (ADR 005; `doc/contributors/design/engine.md`), and every patch needs a reason it cannot be avoided.
 - Design in the spirit of Kent Beck (small steps, Implementation Patterns), Freeman & Pryce (tests drive interfaces), Sandi Metz (duplication over the wrong abstraction), Rebecca Wirfs-Brock (responsibility-driven roles), Martin Fowler (refactor in behavior-preserving steps), and Matz (programmer happiness). Write prose in the style of `doc/contributors/documentation_style.md`.
@@ -51,6 +52,9 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 
 - Run Ruby with `bundle exec ruby`. Run tests with `bundle exec rake test`. Never `ruby -Ilib:test`.
 - `bundle exec rake` is the gate: tests, RuboCop, RubyCritic, Steep, signature parity, RDoc coverage, REUSE, and the package check. It must pass with zero errors and zero warnings. Run `bundle exec rake rubocop:autocorrect_all` first to save time.
+- Before every push, run `bundle exec rake prepush` (about a minute). Run the full gate, `bundle exec rake`, before pushing a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before a session's last push.
+- Where heavy work must not run on the machine you type on, run the build on a gate runner: `LOTA_GATE_KEY=<identity file> bundle exec rake gate:remote`, or `"gate:remote[prepush]"`. Never push to find out whether a change is green.
+- When a slow test is added or renamed, update `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake`.
 - Approved exceptions live in `rbs_exceptions.rb`; adding one needs a justification that it is impossible otherwise.
 - Rake tasks use `git ls-files`: new or deleted files must be staged before they count.
 - Always `PAGER=cat` for git.
@@ -78,7 +82,7 @@ A commit holds work of one provenance and says which in a `Provenance:` trailer 
 - A red build on `trunk` stops all other work until it is fixed or the commit that broke it is reverted.
 - Never tag or release.
 - Include any plan or ADR change in the commit whose work it describes.
-- Conventional Commits, plain text, wrapped at 72. The body explains why this approach over alternatives, in prose (no lists, no markdown, no file inventories). Types: `lib/ext/sig` feat/fix/refactor/perf; `bin/tasks`/CI chore; `examples/` and `doc/` docs; `test/` test. End with the `Provenance:` trailer, then the AI footer shown by `git log -n1`.
+- Conventional Commits, plain text, wrapped at 72. The body explains why this approach over alternatives, in prose (no lists, no markdown, no file inventories). Types: `lib/ext/sig` feat/fix/refactor/perf; `bin/tasks`/CI chore; `examples/` and `doc/` docs; `test/` test. End with a `Red-before-green: none (reason)` trailer when the commit waives that check, then the `Provenance:` trailer, then the AI footer shown by `git log -n1`.
 
 ## Changelog
 
