@@ -14,6 +14,7 @@ require "json"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
+require_relative "../../tasks/lovetest_image"
 
 # lota run, end to end: each test runs the lota executable on a game
 # folder in a Ruby of its own, which opens a real window, as a player's
@@ -105,6 +106,25 @@ class LotaRunTest < Minitest::Test
   # usedpiscale makes a unit smaller than a pixel whatever highdpi says.
   def reported_scale(output)
     Float(output[/^pixels 320x200 scale (\S+)$/, 1] || flunk("no pixels line: #{output}"))
+  end
+
+  # test/games/fuse, the game the fuse workflow fuses and runs on every
+  # platform, restarts once, then draws the screen Lövetest's
+  # captureScreenshot test captures and saves a screenshot of it, which
+  # must be Lövetest's expected image by Lövetest's rule. The load path
+  # travels in RUBYOPT, which the restarted process inherits.
+  def test_the_fuse_game_saves_the_screenshot_lovetest_expects
+    load_path = run_load_path.split(File::PATH_SEPARATOR).map { |path| "-I#{path}" }.join(" ")
+    output, status = capture2e({ "RUBYOPT" => load_path }, RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run",
+      game("fuse"))
+
+    assert_equal 3, status.exitstatus, output
+    screenshot = output[/^screenshot: (.*)$/, 1]
+
+    refute_nil screenshot, output
+    expected = LovetestImage.read(File.join(ROOT, "vendor/love/testing/output/expected", LovetestImage::SCREENSHOT))
+
+    assert_empty LovetestImage.differences(LovetestImage.read(screenshot), expected).first(5), output
   end
 
   def test_a_game_that_quits_without_a_status_exits_cleanly
