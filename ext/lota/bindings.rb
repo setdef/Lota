@@ -295,8 +295,8 @@ bound_by_hand "love.filesystem.append",
 # love.font
 bound_by_hand "love.font.newRasterizer",
   reason: "chooses among its forms by its arguments' kinds (lua_type), calling w_newTrueTypeRasterizer or " \
-    "w_newBMFontRasterizer for two of them; Lota::Font::Rasterizer.new chooses as it does, and Lota binds " \
-    "the form with a file alone"
+    "w_newBMFontRasterizer for two of them; Lota::Font::Rasterizer.new chooses as it does, and binds all " \
+    "three forms"
 bound_by_hand "love.font.newTrueTypeRasterizer",
   reason: "chooses between the default font and a font in data by its first argument's kind, and reads its " \
     "settings as a string or a table at a position that depends on that (luax_checktruetypesettings); Lota " \
