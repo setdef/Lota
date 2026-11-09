@@ -14,13 +14,17 @@ require_relative "../test/lovetest/lovetest_skips"
 # What the bundle compiles against from LÖVE's dependencies but does not
 # carry as code of its own, on each platform (NativeGem): their headers,
 # beside the frameworks or shared libraries the gem carries on their own.
-# On Windows, where every library but OpenAL Soft is linked into the
-# bundle and recorded with it (ext/lota/licenses.rb), that is the headers
-# and OpenAL Soft's import library alone.
+# On Windows, where every library but SDL and OpenAL Soft is linked into
+# the bundle and recorded with it (ext/lota/licenses.rb), that is the
+# headers and the import libraries of SDL's and OpenAL Soft's DLLs.
 NATIVE_DEPENDENCIES = {
   "macos" => "vendor/love-apple-dependencies",
   "linux" => "tmp/dependencies/installdir",
-  "windows" => %w[tmp/dependencies/installdir/include tmp/dependencies/installdir/lib/libOpenAL32.dll.a],
+  "windows" => %w[
+    tmp/dependencies/installdir/include
+    tmp/dependencies/installdir/lib/libSDL3.dll.a
+    tmp/dependencies/installdir/lib/libOpenAL32.dll.a
+  ],
 }.freeze
 
 # Lota's precompiled gem, built from rake compile's bundle, which CMake

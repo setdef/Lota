@@ -25,19 +25,20 @@ require_relative "source_archive"
 # Makefile:18-30), the versions the Linux gem carries, from each release's
 # own source archive, pinned by its SHA-256, and links each as megasource
 # links it into LÖVE's Windows build: statically, every library but SDL
-# and OpenAL Soft (megasource's CMakeLists.txt, MEGA_3P). SDL is static
-# here too, since its license (Zlib) asks for nothing a shared library
-# would give; OpenAL Soft is a DLL, as LÖVE's own, so a player can replace
-# it, as its license, the GNU Library General Public License, allows.
+# and OpenAL Soft (megasource's CMakeLists.txt, MEGA_3P). SDL is SDL3.dll,
+# as LÖVE's Windows build ships it (vendor/love/CMakeLists.txt:127-130 and
+# 2053), so that Lota's extension and the test-only extension share one
+# SDL; OpenAL Soft is a DLL, as LÖVE's own, so a player can replace it,
+# as its license, the GNU Library General Public License, allows.
 #
 # Each library is configured to need nothing but Windows itself, so the
-# extension's closure of DLLs is OpenAL32.dll and Windows' own: FreeType
-# without bzip2, libpng, Brotli, or HarfBuzz, as megasource builds it (no
-# bzip2 there either); HarfBuzz with FreeType alone, no GLib, Graphite,
-# ICU, or Uniscribe; SDL without iconv; OpenAL Soft with its Windows
-# backends alone, linking the compiler's runtime statically. Theora's
-# decoder is built for the engine's video module without its encoder, as
-# the Makefile builds it for Linux.
+# extension's closure of DLLs is SDL3.dll, OpenAL32.dll, and Windows'
+# own: FreeType without bzip2, libpng, Brotli, or HarfBuzz, as megasource
+# builds it (no bzip2 there either); HarfBuzz with FreeType alone, no
+# GLib, Graphite, ICU, or Uniscribe; SDL without iconv; SDL and OpenAL
+# Soft each linking the compiler's runtime statically, OpenAL Soft with
+# its Windows backends alone. Theora's decoder is built for the engine's
+# video module without its encoder, as the Makefile builds it for Linux.
 #
 # As LinuxBuild does, it keeps downloading apart from building, so the
 # gate never needs the network:
@@ -228,8 +229,13 @@ class WindowsBuild
     end
   end
 
-  # SDL as a static library, with iconv from SDL itself, and with OpenGL on
-  # both architectures. SDL opens opengl32.dll when a window asks for
+  # SDL as SDL3.dll, the DLL LÖVE's Windows build ships, which links its
+  # compiler's runtime statically on MinGW by its own CMake (-static-libgcc,
+  # SDL's CMakeLists.txt:4003-4004), so it needs no DLL but Windows' own,
+  # with iconv from SDL itself, and with OpenGL on both architectures. Every
+  # extension that links it in one process shares it, as on macOS and
+  # Linux: the windows, input, and events Lota's extension opens are the
+  # ones the test-only extension reaches. SDL opens opengl32.dll when a window asks for
   # OpenGL (SDL_windowsopengl.c, DEFAULT_OPENGL) and links no import
   # library for it, so OpenGL needs nothing of the toolchain. megasource
   # turns SDL's OpenGL off on ARM64 (its CMakeLists.txt, "In Windows, SDL
@@ -245,8 +251,8 @@ class WindowsBuild
   # OpenGL.
   private def sdl_options
     %w[
-      -DSDL_SHARED=OFF
-      -DSDL_STATIC=ON
+      -DSDL_SHARED=ON
+      -DSDL_STATIC=OFF
       -DSDL_TEST_LIBRARY=OFF
       -DSDL_TESTS=OFF
       -DSDL_EXAMPLES=OFF

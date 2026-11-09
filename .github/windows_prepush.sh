@@ -55,20 +55,28 @@ step "warnings as errors"
 ruby .github/windows_checks.rb werror tmp/engine/build/compile_commands.json
 
 step "the extension's DLLs"
-ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/OpenAL32.dll
+ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/*.dll
 
-# As windows.yml's check, with a decoy OpenAL32.dll where a same-named
-# DLL could be found, removed again whatever happens.
+# As windows.yml's check, with a decoy of each of Lota's DLLs where a
+# same-named DLL could be found, unless MSYS2 has one of the name, removed
+# again whatever happens.
 step "loading Lota's DLLs from Lota's own directory"
 mkdir -p tmp/decoy
-cp /c/Windows/System32/version.dll tmp/decoy/OpenAL32.dll
-cp /c/Windows/System32/version.dll "$MINGW_PREFIX/bin/OpenAL32.dll"
-trap 'rm -rf tmp/decoy "$MINGW_PREFIX/bin/OpenAL32.dll"' EXIT
+decoys=()
+trap 'rm -rf tmp/decoy "${decoys[@]}"' EXIT
+for dll in lib/lota/libraries/*.dll; do
+  name=$(basename "$dll")
+  cp /c/Windows/System32/version.dll "tmp/decoy/$name"
+  if [ ! -e "$MINGW_PREFIX/bin/$name" ]; then
+    cp /c/Windows/System32/version.dll "$MINGW_PREFIX/bin/$name"
+    decoys+=("$MINGW_PREFIX/bin/$name")
+  fi
+done
 decoy=$(cygpath -w "$PWD/tmp/decoy")
 PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load preload "$decoy"
 status=0
 PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load bare "$decoy" || status=$?
-rm -rf tmp/decoy "$MINGW_PREFIX/bin/OpenAL32.dll"
+rm -rf tmp/decoy "${decoys[@]}"
 trap - EXIT
 [ "$status" = 3 ] || { echo "the control exited $status, not 3"; exit 1; }
 

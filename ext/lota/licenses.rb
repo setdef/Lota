@@ -1287,10 +1287,96 @@ library "libz.so.1",
   title: "zlib",
   version: "1.3"
 
-# Windows. The one DLL the gem carries in lib/lota/libraries, which
-# tasks/windows_build.rb builds from its release's source archive; every
-# other library LÖVE links compiles into the bundle there.
+# Windows. The DLLs the gem carries in lib/lota/libraries, SDL's and
+# OpenAL Soft's, which tasks/windows_build.rb builds from each release's
+# source archive; every other library LÖVE links compiles into the bundle
+# there.
 #
+# SDL 3.4.10 as SDL3.dll, the DLL LÖVE's Windows build ships, under its
+# own license, as on Linux and macOS, with the code of others the Windows
+# build compiles in, each under the license its files state:
+#
+# - BSD-3-Clause: yuv2rgb (src/video/yuv2rgb/LICENSE), and HIDAPI's
+#   Windows backend, src/hidapi/windows/hid.c (lines 1-21) and the files
+#   beside it, which offer GPL-3.0, a BSD-style license, or HIDAPI's
+#   original license, at the user's choice; Lota uses it under the
+#   BSD-style one, src/hidapi/LICENSE-bsd.txt, as on Linux and macOS.
+# - MIT: Microsoft's Direct3D 12 headers, src/video/directx/d3d12.h and
+#   d3d12sdklayers.h (lines 1-6 of each), which the GPU and render
+#   modules' Direct3D 12 code compiles in; src/events/imKStoUCS.c:1-25
+#   (from X.Org); include/SDL3/SDL_opengl.h (Mesa's); and
+#   include/SDL3/SDL_opengl_glext.h, SDL_egl.h, and src/video/khronos/
+#   GLES2/gl2.h and gl2ext.h (the Khronos Group's).
+# - Apache-2.0: the Khronos Group's EGL and Vulkan headers,
+#   src/video/khronos/EGL, vulkan, and vk_video (vulkan/vulkan_core.h:4-8),
+#   and GLES2/gl2platform.h.
+# - MIT OR Unlicense: stb_image, src/video/stb_image.h, as on Linux.
+# - Unlicense: miniz, src/video/miniz.h:5074-5099.
+# - SunPro: src/libm (src/libm/e_atan2.c:2-11, and the same in each).
+# - LicenseRef-SDL-libm-Public-Domain: src/libm/s_isinf.c and s_isinff.c,
+#   as on Linux.
+#
+# src/stdlib/SDL_malloc.c and SDL_strtokr.c are compiled, but the dlmalloc
+# and PDCLib code they hold under CC0 is not, since SDL's CMake finds
+# MinGW's malloc and strtok_r (CMakeLists.txt:1078-1097): its
+# SDL_malloc.c.obj calls malloc, and its SDL_strtokr.c.obj strtok_r, as
+# nm lists them. The Direct3D shaders SDL generates (src/gpu/d3d12 and
+# src/render/direct3d*) state no notice of their own, so are SDL's, under
+# its license. None of the X11 or Wayland code compiles on Windows, so
+# neither their notices nor HPND-sell-variant are recorded. These are the
+# files the x64 build compiles; the ARM64 build compiles the same but for
+# the SSE code of yuv2rgb, so one record covers both.
+library "SDL3.dll",
+  copyright: [
+    "1997-2026 Sam Lantinga <slouken@libsdl.org>",
+    "1998-2021 Gareth McCaughan",
+    "2001-2011 Andreas Schiffler",
+    "2017, Mark Callow",
+    "2023 Collabora Ltd.",
+    "2020 Valve Corporation",
+    "2021 Valve Corporation",
+    "Valve Corporation",
+    "2023 Max Maisel <max.maisel@posteo.de>",
+    "2025 Bernat Arlandis <berarma@hotmail.com>",
+    "2025 Katharine Chui <katharine.chui@gmail.com>",
+    "2025 Michal Malý <madcatxster@devoid-pointer.net>",
+    "2025 Mitchell Cairns <mitch.cairns@handheldlegend.com>",
+    "2025 Simon Wood <simon@mungewell.org>",
+    "2025 Zuiki Inc.",
+    "2016, Adrien Descamps",
+    "2009, Alan Ott, Signal 11 Software",
+    "2022-2023 Alan Ott, Signal 11 Software, and the libusb/hidapi Team",
+    "Microsoft Corporation",
+    "2003-2006,2008 Jamey Sharp, Josh Triplett",
+    "1990-1992,1999,2000,2004,2009,2010 Oracle and/or its affiliates.",
+    "2009 Red Hat, Inc.",
+    "1999-2006 Brian Paul",
+    "2009 VMware, Inc.",
+    "2007-2020 The Khronos Group Inc.",
+    "2008-2018 The Khronos Group Inc.",
+    "2013-2020 The Khronos Group Inc.",
+    "2014-2024 The Khronos Group Inc.",
+    "2015-2024 The Khronos Group Inc.",
+    "2017-2020 The Khronos Group Inc.",
+    "2017 Sean Barrett",
+    "1993 by Sun Microsystems, Inc.",
+    "2010-2013 Rich Geldreich <richgel99@gmail.com>",
+    "J.T. Conklin <jtc@netbsd.org>",
+    "Ulrich Drepper <drepper@cygnus.com>",
+  ],
+  license: [
+    "Zlib",
+    "BSD-3-Clause",
+    "MIT",
+    "Apache-2.0",
+    "Unlicense",
+    "MIT OR Unlicense",
+    "SunPro",
+    "LicenseRef-SDL-libm-Public-Domain",
+  ],
+  title: "SDL",
+  version: "3.4.10"
+
 # OpenAL Soft 1.24.3, from the release archive the gem carries as its
 # source on every platform (openal_soft_source), recorded as on macOS and
 # Linux, from the files the Windows build compiles, as its ninja
@@ -1347,7 +1433,7 @@ library "OpenAL32.dll",
   version: "1.24.3"
 
 # The libraries the Windows bundle links statically: every one LÖVE links
-# but OpenAL Soft, from the archives tasks/windows_build.rb installs, at
+# but SDL and OpenAL Soft, from the archives tasks/windows_build.rb installs, at
 # the releases the Linux gem carries, each built from its release's own
 # source archive. The bundle takes the members it needs from each archive,
 # as the linker's map lists them, so each archive the map names is
@@ -1392,93 +1478,6 @@ work "FreeType (Windows)",
   title: "FreeType",
   version: framework_for("libfreetype.so.6").version,
   credit: framework_for("libfreetype.so.6").credit
-
-# SDL 3.4.10, under its own license, as on Linux and macOS, with the code
-# of others the Windows build compiles in, each under the license its
-# files state:
-#
-# - BSD-3-Clause: yuv2rgb (src/video/yuv2rgb/LICENSE), and HIDAPI's
-#   Windows backend, src/hidapi/windows/hid.c (lines 1-21) and the files
-#   beside it, which offer GPL-3.0, a BSD-style license, or HIDAPI's
-#   original license, at the user's choice; Lota uses it under the
-#   BSD-style one, src/hidapi/LICENSE-bsd.txt, as on Linux and macOS.
-# - MIT: Microsoft's Direct3D 12 headers, src/video/directx/d3d12.h and
-#   d3d12sdklayers.h (lines 1-6 of each), which the GPU and render
-#   modules' Direct3D 12 code compiles in; src/events/imKStoUCS.c:1-25
-#   (from X.Org); include/SDL3/SDL_opengl.h (Mesa's); and
-#   include/SDL3/SDL_opengl_glext.h, SDL_egl.h, and src/video/khronos/
-#   GLES2/gl2.h and gl2ext.h (the Khronos Group's).
-# - Apache-2.0: the Khronos Group's EGL and Vulkan headers,
-#   src/video/khronos/EGL, vulkan, and vk_video (vulkan/vulkan_core.h:4-8),
-#   and GLES2/gl2platform.h.
-# - MIT OR Unlicense: stb_image, src/video/stb_image.h, as on Linux.
-# - Unlicense: miniz, src/video/miniz.h:5074-5099.
-# - SunPro: src/libm (src/libm/e_atan2.c:2-11, and the same in each).
-# - LicenseRef-SDL-libm-Public-Domain: src/libm/s_isinf.c and s_isinff.c,
-#   as on Linux.
-#
-# src/stdlib/SDL_malloc.c and SDL_strtokr.c are compiled, but the dlmalloc
-# and PDCLib code they hold under CC0 is not, since SDL's CMake finds
-# MinGW's malloc and strtok_r (CMakeLists.txt:1078-1097): the archive's
-# SDL_malloc.c.obj calls malloc, and its SDL_strtokr.c.obj strtok_r, as
-# nm lists them. The Direct3D shaders SDL generates (src/gpu/d3d12 and
-# src/render/direct3d*) state no notice of their own, so are SDL's, under
-# its license. None of the X11 or Wayland code compiles on Windows, so
-# neither their notices nor HPND-sell-variant are recorded. These are the
-# files the x64 build compiles; the ARM64 build compiles the same but for
-# the SSE code of yuv2rgb, so one record covers both.
-work "SDL (Windows)",
-  platform: "Windows",
-  sources: ["#{windows_dependencies}/libSDL3.a"],
-  copyright: [
-    "1997-2026 Sam Lantinga <slouken@libsdl.org>",
-    "1998-2021 Gareth McCaughan",
-    "2001-2011 Andreas Schiffler",
-    "2017, Mark Callow",
-    "2023 Collabora Ltd.",
-    "2020 Valve Corporation",
-    "2021 Valve Corporation",
-    "Valve Corporation",
-    "2023 Max Maisel <max.maisel@posteo.de>",
-    "2025 Bernat Arlandis <berarma@hotmail.com>",
-    "2025 Katharine Chui <katharine.chui@gmail.com>",
-    "2025 Michal Malý <madcatxster@devoid-pointer.net>",
-    "2025 Mitchell Cairns <mitch.cairns@handheldlegend.com>",
-    "2025 Simon Wood <simon@mungewell.org>",
-    "2025 Zuiki Inc.",
-    "2016, Adrien Descamps",
-    "2009, Alan Ott, Signal 11 Software",
-    "2022-2023 Alan Ott, Signal 11 Software, and the libusb/hidapi Team",
-    "Microsoft Corporation",
-    "2003-2006,2008 Jamey Sharp, Josh Triplett",
-    "1990-1992,1999,2000,2004,2009,2010 Oracle and/or its affiliates.",
-    "2009 Red Hat, Inc.",
-    "1999-2006 Brian Paul",
-    "2009 VMware, Inc.",
-    "2007-2020 The Khronos Group Inc.",
-    "2008-2018 The Khronos Group Inc.",
-    "2013-2020 The Khronos Group Inc.",
-    "2014-2024 The Khronos Group Inc.",
-    "2015-2024 The Khronos Group Inc.",
-    "2017-2020 The Khronos Group Inc.",
-    "2017 Sean Barrett",
-    "1993 by Sun Microsystems, Inc.",
-    "2010-2013 Rich Geldreich <richgel99@gmail.com>",
-    "J.T. Conklin <jtc@netbsd.org>",
-    "Ulrich Drepper <drepper@cygnus.com>",
-  ],
-  license: [
-    "Zlib",
-    "BSD-3-Clause",
-    "MIT",
-    "Apache-2.0",
-    "Unlicense",
-    "MIT OR Unlicense",
-    "SunPro",
-    "LicenseRef-SDL-libm-Public-Domain",
-  ],
-  title: "SDL",
-  version: "3.4.10"
 
 # iOS and iPadOS. No gem carries these: an app's extension is linked
 # into the app by Fledge (`fledge build ios`, ext/lota/phone/ios.rb),

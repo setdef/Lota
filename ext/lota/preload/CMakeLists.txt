@@ -8,11 +8,12 @@
 # RubyInstaller::Runtime.add_dll_directory added, in an order Windows
 # leaves unspecified, and System32 (SetDefaultDllDirectories with
 # LOAD_LIBRARY_SEARCH_DEFAULT_DIRS), never the extension's directory. So a
-# same-named DLL there, such as a player's MSYS2 or Creative's
-# OpenAL32.dll in System32, could answer in place of the gem's. A DLL
-# already loaded answers by its name first, so the preloader loads each of
-# the engine's DLLs by its absolute path, from lib/lota/libraries, beside
-# the preloader, before Ruby loads the extension.
+# same-named DLL there, such as a player's MSYS2, Creative's OpenAL32.dll
+# in System32, or the SDL3.dll of a directory another gem added, could
+# answer in place of the gem's. A DLL already loaded answers by its name
+# first, so the preloader loads each of the engine's DLLs by its absolute
+# path, from lib/lota/libraries, beside the preloader, before Ruby loads
+# the extension.
 add_library(lota_preload MODULE preload_windows.cpp)
 lota_ruby_extension(lota_preload lota/preload ${LOTA_ROOT}/lib/lota)
 

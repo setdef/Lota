@@ -241,32 +241,38 @@ jobs:
         run: ruby .github/windows_checks.rb werror tmp/engine/build/compile_commands.json
 
       - name: Check the extension's DLLs
-        run: ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/OpenAL32.dll
+        run: ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/*.dll
 
       # Each load runs with a PATH of only Ruby and Windows, as a player's
-      # machine might have, and with a decoy OpenAL32.dll, a DLL of
-      # Windows' own renamed, wherever a same-named DLL could be found:
-      # first on PATH, in a directory RubyInstaller::Runtime.add_dll_directory
-      # adds, and in each MSYS2 that RubyInstaller::Runtime.enable_msys_apps
-      # could add, the one this job set up (which RubyInstaller finds
-      # beside its Ruby) and the one installed on the runner (C:/msys64),
-      # as a player's might be. A decoy that loaded would leave Lota without
-      # OpenAL's functions. The decoys come out again, so the gem built
-      # below cannot carry one.
+      # machine might have, and with a decoy of each of Lota's DLLs,
+      # SDL3.dll and OpenAL32.dll, a DLL of Windows' own renamed, wherever
+      # a same-named DLL could be found: first on PATH, in a directory
+      # RubyInstaller::Runtime.add_dll_directory adds, and in each MSYS2
+      # that RubyInstaller::Runtime.enable_msys_apps could add, the one this
+      # job set up (which RubyInstaller finds beside its Ruby) and the one
+      # installed on the runner (C:/msys64), as a player's might be, unless
+      # that MSYS2 has a DLL of the name already, which then stands as one.
+      # A decoy that loaded would leave Lota without SDL's or OpenAL's
+      # functions. The decoys come out again, so the gem built below cannot
+      # carry one.
       - name: Load Lota's DLLs from Lota's own directory
         timeout-minutes: 6
         run: |
           mkdir -p tmp/decoy
-          cp /c/Windows/System32/version.dll tmp/decoy/OpenAL32.dll
           clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
           decoy=$(cygpath -w "$PWD/tmp/decoy")
           decoys=()
-          for msys in "$MINGW_PREFIX/bin" /c/msys64/ucrt64/bin /c/msys64/clangarm64/bin /c/msys64/mingw64/bin; do
-            [ -d "$msys" ] && cp /c/Windows/System32/version.dll "$msys/OpenAL32.dll" && decoys+=("$msys/OpenAL32.dll") && echo "decoy in $msys"
+          for dll in lib/lota/libraries/*.dll; do
+            name=$(basename "$dll")
+            cp /c/Windows/System32/version.dll "tmp/decoy/$name"
+            for msys in "$MINGW_PREFIX/bin" /c/msys64/ucrt64/bin /c/msys64/clangarm64/bin /c/msys64/mingw64/bin; do
+              [ -d "$msys" ] && [ ! -e "$msys/$name" ] && cp /c/Windows/System32/version.dll "$msys/$name" &&
+                decoys+=("$msys/$name") && echo "decoy $name in $msys"
+            done
           done
           echo "== with Lota's preloader"
           PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load preload "$decoy"
-          echo "== without it, as a control: the decoy alone answers for OpenAL32.dll"
+          echo "== without it, as a control: the decoys alone answer for Lota's DLLs"
           status=0
           PATH="$PWD/tmp/decoy:$clean" /usr/bin/timeout -k 5 120 ruby .github/windows_checks.rb load bare "$decoy" || status=$?
           rm -rf tmp/decoy "${decoys[@]}"

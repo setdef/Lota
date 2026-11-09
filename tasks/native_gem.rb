@@ -55,11 +55,11 @@ require_relative "source_archive"
 #   directory ($ORIGIN), as LÖVE's AppImage carries them. Only glibc's and
 #   GCC's C++ runtime libraries that the manylinux policy allows come from
 #   the system (NativeFormat::ELF::SYSTEM).
-# - On Windows, which has no rpath, the one DLL, OpenAL32.dll, goes in
-#   lib/lota/libraries, and the preloader (lib/lota/preload.so), which
-#   loads it by its absolute path before the bundle loads, goes beside the
-#   bundle as its companion; every other library LÖVE links is in the
-#   bundle, and its archive is recorded with the bundle's works. Each is
+# - On Windows, which has no rpath, the DLLs, SDL3.dll and OpenAL32.dll,
+#   go in lib/lota/libraries, and the preloader (lib/lota/preload.so),
+#   which loads them by their absolute paths before the bundle loads, goes
+#   beside the bundle as its companion; every other library LÖVE links is
+#   in the bundle, and its archive is recorded with the bundle's works. Each is
 #   staged without its debugging information. Only Windows' own DLLs and
 #   Ruby's come from the system (NativeFormat::PE::SYSTEM).
 #
@@ -219,8 +219,8 @@ class NativeGem
   # whose code ships in the libraries the bundle loads, each recorded on
   # its own. The maintainer confirmed this scope. Each of +@dependencies+
   # is a directory, whose files are all outside, or a file, such as
-  # OpenAL Soft's import library on Windows, whose stubs call into the DLL
-  # the gem carries.
+  # OpenAL Soft's or SDL's import library on Windows, whose stubs call
+  # into the DLL the gem carries.
   private def outside
     dirs = [*formatted { @format.toolchain }, RbConfig::CONFIG.fetch("rubyhdrdir")].map { |dir| File.join(dir, "") }
     dirs + Array(@dependencies).map do |path|

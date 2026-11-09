@@ -8,15 +8,15 @@
 
 set(ENGINE_DEPS_DIR ${LOTA_ROOT}/tmp/dependencies/installdir CACHE PATH
 	"tasks/windows_build.rb's installdir, holding LÖVE's dependencies")
-if(NOT EXISTS ${ENGINE_DEPS_DIR}/lib/libSDL3.a)
-	message(FATAL_ERROR "${ENGINE_DEPS_DIR} holds no lib/libSDL3.a; "
+if(NOT EXISTS ${ENGINE_DEPS_DIR}/bin/SDL3.dll)
+	message(FATAL_ERROR "${ENGINE_DEPS_DIR} holds no bin/SDL3.dll; "
 		"run `bundle exec rake dependencies`, which builds LÖVE's Windows dependencies there")
 endif()
-# Windows has no rpath. The one DLL the extension links, OpenAL Soft's, is
-# loaded by its absolute path before the extension is (preload/), from
-# lib/lota/libraries, where the build copies it.
+# Windows has no rpath. The DLLs the extension links, SDL's and OpenAL
+# Soft's, are loaded by their absolute paths before the extension is
+# (preload/), from lib/lota/libraries, where the build copies them.
 set(ENGINE_LIBRARY_DIRS ${ENGINE_DEPS_DIR}/bin PARENT_SCOPE)
-set(ENGINE_RUNTIME_LIBRARIES ${ENGINE_DEPS_DIR}/bin/OpenAL32.dll PARENT_SCOPE)
+set(ENGINE_RUNTIME_LIBRARIES ${ENGINE_DEPS_DIR}/bin/SDL3.dll ${ENGINE_DEPS_DIR}/bin/OpenAL32.dll PARENT_SCOPE)
 
 target_include_directories(lota_engine PUBLIC
 	# <SDL3/...>, <ogg/...>, <vorbis/...>, <theora/...>, <libmodplug/...>,
@@ -35,15 +35,17 @@ target_compile_definitions(lota_engine PUBLIC
 	MODPLUG_STATIC
 )
 
-# SDL's static library, with the Windows libraries it needs, as SDL's own
-# CMake package names them.
-find_package(SDL3 CONFIG REQUIRED COMPONENTS SDL3-static PATHS ${ENGINE_DEPS_DIR} NO_DEFAULT_PATH)
+# SDL3.dll, by its import library, as SDL's own CMake package names it.
+# Every extension that links the engine imports it, so Lota's extension
+# and the test-only extension share one SDL, as on macOS and Linux.
+find_package(SDL3 CONFIG REQUIRED COMPONENTS SDL3-shared PATHS ${ENGINE_DEPS_DIR} NO_DEFAULT_PATH)
 
-# Every library but OpenAL Soft is static, as megasource links LÖVE's
-# Windows build (tasks/windows_build.rb), each archive before those it
-# needs, since GNU ld reads archives once, in order. OpenAL Soft is a DLL,
-# so a player can replace it, as its license, the GNU Library General
-# Public License, allows; the precompiled gem carries it with its source
+# Every library but SDL and OpenAL Soft is static, as megasource links
+# LÖVE's Windows build (tasks/windows_build.rb), each archive before those
+# it needs, since GNU ld reads archives once, in order. SDL is a DLL, as
+# LÖVE's Windows build ships it. OpenAL Soft is a DLL, so a player can
+# replace it, as its license, the GNU Library General Public License,
+# allows; the precompiled gem carries it with its source
 # (ext/lota/licenses.rb).
 find_package(Threads REQUIRED)
 target_link_libraries(lota_engine INTERFACE
@@ -56,7 +58,7 @@ target_link_libraries(lota_engine INTERFACE
 	${ENGINE_DEPS_DIR}/lib/libvorbis.a
 	${ENGINE_DEPS_DIR}/lib/libogg.a
 	${ENGINE_DEPS_DIR}/lib/libzlibstatic.a
-	SDL3::SDL3-static
+	SDL3::SDL3-shared
 	# What LÖVE's own Windows build links liblove with
 	# (vendor/love/CMakeLists.txt:1987-1992), and enet's winmm (line 1385).
 	ws2_32

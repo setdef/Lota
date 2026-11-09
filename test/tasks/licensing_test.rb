@@ -483,8 +483,8 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
       libz.so.1
 ]
       .to_h { |name| [name, "lib/lota/libraries/#{name}"] })
-    windows = platform_notices(works: ["LÖVE", "SDL (Windows)", "FreeType (Windows)", "zlib (Windows)"], bundle: "lib/lota/native.so",
-      frameworks: { "OpenAL32.dll" => "lib/lota/libraries/OpenAL32.dll" })
+    windows = platform_notices(works: ["LÖVE", "FreeType (Windows)", "zlib (Windows)"], bundle: "lib/lota/native.so",
+      frameworks: %w[SDL3.dll OpenAL32.dll].to_h { |name| [name, "lib/lota/libraries/#{name}"] })
     ios = platform_notices(works: ["LÖVE", "SDL (iOS)", "FreeType (iOS)", "libogg (iOS)"], bundle: "Lota", frameworks: {})
     love = File.read(File.join(ROOT, "vendor/love/src/common/version.h"))[/LOVE_VERSION_STRING "(.+)"/, 1]
 
@@ -507,6 +507,8 @@ license: ["LGPL-2.0-or-later", "GPL-2.0-or-later"],
     assert_equal "0.8.8.5", linux.fetch("libmodplug").fetch("version")
     refute windows.fetch("FreeType").fetch("separate")
     assert linux.fetch("FreeType").fetch("separate")
+    assert windows.fetch("SDL").fetch("separate")
+    assert_includes windows.fetch("SDL").fetch("license"), "Zlib"
   end
 
   # OpenAL Soft ships, with its source, on macOS, Linux, and Windows; an

@@ -17,12 +17,13 @@
 # [closure FILE...] Every DLL each FILE loads, and those load, and passes
 #   only if each is Windows', Ruby's, or one of lib/lota/libraries.
 # [load MODE DECOY] Loads Lota and reports where Windows found each DLL.
-#   MODE preload requires "lota", as a game does, after a decoy
-#   OpenAL32.dll's directory DECOY and the runner's MSYS2 are added to
-#   the DLL search, and passes only if OpenAL32.dll is the one in
-#   lib/lota/libraries and nothing loads from DECOY or MSYS2. MODE bare
-#   requires "lota/native" without the preloader, with only DECOY added,
-#   and exits 3 when the decoy answered, as a control.
+#   MODE preload requires "lota", as a game does, after DECOY, a directory
+#   with a decoy of each DLL in lib/lota/libraries (SDL3.dll and
+#   OpenAL32.dll), and the runner's MSYS2 are added to the DLL search, and
+#   passes only if each of those DLLs is the one in lib/lota/libraries and
+#   nothing loads from DECOY or MSYS2. MODE bare requires "lota/native"
+#   without the preloader, with only DECOY added, and exits 3 when a decoy
+#   answered, as a control.
 # [opengl [EXPECT]] Runs <tt>lota run</tt> on test/games/opengl, and
 #   passes only if SDL made an OpenGL context for its window, which the
 #   engine used or refused for its version, and its output holds EXPECT.
@@ -185,12 +186,12 @@ module WindowsChecks
   def load_bare(decoy)
     RubyInstaller::Runtime.add_dll_directory(decoy)
     require "lota/native"
-    puts "Lota's extension loaded with only the decoy to answer for OpenAL32.dll"
+    puts "Lota's extension loaded with only the decoys to answer for its DLLs"
     exit 1
   rescue LoadError => e
     puts "LoadError: #{e.message}"
-    # 127: ERROR_PROC_NOT_FOUND, Windows found an OpenAL32.dll without
-    # OpenAL's functions: the decoy.
+    # 127: ERROR_PROC_NOT_FOUND, Windows found a DLL of the right name
+    # without the functions the extension imports from it: a decoy.
     exit((e.message.include?("127") || e.message.include?("procedure")) ? 3 : 1)
   end
 
@@ -209,12 +210,15 @@ module WindowsChecks
     %i[Data Sound Audio].each { |name| Lota::Native.const_get(name).open }
     modules = loaded_modules
     puts "Loaded:", modules.map { |path| "  #{path}" }
-    openal = modules.find { |path| File.basename(path).casecmp?("OpenAL32.dll") }
-    expected = File.join(LIBRARIES, "OpenAL32.dll")
-    abort "OpenAL32.dll is #{openal.inspect}, not #{expected}" unless openal && same?(openal, expected)
+    Dir.children(LIBRARIES).sort.each do |dll|
+      found = modules.find { |path| File.basename(path).casecmp?(dll) }
+      expected = File.join(LIBRARIES, dll)
+      abort "#{dll} is #{found.inspect}, not #{expected}" unless found && same?(found, expected)
+      puts "#{dll} is Lota's own, #{found}"
+    end
     strays = modules.select { |path| path.match?(%r{msys64|/decoy/}i) }
     abort "loaded from MSYS2 or the decoy: #{strays.join(', ')}" unless strays.empty?
-    puts "OpenAL32.dll is Lota's own, #{openal}, and nothing loaded from MSYS2 or the decoy"
+    puts "Nothing loaded from MSYS2 or the decoy"
   end
 
   # The path of every module loaded in this process.

@@ -79,6 +79,15 @@ class WindowsBuildTest < Minitest::Test
     refute_includes arm64.options("OpenAL Soft"), "-DALSOFT_STATIC_WINPTHREAD=ON"
   end
 
+  # SDL is SDL3.dll, as LÖVE's Windows build ships it, and no static
+  # library, so every extension in a process links the one SDL.
+  def test_sdl_builds_as_the_dll_loves_windows_build_ships
+    options = WindowsBuild.new(sources: "s", root: "r").options("SDL")
+
+    assert_includes options, "-DSDL_SHARED=ON"
+    assert_includes options, "-DSDL_STATIC=OFF"
+  end
+
   # A CMake project that installs share/<name>.txt, holding each cache
   # entry it was given that the recipe sets, and +files+, empty.
   def fake_cmake_project(name, files: [])

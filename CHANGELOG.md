@@ -34,6 +34,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Graphics::Video` (`new` with `audio:` and `dpiscale:`, `stream`, `source`, `source=`, `width`, `height`, `dimensions`, `pixel_width`, `pixel_height`, `pixel_dimensions`, `filter`, `filter=`, `play`, `pause`, `seek`, `rewind`, `tell`, `playing?`), which `Lota::Graphics.draw` draws.
 - The gem carries libtheora, which plays Ogg Theora video, under its BSD-3-Clause license, and the notices name it.
 
+### Changed
+
+- The Windows gems carry SDL as `SDL3.dll` beside `OpenAL32.dll`, as LÖVE's Windows build ships it, where they linked it into the extension, and load it from the gem's own directory.
+
 ### Deprecated
 
 - `Lota::Graphics.canvas_formats` and `image_formats`, returning a frozen `Lota::Graphics::CanvasFormats` and `ImageFormats`; `set_new_font`; `Lota::Graphics::Texture#new_image_data`; and `stencil`, `stencil_test=`, and `stencil_test`, translating the functions LÖVE 12 deprecates, each printing LÖVE's notice the first time it is called.
