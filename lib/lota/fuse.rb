@@ -140,9 +140,12 @@ module Lota
     # entry from hanging the launcher on macOS and Linux, and 0.8.0
     # relicenses Fledge under the MIT license, so a Windows app no longer
     # carries that file, and retries a download and Apple's timestamp
-    # server, and 0.9.0 adds macOS notarization and a Windows signing
-    # command, which this project's build does not use.
-    FLEDGE_REF = "v0.9.0"
+    # server, 0.9.0 adds macOS notarization and a Windows signing
+    # command, and 0.10.0 changes only the exit status of
+    # <tt>fledge build --from</tt>, which Fuse does not run, and the
+    # names a Windows setup program gives file associations, which the
+    # project declares none of.
+    FLEDGE_REF = "v0.10.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.

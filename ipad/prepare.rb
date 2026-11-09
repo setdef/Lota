@@ -271,7 +271,7 @@ module KitPrepare
     end
 
     lota_gem = env("KIT_LOTA_GEM")
-    fledge_ref = env("KIT_FLEDGE_REF", "v0.9.0")
+    fledge_ref = env("KIT_FLEDGE_REF", "v0.10.0")
     File.write(File.join(project, "Gemfile"), <<~RUBY)
       # frozen_string_literal: true
 
