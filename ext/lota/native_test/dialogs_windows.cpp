@@ -115,16 +115,16 @@ void press_return_on_dialogs() {
 
 int dialogs_answered() { return answered().load(); }
 
-// Presses and lets go of Alt, as a person's key would, which makes this
+// Presses and lets go of +key+, as a person's key would, which makes this
 // the program that last had input, so Windows lets it take the
 // foreground (SetForegroundWindow's remarks). The key goes to the window
 // in front, which is not one of this program's.
 namespace {
-void press_alt() {
+void press(WORD key) {
   std::array<INPUT, 2> inputs{};
   for (INPUT &input : inputs) {
     input.type = INPUT_KEYBOARD;
-    input.ki.wVk = VK_MENU;
+    input.ki.wVk = key;
   }
   inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
   SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
@@ -135,9 +135,9 @@ void press_alt() {
 // the one the person last gave input to, or shares its input with the
 // thread of the window in front (SetForegroundWindow's remarks), so this
 // thread shares the input of that window's thread while it asks, as the
-// window's own click would give it the focus, and, where there is no
-// window in front to share it with, or Windows refuses still, it presses
-// Alt first (press_alt).
+// window's own click would give it the focus. Where Windows refuses
+// still, as where the shell's own window, such as the Start menu, is in
+// front, it presses Escape, which closes that, and Alt, and asks again.
 void activate() {
   HWND const window = first_window();
   if (window == nullptr) {
@@ -150,7 +150,8 @@ void activate() {
   ShowWindow(window, SW_SHOW);
   BringWindowToTop(window);
   if (SetForegroundWindow(window) == FALSE) {
-    press_alt();
+    press(VK_ESCAPE);
+    press(VK_MENU);
     SetForegroundWindow(window);
   }
   SetActiveWindow(window);

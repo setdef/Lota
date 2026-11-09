@@ -241,7 +241,10 @@ class RestartRunTest < Minitest::Test
   # game: a program of its own that runs Ruby inside its own process, on
   # the entry script LOTA_LAUNCHER_ENTRY names, with its own arguments
   # after it, so that the program the process runs is not Ruby's. It sets
-  # the locale first, as Ruby's own main.c does. On Windows a program's
+  # the locale first, and has Ruby set the process up before it reads the
+  # arguments, as Ruby's own main.c does, since on Windows ruby_sysinit
+  # replaces them with the process's own command line, as UTF-8
+  # (win32/win32.c, rb_w32_sysinit). On Windows a program's
   # name ends in .exe, and MinGW's linker opens its output through the
   # system's ANSI code page, which cannot name every folder, so it links
   # the launcher beside its source and moves it into place.
@@ -255,13 +258,13 @@ class RestartRunTest < Minitest::Test
       #include <stdlib.h>
 
       int main(int argc, char **argv) {
+        setlocale(LC_CTYPE, "");
+        ruby_sysinit(&argc, &argv);
         char **options = calloc((size_t)argc + 2, sizeof(char *));
         int count = argc + 1;
-        setlocale(LC_CTYPE, "");
         options[0] = argv[0];
         options[1] = getenv("LOTA_LAUNCHER_ENTRY");
         for (int i = 1; i < argc; i++) options[i + 1] = argv[i];
-        ruby_sysinit(&count, &options);
         {
           RUBY_INIT_STACK;
           ruby_init();
