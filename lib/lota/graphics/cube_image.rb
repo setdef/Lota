@@ -13,10 +13,10 @@ module Lota
     # w_newCubeImage). LÖVE marks it renamed only in a comment, so it
     # prints no notice.
     #
-    # LÖVE has no CubeImage class. So CubeImage is a module, as Canvas is
-    # (ADR 001, rules 25 and 26), whose +new+ returns a Texture and whose
-    # <tt>CubeImage === texture</tt> asks, as CubeTexture's does,
-    # whether the texture's type is +:cube+.
+    # LÖVE has no CubeImage class. So CubeImage is a module, as Canvas is (rules
+    # 25 and 26 of doc/contributors/design/translation.md), whose +new+ returns
+    # a Texture and whose <tt>CubeImage === texture</tt> asks, as CubeTexture's
+    # does, whether the texture's type is +:cube+.
     #
     # === Example
     #

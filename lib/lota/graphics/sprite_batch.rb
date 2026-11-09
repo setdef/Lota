@@ -140,7 +140,7 @@ module Lota
       # (src/modules/graphics/wrap_SpriteBatch.cpp, w_SpriteBatch_setLayer).
       #
       # [sprite] The Integer index, then what add_layer takes, as an Array
-      #   (ADR 001, rule 6).
+      #   (rule 6 of doc/contributors/design/translation.md).
       #
       # Raises ArgumentError without an index and a layer, what add_layer
       # raises, and RuntimeError with LÖVE's message for an index the batch

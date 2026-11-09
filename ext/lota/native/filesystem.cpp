@@ -177,13 +177,13 @@ Rice::Array read(const std::string &filename, long long size) {
   return results;
 }
 
-// w_load up to its call into Lua (wrap_Filesystem.cpp:746-775): checks
-// +mode+, LÖVE's load mode ("bt" when it is not given), before anything
-// is read, then reads all of +filename+ through the filesystem, and
-// returns the file's contents and the mode's name, which LÖVE passes on
-// to luaL_loadbufferx, as one Array, or luax_ioError's nil and message
-// when it cannot read the file (ADR 001, rule 4). Lua compiles the
-// chunk; Ruby compiles Lota's (Lota::Filesystem.load).
+// w_load up to its call into Lua (wrap_Filesystem.cpp:746-775): checks +mode+,
+// LÖVE's load mode ("bt" when it is not given), before anything is read, then
+// reads all of +filename+ through the filesystem, and returns the file's
+// contents and the mode's name, which LÖVE passes on to luaL_loadbufferx, as
+// one Array, or luax_ioError's nil and message when it cannot read the file
+// (rule 4 of doc/contributors/design/translation.md). Lua compiles the chunk;
+// Ruby compiles Lota's (Lota::Filesystem.load).
 Rice::Array load(const std::string &filename, const std::optional<std::string> &mode) {
   using love::filesystem::Filesystem;
   Filesystem::LoadMode load_mode = Filesystem::LOADMODE_ANY;

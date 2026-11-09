@@ -14,9 +14,9 @@ module Lota
     # prints no notice.
     #
     # LÖVE has no ArrayImage class. So ArrayImage is a module, as Canvas is
-    # (ADR 001, rules 25 and 26), whose +new+ returns a Texture and whose
-    # <tt>ArrayImage === texture</tt> asks, as ArrayTexture's does,
-    # whether the texture's type is +:array+.
+    # (rules 25 and 26 of doc/contributors/design/translation.md), whose +new+
+    # returns a Texture and whose <tt>ArrayImage === texture</tt> asks, as
+    # ArrayTexture's does, whether the texture's type is +:array+.
     #
     # === Example
     #

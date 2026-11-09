@@ -289,22 +289,21 @@ class FilesystemTest < Lovetest::TestMethod
     skip("used internally")
   end
 
-  # Translated to Ruby from love.test.filesystem.load (filesystem.lua:
-  # 320-352): load's chunk and message are an Array (rule 4), its modes
-  # symbols (rule 9), and its chunk a Proc, which call runs where Lua calls
-  # the function. The Lua files become Ruby files, as main.lua becomes
-  # main.rb (ADR 003, section 1), each written as the Ruby of its Lua: a
-  # global function test becomes a method test at the top level, and the
-  # chunk's return of test() its last expression, the value of a Ruby
-  # file's code. Lota compiles Ruby, which honors the load modes as LuaJIT
-  # does, so the translation takes Lövetest's branch for Lua 5.2 and
-  # LuaJIT, and Lua's pcall becomes a rescue of SyntaxError, which Ruby
-  # raises for code that does not compile. The method test, like Lua's
-  # global, outlives the test, where it would hide Kernel#test from every
-  # object in the process, so the translation removes it. Under ruby -w,
-  # as the suite runs, Ruby warns where Lua is silent, of test defined a
-  # second time and of the code after test2.rb's return, so the
-  # translation turns warnings off for the test.
+  # Translated to Ruby from love.test.filesystem.load (filesystem.lua: 320-352):
+  # load's chunk and message are an Array (rule 4), its modes symbols (rule 9),
+  # and its chunk a Proc, which call runs where Lua calls the function. The Lua
+  # files become Ruby files, as main.lua becomes main.rb
+  # (doc/contributors/design/game.md), each written as the Ruby of its Lua: a
+  # global function test becomes a method test at the top level, and the chunk's
+  # return of test() its last expression, the value of a Ruby file's code. Lota
+  # compiles Ruby, which honors the load modes as LuaJIT does, so the
+  # translation takes Lövetest's branch for Lua 5.2 and LuaJIT, and Lua's pcall
+  # becomes a rescue of SyntaxError, which Ruby raises for code that does not
+  # compile. The method test, like Lua's global, outlives the test, where it
+  # would hide Kernel#test from every object in the process, so the translation
+  # removes it. Under ruby -w, as the suite runs, Ruby warns where Lua is
+  # silent, of test defined a second time and of the code after test2.rb's
+  # return, so the translation turns warnings off for the test.
   def test_load
     verbose = $VERBOSE
     $VERBOSE = nil

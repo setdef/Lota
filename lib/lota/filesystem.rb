@@ -214,21 +214,22 @@ module Lota
     # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
     # SPDX-License-Identifier: Zlib
 
-    # Loads a file of Ruby code without running it. A game keeps levels,
-    # mods, or settings as code in its save directory or in an archive it
-    # mounts, where +require+, which searches $LOAD_PATH, never looks.
-    # load reads the file through the filesystem, from the save
-    # directory, the game's folder, or anything mounted, compiles it at
-    # once, and returns an Array (ADR 001, rule 4) of a Proc that runs the
-    # code each time it is called, or of +nil+ and LÖVE's message when the
-    # file cannot be read. It matches love.filesystem.load
-    # (src/modules/filesystem/wrap_Filesystem.cpp, w_load), which loads a
-    # file of Lua.
+    # Loads a file of Ruby code without running it. A game keeps levels, mods,
+    # or settings as code in its save directory or in an archive it mounts,
+    # where +require+, which searches $LOAD_PATH, never looks. load reads the
+    # file through the filesystem, from the save directory, the game's folder,
+    # or anything mounted, compiles it at once, and returns an Array (rule 4 of
+    # doc/contributors/design/translation.md) of a Proc that runs the code each
+    # time it is called, or of +nil+ and LÖVE's message when the file cannot be
+    # read. It matches love.filesystem.load
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_load), which loads a file
+    # of Lua.
     #
     # [name] String path of the file, which backtraces name, as LÖVE
     #   names a chunk after its file.
-    # [mode] LÖVE's load mode: +:t+ for text, +:b+ for binary, or +:bt+
-    #   for either, which it is when +nil+ or left out (ADR 001, rule 9).
+    # [mode] LÖVE's load mode: +:t+ for text, +:b+ for binary, or +:bt+ for
+    #   either, which it is when +nil+ or left out (rule 9 of
+    #   doc/contributors/design/translation.md).
     #
     # The code runs at Ruby's top level, as a file Ruby loads does, so the
     # classes and methods it defines are the program's, and the Proc
@@ -315,16 +316,16 @@ module Lota
       opened(Native::Filesystem.open_file(filename, EnumName.of(mode)))
     end
 
-    # Opens the file at +path+ on the computer, outside the game's folder
-    # and its save directory, in +mode+, matching
-    # love.filesystem.openNativeFile
+    # Opens the file at +path+ on the computer, outside the game's folder and
+    # its save directory, in +mode+, matching love.filesystem.openNativeFile
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_openNativeFile), and
-    # returns an Array of the Lota::Filesystem::File (ADR 001, rule 4), or
-    # of +nil+ and LÖVE's message when it cannot be opened.
+    # returns an Array of the Lota::Filesystem::File (rule 4 of
+    # doc/contributors/design/translation.md), or of +nil+ and LÖVE's message
+    # when it cannot be opened.
     #
     # [path] The file's full path, as the operating system names it.
     # [mode] +:r+ to read, +:w+ to write, +:a+ to append, or +:c+ to leave
-    #   it closed (ADR 001, rule 9).
+    #   it closed (rule 9 of doc/contributors/design/translation.md).
     #
     # Raises ArgumentError for a mode LÖVE does not know.
     #

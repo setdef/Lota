@@ -18,9 +18,9 @@ module Lota
     # linear.
     #
     # LÖVE has no TextureView class, and cannot tell a view from any other
-    # Texture. So TextureView is a module, as Image is (ADR 001, rules 25
-    # and 27), whose +new+ returns a Texture and whose <tt>TextureView ===
-    # object</tt> is true of every Texture.
+    # Texture. So TextureView is a module, as Image is (rules 25 and 27 of
+    # doc/contributors/design/translation.md), whose +new+ returns a Texture and
+    # whose <tt>TextureView === object</tt> is true of every Texture.
     #
     # === Example
     #
@@ -29,8 +29,9 @@ module Lota
     module TextureView
       # Creates a view of +texture+, matching love.graphics.newTextureView
       # (src/modules/graphics/wrap_Graphics.cpp, w_newTextureView), whose
-      # settings table becomes keywords (ADR 001, rule 10); each is the
-      # texture's own when left out.
+      # settings table becomes keywords (rule 10 of
+      # doc/contributors/design/translation.md); each is the texture's own when
+      # left out.
       #
       # [texture] Lota::Graphics::Texture the view sees.
       # [format] Pixel format the view reads, its own or one the texture's

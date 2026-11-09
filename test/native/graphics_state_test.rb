@@ -405,9 +405,9 @@ class GraphicsStateTest < Minitest::Test
   end
 
   # newCubeTexture, newArrayTexture, and newVolumeTexture
-  # (wrap_Graphics.cpp:977-1255) make a Texture of their type, which ===
-  # asks of the texture (ADR 001, rule 26); LÖVE 11's names, newCubeImage
-  # and its kin, call them (lines 1257-1273).
+  # (wrap_Graphics.cpp:977-1255) make a Texture of their type, which === asks of
+  # the texture (rule 26 of doc/contributors/design/translation.md); LÖVE 11's
+  # names, newCubeImage and its kin, call them (lines 1257-1273).
   def test_texture_factories_make_and_match_textures_of_their_type
     cube = Graphics::CubeTexture.new(2)
     array = Graphics::ArrayTexture.new(2, 2, 3)

@@ -1638,8 +1638,8 @@ module Lota
     end
 
     # The mipmap filter textures are made with, as a Symbol, and the Float
-    # sharpness, as an Array (ADR 001, rule 4), matching
-    # love.graphics.getDefaultMipmapFilter
+    # sharpness, as an Array (rule 4 of doc/contributors/design/translation.md),
+    # matching love.graphics.getDefaultMipmapFilter
     # (src/modules/graphics/wrap_Graphics.cpp, w_getDefaultMipmapFilter).
     #
     # Raises ThreadError off the main thread.
@@ -2222,10 +2222,10 @@ module Lota
       Native::Graphics.set_stencil_mode(name && EnumName.of(name), value.nil? ? nil : integer(value))
     end
 
-    # The stencil's mode and Integer value, as an Array (ADR 001, rule 4),
-    # matching love.graphics.getStencilMode
-    # (src/modules/graphics/wrap_Graphics.cpp, w_getStencilMode). The mode
-    # is +:custom+ for a stencil state no mode sets.
+    # The stencil's mode and Integer value, as an Array (rule 4 of
+    # doc/contributors/design/translation.md), matching
+    # love.graphics.getStencilMode (src/modules/graphics/wrap_Graphics.cpp,
+    # w_getStencilMode). The mode is +:custom+ for a stencil state no mode sets.
     #
     # Raises ThreadError off the main thread.
     #
@@ -2251,13 +2251,13 @@ module Lota
     # [keepvalues] Whether to keep the stencil's values; when left out, it
     #   clears them to 0 first.
     #
-    # It writes with the compare mode +:always+ and the color masked off
-    # while the block runs, then puts the stencil state and color mask
-    # back, also when the block raises, as LÖVE puts them back before it
-    # raises the function's error again. The block is LÖVE's function
-    # (ADR 001, rule 12). Lota::Graphics.stencil_mode= and stencil_state=
-    # replace it; prints LÖVE's notice of the deprecation the first time it
-    # is called.
+    # It writes with the compare mode +:always+ and the color masked off while
+    # the block runs, then puts the stencil state and color mask back, also when
+    # the block raises, as LÖVE puts them back before it raises the function's
+    # error again. The block is LÖVE's function (rule 12 of
+    # doc/contributors/design/translation.md). Lota::Graphics.stencil_mode= and
+    # stencil_state= replace it; prints LÖVE's notice of the deprecation the
+    # first time it is called.
     #
     # Raises what the block raises, LocalJumpError without a block,
     # RuntimeError with LÖVE's message for a canvas without a stencil
@@ -2309,9 +2309,10 @@ module Lota
       self.stencil_state = mode.nil? ? nil : [:keep, mode, value].compact
     end
 
-    # The stencil's compare mode and Integer value, as an Array (ADR 001,
-    # rule 4), matching the deprecated love.graphics.getStencilTest, which
-    # LÖVE writes in Lua (src/modules/graphics/wrap_Graphics.lua:92-96).
+    # The stencil's compare mode and Integer value, as an Array (rule 4 of
+    # doc/contributors/design/translation.md), matching the deprecated
+    # love.graphics.getStencilTest, which LÖVE writes in Lua
+    # (src/modules/graphics/wrap_Graphics.lua:92-96).
     #
     # Lota::Graphics.stencil_mode and stencil_state replace it; prints
     # LÖVE's notice of the deprecation the first time it is called. Raises
@@ -2477,8 +2478,8 @@ module Lota
     #
     # [readable] +true+ or +false+: whether shaders are to read the canvas;
     #   when left out or anything else, true for every format but the
-    #   depth and stencil formats. LÖVE's table to fill in is dropped (ADR
-    #   001, rule 29).
+    #   depth and stencil formats. LÖVE's table to fill in is dropped
+    #   (rule 29 of doc/contributors/design/translation.md).
     #
     # Compressed formats, which no canvas can have, are left out.
     # Lota::Graphics.texture_formats replaces it; prints LÖVE's notice of

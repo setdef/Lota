@@ -41,9 +41,10 @@ module Lota
       # SPDX-License-Identifier: Zlib
       #
       # Ported from graphics.newVideo
-      # (vendor/love/src/modules/graphics/wrap_Graphics.lua:30-52) and the
-      # Video methods of wrap_Video.lua (lines 28-56), and changed to take
-      # the settings table as keywords (ADR 001, rule 10).
+      # (vendor/love/src/modules/graphics/wrap_Graphics.lua:30-52) and the Video
+      # methods of wrap_Video.lua (lines 28-56), and changed to take the
+      # settings table as keywords (rule 10 of
+      # doc/contributors/design/translation.md).
 
       # Makes a Video, matching love.graphics.newVideo
       # (src/modules/graphics/wrap_Graphics.lua, graphics.newVideo, and
@@ -233,8 +234,9 @@ module Lota
       end
 
       # The Video's width and height in units, as an Array of two Integers
-      # (ADR 001, rule 4), matching Video:getDimensions
-      # (src/modules/graphics/wrap_Video.cpp, w_Video_getDimensions).
+      # (rule 4 of doc/contributors/design/translation.md), matching
+      # Video:getDimensions (src/modules/graphics/wrap_Video.cpp,
+      # w_Video_getDimensions).
       #
       # === Example
       #
@@ -265,9 +267,10 @@ module Lota
         @native.pixel_height
       end
 
-      # The pixels across and down each frame, as an Array of two
-      # Integers (ADR 001, rule 4), matching Video:getPixelDimensions
-      # (src/modules/graphics/wrap_Video.cpp, w_Video_getPixelDimensions).
+      # The pixels across and down each frame, as an Array of two Integers
+      # (rule 4 of doc/contributors/design/translation.md), matching
+      # Video:getPixelDimensions (src/modules/graphics/wrap_Video.cpp,
+      # w_Video_getPixelDimensions).
       #
       # === Example
       #
@@ -301,10 +304,10 @@ module Lota
         @native.set_filter(EnumName.of(min), mag && EnumName.of(mag), anisotropy)
       end
 
-      # The filters when drawn smaller and larger, as Symbols, and the
-      # Integer maximum anisotropy, as an Array (ADR 001, rule 4), matching
-      # Video:getFilter (src/modules/graphics/wrap_Video.cpp,
-      # w_Video_getFilter).
+      # The filters when drawn smaller and larger, as Symbols, and the Integer
+      # maximum anisotropy, as an Array (rule 4 of
+      # doc/contributors/design/translation.md), matching Video:getFilter
+      # (src/modules/graphics/wrap_Video.cpp, w_Video_getFilter).
       #
       # === Example
       #

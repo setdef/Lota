@@ -9,8 +9,7 @@
 # love-ios target links (love.xcodeproj/project.pbxproj:187) in place of
 # OpenAL Soft. Included by CMakeLists.txt beside this file, once
 # lota_engine exists. Apple's OpenAL follows LÖVE and links no LGPL code
-# statically; whether Lota keeps it is the maintainer's decision (Plan
-# 002, Open questions, "Phones").
+# statically, which the maintainer settled for iOS.
 #
 # Nothing here is linked into a binary: an iOS app has no loadable
 # extensions, so the engine and the extension are static archives, and

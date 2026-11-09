@@ -10,9 +10,10 @@ module Lota
     # Which pixel formats a canvas can have, which the deprecated
     # Lota::Graphics.canvas_formats returns, translated from the table
     # love.graphics.getCanvasFormats returns
-    # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvasFormats): a
-    # frozen value with a field for each of LÖVE's names of a pixel format
-    # that is not compressed (ADR 001, rule 28), +true+ or +false+.
+    # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvasFormats): a frozen
+    # value with a field for each of LÖVE's names of a pixel format that is not
+    # compressed (rule 28 of doc/contributors/design/translation.md), +true+ or
+    # +false+.
     #
     # Lota::Graphics::TextureFormats, from Lota::Graphics.texture_formats,
     # replaces it.

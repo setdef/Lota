@@ -43,7 +43,7 @@ love::video::Video &video() {
   return *instance;
 }
 
-// The graphics module, on the main thread only (ADR 001, section 6).
+// The graphics module, on the main thread only (ADR 007).
 love::graphics::Graphics &graphics() {
   require_main_thread(GRAPHICS);
   auto *instance = love::Module::getInstance<love::graphics::Graphics>(love::Module::M_GRAPHICS);
