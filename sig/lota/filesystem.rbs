@@ -23,6 +23,10 @@ module Lota
 
     def self.open_file: (String filename, Symbol | String mode) -> ([File] | [nil, String])
 
+    def self.open_native_file: (String path, Symbol | String mode) -> ([File] | [nil, String])
+
+    private def self.opened: (Array[Native::File | nil | String] results) -> ([File] | [nil, String])
+
     def self.write: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])
 
     def self.lines: (String filename) -> Enumerator[String, void]

@@ -88,4 +88,18 @@ class CursorTest < Minitest::Test
   def test_x_is_a_float
     assert_instance_of Float, Lota::Mouse.x
   end
+
+  # w_getGlobalPosition (wrap_Mouse.cpp:192-201) pushes two doubles and
+  # the display, counting from 1, as an integer (rules 4 and 14). On a
+  # desktop of one display, as the test runs on, the pointer's place on
+  # the desktop is its place in the window plus the window's.
+  def test_the_global_position_is_the_pointer_on_its_display
+    Lota::Mouse.position = 15, 20
+    x, y, displayindex = Lota::Mouse.global_position
+    window_x, window_y, = Lota::Window.position
+
+    assert_equal [Float, Float, Integer], [x, y, displayindex].map(&:class)
+    assert_includes 1..(Lota::Window.display_count), displayindex
+    assert_equal [window_x + 15.0, window_y + 20.0], [x, y] if Lota::Window.display_count == 1
+  end
 end

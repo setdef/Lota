@@ -14,6 +14,8 @@ module Lota
 
       def decode: () -> SoundData?
 
+      def seek: (Float | Integer offset) -> nil
+
       def channel_count: () -> Integer
 
       def bit_depth: () -> Integer

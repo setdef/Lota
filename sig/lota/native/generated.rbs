@@ -209,6 +209,8 @@ module Lota
       def self.symlinks_enabled?: () -> bool
 
       def self.open_file: (String filename, String mode) -> Array[File | nil | String]
+
+      def self.open_native_file: (String path, String mode) -> Array[File | nil | String]
     end
 
     class File
@@ -837,6 +839,8 @@ module Lota
       def self.y: () -> Float
 
       def self.position: () -> [Float, Float]
+
+      def self.global_position: () -> [Float, Float, Integer]
 
       def self.set_x: (Float | Integer argument1) -> nil
 

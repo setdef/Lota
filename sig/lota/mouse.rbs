@@ -15,6 +15,8 @@ module Lota
 
     def self.position: () -> Array[Float]
 
+    def self.global_position: () -> [Float, Float, Integer]
+
     def self.x=: (Float | Integer x) -> void
 
     def self.y=: (Float | Integer y) -> void

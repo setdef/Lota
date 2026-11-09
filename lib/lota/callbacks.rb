@@ -140,7 +140,7 @@ module Lota
     # names in LÖVE (ENUM_ARGUMENTS); the strings SDL gives are UTF-8.
     # Numbers LÖVE holds as integers (INTEGER_ARGUMENTS) become Integers,
     # and the rest stay Floats. A table becomes an Array or a Hash
-    # (Lota::Variant).
+    # (Lota::Variant), and a Source in one a Lota::Audio::Source.
     def self.poll
       message(Native::Event.poll)
     end
@@ -172,11 +172,22 @@ module Lota
         integer = INTEGER_ARGUMENTS.fetch(name, []).include?(index)
         integer &&= Native::Graphics.open? if name == :resize
         integer ? argument.to_i : argument
-      when Array then Variant.ruby(argument)
+      when Array then sources(Variant.ruby(argument))
       when Native::Joystick::Joystick then Joystick::Joystick.__send__(:from_native, argument)
       else
         argument
       end
+    end
+
+    # +table+, a table among an event's arguments as Lota::Variant reads
+    # it, with each Source in it as a Lota::Audio::Source. The one table of
+    # LÖVE's objects its engine puts in a message is the Sources an
+    # audiodisconnected stopped (vendor/love/src/modules/audio/openal/
+    # Pool.cpp:33-41 and 126-133). :nodoc:
+    def self.sources(table)
+      return table unless table.is_a?(Array)
+
+      table.map { |value| value.is_a?(Native::Source) ? Audio::Source.__send__(:from_native, value) : value }
     end
 
     # SPDX-SnippetBegin
@@ -186,10 +197,11 @@ module Lota
     # Translated from love.createhandlers
     # (vendor/love/src/modules/love/callbacks.lua:27-162). Each handler
     # takes LÖVE's arguments, with nil for any the message lacks and the
-    # rest ignored, as a Lua function does. Two of LÖVE's handlers are left
-    # out: threaderror, because Lota has no love.thread, and
-    # audiodisconnected, because Lota has no love.audio to pick a new
-    # playback device with; neither event can arrive without its module.
+    # rest ignored, as a Lua function does. One of LÖVE's handlers is left
+    # out: threaderror, because Lota has no love.thread, without which the
+    # event cannot arrive. The audiodisconnected handler, when the game
+    # has no callback for it or its callback returns a falsy value, moves
+    # playback to the system's default device (callbacks.lua:145-149).
 
     # Standard callback handlers. :nodoc:
     HANDLERS = {
@@ -253,6 +265,10 @@ module Lota
       },
       displayrotated: -> (display = nil, orient = nil, *) { Callbacks.call(:displayrotated, display, orient) },
       localechanged: -> (*) { Callbacks.call(:localechanged) },
+      audiodisconnected: -> (sources = nil, *) {
+        Audio.set_playback_device unless Callbacks.call(:audiodisconnected, sources)
+        nil
+      },
       sensorupdated: -> (sensor_type = nil, x = nil, y = nil, z = nil, *) {
         Callbacks.call(:sensorupdated, sensor_type, x, y, z)
       },

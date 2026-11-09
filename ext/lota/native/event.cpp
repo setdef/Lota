@@ -6,6 +6,7 @@
 #include "native/binding.hpp"
 #include "native/ruby.hpp"
 
+#include "audio/Source.h"
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "common/Variant.h"
@@ -145,9 +146,12 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // a modal draw callback make of a function, becomes nil, as
 // luax_pushvariant's default pushes. An engine object becomes its one
 // Ruby wrapper (WrapperIdentities, native/binding.hpp), as luax_pushtype
-// pushes the one userdata Lua keeps for it; the only ones LÖVE's event
-// module puts in a message are joysticks (event/sdl/Event.cpp:618-757),
-// and Lota's own love.event functions put none there yet.
+// pushes the one userdata Lua keeps for it. LÖVE's engine puts two kinds
+// in a message: joysticks, which its event module does
+// (event/sdl/Event.cpp:618-757), and the Sources that stopped when the
+// audio device went away, in the table of an audiodisconnected message
+// (audio/openal/Pool.cpp:33-41 and 126-133). Lota's own love.event
+// functions put none there yet.
 const Variant::SharedTable *push_value(Rice::Array &result, const Variant &variant) {
   const Variant::Data &data = variant.getData();
   // Variant keeps its value in a union, tagged by getType(), and offers no
@@ -172,11 +176,15 @@ const Variant::SharedTable *push_value(Rice::Array &result, const Variant &varia
   case Variant::TABLE:
     return data.table;
   case Variant::LOVEOBJECT:
-    if (data.objectproxy.type == nullptr ||
-        !data.objectproxy.type->isa(love::joystick::Joystick::type)) {
+    if (data.objectproxy.type != nullptr &&
+        data.objectproxy.type->isa(love::joystick::Joystick::type)) {
+      result.push(dynamic_cast<love::joystick::Joystick *>(data.objectproxy.object), false);
+    } else if (data.objectproxy.type != nullptr &&
+               data.objectproxy.type->isa(love::audio::Source::type)) {
+      result.push(dynamic_cast<love::audio::Source *>(data.objectproxy.object), false);
+    } else {
       throw love::Exception("Lota cannot pass this event's arguments to Ruby yet.");
     }
-    result.push(dynamic_cast<love::joystick::Joystick *>(data.objectproxy.object), false);
     break;
   case Variant::NIL:
   case Variant::UNKNOWN:

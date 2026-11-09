@@ -131,6 +131,22 @@ module Lota
       Native::Mouse.position
     end
 
+    # The pointer's position on the display it is on, and that display,
+    # counting from 1, as an Array of two Floats and an Integer, matching
+    # love.mouse.getGlobalPosition (src/modules/mouse/wrap_Mouse.cpp,
+    # w_getGlobalPosition), whose three values rule 4 of ADR 001 makes one
+    # Array.
+    #
+    # It is the pointer's place wherever it is, inside the game's window
+    # or not. Raises RuntimeError when the mouse module is not open.
+    #
+    # === Example
+    #
+    #   x, y, displayindex = Lota::Mouse.global_position # => [1210.0, 480.0, 1]
+    def self.global_position
+      Native::Mouse.global_position
+    end
+
     # Moves the pointer across the window, keeping its height, matching
     # love.mouse.setX (src/modules/mouse/wrap_Mouse.cpp, w_setX).
     #

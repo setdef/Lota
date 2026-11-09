@@ -123,6 +123,29 @@ class SoundDataTest < Minitest::Test
     assert_equal Lota::Sound::SoundData.new("resources/tone.ogg").sample_count, first.sample_count + rest.sample_count
   end
 
+  # w_Decoder_seek (wrap_Decoder.cpp:96-107) rewinds for 0 and seeks
+  # otherwise, so what decodes next starts there.
+  def test_a_decoder_seeks_and_rewinds
+    decoder = Lota::Sound::Decoder.new("resources/tone.ogg", 4096)
+    first = decoder.decode.string.b
+    whole = Lota::Sound::SoundData.new("resources/tone.ogg").sample_count
+    decoder.decode
+
+    assert_nil decoder.seek(0)
+    assert_equal first, decoder.decode.string.b
+
+    decoder.seek(decoder.duration / 2)
+
+    assert_in_delta whole / 2.0, Lota::Sound::SoundData.new(decoder).sample_count, whole / 10.0
+  end
+
+  def test_a_decoder_cannot_seek_to_a_negative_position
+    decoder = Lota::Sound::Decoder.new("resources/tone.ogg")
+    error = assert_raises(ArgumentError) { decoder.seek(-1) }
+
+    assert_equal "can't seek to a negative position", error.message
+  end
+
   def test_an_unknown_stream_type_is_an_error_with_lovees_message
     error = assert_raises(ArgumentError) { Lota::Sound::Decoder.new("resources/click.ogg", 16_384, :disk) }
 

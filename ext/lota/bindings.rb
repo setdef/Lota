@@ -859,6 +859,7 @@ generate "love.mouse.setCursor"
 generate "love.mouse.getX"
 generate "love.mouse.getY"
 generate "love.mouse.getPosition"
+generate "love.mouse.getGlobalPosition"
 generate "love.mouse.setX"
 generate "love.mouse.setY"
 generate "love.mouse.setPosition"
@@ -1422,6 +1423,9 @@ generate "Decoder:getChannelCount"
 generate "Decoder:getBitDepth"
 generate "Decoder:getSampleRate"
 generate "Decoder:getDuration"
+bound_by_hand "Decoder:seek",
+  reason: "returns luaL_argerror for a negative offset, which the port does not write, as Source:seek; " \
+    "Lota raises ArgumentError"
 
 # love.system
 generate "love.system.setClipboardText"
@@ -1539,6 +1543,7 @@ bound_by_hand "Font:setFallbacks",
   reason: "reads every argument after the first as a Font, at positions it computes; Lota binds an Array " \
     "of them"
 generate "love.filesystem.openFile"
+generate "love.filesystem.openNativeFile"
 generate "File:close"
 bound_by_hand "File:getSize",
   reason: "compares the size with the largest integer a double holds exactly, written as a number " \

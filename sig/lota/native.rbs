@@ -745,6 +745,8 @@ module Lota
       def release: () -> bool
 
       def decode: () -> SoundData?
+
+      def seek: (Float | Integer offset) -> nil
     end
 
     class SoundData < Data::Data

@@ -241,6 +241,23 @@ Rice::Array w_openFile(const std::string &filename, const std::string &mode) {
   return results;
 }
 
+// love.filesystem.openNativeFile: w_openNativeFile (wrap_Filesystem.cpp:254-276).
+Rice::Array w_openNativeFile(const std::string &path, const std::string &mode) {
+  Rice::Array results;
+  File::Mode mode_value = File::MODE_CLOSED;
+  if (!File::getConstant(mode.c_str(), mode_value)) {
+    raise_enum_error("file open mode", File::getConstants(mode_value), mode);
+  }
+  File *t = nullptr;
+  try {
+    t = instance()->openNativeFile(path.c_str(), mode_value);
+  } catch (love::Exception &e) {
+    return io_error("%s", e.what());
+  }
+  results.push(Rice::Object(Rice::detail::wrap_engine_object(t, true)), false);
+  return results;
+}
+
 // love.filesystem.getFullCommonPath: w_getFullCommonPath (wrap_Filesystem.cpp:465-474).
 std::string w_getFullCommonPath(const std::string &commonpath) {
   Filesystem::CommonPath commonpath_value{};
@@ -340,7 +357,9 @@ void define_generated_filesystem(const Rice::Module &native) {
       .define_singleton_function("set_symlinks_enabled", &w_setSymlinksEnabled, Rice::Arg("enable"))
       .define_singleton_function("symlinks_enabled?", &w_areSymlinksEnabled)
       .define_singleton_function("open_file", &w_openFile, Rice::Arg("filename"), Rice::Arg("mode"),
-                                 Rice::Return().takeOwnership());
+                                 Rice::Return().takeOwnership())
+      .define_singleton_function("open_native_file", &w_openNativeFile, Rice::Arg("path"),
+                                 Rice::Arg("mode"), Rice::Return().takeOwnership());
   Rice::define_class_under<File>(native, "File")
       .define_method("close", &w_File_close)
       .define_method("open", &w_File_open, Rice::Arg("mode"))

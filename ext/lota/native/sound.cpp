@@ -135,6 +135,20 @@ SoundData *decode(Decoder &decoder) {
       decoder.getSampleRate(), decoder.getBitDepth(), decoder.getChannelCount());
 }
 
+// w_Decoder_seek (wrap_Decoder.cpp:96-107): moves the Decoder to
+// +offset+ seconds into the sound, rewinding it for 0, and refuses a
+// negative offset with ArgumentError, where LÖVE raises luaL_argerror.
+void decoder_seek(Decoder &decoder, double offset) {
+  if (offset < 0) {
+    raise_argument_error("can't seek to a negative position");
+  }
+  if (offset == 0) {
+    decoder.rewind();
+  } else {
+    decoder.seek(offset);
+  }
+}
+
 // The largest value of a 16-bit and of an 8-bit sample, as
 // wrap_SoundData.lua's typemaxvals (line 46) holds them.
 constexpr double int16_max = 0x7FFF;
@@ -260,7 +274,8 @@ bool is_open() { return love::Module::getInstance<Sound>(love::Module::M_SOUND) 
 void define_sound(const Rice::Module &native) {
   // Their other methods are generated (ext/lota/native/generated/sound.cpp).
   define_engine_class<Decoder>(native, "Decoder")
-      .define_method("decode", &decode, Rice::Return().takeOwnership());
+      .define_method("decode", &decode, Rice::Return().takeOwnership())
+      .define_method("seek", &decoder_seek, Rice::Arg("offset"));
   define_engine_class<SoundData, love::Data>(native, "SoundData")
       .define_method("sample", &get_sample, Rice::Arg("i"),
                      Rice::Arg("channel") = std::optional<double>())

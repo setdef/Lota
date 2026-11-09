@@ -33,6 +33,8 @@ module Lota
 
     def self.argument: (Symbol name, Integer index, Variant::native argument) -> argument
 
+    def self.sources: (Variant::value table) -> Variant::value
+
     HANDLERS: Hash[Symbol, handler]
 
     def self.dispatch: () -> (argument | [String, argument])

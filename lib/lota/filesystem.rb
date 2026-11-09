@@ -224,7 +224,33 @@ module Lota
     #
     #   file, message = Lota::Filesystem.open_file("save.dat", :r)
     def self.open_file(filename, mode)
-      results = Native::Filesystem.open_file(filename, EnumName.of(mode))
+      opened(Native::Filesystem.open_file(filename, EnumName.of(mode)))
+    end
+
+    # Opens the file at +path+ on the computer, outside the game's folder
+    # and its save directory, in +mode+, matching
+    # love.filesystem.openNativeFile
+    # (src/modules/filesystem/wrap_Filesystem.cpp, w_openNativeFile), and
+    # returns an Array of the Lota::Filesystem::File (ADR 001, rule 4), or
+    # of +nil+ and LÖVE's message when it cannot be opened.
+    #
+    # [path] The file's full path, as the operating system names it.
+    # [mode] +:r+ to read, +:w+ to write, +:a+ to append, or +:c+ to leave
+    #   it closed (ADR 001, rule 9).
+    #
+    # Raises ArgumentError for a mode LÖVE does not know.
+    #
+    # === Example
+    #
+    #   file, message = Lota::Filesystem.open_native_file("/tmp/log.txt", :w)
+    def self.open_native_file(path, mode)
+      opened(Native::Filesystem.open_native_file(path, EnumName.of(mode)))
+    end
+
+    # +results+, as Native::Filesystem.open_file and open_native_file give
+    # them, as their Ruby methods return them: the Lota::Filesystem::File,
+    # or +nil+ and LÖVE's message. :nodoc:
+    private_class_method def self.opened(results)
       native = results.first
       native.is_a?(Native::File) ? [File.__send__(:from_native, native)] : [nil, results.last.to_s]
     end

@@ -15,10 +15,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Physics.new_circle_body`, `new_rectangle_body`, `new_polygon_body`, `new_edge_body`, and `new_chain_body`, each returning a new Body and its Shape.
 - LÖVE's deprecated forms of `Lota::Physics::CircleShape.new`, `RectangleShape.new`, `PolygonShape.new`, `EdgeShape.new`, and `ChainShape.new` without a Body, and the deprecated `Lota::Physics::Fixture.new`, which attaches a copy of such a Shape to a Body; `Fixture ===` is true of every Shape.
 - `Lota::Data#pointer`, `Lota::Data#ffi_pointer`, and `Lota::Window.pointer`, each a `Fiddle::Pointer` to the address LÖVE gives Lua, the Data's sized as the Data is; they need `gem "fiddle"` in the game's Gemfile, which Lota does not depend on.
+- `Lota::Mouse.global_position`, `Lota::Sound::Decoder#seek`, and `Lota::Filesystem.open_native_file`, matching `love.mouse.getGlobalPosition`, `Decoder:seek`, and `love.filesystem.openNativeFile`.
 
 ### Fixed
 
 - On Windows, an engine object Lota hands back again, such as the Shader in use or a Shape a contact names, is the same Ruby object each time, as on macOS and Linux, where it was a new one each time.
+- A game whose audio device goes away, as when headphones are unplugged, keeps running: Lota calls `Lota.audiodisconnected(sources)` with the Sources that stopped and, unless it returns a truthy value, moves playback to the system's default device, as LÖVE does; before, the event raised an error.
 
 ## [0.3.1] - 2026-11-09
 

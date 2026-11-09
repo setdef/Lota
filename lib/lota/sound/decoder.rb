@@ -92,6 +92,22 @@ module Lota
         native && SoundData.__send__(:from_native, native)
       end
 
+      # Moves the Decoder to +offset+ seconds into the sound, where its next
+      # #decode starts, matching Decoder:seek
+      # (src/modules/sound/wrap_Decoder.cpp, w_Decoder_seek), which
+      # rewinds it to the start for 0.
+      #
+      # [offset] Float or Integer seconds into the sound.
+      #
+      # Returns +nil+. Raises ArgumentError for a negative offset.
+      #
+      # === Example
+      #
+      #   decoder.seek(0) # back to the start
+      def seek(offset)
+        @native.seek(offset)
+      end
+
       # How many channels the sound has, as an Integer: 1 for mono, 2 for
       # stereo, matching Decoder:getChannelCount
       # (src/modules/sound/wrap_Decoder.cpp, w_Decoder_getChannelCount).
