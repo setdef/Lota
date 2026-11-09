@@ -13,15 +13,15 @@ Two workflows check trunk. The pre-push tier runs on every push and answers firs
 
 `.github/workflows/prepush.yml` runs `bundle exec rake prepush` ([development.md](development.md)) on `macos-15` and on Ubuntu 22.04 for x86_64, set up as the gate jobs below are, and the Windows build and tests on x64 (`windows.yml`, below), which take about as long. Its x86_64 Linux job then runs `rake red_before_green` over the commits the push brings. It is a workflow of its own because GitHub finishes a run, and `bin/trunk-watch` reads it, only when its last job ends, and the full run's phone and iOS kit jobs end an hour or more after its desktop jobs. Each trunk commit gets a run of its own, never cancelled, so the watch can judge each commit against its parent and name the one that broke the tier.
 
-`.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch. A run on trunk is never cancelled once it starts, but only the newest push waits for it: GitHub cancels a waiting run when a newer push joins the queue. A run asks for about eleven macOS jobs, some 260 runner-minutes, and GitHub's free plan runs five macOS jobs at once, so a run for every commit would queue hours deep, with the tier's macOS job behind it. Its jobs:
+`.github/workflows/ci.yml` runs on every push and pull request. A push to a branch cancels the run before it on that branch. A run on trunk is never cancelled once it starts, but only the newest push waits for it: GitHub cancels a waiting run when a newer push joins the queue. A run asks for about eight macOS jobs, some 175 runner-minutes, and GitHub's free plan runs five macOS jobs at once, so a run for every commit would queue hours deep, with the tier's macOS job behind it. Its jobs:
 
 - **Gate**, on macOS 15 on Apple Silicon (`macos-15`), and **Gate (x86_64-linux-gnu)** and **Gate (aarch64-linux-gnu)** on Ubuntu 22.04. Each runs `bundle exec rake`, fails if the gate changed a file (its autocorrect would otherwise pass unnoticed), and builds the precompiled gem with `rake package:native` as an artifact.
 - **Delivery**, one for each of those three, which installs that gem on a fresh runner and runs Lövetest from it.
 - **Windows build** and **Delivery** for x64 and ARM64, which build and test the Windows gems without the gate ([windows.md](windows.md)). The build and its tests are `windows.yml`, which the pre-push tier calls too.
 - **Phones**, which calls `phones.yml`.
-- **iOS kit** and **iOS kit, called as a game's CI calls it**, which call `ios-kit.yml` and `ios-kit-caller.yml`.
+- **iOS kit**, which calls `ios-kit.yml` for `test/games/winkit`, and **iOS kit, called as a game's CI calls it**, which calls `ios-kit-caller.yml`. The second runs only for a tag and by hand; a push does not run it (see the iOS kit, below).
 - **Fuse**, which calls `fuse.yml` with the gems this run built, once they are built.
-- **Release**, which runs only for a tag, and publishes the gems only when every job above passed ([releasing.md](releasing.md)).
+- **Release**, which runs only for a tag, and publishes the gems only when every job above passed, the iOS kit called as a game's CI calls it among them ([releasing.md](releasing.md)).
 
 ## The gate jobs
 
@@ -57,7 +57,7 @@ No free runner boots an arm64 emulator, and no runner has a device, so nothing i
 
 ## The iOS kit
 
-`ios-kit.yml` builds any Lota game's Xcode project from Lota's iOS host, for a game's own CI to call ([the phone guide](../guide/phones.md) shows the call). Its scripts are in `ipad/`. Lota's CI calls it on every push for `test/games/winkit`, and through `ios-kit-caller.yml` for `test/games/sample_game` exactly as a game's CI would, with `uses: ./.github/workflows/ios-kit.yml` and `lota_ref: ${{ github.sha }}`, the workflow of the same commit. A tag releases nothing unless both kits pass.
+`ios-kit.yml` builds any Lota game's Xcode project from Lota's iOS host, for a game's own CI to call ([the phone guide](../guide/phones.md) shows the call). Its scripts are in `ipad/`. Lota's CI calls it on every full run for `test/games/winkit`, and through `ios-kit-caller.yml` for `test/games/sample_game` exactly as a game's CI would, with `uses: ./.github/workflows/ios-kit.yml` and `lota_ref: ${{ github.sha }}`, the workflow of the same commit. The two copies together take about two thirds of a full run's macOS minutes, so the second runs less often: for a tag, by hand (`workflow_dispatch` of CI or of `ios-kit-caller.yml`), and every day at 06:17 UTC on trunk, which is `ios-kit-caller.yml`'s own schedule. A push does not run it, since the winkit copy has just run the same workflow. A tag releases nothing unless both kits pass: the release job needs both, and a tag runs both. A red scheduled run is a red run on trunk like any other, and `bin/trunk-watch` sees it.
 
 ### What it checks
 

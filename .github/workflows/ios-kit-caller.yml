@@ -9,12 +9,16 @@
 # CI names Lota's workflow by a release's tag,
 # setdef/Lota/.github/workflows/ios-kit.yml@vX.Y.Z with lota_ref vX.Y.Z;
 # Lota's own calls the workflow of the same commit. CI (ci.yml) calls this
-# on every push, and it runs by hand.
+# for a tag and for a manual run, which the release needs, and not for a
+# push, where the kit's check for test/games/winkit has just run; this
+# workflow also runs daily on trunk, and by hand.
 name: iOS kit, called as a game's CI calls it
 
 on:
   workflow_call:
   workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"
 
 permissions:
   contents: read

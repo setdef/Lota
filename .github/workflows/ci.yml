@@ -11,9 +11,12 @@
 #
 # Every push also runs, as jobs of the same run, the checks of the
 # platforms Lota builds for without a gem, and of lota fuse: the phone
-# route (phones.yml), the iOS kit twice, as Lota's own CI and as a game's
-# CI calls it (ios-kit.yml, ios-kit-caller.yml), and, once each platform's
-# gem is built, lota fuse on all five with those gems (fuse.yml). So every
+# route (phones.yml), the iOS kit as Lota's own CI calls it (ios-kit.yml),
+# and, once each platform's gem is built, lota fuse on all five with those
+# gems (fuse.yml). The iOS kit also runs as a game's CI calls it
+# (ios-kit-caller.yml), but only for a tag or by hand here, and daily on
+# its own (that workflow's schedule), since a second copy on every push
+# took two thirds of a run's macOS minutes. So every
 # platform Lota supports that GitHub's free runners can run is checked on
 # trunk, and a red job there stops the line. Each trunk commit's own
 # verdict comes first from the pre-push tier (prepush.yml), and this run
@@ -82,7 +85,7 @@ permissions:
 # run on a later commit, which holds it. A tag is a ref of its own, so
 # its run is in a group of its own and always runs in full, and the
 # release job reads nothing but that run. A branch run gives way to a
-# newer push. A full run asks for about eleven macOS jobs, some 260
+# newer push. A full run asks for about eight macOS jobs, some 175
 # runner-minutes, and the free plan runs five macOS jobs at once, so a
 # full run for every commit queued hours deep, with the tier's macOS
 # job behind it.
@@ -769,9 +772,14 @@ jobs:
       artifact_name: ios-kit-winkit
 
   # The iOS kit again, called as a game's own CI calls it
-  # (ios-kit-caller.yml), for test/games/sample_game.
+  # (ios-kit-caller.yml), for test/games/sample_game. It runs for a tag and
+  # by hand, which are the runs the release job reads, and not on a push,
+  # where the kit has just run for test/games/winkit; that workflow's own
+  # schedule runs it daily. A skipped job would also skip the release, but
+  # the release runs only for a tag or by hand.
   ios-kit-call:
     name: iOS kit, called as a game's CI calls it
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/ios-kit-caller.yml
     permissions:
       contents: read
