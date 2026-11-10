@@ -37,7 +37,7 @@ else()
 	unset(Ruby_INCLUDE_DIR CACHE)
 	unset(Ruby_CONFIG_INCLUDE_DIR CACHE)
 	unset(Ruby_LIBRARY CACHE)
-	find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
+	find_package(Ruby 4.1 REQUIRED COMPONENTS Development)
 	set(LOTA_EXTENSION_TYPE MODULE)
 	# A development Ruby, such as a preview, defines RUBY_ABI_VERSION in its
 	# config.h, and then refuses to load an extension that does not export

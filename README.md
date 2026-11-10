@@ -20,7 +20,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 ### Compared with other ways to make a game in Ruby
 
 - **[Gosu](https://www.libgosu.org/)** and **[Ruby2D](https://www.ruby2d.com/)** are Ruby gems with APIs of their own. Lota uses LÖVE's API, so LÖVE's wiki, tutorials, and example games apply once you translate the calls.
-- **[DragonRuby Game Toolkit](https://dragonruby.org/)** has free and paid tiers, ships its own Ruby runtime, and exports games to the web, desktops, and (on its Pro tier) phones. Lota runs on the Ruby 4.0 you install, with your usual gems. Its gems are for desktops; a phone build is experimental, and compiles from source.
+- **[DragonRuby Game Toolkit](https://dragonruby.org/)** has free and paid tiers, ships its own Ruby runtime, and exports games to the web, desktops, and (on its Pro tier) phones. Lota runs on the Ruby 4.1 you install, with your usual gems. Its gems are for desktops; a phone build is experimental, and compiles from source.
 - **[LÖVE](https://love2d.org)** itself runs games written in Lua. Lota runs the same engine with Ruby in place of Lua.
 
 ## Compatibility
@@ -34,7 +34,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 | Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | Released |
 | iPhone, iPad, and Android | none | Experimental, built from source |
 
-- Lota needs Ruby 4.0 (4.0.1 or newer).
+- Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1. On Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on one day's head build of RubyInstaller, the copy [Fledge](https://github.com/setdef/Fledge)'s release keeps, which `.github/windows_ruby.env` names. Use that build: another day's head build can have another ABI, and need not load Lota's gem. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
 - On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so those checks happen on a PC instead: a game has been played on a Windows PC, and Lövetest passes on an NVIDIA RTX 4090 with both Vulkan and OpenGL.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.

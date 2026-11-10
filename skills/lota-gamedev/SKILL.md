@@ -2,7 +2,7 @@
 name: lota-gamedev
 description: Write, test, and ship a 2D game in Ruby with Lota (a Ruby binding of LÖVE's engine; gem "lota", API under Lota::Graphics, Lota::Window, Lota::Audio, and so on). Use when creating or changing a game folder with conf.rb and main.rb, translating LÖVE or love2d Lua code or tutorials to Ruby, handling touch, gamepad, DPI, safe area, or audio on desktop and phones, running `lota run`, packaging with `lota fuse`, or debugging a NoMethodError, a black window, or a crash in a Lota game.
 license: CC-BY-SA-4.0
-compatibility: Needs Ruby 4.0.1 or newer and a Lota gem from github.com/setdef/Lota/releases (not on RubyGems). A window needs a display; macOS, Linux, and Windows have gems.
+compatibility: Needs Ruby 4.1 (a preview, such as 4.1.0-preview1, until 4.1.0 is released; not 4.0) and a Lota gem from github.com/setdef/Lota/releases (not on RubyGems). A window needs a display; macOS, Linux, and Windows have gems.
 metadata:
   repository: https://github.com/setdef/Lota
 ---

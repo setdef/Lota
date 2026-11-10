@@ -54,7 +54,7 @@ unless File.exist?(File.join(ROOT, "vendor/love/src/common/Object.h"))
 
     Lota's source gem does not ship LÖVE's sources, so it cannot build here.
     Install Lota's precompiled gem instead, which RubyGems chooses for Ruby
-    4.0 on Apple Silicon macOS (platform arm64-darwin) and on Linux with
+    4.1 on Apple Silicon macOS (platform arm64-darwin) and on Linux with
     glibc on x86_64 or arm64 (x86_64-linux-gnu, aarch64-linux-gnu). Lota
     has no build for other platforms or Rubies yet.
 

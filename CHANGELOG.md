@@ -14,6 +14,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `Lota::Window.show_file_dialog`, translating `love.window.showFileDialog`: it shows the system's dialog for opening files, opening a folder, or saving, and calls its block or callable with the chosen paths, the chosen filter's name, and any error when the event queue is next pumped after the player chooses.
 
+### Changed
+
+- **Breaking:** Requires Ruby 4.1 (preview or later); Ruby 4.0 is no longer supported. Each precompiled gem accepts Ruby 4.1's previews and releases, and the Windows gems are built on RubyInstaller's head build, since RubyInstaller publishes no 4.1 preview.
+- `lota fuse` builds with Fledge 0.12.0, whose runtimes are Ruby 4.1, was 0.10.0.
+
 ## [0.4.0] - 2026-11-12
 
 ### Added

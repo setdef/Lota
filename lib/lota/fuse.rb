@@ -165,11 +165,15 @@ module Lota
     # relicenses Fledge under the MIT license, so a Windows app no longer
     # carries that file, and retries a download and Apple's timestamp
     # server, 0.9.0 adds macOS notarization and a Windows signing
-    # command, and 0.10.0 changes only the exit status of
+    # command, 0.10.0 changes only the exit status of
     # <tt>fledge build --from</tt>, which Fuse does not run, and the
     # names a Windows setup program gives file associations, which the
-    # project declares none of.
-    FLEDGE_REF = "v0.10.0"
+    # project declares none of, 0.11.0 takes a gem's source build when its
+    # precompiled build's required_ruby_version excludes the runtime's
+    # Ruby, as Bundler does, and 0.12.0 carries Ruby 4.1 in every runtime
+    # (ADR 013): 4.1.0-preview1, and on Windows one day's head build of
+    # RubyInstaller, which publishes no preview.
+    FLEDGE_REF = "v0.12.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.

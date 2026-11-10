@@ -35,7 +35,7 @@ The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the g
 To fuse a game, you need:
 
 - Lota's gem for your platform, installed from the release, as [the README](../../README.md#installation) shows. `lota fuse` puts that very gem file in the app, unless your game's `vendor/cache` holds it.
-- Ruby 4.0, which the app gets a copy of: on Windows, [RubyInstaller](https://rubyinstaller.org/)'s Ruby 4.0 for x64 or ARM64. Its MSYS2 tools are needed only for a gem that compiles ([Your gems](#your-gems)).
+- Ruby 4.1, as [the README](../../README.md#compatibility) says, a preview until Ruby 4.1.0 is released. The app carries Fledge's own copy of Ruby 4.1, not yours. On Windows, that is the head build of [RubyInstaller](https://rubyinstaller.org/) that Fledge keeps, for x64 or ARM64, which loads zlib from MSYS2, so until RubyInstaller releases Ruby 4.1 you need its MSYS2 tools (`ridk install`) to fuse any game; with a released RubyInstaller, they are needed only for a gem that compiles ([Your gems](#your-gems)).
 - Git, and the network: Fledge is not on RubyGems.org, so Bundler fetches it from GitHub, and Fledge downloads its runtime for your platform the first time. On Windows, install [Git for Windows](https://git-scm.com/download/win); on a Mac, `xcode-select --install` installs Git. Fledge carries what it builds installers with, NSIS among them.
 
 ## Options

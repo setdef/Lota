@@ -16,9 +16,9 @@ ruby_build_opts = "--enable-yjit --enable-zjit"
 # ruby-build sees no Rust from mise. It is set here, under a quoted key,
 # rather than as a table in [tools], because ruby/setup-ruby, which reads
 # CI's Ruby version from this file, takes the first line of the form
-# ruby = "4.0.7" anywhere in it, and nothing else. For the same reason the
-# alias also carries the option os=unix, which is Linux and macOS and
-# takes a single value: mise serves Ruby there only. On Windows the Ruby
+# ruby = "4.1.0-preview1" anywhere in it, and nothing else. For the same
+# reason the alias also carries the option os=unix, which is Linux and
+# macOS and takes a single value: mise serves Ruby there only. On Windows the Ruby
 # is RubyInstaller's (bin/setup.ps1), and CMake and Ninja are MSYS2's, so
 # the tools with an os option here are not installed there, and Windows
 # gets Python, uv, and the REUSE tool.
@@ -26,7 +26,7 @@ ruby_build_opts = "--enable-yjit --enable-zjit"
 "ruby" = "core:ruby[depends=rust,os=unix]"
 
 [tools]
-ruby = "4.0.7"
+ruby = "4.1.0-preview1"
 rust = { version = "1.99.1", profile = "minimal", os = ["linux", "macos"] }
 python = "3.12"
 pre-commit = { version = "latest", os = ["linux", "macos"] }

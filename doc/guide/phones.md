@@ -105,8 +105,8 @@ The zip holds the Xcode project, already generated, with one target for iPhone a
 For both systems:
 
 - A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`.
-- Ruby 4.0 with Bundler, Git, CMake 3.21 or newer, and Ninja, all on your `PATH`.
-- Fledge v0.10.0, which your phone project's `Gemfile` names by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
+- Ruby 4.1 with Bundler, Git, CMake 3.21 or newer, and Ninja, all on your `PATH`. Until Ruby 4.1.0 is released, that Ruby is a preview, such as 4.1.0-preview1.
+- Fledge v0.12.0, the Fledge `lota fuse` builds with. Your phone project's `Gemfile` names it by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
 
 For iOS and iPadOS, a Mac with:
 
@@ -205,7 +205,7 @@ The `Gemfile` names Lota's folder and Fledge's tag:
 source "https://rubygems.org"
 
 gem "lota", path: "/Users/you/Lota/tmp/phone/lota"
-gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.10.0", group: :development
+gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.12.0", group: :development
 ```
 
 `fledge.yml` names the app, its identifier, its version, and the hosts:
