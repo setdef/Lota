@@ -10,9 +10,10 @@
 # The project job lays the game out as a Fledge project (ipad/prepare.rb:
 # lota fuse's entry script, or the game's own program), with Lota from
 # this checkout as a path gem and SDL's iOS host from the gem's
-# ext/lota/phone/host/ios, and has fledge build ios (Fledge 0.10.0) write
-# the Xcode project, which it
-# zips with its symbolic links and uploads as the ios-kit artifact. A
+# ext/lota/phone/host/ios, and has fledge build ios (the Fledge that
+# lota fuse builds with, Lota::Fuse.fledge_ref) write the Xcode project,
+# which it zips with its symbolic links and uploads as the ios-kit
+# artifact. A
 # second, fresh runner without Lota, Fledge, or XcodeGen unpacks that zip,
 # builds it for the Simulator and, unsigned, for devices, checks what the
 # built app says (ipad/check_app.rb), and runs it in portrait in iPad and
@@ -200,7 +201,6 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  FLEDGE_REF: v0.10.0
   # Run by a game's own CI (workflow_call), github.repository and
   # github.sha are the game's, so Lota's checkout names its own.
   LOTA_REPOSITORY: setdef/Lota
@@ -310,7 +310,7 @@ jobs:
           gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
           gem=$GITHUB_WORKSPACE/tmp/phone/lota
           du -sh "$gem"
-          export KIT_LOTA_GEM=$gem KIT_FLEDGE_REF=$FLEDGE_REF KIT_PROJECT=$RUNNER_TEMP/project KIT_JSON=$RUNNER_TEMP/kit/kit.json
+          export KIT_LOTA_GEM=$gem KIT_PROJECT=$RUNNER_TEMP/project KIT_JSON=$RUNNER_TEMP/kit/kit.json
           KIT_LOTA_SHA=$(git rev-parse HEAD)
           export KIT_LOTA_SHA
           export KIT_LOTA_REPOSITORY=$LOTA_REPOSITORY KIT_LOTA_REF=$LOTA_REF_NAME KIT_RUN_ID=$GITHUB_RUN_ID KIT_RUN_REPOSITORY=$GITHUB_REPOSITORY
