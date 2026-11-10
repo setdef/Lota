@@ -30,6 +30,13 @@ else()
 	# Rice's FindRuby.cmake defines Ruby::Module, which CMake's own FindRuby
 	# gains only in CMake 4.3 (docs/packaging/cmake.md, "FindRuby").
 	list(PREPEND CMAKE_MODULE_PATH ${RICE_DIR})
+	# FindRuby asks a Ruby_EXECUTABLE it has not seen for its paths, but
+	# keeps the headers and library find_path and find_library cached, so
+	# a build directory configured for one Ruby went on compiling against
+	# its headers under another. They are found again on every configure.
+	unset(Ruby_INCLUDE_DIR CACHE)
+	unset(Ruby_CONFIG_INCLUDE_DIR CACHE)
+	unset(Ruby_LIBRARY CACHE)
 	find_package(Ruby 4.0 REQUIRED COMPONENTS Development)
 	set(LOTA_EXTENSION_TYPE MODULE)
 endif()
