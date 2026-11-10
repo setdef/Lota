@@ -23,6 +23,10 @@ module FakeMachines
       log.flock(File::LOCK_EX)
       log.puts(JSON.generate(ARGV))
     end
+    File.open(File.join(dir, "env.jsonl"), "a") do |log|
+      log.flock(File::LOCK_EX)
+      log.puts(JSON.generate(ENV.to_h.select { |name, _| name.start_with?("GIT_") }))
+    end
     # Runs that must run at once each wait for the others to start, and
     # fail when they do not, as they would one after another.
     together = config.fetch("together", [])
@@ -67,6 +71,13 @@ module FakeMachines
   # The arguments of each call the fake machines in +dir+ took.
   def machines_calls(dir)
     log = File.join(dir, "calls.jsonl")
+    File.exist?(log) ? File.readlines(log).map { |line| JSON.parse(line) } : []
+  end
+
+  # The GIT_ variables each call the fake machines in +dir+ took had in
+  # its environment.
+  def machines_git_env(dir)
+    log = File.join(dir, "env.jsonl")
     File.exist?(log) ? File.readlines(log).map { |line| JSON.parse(line) } : []
   end
 end

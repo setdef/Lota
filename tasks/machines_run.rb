@@ -42,6 +42,18 @@ class MachinesRun
   GPU_MODES = %w[opengl vulkan].freeze
   GPU_REQUIREMENT = "gpu=radeon"
 
+  # The variables that point git at a repository, as git rev-parse
+  # --local-env-vars lists them. git exports some of them to its hooks,
+  # GIT_DIR among them in a linked worktree, and machines, which reads each
+  # submodule's commit with git -C, would then look for it in the
+  # superproject's repository and refuse the run. machines runs without
+  # them, and finds the repository from the folder it runs in.
+  GIT_REPOSITORY_VARIABLES = %w[
+    GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT GIT_OBJECT_DIRECTORY
+    GIT_DIR GIT_WORK_TREE GIT_IMPLICIT_WORK_TREE GIT_GRAFT_FILE GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS
+    GIT_REPLACE_REF_BASE GIT_PREFIX GIT_SHALLOW_FILE GIT_COMMON_DIR
+  ].freeze
+
   # The last line machines prints.
   RUN_EXIT = /^RUN_EXIT=(\d+)\b/
 
@@ -141,7 +153,8 @@ class MachinesRun
     return Result.new(name: run.name, status: nil, code: nil) unless @program
 
     lines = Lines.new(output, prefix ? "[#{run.name}] " : "", lock)
-    status = Open3.popen2e(*run.argv, chdir:) do |stdin, out, waiter|
+    unset = GIT_REPOSITORY_VARIABLES.to_h { |name| [name, nil] }
+    status = Open3.popen2e(unset, *run.argv, chdir:) do |stdin, out, waiter|
       stdin.close
       out.binmode.each_line { |line| lines << line }
       waiter.value

@@ -8,6 +8,7 @@
 require_relative "tree_helper"
 require_relative "fake_machines"
 require_relative "../../tasks/machines_run"
+require "open3"
 require "shellwords"
 require "stringio"
 
@@ -106,6 +107,29 @@ class MachinesRunTest < Minitest::Test
     assert_includes out, "[windows] hello from windows\n"
     assert_includes out, "[linux] RUN_EXIT=0 id=fake-linux"
     assert(out.each_line.all? { |line| line.start_with?("[linux] ", "[windows] ") }, out)
+  end
+
+  # git exports the repository's variables to its hooks: in a linked
+  # worktree, GIT_DIR names the worktree's git folder, and machines, which
+  # reads each submodule's commit with git -C, then looked for it in the
+  # superproject's and refused the run.
+  def test_machines_runs_without_the_repository_variables_git_gives_a_hook
+    hook = MachinesRun::GIT_REPOSITORY_VARIABLES.to_h { |name| [name, "/from/the/hook"] }
+    saved = hook.keys.to_h { |name| [name, ENV.fetch(name, nil)] }
+    ENV.update(hook)
+    results, = run_all({}, [machines.linux_prepush(old: OLD, new: NEW), machines.windows_prepush(new: NEW)])
+
+    assert_equal [true, true], results.map(&:passed?)
+    assert_equal [{}, {}], machines_git_env(@bin)
+  ensure
+    saved&.each { |name, value| ENV[name] = value }
+  end
+
+  def test_the_variables_are_those_git_names_for_a_repository
+    names, status = Open3.capture2("git", "rev-parse", "--local-env-vars")
+
+    assert_predicate status, :success?
+    assert_empty names.split - MachinesRun::GIT_REPOSITORY_VARIABLES
   end
 
   def test_the_commands_failure_is_its_run_exit_code
