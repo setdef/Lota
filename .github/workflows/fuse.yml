@@ -188,21 +188,26 @@ jobs:
           DISPLAY=:99 openbox &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
-      # The Ruby mise.toml pins, and on Windows RubyInstaller's rolling head
-      # build, since RubyInstaller publishes no Ruby 4.1 preview (ADR 013).
-      # A game whose gems are pure Ruby needs no MSYS2 on Windows, as the
-      # README says of a released RubyInstaller; one with a gem to compile,
-      # or another repository's, gets the toolchain setup-ruby installs,
-      # which RubyInstaller in Fledge's runtime finds through MSYS2_PATH, as
-      # Fledge's own CI points it there. The head build loads its own zlib,
-      # OpenSSL, libffi, and libyaml from MSYS2, so on Windows every game
-      # gets the toolchain until RubyInstaller releases Ruby 4.1, and
-      # setup-ruby installs no Bundler, whose gem install would need zlib.
+      # The Ruby mise.toml pins, and on Windows the head build
+      # windows_ruby.env pins, since RubyInstaller publishes no Ruby 4.1
+      # preview (ADR 013). A game whose gems are pure Ruby needs no MSYS2
+      # on Windows, as the README says of a released RubyInstaller; one
+      # with a gem to compile, or another repository's, gets the toolchain
+      # setup-ruby installs, which RubyInstaller in Fledge's runtime finds
+      # through MSYS2_PATH, as Fledge's own CI points it there. The head
+      # build loads the zlib1.dll it does not carry from MSYS2, so on
+      # Windows every game gets the toolchain until RubyInstaller releases
+      # Ruby 4.1, and setup-ruby installs no Bundler, whose gem install
+      # would need zlib before the pinned Ruby is set up.
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: ${{ runner.os == 'Windows' && 'head' || 'default' }}
           windows-toolchain: default
           bundler: ${{ runner.os == 'Windows' && 'none' || 'Gemfile.lock' }}
+      - if: runner.os == 'Windows'
+        uses: ./.github/actions/windows-ruby
+        with:
+          dll_path: ${{ env.RI_DEVKIT }}\${{ runner.arch == 'ARM64' && 'clangarm64' || 'ucrt64' }}\bin
 
       - name: Point RubyInstaller at setup-ruby's MSYS2
         if: runner.os == 'Windows' && matrix.game != 'fuse' && matrix.game != 'fuse_gems'

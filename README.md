@@ -77,7 +77,7 @@ From here, [Images, sound, input, and saving](#images-sound-input-and-saving) bu
 | Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | Released |
 | iPhone, iPad, and Android | none | Experimental, built from source |
 
-- Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1; on Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on its rolling head build. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
+- Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1; on Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on one day's head build of RubyInstaller, the copy [Fledge](https://github.com/setdef/Fledge)'s release keeps, which `.github/windows_ruby.env` names. Use that build: another day's head build can have another ABI, and need not load Lota's gem. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
 - On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so those checks happen on a PC instead: a game has been played on a Windows PC, and Lövetest passes on an NVIDIA RTX 4090 with both Vulkan and OpenGL.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
@@ -261,7 +261,7 @@ The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the g
 To fuse a game, you need:
 
 - Lota's gem for your platform, installed from the release as above. `lota fuse` puts that very gem file in the app, unless your game's `vendor/cache` holds it.
-- Ruby 4.1, as above. The app carries Fledge's own copy of Ruby 4.1, not yours. On Windows, [RubyInstaller](https://rubyinstaller.org/)'s head build for x64 or ARM64 loads its own libraries, such as zlib and OpenSSL, from MSYS2, so until RubyInstaller releases Ruby 4.1 you need its MSYS2 tools (`ridk install`) to fuse any game; with a released RubyInstaller, they are needed only for a gem that compiles (below).
+- Ruby 4.1, as above. The app carries Fledge's own copy of Ruby 4.1, not yours. On Windows, [RubyInstaller](https://rubyinstaller.org/)'s head build for x64 or ARM64 loads zlib from MSYS2, so until RubyInstaller releases Ruby 4.1 you need its MSYS2 tools (`ridk install`) to fuse any game; with a released RubyInstaller, they are needed only for a gem that compiles (below).
 - Git, and the network: Fledge is not on RubyGems.org, so Bundler fetches it from GitHub, and Fledge downloads its runtime for your platform the first time. On Windows, install [Git for Windows](https://git-scm.com/download/win); on a Mac, `xcode-select --install` installs Git. Fledge carries what it builds installers with, NSIS among them.
 
 The options:
