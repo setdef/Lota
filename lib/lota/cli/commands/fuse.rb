@@ -5,7 +5,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-require_relative "../../fuse"
+# Not require_relative "../../fuse": RubyGems 4.1's gem build joins a
+# relative path without resolving "..", finds no such file in the gem,
+# and warns that it loads a compiled extension
+# (Gem::SpecificationPolicy#validate_extension_require_relative).
+require "lota/fuse"
 
 module Lota
   module CLI
