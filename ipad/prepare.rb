@@ -15,10 +15,10 @@
 # copied into game/NAME and an entry script, main.rb, that boots it
 # fused. With a program named, the project is the game folder itself and
 # Fledge runs that program, which boots the game as it likes. Either way
-# the kit adds Lota (KIT_LOTA_GEM, a path gem) and Fledge (KIT_FLEDGE_REF)
-# to a Gemfile of its own, and, in .lota-ios/, the iOS host Lota's gem
-# carries (ext/lota/phone/host/ios), with the kit's settings in it, and
-# the app's icon.
+# the kit adds Lota (KIT_LOTA_GEM, a path gem) and the Fledge lota fuse
+# builds with (Lota::Fuse.fledge_ref) to a Gemfile of its own, and, in
+# .lota-ios/, the iOS host Lota's gem carries (ext/lota/phone/host/ios),
+# with the kit's settings in it, and the app's icon.
 #
 #   ruby prepare.rb layout          # settings from the KIT_ variables below
 #   ruby prepare.rb finish PROJECT  # README.txt, the results file, BUILD-INFO.txt
@@ -28,6 +28,7 @@ require "fileutils"
 require "json"
 require "yaml"
 require_relative "icon"
+require_relative "../lib/lota/fuse"
 
 module KitPrepare
   HERE = __dir__
@@ -271,7 +272,7 @@ module KitPrepare
     end
 
     lota_gem = env("KIT_LOTA_GEM")
-    fledge_ref = env("KIT_FLEDGE_REF", "v0.10.0")
+    fledge_ref = Lota::Fuse.fledge_ref(ENV)
     File.write(File.join(project, "Gemfile"), <<~RUBY)
       # frozen_string_literal: true
 
@@ -280,7 +281,7 @@ module KitPrepare
       source "https://rubygems.org"
 
       gem "lota", path: #{lota_gem.inspect}
-      gem "fledge", git: "https://github.com/setdef/Fledge", tag: #{fledge_ref.inspect}, group: :development
+      gem "fledge", git: "https://github.com/setdef/Fledge", ref: #{fledge_ref.inspect}, group: :development
     RUBY
     fledge = {
       "name" => app_name,

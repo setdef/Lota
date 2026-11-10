@@ -46,7 +46,6 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
-  FLEDGE_REF: v0.10.0
   NDK_REVISION: 30.0.16248370
   APP_NAME: PhoneCheck
   APP_IDENTIFIER: com.example.PhoneCheck
@@ -99,6 +98,8 @@ jobs:
           mkdir -p "$project/game"
           cp -R test/games/phone "$project/game/$APP_NAME"
           cp -R tmp/phone/lota/ext/lota/phone/host "$project/host"
+          # The Fledge lota fuse builds with.
+          fledge_ref=$(ruby -Ilib -rlota/fuse -e 'print Lota::Fuse.fledge_ref(ENV)')
           cat > "$project/main.rb" <<'RUBY'
           # frozen_string_literal: true
 
@@ -114,7 +115,7 @@ jobs:
           source "https://rubygems.org"
 
           gem "lota", path: "$GITHUB_WORKSPACE/tmp/phone/lota"
-          gem "fledge", git: "https://github.com/setdef/Fledge", tag: "$FLEDGE_REF", group: :development
+          gem "fledge", git: "https://github.com/setdef/Fledge", ref: "$fledge_ref", group: :development
           RUBY
           cat > "$project/fledge.yml" <<YAML
           name: $APP_NAME
