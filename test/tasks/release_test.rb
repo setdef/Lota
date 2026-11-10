@@ -60,9 +60,16 @@ class ReleaseTest < Minitest::Test
 
   DATE = Date.new(2026, 11, 3)
 
-  # A repository on +branch+ with the three files committed.
-  def repository(root, branch: "trunk", changelog: CHANGELOG)
-    write(root, "lib/lota/version.rb", VERSION_RB)
+  # A mise.toml that pins +ruby+, as Lota's own pins the Ruby CI runs.
+  def mise(ruby)
+    %([tools]\nruby = "#{ruby}"\nrust = "1.99.1"\n)
+  end
+
+  # A repository on +branch+ with the three files it edits, and the
+  # mise.toml that pins Ruby, committed.
+  def repository(root, branch: "trunk", changelog: CHANGELOG, ruby: "4.1.0", version: "0.0.0")
+    write(root, "lib/lota/version.rb", VERSION_RB.sub("0.0.0", version))
+    write(root, "mise.toml", mise(ruby))
     write(root, "CHANGELOG.md", changelog)
     write(root, "Gemfile.lock", LOCKFILE)
     run!(root, "git", "init", "--quiet", "--initial-branch=#{branch}")
@@ -187,6 +194,41 @@ class ReleaseTest < Minitest::Test
 
       assert_equal ["lib/lota/version.rb"], Dir.glob("**/*", base: out).select { |path| File.file?(File.join(out, path)) }
       assert_equal VERSION_RB, File.read(File.join(out, "lib/lota/version.rb"))
+    end
+  end
+
+  # ADR 013: Lota 1.0.0 ships only on a released Ruby, so no 1.0 or later
+  # is prepared or tagged while mise.toml pins a preview; a version below
+  # 1.0 still is, and 1.0 is once the pin is a release.
+  def test_prepare_refuses_one_point_oh_or_later_only_while_the_pinned_ruby_is_a_preview
+    in_tree do |root|
+      repository(root, ruby: "4.1.0-preview1")
+
+      %w[1.0.0 2.0.0].each do |number|
+        error = assert_raises(Release::Refusal) { Release.new(root:).prepare(number, date: DATE) }
+        assert_equal "#{number} would ship on Ruby 4.1.0-preview1, which mise.toml pins and which is not a release " \
+          "(ADR 013); pin a released Ruby first", error.message
+      end
+      assert_includes File.read(File.join(root, "lib/lota/version.rb")), %(VERSION = "0.0.0")
+      Release.new(root:).prepare("0.12.0", date: DATE)
+
+      assert_equal "0.12.0", Release.new(root:).version
+    end
+    in_tree do |root|
+      repository(root, ruby: "4.1.0")
+      Release.new(root:).prepare("1.0.0", date: DATE)
+
+      assert_equal "1.0.0", Release.new(root:).version
+    end
+  end
+
+  def test_check_refuses_a_one_point_oh_tag_while_the_pinned_ruby_is_a_preview
+    in_tree do |root|
+      repository(root, ruby: "4.1.0-rc1", version: "1.0.0",
+        changelog: "## [Unreleased]\n\n## [1.0.0] - 2026-12-25\n\n- Stable.\n")
+
+      error = assert_raises(Release::Refusal) { Release.new(root:).check("v1.0.0") }
+      assert_match(/1\.0\.0 would ship on Ruby 4\.1\.0-rc1/, error.message)
     end
   end
 
