@@ -49,7 +49,11 @@ class LotaRunTest < Minitest::Test
   # lota_native_test, last on the load path. +environment+ changes the
   # run's environment from this process's.
   def lota_run(*, preload: nil, environment: {})
-    capture2e(environment, RbConfig.ruby, "-w", "-I#{run_load_path}", *(preload && "-r#{preload}"),
+    # Ruby 4.1 runs RUBYOPT's -rbundler/setup only after the command line's
+    # -r (Feature #21951), so a preload that requires a bundled gem sets
+    # Bundler up first.
+    setup = (preload && ENV["BUNDLER_SETUP"]) ? ["-r#{ENV['BUNDLER_SETUP']}"] : []
+    capture2e(environment, RbConfig.ruby, "-w", "-I#{run_load_path}", *setup, *(preload && "-r#{preload}"),
       File.join(ROOT, "exe/lota"), "run", *)
   end
 
