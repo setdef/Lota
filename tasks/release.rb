@@ -53,6 +53,16 @@ class Release
   # The file of checksums each release carries, in sha256sum's format.
   CHECKSUMS = "SHA256SUMS"
 
+  # The file that pins the Ruby CI builds and tests the gems with.
+  TOOLS = "mise.toml"
+
+  # The Ruby pin in TOOLS, in the form ruby/setup-ruby reads.
+  RUBY_PIN = /^\s*ruby\s*=\s*['"]([^'"]+)['"]/
+
+  # The first version that freezes Lota's API, which ships only on a
+  # released Ruby (ADR 013).
+  STABLE = Gem::Version.new("1.0.0")
+
   # [root] The repository.
   # [branch] The branch #prepare runs on.
   def initialize(root:, branch: BRANCH)
@@ -92,6 +102,7 @@ class Release
     raise Refusal, "#{tag} is not a release tag, which is v and MAJOR.MINOR.PATCH" unless tag.start_with?("v") && number.match?(NUMBER)
     raise Refusal, "#{tag} names #{number}, but #{VERSION_FILE} says #{version}; tag the commit bundle exec rake release:prepare[#{number}] made" unless number == version
 
+    check_ruby(number)
     notes(number)
     number
   end
@@ -162,9 +173,22 @@ class Release
 
   private def check_number(number)
     raise Refusal, "#{number} is not a version, which is MAJOR.MINOR.PATCH" unless number.match?(NUMBER)
-    return if Gem::Version.new(number) > Gem::Version.new(version)
+    raise Refusal, "#{number} is not newer than #{version}, the version #{VERSION_FILE} gives" unless Gem::Version.new(number) > Gem::Version.new(version)
 
-    raise Refusal, "#{number} is not newer than #{version}, the version #{VERSION_FILE} gives"
+    check_ruby(number)
+  end
+
+  # Refuses +number+ if it is 1.0.0 or later and TOOLS pins a Ruby that is
+  # not a release, such as a preview or a release candidate.
+  private def check_ruby(number)
+    return if Gem::Version.new(number) < STABLE
+
+    ruby = read(TOOLS)[RUBY_PIN, 1]
+    raise Refusal, "#{TOOLS} pins no Ruby" unless ruby
+    return unless Gem::Version.new(ruby).prerelease?
+
+    raise Refusal, "#{number} would ship on Ruby #{ruby}, which #{TOOLS} pins and which is not a release (ADR 013); " \
+      "pin a released Ruby first"
   end
 
   private def prepared_changelog(number, date)

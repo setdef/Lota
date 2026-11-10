@@ -27,6 +27,8 @@ An entry is easy to write without the mark, so `rake release:next` checks for it
 
 A method counts as changed when one of its old overloads has no new overload that takes every call the old one took and returns nothing it did not promise. A wider parameter, a new optional parameter, or a narrower return keeps it; so does a type alias or a subclass that covers the old type. Anything else counts as changed, so the check errs toward asking. Answer a refusal by adding the **Breaking:** entry, or by restoring the API, or its signature, if the change was not meant to break anything.
 
+Lota 1.0.0 freezes its API, and ships only on a released Ruby, never a preview or a release candidate ([ADR 013](adr/013.md)). So while `mise.toml` pins a Ruby that is not a release, such as `4.1.0-preview1`, `release:prepare` and the release job refuse 1.0.0 and every version after it.
+
 ## The automatic release
 
 When a full CI run passes on a push to trunk, its `prepare-release` job looks for a release to cut ([ci.md](ci.md)):
@@ -50,7 +52,7 @@ bundle exec rake release:next
 bundle exec rake release:prepare[0.3.2]
 ```
 
-`release:next` prints the version it would cut, and refuses an API break with no **Breaking:** entry. `release:prepare` refuses a tree with changes of its own, a branch other than trunk, a version that is not newer, and an empty `[Unreleased]`. Otherwise it makes three edits and nothing else:
+`release:next` prints the version it would cut, and refuses an API break with no **Breaking:** entry. `release:prepare` refuses a tree with changes of its own, a branch other than trunk, a version that is not newer, 1.0.0 or later on a Ruby that is not a release, and an empty `[Unreleased]`. Otherwise it makes three edits and nothing else:
 
 - In CHANGELOG.md, `[Unreleased]`'s changes move under `## [0.3.2] - YYYY-MM-DD`, dated today, with a fresh, empty `## [Unreleased]` above. Released sections are never edited again.
 - `Lota::VERSION` in lib/lota/version.rb becomes `"0.3.2"`.
@@ -84,12 +86,13 @@ The tag is annotated and unsigned, since no signing key is configured here. Once
 
 A tag matching `v[0-9]*`, or a run with `release_tag`, runs the whole of `.github/workflows/ci.yml` on its commit. Each platform's gate builds a gem and records its SHA-256, and its delivery job checks that SHA-256, installs the gem into an empty `GEM_HOME`, runs Lövetest from it, checks the SHA-256 again, and uploads the gem it verified.
 
-Windows works the same way with less. Its build job builds the engine with MinGW, runs the Windows checks, builds the gem, and then runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest, but it does not run the gate. Its delivery job installs the gem on a runner without MSYS2 and runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. So CI proves that a Windows gem installs, loads only its own DLLs and Windows', runs a game, and draws as LÖVE does on a software renderer. Only a Windows PC proves that it draws on a GPU, takes real input, and plays through a real audio device.
+Windows works the same way with less. Its build job builds the engine with MinGW, runs the Windows checks, builds the gem, and then runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest, but it does not run the gate. Its delivery job installs the gem on a runner with only the MSYS2 that RubyInstaller's head build loads its own libraries from ([windows.md](windows.md)) and runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. So CI proves that a Windows gem installs, loads only its own DLLs and Windows', runs a game, and draws as LÖVE does on a software renderer. Only a Windows PC proves that it draws on a GPU, takes real input, and plays through a real audio device.
 
 The same run checks the phone route, the iOS kit, and `lota fuse` on every platform, with the gems the run built. The release job then runs only if every one of those jobs passed. It refuses, before tagging or publishing anything, when:
 
 - the commit is not on trunk,
 - the tag is not `v` and the version lib/lota/version.rb gives,
+- the version is 1.0.0 or later and `mise.toml` pins a Ruby that is not a release,
 - CHANGELOG.md has no dated section for that version, or the section is empty,
 - the tag already points at another commit,
 - there is not exactly one verified gem for each platform, or a gem's name, specification, or SHA-256 disagrees with the one its delivery job verified.
