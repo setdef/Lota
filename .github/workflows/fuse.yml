@@ -188,15 +188,21 @@ jobs:
           DISPLAY=:99 openbox &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
+      # The Ruby mise.toml pins, and on Windows RubyInstaller's rolling head
+      # build, since RubyInstaller publishes no Ruby 4.1 preview (ADR 013).
       # A game whose gems are pure Ruby needs no MSYS2 on Windows, as the
-      # README says; one with a gem to compile, or another repository's,
-      # gets the toolchain setup-ruby installs, which RubyInstaller in
-      # Fledge's runtime finds through MSYS2_PATH, as Fledge's own CI
-      # points it there.
+      # README says of a released RubyInstaller; one with a gem to compile,
+      # or another repository's, gets the toolchain setup-ruby installs,
+      # which RubyInstaller in Fledge's runtime finds through MSYS2_PATH, as
+      # Fledge's own CI points it there. The head build loads its own zlib,
+      # OpenSSL, libffi, and libyaml from MSYS2, so on Windows every game
+      # gets the toolchain until RubyInstaller releases Ruby 4.1, and
+      # setup-ruby installs no Bundler, whose gem install would need zlib.
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
-          ruby-version: "4.0"
-          windows-toolchain: ${{ (matrix.game == 'fuse' || matrix.game == 'fuse_gems') && 'none' || 'default' }}
+          ruby-version: ${{ runner.os == 'Windows' && 'head' || 'default' }}
+          windows-toolchain: default
+          bundler: ${{ runner.os == 'Windows' && 'none' || 'Gemfile.lock' }}
 
       - name: Point RubyInstaller at setup-ruby's MSYS2
         if: runner.os == 'Windows' && matrix.game != 'fuse' && matrix.game != 'fuse_gems'
@@ -493,7 +499,7 @@ jobs:
     name: Fuse fuse_native with no compiler (x86_64-linux-gnu)
     if: ${{ !inputs.game_repository }}
     runs-on: ubuntu-24.04
-    container: ruby:4.0-slim@sha256:22cfdec4c490b9e7e4913527a126ddc34bf30cf5432711f70eb1aa4b3ac388a5
+    container: ruby:4.1.0-preview1-slim@sha256:e5448d250d0a31bbda78542151dd606c7f8c4e9be5a6eeb075eb69d5ed25ea7e
     timeout-minutes: 15
     env:
       GAME: test/games/fuse_native

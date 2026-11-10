@@ -101,7 +101,7 @@ class NativeGemTest < Minitest::Test
 
     assert_equal Gem::Platform.new(platform), spec.platform
     assert_equal "lota-#{spec.version}-#{platform}.gem", spec.file_name
-    assert_equal Gem::Requirement.new(">= 4.0.1", "< 4.1.dev"), spec.required_ruby_version
+    assert_equal Gem::Requirement.new(">= 4.1.0.a", "< 4.2.dev"), spec.required_ruby_version
     assert spec.platform =~ Gem::Platform.local
     refute spec.platform =~ Gem::Platform.new("#{RbConfig::CONFIG['host_cpu']}-linux-musl") if LINUX
   end

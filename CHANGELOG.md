@@ -42,6 +42,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **Breaking:** Requires Ruby 4.1 (preview or later); Ruby 4.0 is no longer supported. Each precompiled gem accepts Ruby 4.1's previews and releases, and the Windows gems are built on RubyInstaller's head build, since RubyInstaller publishes no 4.1 preview.
 - The Windows gems carry SDL as `SDL3.dll` beside `OpenAL32.dll`, as LÖVE's Windows build ships it, where they linked it into the extension, and load it from the gem's own directory.
 - Every `Lota::Data`, such as a `ByteData`, `FileData`, `ImageData`, or `SoundData`, is frozen, and Ractors can share it: `Ractor.shareable?(data)` is true.
 - `Lota::Timer.sleep` lets Ruby's other threads, and its garbage collector, run while it sleeps.

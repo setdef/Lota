@@ -16,12 +16,12 @@ ruby_build_opts = "--enable-yjit --enable-zjit"
 # ruby-build sees no Rust from mise. It is set here, under a quoted key,
 # rather than as a table in [tools], because ruby/setup-ruby, which reads
 # CI's Ruby version from this file, takes the first line of the form
-# ruby = "4.0.7" anywhere in it, and nothing else.
+# ruby = "4.1.0-preview1" anywhere in it, and nothing else.
 [tool_alias]
 "ruby" = "core:ruby[depends=rust]"
 
 [tools]
-ruby = "4.0.7"
+ruby = "4.1.0-preview1"
 rust = { version = "1.99.1", profile = "minimal" }
 python = "3.12"
 pre-commit = "latest"

@@ -17,7 +17,7 @@ Gem::Specification.new do |spec|
   spec.description = File.read(File.expand_path("README.rdoc", __dir__))
   spec.homepage = "https://github.com/setdef/lota"
   spec.license = "AGPL-3.0-or-later"
-  spec.required_ruby_version = ">= 4.0.1"
+  spec.required_ruby_version = ">= 4.1.0.a"
   spec.required_rubygems_version = ">= 3.3.11"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"

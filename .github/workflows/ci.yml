@@ -706,10 +706,12 @@ jobs:
 
   # The Windows gem the build job built, on a runner that never built it,
   # as the macOS and Linux delivery jobs do: RubyInstaller's Ruby and the
-  # repository's tasks, without MSYS2, the dependencies, or the engine,
-  # and with a PATH of only Ruby, Windows, Windows PowerShell, which the
-  # guard asks for the modules a run loaded, and Git, with which the check
-  # lists the repository's files. It installs the gem into an empty
+  # repository's tasks, without the dependencies or the engine, with only
+  # the MSYS2 setup-ruby installs, from which RubyInstaller's head build
+  # loads its own extensions' DLLs, and with a PATH of only Ruby, Windows,
+  # Windows PowerShell, which the guard asks for the modules a run
+  # loaded, and Git, with which the check lists the repository's files.
+  # It installs the gem into an empty
   # GEM_HOME and runs lota from it (tasks/package_check.rb): lota
   # --version, every Ruby file loaded from the installed gem, and a game
   # that opens no window and plays a sound through the gem's OpenAL32.dll
@@ -735,8 +737,11 @@ jobs:
 
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
-          ruby-version: "4.0"
-          windows-toolchain: none
+          ruby-version: head
+          # RubyInstaller's head build loads its zlib, OpenSSL, libffi, and
+          # libyaml from MSYS2, which setup-ruby's toolchain provides.
+          windows-toolchain: default
+          bundler: none
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:

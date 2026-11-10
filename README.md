@@ -20,7 +20,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 ### Compared with other ways to make a game in Ruby
 
 - **[Gosu](https://www.libgosu.org/)** and **[Ruby2D](https://www.ruby2d.com/)** are Ruby gems with APIs of their own. Lota uses LÖVE's API, so LÖVE's wiki, tutorials, and example games apply once you translate the calls.
-- **[DragonRuby Game Toolkit](https://dragonruby.org/)** has free and paid tiers, ships its own Ruby runtime, and exports games to the web, desktops, and (on its Pro tier) phones. Lota runs on the Ruby 4.0 you install, with your usual gems. Its gems are for desktops; a phone build is experimental, and compiles from source.
+- **[DragonRuby Game Toolkit](https://dragonruby.org/)** has free and paid tiers, ships its own Ruby runtime, and exports games to the web, desktops, and (on its Pro tier) phones. Lota runs on the Ruby 4.1 you install, with your usual gems. Its gems are for desktops; a phone build is experimental, and compiles from source.
 - **[LÖVE](https://love2d.org)** itself runs games written in Lua. Lota runs the same engine with Ruby in place of Lua.
 
 ## A first game
@@ -77,7 +77,7 @@ From here, [Images, sound, input, and saving](#images-sound-input-and-saving) bu
 | Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | Released |
 | iPhone, iPad, and Android | none | Experimental, built from source |
 
-- Lota needs Ruby 4.0 (4.0.1 or newer).
+- Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1; on Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on its rolling head build. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
 - On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so those checks happen on a PC instead: a game has been played on a Windows PC, and Lövetest passes on an NVIDIA RTX 4090 with both Vulkan and OpenGL.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
@@ -261,7 +261,7 @@ The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the g
 To fuse a game, you need:
 
 - Lota's gem for your platform, installed from the release as above. `lota fuse` puts that very gem file in the app, unless your game's `vendor/cache` holds it.
-- Ruby 4.0, which the app gets a copy of: on Windows, [RubyInstaller](https://rubyinstaller.org/)'s Ruby 4.0 for x64 or ARM64. Its MSYS2 tools are needed only for a gem that compiles (below).
+- Ruby 4.1, as above. The app carries Fledge's own copy of Ruby 4.1, not yours. On Windows, [RubyInstaller](https://rubyinstaller.org/)'s head build for x64 or ARM64 loads its own libraries, such as zlib and OpenSSL, from MSYS2, so until RubyInstaller releases Ruby 4.1 you need its MSYS2 tools (`ridk install`) to fuse any game; with a released RubyInstaller, they are needed only for a gem that compiles (below).
 - Git, and the network: Fledge is not on RubyGems.org, so Bundler fetches it from GitHub, and Fledge downloads its runtime for your platform the first time. On Windows, install [Git for Windows](https://git-scm.com/download/win); on a Mac, `xcode-select --install` installs Git. Fledge carries what it builds installers with, NSIS among them.
 
 The options:

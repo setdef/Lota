@@ -103,11 +103,17 @@ jobs:
         shell: pwsh
         run: git submodule update --init --depth 1 vendor/love
 
-      # RubyInstaller's Ruby, built with MinGW against the UCRT.
+      # RubyInstaller's Ruby, built with MinGW against the UCRT. RubyInstaller
+      # publishes no Ruby 4.1 preview, so this is its rolling head build,
+      # which setup-ruby downloads from one URL and cannot pin (ADR 013).
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
-          ruby-version: "4.0"
+          ruby-version: head
           windows-toolchain: none
+          # RubyInstaller's head build loads its zlib, OpenSSL, libffi,
+          # and libyaml from MSYS2, which is set up below, so setup-ruby
+          # installs no Bundler, whose gem install would need zlib.
+          bundler: none
 
       # The toolchain alone: every library LÖVE links is built from source.
       # setup-msys2 caches the packages it installs, but downloads MSYS2's
@@ -127,7 +133,7 @@ jobs:
           path-type: inherit
           update: true
           install: patch make pacman-contrib
-          pacboy: ${{ inputs.compiler }} cmake:p ninja:p ccache:p ${{ inputs.mesa }}
+          pacboy: ${{ inputs.compiler }} cmake:p ninja:p ccache:p libyaml:p openssl:p libffi:p ${{ inputs.mesa }}
       - name: Wait before setting MSYS2 up again
         if: steps.msys2.outcome == 'failure'
         shell: pwsh
@@ -137,6 +143,17 @@ jobs:
       - if: steps.msys2.outcome == 'failure'
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with: *msys2
+
+      # RubyInstaller::Runtime finds MSYS2 through MSYS2_PATH, and adds the
+      # directories RUBY_DLL_PATH names before any other to where Windows
+      # looks for DLLs, so the head build's own extensions load from
+      # setup-msys2's MINGW bin directory.
+      - name: Point RubyInstaller at setup-msys2's MSYS2
+        shell: pwsh
+        run: |
+          "MSYS2_PATH=$env:RUNNER_TEMP\msys64" >> $env:GITHUB_ENV
+          $bin = Join-Path $env:RUNNER_TEMP "msys64\$("${{ inputs.msystem }}".ToLower())\bin"
+          "RUBY_DLL_PATH=$bin" >> $env:GITHUB_ENV
 
       # The REUSE tool, at the version mise.toml pins, which checks the
       # gem's licensing as it is built (tasks/native_gem.rb), into the

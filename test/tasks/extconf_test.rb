@@ -86,7 +86,7 @@ class ExtconfTest < Minitest::Test
 
       refute status.success?
       assert_includes output, "Lota builds LÖVE's engine from vendor/love, which is missing from #{root}."
-      assert_includes output, "4.0 on Apple Silicon macOS (platform arm64-darwin) and on Linux with\nglibc on x86_64 or arm64 (x86_64-linux-gnu, aarch64-linux-gnu)"
+      assert_includes output, "4.1 on Apple Silicon macOS (platform arm64-darwin) and on Linux with\nglibc on x86_64 or arm64 (x86_64-linux-gnu, aarch64-linux-gnu)"
       assert_includes output, "git submodule update --init"
       refute_path_exists File.join(root, "Makefile")
     end

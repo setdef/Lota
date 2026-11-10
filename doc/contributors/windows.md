@@ -7,6 +7,8 @@
 
 Lota ships gems for Windows on x64 and ARM64, for RubyInstaller's Ruby. That Ruby is built with MinGW, and a native extension has to match it, so Lota builds LÖVE's engine and its libraries with MinGW too, where LÖVE's own Windows build uses Microsoft's compiler ([ADR 011](adr/011.md); [packaging.md](design/packaging.md)). This page says how CI builds and tests those gems, and what its tests cannot reach.
 
+RubyInstaller publishes no Ruby 4.1 preview, so until it releases Ruby 4.1, CI takes its rolling head build, which setup-ruby downloads from one URL and cannot pin ([ADR 013](adr/013.md)). That build carries only a few of the DLLs its own extensions load, such as zlib's and OpenSSL's, and loads the rest from MSYS2's MINGW `bin` folder, which RubyInstaller's runtime adds to where Windows looks for DLLs when `RUBY_DLL_PATH` names it. So every Windows job has MSYS2 before Ruby runs, and setup-ruby installs no Bundler, whose `gem install` would need zlib before then.
+
 ## Why the gate does not run on Windows
 
 The gate's Bundler would compile gems that RubyInstaller's Ruby has no build of, and its lint, type, and package checks read the same sources on macOS and Linux. So Windows has a workflow of its own, `.github/workflows/windows.yml`, which builds and tests without the gate's Rake tasks; `ci.yml` calls it for both platforms, and the pre-push tier on trunk (`prepush.yml`) for x64. `.github/windows_checks.rb` holds its checks, and its steps are the recipe for a Windows build by hand.
@@ -32,7 +34,7 @@ The **Windows build** job runs once for x64 and once for ARM64:
 
 ## The Windows delivery job
 
-Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner without MSYS2, with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
+Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner with only the MSYS2 setup-ruby installs, which the head build's own extensions load from, and with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
 
 ## Before a push, on a Windows build machine
 
