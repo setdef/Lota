@@ -38,7 +38,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- `Lota::Filesystem::FileData.new(contents, name)` is gone, replaced by `Lota::Filesystem.new_file_data(contents, name)`, which returns `[file_data]`: `newFileData` can return `nil` and a message, so rule 17 makes it a module function.
+- **Breaking:** `Lota::Filesystem::FileData.new(contents, name)` is gone, replaced by `Lota::Filesystem.new_file_data(contents, name)`, which returns `[file_data]`: `newFileData` can return `nil` and a message, so rule 17 makes it a module function.
 
 ### Changed
 
