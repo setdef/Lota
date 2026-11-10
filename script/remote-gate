@@ -1,0 +1,341 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Usage: script/remote-gate prepush OLD NEW
+#        script/remote-gate full [RAKE_ARGS...]
+#
+# Runs Lota's checks on a Linux computer as CI's Linux gate does, with
+# displays of the run's own. prepush runs rake prepush, then rake
+# red_before_green over OLD..NEW, as the pre-push hook does; full runs
+# bundle exec rake, the gate, or the rake tasks RAKE_ARGS names. It exits
+# with the checks' status.
+#
+# machines run linux runs it in a workspace of its own (tasks/machines_run.rb,
+# LOTA_PREPUSH=machines and rake gate:remote), whose MACHINES_CACHE holds
+# the bundle, ccache's cache and the downloaded sources for every run of the
+# project on that computer, and whose MACHINES_TMP is the run's own. Run by
+# hand from a checkout, it keeps them in ~/.cache/lota and a folder of its
+# own instead, and leaves BUNDLE_PATH and CCACHE_DIR alone when they are set.
+#
+# LOTA_GATE_GPU chooses where the displays draw:
+#   off     Xvfb, drawn by Mesa's llvmpipe, as on CI's runner; Vulkan hidden.
+#   opengl  the GPU at /dev/dri/renderD128: for each display a weston of its
+#           own, whose headless backend renders on it (no seat, no login, no
+#           output on a screen), and in it a rootful Xwayland as the X
+#           display; Vulkan hidden, so LÖVE takes the GPU's OpenGL.
+#   vulkan  the same, with Vulkan visible, so LÖVE takes the GPU's Vulkan.
+# Openbox manages each display's windows either way. A GPU mode that
+# cannot start says why and falls back to Xvfb. Each display is the first
+# free one from :300 up, clear of a desktop's and of xvfb-run's, and an X
+# server holds its number by its lock, so runs at once never share one.
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 70
+root=$PWD
+
+usage() {
+  echo "usage: script/remote-gate prepush OLD NEW | full [RAKE_ARGS...]" >&2
+  exit 64
+}
+mode=${1:-}
+[ $# -gt 0 ] && shift
+case "$mode" in
+  prepush) [ $# -eq 2 ] || usage ;;
+  full) ;;
+  *) usage ;;
+esac
+
+started=$(date +%s)
+say() { echo "remote-gate: $* ($(($(date +%s) - started))s)"; }
+
+# Every process the run starts, which it ends however it ends.
+pids=()
+own_tmp=
+# shellcheck disable=SC2329 # the EXIT trap calls it
+cleanup() {
+  local p
+  for p in "${pids[@]}"; do kill "$p" 2>/dev/null; done
+  wait 2>/dev/null
+  [ -n "$own_tmp" ] && rm -rf "$own_tmp"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Runs "$@" in the background and waits for it, so a signal to the script
+# ends the run at once rather than after the command.
+run() {
+  "$@" &
+  local pid=$!
+  pids+=("$pid")
+  wait "$pid"
+}
+
+# What a server started here is tied to: it gets TERM when this script dies,
+# even of SIGKILL, where setpriv can say so.
+pdeath=()
+command -v setpriv >/dev/null && pdeath=(setpriv --pdeathsig TERM)
+
+# The tools mise.toml pins.
+export PATH="$HOME/.local/bin:$PATH" MISE_YES=1
+if command -v mise >/dev/null; then
+  mise trust "$root" >/dev/null 2>&1 || true
+  mise install >/dev/null || exit 70
+  eval "$(mise env -s bash)"
+  ruby_home=$(mise where ruby 2>/dev/null) && export PATH="$ruby_home/bin:$PATH"
+fi
+
+# The project's cache, shared by its runs on this computer, and the run's
+# own temporary folder.
+cache=${MACHINES_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/lota}
+mkdir -p "$cache" || exit 70
+if [ -n "${MACHINES_TMP:-}" ]; then
+  tmp=$MACHINES_TMP
+else
+  own_tmp=$(mktemp -d "${TMPDIR:-/tmp}/lota-remote-gate.XXXXXX") || exit 70
+  tmp=$own_tmp
+fi
+export TMPDIR=$tmp
+export BUNDLE_PATH=${BUNDLE_PATH:-$cache/bundle} BUNDLE_FROZEN=true
+export CCACHE_DIR=${CCACHE_DIR:-$cache/ccache} CCACHE_BASEDIR=$root CCACHE_MAXSIZE=${CCACHE_MAXSIZE:-8G}
+export CCACHE_STATSLOG=$tmp/ccache-stats.log
+export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+# GCC with CI's warnings (script/compilers/gcc). ccache checks the wrapper by
+# its content and the compiler's version, since each workspace's copy has a
+# time of its own.
+if [ -z "${CC:-}" ] && command -v gcc >/dev/null; then
+  export CC=$root/script/compilers/gcc CXX=$root/script/compilers/g++
+  export CCACHE_COMPILERCHECK="%compiler% -dumpfullversion;cat %compiler%"
+fi
+# Mesa's llvmpipe after 24.0.5 reads the wrong uniform array and matrix
+# elements in its linear rasterizer (stock LÖVE fails the same way).
+export LP_PERF=no_rast_linear
+export LOTA_PARITY_CACHE=0
+# desktop_input_lock speaks and shows banners outside CI; nothing may play
+# from a build machine. Its lock is the run's, as its displays are.
+export DESKTOP_INPUT_QUIET=1 DESKTOP_INPUT_LOCK=$tmp/desktop-input.lock
+# The displays below are the run's; nothing reaches a desktop's.
+unset WAYLAND_DISPLAY PULSE_SERVER
+export LOTA_GATE_GPU=${LOTA_GATE_GPU:-off}
+
+say "on $(uname -n), $(nproc) threads, load $(cut -d' ' -f1-3 /proc/loadavg)"
+
+# A checkout of a commit that machines run made: anything a run before this
+# one left untracked goes; ignored files (tmp/, vendor/) stay warm.
+if [ -n "${MACHINES_TMP:-}" ] && [ -e .git ]; then
+  git clean -fdq
+fi
+
+# One bundle install at a time where the bundle is shared.
+if [ -n "${MACHINES_CACHE:-}" ]; then
+  (flock 8 && bundle install --quiet) 8>"$cache/bundle.lock" || exit 72
+else
+  bundle install --quiet || exit 72
+fi
+
+# The downloads rake sources:fetch makes. Under machines run they are
+# shared: fetched into the cache, one run at a time, then linked into the
+# workspace file by file, so a fetch another run makes later cannot change
+# what this run builds from.
+if [ -n "${MACHINES_CACHE:-}" ]; then
+  mkdir -p "$cache/sources"
+  (
+    flock 8 || exit 1
+    rm -rf vendor/sources && ln -s "$cache/sources" vendor/sources || exit 1
+    bundle exec rake sources:fetch >/dev/null
+    status=$?
+    rm vendor/sources && cp -al "$cache/sources" vendor/sources || exit 1
+    exit "$status"
+  ) 8>"$cache/sources.lock" || exit 73
+else
+  bundle exec rake sources:fetch >/dev/null || exit 73
+fi
+say "the bundle and the sources are ready"
+
+# Displays: four, in tasks/gate.rake's lane order, the last the parity
+# harness's.
+displays=()
+servers=()
+next_display=300
+
+# Waits for server +i+ to say, on the file +ready+, that it takes
+# connections; returns 1 if it dies first, as it does when another server
+# holds its display, or takes more than ten seconds.
+await_display() {
+  local i=$1 ready=$2 n
+  for _ in $(seq 100); do
+    read -r n <"$ready" 2>/dev/null
+    [ -n "${n:-}" ] && return 0
+    kill -0 "${servers[$i]}" 2>/dev/null || return 1
+    sleep 0.1
+  done
+  return 1
+}
+
+# Starts an X server, "$@" without its display, as display +i+, on the
+# first display from next_display up that no other server holds; returns 1
+# when none up to :399 is free.
+start_server() {
+  local i=$1 n ready
+  shift
+  while [ "$next_display" -lt 400 ]; do
+    n=$next_display
+    next_display=$((n + 1))
+    [ -e "/tmp/.X$n-lock" ] && continue
+    ready=$tmp/display$n
+    : >"$ready"
+    "${pdeath[@]}" "$@" ":$n" -displayfd 5 5>"$ready" >/dev/null 2>&1 &
+    pids+=($!)
+    servers[i]=$!
+    if await_display "$i" "$ready"; then
+      displays[i]=":$n"
+      return 0
+    fi
+  done
+  return 1
+}
+
+stop_servers() {
+  local p
+  for p in "${pids[@]}"; do kill "$p" 2>/dev/null; done
+  wait 2>/dev/null
+  pids=()
+  servers=()
+  displays=()
+}
+
+start_xvfb() {
+  local i
+  for i in 0 1 2 3; do
+    start_server "$i" Xvfb -screen 0 1280x1024x24 -nolisten tcp ||
+      { echo "remote-gate: Xvfb $i did not start" >&2; return 1; }
+  done
+}
+
+# Sets why and returns 1 when any part is missing. weston's 1 kHz refresh
+# keeps vsync from pacing every test to 60 Hz through Xwayland, which made
+# the parity lane half again as slow.
+start_gpu() {
+  local i c gl vk gpu_rt=$tmp/gpu
+  [ -r /dev/dri/renderD128 ] && [ -w /dev/dri/renderD128 ] || { why="no access to /dev/dri/renderD128"; return 1; }
+  for c in weston Xwayland glxinfo; do command -v "$c" >/dev/null || { why="$c is not installed"; return 1; }; done
+  mkdir -m 700 "$gpu_rt" || { why="no runtime folder"; return 1; }
+  printf '[core]\nidle-time=0\nshell=kiosk\n' >"$gpu_rt/weston.ini"
+  for i in 0 1 2 3; do
+    XDG_RUNTIME_DIR=$gpu_rt "${pdeath[@]}" weston --config="$gpu_rt/weston.ini" \
+      --backend=headless --renderer=gl --width=1280 --height=1024 --refresh-rate=1000000 \
+      --socket="w$i" --log="$gpu_rt/weston$i.log" >/dev/null 2>&1 &
+    pids+=($!)
+    for _ in $(seq 50); do [ -S "$gpu_rt/w$i" ] && break; sleep 0.1; done
+    grep -q "Using rendering device: /dev/dri/renderD" "$gpu_rt/weston$i.log" 2>/dev/null ||
+      { why="weston did not render on the GPU: $(tail -n 2 "$gpu_rt/weston$i.log" 2>/dev/null)"; return 1; }
+    start_server "$i" env WAYLAND_DISPLAY="$gpu_rt/w$i" Xwayland -fullscreen -geometry 1280x1024 -nolisten tcp ||
+      { why="Xwayland $i did not start"; return 1; }
+  done
+  gl=$(DISPLAY=${displays[0]} timeout 20 glxinfo -B 2>/dev/null | sed -n 's/^OpenGL renderer string: //p')
+  case "$gl" in "" | *llvmpipe* | *softpipe*) why="OpenGL is not the GPU's (${gl:-none})"; return 1 ;; esac
+  say "GPU displays; OpenGL: $gl"
+  if [ "$LOTA_GATE_GPU" = vulkan ]; then
+    vk=$(DISPLAY=${displays[0]} timeout 20 vulkaninfo --summary 2>/dev/null |
+      sed -n 's/^[[:space:]]*deviceName *= //p' | grep -v -m1 llvmpipe)
+    if [ -n "$vk" ]; then
+      say "Vulkan: $vk"
+    else
+      say "no Vulkan GPU; hiding Vulkan, as for opengl"
+      LOTA_GATE_GPU=opengl
+    fi
+  fi
+}
+
+case "$LOTA_GATE_GPU" in
+  opengl | vulkan)
+    if ! start_gpu; then
+      say "GPU displays unavailable ($why); falling back to Xvfb and llvmpipe"
+      stop_servers
+      LOTA_GATE_GPU=off
+      start_xvfb || exit 71
+    fi
+    ;;
+  *)
+    LOTA_GATE_GPU=off
+    start_xvfb || exit 71
+    ;;
+esac
+for d in "${displays[@]}"; do
+  DISPLAY=$d "${pdeath[@]}" openbox >/dev/null 2>&1 &
+  pids+=($!)
+done
+export LOTA_GATE_DISPLAYS="${displays[*]}" DISPLAY=${displays[0]} LOTA_PARITY_DISPLAY=${displays[3]}
+
+# A session bus of the run's own where the computer gives none, as under
+# WSL without systemd. Without one, libdbus starts a bus tied to the X
+# display, and the first program on each display writes ~/.dbus while later
+# ones find that bus and write nothing, so the parity harness's reference
+# cache test passes or fails by the order its runs come in. SDL also wants
+# XDG_RUNTIME_DIR, and says so in output the tests compare.
+if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -d "$XDG_RUNTIME_DIR" ]; then
+  export XDG_RUNTIME_DIR=$tmp/xdg-runtime
+  mkdir -m 700 "$XDG_RUNTIME_DIR" || exit 71
+  bus=$XDG_RUNTIME_DIR/bus
+  "${pdeath[@]}" dbus-daemon --session --nofork --nopidfile --address="unix:path=$bus" >/dev/null 2>&1 &
+  pids+=($!)
+  for _ in $(seq 50); do [ -S "$bus" ] && break; sleep 0.1; done
+  [ -S "$bus" ] || { echo "remote-gate: the session bus did not start" >&2; exit 71; }
+  export DBUS_SESSION_BUS_ADDRESS=unix:path=$bus
+fi
+sleep 1
+
+# CI's runner has no Vulkan driver, and Vulkan cannot present on Xvfb (no
+# DRI3), so unless the displays are a GPU's with Vulkan, the checks run
+# with the Vulkan drivers' folders hidden behind an empty one.
+sandbox=()
+if [ "$LOTA_GATE_GPU" != vulkan ]; then
+  if command -v bwrap >/dev/null; then
+    mkdir -p "$tmp/empty"
+    sandbox=(bwrap --die-with-parent --dev-bind / /)
+    for icd in /usr/share/vulkan/icd.d /etc/vulkan/icd.d; do
+      [ -d "$icd" ] && sandbox+=(--bind "$tmp/empty" "$icd")
+    done
+  else
+    say "bwrap is not installed; Vulkan's drivers stay visible"
+  fi
+fi
+say "displays $LOTA_GATE_DISPLAYS (GPU: $LOTA_GATE_GPU)"
+
+# Runs bundle exec rake "$@" as CI's gate does, at a lower priority so a
+# computer shared with other runs stays responsive.
+checks() {
+  say "running: bundle exec rake $*"
+  run env A=--verbose nice -n 10 "${sandbox[@]}" bundle exec rake "$@"
+}
+
+# The tracked files a check changed (RuboCop's autocorrection), which are
+# put back, since the next check needs the commit as it is.
+changed() {
+  [ -e .git ] || return 0
+  git status --porcelain --untracked-files=no | sed 's/^/remote-gate: the checks changed: /'
+  git checkout -q -- . 2>/dev/null || true
+}
+
+case "$mode" in
+  prepush)
+    checks prepush
+    status=$?
+    changed
+    if [ "$status" -eq 0 ]; then
+      checks "red_before_green[$1..$2]"
+      status=$?
+      changed
+    fi
+    ;;
+  full)
+    checks "$@"
+    status=$?
+    changed
+    ;;
+esac
+
+ccache --show-log-stats 2>/dev/null | head -8
+say "done, exit $status"
+exit "$status"

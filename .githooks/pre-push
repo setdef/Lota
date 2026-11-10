@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Runs rake prepush and rake red_before_green on what is being pushed,
-# on the gate runner when LOTA_GATE_KEY is set (tasks/prepush.rb).
+# here, or on build machines when LOTA_PREPUSH=machines (tasks/prepush.rb).
 # bin/setup points core.hooksPath here. git passes the refs on standard
 # input, which the Ruby reads.
 root=$(git rev-parse --show-toplevel) || exit 1

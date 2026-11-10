@@ -34,15 +34,15 @@ The **Windows build** job runs once for x64 and once for ARM64:
 
 Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner without MSYS2, with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
 
-## Before a push, on a Windows computer of your own
+## Before a push, on a Windows build machine
 
-If you have a Windows computer you can reach over ssh, with MSYS2's UCRT64 environment, RubyInstaller's x64 Ruby, and a desktop job runner (`agent-job`, which runs each job in the signed-in desktop session, where windows open and the GPU draws), Lota's Windows checks can run there before you push, instead of in CI after:
+If you have build machines that the `machines` command reaches, and one of them is a Windows computer with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, Lota's Windows checks can run there before you push, instead of in CI after:
 
 ```sh
-LOTA_WINDOWS_HOST=you@your-pc LOTA_WINDOWS_KEY=~/.ssh/your_pc_key bundle exec rake gate:windows
+bundle exec rake gate:windows
 ```
 
-`gate:windows` sends `HEAD`, or a commit of your working tree, as a git bundle written as base64, since PowerShell's pipes mangle binary data, into a folder under the account's home (`LOTA_WINDOWS_RUNNER`, `lota-prepush` unless set). It then submits one job, alone on the desktop, that clones Lota there if it has no clone yet, checks the commit out, and runs `.github/windows_prepush.sh` from it. That script takes `windows.yml`'s steps for x64, without the gem and without Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). With `LOTA_WINDOWS_HOST` set, the pre-push hook runs the same checks on what you push, after `rake prepush` and `rake red_before_green` pass ([development.md](development.md)). `tasks/remote_windows.rb` holds the details.
+`gate:windows` ships your working tree with `machines run windows --exclusive`, which runs one job alone in that computer's desktop session, where windows open and the GPU draws. The job runs `.github/windows_prepush.sh`, which takes `windows.yml`'s steps for x64, without the gem and without Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). With `LOTA_PREPUSH=machines`, the pre-push hook runs the same checks on the commit you push, beside the Linux checks, whenever the push could change Lota on Windows ([development.md](development.md)). `tasks/machines_run.rb` holds the details.
 
 ## What CI cannot check
 

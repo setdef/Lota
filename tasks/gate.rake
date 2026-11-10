@@ -6,8 +6,7 @@
 #++
 
 require_relative "gate"
-require_relative "remote_gate"
-require_relative "remote_windows"
+require_relative "machines_run"
 
 # The gate, bundle exec rake, in two parts. The first, run in order in this
 # process, changes files (RuboCop's autocorrection) and builds what the
@@ -81,34 +80,27 @@ task(:gate) { run_gate(GATE_LANES) }
 desc "Run the pre-push tier: the gate's fast checks, and a part of its slow ones, in lanes"
 task(:prepush) { run_gate(PREPUSH_LANES) }
 
+# Runs the MachinesRun::Run the block makes of a MachinesRun through the
+# machines command, outside the bundle, printing what it prints as it
+# prints it, and exits as it failed when it fails.
+def run_on_machines
+  run, result = MachinesRun.outside_bundle do
+    machines = MachinesRun.new(env: ENV)
+    run = yield machines
+    [run, machines.run_all([run], output: $stdout, chdir: Dir.pwd, prefix: false).first]
+  end
+  return if result.passed?
+
+  warn "❌ #{run.name}: #{result.reason}"
+  exit(result.code || 1)
+end
+
+# Conveniences for whoever has build machines and the machines command
+# (tasks/machines_run.rb): each ships this working tree as it is.
 namespace :gate do
-  # Leased capacity, for whoever has a gate runner (tasks/remote_gate.rb):
-  # LOTA_GATE_HOST names its host for ssh, LOTA_GATE_KEY an identity file
-  # for it, and LOTA_GATE_RUNNER its folder there.
-  desc "Run the gate, or the rake tasks given, on the gate runner at LOTA_GATE_HOST, on this commit or working tree"
-  task :remote do |_task, args|
-    gate = RemoteGate.new(repository: Dir.pwd, host: ENV.fetch("LOTA_GATE_HOST", RemoteGate::HOST),
-      key: ENV.fetch("LOTA_GATE_KEY", nil), runner: ENV.fetch("LOTA_GATE_RUNNER", RemoteGate::RUNNER))
-    status = gate.run(args.to_a)
-    exit status unless status.zero?
-  rescue RemoteGate::Failure => e
-    abort "❌ #{e.message}"
-  end
+  desc "Run the gate, or the rake tasks given, on a Linux build machine (machines run), on this working tree"
+  task(:remote) { |_task, args| run_on_machines { |machines| machines.gate(args.to_a) } }
 
-  # Leased Windows capacity, for whoever has a Windows computer with a
-  # desktop job runner (tasks/remote_windows.rb): LOTA_WINDOWS_HOST names
-  # it for ssh, LOTA_WINDOWS_KEY an identity file for it, and
-  # LOTA_WINDOWS_RUNNER the folder under its home that holds the clone.
-  desc "Run Lota's Windows checks on the Windows computer at LOTA_WINDOWS_HOST, on this commit or working tree"
-  task :windows do
-    host = ENV.fetch("LOTA_WINDOWS_HOST", "")
-    abort "❌ gate:windows needs LOTA_WINDOWS_HOST, the Windows computer's ssh destination" if host.empty?
-
-    windows = RemoteWindows.new(repository: Dir.pwd, host:, key: ENV.fetch("LOTA_WINDOWS_KEY", nil),
-      runner: ENV.fetch("LOTA_WINDOWS_RUNNER", RemoteWindows::RUNNER))
-    status = windows.run
-    exit status unless status.zero?
-  rescue RemoteGate::Failure, RemoteWindows::Failure => e
-    abort "❌ #{e.message}"
-  end
+  desc "Run Lota's Windows checks on a Windows build machine (machines run), on this working tree"
+  task(:windows) { run_on_machines(&:windows_gate) }
 end

@@ -4,8 +4,8 @@
 #
 # Lota's Windows checks before a push, on a Windows computer of your own
 # with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, from the
-# checkout's root (tasks/remote_windows.rb runs it there, through the
-# computer's desktop job runner). It takes windows.yml's steps for x64,
+# checkout's root (machines run windows runs it there, in the computer's
+# desktop session: tasks/machines_run.rb). It takes windows.yml's steps for x64,
 # in its order: LÖVE's dependencies from source, the engine's source
 # list, the engine and both extensions through ccache, the checks of
 # warnings, DLLs, loading, a restart, and an OpenGL window, and then the
