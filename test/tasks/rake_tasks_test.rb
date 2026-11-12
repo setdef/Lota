@@ -86,6 +86,11 @@ class RakeTasksTest < Minitest::Test
     assert_equal "3", output[/CMAKE=(\S*)/, 1], output
   end
 
+  # A contributor asks it before choosing to run the Windows checks.
+  def test_windows_affected_takes_a_range_of_commits
+    assert_equal %i[range], Rake::Task["windows:affected"].arg_names
+  end
+
   def test_default_task_is_the_gate
     assert_equal %w[gate], prerequisites("default")
   end

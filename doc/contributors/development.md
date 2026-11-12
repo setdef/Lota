@@ -72,6 +72,8 @@ bash .github/windows_prepush.sh
 
 It takes CI's Windows steps for x64: it builds LÖVE's libraries, the engine, and the extensions, checks their warnings and DLLs, opens a window, and runs the tests with the pre-push tier's slow tests left out. It prints each step and how long the run has taken, and exits with the first failure's status. [windows.md](windows.md) says what it leaves out and why.
 
+To ask whether your commits need these checks, run `bundle exec rake windows:affected`, or `bundle exec rake "windows:affected[OLD..NEW]"` for other commits than the unpushed ones. It exits 0 and says why when they change the native code under `ext/`, a file that pins the dependencies (`Gemfile`, `Gemfile.lock`, `lota.gemspec`, `mise.toml`), or anything of Windows' own (`tasks/windows*`, `.github/windows*`, `test/native/windows*`), or when a path they change or a line they add or remove names Windows, MinGW, Win32, or a DLL. It exits 1 when they do none of these, since such a change behaves on Windows as it does where the gate runs.
+
 ### Each new test must fail first: `rake red_before_green`
 
 A test you never saw fail proves nothing. `bundle exec rake red_before_green` runs each test your unpushed commits add or change against each commit's parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`. It prints each test as `red`, with the first line of its failure, or as `NEVER RED`, which fails the task. Pass a range as `git rev-list` takes it to check other commits.
