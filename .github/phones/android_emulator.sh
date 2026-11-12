@@ -45,11 +45,29 @@ size=$(adb shell wm size | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail
 read -r width height <<< "$size"
 echo "screen ${width}x${height}"
 
-# Waits up to $2 seconds for the log to hold $1.
+# Clears the device's log, then copies it into $1 as it grows, until
+# stop_recording, so a launch's logcat.txt keeps every line from its
+# start. The device's log is a ring buffer: a dark mode change makes
+# every app log at once, and a dump of it taken as a launch ended once
+# lacked the game's first lines, its theme change among them, which
+# the launch had seen while it ran.
+record() {
+  log=$1
+  adb logcat -c
+  adb logcat -v threadtime > "$log" &
+  recorder=$!
+}
+
+stop_recording() {
+  kill "$recorder" 2> /dev/null || true
+  wait "$recorder" 2> /dev/null || true
+}
+
+# Waits up to $2 seconds for the launch's log to hold $1.
 wait_for() {
   local pattern=$1 seconds=$2
   for _ in $(seq 1 "$seconds"); do
-    if adb logcat -d | grep -q -- "$pattern"; then return 0; fi
+    if grep -q -- "$pattern" "$log"; then return 0; fi
     sleep 1
   done
   return 1
@@ -99,7 +117,7 @@ status=0
 
 dir=$out/play
 mkdir -p "$dir"
-adb logcat -c
+record "$dir/logcat.txt"
 adb shell am start -W -n "$activity"
 wait_for "phone check: drew frame 1" 240 || echo "::warning::the game drew no frame within 240 s"
 adb exec-out screencap -p > "$dir/drawn.png"
@@ -111,7 +129,7 @@ adb shell input tap $((side / 2)) $((side / 2))
 sleep 2
 adb exec-out screencap -p > "$dir/tapped.png"
 wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
-adb logcat -d -v threadtime > "$dir/logcat.txt"
+stop_recording
 expect "$dir/logcat.txt" play "phone check: loaded on Android" "phone check: another thread: ThreadError" \
   "phone check: audio playing true" "phone check: touchpressed Integer" "phone check: quits after" \
   "$identifier: .* exited with status 0" || status=1
@@ -119,14 +137,14 @@ expect "$dir/logcat.txt" play "phone check: loaded on Android" "phone check: ano
 dir=$out/back
 mkdir -p "$dir"
 adb shell am force-stop "$identifier"
-adb logcat -c
+record "$dir/logcat.txt"
 adb shell am start -W -n "$activity"
 wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
 adb shell input keyevent KEYCODE_BACK
 wait_for "$identifier: .* exited with status" 60 || echo "::warning::Ruby did not exit within 60 s of Back"
 sleep 3
 adb exec-out screencap -p > "$dir/after-back.png"
-adb logcat -d -v threadtime > "$dir/logcat.txt"
+stop_recording
 expect "$dir/logcat.txt" back "phone check: keypressed :escape :acback" "phone check: quits after" \
   "$identifier: .* exited with status 0" || status=1
 
@@ -140,7 +158,7 @@ dir=$out/changes
 mkdir -p "$dir"
 adb shell am force-stop "$identifier"
 adb shell cmd uimode night no
-adb logcat -c
+record "$dir/logcat.txt"
 adb shell am start -W -n "$activity"
 wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
 adb shell cmd uimode night yes
@@ -155,7 +173,7 @@ adb exec-out screencap -p > "$dir/changed.png"
 wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
 adb shell cmd overlay disable "$overlay" || true
 adb shell cmd uimode night no
-adb logcat -d -v threadtime > "$dir/logcat.txt"
+stop_recording
 expect "$dir/logcat.txt" changes "phone check: themechanged :dark" "phone check: quits after" \
   "$identifier: .* exited with status 0" || status=1
 refuse "$dir/logcat.txt" changes "SDL *: activity finished" "SDL *: activity re-created" "\[BUG\]" || status=1
@@ -170,7 +188,7 @@ dir=$out/density
 mkdir -p "$dir"
 adb shell am force-stop "$identifier"
 adb shell wm density reset
-adb logcat -c
+record "$dir/logcat.txt"
 adb shell am start -W -n "$activity"
 wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
 pid=$(adb shell pidof "$identifier" || true)
@@ -183,7 +201,7 @@ done
 adb exec-out screencap -p > "$dir/changed.png"
 adb shell wm density reset
 wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
-adb logcat -d -v threadtime > "$dir/logcat.txt"
+stop_recording
 expect "$dir/logcat.txt" density "phone check: quits after" "$identifier: .* exited with status 0" || status=1
 refuse "$dir/logcat.txt" density "SDL *: activity finished" "SDL *: activity re-created" "\[BUG\]" || status=1
 if [ -n "$pid" ] && ! grep -q -- " $pid .*phone check: quits after" "$dir/logcat.txt"; then
@@ -198,12 +216,12 @@ fi
 dir=$out/background
 mkdir -p "$dir"
 adb shell am force-stop "$identifier"
-adb logcat -c
+record "$dir/logcat.txt"
 adb shell am start -W -n "$activity"
 wait_for "phone check: drew frame 1" 120 || echo "::warning::the game drew no frame within 120 s"
 pid=$(adb shell pidof "$identifier" || true)
-adb logcat -d | grep -o "phone check: loaded on .*" | head -1
-adb logcat -d | grep -q "phone check: loaded on .*renderer Vulkan" ||
+grep -o "phone check: loaded on .*" "$log" | head -1
+grep -q "phone check: loaded on .*renderer Vulkan" "$log" ||
   echo "::warning::background: the game is not on Vulkan here, so the check cannot fail as it did there"
 sleep 2
 adb shell input keyevent KEYCODE_HOME
@@ -222,7 +240,7 @@ adb shell am start -W -n "$activity"
 sleep 2
 adb exec-out screencap -p > "$dir/returned.png"
 wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
-adb logcat -d -v threadtime > "$dir/logcat.txt"
+stop_recording
 expect "$dir/logcat.txt" background "phone check: visible false" "phone check: visible true after [1-9]" \
   "phone check: quits after" "$identifier: .* exited with status 0" || status=1
 refuse "$dir/logcat.txt" background "\[BUG\]" "Fatal signal" "SDL *: activity finished" || status=1
