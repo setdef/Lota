@@ -128,6 +128,20 @@ jobs:
           echo "PROJECT=$project" >> "$GITHUB_ENV"
           cat "$project/Gemfile" "$project/fledge.yml"
 
+      # Sounds in formats LÖVE's iOS build decodes with Core Audio alone
+      # (LOVE_SUPPORT_COREAUDIO, src/modules/sound/lullaby/Sound.cpp:76-78),
+      # which the game decodes and the Simulator check expects at their
+      # 48000 Hz: macOS's own Ping.aiff, 24-bit AIFF, and Apple's afconvert's
+      # AAC of it in an M4A. They are made on the runner and carried by this
+      # run's app alone, never committed or published.
+      - name: Give the game sounds that only Core Audio decodes
+        run: |
+          sounds=$PROJECT/game/$APP_NAME/decoded
+          mkdir -p "$sounds"
+          cp /System/Library/Sounds/Ping.aiff "$sounds/ping.aiff"
+          afconvert -f m4af -d aac "$sounds/ping.aiff" "$sounds/ping.m4a"
+          afinfo "$sounds/ping.aiff" "$sounds/ping.m4a" | grep -E "File:|File type|Data format|duration"
+
       - name: Write the app's notices with rake ios:notices
         run: bundle exec rake "ios:notices[$PROJECT]"
 
