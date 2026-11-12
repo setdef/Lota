@@ -86,10 +86,22 @@ class ApiDiff
     end
 
     # RBS's core signatures and +dir+'s, with every type name absolute.
+    # Core's are parsed and resolved once for the process, and each new
+    # environment resolves only +dir+'s: doing core's again was nearly all
+    # the time a comparison took.
     def self.environment(dir)
-      loader = RBS::EnvironmentLoader.new
+      env = RBS::Environment.new
+      core_sources.each { |source| env.add_source(source) }
+      loader = RBS::EnvironmentLoader.new(core_root: nil)
       loader.add(path: Pathname(dir))
-      RBS::Environment.from_loader(loader).resolve_type_names
+      own = loader.load(env:).map(&:first)
+      env.resolve_type_names(only: own.to_set)
+    end
+
+    # RBS's core signatures, as an EnvironmentLoader loads them by
+    # default, with every type name absolute.
+    def self.core_sources
+      @core_sources ||= RBS::Environment.from_loader(RBS::EnvironmentLoader.new).resolve_type_names.sources.dup.freeze
     end
 
     # The names declared.
