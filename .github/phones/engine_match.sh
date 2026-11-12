@@ -8,7 +8,7 @@
 # the engine built from this checkout (--with-lota-source), and once with
 # the engines in ENGINES, which rake phone:engine packed, fetched over
 # HTTP from a server on this machine and checked against their
-# SHA256SUMS, pinned in the gem's folder as a release pins them. Then it
+# SHA256SUMS, pinned in the gem as a release pins them. Then it
 # compares the two generated projects file by file. They carry what Lota's
 # extension links: on iOS the archives, the engine's among them, which
 # Xcode links into the app, and on Android libfledgeext.so, already
@@ -97,13 +97,16 @@ build source "--with-lota-source=$repo $source_options"
 # The engines a release would publish, served as a release serves them,
 # and their checksums pinned in the gem as a release commits them: in its
 # folder and among its gemspec's files, which are all Fledge copies of a
-# gem named by its path.
+# gem named by its path. The release the pin names is a stand-in, since
+# the engines come from the server here (--with-lota-engine-url).
 server=
 gemspec=$repo/tmp/phone/lota/lota.gemspec
+pin=tmp/phone/lota/ext/lota/phone/engines.txt
 cp "$gemspec" "$work/lota.gemspec.unpinned"
-trap 'cp "$work/lota.gemspec.unpinned" "$gemspec"; rm -f "$repo/tmp/phone/lota/ext/lota/phone/SHA256SUMS"; [ -z "$server" ] || kill "$server" 2> /dev/null || true' EXIT
-cp "$engines/SHA256SUMS" tmp/phone/lota/ext/lota/phone/SHA256SUMS
-ruby -e 'spec = Gem::Specification.load(ARGV[0]); spec.files |= ["ext/lota/phone/SHA256SUMS"]; File.write(ARGV[0], spec.to_ruby)' "$gemspec"
+trap 'cp "$work/lota.gemspec.unpinned" "$gemspec"; rm -f "$repo/$pin"; [ -z "$server" ] || kill "$server" 2> /dev/null || true' EXIT
+ruby -r ./ext/lota/phone/engine -e 'print Lota::PhoneEngine.pin_text("v0.0.0", File.read(ARGV[0]))' \
+  "$engines/SHA256SUMS" > "$pin"
+ruby -e 'spec = Gem::Specification.load(ARGV[0]); spec.files |= ["ext/lota/phone/engines.txt"]; File.write(ARGV[0], spec.to_ruby)' "$gemspec"
 port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
 python3 -m http.server "$port" --bind 127.0.0.1 --directory "$engines" > "$work/server.log" 2>&1 &
 server=$!
@@ -125,7 +128,7 @@ fi
 while IFS= read -r line; do
   case "$line" in
     # The pin itself, which only the fetched build's gem carries.
-    "Only in $work/dist-fetched/"*"/vendor/cache/lota/ext/lota/phone: SHA256SUMS" | \
+    "Only in $work/dist-fetched/"*"/vendor/cache/lota/ext/lota/phone: engines.txt" | \
       "Files $work/dist-source/"*"/vendor/cache/lota/lota.gemspec and "*" differ")
       echo "expected, the pin: $line" ;;
     "Files "*" and "*" differ")

@@ -37,16 +37,17 @@ namespace :phone do
       puts sums
     end
 
-    desc "Pin the phone engines SUMS names (a release's SHA256SUMS) in the gem, for phone builds to fetch"
-    task :pin, [:sums] do |_, args|
-      sums = File.read(args[:sums] || abort("❌ Name the checksums: rake phone:engine:pin[SUMS]"))
-      pinned = Lota::PhoneEngine.sums(sums)
-      assets = Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) }
-      abort "❌ #{args[:sums]} names #{pinned.keys.sort.join(', ')}, not #{assets.join(', ')}" unless
-        pinned.keys.sort == assets.sort
+    desc "Pin the phone engines that the release TAG published with the checksums in SUMS, for phone builds to fetch"
+    task :pin, [:sums, :tag] do |_, args|
+      abort "❌ Name the checksums and the release: rake phone:engine:pin[SUMS,TAG]" unless args[:sums] && args[:tag]
 
-      File.write(Lota::PhoneEngine::SUMS, assets.map { |asset| "#{pinned.fetch(asset)}  #{asset}\n" }.join)
-      puts "✅ Pinned #{assets.size} phone engines in #{Lota::PhoneEngine::SUMS}"
+      text = Lota::PhoneEngine.pin_text(args[:tag], File.read(args[:sums]))
+      pinned = Lota::PhoneEngine.pin(text).sums.keys.sort
+      assets = Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) }.sort
+      abort "❌ #{args[:sums]} names #{pinned.join(', ')}, not #{assets.join(', ')}" unless pinned == assets
+
+      File.write(Lota::PhoneEngine::PIN, text)
+      puts "✅ Pinned the #{assets.size} phone engines of #{args[:tag]} in #{Lota::PhoneEngine::PIN}"
     rescue Lota::PhoneEngine::Failure => e
       abort "❌ #{e.message}"
     end

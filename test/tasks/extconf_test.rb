@@ -93,14 +93,14 @@ class ExtconfTest < Minitest::Test
   end
 
   # A gem's phone build, as `fledge build` unpacks it: extconf.rb, its
-  # phone scripts, and lib/lota/version.rb, with +sums+ pinned. Returns
-  # extconf.rb's path.
-  def phone_gem(root, sums: "")
+  # phone scripts, and lib/lota/version.rb, pinning +pin+ (the text of
+  # ext/lota/phone/engines.txt). Returns extconf.rb's path.
+  def phone_gem(root, pin: "")
     %w[extconf.rb phone/ios.rb phone/android.rb phone/engine.rb].each do |file|
       write(root, "ext/lota/#{file}", File.read(File.join(ROOT, "ext/lota", file)))
     end
     write(root, "lib/lota/version.rb", File.read(File.join(ROOT, "lib/lota/version.rb")))
-    write(root, "ext/lota/phone/SHA256SUMS", sums)
+    write(root, "ext/lota/phone/engines.txt", pin)
     File.join(root, "ext/lota/extconf.rb")
   end
 
@@ -161,16 +161,16 @@ class ExtconfTest < Minitest::Test
   # rest of the build, here from a mirror in a folder.
   def test_a_phone_build_fetches_the_pinned_engine_from_a_mirror
     in_tree do |root|
-      script = phone_gem(root)
+      phone_gem(root)
       require_relative "../../tasks/phone_engine"
       manifest = JSON.generate("target" => "android-x86_64",
         "engine_digest" => Lota::PhoneEngine.digest(File.join(root, "ext/lota")))
-      sha256 = PhoneEngineBuild.write(File.join(root, "mirror", Lota::PhoneEngine.asset("android-x86_64")),
-        {
-"manifest.json" => PhoneEngineBuild::Contents.new(text: manifest),
-"lib/liblota_engine.a" => PhoneEngineBuild::Contents.new(text: "!<arch>\n"),
-})
-      write(root, "ext/lota/phone/SHA256SUMS", "#{sha256}  lota-engine-android-x86_64.tar.gz\n")
+      files = {
+        "manifest.json" => PhoneEngineBuild::Contents.new(text: manifest),
+        "lib/liblota_engine.a" => PhoneEngineBuild::Contents.new(text: "!<arch>\n"),
+      }
+      sha256 = PhoneEngineBuild.write(File.join(root, "mirror", Lota::PhoneEngine.asset("android-x86_64")), files)
+      script = phone_gem(root, pin: "release v1.2.3\n#{sha256}  lota-engine-android-x86_64.tar.gz\n")
 
       output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script,
         "--with-lota-engine-url=file://#{root}/mirror/", "--with-lota-engine-cache=#{root}/cache", chdir: root)

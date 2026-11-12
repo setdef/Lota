@@ -19,7 +19,7 @@ class PhoneEngineTest < Minitest::Test
 
   Answer = Lota::PhoneEngine::Answer
   TARGET = "android-x86_64"
-  URL = "https://example.com/releases/download/v1.2.3/"
+  URL = "https://github.com/setdef/Lota/releases/download/v1.2.3/"
 
   # A tree of the engine files a gem carries, and their digest.
   def ext(root)
@@ -42,8 +42,9 @@ class PhoneEngineTest < Minitest::Test
     gzip.string
   end
 
-  def sums(body, asset: Lota::PhoneEngine.asset(TARGET))
-    "#{Digest::SHA256.hexdigest(body)}  #{asset}\n"
+  # A pin of +body+ as the bundle release v1.2.3 published.
+  def pin(body, asset: Lota::PhoneEngine.asset(TARGET))
+    "release v1.2.3\n#{Digest::SHA256.hexdigest(body)}  #{asset}\n"
   end
 
   # A host that answers from +routes+, a Hash of each URL to its Answer, and
@@ -57,8 +58,10 @@ class PhoneEngineTest < Minitest::Test
     [transport, asked]
   end
 
-  def engine(ext, sums:, transport:, out: StringIO.new, pause: -> (_) {})
-    Lota::PhoneEngine.new(TARGET, ext:, sums:, url: URL, out:, transport:, pause:)
+  # The engine for TARGET, fetching from the pinned release unless +url+
+  # names a mirror.
+  def engine(ext, pin:, transport:, url: nil, out: StringIO.new, pause: -> (_) {})
+    Lota::PhoneEngine.new(TARGET, ext:, pin:, url:, out:, transport:, pause:)
   end
 
   def test_fetch_follows_the_release_redirect_checks_the_pinned_sha256_and_unpacks_the_bundle
@@ -74,7 +77,7 @@ class PhoneEngineTest < Minitest::Test
         "https://objects.example.com/asset?sig=1" => Answer.new(status: 200, location: nil, body:)
       )
 
-      folder = engine(ext, sums: sums(body), transport:).fetch(cache: File.join(root, "cache"))
+      folder = engine(ext, pin: pin(body), transport:).fetch(cache: File.join(root, "cache"))
 
       assert_equal File.join(root, "cache", Digest::SHA256.hexdigest(body), TARGET), folder
       assert_equal "engine", File.read(File.join(folder, "lib/liblota_engine.a"))
@@ -91,7 +94,7 @@ class PhoneEngineTest < Minitest::Test
         body: "#{body}tampered"))
 
       error = assert_raises(Lota::PhoneEngine::Failure) do
-        engine(ext, sums: sums(body), transport:).fetch(cache: File.join(root, "cache"))
+        engine(ext, pin: pin(body), transport:).fetch(cache: File.join(root, "cache"))
       end
 
       assert_match(/not the #{Digest::SHA256.hexdigest(body)} this Lota pins/, error.message)
@@ -105,7 +108,7 @@ class PhoneEngineTest < Minitest::Test
       body = bundle(digest: Lota::PhoneEngine.digest(ext))
       transport, asked = host("#{URL}lota-engine-android-x86_64.tar.gz" => Answer.new(status: 200, location: nil,
         body:))
-      engine = engine(ext, sums: sums(body), transport:)
+      engine = engine(ext, pin: pin(body), transport:)
 
       first = engine.fetch(cache: File.join(root, "cache"))
       second = engine.fetch(cache: File.join(root, "cache"))
@@ -124,7 +127,7 @@ class PhoneEngineTest < Minitest::Test
         body:))
 
       error = assert_raises(Lota::PhoneEngine::Failure) do
-        engine(ext, sums: sums(body), transport:).fetch(cache: File.join(root, "cache"))
+        engine(ext, pin: pin(body), transport:).fetch(cache: File.join(root, "cache"))
       end
 
       assert_match(/built from other engine files/, error.message)
@@ -140,7 +143,7 @@ class PhoneEngineTest < Minitest::Test
         body:))
 
       error = assert_raises(Lota::PhoneEngine::Failure) do
-        engine(ext, sums: sums(body), transport:).fetch(cache: File.join(root, "cache"))
+        engine(ext, pin: pin(body), transport:).fetch(cache: File.join(root, "cache"))
       end
 
       assert_match(/for android-arm64-v8a, not android-x86_64/, error.message)
@@ -152,7 +155,7 @@ class PhoneEngineTest < Minitest::Test
       transport, asked = host({})
 
       error = assert_raises(Lota::PhoneEngine::Failure) do
-        engine(ext(root), sums: "", transport:).fetch(cache: File.join(root, "cache"))
+        engine(ext(root), pin: "", transport:).fetch(cache: File.join(root, "cache"))
       end
 
       assert_match(/pins no prebuilt engine for android-x86_64/, error.message)
@@ -167,14 +170,14 @@ class PhoneEngineTest < Minitest::Test
       body = bundle(digest: Lota::PhoneEngine.digest(ext))
       answers = [Answer.new(status: 503, location: nil, body: ""), Answer.new(status: 200, location: nil, body:)]
       waits = []
-      engine(ext, sums: sums(body), transport: -> (_) { answers.shift }, pause: -> (seconds) { waits << seconds })
+      engine(ext, pin: pin(body), transport: -> (_) { answers.shift }, pause: -> (seconds) { waits << seconds })
         .fetch(cache: File.join(root, "cache"))
 
       assert_equal [2], waits
 
       missing, = host({})
       error = assert_raises(Lota::PhoneEngine::Failure) do
-        engine(ext, sums: sums(body), transport: missing, pause: -> (_) { flunk "retried a 404" })
+        engine(ext, pin: pin(body), transport: missing, pause: -> (_) { flunk "retried a 404" })
           .fetch(cache: File.join(root, "other"))
       end
       assert_match(/answered 404/, error.message)
@@ -203,13 +206,45 @@ class PhoneEngineTest < Minitest::Test
     assert_raises(Lota::PhoneEngine::Failure) { Lota::PhoneEngine.sums("not a checksum  x.tar.gz\n") }
   end
 
+  # A clone's version names no release, so the pin names the one that
+  # published the bundles, and a mirror stands in for it when asked.
+  def test_the_pin_names_the_release_to_fetch_from_and_a_mirror_replaces_it
+    in_tree do |root|
+      ext = ext(root)
+      body = bundle(digest: Lota::PhoneEngine.digest(ext))
+      mirror = "https://mirror.example.com/lota/"
+      transport, asked = host("#{mirror}lota-engine-android-x86_64.tar.gz" => Answer.new(status: 200, location: nil,
+        body:))
+
+      engine(ext, pin: pin(body), transport:, url: mirror).fetch(cache: File.join(root, "cache"))
+
+      assert_equal ["#{mirror}lota-engine-android-x86_64.tar.gz"], asked
+
+      error = assert_raises(Lota::PhoneEngine::Failure) do
+        engine(ext, pin: pin(body).sub("release v1.2.3\n", ""), transport:).fetch(cache: File.join(root, "other"))
+      end
+      assert_match(/names no release to fetch lota-engine-android-x86_64.tar.gz from/, error.message)
+    end
+  end
+
+  def test_pin_reads_one_release_and_the_checksums_and_pin_text_writes_them
+    sha = "b" * 64
+    text = Lota::PhoneEngine.pin_text("v0.5.0", "#{sha}  y.tar.gz\n#{sha}  x.tar.gz\n")
+
+    assert_equal "release v0.5.0\n#{sha}  x.tar.gz\n#{sha}  y.tar.gz\n", text
+    assert_equal Lota::PhoneEngine::Pin.new(release: "v0.5.0", sums: { "x.tar.gz" => sha, "y.tar.gz" => sha }),
+      Lota::PhoneEngine.pin(text)
+    assert_raises(Lota::PhoneEngine::Failure) { Lota::PhoneEngine.pin("release v1\nrelease v2\n") }
+    assert_raises(Lota::PhoneEngine::Failure) { Lota::PhoneEngine.pin("release 0.0.1.dev\n") }
+  end
+
   def test_the_cache_is_lotas_folder_in_the_users_cache
     assert_equal "/x/lota/phone-engine", Lota::PhoneEngine.cache({ "XDG_CACHE_HOME" => "/x", "HOME" => "/h" })
     assert_equal "/h/.cache/lota/phone-engine", Lota::PhoneEngine.cache({ "XDG_CACHE_HOME" => "", "HOME" => "/h" })
   end
 
   def test_a_target_lota_does_not_build_is_refused
-    assert_raises(Lota::PhoneEngine::Failure) { Lota::PhoneEngine.new("android-armeabi-v7a", ext: "/x", sums: "") }
+    assert_raises(Lota::PhoneEngine::Failure) { Lota::PhoneEngine.new("android-armeabi-v7a", ext: "/x", pin: "") }
   end
 
   def test_tar_is_the_same_bytes_for_the_same_files_in_any_order_with_long_paths

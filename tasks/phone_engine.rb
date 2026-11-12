@@ -16,6 +16,7 @@ require_relative "ios_build"
 require_relative "licensing"
 require_relative "phone_notices"
 require_relative "../ext/lota/phone/engine"
+require_relative "../lib/lota/version"
 
 # Builds a phone's engine for one target (Lota::PhoneEngine::TARGETS) and
 # packs it as the bundle a release publishes and phone/engine.rb fetches

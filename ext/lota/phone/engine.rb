@@ -13,7 +13,6 @@ require "openssl"
 require "timeout"
 require "uri"
 require "zlib"
-require_relative "../../../lib/lota/version"
 
 module Lota
   # LÖVE's engine and its libraries, built once for each iOS slice and
@@ -40,8 +39,11 @@ module Lota
   #                         rake ios:notices and rake android:notices write
   #                         them, and, on Android, OpenAL Soft's source.
   #
-  # The gem pins each bundle's SHA-256 in SUMS, which a release writes, and
-  # #fetch takes from a release only the bytes SUMS names.
+  # The gem pins, in PIN, the release that published the bundles and each
+  # bundle's SHA-256, which a release writes, and #fetch takes from that
+  # release only the bytes PIN names. The release is named rather than
+  # derived from Lota::VERSION, so a clone between releases, whose version
+  # names no release, fetches what its pin names.
   #
   # === Example
   #
@@ -59,12 +61,17 @@ module Lota
     # (its ADR 022), each with its system.
     TARGETS = %w[ios-arm64 ios-arm64-simulator android-arm64-v8a android-x86_64].freeze
 
-    # The checksums of the bundles this version of Lota fetches, beside
-    # this file, in the form sha256sum writes.
-    SUMS = File.join(__dir__, "SHA256SUMS")
+    # The bundles this Lota fetches, beside this file: a line
+    # <tt>release TAG</tt> naming the release that published them, then
+    # each one's checksum, in the form sha256sum writes.
+    PIN = File.join(__dir__, "engines.txt")
 
-    # Where a release's assets are, for Lota's +version+.
-    RELEASES = "https://github.com/setdef/Lota/releases/download/v%<version>s/"
+    # Where the assets of the release +release+, a tag such as v1.2.3, are.
+    RELEASES = "https://github.com/setdef/Lota/releases/download/%<release>s/"
+
+    # What PIN holds: the release's tag, or +nil+ when it names none, and
+    # each bundle's SHA-256 by its asset's name.
+    class Pin < ::Data.define(:release, :sums); end
 
     # The engine files, relative to ext/lota, whose content a bundle was
     # built from: what a phone's engine compiles with, and how.
@@ -121,6 +128,26 @@ module Lota
       end
     end
 
+    # The Pin in +text+, PIN's form: an optional <tt>release TAG</tt> line,
+    # and checksum lines.
+    def self.pin(text)
+      releases, sums = text.each_line.partition { |line| line.start_with?("release ") }
+      raise Failure, "#{PIN} names more than one release" if releases.size > 1
+
+      release = releases.first&.delete_prefix("release ")&.strip
+      raise Failure, "#{release.inspect} is not a release's tag, such as v1.2.3" if
+        release && !release.match?(/\Av\d[\w.-]*\z/)
+
+      Pin.new(release:, sums: self.sums(sums.join))
+    end
+
+    # The text of PIN for the bundles that the release +release+ published
+    # with the checksums +sums+, a SHA256SUMS' text.
+    def self.pin_text(release, sums)
+      pin = pin("release #{release}\n#{sums}")
+      "release #{pin.release}\n#{pin.sums.sort.map { |name, sha256| "#{sha256}  #{name}\n" }.join}"
+    end
+
     # The answer to a GET of +uri+, over the network.
     def self.get(uri)
       return Answer.new(status: 200, location: nil, body: File.binread(uri.path)) if uri.scheme == "file"
@@ -134,13 +161,13 @@ module Lota
 
     # [target] One of TARGETS.
     # [ext] Lota's ext/lota, whose engine files #digest reads.
-    # [sums] The pinned checksums' text.
-    # [url] Where the release's assets are; a folder's +file:+ URL serves
-    #       a mirror.
+    # [pin] The pin's text, in PIN's form.
+    # [url] Where the release's assets are, by default the pinned
+    #       release's; a folder's +file:+ URL serves a mirror.
     # [out] Where progress goes.
     # [transport] Called with a URI, answers an Answer.
     # [pause] Called with the seconds to wait before a new try.
-    def initialize(target, ext:, sums: File.exist?(SUMS) ? File.read(SUMS) : "", url: nil, out: $stdout,
+    def initialize(target, ext:, pin: File.exist?(PIN) ? File.read(PIN) : "", url: nil, out: $stdout,
       transport: self.class.method(:get), pause: -> (seconds) { sleep(seconds) }
     )
       raise Failure, "Lota builds no phone engine for #{target}; it builds #{TARGETS.join(', ')}" unless
@@ -148,8 +175,8 @@ module Lota
 
       @target = target
       @ext = ext
-      @sums = self.class.sums(sums)
-      @url = url || format(RELEASES, version: Lota::VERSION)
+      @pin = self.class.pin(pin)
+      @url = url
       @out = out
       @transport = transport
       @pause = pause
@@ -163,8 +190,8 @@ module Lota
     # The SHA-256 the gem pins for the bundle. Raises Failure when it pins
     # none.
     def sha256
-      @sums.fetch(asset) do
-        raise Failure, "This Lota pins no prebuilt engine for #{@target} (#{SUMS} names no #{asset}). Build " \
+      @pin.sums.fetch(asset) do
+        raise Failure, "This Lota pins no prebuilt engine for #{@target} (#{PIN} names no #{asset}). Build " \
           "the engine from source: pass --with-lota-source=DIR, a clone of Lota's repository with its submodules."
       end
     end
@@ -193,16 +220,25 @@ module Lota
 
     private def download(archive)
       FileUtils.mkdir_p(File.dirname(archive))
-      uri = URI.join(@url.end_with?("/") ? @url : "#{@url}/", asset)
+      url = @url || release_url
+      uri = URI.join(url.end_with?("/") ? url : "#{url}/", asset)
       body = with_retries(uri) { get(uri, REDIRECTS) }
       actual = Digest::SHA256.hexdigest(body)
       unless actual == sha256
-        raise Failure, "#{uri} has SHA-256 #{actual}, not the #{sha256} this Lota pins (#{SUMS}); it is not the " \
-          "engine this Lota was released with"
+        raise Failure, "#{uri} has SHA-256 #{actual}, not the #{sha256} this Lota pins (#{PIN}); it is not the " \
+          "engine this Lota pins"
       end
 
       File.binwrite("#{archive}.part", body)
       File.rename("#{archive}.part", archive)
+    end
+
+    # The pinned release's assets.
+    private def release_url
+      release = @pin.release or
+        raise Failure, "#{PIN} names no release to fetch #{asset} from; it needs a line such as release v1.2.3"
+
+      format(RELEASES, release:)
     end
 
     # The engine's manifest must name this target and this gem's engine
@@ -250,7 +286,7 @@ module Lota
 
         get(URI.join(uri, answer.location.to_s), redirects - 1)
       when 500..599 then raise Transient, "#{uri} answered #{answer.status}"
-      else raise Failure, "#{uri} answered #{answer.status}; is #{Lota::VERSION} a release of Lota with phone engines?"
+      else raise Failure, "#{uri} answered #{answer.status}"
       end
     end
 
