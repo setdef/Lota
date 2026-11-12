@@ -49,7 +49,15 @@ if [ ! -d "$home" ]; then
     rm -rf "$work"
     exit 1
   fi
-  7z x -y -o"$work/unpacked" "$work/ruby.7z" > /dev/null
+  # RubyInstaller packs its ARM64 build with 7-Zip's ARM64 filter, which
+  # MSYS2's p7zip, the 7z a shell of setup-ruby's or setup-msys2's MSYS2
+  # finds first, cannot unpack ("Unsupported Method"); 7-Zip's own, which
+  # a runner installs, can.
+  if [ -x "/c/Program Files/7-Zip/7z.exe" ]; then
+    "/c/Program Files/7-Zip/7z.exe" x -y -o"$(cygpath -w "$work/unpacked")" "$(cygpath -w "$work/ruby.7z")" > /dev/null
+  else
+    7z x -y -o"$work/unpacked" "$work/ruby.7z" > /dev/null
+  fi
   rm "$work/ruby.7z"
   mv -T "$work" "$home" 2> /dev/null || rm -rf "$work"
 fi
