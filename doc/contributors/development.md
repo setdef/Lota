@@ -86,7 +86,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 
 `bundle exec rake -T` lists them all. These are the ones you meet most:
 
-- `rake compile` builds the engine and the extensions and copies `Lota::Native` into `lib/lota`. CMake decides what to rebuild, so a build with no changes takes a second or two.
+- `rake compile` builds the engine and the extensions and copies `Lota::Native` into `lib/lota`. CMake decides what to rebuild, so a build with no changes takes a second or two. On Linux, `tmp/` records the compilers that built it, and when they change, as when a distribution moves to a newer GCC, `rake` removes `tmp/` once and builds from scratch rather than fail in CMake's `project()`.
 - `rake test` runs the tests; `rake test:native` runs the native suite under the sanitizers, in a build of its own in `tmp/sanitize`; `rake test:parity` runs the [parity harness](parity.md).
 - `rake bindings:generate` writes the generated bindings, signatures, and `lib/lota/error_message/names.rb` from LÖVE's `wrap_*.cpp` files and the rules in `ext/lota/bindings.rb`. Never edit what it writes. `rake bindings:check` fails until the committed files match, and `rake "bindings:report[tmp/report.txt]"` lists every LÖVE function that fits no rule or several. [engine.md](design/engine.md) says how the bindings hold LÖVE's objects.
 - `rake engine:sources` regenerates the list of LÖVE sources the engine compiles on this platform, after a bump of `vendor/love`; `engine:sources:check` fails until you do.
