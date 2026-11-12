@@ -46,7 +46,7 @@ GATE_LANES = [
   [Gate::Check.of("test:shard:native")],
   [Gate::Check.of("test:shard:gravity_wars")],
   [Gate::Check.of("test:shard:parity")],
-  [Gate::Check.of("test:shard:generator"), Gate::Check.of("test:shard:tasks")],
+  [Gate::Check.of("test:shard:unit"), Gate::Check.of("test:shard:generator"), Gate::Check.of("test:shard:tasks")],
   [Gate::Check.of("cpp"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 
@@ -59,7 +59,7 @@ PREPUSH_LANES = [
   [Gate::Check.of("test:prepush:sanitized"), Gate::Check.of("package:check")],
   [Gate::Check.of("test:prepush:native")],
   [Gate::Check.of("test:prepush:parity")],
-  [Gate::Check.of("test:prepush:tasks")],
+  [Gate::Check.of("test:shard:unit"), Gate::Check.of("test:prepush:tasks")],
   [Gate::Check.of("test:prepush:generator")],
   [Gate::Check.of("cpp:format", "cpp:no_nolint"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze

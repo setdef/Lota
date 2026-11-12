@@ -47,6 +47,9 @@ ENV["ALSOFT_CONF"] = File.expand_path("alsoft.conf", __dir__)
 ENV.update("SDL_MAC_BACKGROUND_APP" => "1", "SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => "0",
   "SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0")
 
-require "lota"
+# Lota loads the engine, which rake test:unit's tests never touch
+# (test/unit_guard.rb). It loads ahead of Minitest, so the exit procs it
+# registers run after the tests do.
+require "lota" unless defined?(UnitGuard) && UnitGuard.installed?
 
 require "minitest/autorun"

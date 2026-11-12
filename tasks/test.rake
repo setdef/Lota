@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-require "minitest/test_task"
+require_relative "test_files"
 
 # Clear the default test task created by Minitest::TestTask if it exists
 Rake::Task["test"].clear if Rake::Task.task_defined?("test")
@@ -24,12 +24,40 @@ TEST_SUITES = {
   parity: %w[test/parity/**/*_test.rb],
 }.freeze
 
+# The unit tier: the test files whose every test is a unit test, which
+# loads no native extension, starts no process, opens no socket, and never
+# sleeps, so it takes milliseconds. rake test:unit runs them with nothing
+# built, under test/unit_guard.rb, which fails a test that does any of
+# those. Every other test is an integration test: it needs the build, a
+# process of its own, or the machine.
+UNIT_TESTS = %w[
+  test/cli_test.rb
+  test/restart_test.rb
+  test/translation_examples_test.rb
+  test/variant_test.rb
+  test/tasks/android_build_test.rb
+  test/tasks/api_diff_test.rb
+  test/tasks/auto_revert_test.rb
+  test/tasks/ios_build_test.rb
+  test/tasks/native_format_pe_test.rb
+  test/tasks/phone_notices_test.rb
+  test/tasks/rbs_parity_test.rb
+  test/tasks/release_plan_test.rb
+  test/tasks/test_files_test.rb
+  test/tasks/trunk_watch_test.rb
+].freeze
+
+# What test:unit loads before its tests.
+UNIT_PRELUDE = %(require "unit_guard"; UnitGuard.install)
+
 # The gate runs test:ruby as the shards below, which together hold exactly
 # its files, so that it runs them at the same time (tasks/gate.rake). The
-# generator's tests and rake_tasks_test.rb, the slowest, are shards of
-# their own; test/tasks/rake_tasks_test.rb also runs the C++ gates and the
-# sanitized suite.
+# unit tests are a shard, run as test:unit runs them; the generator's
+# tests and rake_tasks_test.rb, the slowest, are shards of their own;
+# test/tasks/rake_tasks_test.rb also runs the C++ gates and the sanitized
+# suite.
 RUBY_SHARDS = {
+  unit: UNIT_TESTS,
   generator: %w[test/tasks/bindings/**/*_test.rb],
   rake_tasks: %w[test/tasks/rake_tasks_test.rb],
 }.then do |shards|
@@ -129,28 +157,35 @@ desc "Run all tests, test:native among them"
 task test: %w[test:ruby]
 
 namespace :test do
-  Minitest::TestTask.create(:ruby) do |t|
+  TestFiles::Task.create(:unit) do |t|
+    t.test_globs = UNIT_TESTS
+    t.test_prelude = UNIT_PRELUDE
+  end
+  Rake::Task["test:unit"].clear_comments.comment = "Run the unit tests, which build nothing and take seconds"
+
+  TestFiles::Task.create(:ruby) do |t|
     t.test_globs = TEST_SUITES.fetch(:ruby)
   end
   task ruby: :compile
 
   namespace :shard do
     RUBY_SHARDS.each do |name, globs|
-      Minitest::TestTask.create(name) do |t|
+      TestFiles::Task.create(name) do |t|
         t.test_globs = globs
+        t.test_prelude = UNIT_PRELUDE if name == :unit
       end
-      task name => :compile
+      task name => :compile unless name == :unit
     end
 
     PARITY_SHARDS.each do |name, globs|
-      Minitest::TestTask.create(name) do |t|
+      TestFiles::Task.create(name) do |t|
         t.test_globs = globs
       end
       task name => %w[compile reference:love]
     end
   end
 
-  Minitest::TestTask.create(:parity) do |t|
+  TestFiles::Task.create(:parity) do |t|
     t.test_globs = TEST_SUITES.fetch(:parity)
   end
   desc "Run each fixture game in the reference love and in Lota, and compare them frame by frame"
@@ -158,7 +193,7 @@ namespace :test do
 
   desc "Run the native tests against Lota::Native built with ASan and UBSan"
   task native: %w[compile compile:sanitized] do
-    sh(*SANITIZED.command(Dir[*TEST_SUITES.fetch(:native)].sort, load_path: %w[lib test]))
+    sh(*SANITIZED.command(TestFiles.of(TEST_SUITES.fetch(:native)), load_path: %w[lib test]))
   end
 
   # The pre-push tier's tests, in the gate's shards: the native tests and
@@ -171,7 +206,7 @@ namespace :test do
       generator: [RUBY_SHARDS.fetch(:generator), %w[compile]],
       parity: [TEST_SUITES.fetch(:parity), %w[compile reference:love]],
     }.each do |name, (globs, prerequisites)|
-      Minitest::TestTask.create(name) do |t|
+      TestFiles::Task.create(name) do |t|
         t.test_globs = globs
         t.extra_args = ["--exclude", PREPUSH_EXCLUDE]
       end
@@ -180,7 +215,7 @@ namespace :test do
 
     desc "Run a part of the native tests against Lota::Native built with ASan and UBSan"
     task sanitized: %w[compile compile:sanitized] do
-      sh(*SANITIZED.command(PREPUSH_SANITIZED, load_path: %w[lib test]))
+      sh(*SANITIZED.command(TestFiles.of(PREPUSH_SANITIZED), load_path: %w[lib test]))
     end
   end
 end

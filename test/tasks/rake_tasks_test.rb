@@ -164,10 +164,12 @@ class RakeTasksTest < Minitest::Test
     assert_equal File.join(ROOT, "tmp/dependencies/installdir/bin/love"), LINUX_BUILD.executable
   end
 
-  # Every shard, test:ruby's and test:parity's, compiles first.
+  # Every shard, test:ruby's and test:parity's, compiles first, but the
+  # unit tests', which need nothing built.
   def test_default_task_compiles_before_it_tests
-    shards = gate_tasks.grep(/\Atest:shard:/)
+    shards = gate_tasks.grep(/\Atest:shard:/) - %w[test:shard:unit]
 
+    assert_includes gate_tasks, "test:shard:unit"
     assert_includes shards, "test:shard:gravity_wars"
     shards.each { |shard| assert_operator gate_tasks.index("compile"), :<, gate_tasks.index(shard) }
     shards.each { |shard| assert_equal "compile", prerequisites(shard).first, shard }
@@ -224,7 +226,7 @@ class RakeTasksTest < Minitest::Test
       %w[test:prepush:sanitized package:check],
       %w[test:prepush:native],
       %w[test:prepush:parity],
-      %w[test:prepush:tasks],
+      %w[test:shard:unit test:prepush:tasks],
       %w[test:prepush:generator],
       %w[cpp:format cpp:no_nolint lint steep],
     ]
@@ -345,6 +347,26 @@ class RakeTasksTest < Minitest::Test
     end
     assert_equal %w[compile compile:sanitized], prerequisites("test:native")
     assert_equal ["#{SANITIZED_EXT}/Makefile"], prerequisites("compile:sanitized")
+  end
+
+  # The unit tests build nothing, and run under the guard that keeps them
+  # unit tests (test/unit_guard.rb), as the gate's shard of them does.
+  def test_the_unit_tier_builds_nothing_and_runs_under_its_guard
+    %w[test:unit test:shard:unit].each { |name| assert_empty prerequisites(name), name }
+    units = ObjectSpace.each_object(Minitest::TestTask).select { |task| task.name == :unit }
+
+    assert_equal 2, units.size
+    units.each { |task| assert_includes task.make_test_cmd, UNIT_PRELUDE }
+    assert_equal UNIT_TESTS, RUBY_SHARDS.fetch(:unit)
+  end
+
+  # Every test task reads TEST as it runs, as Rake's own TestTask does and
+  # Minitest's does not (tasks/test_files.rb).
+  def test_every_test_task_runs_the_files_test_names
+    tasks = ObjectSpace.each_object(Minitest::TestTask).to_a
+
+    refute_empty tasks
+    assert_empty tasks.reject { |task| task.is_a?(TestFiles::Task) }.map(&:name)
   end
 
   # Every test runs somewhere, and the deliberate memory bugs only where
