@@ -411,26 +411,44 @@ public:
     }
   }
 
-private:
-  WrapperIdentities() = default;
-
-  // The address as an Integer where Ruby holds one that large as a
-  // Fixnum, an immediate, which is every address on macOS and Linux. On
-  // Windows a long has 32 bits, and Ruby's Fixnums 31 (RUBY_FIXNUM_MAX is
-  // LONG_MAX / 2, ruby/internal/arithmetic/long.h), so an address there is
-  // a Bignum, a new object each time, which the map neither finds again
-  // nor keeps. There the key is the address as a Float, which 64-bit Ruby
-  // holds as an immediate flonum, and which holds exactly every address
-  // below 2^53, beyond any a process has.
+  // The key of the object at +object+'s address: an immediate, whose
+  // equal values are identical and never collected, and one no other
+  // address shares. An object's address is a multiple of love::Object's
+  // alignment, so the key is the address divided by it, which drops only
+  // bits that are always 0, and keeps every key in a 64-bit long's
+  // Fixnum, whatever the address. That includes Android's on arm64, which
+  // tags each heap address in its top byte (0xb4000079_62187540), so its
+  // addresses lie beyond a Fixnum. The key used to be the address itself,
+  // and a Float there, which holds only 53 bits, so addresses within 2048
+  // bytes of each other shared one, and SoundData.new handed back the
+  // wrapper of the SoundData made before it, releasing the new one.
+  //
+  // On Windows a long has 32 bits, and Ruby's Fixnums 31 (RUBY_FIXNUM_MAX
+  // is LONG_MAX / 2, ruby/internal/arithmetic/long.h), so a key there is
+  // mostly a Bignum, a new object each time, which the map neither finds
+  // again nor keeps. There the key is a Float, which 64-bit Ruby holds as
+  // an immediate flonum, exact for every key below 2^53, and so for every
+  // address below 2^56, which holds every address Windows gives a
+  // process. A key beyond that raises rather than round to another's.
   static Rice::Object key(love::Object *object) {
     static_assert(USE_FLONUM != 0, "a Float key must be an immediate");
-    const auto address = std::bit_cast<std::uintptr_t>(object);
+    constexpr std::uintptr_t alignment = alignof(love::Object);
+    static_assert(alignment >= 4, "every key must fit a 64-bit long's Fixnum");
+    const std::uintptr_t slot = std::bit_cast<std::uintptr_t>(object) / alignment;
     constexpr auto fixnum_max = static_cast<std::uintptr_t>(std::numeric_limits<long>::max() / 2);
-    if (address <= fixnum_max) {
-      return {LONG2NUM(static_cast<long>(address))};
+    if (slot <= fixnum_max) {
+      return {LONG2FIX(static_cast<long>(slot))};
     }
-    return {DBL2NUM(static_cast<double>(address))};
+    constexpr auto mantissa = static_cast<unsigned>(std::numeric_limits<double>::digits);
+    constexpr std::uintptr_t exact = std::uintptr_t{1} << mantissa;
+    if (slot >= exact) {
+      throw std::overflow_error("an engine object's address is too large to key exactly");
+    }
+    return {DBL2NUM(static_cast<double>(slot))};
   }
+
+private:
+  WrapperIdentities() = default;
 
   VALUE map_ = Qnil;
 };

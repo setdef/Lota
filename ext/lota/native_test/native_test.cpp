@@ -1176,6 +1176,16 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
             return wrapper == nullptr ? 0 : std::bit_cast<std::uintptr_t>(wrapper->object());
           },
           Rice::Arg("native").setValue())
+      // The key Lota::Native's wrapper identity map files the engine
+      // object at +address+ under (lota::native::WrapperIdentities::key),
+      // which reads only the address.
+      .define_module_function(
+          "identity_key",
+          [](unsigned long long address) {
+            return lota::native::WrapperIdentities::key(
+                std::bit_cast<love::Object *>(static_cast<std::uintptr_t>(address)));
+          },
+          Rice::Arg("address"))
       .define_module_function("forget_observed", [] { observed().clear(); })
       .define_module_function("drop", [] { held().set(nullptr); })
       .define_module_function("held_reference_count", &held_reference_count)

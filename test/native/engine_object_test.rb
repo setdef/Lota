@@ -97,6 +97,45 @@ class EngineObjectTest < Minitest::Test
     assert_equal body, body
   end
 
+  # The engine hands an object back as the wrapper it already has, keyed
+  # by the object's address in a WeakMap, so every address needs a key of
+  # its own, as an immediate the map finds again. Android tags heap
+  # addresses on arm64 in their top byte, as 0xb4000079_62187540 on a
+  # phone, and two SoundData made 16 bytes apart there once shared a key,
+  # so the second SoundData.new returned the first one's wrapper. Windows
+  # gives a process no address from 2^56 up, and its keys there would not
+  # be exact, so it refuses them.
+  def test_every_object_address_has_a_key_of_its_own
+    addresses = [
+      # Linux on x86-64
+      0x0000_7f12_3456_7890,
+      0x0000_7f12_3456_78a0,
+      # macOS and Windows
+      0x0000_0001_0203_0400,
+      0x0000_0001_0203_0410,
+      0x00ff_ffff_ffff_fff0,
+      0x00ff_ffff_ffff_ffe8,
+      # Android on arm64
+      0xb400_0079_6218_7540,
+      0xb400_0079_6218_7550,
+      0xb400_0079_6218_7c00,
+      0xffff_ffff_ffff_fff0,
+    ]
+    if TestHome::WINDOWS
+      beyond, addresses = addresses.partition { |address| address >= 2 ** 56 }
+      beyond.each { |address| assert_raises(RangeError) { LotaNativeTest.identity_key(address) } }
+    end
+    keys = addresses.map { |address| LotaNativeTest.identity_key(address) }
+    names = addresses.map { |address| address.to_s(16) }
+    map = ObjectSpace::WeakMap.new
+    keys.zip(names).each { |key, name| map[key] = name }
+
+    assert_equal addresses.size, keys.uniq.size
+    addresses.zip(names).each do |address, name|
+      assert_same name, map[LotaNativeTest.identity_key(address)], name
+    end
+  end
+
   # w__tostring (runtime.cpp:57-63): the type's name and the engine
   # object's address, as LuaJIT's %p writes it.
   def test_to_s_names_the_type_and_address
