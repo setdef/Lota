@@ -350,6 +350,10 @@ Android's Back reaches the game as `Lota.keypressed(:escape, :acback)`, and then
 
 A phone cannot restart a program in place, so `Lota::Event.restart` ends the game as a quit does.
 
+## Sound files
+
+On iOS and iPadOS, Lota decodes sound through Apple's Core Audio as well, as LÖVE's iOS build does, so `Lota::Sound::SoundData.new`, `Lota::Sound::Decoder.new`, and `Lota::Audio::Source.new` read AIFF, and AAC in an `.m4a` file, besides the WAV, Ogg Vorbis, FLAC, MP3, and tracker modules they read everywhere. Android and the desktops have no such decoder, so keep the sounds of a game for more than iOS in one of those other formats.
+
 ## The privacy manifest
 
 An App Store listing wants a privacy manifest, `PrivacyInfo.xcprivacy`, that names each category of "required reason" API your app calls and why. Without the right entries, App Store Connect emails you about the upload.
@@ -384,7 +388,7 @@ OpenAL Soft is under the GNU Library General Public License, version 2 or later,
 
 On every push, Lota's CI takes this page's steps on a sample game:
 
-- **iOS**, in an iPhone 17 Pro and an iPad Pro 13-inch (M5) Simulator. The project builds for the Simulator and, unsigned, for devices, Debug and Release, and archives. The game draws on Metal at the screen's own pixels, plays a tone, saves a file, finds graphics from another thread refused, and quits with status 0. The iOS kit's checks run its sample games in more Simulators, in portrait and landscape, with taps and turns.
+- **iOS**, in an iPhone 17 Pro and an iPad Pro 13-inch (M5) Simulator. The project builds for the Simulator and, unsigned, for devices, Debug and Release, and archives. The game draws on Metal at the screen's own pixels, plays a tone, decodes an AIFF and an M4A sound through Core Audio, saves a file, finds graphics from another thread refused, and quits with status 0. The iOS kit's checks run its sample games in more Simulators, in portrait and landscape, with taps and turns.
 - **Android**, on `x86_64` emulators of Android 16 and Android 13. The project builds a debug APK, a release APK, and an App Bundle, and the release builds sign. On Android 16 the game draws with OpenGL ES through the emulator's software renderer, plays its tone, saves a file, takes a tap, and quits with status 0, and Back reaches it as `:escape`. On Android 13 the same APK draws with Vulkan. On both, sent home, to the recent apps, and to a dark screen, it comes back each time and draws again.
 
 On real devices, outside CI:

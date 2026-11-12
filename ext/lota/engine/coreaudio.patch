@@ -1,0 +1,51 @@
+SPDX-FileCopyrightText: 2006-2026 LOVE Development Team
+SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+SPDX-License-Identifier: Zlib
+
+Lota's Core Audio patch, for iOS alone: one change to the read callback
+of LÖVE's src/modules/sound/lullaby/CoreAudioDecoder.cpp, which LÖVE's
+iOS build compiles with LOVE_SUPPORT_COREAUDIO so that a game loads AIFF
+and AAC in M4A. The decoder opens its Stream with
+AudioFileOpenWithCallbacks (line 66), which asks its read callback for
+requestCount bytes at the offset inPosition, and Audio File Services
+reads a file's header, chunks, and packets at offsets of its own
+choosing. readFunc (lines 38-45) ignores inPosition and reads from
+wherever the Stream is, so after the first read every one returns bytes
+from the wrong place: on an iPhone 12 mini and in the iOS Simulator, an
+M4A failed with "No suitable audio decoders found", and an AIFF of 1.5 s
+at 48000 Hz came out as 0.07 s at 22050 Hz from a decoder that mistook
+it (doc/contributors/upstream/026.md). The callback honoured the offset
+until LÖVE's commit c09fef8e79c887aab96628f452bb142eebcddcf7 ("Audio
+source decoding improvements") moved decoders from a Data, which it
+copied from at data->getData() + inPosition, to a Stream.
+
+This patch seeks the Stream to inPosition before each read, and reports
+a seek that fails as the position error Audio File Services expects, with
+nothing read; it changes nothing else. With it, the same iPhone decoded
+both files at 48000 Hz, 1.5 s long, as afinfo describes them.
+
+Nothing in Lota can do this: readFunc is static in CoreAudioDecoder.cpp,
+and Sound::newDecoder hands the decoder LÖVE's own Stream, so no code of
+Lota's chooses where the callback reads. CMake applies the patch only
+when it builds the engine for iOS, the only target that compiles the
+decoder, as LÖVE's liblove-ios target alone does, to a copy of the file
+in the build tree (ext/lota/engine/CMakeLists.txt); vendor/love is never
+written to.
+
+diff -ruN a/src/modules/sound/lullaby/CoreAudioDecoder.cpp b/src/modules/sound/lullaby/CoreAudioDecoder.cpp
+--- a/src/modules/sound/lullaby/CoreAudioDecoder.cpp
++++ b/src/modules/sound/lullaby/CoreAudioDecoder.cpp
+@@ -38,6 +38,13 @@
+ static OSStatus readFunc(void *inClientData, SInt64 inPosition, UInt32 requestCount, void *buffer, UInt32 *actualCount)
+ {
+ 	auto stream = (Stream *) inClientData;
++	// Read where Audio File Services asks (ext/lota/engine/coreaudio.patch).
++	if (!stream->seek(inPosition))
++	{
++		*actualCount = 0;
++		return kAudioFilePositionError;
++	}
++
+ 	int64 readbytes = stream->read(buffer, requestCount);
+ 
+ 	*actualCount = (UInt32) readbytes;

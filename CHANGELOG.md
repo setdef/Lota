@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- On iOS and iPadOS, `Lota::Sound::SoundData.new`, `Lota::Sound::Decoder.new`, and `Lota::Audio::Source.new` read AIFF and AAC (`.m4a`) files through Core Audio, as LÖVE's iOS build does.
 - `require: lota/rubocop` in a game's `.rubocop.yml` adds `Lota/RuleFourCondition`, a RuboCop cop that flags a module function that returns several values, such as `Lota::Mouse.position`, used directly as a condition.
 - `Lota::Image::ImageData.new` decodes a `Lota::Filesystem::File` or any `Lota::Data`, as `love.image.newImageData` does, and raises `TypeError` for anything else.
 - `Lota::Image.new_cube_faces`, returning the six `ImageData` of a cube map in one image, translating `love.image.newCubeFaces`.

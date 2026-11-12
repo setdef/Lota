@@ -36,7 +36,9 @@ endif()
 # which makes the semaphores of the images a rebuilt swap chain adds, and
 # vulkan_submit.patch, which leaves a frame that can record after its
 # submit fails, and for Android alone vulkan_present.patch, which keeps a
-# suboptimal present from rebuilding the swap chain. The copy is made when
+# suboptimal present from rebuilding the swap chain, and for iOS alone
+# coreaudio.patch, which makes Core Audio's decoder read where it is asked,
+# to sound/lullaby/CoreAudioDecoder.cpp. The copy is made when
 # CMake configures, again whenever a patch or one of the files it patches
 # is edited, and a patched file is written only when it differs, so an
 # unchanged file is not rebuilt.
@@ -49,6 +51,8 @@ set(VULKAN_SEMAPHORES_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_semaphores.patch)
 set(VULKAN_SUBMIT_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_submit.patch)
 set(VULKAN_PRESENT_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_present.patch)
 set(VULKAN_SOURCE src/modules/graphics/vulkan/Graphics.cpp)
+set(COREAUDIO_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/coreaudio.patch)
+set(COREAUDIO_SOURCE src/modules/sound/lullaby/CoreAudioDecoder.cpp)
 set(PATCHES physics mesh lz4)
 set(PATCHED_FILES_ALONE MESH_SOURCE LZ4_SOURCE)
 if(NOT APPLE)
@@ -57,6 +61,15 @@ if(NOT APPLE)
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
 	list(APPEND PATCHES vulkan_present)
+endif()
+# Core Audio's decoder, which LÖVE's CMakeLists.txt never lists, so the
+# generated sources_ios.cmake lacks it, and which the liblove-ios target
+# compiles (platform/xcode/liblove.xcodeproj/project.pbxproj:4994), with
+# LOVE_SUPPORT_COREAUDIO, which dependencies_ios.cmake defines.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	list(APPEND ENGINE_SOURCES ${ENGINE_SOURCE_DIR}/${COREAUDIO_SOURCE})
+	list(APPEND PATCHES coreaudio)
+	list(APPEND PATCHED_FILES_ALONE COREAUDIO_SOURCE)
 endif()
 set(PATCHED_SOURCE_DIR ${CMAKE_BINARY_DIR}/patched/love)
 set(PATCH_STAGING ${CMAKE_BINARY_DIR}/patched/staging)
@@ -114,6 +127,11 @@ set_source_files_properties(${PATCHED_SOURCE_DIR}/${MESH_SOURCE} PROPERTIES
 # The patched lz4.c's likewise ("lz4.h").
 set_source_files_properties(${PATCHED_SOURCE_DIR}/${LZ4_SOURCE} PROPERTIES
 	COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/libraries/lz4")
+# The patched CoreAudioDecoder.cpp's likewise ("CoreAudioDecoder.h").
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	set_source_files_properties(${PATCHED_SOURCE_DIR}/${COREAUDIO_SOURCE} PROPERTIES
+		COMPILE_OPTIONS "-iquote;${ENGINE_SOURCE_DIR}/src/modules/sound/lullaby")
+endif()
 # The patched vulkan/Graphics.cpp's likewise ("Graphics.h", "Vulkan.h").
 if(NOT APPLE)
 	set_source_files_properties(${PATCHED_SOURCE_DIR}/${VULKAN_SOURCE} PROPERTIES

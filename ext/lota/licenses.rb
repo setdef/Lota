@@ -1533,6 +1533,19 @@ work "SDL (iOS)",
   title: "SDL",
   version: "3.4.10"
 
+# LÖVE's sound/lullaby/CoreAudioDecoder.cpp as Lota's Core Audio patch
+# changes it (ext/lota/engine/coreaudio.patch), which CMake writes into
+# the build tree and the engine compiles for iOS alone, as LÖVE's
+# liblove-ios target alone compiles the file. It is LÖVE's file, under
+# LÖVE's license, with a change the patch's own header puts under the same
+# license.
+work "LÖVE's patched Core Audio decoder (iOS)",
+  platform: "iOS",
+  sources: ["tmp/*/build/patched/love/src/modules/sound/lullaby/CoreAudioDecoder.cpp"],
+  copyright: ["2006-2026 LOVE Development Team", "2026 setdef <kerrick@setdef.com>"],
+  license: ["Zlib"],
+  title: "LÖVE #{love_version}'s sound/lullaby/CoreAudioDecoder.cpp, as Lota's Core Audio patch changes it"
+
 # Android. No gem carries these yet: Fledge links an app's extension into
 # the app's libfledgeext.so for each ABI (`fledge build android`,
 # ext/lota/phone/android.rb), with the static archives
@@ -1612,7 +1625,8 @@ library "libSDL3.so",
 # its desktop counterpart's bundle carries, as measured in the 0.2.2
 # gems' manifests: the engine's source lists differ by one file
 # (sources_ios.cmake has src/common/ios.mm where sources_macos.cmake has
-# macos.mm; sources_android.cmake is sources_linux.cmake), and LÖVE turns
+# macos.mm; sources_android.cmake is sources_linux.cmake), iOS compiles
+# Core Audio's decoder besides, recorded above as LÖVE's own, and LÖVE turns
 # Vulkan on for Windows, Linux, and Android and Metal for macOS and iOS
 # (vendor/love/src/common/config.h:126-132), so iOS, as macOS, carries no
 # Vulkan code, and Android, as Linux, carries all of it.
