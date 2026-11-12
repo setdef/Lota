@@ -65,6 +65,10 @@ on:
         description: Keep the gem as the artifact lota-PLATFORM
         type: boolean
         default: true
+      version:
+        description: The version the gem carries, as ci.yml's version job decides it (empty for the repository's 0.0.0.dev)
+        type: string
+        default: ""
       ignore_failures:
         description: Go on past failing tests (ci.yml's ignore_gate_failures, never on a tag)
         type: boolean
@@ -299,6 +303,10 @@ jobs:
       # package check builds it from what this job built, with the gem's
       # REUSE record checked, and its binaries read for the DLLs they
       # import (NativeFormat::PE), without Bundler (windows_checks.rb).
+      - uses: ./.github/actions/version
+        with:
+          version: ${{ inputs.version }}
+
       - name: Build the precompiled gem
         env:
           PLATFORM: ${{ inputs.platform }}

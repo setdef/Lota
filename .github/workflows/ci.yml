@@ -48,14 +48,16 @@
 # Windows, its build) and delivery passed, and the phone, iOS kit, and
 # fuse checks with them. A release is a promise about each platform it
 # lists, and one missing a platform would leave the games that depend on
-# it there with nothing to install (doc/contributors/releasing.md). It
-# publishes for a tag such as v0.1.0 pushed on a commit of trunk, and for
-# a run on trunk started with the input release_tag, which it tags first.
-# CI starts that run itself: when a full run on trunk passes and
-# CHANGELOG.md's [Unreleased] lists changes, the prepare-release job
-# commits the release to trunk and starts CI on it. Run by hand without
-# release_tag, the release job is a dry run: it checks and assembles the
-# release that lib/lota/version.rb names, and keeps it as an artifact.
+# it there with nothing to install (doc/contributors/releasing.md). A
+# release picks the commit this run proved, wherever trunk has moved
+# since, and writes nothing to trunk first: the version job decides,
+# before any gem is built, what the commit releases as, every job that
+# builds a gem stamps that version into it, and the release job tags the
+# commit and publishes those gems. It releases a full run's commit on
+# trunk, and a tag such as v0.1.0 pushed on a commit of trunk. Run by
+# hand on a branch, the release job is a dry run: it assembles the
+# release the commit would make, says what it would do, and keeps it as
+# an artifact.
 
 name: CI
 
@@ -71,21 +73,8 @@ on:
       ignore_gate_failures:
         description: >-
           Test only: build, deliver, and assemble the gems even where a
-          gate fails, to try the release job. Refused on a tag.
-        type: boolean
-        default: false
-      release_tag:
-        description: >-
-          Release this commit as this tag (v and lib/lota/version.rb's
-          version) once every job passes: on trunk, tag it and publish;
-          on another branch, rehearse both. prepare-release passes it.
-        type: string
-        default: ""
-      rehearse_auto_release:
-        description: >-
-          On a branch other than trunk: once every job passes, rehearse
-          prepare-release, which pushes a release commit to the branch
-          and starts CI on it with release_tag.
+          gate fails, to try the release job. Refused where it would
+          publish.
         type: boolean
         default: false
 
@@ -105,11 +94,10 @@ permissions:
 # newer push. A full run asks for about eight macOS jobs, some 175
 # runner-minutes, and the free plan runs five macOS jobs at once, so a
 # full run for every commit queued hours deep, with the tier's macOS
-# job behind it. A run started with release_tag proves a release commit,
-# and is in a group of its own, so no push to trunk cancels it while it
-# waits.
+# job behind it. Coalescing costs a release nothing: the release job
+# releases whichever commit the run that finishes proved.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}${{ inputs.release_tag && format('-{0}', inputs.release_tag) || '' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 defaults:
@@ -140,10 +128,106 @@ env:
   # The gate runs once a job, so a cache kept for the job would only be
   # written, never read.
   LOTA_PARITY_CACHE: "0"
+  # Whether a full run that passes on trunk releases its commit. Until it
+  # does, the release job there says what it would release, and a tag
+  # pushed by hand still releases.
+  LOTA_RELEASE_TRUNK: "false"
 
 jobs:
+  # What this commit releases as, decided before any gem is built, so the
+  # gems the run builds carry it, and the gems a release publishes are the
+  # ones this run verified (doc/contributors/releasing.md). rake
+  # release:version reads it from git at this commit, wherever trunk has
+  # moved: the last release tag before it, and what its CHANGELOG.md's
+  # [Unreleased] adds since; the next PATCH, or the next MINOR for a
+  # Breaking: entry; nothing when it adds nothing, when a release tag
+  # already holds it, or from 1.0.0 on. It refuses, naming each, when sig/
+  # removes or changes the API with no Breaking: entry. For a tag, it
+  # checks the tag instead, and its refusal fails the run. Elsewhere a
+  # refusal stops the release, not the run: the gems carry 0.0.0.dev, and
+  # the refuse-release job shows why.
+  version:
+    name: Decide the version
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      refusal: ${{ steps.decide.outputs.refusal }}
+    steps:
+      # Every commit and tag, which the decision reads.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install libyaml
+        run: |
+          sudo apt-get update
+          bin/apt-packages list bundle | xargs sudo apt-get install --assume-yes
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - name: Place Bundler outside the checkout
+        id: paths
+        run: |
+          echo "BUNDLE_PATH=$HOME/.cache/lota/bundle" >> "$GITHUB_ENV"
+          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/lota/bundle
+          key: gems-${{ steps.paths.outputs.ruby }}-${{ hashFiles('Gemfile.lock') }}
+
+      - name: Install the bundle
+        run: bundle install
+
+      - name: Decide what this commit releases as
+        id: decide
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          if version=$(bundle exec rake --silent "release:version[$GITHUB_SHA,$TAG]" 2> "$RUNNER_TEMP/reason"); then
+            cat "$RUNNER_TEMP/reason"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            if [ -n "$version" ]; then
+              echo "::notice::$GITHUB_SHA releases as $version: $(cat "$RUNNER_TEMP/reason")"
+            fi
+          else
+            cat "$RUNNER_TEMP/reason"
+            if [ -n "$TAG" ]; then
+              echo "::error::$TAG releases nothing: $(head -n 1 "$RUNNER_TEMP/reason")"
+              exit 1
+            fi
+            {
+              echo "refusal<<REFUSAL"
+              cat "$RUNNER_TEMP/reason"
+              echo "REFUSAL"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+  # A refusal from the version job, such as an API break with no Breaking:
+  # entry, shown as this job's failure. It stops the release, not trunk:
+  # the commit the run proves is no worse for it, so the run stays green
+  # (continue-on-error).
+  refuse-release:
+    name: Refuse the release
+    needs: version
+    if: needs.version.outputs.refusal != ''
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Say why this commit releases nothing
+        env:
+          REFUSAL: ${{ needs.version.outputs.refusal }}
+        run: |
+          echo "$REFUSAL"
+          echo "::error::This commit releases nothing: $(echo "$REFUSAL" | head -n 1)"
+          exit 1
+
   gate:
     name: Gate
+    needs: version
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -290,6 +374,12 @@ jobs:
           path: ~/.cache/lota/ccache
           key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
 
+      # The version this run releases as, if any, after the check above,
+      # which the stamp's edits would fail.
+      - uses: ./.github/actions/version
+        with:
+          version: ${{ needs.version.outputs.version }}
+
       # The gem's SHA-256 travels with it, so the delivery job installs
       # the gem this job built, and a release publishes the gem the
       # delivery job installed, byte for byte.
@@ -392,6 +482,7 @@ jobs:
   # them only when either changes.
   linux-gate:
     name: Gate (${{ matrix.platform }})
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -563,6 +654,10 @@ jobs:
           path: ~/.cache/lota/ccache
           key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.submodules }}-${{ github.run_id }}
 
+      - uses: ./.github/actions/version
+        with:
+          version: ${{ needs.version.outputs.version }}
+
       - name: Build the precompiled gem
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -665,6 +760,7 @@ jobs:
   # for each platform.
   windows-build:
     name: Windows build (${{ matrix.platform }})
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -702,6 +798,7 @@ jobs:
       cc: ${{ matrix.cc }}
       cxx: ${{ matrix.cxx }}
       ccache: ${{ matrix.ccache }}
+      version: ${{ needs.version.outputs.version }}
       ignore_failures: ${{ github.event_name == 'workflow_dispatch' && inputs.ignore_gate_failures && github.ref_type == 'branch' }}
 
   # The Windows gem the build job built, on a runner that never built it,
@@ -791,15 +888,19 @@ jobs:
       artifact_name: ios-kit-winkit
 
   # The iOS kit again, called as a game's own CI calls it
-  # (ios-kit-caller.yml), for test/games/sample_game. It runs for a tag and
-  # by hand, which are the runs the release job reads, and not on a push,
-  # where the kit has just run for test/games/winkit; that workflow's own
-  # schedule runs it daily. A skipped job would also skip the release, but
-  # the release runs only for a tag or by hand, as a run prepare-release
-  # starts is, so the kit runs before every release.
+  # (ios-kit-caller.yml), for test/games/sample_game. It runs for a tag, by
+  # hand, and on a push to trunk whose commit releases as a version, which
+  # are the runs the release job publishes or rehearses, and not on any
+  # other push, where the kit has just run for test/games/winkit; that
+  # workflow's own schedule runs it daily. The release job needs it, so
+  # the kit runs before every release.
   ios-kit-call:
     name: iOS kit, called as a game's CI calls it
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    needs: version
+    if: >-
+      github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && needs.version.outputs.version != ''
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     uses: ./.github/workflows/ios-kit-caller.yml
     permissions:
       contents: read
@@ -810,144 +911,28 @@ jobs:
   # never a release's.
   fuse:
     name: Fuse
-    needs: [gate, linux-gate, windows-build]
+    needs: [version, gate, linux-gate, windows-build]
     uses: ./.github/workflows/fuse.yml
     permissions:
       contents: read
       actions: read
     with:
       this_run: true
-
-  # Routine releases, which nobody has to remember
-  # (doc/contributors/releasing.md). When every job above that a push runs
-  # passed on a push to trunk (the iOS kit called as a game's CI calls it
-  # runs in the release commit's own run instead), and that push is still
-  # trunk's tip, this job asks rake
-  # release:next what to release: nothing while the last release commit
-  # has no tag yet, so one release is in flight at a time; nothing when
-  # CHANGELOG.md's [Unreleased] lists nothing; otherwise the next PATCH, or
-  # the next MINOR for a Breaking: entry, and it refuses, naming each, when
-  # sig/ removes or changes the API since the last release with no
-  # Breaking: entry. It then runs release:prepare, commits the release to
-  # trunk, pushes without force, and starts CI on trunk with release_tag,
-  # whose release job tags the commit and publishes only if that whole run
-  # passes. A push GitHub's token makes starts no workflow, which is why
-  # it starts CI by workflow_dispatch, the one event that token may start.
-  # If trunk moves first, it skips, and the next full run that passes
-  # tries again.
-  #
-  # Its failures stop a release, not trunk: they show as this job's, and
-  # the run stays green (continue-on-error), since the commit the run
-  # proves is no worse for them. Its token may write the repository's
-  # contents, to push the commit, and start workflows; nothing else.
-  # Run by hand on another branch with rehearse_auto_release, it does the
-  # same on that branch, whose run then rehearses the release.
-  prepare-release:
-    name: Prepare the next release
-    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery, phones, ios-kit, fuse]
-    if: >-
-      github.repository == 'setdef/Lota'
-      && ((github.event_name == 'push'
-      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
-      || (github.event_name == 'workflow_dispatch' && inputs.rehearse_auto_release && !inputs.ignore_gate_failures
-      && inputs.release_tag == '' && github.ref_type == 'branch'
-      && github.ref != format('refs/heads/{0}', github.event.repository.default_branch)))
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    continue-on-error: true
-    concurrency:
-      group: ${{ github.workflow }}-prepare-release
-      cancel-in-progress: false
-    permissions:
-      contents: write
-      actions: write
-    env:
-      BRANCH: ${{ github.ref_name }}
-    steps:
-      # Every tag, which says whether the last release is done.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Install libyaml
-        run: |
-          sudo apt-get update
-          bin/apt-packages list bundle | xargs sudo apt-get install --assume-yes
-
-      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
-
-      - name: Place Bundler outside the checkout
-        id: paths
-        run: |
-          echo "BUNDLE_PATH=$HOME/.cache/lota/bundle" >> "$GITHUB_ENV"
-          echo "ruby=$(ruby -rdigest -e 'print RUBY_VERSION, "-", RUBY_PLATFORM, "-", Digest::SHA256.hexdigest(RbConfig::CONFIG["configure_args"])[0, 16]')" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/lota/bundle
-          key: gems-${{ steps.paths.outputs.ruby }}-${{ hashFiles('Gemfile.lock') }}
-
-      - name: Install the bundle
-        run: bundle install
-
-      # The checkout's origin/<branch> is this run's commit, whatever the
-      # branch holds now, so ask GitHub where the branch is.
-      - name: Prepare the release, push it, and start CI on it
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          tip=$(git ls-remote "$remote" "refs/heads/$BRANCH" | cut -f1)
-          if [ "$tip" != "$GITHUB_SHA" ]; then
-            echo "::notice::$BRANCH has moved on from $GITHUB_SHA to $tip; the next full run that passes there releases"
-            exit 0
-          fi
-          next=$(bundle exec rake --silent release:next)
-          if [ -z "$next" ]; then
-            echo "Nothing to release"
-            exit 0
-          fi
-          LOTA_RELEASE_BRANCH="$BRANCH" bundle exec rake "release:prepare[$next]"
-          git --no-pager diff --stat
-          cat > "$RUNNER_TEMP/message" <<EOF
-          chore: release $next
-
-          A full CI run passed on the tip of $BRANCH while CHANGELOG.md's
-          [Unreleased] listed changes, so CI prepared this release on its
-          own: [Unreleased] moves under $next, dated today, and the version
-          follows. The CI run started on this commit tags it v$next and
-          publishes the release only if every job passes.
-
-          Released-by: CI run $GITHUB_RUN_ID, job prepare-release
-          Red-before-green: none (release)
-          Provenance: requested
-          EOF
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit --quiet --all --file "$RUNNER_TEMP/message"
-          release=$(git rev-parse HEAD)
-          if ! git push --quiet "$remote" "HEAD:refs/heads/$BRANCH"; then
-            tip=$(git ls-remote "$remote" "refs/heads/$BRANCH" | cut -f1)
-            if [ "$tip" != "$GITHUB_SHA" ]; then
-              echo "::notice::$BRANCH moved on to $tip before the release commit could be pushed; the next full run that passes there releases"
-              exit 0
-            fi
-            echo "::error::Could not push the release commit to $BRANCH"
-            exit 1
-          fi
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH" -f release_tag="v$next"
-          echo "::notice::Pushed $release, chore: release $next, to $BRANCH, and started CI there to release it as v$next"
+      version: ${{ needs.version.outputs.version }}
 
   # The release (doc/contributors/releasing.md), from the gems the
-  # delivery jobs installed and ran, never rebuilt. It runs for a tag
-  # v0.1.0 pushed to this repository, for a run started with release_tag,
-  # and by hand as a dry run; never for a pull request, and never in a
-  # fork. It needs every platform's gate and delivery, and the phone, iOS
-  # kit, and fuse checks, to have passed, so a commit where any of them
-  # failed is neither tagged nor published; rerun the failed jobs, or fix
-  # trunk and release the fix with the next version. Its token alone may
-  # write, and only the repository's contents, which a tag and a GitHub
-  # release are; it uses no other secret. A tag it makes through the API
+  # delivery jobs installed and ran, never rebuilt, which carry the
+  # version the version job decided. It runs when that job named a
+  # version: on a push to trunk, where it releases this run's commit
+  # however far trunk has moved on since; for a tag pushed by hand; and by
+  # hand, which on any branch but trunk is a dry run. Never for a pull
+  # request, and never in a fork. It needs every platform's gate and
+  # delivery, and the phone, iOS kit, and fuse checks, to have passed, so
+  # a commit where any of them failed is neither tagged nor published;
+  # rerun the failed jobs, or fix trunk and let the next green run
+  # release. Its token alone may write, and only the repository's
+  # contents, which a tag and a GitHub release are; it uses no other
+  # secret, and pushes nothing to a branch. A tag it makes through the API
   # starts no run, so nothing publishes twice, and a rerun finds the tag
   # or the release there already and leaves it (rake release:plan). A new
   # platform joins with a job that builds its gem and a delivery job that
@@ -955,18 +940,19 @@ jobs:
   # the platform in PLATFORMS.
   release:
     name: Release
-    needs: [gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery, phones, ios-kit, ios-kit-call,
+    needs: [version, gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery, phones, ios-kit, ios-kit-call,
       fuse]
     if: >-
-      github.repository == 'setdef/Lota'
-      && ((github.event_name == 'push' && github.ref_type == 'tag')
+      github.repository == 'setdef/Lota' && needs.version.outputs.version != ''
+      && ((github.event_name == 'push' && (github.ref_type == 'tag'
+      || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)))
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     # One release at a time.
     concurrency:
       group: >-
-        ${{ ((github.event_name == 'push' && github.ref_type == 'tag') || inputs.release_tag != '')
+        ${{ (github.ref_type == 'tag' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
         && format('{0}-publish', github.workflow) || format('{0}-dry-run-{1}', github.workflow, github.run_id) }}
       cancel-in-progress: false
     permissions:
@@ -974,25 +960,38 @@ jobs:
     env:
       # One gem for each, every one of which the release must carry.
       PLATFORMS: arm64-darwin x86_64-linux-gnu aarch64-linux-gnu x64-mingw-ucrt aarch64-mingw-ucrt
-      # Tag (unless the tag is pushed) and publish: for a tag, and for
-      # release_tag on trunk. release_tag on another branch rehearses.
-      PUBLISH: >-
-        ${{ (github.event_name == 'push' && github.ref_type == 'tag')
-        || (github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
-        && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) }}
-      RELEASE_TAG: ${{ inputs.release_tag }}
+      VERSION: ${{ needs.version.outputs.version }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
-      - name: Refuse to publish past a failing gate
-        if: inputs.ignore_gate_failures
+      # Publish for a tag, and on trunk once LOTA_RELEASE_TRUNK says so;
+      # anywhere else, rehearse. A run that went on past failing gates
+      # never publishes.
+      - name: Decide whether this run publishes
+        id: mode
+        env:
+          IGNORE_GATE_FAILURES: ${{ inputs.ignore_gate_failures }}
         run: |
-          if [ "$GITHUB_REF_TYPE" != branch ] || [ -n "$RELEASE_TAG" ]; then
-            echo "::error::ignore_gate_failures is for a dry run on a branch, never a tag or a release"
-            exit 1
+          publish=false
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            publish=true
+          elif [ "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH" ]; then
+            if [ "$LOTA_RELEASE_TRUNK" = true ]; then
+              publish=true
+            else
+              echo "::notice::A green run on $DEFAULT_BRANCH releases nothing yet (LOTA_RELEASE_TRUNK); this run says what it would release"
+            fi
           fi
-          echo "::warning::A dry run that ignored the gates' failures; a tag would publish nothing from this commit unless they pass"
+          if [ "$IGNORE_GATE_FAILURES" = true ]; then
+            if [ "$publish" = true ]; then
+              echo "::error::ignore_gate_failures is for a dry run, never a release"
+              exit 1
+            fi
+            echo "::warning::A dry run that ignored the gates' failures; a release publishes nothing from this commit unless they pass"
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
       # Every branch and tag, to ask whether the commit is on trunk and
-      # whether its tag exists.
+      # which releases hold it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -1002,7 +1001,7 @@ jobs:
       # commit must already be on trunk, where the gate ran on it.
       - name: Check the commit is on the default branch
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PUBLISH: ${{ steps.mode.outputs.publish }}
         run: |
           if git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
             echo "$GITHUB_SHA is on $DEFAULT_BRANCH"
@@ -1010,7 +1009,7 @@ jobs:
             echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on $DEFAULT_BRANCH; releases are cut from $DEFAULT_BRANCH"
             exit 1
           else
-            echo "::warning::$GITHUB_SHA is not on $DEFAULT_BRANCH, so a tag on it would publish nothing"
+            echo "::warning::$GITHUB_SHA is not on $DEFAULT_BRANCH, so it would release nothing"
           fi
 
       - name: Install libyaml
@@ -1034,102 +1033,192 @@ jobs:
       - name: Install the bundle
         run: bundle install
 
-      # The tag must name lib/lota/version.rb's version, and CHANGELOG.md
-      # must have a dated section for it, whose changes are the notes. A
-      # dry run checks the tag the version would have.
-      - name: Check the tag, the version, and the changelog
-        id: release
-        run: |
-          if [ "$GITHUB_REF_TYPE" = tag ]; then
-            TAG=$GITHUB_REF_NAME
-          elif [ -n "$RELEASE_TAG" ]; then
-            TAG=$RELEASE_TAG
-          else
-            TAG=v$(bundle exec ruby -r ./lib/lota/version -e 'print Lota::VERSION')
-          fi
-          bundle exec rake "release:check[$TAG]"
-          bundle exec rake "release:notes[${TAG#v},$RUNNER_TEMP/notes.md]"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      # What a release still needs: a tag and a release, a release, or
-      # nothing, when a rerun finds both; or nothing, when this commit's
-      # [Unreleased] lists changes, as when trunk moved before CI started
-      # the run release_tag names. A tag on another commit is refused, as
-      # a tag never moves.
+      # What the release still needs, asked again now that every job has
+      # passed: a tag and a release, a release, or nothing, when a rerun
+      # finds both, or when a release made since the run began holds this
+      # commit or moved the version on, so the gems carry the wrong one. A
+      # tag on another commit is refused, as a tag never moves. The notes
+      # are what this commit's [Unreleased] adds since the release before
+      # it.
       - name: Decide what the release needs
         id: plan
-        if: env.PUBLISH == 'true' || env.RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
         run: |
           released=false
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             released=true
           fi
-          action=$(bundle exec rake --silent "release:plan[$TAG,$GITHUB_SHA,$released]")
-          echo "$TAG on $GITHUB_SHA: $action"
+          if ! action=$(bundle exec rake --silent "release:plan[$GITHUB_SHA,$VERSION,$released]" 2> "$RUNNER_TEMP/reason"); then
+            cat "$RUNNER_TEMP/reason"
+            exit 1
+          fi
+          echo "v$VERSION on $GITHUB_SHA: $action, as $(cat "$RUNNER_TEMP/reason")"
           echo "action=$action" >> "$GITHUB_OUTPUT"
           if [ "$action" = skip ]; then
-            echo "::warning::$GITHUB_SHA is not the release commit for $TAG, since its [Unreleased] lists changes; release it by hand (doc/contributors/releasing.md)"
+            echo "::notice::$GITHUB_SHA releases nothing: $(cat "$RUNNER_TEMP/reason")"
+          else
+            bundle exec rake "release:notes[$GITHUB_SHA,$RUNNER_TEMP/notes.md]"
+            cat "$RUNNER_TEMP/notes.md"
           fi
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: steps.plan.outputs.action == '' || steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
         with:
           pattern: verified-lota-*
           merge-multiple: true
           path: ${{ runner.temp }}/release
 
-      # Exactly one gem for each platform, each the one its delivery job
-      # verified, and SHA256SUMS for them all.
+      # Exactly one gem of the version for each platform, each the one its
+      # delivery job verified, and SHA256SUMS for them all.
       - name: Assemble the release
-        if: steps.plan.outputs.action == '' || steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
         run: |
           read -r -a platforms <<< "$PLATFORMS"
-          bundle exec rake "release:assemble[$RUNNER_TEMP/release$(printf ',%s' "${platforms[@]}")]"
+          bundle exec rake "release:assemble[$RUNNER_TEMP/release,$VERSION$(printf ',%s' "${platforms[@]}")]"
           cat "$RUNNER_TEMP/release/SHA256SUMS"
 
       # An annotated tag, made through the API, which refuses a tag that
       # exists rather than move it.
-      - name: Tag the release commit
-        if: env.PUBLISH == 'true' && steps.plan.outputs.action == 'tag_and_publish'
+      - name: Tag the commit
+        if: steps.mode.outputs.publish == 'true' && steps.plan.outputs.action == 'tag_and_publish'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$TAG" -f message="Lota ${TAG#v}" \
+          object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="v$VERSION" -f message="Lota $VERSION" \
             -f object="$GITHUB_SHA" -f type=commit --jq .sha)
-          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$object" > /dev/null
-          echo "Tagged $GITHUB_SHA $TAG"
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$object" > /dev/null
+          echo "Tagged $GITHUB_SHA v$VERSION"
 
       - name: Publish the release
-        if: env.PUBLISH == 'true' && (steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish')
+        if: steps.mode.outputs.publish == 'true' && (steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish')
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "Lota ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/release/*
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Lota $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/release/*
 
-      - name: Say what a release would have done
-        if: env.PUBLISH != 'true' && env.RELEASE_TAG != ''
+      # Which commit the release picked, and where the branch is now: a
+      # release never waits for the branch to stand still.
+      - name: Say what the release did, or would have done
         env:
           ACTION: ${{ steps.plan.outputs.action }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: echo "::notice::A rehearsal on $GITHUB_REF_NAME; on trunk this run would $ACTION $TAG on $GITHUB_SHA"
+          PUBLISH: ${{ steps.mode.outputs.publish }}
+        run: |
+          tip=$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)
+          where=""
+          if [ -n "$tip" ]; then
+            where="; the tip of $GITHUB_REF_NAME is now $tip"
+          fi
+          if [ "$PUBLISH" = true ]; then
+            echo "::notice::$ACTION v$VERSION on $GITHUB_SHA$where"
+          else
+            echo "::notice::A dry run on $GITHUB_REF_NAME; publishing, this run would $ACTION v$VERSION on $GITHUB_SHA$where"
+          fi
 
       - name: Copy the notes beside the gems
         if: >-
-          env.PUBLISH != 'true' && (steps.plan.outputs.action == '' || steps.plan.outputs.action == 'tag_and_publish'
-          || steps.plan.outputs.action == 'publish')
+          steps.mode.outputs.publish != 'true'
+          && (steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish')
         run: cp "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP/release/"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: >-
-          env.PUBLISH != 'true' && (steps.plan.outputs.action == '' || steps.plan.outputs.action == 'tag_and_publish'
-          || steps.plan.outputs.action == 'publish')
+          steps.mode.outputs.publish != 'true'
+          && (steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish')
         with:
-          name: release-dry-run-${{ steps.release.outputs.tag }}
+          name: release-dry-run-v${{ needs.version.outputs.version }}
           path: ${{ runner.temp }}/release
           if-no-files-found: error
           retention-days: 14
+
+  # The bookkeeping a release leaves for afterward
+  # (doc/contributors/releasing.md): on top of trunk as it is now, a dated
+  # section in CHANGELOG.md for each release tag it has none for, moving
+  # exactly the entries that release's commit added out of [Unreleased],
+  # and leaving entries added since (rake changelog:record, Release#record).
+  # It reads only the tags, so it runs after every full run on trunk, not
+  # only one that released, and puts back any section a failed push left
+  # out. It pushes an ordinary commit without force, rebasing and trying
+  # again when trunk moves first. A push GitHub's token makes starts no
+  # workflow, so the commit starts no release of its own, and the next
+  # push's runs prove it; it adds no entry, so no release is made for it
+  # alone. Its failures leave the changelog behind, not trunk red, so the
+  # run stays green (continue-on-error), and the next run tries again. Its
+  # token may write the repository's contents, to push the commit, and
+  # nothing else.
+  changelog:
+    name: Record the releases in CHANGELOG.md
+    needs: [version, release]
+    if: >-
+      always() && !cancelled() && github.repository == 'setdef/Lota'
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    continue-on-error: true
+    concurrency:
+      group: ${{ github.workflow }}-changelog
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      # Trunk as it is now, not this run's commit, and every tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      # Plain Ruby: Release#record needs no bundle.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - name: Record each release without a section, and push it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          record='text, recorded = Release.new(root: Dir.pwd).record; File.write("CHANGELOG.md", text); print recorded.join(" ")'
+          for attempt in 1 2 3; do
+            git fetch --quiet --tags "$remote" "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+            git checkout --quiet --force --detach "origin/$DEFAULT_BRANCH"
+            recorded=$(ruby -r ./tasks/release -e "$record")
+            if [ -z "$recorded" ]; then
+              echo "CHANGELOG.md has a section for every release tag"
+              exit 0
+            fi
+            git --no-pager diff
+            read -r -a versions <<< "$recorded"
+            tags=$(printf 'v%s ' "${versions[@]}")
+            cat > "$RUNNER_TEMP/message" <<EOF
+          chore: record ${tags% } in the changelog
+
+          CI released ${tags% } from a commit a green full run proved,
+          wherever trunk had moved, and wrote nothing to trunk to do it. This
+          catches CHANGELOG.md up: the entries each release's commit added
+          move out of [Unreleased] under its dated section, and the entries
+          added since stay where they are.
+
+          Release: ${tags% }
+          Recorded-by: CI run $GITHUB_RUN_ID, job changelog
+          Red-before-green: none (release bookkeeping)
+          Provenance: requested
+          EOF
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet --all --file "$RUNNER_TEMP/message"
+            if git push --quiet "$remote" "HEAD:refs/heads/$DEFAULT_BRANCH"; then
+              echo "::notice::Recorded ${tags% } in CHANGELOG.md on $DEFAULT_BRANCH as $(git rev-parse HEAD)"
+              exit 0
+            fi
+            echo "$DEFAULT_BRANCH moved on before the push (attempt $attempt); trying again on top of it"
+            sleep $((attempt * 10))
+          done
+          echo "::warning::Could not push the changelog's record of ${tags% }; the next full run on $DEFAULT_BRANCH tries again"
+
+      # The sections this run left, checked against the tags: a section
+      # CI wrote lists what its release added, and one from before CI
+      # recorded releases is word for word its tag's.
+      - name: Check the changelog against the tags
+        run: |
+          ruby -r ./tasks/release -e 'problems = Release.new(root: Dir.pwd).check_changelog; abort problems.join("\n") unless problems.empty?'

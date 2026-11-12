@@ -48,11 +48,11 @@
 # built each platform's gem, with this_run, so the gems are that run's
 # lota-PLATFORM artifacts, checked against their .sha256 files. Run by
 # hand, the gems are the lota-PLATFORM artifacts of the CI run gems_run
-# names, checked the same way, or with no gems_run the release of the
-# version this checkout is (lib/lota/version.rb), which lota fuse pins,
-# checked against its SHA256SUMS. lota fuse runs from this checkout
-# (ruby -I lib), and ships the installed gem it finds, as a developer's
-# would. What each job built is kept as an artifact, fused-GAME-PLATFORM:
+# names, checked the same way, or with no gems_run the release of
+# version, checked against its SHA256SUMS. lota fuse runs from this
+# checkout (ruby -I lib), and ships the installed gem whose version is
+# lib/lota/version.rb's, as a developer's would, so each job first stamps
+# the gems' version there (.github/actions/version). What each job built is kept as an artifact, fused-GAME-PLATFORM:
 # the archive a player unpacks, and on Windows the setup program, on
 # macOS the disk image, on Linux the AppImage.
 #
@@ -74,10 +74,18 @@ on:
         description: Fuse with the lota-PLATFORM artifacts the calling run's jobs uploaded
         type: boolean
         default: false
+      version:
+        description: The version those gems carry, as ci.yml's version job decides it (empty for the repository's 0.0.0.dev)
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       gems_run:
-        description: A CI run whose lota-PLATFORM artifacts to fuse with (empty for the release of this checkout's version)
+        description: A CI run whose lota-PLATFORM artifacts to fuse with (empty for the release of version)
+        type: string
+        default: ""
+      version:
+        description: The version the gems carry, and with no gems_run the release to fuse with (empty for 0.0.0.dev)
         type: string
         default: ""
       game_repository:
@@ -201,6 +209,10 @@ jobs:
       - name: Point RubyInstaller at setup-ruby's MSYS2
         if: runner.os == 'Windows' && matrix.game != 'fuse' && matrix.game != 'fuse_gems'
         run: echo "MSYS2_PATH=$RI_DEVKIT" >> "$GITHUB_ENV"
+
+      - uses: ./.github/actions/version
+        with:
+          version: ${{ inputs.version }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: inputs.this_run
@@ -509,6 +521,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: ./.github/actions/version
+        with:
+          version: ${{ inputs.version }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: inputs.this_run
