@@ -122,6 +122,7 @@ PREPUSH_LEAVES_OUT = %w[
   ArkanoidTest
   GravityWarsTest
   KleleAtomsTest
+  FlashBlipTest
   BenchGamesTest
   ReferenceCacheTest#test_a_cached_run_of_the_reference_love_is_what_running_it_again_gives
   DirectoryTest

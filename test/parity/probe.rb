@@ -38,6 +38,10 @@ module Parity
   # saves in LOTA_PARITY_MISMATCH_DIR, as LÖVE showed it, love-NNNN.png,
   # and as Lota showed it, lota-NNNN.png.
   #
+  # Deprecation notices are printed until the game's load returns, and
+  # then turned off, as the Lua side turns off LÖVE's, which LÖVE would
+  # also draw over its frames for 20 seconds of the real clock.
+  #
   # Every dialog the game shows, such as LÖVE's version warning, which
   # boot.lua shows before the window opens, has Return pressed on it, as
   # the Lua side does (LotaNativeTest.press_return_on_dialogs), so both
@@ -46,9 +50,10 @@ module Parity
   # Time.now, called with no arguments, returns LOTA_PARITY_CLOCK seconds
   # after the epoch, as the Lua side's os.time() does, so a game that
   # seeds Lota::Math's generator from the clock draws the same numbers
-  # LÖVE's does, and Lota.load seeds the
-  # generator with it before the game's load, as the Lua side seeds
-  # LÖVE's, for a game that draws numbers without seeding them.
+  # LÖVE's does, and the probe seeds the generator with it as Lota::Boot
+  # loads the game's main.rb (SeedBeforeMain) and again before the game's
+  # load, as the Lua side seeds LÖVE's, for a game that draws numbers
+  # without seeding them.
   #
   # The mouse moves and clicks as the Lua side moves and clicks it: the
   # pointer is held at the latest of LOTA_PARITY_MOVE's moves, from the
@@ -57,7 +62,11 @@ module Parity
   # updates SDL's mouse state and queues mousemoved, and
   # LOTA_PARITY_CLICK's clicks are pushed after it with
   # LotaNativeTest.click_mouse, at the pointer's position. Lota::Timer.delta returns DT, the dt
-  # the game's update gets, as love.timer.getDelta does on the Lua side.
+  # the game's update gets, as love.timer.getDelta does on the Lua side,
+  # and Lota::Timer.time the game's time, the frame under way times DT, as
+  # love.timer.getTime does there. Each Lota::Thread::Thread the game
+  # starts runs to its end before start returns, as each of LÖVE's
+  # threads does on the Lua side, once Lota has threads.
   #
   # Sound is measured twice, as on the Lua side. Lota.load first decodes
   # each file LOTA_PARITY_SOUNDS lists into LOTA_PARITY_SOUNDS_DIR, with
@@ -99,6 +108,7 @@ module Parity
     @frame = 0
     @compared = 0
     @mismatch = nil
+    @threads = 0
 
     class << self
       # The frame under way, counting from 1.
@@ -213,9 +223,17 @@ module Parity
         end
       end
 
-      # Writes the report.
+      # Counts a Lota::Thread::Thread the game started.
+      def thread_started
+        @threads += 1
+      end
+
+      # Writes the report: the frames compared, the first that differed,
+      # and how many Lota::Thread::Threads the game started, or +nil+ when
+      # this Lota has no Lota::Thread.
       def report
-        File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch))
+        threads = Lota.const_defined?(:Thread, false) ? @threads : nil
+        File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch, "threads" => threads))
       end
 
       # How frame +number+, shown by Lota as +actual+, differs from the one
@@ -247,6 +265,7 @@ module Parity
         Probe.hold_pointer(1) if Lota.mouse
         game = method(:load).super_method
         super(*Probe.declared(game, arguments)) if game
+        Lota::Deprecation.output = false
       end
 
       def update(_dt)
@@ -280,10 +299,38 @@ end
 
 module Parity
   module Probe
-    # Lota::Timer.delta, fixed at DT, the dt the game's update gets.
+    # Lota::Timer.delta, fixed at DT, the dt the game's update gets, and
+    # Lota::Timer.time, the game's time: the frame under way, 0 in
+    # Lota.load, times DT, as the Lua side fixes love.timer.getTime.
     module Delta
       def delta
         DT
+      end
+
+      def time
+        Probe.frame * DT
+      end
+    end
+
+    # Seeds Lota::Math's generator with CLOCK as Lota::Boot loads the
+    # game's main.rb, as the Lua side seeds LÖVE's before main.lua, for a
+    # game that draws numbers as its files load.
+    module SeedBeforeMain
+      private def require(path)
+        Lota::Math.random_seed = CLOCK if path.end_with?("/main.rb") && Lota.math
+        super
+      end
+    end
+
+    # Each Lota::Thread::Thread the game starts runs to its end before
+    # start returns, as the Lua side makes each of LÖVE's threads run
+    # (wait_for_threads), and the report counts them.
+    module Threads
+      def start(...)
+        started = super
+        wait
+        Probe.thread_started
+        started
       end
     end
 
@@ -302,4 +349,6 @@ LotaNativeTest.press_return_on_dialogs
 Time.singleton_class.prepend(Parity::Probe::Clock)
 Lota::Timer.singleton_class.prepend(Parity::Probe::Delta)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
+Lota::Boot.prepend(Parity::Probe::SeedBeforeMain)
+Lota::Thread::Thread.prepend(Parity::Probe::Threads) if Lota.const_defined?(:Thread, false)
 at_exit { Parity::Probe.report }

@@ -75,7 +75,12 @@
 --   itself, so love.mouse.isDown does not see a click. A move comes before
 --   a click in the same frame.
 -- * love.timer.getDelta returns 1 / LOTA_PARITY_FPS, the dt love.update
---   gets, rather than the time the frame took.
+--   gets, rather than the time the frame took, and love.timer.getTime
+--   returns the game's time: the frame under way, counting from 1, and 0
+--   in love.load, times that dt.
+-- * Each thread the game starts with love.thread runs to its end before
+--   Thread:start returns (wait_for_threads), so what it pushes onto a
+--   channel is there at the same frame however fast the machine ran it.
 --
 -- Random numbers come from LÖVE's own generator in both engines: Lua's math.random and math.randomseed are pointed at
 -- love.math.random and love.math.setRandomSeed (wrap_Math.lua:37-47),
@@ -84,11 +89,26 @@
 -- test/parity/probe.rb, so a game that seeds from the clock draws the same
 -- numbers in both. Lua's own generator, which Ruby cannot reproduce, is
 -- never reached. love.math opens after this file runs (boot.lua:347-372),
--- so the two are looked up when the game calls them. LÖVE seeds its
+-- so the two are looked up when the game calls them, and a game that
+-- seeds from its conf.lua, before love.math opens, seeds nothing: the
+-- harness seeds LÖVE's generator itself before love.load. LÖVE seeds its
 -- generator from the real time when love.math opens
 -- (math/MathModule.cpp:203-210), so the harness seeds it with
--- LOTA_PARITY_CLOCK before the game's love.load, as the Ruby side does,
--- for a game that draws numbers without seeding them.
+-- LOTA_PARITY_CLOCK before the game's main.lua loads, for a game that
+-- draws numbers as its files load, and again before its love.load, as
+-- the Ruby side does, for a game that draws numbers without seeding them.
+--
+-- Deprecation notices are printed until the game's love.load returns,
+-- and then turned off (love.setDeprecationOutput). LÖVE also draws the
+-- notices over each frame for 20 seconds of the real clock, which a fixed
+-- dt does not reach (graphics/Deprecations.cpp:45-130), so which frames
+-- show them, and how faded, changes with the machine's speed, and they
+-- name the files of the game in each engine's language. Lota prints its
+-- notices but draws none.
+--
+-- pairs visits a table's keys in sorted order (sorted_pairs), from when
+-- the game's main.lua loads, since LuaJIT's own order changes from run
+-- to run.
 --
 -- The game's own code is not changed, and runs as love.run calls it.
 
@@ -109,7 +129,9 @@ math.random = function(...)
   return love.math.random(...)
 end
 math.randomseed = function(...)
-  return love.math.setRandomSeed(...)
+  if love.math then
+    return love.math.setRandomSeed(...)
+  end
 end
 
 -- The keys LOTA_PARITY_HOLD or LOTA_PARITY_PRESS names, in its order.
@@ -473,6 +495,71 @@ local function decode_sounds()
   end
 end
 
+-- Lua's pairs, visiting a table's keys in sorted order: numbers before
+-- strings, each in its own order, and any other key after them, in the
+-- order tostring writes it. LuaJIT places a string key in a table by its
+-- hash, which it seeds at random as each Lua state starts (lj_prng.c,
+-- lj_str.c), so its pairs visits the same table's keys in another order
+-- each run, an order a game cannot seed and Ruby cannot reproduce. A game
+-- whose pairs loop decides what it draws or saves, such as one that picks
+-- a random entry of a list its pairs built, does the same in every run
+-- with this one, and its translation visits the keys in this order.
+local KEY_RANK = { number = 1, string = 2 }
+
+local function key_before(a, b)
+  local ra, rb = KEY_RANK[type(a)] or 3, KEY_RANK[type(b)] or 3
+  if ra ~= rb then
+    return ra < rb
+  end
+  if ra < 3 then
+    return a < b
+  end
+  return tostring(a) < tostring(b)
+end
+
+local function sorted_pairs(t)
+  local keys = {}
+  for key in next, t do
+    table.insert(keys, key)
+  end
+  table.sort(keys, key_before)
+  local index = 0
+  -- A key the game cleared during the loop, before the loop reached it,
+  -- is skipped, as next skips it.
+  return function()
+    repeat
+      index = index + 1
+      local key = keys[index]
+      if key == nil then
+        return nil
+      end
+      local value = rawget(t, key)
+      if value ~= nil then
+        return key, value
+      end
+    until false
+  end, t, nil
+end
+
+-- Makes each thread the game starts run to its end before Thread:start
+-- returns, so that what a thread hands back over a channel is there at
+-- the same frame however fast the machine runs it, in both engines.
+-- Thread:start is a function of the methods table every Thread shares
+-- (wrap_LuaThread.cpp:33-53 and 79-86; luax_register_type, runtime.cpp:
+-- 515-522, makes the type's metatable its own __index), so the table of
+-- one new Thread, never started, reaches every Thread's start.
+-- Thread:wait returns once the thread's code has ended (wrap_LuaThread.cpp:
+-- 55-60).
+local function wait_for_threads()
+  local methods = getmetatable(love.thread.newThread("return\n"))
+  local start = methods.start
+  methods.start = function(thread, ...)
+    local started = start(thread, ...)
+    thread:wait()
+    return started
+  end
+end
+
 local real_require = require
 _G.require = function(name, ...)
   if name == "love.window" then
@@ -484,6 +571,10 @@ _G.require = function(name, ...)
     return real_require(name, ...)
   end
   _G.require = real_require
+  if love.math then
+    love.math.setRandomSeed(CLOCK)
+  end
+  _G.pairs = sorted_pairs
   local main = real_require(name, ...)
 
   local frame = 0
@@ -493,6 +584,13 @@ _G.require = function(name, ...)
     love.timer.getDelta = function()
       return DT
     end
+    love.timer.getTime = function()
+      return frame * DT
+    end
+  end
+
+  if love.thread then
+    wait_for_threads()
   end
 
   love.load = function(...)
@@ -504,8 +602,9 @@ _G.require = function(name, ...)
       hold_pointer(1)
     end
     if load then
-      return load(...)
+      load(...)
     end
+    love.setDeprecationOutput(false)
   end
 
   love.update = function(dt)

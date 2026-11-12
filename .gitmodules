@@ -16,3 +16,6 @@
 [submodule "vendor/love-appimage-source"]
 	path = vendor/love-appimage-source
 	url = https://github.com/love2d/love-appimage-source.git
+[submodule "test/fixtures/flash_blip"]
+	path = test/fixtures/flash_blip
+	url = https://github.com/plinkr/flash-blip.git
