@@ -30,7 +30,11 @@ if command -v mise >/dev/null 2>&1; then
   mise x -- bundle install
   # the source archives the precompiled gem carries (ext/lota/licenses.rb)
   mise x -- bundle exec rake sources:fetch
-  pre-commit install
+  # A CI runner or a build machine (CI=true) runs the checks alone: it
+  # commits nothing and reads no documentation.
+  if [ "${CI:-}" != true ]; then
+    pre-commit install
+  fi
   # The pre-push hook, .githooks/pre-push, runs from whichever worktree
   # pushes. The clone's shared hooks folder gets a stub that hands off to
   # it, so every worktree has the hook, and pre-commit (which refuses to
@@ -52,7 +56,9 @@ STUB
     chmod +x "$stub"
     echo "Git hooks: $stub runs .githooks/pre-push, so git push runs rake prepush and red_before_green first."
   fi
-  bundle exec rake rdoc
+  if [ "${CI:-}" != true ]; then
+    bundle exec rake rdoc
+  fi
 else
   echo "mise isn't installed. Please install it to continue." >&2
   exit 1
