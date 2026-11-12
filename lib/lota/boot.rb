@@ -394,12 +394,17 @@ module Lota
     # only on Windows, so Lota leaves it for later. The audio settings
     # (lines 337-345) do something only on Android and iOS, as LÖVE's
     # audio module decides, and reach it on every system, as in LÖVE.
+    # t.gammacorrect, which LÖVE 12 moved to t.graphics.gammacorrect, still
+    # wins when set, and is marked deprecated (lines 267-275).
     private def prepare_engine
       graphics = @settings.graphics
       graphics = nil unless graphics.is_a?(Settings::Graphics)
 
       gammacorrect = graphics ? graphics.gammacorrect : false
-      gammacorrect = @settings.gammacorrect unless @settings.gammacorrect.nil?
+      unless @settings.gammacorrect.nil?
+        Deprecation.mark("t.gammacorrect in Lota.conf", :field, :replaced, "t.graphics.gammacorrect")
+        gammacorrect = @settings.gammacorrect
+      end
       Native::Graphics.set_gamma_correct(!!gammacorrect)
 
       Native::Graphics.set_low_power_preferred(graphics.lowpower) if graphics

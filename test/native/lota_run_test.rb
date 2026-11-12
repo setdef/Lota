@@ -880,6 +880,20 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # LÖVE 12 moved t.gammacorrect to t.graphics.gammacorrect, and still
+  # honors it, marking it deprecated with no place, since boot.lua's
+  # caller there is LÖVE's own C (boot.lua:267-275).
+  def test_the_deprecated_gammacorrect_still_sets_gamma_correction
+    conf = "def Lota.conf(t) = (t.gammacorrect = false; t.graphics.gammacorrect = true)\n"
+    in_game("conf.rb" => conf, "main.rb" => "def Lota.load = (p Lota::Graphics.gamma_correct?; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory)
+
+      assert_predicate status, :success?, output
+      assert_equal "Lota - Warning: Using deprecated field t.gammacorrect in Lota.conf (replaced by t.graphics.gammacorrect)\n" \
+        "false\n", output
+    end
+  end
+
   # boot.lua requires love.sound and love.audio unless the settings turn
   # them off (boot.lua:347-372), and love.audio opens LÖVE's null audio
   # module when OpenAL cannot open a device (wrap_Audio.cpp:678-708); the
