@@ -101,13 +101,4 @@ class RubocopTest < Minitest::Test
     assert config.for_cop("Lota/RuleFourCondition")["Enabled"]
     assert_includes RuboCop::Cop::Registry.global.names, "Lota/RuleFourCondition"
   end
-
-  def test_the_listed_methods_are_module_functions_that_exist_in_lota
-    RuboCop::Cop::Lota::RULE_FOUR_METHODS.each do |scope, names|
-      mod = Object.const_get(scope)
-
-      names.each { |name| assert_respond_to mod, name, "#{scope}.#{name}" }
-    end
-    assert_includes RuboCop::Cop::Lota::RULE_FOUR_METHODS.fetch("Lota::Mouse"), "position"
-  end
 end

@@ -34,6 +34,7 @@ UNIT_TESTS = %w[
   test/cli_test.rb
   test/notices_test.rb
   test/restart_test.rb
+  test/rubocop_test.rb
   test/translation_examples_test.rb
   test/variant_test.rb
   test/version_test.rb
@@ -42,6 +43,7 @@ UNIT_TESTS = %w[
   test/tasks/auto_revert_test.rb
   test/tasks/ios_build_test.rb
   test/tasks/jobs_test.rb
+  test/tasks/licensing_test.rb
   test/tasks/native_format_pe_test.rb
   test/tasks/phone_host_test.rb
   test/tasks/phone_notices_test.rb
@@ -113,7 +115,7 @@ PREPUSH_LEAVES_OUT = %w[
   NativeGemTest#test_a_warning_stops_the_build
   NativeGemTest#test_a_source_archive_that_is_missing_or_not_the_one_recorded_stops_the_build
   NativeGemTest#test_a_bundled_library_the_record_lacks_stops_the_build
-  LicensingTest#test_the_real_bundle_carries_what_its_objects_were_compiled_from
+  LicensingBundleTest
   BenchTest#test_spawn_kills_a_run_that_takes_too_long
   GeneratorTest#test_the_drift_gate_reports_edited_missing_and_stale_files
   GeneratorTest#test_the_committed_bindings_match_the_generator

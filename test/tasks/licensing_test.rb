@@ -14,7 +14,6 @@ require_relative "../../tasks/licensing"
 class LicensingTest < Minitest::Test
   include TreeHelper
 
-  BUILD = File.join(ROOT, "tmp/engine/build")
   LIBRARIES = File.join(ROOT, "vendor/love/src/libraries")
 
   def record
@@ -258,36 +257,6 @@ license: ["LGPL-2.0-or-later"],
     licensing.library("libxfile.so.1", copyright: ["2026 X"], license: ["LGPL-2.0-or-later"], source:)
 
     assert_equal 1, licensing.sources(["libx.so.1", "libxfile.so.1"]).size
-  end
-
-  # rake compile's bundle, as the linker and ninja report it: the
-  # libraries its graphics, images, and filesystem need, and none it only
-  # declares.
-  def test_the_real_bundle_carries_what_its_objects_were_compiled_from
-    linked = LinkedFiles.read(map: File.join(BUILD, "lib/lota/native.map"), build: BUILD)
-    linux = RUBY_PLATFORM.include?("linux")
-    outside = [
-      linux ? "/usr" : `xcode-select --print-path`.strip,
-      RbConfig::CONFIG["rubyhdrdir"],
-      File.join(ROOT, linux ? "tmp/dependencies/installdir" : "vendor/love-apple-dependencies"),
-].map { |dir| File.join(dir, "") }
-    names = record.bundled(linked, root: ROOT, outside:).map(&:name)
-
-    [
-      "Lota",
-      "Rice",
-      "LodePNG",
-      "LZ4",
-      "LÖVE's patched LZ4",
-      "glslang",
-      "SPIRV-Cross",
-      "PhysicsFS",
-      "PhysicsFS's miniz",
-      "PhysicsFS's LZMA SDK",
-      "Noise1234",
-      "Noto Sans",
-      "LÖVE",
-].each { |name| assert_includes names, name }
   end
 
   def test_annotations_record_each_works_copyright_and_license_and_name_what_is_pending
