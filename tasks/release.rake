@@ -9,77 +9,114 @@ require "tmpdir"
 require_relative "release"
 require_relative "release_plan"
 
-# Cutting a release (doc/contributors/releasing.md). Bundler's own release
+# Releasing (doc/contributors/releasing.md): CI's release job runs these,
+# and anyone may run them to see what it would do. Bundler's own release
 # task, which pushes to RubyGems, is not one of these; publishing to
 # RubyGems is the maintainer's alone.
 
 # Runs the block with a Release of this repository, and aborts with its
-# refusal, if it refuses. LOTA_RELEASE_BRANCH names another branch to
-# prepare on, for CI's rehearsal of an automatic release on a branch.
+# refusal, if it refuses.
 def release_task
-  yield Release.new(root: Dir.pwd, branch: ENV.fetch("LOTA_RELEASE_BRANCH", Release::BRANCH))
-rescue Release::Refusal => e
+  yield Release.new(root: Dir.pwd)
+rescue Release::Refusal, Changelog::Malformed => e
   abort "❌ #{e.message}"
 end
 
-# What sig/ removes or changes since +tag+, as ApiDiff finds it.
-def api_breaks(release, tag)
+# What sig/ removes or changes at +sha+ since +tag+, as ApiDiff finds it.
+def api_breaks(release, tag, sha)
   require_relative "api_diff"
   Dir.mktmpdir("lota-api") do |dir|
-    release.export(tag, "sig", dir)
-    ApiDiff.new(File.join(dir, "sig"), "sig").breaks
+    release.export(tag, "sig", File.join(dir, "old"))
+    release.export(sha, "sig", File.join(dir, "new"))
+    ApiDiff.new(File.join(dir, "old", "sig"), File.join(dir, "new", "sig")).breaks
   end
 end
 
+# What #decide and #check_tag take, read from the repository at +sha+.
+def release_facts(release, sha)
+  previous = release.previous(sha)
+  entries = release.added(sha)
+  breaks = (previous && !entries.empty?) ? api_breaks(release, previous, sha) : []
+  { previous: previous&.delete_prefix("v"), entries:, breaks:, ruby: release.ruby(sha) }
+end
+
+# The version +sha+ releases as, and why, when CI picks it on its own.
+def release_decision(release, sha)
+  ReleasePlan.decide(covering: release.covering(sha), **release_facts(release, sha))
+end
+
 namespace :release do
-  desc "Set the version and move CHANGELOG.md's [Unreleased] under it, dated today (on a clean trunk)"
-  task :prepare, [:version] do |_task, args|
-    number = args[:version] or abort "❌ name the version: bundle exec rake release:prepare[0.1.0]"
+  desc "Print the version a commit (HEAD) would release as, or nothing, and why on standard error; " \
+    "with a tag, check it as a release of its commit (refuses an API break with no Breaking: entry)"
+  task :version, [:sha, :tag] do |_task, args|
     release_task do |release|
-      release.prepare(number)
-      puts "✅ Prepared #{number}: review the diff, run bundle exec rake, commit, then tag v#{number}"
+      sha = release.commit(args[:sha].to_s.empty? ? "HEAD" : args[:sha])
+      tag = args[:tag].to_s
+      if tag.empty?
+        decision = release_decision(release, sha)
+        warn decision.reason
+        puts decision.version if decision.version
+      else
+        warn "#{tag} releases #{sha}"
+        puts ReleasePlan.check_tag(tag:, **release_facts(release, sha))
+      end
     end
   end
 
-  desc "Print the version to release next, or nothing, and why on standard error (refuses an API break with no Breaking: entry)"
-  task :next do
+  desc "Print the version HEAD would release as next, or nothing, and why on standard error"
+  task next: :version
+
+  desc "Print what the release job does for a commit whose gems carry a version: tag_and_publish, publish, done, or skip"
+  task :plan, [:sha, :version, :released] do |_task, args|
     release_task do |release|
-      version = release.version
-      tags = release.tags
-      breaks = tags.include?("v#{version}") ? api_breaks(release, "v#{version}") : []
-      plan = ReleasePlan.next_release(version:, unreleased: release.unreleased, tags:, breaks:)
-      warn plan.reason
-      puts plan.version if plan.version
+      sha = release.commit(args.fetch(:sha))
+      built = args[:version].to_s.empty? ? nil : args[:version]
+      tagged = built && release.tagged("v#{built}")
+      action = ReleasePlan.publish(built:, sha:, tagged:, released: args[:released] == "true",
+        decision: tagged ? nil : release_decision(release, sha))
+      warn action.reason
+      puts action.name
     end
   end
 
-  desc "Print what the release job does for a tag on a commit: tag_and_publish, publish, done, or skip"
-  task :plan, [:tag, :sha, :released] do |_task, args|
+  desc "Write a commit's release notes, what its [Unreleased] adds since the release before it, to a file"
+  task :notes, [:sha, :file] do |_task, args|
+    release_task { |release| File.write(args.fetch(:file), release.notes(release.commit(args.fetch(:sha)))) }
+  end
+
+  desc "Set a version in lib/lota/version.rb and Gemfile.lock, as a release's gems are built (commits nothing)"
+  task :stamp, [:version] do |_task, args|
     release_task do |release|
-      tag = args.fetch(:tag)
-      puts ReleasePlan.publish(tag:, sha: args.fetch(:sha), tagged: release.tagged(tag), released: args.fetch(:released) == "true",
-        unreleased: release.unreleased)
+      release.stamp(args.fetch(:version))
+      puts "✅ Stamped #{args.fetch(:version)}"
     end
   end
 
-  desc "Check a release tag (by default v and lib/lota/version.rb's version) against the version and CHANGELOG.md"
-  task :check, [:tag] do |_task, args|
+  desc "Check a directory holds one verified gem of a version for each platform given, and write its SHA256SUMS"
+  task :assemble, [:dir, :version] do |_task, args|
     release_task do |release|
-      tag = args[:tag] || "v#{release.version}"
-      puts "✅ #{tag} releases #{release.check(tag)}"
-    end
-  end
-
-  desc "Write a version's CHANGELOG.md section, the release's notes, to a file"
-  task :notes, [:version, :file] do |_task, args|
-    release_task { |release| File.write(args.fetch(:file), release.notes(args.fetch(:version))) }
-  end
-
-  desc "Check a directory holds one verified gem for each platform given, and write its SHA256SUMS"
-  task :assemble, [:dir] do |_task, args|
-    release_task do |release|
-      gems = release.assemble(args.fetch(:dir), args.extras)
+      gems = release.assemble(args.fetch(:dir), args.fetch(:version), args.extras)
       puts "✅ Assembled #{gems.join(', ')}, and #{Release::CHECKSUMS}"
+    end
+  end
+end
+
+namespace :changelog do
+  desc "Write a dated section into CHANGELOG.md for each release tag it lacks, moving that release's entries out of [Unreleased]"
+  task :record do
+    release_task do |release|
+      text, recorded = release.record
+      File.write(Release::CHANGELOG, text)
+      puts recorded.empty? ? "✅ #{Release::CHANGELOG} has a section for every release tag" : "✅ Recorded #{recorded.join(', ')}"
+    end
+  end
+
+  desc "Check CHANGELOG.md has a dated section for each release tag, listing what that release added"
+  task :check do
+    release_task do |release|
+      problems = release.check_changelog
+      abort "❌ #{problems.join("\n❌ ")}" unless problems.empty?
+      puts "✅ #{Release::CHANGELOG} has the section each of #{release.tags.size} release tags released"
     end
   end
 end
@@ -92,8 +129,8 @@ end
 BUNDLER_RELEASE_TASKS = %w[release release:guard_clean release:source_control_push release:rubygem_push].freeze
 BUNDLER_RELEASE_TASKS.each { |name| Rake::Task[name].clear if Rake::Task.task_defined?(name) }
 
-desc "Refused: cut a release with release:prepare and a tag (doc/contributors/releasing.md)"
+desc "Refused: CI releases the commits it proves, or you push a tag (doc/contributors/releasing.md)"
 task :release do
   abort "❌ rake release would push to RubyGems, which only the maintainer does. " \
-    "Prepare with release:prepare, then tag; see doc/contributors/releasing.md"
+    "CI releases a commit it proves, or you push a release tag; see doc/contributors/releasing.md"
 end
