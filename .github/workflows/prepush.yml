@@ -148,6 +148,13 @@ jobs:
       LOTA_PARITY_DISPLAY: ":98"
       LOTA_GATE_DISPLAYS: ":99 :97 :96 :98"
     steps:
+      # Deliberately red, on the rehearsal branch alone, for the automatic
+      # revert to take back.
+      - name: Fail on purpose for the revert's rehearsal
+        run: |
+          echo "::error::red on purpose, so the automatic revert's rehearsal reverts this commit"
+          exit 1
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
