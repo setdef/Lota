@@ -128,7 +128,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 
 ## What CI does after you push
 
-GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. Each push to trunk first gets the pre-push checks on macOS, Linux, and Windows, and `red_before_green` over the commits it brings, within about fifteen minutes. A red job on trunk stops all other work until it is fixed or reverted, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
+GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. Each push to trunk first gets the pre-push checks on macOS, Linux, and Windows, and `red_before_green` over the commits it brings, within about fifteen minutes. A red job on trunk stops all other work until it is fixed or reverted. A full run still red after its failed jobs ran again has every commit it brought in reverted by CI, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
 
 ## Try a checkout in a game
 
@@ -149,7 +149,7 @@ Run `bundle install` in the game's folder, then `bundle exec lota run`. Bundler 
 - The [ADRs](adr/) record the decisions that shape Lota, starting with [ADR 004](adr/004.md).
 - The [design documents](design/) say how Lota works: [translation.md](design/translation.md) for the naming rules, [engine.md](design/engine.md) for the engine, its patches, bindings, and threads, [game.md](design/game.md) for how a game runs, and [packaging.md](design/packaging.md) for gems and `lota fuse`. Each patch in `ext/lota/engine/` says in its header what it changes and why.
 - [parity.md](parity.md) covers Lövetest, the parity harness, and how tests share your desktop.
-- [ci.md](ci.md) covers continuous integration and `bin/trunk-watch`.
+- [ci.md](ci.md) covers continuous integration, the automatic revert, and `bin/trunk-watch`.
 - [windows.md](windows.md) covers how Lota builds and tests on Windows.
 - [releasing.md](releasing.md) says how a release is cut.
 - [upstream/](upstream/) holds the reports Lota would file with LÖVE.
