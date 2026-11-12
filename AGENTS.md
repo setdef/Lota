@@ -50,7 +50,8 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 
 ## Commands
 
-- Run Ruby with `bundle exec ruby`. Run tests with `bundle exec rake test`. Never `ruby -Ilib:test`.
+- Run Ruby with `bundle exec ruby`. Run the unit tests, which need nothing built and take about a second, with `bundle exec rake test:unit`, and every test with `bundle exec rake test`; `TEST=path` runs one file. Never `ruby -Ilib:test`.
+- A unit test is imperceptibly fast: it loads no native extension, starts no process, opens no socket, and never sleeps, and `test/unit_guard.rb` fails one that does. A test that needs any of those is an integration test.
 - `bundle exec rake` is the gate: tests, RuboCop, RubyCritic, Steep, signature parity, RDoc coverage, REUSE, and the package check. It must pass with zero errors and zero warnings. Run `bundle exec rake rubocop:autocorrect_all` first to save time.
 - `bin/setup` installs a pre-push hook that runs `bundle exec rake prepush` and `red_before_green` on exactly what you push; `doc/contributors/development.md` says where they can run. Never bypass it (`--no-verify`, `LOTA_PREPUSH=skip`) except in an emergency, and say so in the commit. Run the full gate, `bundle exec rake`, before pushing a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before a session's last push. Never push to find out whether a change is green.
 - When a slow test is added or renamed, update `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake`.
@@ -80,7 +81,7 @@ A commit holds work of one provenance and says which in a `Provenance:` trailer 
 - Work too big for one commit lands as small commits behind a feature flag or by branch by abstraction.
 - A red build on `trunk` stops all other work until it is fixed or the commit that broke it is reverted.
 - Before 1.0.0, tag and release only a commit CI has proven green, as `doc/contributors/releasing.md` describes, and never publish to RubyGems.org. From 1.0.0 on, never tag or release.
-- Include any plan or ADR change in the commit whose work it describes.
+- Commit an ADR as soon as your user approves it, before the work that follows it, so that work can cite it. A plan item goes in the commit that finishes its work.
 - Conventional Commits, plain text, wrapped at 72. The body explains why this approach over alternatives, in prose (no lists, no markdown, no file inventories). Types: `lib/ext/sig` feat/fix/refactor/perf; `bin/tasks`/CI chore; `examples/` and `doc/` docs; `test/` test. End with a `Red-before-green: none (reason)` trailer when the commit waives that check, then the `Provenance:` trailer, then the AI footer shown by `git log -n1`.
 
 ## Changelog
