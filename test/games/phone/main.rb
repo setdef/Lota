@@ -7,7 +7,8 @@
 
 # Draws a background that changes color, a rectangle, a line of text, and
 # a square where the last touch landed, so a screenshot shows that the
-# engine drew and that a touch arrived; plays a quiet tone; prints what it
+# engine drew and that a touch arrived; plays a quiet tone; decodes the
+# sounds a check puts in its decoded folder; prints what it
 # saw, the system's theme and languages and each change to them among it,
 # and each time its window is hidden or shown, each line starting "phone
 # check:", which the phone's log shows; and quits with status 0 after
@@ -35,6 +36,21 @@ module PhoneCheck
     puts "phone check: audio playing #{source.playing?}"
     source
   end
+
+  # Decodes each file in the game's +decoded+ folder, printing its sample
+  # rate, channels, and length, or the first line of the engine's error.
+  # The game carries no such folder; the iOS check fills it with sounds
+  # Apple's tools made, in formats only Core Audio decodes there
+  # (.github/workflows/phones.yml).
+  def self.decode(folder = "decoded")
+    Lota::Filesystem.directory_items(folder).sort.each do |name|
+      data = Lota::Sound::SoundData.new("#{folder}/#{name}")
+      puts "phone check: decoded #{name} at #{data.sample_rate} Hz, #{data.channel_count} channels, " \
+        "#{data.duration.round(2)} s"
+    rescue RuntimeError => e
+      puts "phone check: could not decode #{name}: #{e.message.lines.first.chomp}"
+    end
+  end
 end
 
 def Lota.load
@@ -46,6 +62,7 @@ def Lota.load
   puts "phone check: saved #{Lota::Filesystem.write('check.txt', 'saved').first}"
   puts "phone check: another thread: #{PhoneCheck.off_main_thread}"
   @source = PhoneCheck.tone
+  PhoneCheck.decode
   @seconds = Float(ENV.fetch("PHONE_CHECK_SECONDS", "20"))
   @frames = 0
   @time = 0.0
