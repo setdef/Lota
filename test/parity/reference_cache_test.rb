@@ -317,12 +317,16 @@ class ReferenceCacheTest < Minitest::Test
   # black frames to its end and quit with 0; the Metal watch's report is
   # what shows it. Such a run is no reference, so LÖVE runs once more,
   # from an empty run folder, and the run that drew is the one compared.
+  # On macOS every run loads the watch, whose summary at exit is a
+  # diagnostic of every run, so the run kept is the one whose watch saw
+  # no command buffer fail (Output#gpu_failed?), not one that printed
+  # nothing.
   def test_a_run_whose_gpu_failed_runs_once_more_from_nothing
     File.write(File.join(@dir, "hangs"), "1")
     run = love_run(cache: nil)
 
     assert_equal 2, runs
-    assert_empty run.output.diagnostics
+    refute_predicate run.output, :gpu_failed?, run.output.diagnostics
     assert_equal "Thanks for playing 3 frames!\n", run.output.text
     assert_equal 3, run.frames.size
   end
