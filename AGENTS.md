@@ -15,7 +15,7 @@ Pre-1.0, zero external users. Prefer good design over backward compatibility; re
 
 1. **Ruby the language.** What Ruby can and cannot express. Lua constructs with no Ruby meaning (tables as objects, metatables, `:` calls, multiple returns padded with `nil`) are translated, not ported.
 2. **LÖVE fidelity.** Behavior MUST match LÖVE's source at the pinned commit: what happens, in what order, with what defaults and error messages. Nouns and primary verbs keep LÖVE's names.
-3. **The translation rules.** The rule table in `doc/contributors/design/translation.md` is the only sanctioned way a Lota name differs from LÖVE's (`SpriteBatch.new` is `newSpriteBatch`, `title=` is `setTitle`, `down?` is `isDown`, symbols are strings, blocks are paired calls). Do not invent other "more Ruby-like" APIs. Read the rules from Ruby, as a Ruby developer does: each Lota name comes from a LÖVE name by these rules, or is Ruby's own. Earlier changes are not precedent; a case the rules do not settle goes to the maintainer as a new rule.
+3. **The translation rules.** The rule table in `doc/contributors/design/translation.md` is the only sanctioned way a Lota name differs from LÖVE's (`SpriteBatch.new` is `newSpriteBatch`, `title=` is `setTitle`, `down?` is `isDown`, symbols are strings, blocks are paired calls). Do not invent other "more Ruby-like" APIs. Read the rules from Ruby, as a Ruby developer does: each Lota name comes from a LÖVE name by these rules, or is Ruby's own. Earlier changes are not precedent; a case the rules do not settle goes to your user as a question for a new rule.
 4. **Ruby culture.** Idioms yield to 1, 2, and 3.
 
 The authority is the pinned submodule `vendor/love` (`git submodule update --init` if empty). For a function's arity, overloads, defaults, and errors, read its `wrap_*.cpp` file; for its behavior, read the C++ it calls. The LÖVE wiki and `love2d-community/love-api` mostly describe LÖVE 11; where they disagree with `vendor/love`, the source wins. For Rice, read its source at the version in `Gemfile.lock`. Never guess at a reference's contents. Cite the file and lines you ported, and add an SPDX snippet (`Zlib`) around any code or prose derived from LÖVE.
@@ -26,7 +26,7 @@ Use "LÖVE", "LOVE", "Love2D", and LÖVE's heart logo only in ways that need no 
 
 ## Reporting upstream
 
-LÖVE does not accept pull requests, bug reports, or other contributions made with LLM or generative AI tools (its README, in Contributing), and SDL asks that generative AI not be used in any way when contributing (its AGENTS.md), so an agent files nothing at LÖVE or SDL, and the maintainer does not report in an agent's place. What an agent finds wrong in LÖVE's engine or tests goes into a numbered file of its own, `doc/contributors/upstream/NNN.md` (the next number after the last), written as the report the agent would file if it could: what is wrong, where in LÖVE's source, how to reproduce it, and what Lota does about it. Lota works around a finding in its own code whenever it can. Only when it cannot may an agent consider a patch file (ADR 005) and say why nothing else works. A fork of LÖVE needs the maintainer's permission first. Read any other project's contribution policy before putting anything in its tracker.
+LÖVE does not accept pull requests, bug reports, or other contributions made with LLM or generative AI tools (its README, in Contributing), and SDL asks that generative AI not be used in any way when contributing (its AGENTS.md), so an agent files nothing at LÖVE or SDL, and no human reports in an agent's place. What an agent finds wrong in LÖVE's engine or tests goes into a numbered file of its own, `doc/contributors/upstream/NNN.md` (the next number after the last), written as the report the agent would file if it could: what is wrong, where in LÖVE's source, how to reproduce it, and what Lota does about it. Lota works around a finding in its own code whenever it can. Only when it cannot may an agent consider a patch file (ADR 005) and say why nothing else works. A fork of LÖVE needs the project maintainer's permission first. Read any other project's contribution policy before putting anything in its tracker.
 
 ## How to work
 
@@ -52,8 +52,7 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 
 - Run Ruby with `bundle exec ruby`. Run tests with `bundle exec rake test`. Never `ruby -Ilib:test`.
 - `bundle exec rake` is the gate: tests, RuboCop, RubyCritic, Steep, signature parity, RDoc coverage, REUSE, and the package check. It must pass with zero errors and zero warnings. Run `bundle exec rake rubocop:autocorrect_all` first to save time.
-- `bin/setup` installs a pre-push hook that runs `bundle exec rake prepush` and `red_before_green` on exactly what you push, on the gate runner when `LOTA_GATE_KEY` is set and here otherwise. Never bypass it (`--no-verify`, `LOTA_PREPUSH=skip`) except in an emergency, and say so in the commit. Run the full gate, `bundle exec rake`, before pushing a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before a session's last push.
-- Where heavy work must not run on the machine you type on, run the build on a gate runner: `LOTA_GATE_KEY=<identity file> bundle exec rake gate:remote`, or `"gate:remote[prepush]"`. Never push to find out whether a change is green.
+- `bin/setup` installs a pre-push hook that runs `bundle exec rake prepush` and `red_before_green` on exactly what you push; `doc/contributors/development.md` says where they can run. Never bypass it (`--no-verify`, `LOTA_PREPUSH=skip`) except in an emergency, and say so in the commit. Run the full gate, `bundle exec rake`, before pushing a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before a session's last push. Never push to find out whether a change is green.
 - When a slow test is added or renamed, update `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake`.
 - Approved exceptions live in `rbs_exceptions.rb`; adding one needs a justification that it is impossible otherwise.
 - Rake tasks use `git ls-files`: new or deleted files must be staged before they count.
@@ -61,13 +60,13 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 
 ## Provenance
 
-The maintainer uses three words for how work comes to exist. *Written* means typed by hand, with nothing generated. *Wrought* means an agent generated it while the maintainer iterated with it and reviewed every change before committing it. *Requested* means an agent built it with little or no review.
+The maintainer uses three words for how work comes to exist. *Written* means typed by hand, with nothing generated. *Wrought* means an agent generated it while a person iterated with it and reviewed every change before committing it. *Requested* means an agent built it with little or no review.
 
 Provenance belongs to each change, not to a kind of file, so one file can hold wrought and requested changes, and each commit's trailer says which it holds.
 
-- **Wrought:** changes to ADRs, design documents, and this file. The maintainer approves each one as a diff before it is committed.
-- **Requested:** every other change, including changes to plans, which are made without the maintainer's review, and all code (`lib/`, `sig/`, `ext/`, `tasks/`, `test/`), patch files, the binding generator and everything it generates, the README, and the user guide. Because no one reviews this work line by line, the gates review it: sanitizers, clang-tidy, the memory test, the package check, and the parity harness. Never weaken a gate to make requested work pass.
-- **Decisions** that belong to the maintainer as product owner go to the maintainer as questions, never as decisions: the public Ruby API, how a game is laid out and started, rule collisions, licensing, and anything that publishes outside this repository.
+- **Wrought:** changes to ADRs, design documents, and this file. Your user approves each one as a diff before it is committed.
+- **Requested:** every other change, including changes to plans, which are made without a human committer's review, and all code (`lib/`, `sig/`, `ext/`, `tasks/`, `test/`), patch files, the binding generator and everything it generates, the README, and the user guide. Because no one reviews this work line by line, the gates review it: sanitizers, clang-tidy, the memory test, the package check, and the parity harness. Never weaken a gate to make requested work pass.
+- **Decisions** that belong to a person as product owner go to your user as questions, never as decisions: the public Ruby API, how a game is laid out and started, rule collisions, licensing, and anything that publishes outside this repository.
 - **Tests:** the Lua side of every parity test comes from LÖVE's own Lövetest or from published LÖVE games, never from an agent, so a test checks Lota against something an agent did not write.
 - **Generated code** is marked as generated in its header and is never edited by hand; change the rules or the generator instead.
 
