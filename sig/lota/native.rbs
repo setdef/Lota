@@ -1291,7 +1291,7 @@ module Lota
       def self.clear: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 
       def self.clear_buffers: ([Array[Float | Integer]?, ::Object?, ::Object?] arguments) -> nil
-      def self.clear_canvases: (Array[Array[Float | Integer]?] colors, ::Object? stencil, ::Object? depth) -> nil
+      def self.clear_canvases: ([Array[Array[Float | Integer]?], ::Object?, ::Object?] arguments) -> nil
 
       def self.discard: ([::Object?, ::Object?] arguments) -> nil
 

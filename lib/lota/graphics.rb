@@ -260,7 +260,7 @@ module Lota
         red, green, blue, alpha = color
         [number(red), number(green), number(blue), alpha.nil? ? 1.0 : number(alpha)]
       end
-      Native::Graphics.clear_canvases(colors, arguments[count], arguments[count + 1])
+      Native::Graphics.clear_canvases([colors, arguments[count], arguments[count + 1]])
     end
 
     # SPDX-SnippetEnd

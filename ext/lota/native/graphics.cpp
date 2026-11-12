@@ -469,16 +469,19 @@ void clear_buffers(Rice::Array arguments) {
                    clear_depth(ruby::entry(given, 2)));
 }
 
-// w_clear's form with tables (wrap_Graphics.cpp:80-113 and 129-147), a
-// color for each canvas being drawn to, as Lota::Graphics.clear passes
-// them: +colors+, each nil, which leaves that canvas's color, or an Array
-// of its four components, read as doubles, as LÖVE reads a table's; then
-// the stencil and the depth (clear_stencil, clear_depth).
-void clear_canvases(Rice::Array colors, Rice::Object stencil, Rice::Object depth) {
-  const Rice::Array given = std::move(colors);
+// w_clear's form with tables (wrap_Graphics.cpp:80-113 and 129-147), as
+// Lota::Graphics.clear passes it in an Array, as clear_buffers takes its
+// form: an Array of a color for each canvas being drawn to, each nil,
+// which leaves that canvas's color, or an Array of its four components,
+// read as doubles, as LÖVE reads a table's; then the stencil and the depth
+// (clear_stencil, clear_depth).
+void clear_canvases(Rice::Array arguments) {
+  const Rice::Array form = std::move(arguments);
+  const Rice::Array given(ruby::entry(form, 0).value());
   std::vector<love::graphics::OptionalColorD> clearcolors;
-  clearcolors.reserve(given.size());
-  for (long index = 0; index < static_cast<long>(given.size()); index++) {
+  const long count = given.size();
+  clearcolors.reserve(static_cast<std::size_t>(count));
+  for (long index = 0; index < count; index++) {
     const Rice::Object color = ruby::entry(given, index);
     if (ruby::is_nil(color)) {
       clearcolors.emplace_back();
@@ -491,7 +494,8 @@ void clear_canvases(Rice::Array colors, Rice::Object stencil, Rice::Object depth
     clearcolors.emplace_back(love::ColorD(component(0), component(1), component(2), component(3)));
   }
 
-  graphics().clear(clearcolors, clear_stencil(stencil), clear_depth(depth));
+  graphics().clear(clearcolors, clear_stencil(ruby::entry(form, 1)),
+                   clear_depth(ruby::entry(form, 2)));
 }
 
 // luax_optboolean (src/common/runtime.cpp:270-275): +value+ when it is
@@ -1646,8 +1650,7 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
       .define_singleton_function("clear_buffers", &clear_buffers, Rice::Arg("arguments"))
-      .define_singleton_function("clear_canvases", &clear_canvases, Rice::Arg("colors"),
-                                 Rice::Arg("stencil"), Rice::Arg("depth"))
+      .define_singleton_function("clear_canvases", &clear_canvases, Rice::Arg("arguments"))
       .define_singleton_function("discard", &discard, Rice::Arg("arguments"))
       .define_singleton_function("set_blend_state", &set_blend_state, Rice::Arg("names"))
       .define_singleton_function("blend_state", &blend_state)
