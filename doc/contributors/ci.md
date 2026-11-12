@@ -112,8 +112,6 @@ Run by hand, with the id of a run on any branch, it does the same for that run. 
 gh workflow run revert.yml --ref experiment/revert -f run_id=RUN_ID -f dry_run=true
 ```
 
-For now it runs only by hand; it is started on every red full run on trunk once a rehearsal on a branch has reverted a red commit there.
-
 ### `bin/trunk-watch`
 
 ```sh
