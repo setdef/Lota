@@ -7,9 +7,12 @@
 
 require_relative "test_helper"
 
+# A clone is 0.0.0.dev; a release's gems carry the release's version, which
+# CI stamps into lib/lota/version.rb as it builds them
+# (doc/contributors/releasing.md).
 class VersionTest < Minitest::Test
-  def test_version_is_a_semantic_version
-    assert_match(/\A\d+\.\d+\.\d+(?:\.pre\.\d+)?\z/, Lota::VERSION)
+  def test_version_is_a_release_or_the_development_version
+    assert_match(/\A(?:\d+\.\d+\.\d+|0\.0\.0\.dev)\z/, Lota::VERSION)
   end
 
   def test_gemspec_publishes_the_library_version
