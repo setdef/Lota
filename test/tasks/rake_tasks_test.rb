@@ -298,6 +298,15 @@ class RakeTasksTest < Minitest::Test
     assert_equal "tmp/#{RUBY_PLATFORM}/lota/native/#{RUBY_VERSION}/Makefile", NATIVE_MAKEFILE
   end
 
+  # Both Makefiles are configured again when another Ruby runs rake, even
+  # one of the same version, whose build folder is the same (RubyStamp).
+  def test_the_extensions_are_configured_again_for_another_ruby
+    stamp = File.join(ROOT, "tmp", RubyStamp::FILE)
+    assert_includes prerequisites(NATIVE_MAKEFILE), stamp
+    assert_includes prerequisites("#{SANITIZED_EXT}/Makefile"), stamp
+    assert_equal RbConfig.ruby, File.read(stamp)
+  end
+
   def test_compile_always_lets_cmake_decide_what_to_rebuild
     bundle = Rake::Task["tmp/#{RUBY_PLATFORM}/lota/native/#{RUBY_VERSION}/lota/native.#{RbConfig::CONFIG['DLEXT']}"]
 
