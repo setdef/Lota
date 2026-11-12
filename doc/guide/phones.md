@@ -394,6 +394,7 @@ On every push, Lota's CI takes this page's steps on a sample game:
 On real devices, outside CI:
 
 - A game's builds, with a lightly customised copy of Lota's iOS host, ran on an iPad Pro 12.9-inch (6th generation) with iPadOS 26, an iPhone 13 mini with iOS 18, and an iPhone 12 mini with iOS 27: fullscreen with no status bar, in portrait and both landscapes, with taps under the finger, sound that the silent switch mutes, the accelerometer, and, on the iPad, a Bluetooth game controller. On the iPhone 12 mini it went to the background and back, and Metal survived.
+- Lota's own iOS host, unmodified, ran the phone check on an iPhone 12 mini with iOS 27: Metal on the A14 drew about 1,200 frames, and the check saved a file, played its tone, found graphics from another thread refused, and quit with status 0. The host's sample identifier has no provisioning profile, so the build was signed under the identifier of an existing team's app.
 - An `arm64-v8a` build with Lota's own Android host ran on a OnePlus Nord N30 5G with Android 14 and an Adreno 619 GPU, on Vulkan, which LÖVE's engine chose there. It survived Home, the recent apps, a share sheet, and the screen turning off, each time in the same process and drawing again, and drew with vsync off.
 
 ### Known problems
@@ -411,7 +412,7 @@ end
 ### Not yet tried
 
 - Any other Android phone, and any Android tablet. No free runner boots an arm64 emulator, so the `arm64-v8a` build has run only on the one phone above.
-- Lota's own unmodified iOS host on a device, and iOS 27 in a Simulator; CI's Simulators run iOS 26.
+- iOS 27 in a Simulator; CI's Simulators run iOS 26.
 - Signing with a paid Apple team, exporting an IPA, TestFlight, App Review, and Google Play's review.
 - Building Android on a Mac or on Windows.
 - A game whose `Gemfile` names other gems.
