@@ -21,6 +21,12 @@
 name: Revert a red trunk
 
 on:
+  # Every full run on trunk that ends, whose job below goes on only for a
+  # red one. GitHub starts it from trunk's copy of this file.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [trunk]
   workflow_dispatch:
     inputs:
       run_id:
@@ -48,7 +54,9 @@ defaults:
 jobs:
   revert:
     name: Revert what broke the branch
-    if: github.repository == 'setdef/Lota'
+    if: >-
+      github.repository == 'setdef/Lota'
+      && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # To push the revert, and to run the failed jobs again and start the
@@ -58,8 +66,8 @@ jobs:
       actions: write
     env:
       GH_TOKEN: ${{ github.token }}
-      RUN_ID: ${{ inputs.run_id }}
-      DRY_RUN: ${{ inputs.dry_run }}
+      RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.run_id }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     steps:
       # The whole history, which the revert reads back to the last green
       # commit, with the token kept for the push.
