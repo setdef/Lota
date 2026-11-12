@@ -5,7 +5,7 @@
 
 # Continuous Integration
 
-Lota ships for five desktop platforms and builds for two phone systems, and nobody's computer runs all of them. So trunk runs every platform GitHub's free runners can run, and a red job there stops all other work until it is fixed or reverted. This page says what each workflow checks, and how `bin/trunk-watch` keeps trunk green.
+Lota ships for five desktop platforms and builds for two phone systems, and nobody's computer runs all of them. So trunk runs every platform GitHub's free runners can run, and a red job there stops all other work until it is fixed or reverted. This page says what each workflow checks, and how the automatic revert and `bin/trunk-watch` keep trunk green.
 
 ## What runs on a push
 
@@ -91,13 +91,35 @@ No Simulator signs, installs over a cable, reads a real accelerometer, or plays 
 
 Run by hand, it fuses another public game instead (`game_repository`, `game_ref`, `game_path`), and on x64 Windows runs the app for up to 50 seconds on llvmpipe, keeping what it printed and screenshots of the desktop.
 
-## Keeping trunk green: `bin/trunk-watch`
+## Keeping trunk green
+
+A commit the pre-push checks let through can still break a full run, and a full run takes an hour or more and holds every commit pushed while the run before it went on. Waiting for someone to bisect leaves trunk red for everyone meanwhile, so two backstops revert instead: the automatic revert, in CI, for red full runs, and `bin/trunk-watch`, which you run yourself.
+
+### The automatic revert
+
+`.github/workflows/revert.yml` runs `bin/auto-revert` on a red full run on trunk (`tasks/auto_revert.rb`):
+
+- On the run's first failed attempt, it runs the failed jobs again, so a flaky test cannot revert a good commit. When they pass, nothing more happens. When the rerun is itself superseded by a newer push, the newer run, which holds the same commits, is judged in its place.
+- When every error of a later attempt is an outage, as `bin/trunk-watch` tells them (below), it runs the failed jobs again up to the third attempt, and after that tells people and reverts nothing.
+- When the failed jobs fail again, it reverts every commit since the last commit whose run of the same workflow passed, the whole batch the run brought in, since nothing tells which of them broke trunk. It reverts them in one commit, on top of trunk as it is then, and pushes it without force, rebasing and trying again when trunk moves first. The commit's message names the run, the jobs that failed twice, and each commit, and its trailers are `Reverts` (the commits), `Red-run`, `Red-jobs`, `Red-before-green: none (revert)`, and `Provenance: requested`. A push GitHub's token makes starts no workflow, so it then starts CI and the pre-push tier on trunk by hand.
+- The revert commit is the notice: its message names the red run, the jobs that failed twice, and each reverted commit with its author, and the revert run's summary repeats it. It opens no issue and writes no comment.
+- It never reverts a revert, which could put back what broke trunk and loop, and never CI's release bookkeeping ([releasing.md](releasing.md)), which it leaves out of the batch. It reverts nothing when trunk already holds a fix: a later commit whose run passed, or a later revert, whose own run judges what is left. A merge, more than 30 commits, a history that reaches no green commit, or a revert that does not apply goes to a person: it reverts nothing, and fails with the run, the jobs, and each commit and its author in its summary.
+
+Run by hand, with the id of a run on any branch, it does the same for that run. As a dry run, the default, it starts no run on the revert, so it rehearses on a branch:
+
+```sh
+gh workflow run revert.yml --ref experiment/revert -f run_id=RUN_ID -f dry_run=true
+```
+
+For now it runs only by hand; it is started on every red full run on trunk once a rehearsal on a branch has reverted a red commit there.
+
+### `bin/trunk-watch`
 
 ```sh
 bin/trunk-watch [--interval SECONDS] [--no-revert] [FLOOR_RUN_ID]
 ```
 
-`bin/trunk-watch` watches trunk's runs with `gh` and is trunk's automatic revert, the backstop for a commit the local gate let through. Every three minutes it lists the failed runs above `FLOOR_RUN_ID` and reads the log of each failed job:
+`bin/trunk-watch` watches trunk's runs of every workflow with `gh`, from your machine, and reverts a single bad commit by itself. Every three minutes it lists the failed runs above `FLOOR_RUN_ID` and reads the log of each failed job:
 
 - A run whose every error is a download or a runner breaking, such as a curl failure, an HTTP 5xx, or a lost runner, runs again, up to its third attempt. `TrunkWatch::OUTAGE` in `tasks/trunk_watch.rb` lists the outages it knows. An Android system image that arrived as a zip `sdkmanager` cannot open (`TrunkWatch::BROKEN_DOWNLOAD`) leaves only its step's exit status as an error, so in that job's log the exit status counts as the outage's too. Each job's log is judged alone, so one job's outage never excuses another job's failure.
 - Any other failure has its failed jobs run again once, so a flaky test cannot revert a good commit. If that passes, the watch prints that it passed on rerun, a likely flaky test worth fixing, and goes on.
