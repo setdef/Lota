@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Trunk's automatic revert (bin/auto-revert, tasks/auto_revert.rb,
+# doc/contributors/ci.md), the backstop for a commit the pre-push checks
+# let through. A red full run on trunk has its failed jobs run again
+# once, to rule out a flaky test; when they fail again, every commit
+# since the last one whose run passed is reverted in one commit, pushed
+# to trunk without force. That commit is the notice: its message names
+# the red run, the jobs that failed twice, and each reverted commit with
+# its author, and this run's summary repeats it. It opens no issue and
+# writes no comment. A revert is never reverted, nor is CI's release
+# bookkeeping, and nothing is reverted when trunk already holds a fix. A
+# push GitHub's token makes starts no workflow, so it starts CI and the
+# pre-push tier on the revert by hand.
+#
+# Run by hand with a run's id, it does the same for that run, on any
+# branch: as a dry run, which starts no run on the revert, it rehearses
+# the revert on a branch.
+
+name: Revert a red trunk
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: The red run to act on
+        type: string
+        required: true
+      dry_run:
+        description: Start no run on the revert (on a branch other than trunk, required)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# One at a time, so two red runs never revert at once; the second finds
+# the first's revert, and its own run judges what is left.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  revert:
+    name: Revert what broke the branch
+    if: github.repository == 'setdef/Lota'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # To push the revert, and to run the failed jobs again and start the
+    # runs on the revert.
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.run_id }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      # The whole history, which the revert reads back to the last green
+      # commit, with the token kept for the push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # The Ruby mise.toml pins; bin/auto-revert needs no bundle.
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - name: Act on the red run
+        run: |
+          options=()
+          if [ "$DRY_RUN" = true ]; then
+            options+=(--dry-run)
+          fi
+          status=0
+          bin/auto-revert "${options[@]}" "$RUN_ID" > "$RUNNER_TEMP/said" || status=$?
+          cat "$RUNNER_TEMP/said"
+          {
+            echo '```'
+            cat "$RUNNER_TEMP/said"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
