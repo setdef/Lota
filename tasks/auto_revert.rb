@@ -24,8 +24,9 @@ require_relative "trunk_watch"
 # The decisions are pure functions of what +gh+ and +git+ report (triage,
 # batch, screen, fixed), so the tests can ask them every case, and Bot
 # carries them out through callables a test can fake. It never reverts a
-# revert, which could loop, nor CI's own release bookkeeping, and it
-# reverts nothing when trunk already holds a fix.
+# revert, which could loop, nor CI's own release bookkeeping; it reports
+# a run where only the release's jobs failed, which says nothing about
+# its commits; and it reverts nothing when trunk already holds a fix.
 module AutoRevert
   # A run of a workflow: its id, attempt, status and conclusion, head
   # commit, branch, the event that started it, the workflow's file, and
@@ -66,20 +67,28 @@ module AutoRevert
   # commit from before releases were recorded that way.
   BOOKKEEPING = /^(?:Recorded-by|Released-by): CI run |\Achore: release \d/
 
+  # The jobs of CI's release (doc/contributors/releasing.md): when only
+  # they fail, the release did not go out, or its bookkeeping did not
+  # reach trunk, and that says nothing about the commits the run proved.
+  RELEASE_JOBS = ["Release", "Refuse the release", "Record the releases in CHANGELOG.md"].freeze
+
   # A revert, by its subject or its body: git's, bin/trunk-watch's, or
   # this one's.
   REVERT = /\A(?:Revert "|revert(?:\([^)]*\))?:)|^This reverts commit \h+|^Reverts: \h/
 
   # What a red run asks for before any commit is looked at: nothing for a
   # run that has not failed or was not started by a push or by hand; a
-  # rerun of its failed jobs on its first attempt, to rule out a flaky
-  # test, and after that while every error was an +outage+ (TrunkWatch's
-  # classification) and attempts remain; a report when outages outlast
-  # them. Otherwise nil: the commits decide.
-  def self.triage(run, outage:)
+  # report when +jobs+, the names of its failed jobs, are all
+  # RELEASE_JOBS; a rerun of its failed jobs on its first attempt, to
+  # rule out a flaky test, and after that while every error was an
+  # +outage+ (TrunkWatch's classification) and attempts remain; a report
+  # when outages outlast them. Otherwise nil: the commits decide.
+  def self.triage(run, outage:, jobs: [])
     return Plan.of(:nothing, "run #{run.id} is #{run.status}") unless run.status == "completed"
     return Plan.of(:nothing, "run #{run.id} concluded #{run.conclusion.empty? ? 'nothing' : run.conclusion}") unless run.conclusion == "failure"
     return Plan.of(:nothing, "run #{run.id} was started by #{run.event}, which does not judge a branch") unless EVENTS.include?(run.event)
+    return Plan.of(:report, "only CI's release jobs failed (#{jobs.join(', ')}), which says nothing about the commits") if
+      !jobs.empty? && (jobs - RELEASE_JOBS).empty?
     return Plan.of(:rerun, "attempt 1 of run #{run.id} failed; running its failed jobs again rules out a flaky test") if run.attempt == 1
     return Plan.of(:rerun, "every error of run #{run.id} was an outage") if outage && run.attempt < ATTEMPTS
     return Plan.of(:report, "every error of run #{run.id} was an outage, through #{run.attempt} attempts") if outage
@@ -229,7 +238,8 @@ module AutoRevert
       return refuse("run #{run.id} is on #{run.branch}; only a dry run acts on a branch other than #{TRUNK}") unless @dry_run || run.branch == TRUNK
 
       jobs = failed_jobs(run)
-      plan = AutoRevert.triage(run, outage: run.status == "completed" && run.conclusion == "failure" && outage?(jobs))
+      plan = AutoRevert.triage(run, outage: run.status == "completed" && run.conclusion == "failure" && outage?(jobs),
+        jobs: jobs.map(&:last))
       plan ||= plan_for(run)
       act(run, jobs.map(&:last), plan)
     end

@@ -45,6 +45,38 @@ class AutoRevertTest < Minitest::Test
     assert_equal :nothing, AutoRevert.triage(run_of(event: "pull_request"), outage: false).action
   end
 
+  # A release that cannot tag or publish, or a changelog commit that
+  # cannot be pushed, says nothing about the commits the run proved, so
+  # it is reported, not rerun or reverted; a release job failing beside
+  # any other job leaves the commits to decide as before.
+  def test_a_run_where_only_the_release_jobs_failed_is_reported_and_reverts_nothing
+    %w[Release Refuse\ the\ release Record\ the\ releases\ in\ CHANGELOG.md].each do |job|
+      [1, 2].each do |attempt|
+        plan = AutoRevert.triage(run_of(attempt:), outage: false, jobs: [job])
+
+        assert_equal :report, plan.action
+        assert_match(/only CI's release jobs failed \(#{Regexp.escape(job)}\)/, plan.reason)
+      end
+    end
+    assert_equal :report, AutoRevert.triage(run_of, outage: false, jobs: ["Release", "Record the releases in CHANGELOG.md"]).action
+    assert_nil AutoRevert.triage(run_of, outage: false, jobs: %w[Release Gate])
+    assert_nil AutoRevert.triage(run_of, outage: false, jobs: [])
+  end
+
+  def test_the_bot_reports_a_run_where_only_the_release_failed_and_pushes_nothing
+    gh = Fake.new(gh_answers.merge(
+      /\Arun view 42/ => JSON.generate(jobs: [{ databaseId: 7, name: "Release", conclusion: "failure" }]),
+      %r{actions/jobs/7/logs} => "gh: Resource not accessible by integration (HTTP 403)\n",
+    ))
+    git = Fake.new(git_answers)
+    status, out = bot(gh, git)
+
+    assert_equal 1, status
+    assert_match(/RED: ci\.yml run 42 .* failed in Release; reverted nothing: only CI's release jobs failed/, out)
+    refute gh.called?(/\Arun rerun/)
+    refute git.called?(/\A(?:revert|push)/)
+  end
+
   # git rev-list --parents, newest first.
   GRAPH = "#{SECOND} #{FIRST}\n#{FIRST} #{GREEN}\n#{GREEN} #{'0' * 40}\n".freeze
 
