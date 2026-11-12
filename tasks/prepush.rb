@@ -6,6 +6,7 @@
 #++
 
 require "open3"
+require_relative "windows_affected"
 
 # What .githooks/pre-push runs: the checks a push needs, over what the
 # push brings. For each ref git is about to update (it names them on the
@@ -14,10 +15,13 @@ require "open3"
 # commits the push adds, and fails the push, with the reason, when a
 # check fails or changes a tracked file, which it then puts back.
 #
-# The checks run here, in the clone that pushes, and CI checks Windows
-# after the push. Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run
-# nothing; the last is for emergencies. git push --no-verify skips the
-# hook itself, as git always allows.
+# The checks run here, in the clone that pushes. On Windows, where the
+# gate cannot run, the hook runs Lota's Windows checks instead
+# (.github/windows_prepush.sh), and only when a pushed range can change
+# Lota there (WindowsAffected); elsewhere CI checks Windows after the push.
+# Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run nothing; the
+# last is for emergencies. git push --no-verify skips the hook itself, as
+# git always allows.
 class PrePush
   # What git writes for a ref that does not exist.
   ZERO = "0" * 40
@@ -37,7 +41,7 @@ class PrePush
     def tag? = remote_ref.start_with?("refs/tags/")
   end
 
-  # Runs rake tasks in this clone.
+  # Runs a command in this clone: rake tasks, unless given another.
   #
   # git runs the hook with GIT_DIR set, and in a linked worktree more of
   # the variables that point git at a repository. A check that runs git
@@ -48,13 +52,15 @@ class PrePush
   class LocalRunner
     # [repository] Where rake runs.
     # [env] The hook's environment, which rake gets without git's.
-    def initialize(repository, env: ENV)
+    # [command] What runs, before its arguments.
+    def initialize(repository, env: ENV, command: %w[bundle exec rake])
       @repository = repository
       @env = env
+      @command = command
     end
 
-    # The command, for Kernel#system, that runs rake with +args+.
-    def command(args) = ["bundle", "exec", "rake", *args]
+    # The command, for Kernel#system, that runs with +args+.
+    def command(args) = [*@command, *args]
 
     # The environment rake runs in.
     def environment
@@ -136,7 +142,12 @@ class PrePush
   # [local] What runs rake tasks here: #run(args) answering an exit status.
   # [clock] Answers the time in seconds, with #next.
   # [remote] The remote git pushes to, the hook's first argument.
-  def initialize(input:, output:, env:, git:, repository:, local: nil, clock: nil, remote: "origin")
+  # [platform] The platform the hook runs on, as RUBY_PLATFORM names it.
+  # [windows] What runs the Windows checks there: #run([]) answering an
+  #   exit status.
+  def initialize(input:, output:, env:, git:, repository:, local: nil, clock: nil, remote: "origin",
+    platform: RUBY_PLATFORM, windows: nil
+  )
     @input = input
     @remote = remote
     @output = output
@@ -144,6 +155,8 @@ class PrePush
     @git = git
     @repository = repository
     @local = local || LocalRunner.new(repository, env:)
+    @platform = platform
+    @windows = windows || LocalRunner.new(repository, env:, command: %w[bash .github/windows_prepush.sh])
     @clock = clock || Enumerator.new { |y| loop { y << Process.clock_gettime(Process::CLOCK_MONOTONIC) } }
   end
 
@@ -154,11 +167,13 @@ class PrePush
   end
 
   # The commit +push+ starts from: the remote ref's old tip when this
-  # clone has it, else origin/trunk's.
+  # clone has it, else origin/trunk's, or, in a clone that holds no
+  # origin/trunk, the remote's default branch's.
   def base(push)
     return push.remote_sha unless push.create? || !@git.known?(push.remote_sha)
 
-    @git.resolve("origin/trunk") or raise ArgumentError, "origin/trunk names no commit; run git fetch origin"
+    @git.resolve("origin/trunk") || @git.resolve("origin/HEAD") or
+      raise ArgumentError, "origin/trunk names no commit; run git fetch origin"
   end
 
   # Runs the checks for each push; returns the hook's exit status.
@@ -171,8 +186,10 @@ class PrePush
     checked = pushes.reject { |push| push.delete? || push.tag? }
     return skipped("nothing but tags or deletions") if checked.empty?
 
+    return windows(checked) if @platform.match?(/mingw|mswin/)
+
     (checked.all? { |push| here(push) }) ? 0 : 1
-  rescue ArgumentError => e
+  rescue ArgumentError, WindowsAffected::Failure => e
     refuse(e.message)
   end
 
@@ -209,6 +226,26 @@ class PrePush
 
       unchanged
     end
+  end
+
+  # Runs the Windows checks once when any of +pushes+ can change Lota on
+  # Windows, and nothing when none can.
+  private def windows(pushes)
+    ranges = pushes.map { |push| "#{base(push)}..#{push.local_sha}" }
+    range, verdict = ranges.lazy.map { |each| [each, WindowsAffected.verdict(WindowsAffected.changes(@repository, each))] }
+      .find { |_range, found| found }
+    return skipped_windows(ranges) unless verdict
+
+    say "Windows checks (here): #{range} can change Lota on Windows: #{verdict}"
+    started = @clock.next
+    status = @windows.run([])
+    say "Windows checks #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
+    status.zero? ? 0 : refuse("the Windows checks failed")
+  end
+
+  private def skipped_windows(ranges)
+    say "#{ranges.join(', ')} cannot change Lota on Windows; no Windows checks"
+    0
   end
 
   # Whether the check +name+ left every tracked file as it found it. A

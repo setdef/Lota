@@ -38,6 +38,7 @@ class PrePushTest < Minitest::Test
     @repo = File.join(@tree, "repo")
     @out = StringIO.new
     @local = FakeLocal.new
+    @windows = FakeLocal.new
     run!(@tree, "git", "init", "--quiet", "--initial-branch=trunk", @repo)
     @trunk = commit("README.md", "Sample Game\n", "first")
     run!(@repo, "git", "update-ref", "refs/remotes/origin/trunk", @trunk)
@@ -55,9 +56,9 @@ class PrePushTest < Minitest::Test
   end
 
   # The hook as git runs it, with +env+.
-  def hook(stdin, env: {}, local: @local)
+  def hook(stdin, env: {}, local: @local, platform: "x86_64-linux", windows: @windows)
     PrePush.new(input: StringIO.new(stdin), output: @out, env:, git: PrePush::Git.new(@repo), repository: @repo,
-      local:, clock: [0.0, 12.5].cycle)
+      local:, clock: [0.0, 12.5].cycle, platform:, windows:)
   end
 
   def line(local:, remote: @trunk, ref: "refs/heads/trunk", remote_ref: ref)
@@ -210,5 +211,58 @@ class PrePushTest < Minitest::Test
     assert_equal 1, hook(line(local: tip), env: { "LOTA_PREPUSH" => "remote" }).run
     assert_includes @out.string, 'push refused: LOTA_PREPUSH is "remote"; leave it unset, or use skip'
     assert_empty @local.calls
+  end
+
+  # A clone made for the push alone may hold no origin/trunk, only the
+  # remote's default branch, origin/HEAD.
+  def test_a_new_branch_without_origin_trunk_is_checked_from_origin_head
+    tip = commit("lib/a.rb", "a\n", "second")
+    run!(@repo, "git", "update-ref", "-d", "refs/remotes/origin/trunk")
+    run!(@repo, "git", "update-ref", "refs/remotes/origin/HEAD", @trunk)
+
+    hook(line(local: tip, remote: ZERO, ref: "refs/heads/topic")).run
+
+    assert_equal ["red_before_green[#{@trunk}..#{tip}]"], @local.calls.last
+  end
+
+  # On Windows the gate cannot run, so the hook runs Lota's Windows checks
+  # instead, and only for a push that can change Lota there
+  # (WindowsAffected).
+  def test_on_windows_a_push_that_cannot_change_windows_runs_nothing
+    tip = commit("lib/a.rb", "a\n", "second")
+
+    assert_equal 0, hook(line(local: tip), platform: "x64-mingw-ucrt").run
+    assert_empty @local.calls
+    assert_empty @windows.calls
+    assert_includes @out.string, "pre-push: #{@trunk}..#{tip} cannot change Lota on Windows; no Windows checks"
+  end
+
+  def test_on_windows_a_push_that_can_change_windows_runs_the_windows_checks_once
+    tip = commit("ext/lota/a.cpp", "a\n", "second")
+    other = commit("lib/b.rb", "b\n", "third")
+
+    status = hook(line(local: other) + line(local: tip, remote: ZERO, ref: "refs/heads/topic"),
+      platform: "x64-mingw-ucrt").run
+
+    assert_equal 0, status
+    assert_equal [[]], @windows.calls
+    assert_empty @local.calls
+    assert_includes @out.string, "pre-push: Windows checks (here): #{@trunk}..#{other} can change Lota on Windows: " \
+      "ext/ (ext/lota/a.cpp)"
+    assert_includes @out.string, "pre-push: Windows checks passed in 12.5s"
+  end
+
+  def test_on_windows_failing_windows_checks_refuse_the_push
+    tip = commit("lib/windows_paths.rb", "a\n", "second")
+    windows = FakeLocal.new({ nil => 3 })
+
+    assert_equal 1, hook(line(local: tip), platform: "x64-mingw-ucrt", windows:).run
+    assert_includes @out.string, "push refused: the Windows checks failed"
+  end
+
+  def test_the_windows_checks_are_windows_prepush_sh_run_without_gits_variables
+    runner = PrePush::LocalRunner.new(@repo, command: %w[bash .github/windows_prepush.sh])
+
+    assert_equal %w[bash .github/windows_prepush.sh], runner.command([])
   end
 end
