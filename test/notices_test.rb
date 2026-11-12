@@ -85,21 +85,18 @@ class NoticesTest < Minitest::Test
   end
 
   # Lota's own statement opens every notices file, whatever the gem
-  # carries, with the license the repository's LICENSE and gemspec give,
-  # and that license's whole text.
+  # carries, with the license the repository's LICENSE gives, and that
+  # license's whole text (GemspecTest checks that the gemspec agrees).
   def test_lotas_own_license_statement_is_always_there
-    gemspec = Gem::Specification.load(File.join(ROOT, "lota.gemspec"))
-
     [[], macos, windows, ios].each do |components|
       text = notices(components).text
 
       assert_includes text, "Lota #{Lota::VERSION}\n  Copyright 2026 setdef <kerrick@setdef.com>\n" \
         "  License: AGPL-3.0-or-later, the GNU Affero General Public License, version 3 or any later version\n"
-      assert_includes text, "  Source code: #{gemspec.metadata.fetch('source_code_uri')}\n"
+      assert_includes text, "  Source code: https://github.com/setdef/lota\n"
       assert_includes text, "\n==== AGPL-3.0-or-later ====\n\n#{File.read(File.join(ROOT, 'LICENSES/AGPL-3.0-or-later.txt'))}"
       assert_equal "AGPL-3.0-or-later", notices(components).licenses.first
     end
-    assert_equal gemspec.license, Lota::Notices::LICENSE
     assert_includes File.read(File.join(ROOT, "LICENSE")), "GNU AFFERO GENERAL PUBLIC LICENSE\n                       Version 3"
   end
 

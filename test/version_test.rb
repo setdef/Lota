@@ -6,15 +6,10 @@
 #++
 
 require_relative "test_helper"
+require "lota/version"
 
 class VersionTest < Minitest::Test
   def test_version_is_a_semantic_version
     assert_match(/\A\d+\.\d+\.\d+(?:\.pre\.\d+)?\z/, Lota::VERSION)
-  end
-
-  def test_gemspec_publishes_the_library_version
-    spec = Gem::Specification.load(File.expand_path("../lota.gemspec", __dir__))
-
-    assert_equal Lota::VERSION, spec.version.to_s
   end
 end

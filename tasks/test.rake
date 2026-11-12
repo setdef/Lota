@@ -32,15 +32,18 @@ TEST_SUITES = {
 # process of its own, or the machine.
 UNIT_TESTS = %w[
   test/cli_test.rb
+  test/notices_test.rb
   test/restart_test.rb
   test/translation_examples_test.rb
   test/variant_test.rb
+  test/version_test.rb
   test/tasks/android_build_test.rb
   test/tasks/api_diff_test.rb
   test/tasks/auto_revert_test.rb
   test/tasks/ios_build_test.rb
   test/tasks/jobs_test.rb
   test/tasks/native_format_pe_test.rb
+  test/tasks/phone_host_test.rb
   test/tasks/phone_notices_test.rb
   test/tasks/rbs_parity_test.rb
   test/tasks/release_plan_test.rb

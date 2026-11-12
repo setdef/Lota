@@ -12,8 +12,8 @@ require_relative "tree_helper"
 # fledge build copies over the project it writes (Fledge's ADR 025). The
 # app built from them runs only on a phone or its Simulator or emulator
 # (.github/workflows/phones.yml); these tests check what can be read here:
-# that the gem carries them, and that they agree with the engine Lota
-# builds and the Fledge files they replace.
+# that they agree with the engine Lota builds and the Fledge files they
+# replace. GemspecTest checks that the gem carries them.
 class PhoneHostTest < Minitest::Test
   include TreeHelper
 
@@ -32,14 +32,6 @@ class PhoneHostTest < Minitest::Test
     "requestRecordAudioPermission" => "LÖVE checks that it exists (android.cpp, requestRecordingPermission)",
     "showRecordingAudioPermissionMissingDialog" => "LÖVE checks that it exists (android.cpp)",
   }.freeze
-
-  def test_the_gem_carries_each_host_file
-    files = Gem::Specification.load(File.join(ROOT, "lota.gemspec")).files
-    hosts = Dir.glob("**/*", base: HOST).select { |path| File.file?(File.join(HOST, path)) }
-
-    assert_operator hosts.size, :>=, 5
-    hosts.each { |path| assert_includes files, "ext/lota/phone/host/#{path}" }
-  end
 
   # SDL's Java loads each library by name, in order, before SDL's main
   # runs (SDLActivity.getLibraries): SDL3 first, whose JNI_OnLoad
