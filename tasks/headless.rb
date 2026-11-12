@@ -63,6 +63,10 @@ class Headless
   # The tasks that open windows, besides test and its namespace.
   TASKS = %w[default gate prepush red_before_green package:install package:deliver].freeze
 
+  # The tests of test's namespace that open none: the unit tests
+  # (UNIT_TESTS in tasks/test.rake).
+  UNIT = /\Atest:(?:shard:)?unit(?::|\z)/
+
   # The render node a GPU mode draws on.
   RENDER_NODE = "/dev/dri/renderD128"
 
@@ -93,6 +97,8 @@ class Headless
   # Whether the rake task +task+, as given on rake's command line, opens windows.
   def self.opens_windows?(task)
     name = task.sub(/\[.*\z/m, "")
+    return false if name.match?(UNIT)
+
     TASKS.include?(name) || name == "test" || name.start_with?("test:")
   end
 

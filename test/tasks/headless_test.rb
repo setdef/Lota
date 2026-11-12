@@ -57,6 +57,14 @@ class HeadlessTest < Minitest::Test
     end
   end
 
+  # The unit tests open no window (test/unit_guard.rb), so they start no
+  # displays, which would cost them more time than they take.
+  def test_the_unit_tests_start_no_displays
+    %w[test:unit test:shard:unit test:unit:cmd].each do |task|
+      refute wanted?({}, tasks: [task]), task
+    end
+  end
+
   def test_gpu_modes
     assert_equal "off", Headless.gpu({})
     assert_equal "off", Headless.gpu({ "LOTA_GATE_GPU" => "" })
