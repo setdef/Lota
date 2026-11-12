@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Lota's Windows checks before a push, on a Windows computer of your own
-# with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, from the
-# checkout's root (machines run windows runs it there, in the computer's
-# desktop session: tasks/machines_run.rb). It takes windows.yml's steps for x64,
-# in its order: LÖVE's dependencies from source, the engine's source
+# with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby. Run it
+# with bash from the checkout's root, in a session on the computer's
+# desktop, where its tests' windows open. It takes windows.yml's steps for
+# x64, in its order: LÖVE's dependencies from source, the engine's source
 # list, the engine and both extensions through ccache, the checks of
 # warnings, DLLs, loading, a restart, and an OpenGL window, and then the
 # tests file by file with the pre-push tier's slow tests left out

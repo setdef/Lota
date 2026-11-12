@@ -52,19 +52,15 @@ The checks run at once, in lanes (`tasks/gate.rake`). Each check's output prints
 
 Run the gate before you push a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before your last push of a session. CI runs it on every push anyway; running it first keeps trunk green.
 
-### The gate on build machines: `rake gate:remote`
+### The Windows checks, on a Windows computer of your own
 
-The gate loads a computer for minutes. If you have build machines that the `machines` command reaches, run it there instead. `machines run` ships your working tree to a queue of Linux and Windows computers, runs a command in a warm workspace there, and streams its output back.
+The gate does not run on Windows, so CI checks Windows after you push. A change to the native code, the build, or anything of Windows' own can break there alone. If you have a Windows computer with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, you can run Lota's Windows checks on it first. From the checkout's root, in a UCRT64 shell on the computer's desktop, run:
 
 ```sh
-bundle exec rake gate:remote
-bundle exec rake "gate:remote[prepush]"
-bundle exec rake gate:windows
+bash .github/windows_prepush.sh
 ```
 
-`gate:remote` ships your working tree as it is, committed or not, to a Linux machine, where `script/remote-gate full` runs the gate, or the tasks you name in the brackets. `gate:windows` runs Lota's Windows checks on a Windows machine, alone on its desktop ([windows.md](windows.md)). Each prints the run's output as it comes and exits with the checks' status. `LOTA_GATE_GPU=opengl` or `vulkan` draws the Linux run's displays on a machine's GPU instead of on llvmpipe, and `AGENT_NAME` says who asks in the queue. Without `machines` on your `PATH`, both tasks say so and stop. Build machines are capacity some contributors have, not a requirement.
-
-`script/remote-gate` also runs by hand on a Linux computer of your own. `script/remote-gate full` runs the gate as CI's Linux job does, on four Xvfb displays of its own with Openbox, so its windows never open on your desktop. It keeps its bundle, ccache's cache, and downloads in `~/.cache/lota`, unless `BUNDLE_PATH` or `CCACHE_DIR` says otherwise.
+It takes CI's Windows steps for x64: it builds LÖVE's libraries, the engine, and the extensions, checks their warnings and DLLs, opens a window, and runs the tests with the pre-push tier's slow tests left out. It prints each step and how long the run has taken, and exits with the first failure's status. [windows.md](windows.md) says what it leaves out and why.
 
 ### Each new test must fail first: `rake red_before_green`
 
@@ -80,9 +76,7 @@ Red-before-green: none (refactor)
 
 ### The pre-push hook
 
-`bin/setup` installs a hook that runs `rake prepush`, then `rake red_before_green` over exactly the commits you push, before git sends anything. It runs them here, in the clone you push from. It prints each check and how long it took, and refuses the push if one fails (`.githooks/pre-push` and `tasks/prepush.rb`). CI checks Windows after the push.
-
-With `LOTA_PREPUSH=machines` set, the hook runs the checks on build machines instead, and never here. It sends the commit you push to a Linux machine, where `script/remote-gate prepush` runs both checks. When the push could change Lota on Windows, Lota's Windows checks run on a Windows machine at the same time. That happens when the push touches `ext/`, `Gemfile`, `Gemfile.lock`, `lota.gemspec`, `mise.toml`, `tasks/windows*`, `.github/windows*`, or `test/native/windows*`, or when a path or line it changes names `windows`, `mingw`, `win32`, or `.dll`, in any case. The hook says which clause fired and for which path, and adds that line to `lota-prepush-windows.log` in the clone's git folder. `LOTA_PREPUSH_WINDOWS=always` or `never` decides instead of the rule. Each run's lines come prefixed with `[linux]` or `[windows]`. The push fails if either check fails, if the machines cannot run them, or if `machines` is not on your `PATH`.
+`bin/setup` installs a hook that runs `rake prepush`, then `rake red_before_green` over exactly the commits you push, before git sends anything. It runs them here, in the clone you push from. It prints each check and how long it took, and refuses the push if one fails (`.githooks/pre-push` and `tasks/prepush.rb`). It does not run the Windows checks; CI does, after the push, unless you ran them yourself first (above).
 
 Pushing a tag or deleting a ref runs nothing. git hands the hook the refs it pushes on standard input, and a hook that runs Lota's, such as a global one in `core.hooksPath`, can read them first. So when the hook gets no refs while `HEAD` has commits the remote lacks, it refuses the push rather than check nothing. In an emergency, such as pushing a revert to a red trunk, `LOTA_PREPUSH=skip git push` skips the checks.
 

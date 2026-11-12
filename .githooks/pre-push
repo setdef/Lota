@@ -2,10 +2,10 @@
 # SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Runs rake prepush and rake red_before_green on what is being pushed,
-# here, or on build machines when LOTA_PREPUSH=machines (tasks/prepush.rb).
-# bin/setup points core.hooksPath here. git passes the refs on standard
-# input, which the Ruby reads.
+# Runs rake prepush and rake red_before_green on what is being pushed
+# (tasks/prepush.rb). bin/setup writes a stub into the clone's hooks
+# folder that runs this file. git passes the refs on standard input,
+# which the Ruby reads.
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
 exec bundle exec ruby tasks/prepush.rb "$@"

@@ -143,7 +143,7 @@ class PrePushTest < Minitest::Test
     tip = commit("lib/a.rb", "a\n", "second")
 
     assert_equal 1, hook(line(local: tip), env: { "LOTA_PREPUSH" => "remote" }).run
-    assert_includes @out.string, 'push refused: LOTA_PREPUSH is "remote"; leave it unset, or use machines or skip'
+    assert_includes @out.string, 'push refused: LOTA_PREPUSH is "remote"; leave it unset, or use skip'
     assert_empty @local.calls
   end
 end

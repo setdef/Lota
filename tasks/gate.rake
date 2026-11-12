@@ -6,7 +6,6 @@
 #++
 
 require_relative "gate"
-require_relative "machines_run"
 
 # The gate, bundle exec rake, in two parts. The first, run in order in this
 # process, changes files (RuboCop's autocorrection) and builds what the
@@ -79,28 +78,3 @@ task(:gate) { run_gate(GATE_LANES) }
 
 desc "Run the pre-push tier: the gate's fast checks, and a part of its slow ones, in lanes"
 task(:prepush) { run_gate(PREPUSH_LANES) }
-
-# Runs the MachinesRun::Run the block makes of a MachinesRun through the
-# machines command, outside the bundle, printing what it prints as it
-# prints it, and exits as it failed when it fails.
-def run_on_machines
-  run, result = MachinesRun.outside_bundle do
-    machines = MachinesRun.new(env: ENV)
-    run = yield machines
-    [run, machines.run_all([run], output: $stdout, chdir: Dir.pwd, prefix: false).first]
-  end
-  return if result.passed?
-
-  warn "❌ #{run.name}: #{result.reason}"
-  exit(result.code || 1)
-end
-
-# Conveniences for whoever has build machines and the machines command
-# (tasks/machines_run.rb): each ships this working tree as it is.
-namespace :gate do
-  desc "Run the gate, or the rake tasks given, on a Linux build machine (machines run), on this working tree"
-  task(:remote) { |_task, args| run_on_machines { |machines| machines.gate(args.to_a) } }
-
-  desc "Run Lota's Windows checks on a Windows build machine (machines run), on this working tree"
-  task(:windows) { run_on_machines(&:windows_gate) }
-end

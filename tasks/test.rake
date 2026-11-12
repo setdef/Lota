@@ -43,7 +43,7 @@ end
 # The gate runs test:parity as two shards, which together hold exactly its
 # files, since the harness was the gate's longest check: LÖVE's run of
 # Gravity-Wars, which every test of gravity_wars_test.rb shares, took
-# about as long on the gate runner as every other parity test together.
+# about as long in the gate as every other parity test together.
 PARITY_SHARDS = {
   gravity_wars: %w[test/parity/gravity_wars_test.rb],
 }.then do |shards|
@@ -65,8 +65,8 @@ PARITY_UNITS = %w[
 # test:ruby and test:parity but those PREPUSH_LEAVES_OUT names, as
 # "Class" for all of a class's tests or "Class#test" for one, less those
 # PREPUSH_KEEPS names, which stay as a smoke test of a class left out. What
-# it leaves out is what took more than about a second and a half on the
-# gate runner (doc/contributors/development.md, "Before every push"):
+# it leaves out is what took more than about a second and a half in the
+# gate (doc/contributors/development.md, "Before every push"):
 # processes that run a whole game, the parity games, the generator's
 # second and third runs over all of LÖVE (the first, which every
 # generator test shares, it keeps, in a lane of its own), and the

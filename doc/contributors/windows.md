@@ -34,15 +34,15 @@ The **Windows build** job runs once for x64 and once for ARM64:
 
 Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner without MSYS2, with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
 
-## Before a push, on a Windows build machine
+## Before a push, on a Windows computer of your own
 
-If you have build machines that the `machines` command reaches, and one of them is a Windows computer with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, Lota's Windows checks can run there before you push, instead of in CI after:
+If you have a Windows computer with RubyInstaller's x64 Ruby and MSYS2's UCRT64 environment, with the packages `windows.yml` installs in it (`patch`, `make`, and UCRT64's GCC, CMake, Ninja, and ccache), Lota's Windows checks can run there before you push, instead of in CI after. From the checkout's root, in a UCRT64 shell on the computer's desktop, where windows open and the GPU draws, run:
 
 ```sh
-bundle exec rake gate:windows
+bash .github/windows_prepush.sh
 ```
 
-`gate:windows` ships your working tree with `machines run windows --exclusive`, which runs one job alone in that computer's desktop session, where windows open and the GPU draws. The job runs `.github/windows_prepush.sh`, which takes `windows.yml`'s steps for x64, without the gem and without Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). With `LOTA_PREPUSH=machines`, the pre-push hook runs the same checks on the commit you push, beside the Linux checks, whenever the push could change Lota on Windows ([development.md](development.md)). `tasks/machines_run.rb` holds the details.
+The script takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. The pre-push hook does not run it ([development.md](development.md)).
 
 ## What CI cannot check
 

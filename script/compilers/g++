@@ -1,7 +1,0 @@
-#!/bin/sh
-# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
-# SPDX-License-Identifier: AGPL-3.0-or-later
-#
-# The C++ compiler script/remote-gate builds with: the g++ on PATH, with
-# the flags script/compilers/gcc gives, for the same reasons.
-exec g++ -Wno-error=array-bounds -Wno-error=maybe-uninitialized -fno-tree-vectorize "$@"
