@@ -196,9 +196,12 @@ module Lota
     #
     # With no arguments it clears to transparent black. LÖVE reads each
     # component as a single-precision float, and so does Lota. The scissor
-    # rectangle bounds what gets cleared. LÖVE also clears several
-    # canvases to different colors, from a table of colors for each; Lota
-    # binds that form later.
+    # rectangle bounds what gets cleared.
+    #
+    # Given Arrays of components in place of numbers, it clears each canvas
+    # being drawn to, in order, to its own color, as LÖVE does given
+    # tables: a missing alpha is 1, and +nil+ or an empty Array leaves
+    # that canvas's color as it is. The stencil and depth may follow.
     #
     # Raises ArgumentError for one or two components, or more arguments
     # than LÖVE reads, TypeError for a component that is not a number, and
@@ -210,13 +213,17 @@ module Lota
     #   Lota::Graphics.clear(1, 1, 0, 0.5)     # half-transparent yellow
     #   Lota::Graphics.clear                   # transparent black
     #   Lota::Graphics.clear(false, 0, false)  # only the stencil, to 0
+    #   Lota::Graphics.clear([1, 0, 0], [0, 0, 1])  # two canvases, red and blue
     #
     # :call-seq:
     #   clear()
     #   clear(red, green, blue, alpha = 1, stencil = 0, depth = 1)
     #   clear(color, stencil = 0, depth = 1)
+    #   clear(components, *components, stencil = 0, depth = 1)
     def self.clear(*arguments)
       first = arguments.first
+      return clear_canvases(arguments) if first.is_a?(Array)
+
       if [true, false].include?(first)
         raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 1..3)" if arguments.size > 3
 
@@ -233,6 +240,30 @@ module Lota
       else raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 0 or 3..6)"
       end
     end
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # love.graphics.clear given tables (src/modules/graphics/
+    # wrap_Graphics.cpp, w_clear, lines 80-113 and 129-147): the colors
+    # run until the first number or boolean, which is the stencil, and the
+    # depth follows it. A color is nil, or empty, for none, and its
+    # components are numbers, with alpha 1 when left out. :nodoc:
+    private_class_method def self.clear_canvases(arguments)
+      count = arguments.index { |argument| !argument.nil? && !argument.is_a?(Array) } || arguments.size
+      raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected at most #{count + 2})" if arguments.size > count + 2
+
+      colors = arguments.first(count).map do |color|
+        next unless color.is_a?(Array) && !color.empty?
+
+        red, green, blue, alpha = color
+        [number(red), number(green), number(blue), alpha.nil? ? 1.0 : number(alpha)]
+      end
+      Native::Graphics.clear_canvases(colors, arguments[count], arguments[count + 1])
+    end
+
+    # SPDX-SnippetEnd
 
     # Tells the graphics card that the contents of the canvases drawn to,
     # or of the window, are no longer needed, matching love.graphics.discard

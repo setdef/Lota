@@ -14,7 +14,8 @@ require_relative "../engine_helper"
 # getBlendState (lines 2701-2749), setDefaultMipmapFilter and
 # getDefaultMipmapFilter (lines 2784-2814), isLowPowerPreferred (lines
 # 201-205), discard (lines 152-175), clear's forms that choose whether to
-# clear the stencil and depth (lines 69-150), readbackTextureAsync (lines
+# clear the stencil and depth, and its form with a table for each canvas
+# (lines 69-150), readbackTextureAsync (lines
 # 2451-2489) and GraphicsReadback (wrap_GraphicsReadback.cpp), and
 # Texture:getViewFormats (wrap_Texture.cpp:303-319); and the functions LÖVE
 # 12 keeps for older games and marks deprecated: getCanvasFormats and
@@ -244,6 +245,34 @@ class GraphicsStateTest < Minitest::Test
     pixels = drawn_with_stencil { Graphics.clear(true) }
 
     assert_equal [0.0, 0.0, 0.0, 0.0], pixels.pixel(0, 0)
+  end
+
+  # w_clear given tables (lines 80-113) clears each canvas drawn to, in
+  # order, to its own color, with alpha 1 when left out, and leaves the
+  # color of a canvas whose table is nil or empty; one table clears the
+  # one canvas, and the stencil and depth may follow the tables.
+  def test_clear_given_tables_clears_each_canvas_to_its_own_color
+    canvases = Array.new(3) { Graphics::Canvas.new(4, 4) }
+    Graphics.set_canvas(*canvases)
+    Graphics.clear(0, 1, 0, 1)
+    Graphics.clear([1, 0, 0], [0, 0, 1, 0], [])
+    Graphics.clear([], [1, 1, 1], nil, false, false)
+    Graphics.set_canvas
+
+    assert_equal [RED, [1.0, 1.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+      canvases.map { |canvas| Graphics.readback_texture(canvas).pixel(0, 0) }
+
+    canvases.first.render_to { Graphics.clear([0, 0, 1]) }
+
+    assert_equal [0.0, 0.0, 1.0, 1.0], Graphics.readback_texture(canvases.first).pixel(3, 3)
+  end
+
+  def test_clear_given_tables_raises_for_a_component_that_is_not_a_number
+    canvas = Graphics::Canvas.new(4, 4)
+    canvas.render_to do
+      assert_raises(TypeError) { Graphics.clear([1, :red, 0]) }
+      assert_raises(ArgumentError) { Graphics.clear([1, 0, 0], 0, 1, 2) }
+    end
   end
 
   def test_clear_raises_for_a_count_of_components_love_does_not_read

@@ -423,12 +423,34 @@ void clear(double red, double green, double blue, double alpha) {
                    love::OptionalDouble(1.0));
 }
 
+// The stencil and the depth w_clear clears after its colors
+// (wrap_Graphics.cpp:129-142): each to the number given, not at all for
+// false, and to 0 and 1 for true or anything else.
+love::OptionalInt clear_stencil(const Rice::Object &stencil) {
+  love::OptionalInt clearstencil(0);
+  if (ruby::is_boolean(stencil)) {
+    clearstencil.hasValue = ruby::is_true(stencil);
+  } else if (ruby::is_numeric(stencil)) {
+    clearstencil.value = Rice::detail::From_Ruby<int>().convert(stencil.value());
+  }
+  return clearstencil;
+}
+
+love::OptionalDouble clear_depth(const Rice::Object &depth) {
+  love::OptionalDouble cleardepth(1.0);
+  if (ruby::is_boolean(depth)) {
+    cleardepth.hasValue = ruby::is_true(depth);
+  } else if (ruby::is_numeric(depth)) {
+    cleardepth.value = Rice::detail::From_Ruby<double>().convert(depth.value());
+  }
+  return cleardepth;
+}
+
 // w_clear's forms without a table (wrap_Graphics.cpp:69-148), with what
 // follows the color, as Lota::Graphics.clear passes them in an Array: the
 // color, nil for LÖVE's false, which leaves the color, or an Array of its
-// four components, each read as a float; then the stencil and the depth,
-// each cleared, as LÖVE reads them, to the number given, not at all for
-// false, and to 0 and 1 for true or anything else.
+// four components, each read as a float; then the stencil and the depth
+// (clear_stencil, clear_depth).
 void clear_buffers(Rice::Array arguments) {
   const Rice::Array given = std::move(arguments);
   const Rice::Object color = ruby::entry(given, 0);
@@ -443,23 +465,33 @@ void clear_buffers(Rice::Array arguments) {
         love::ColorD(component(0), component(1), component(2), component(3)));
   }
 
-  const Rice::Object stencil = ruby::entry(given, 1);
-  love::OptionalInt clearstencil(0);
-  if (ruby::is_boolean(stencil)) {
-    clearstencil.hasValue = ruby::is_true(stencil);
-  } else if (ruby::is_numeric(stencil)) {
-    clearstencil.value = Rice::detail::From_Ruby<int>().convert(stencil.value());
+  graphics().clear(clearcolor, clear_stencil(ruby::entry(given, 1)),
+                   clear_depth(ruby::entry(given, 2)));
+}
+
+// w_clear's form with tables (wrap_Graphics.cpp:80-113 and 129-147), a
+// color for each canvas being drawn to, as Lota::Graphics.clear passes
+// them: +colors+, each nil, which leaves that canvas's color, or an Array
+// of its four components, read as doubles, as LÖVE reads a table's; then
+// the stencil and the depth (clear_stencil, clear_depth).
+void clear_canvases(Rice::Array colors, Rice::Object stencil, Rice::Object depth) {
+  const Rice::Array given = std::move(colors);
+  std::vector<love::graphics::OptionalColorD> clearcolors;
+  clearcolors.reserve(given.size());
+  for (long index = 0; index < static_cast<long>(given.size()); index++) {
+    const Rice::Object color = ruby::entry(given, index);
+    if (ruby::is_nil(color)) {
+      clearcolors.emplace_back();
+      continue;
+    }
+    const Rice::Array components(color.value());
+    const auto component = [&components](long position) -> double {
+      return Rice::detail::From_Ruby<double>().convert(ruby::entry(components, position).value());
+    };
+    clearcolors.emplace_back(love::ColorD(component(0), component(1), component(2), component(3)));
   }
 
-  const Rice::Object depth = ruby::entry(given, 2);
-  love::OptionalDouble cleardepth(1.0);
-  if (ruby::is_boolean(depth)) {
-    cleardepth.hasValue = ruby::is_true(depth);
-  } else if (ruby::is_numeric(depth)) {
-    cleardepth.value = Rice::detail::From_Ruby<double>().convert(depth.value());
-  }
-
-  graphics().clear(clearcolor, clearstencil, cleardepth);
+  graphics().clear(clearcolors, clear_stencil(stencil), clear_depth(depth));
 }
 
 // luax_optboolean (src/common/runtime.cpp:270-275): +value+ when it is
@@ -1614,6 +1646,8 @@ void define_graphics(const Rice::Module &native) {
       .define_singleton_function("clear", &clear, Rice::Arg("red"), Rice::Arg("green"),
                                  Rice::Arg("blue"), Rice::Arg("alpha"))
       .define_singleton_function("clear_buffers", &clear_buffers, Rice::Arg("arguments"))
+      .define_singleton_function("clear_canvases", &clear_canvases, Rice::Arg("colors"),
+                                 Rice::Arg("stencil"), Rice::Arg("depth"))
       .define_singleton_function("discard", &discard, Rice::Arg("arguments"))
       .define_singleton_function("set_blend_state", &set_blend_state, Rice::Arg("names"))
       .define_singleton_function("blend_state", &blend_state)
