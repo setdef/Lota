@@ -7,7 +7,7 @@
 
 ## Project
 
-Lota (the `lota` gem) drives a modified build of LÖVE's C++ engine from Ruby (>= 4.0.1) instead of Lua. Rice (in `ext/`) is a thin binding over LÖVE's engine; Ruby owns the game loop and every API decision (ADR 004). The current plan is in `doc/contributors/plan/`.
+Lota (the `lota` gem) drives a modified build of LÖVE's C++ engine from Ruby (4.1, previews included; ADR 013) instead of Lua. Rice (in `ext/`) is a thin binding over LÖVE's engine; Ruby owns the game loop and every API decision (ADR 004). The current plan is in `doc/contributors/plan/`.
 
 Pre-1.0, zero external users. Prefer good design over backward compatibility; record every breaking change in CHANGELOG.md.
 
