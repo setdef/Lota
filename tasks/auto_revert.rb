@@ -156,11 +156,15 @@ module AutoRevert
     subject = (commits.size == 1) ? "revert: #{commits.first[1]}" : "revert: #{count} CI run #{run.id} found red"
     named = commits.reverse.map { |sha, title, author| "#{sha[0, 7]} (#{title}, by #{author})" }.join("; ")
     left = skipped.empty? ? "" : " The run also held #{skipped.map { |sha| sha[0, 7] }.join(', ')}, CI's own release bookkeeping, which is left alone."
+    batch = if commits.size == 1
+      "so the commit it brought in broke the branch. This reverts it: #{named}.#{left} Land it again once it is fixed."
+    else
+      "so it brought in #{count} that it alone proved, and nothing tells which of them broke the branch. " \
+        "This reverts all of them together: #{named}.#{left} Land each again once it is fixed."
+    end
     body = "#{run.workflow} run #{run.id} failed on #{run.sha[0, 7]} in #{jobs.empty? ? 'jobs it did not name' : jobs.join(', ')}, " \
       "and those jobs failed again when run again, so this is no flaky test. The run was the first to finish since " \
-      "#{green[0, 7]}, the last commit whose run passed, so it brought in #{count} it alone proved, and nothing tells " \
-      "which of them broke the branch. This reverts #{(commits.size == 1) ? 'it' : 'all of them together'}: #{named}.#{left} " \
-      "Land each again once it is fixed."
+      "#{green[0, 7]}, the last commit whose run passed, #{batch}"
     trailers = [
       "Reverts: #{commits.map(&:first).join(' ')}",
       "Red-run: #{run.url}",

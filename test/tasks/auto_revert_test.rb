@@ -148,6 +148,17 @@ class AutoRevertTest < Minitest::Test
     assert message.start_with?("revert: feat: second\n\n"), message
   end
 
+  # One commit since the last green one is the commit that broke the
+  # branch, so its revert says so, not that nothing tells which.
+  def test_the_message_of_one_commit_names_it_as_what_broke_the_branch
+    body = AutoRevert.message(run: run_of, commits: [[SECOND, "feat: second", "Ann <ann@example.com>"]], jobs: ["Gate"], green: FIRST)
+      .split("\n\n")[1].tr("\n", " ")
+
+    assert_includes body, "so the commit it brought in broke the branch. This reverts it: #{SECOND[0, 7]} (feat: second, by Ann <ann@example.com>)."
+    refute_includes body, "which of them"
+    assert_includes body, "Land it again once it is fixed."
+  end
+
   # gh and git as the Bot calls them: each is answered from +answers+, the
   # first pattern its arguments match, and every call is kept.
   class Fake
