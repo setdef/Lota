@@ -14,10 +14,10 @@
 # route (phones.yml), the iOS kit as Lota's own CI calls it (ios-kit.yml),
 # and, once each platform's gem is built, lota fuse on all five with those
 # gems (fuse.yml). The iOS kit also runs as a game's CI calls it
-# (ios-kit-caller.yml), but only for a tag or by hand here, and daily on
-# its own (that workflow's schedule), since a second copy on every push
-# took two thirds of a run's macOS minutes. So every
-# platform Lota supports that GitHub's free runners can run is checked on
+# (ios-kit-caller.yml), but only in a run that can release here, and
+# daily on its own (that workflow's schedule), since a second copy on
+# every push took two thirds of a run's macOS minutes. So every platform
+# Lota supports that GitHub's free runners can run is checked on
 # trunk, and a red job there stops the line. Each trunk commit's own
 # verdict comes first from the pre-push tier (prepush.yml), and this run
 # follows as often as macOS runners allow (concurrency, below).
@@ -54,7 +54,8 @@
 # before any gem is built, what the commit releases as, every job that
 # builds a gem stamps that version into it, and the release job tags the
 # commit and publishes those gems. It releases a full run's commit on
-# trunk, and a tag such as v0.1.0 pushed on a commit of trunk. Run by
+# trunk, and a tag such as v0.1.0 on a commit of trunk when CI is run by
+# hand on the tag. Run by
 # hand on a branch, the release job is a dry run: it assembles the
 # release the commit would make, says what it would do, and keeps it as
 # an artifact.
@@ -62,11 +63,12 @@
 name: CI
 
 on:
+  # Pushes to branches only: a tag starts nothing, whichever token
+  # pushes it, so the tag a release makes costs no second full run. Run
+  # CI by hand on a tag to release it (doc/contributors/releasing.md).
   push:
     branches:
       - "**"
-    tags:
-      - "v[0-9]*"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -89,8 +91,8 @@ permissions:
 # GitHub cancels a waiting run when a newer one joins the group. So a
 # trunk commit is proven by a full run of its own or by the first full
 # run on a later commit, which holds it. A tag is a ref of its own, so
-# its run is in a group of its own and always runs in full, and the
-# release job reads nothing but that run. A branch run gives way to a
+# a run started by hand on it is in a group of its own and runs in full,
+# and the release job reads nothing but that run. A branch run gives way to a
 # newer push. A full run asks for about eight macOS jobs, some 175
 # runner-minutes, and the free plan runs five macOS jobs at once, so a
 # full run for every commit queued hours deep, with the tier's macOS
@@ -893,17 +895,17 @@ jobs:
       artifact_name: ios-kit-winkit
 
   # The iOS kit again, called as a game's own CI calls it
-  # (ios-kit-caller.yml), for test/games/sample_game. It runs for a tag, by
-  # hand, and on a push to trunk whose commit releases as a version, which
-  # are the runs the release job publishes or rehearses, and not on any
-  # other push, where the kit has just run for test/games/winkit; that
-  # workflow's own schedule runs it daily. The release job needs it, so
+  # (ios-kit-caller.yml), for test/games/sample_game. It runs by hand, on
+  # a tag among others, and on a push to trunk whose commit releases as a
+  # version, which are the runs the release job publishes or rehearses,
+  # and not on any other push, where the kit has just run for
+  # test/games/winkit; that workflow's own schedule runs it daily. The release job needs it, so
   # the kit runs before every release.
   ios-kit-call:
     name: iOS kit, called as a game's CI calls it
     needs: version
     if: >-
-      github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push' && needs.version.outputs.version != ''
       && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     uses: ./.github/workflows/ios-kit-caller.yml
@@ -929,16 +931,16 @@ jobs:
   # delivery jobs installed and ran, never rebuilt, which carry the
   # version the version job decided. It runs when that job named a
   # version: on a push to trunk, where it releases this run's commit
-  # however far trunk has moved on since; for a tag pushed by hand; and by
-  # hand, which on any branch but trunk is a dry run. Never for a pull
+  # however far trunk has moved on since; and by hand, which on a tag
+  # releases that tag and on any other branch is a dry run. Never for a pull
   # request, and never in a fork. It needs every platform's gate and
   # delivery, and the phone, iOS kit, and fuse checks, to have passed, so
   # a commit where any of them failed is neither tagged nor published;
   # rerun the failed jobs, or fix trunk and let the next green run
   # release. Its token alone may write, and only the repository's
-  # contents, which a tag and a GitHub release are; it uses no other
-  # secret, and pushes nothing to a branch. A tag it makes through the API
-  # starts no run, so nothing publishes twice, and a rerun finds the tag
+  # contents, which a tag and a GitHub release are, and the RELEASE_TOKEN
+  # secret may stand in for it; it pushes nothing to a branch. No tag
+  # starts a run, so nothing publishes twice, and a rerun finds the tag
   # or the release there already and leaves it (rake release:plan). A new
   # platform joins with a job that builds its gem and a delivery job that
   # uploads it verified, as verified-lota-<platform>, both in needs, and
@@ -949,8 +951,7 @@ jobs:
       fuse]
     if: >-
       github.repository == 'setdef/Lota' && needs.version.outputs.version != ''
-      && ((github.event_name == 'push' && (github.ref_type == 'tag'
-      || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)))
+      && ((github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-22.04
     timeout-minutes: 15

@@ -11,7 +11,7 @@ A release that waits for someone to remember it waits too long, and one that wai
 
 ## Who releases
 
-Before 1.0.0, a release is a GitHub release and nothing more, and it may be cut by the automatic job, by the maintainer, or by an agent pushing a tag. Whoever cuts it, the release is a tag on a trunk commit where every platform's gate and delivery passed, because the release job publishes nothing otherwise. From 1.0.0 on, agents never tag or release (AGENTS.md).
+Before 1.0.0, a release is a GitHub release and nothing more, and it may be cut by the automatic job, or by the maintainer or an agent tagging a commit and running CI on the tag. Whoever cuts it, the release is a tag on a trunk commit where every platform's gate and delivery passed, because the release job publishes nothing otherwise. From 1.0.0 on, agents never tag or release (AGENTS.md).
 
 Publishing to RubyGems.org is the maintainer's alone, and never part of this procedure. Bundler's `rake release` task would push to RubyGems, so the Rakefile makes it refuse, along with the tasks it runs.
 
@@ -63,15 +63,16 @@ So `[Unreleased]` lists what has changed since the last release's tagged commit,
 
 ## Releasing by hand
 
-Do this for a version the automatic release will not cut, such as 1.0.0, or to release a commit before its run would. Pick a trunk commit whose full run passed, ask what it releases as, and tag it:
+Do this for a version the automatic release will not cut, such as 1.0.0, or to release a commit before its run would. Pick a trunk commit whose full run passed, ask what it releases as, tag it, and run CI on the tag:
 
 ```sh
 bundle exec rake "release:version[SHA]"
 git tag --annotate v0.4.0 --message "Lota 0.4.0" SHA
 git push origin v0.4.0
+gh workflow run ci.yml --ref v0.4.0
 ```
 
-The tag's run is a full run of its own. Its version job checks the tag (`rake "release:version[SHA,v0.4.0]"`) and refuses one that is not `v` and MAJOR.MINOR.PATCH, one not newer than the last release, a commit that adds no entry, an API break with no **Breaking:** entry, a **Breaking:** entry released without a MINOR bump (MAJOR from 1.0.0 on), and 1.0.0 or later while Ruby is a preview; a refusal fails the run, and nothing is released. When every job passes, the release job publishes the gems that run built, which carry the tag's version, and the next full run on trunk records the section.
+Pushing a tag starts no run, so a tag the release job makes costs no second full run; CI runs on a tag only when you ask for it. That run is a full run of its own. Its version job checks the tag (`rake "release:version[SHA,v0.4.0]"`) and refuses one that is not `v` and MAJOR.MINOR.PATCH, one not newer than the last release, a commit that adds no entry, an API break with no **Breaking:** entry, a **Breaking:** entry released without a MINOR bump (MAJOR from 1.0.0 on), and 1.0.0 or later while Ruby is a preview; a refusal fails the run, and nothing is released. When every job passes, the release job publishes the gems that run built, which carry the tag's version, and the next full run on trunk records the section.
 
 The tag is annotated and unsigned, since no signing key is configured here. Once one is, use `git tag --sign` instead. Never move or delete a tag that has been pushed.
 
@@ -101,7 +102,7 @@ lota-0.4.0-aarch64-mingw-ucrt.gem
 SHA256SUMS
 ```
 
-Only two jobs' tokens may write, and only the repository's contents: the release job's, for a tag and a release, and the changelog job's, to push its commit. No other job's token may write. The release job reads, tags, and publishes with the repository's `RELEASE_TOKEN` secret when there is one, in place of its own token, and gives it only to the steps that call GitHub; no other job uses a secret. A commit the changelog job pushes starts no run of its own, nor does a tag the release job makes with its own token. A tag made with `RELEASE_TOKEN` starts the tag's own full run, whose release job finds the tag and the release already there and does nothing, so nothing publishes twice.
+Only two jobs' tokens may write, and only the repository's contents: the release job's, for a tag and a release, and the changelog job's, to push its commit. No other job's token may write. The release job reads, tags, and publishes with the repository's `RELEASE_TOKEN` secret when there is one, in place of its own token, and gives it only to the steps that call GitHub; no other job uses a secret. A commit the changelog job pushes starts no run of its own, since GitHub's own token starts none, and no tag starts a run, whichever token makes it, since CI runs on pushes to branches alone. So nothing publishes twice, and a release costs no second full run.
 
 ## When a release stops
 
