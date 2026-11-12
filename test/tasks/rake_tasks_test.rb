@@ -441,6 +441,16 @@ class RakeTasksTest < Minitest::Test
     end
   end
 
+  # A test of the native suite that skips everywhere but Linux.
+  OFF_LINUX_SKIP = /^\s*skip\b.*\bunless TestHome::LINUX$/
+
+  # How many of the native suite's tests skip off Linux, counted from
+  # their source, as LovetestSkips counts Lövetest's, so that a skip added
+  # off Linux is counted without a number written down for it.
+  def off_linux_skips
+    Dir.glob(TEST_SUITES.fetch(:native), base: ROOT).sum { |file| File.read(File.join(ROOT, file)).scan(OFF_LINUX_SKIP).size }
+  end
+
   # rake test runs the sanitized suite through this test, so every line of
   # test:native runs in the gate. Its skips, counted from the tests
   # (test/lovetest/lovetest_skips.rb), are Lövetest's discard,
@@ -450,9 +460,12 @@ class RakeTasksTest < Minitest::Test
   # RecordingDevice tests, the last of which skips where OpenAL Soft plays
   # into the wave writer, as the suite's does everywhere
   # (test/lovetest/tests/filesystem.rb and audio.rb), and, on a GitHub
-  # runner on Linux, the window tests xvfb cannot pass (window.rb). Off Linux, the
-  # sanitizers' own LeakSanitizer test skips, as LeakSanitizer runs at exit
-  # on Linux only (test/sanitizers/sanitizer_test.rb). Lövetest's
+  # runner on Linux, the window tests xvfb cannot pass (window.rb). Off
+  # Linux, each of the suite's tests that skips unless TestHome::LINUX
+  # skips too, counted from the tests' source (OFF_LINUX_SKIP), such as the
+  # sanitizers' own LeakSanitizer test, as LeakSanitizer runs at exit on
+  # Linux only (test/sanitizers/sanitizer_test.rb), and the file dialog
+  # tests that answer zenity (test/native/file_dialog_test.rb). Lövetest's
   # isEnabled, getName, and getData sensor tests skip too where the machine
   # has neither an accelerometer nor a gyroscope
   # (test/lovetest/tests/sensor.rb), which this asks the machine, opening
@@ -469,7 +482,7 @@ class RakeTasksTest < Minitest::Test
     assert_nil failure, "#{failure&.message}\n#{out}\n#{reported(err)}"
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
-    skips = UnseenDesktop.skips(LovetestSkips.expected + (TestHome::LINUX ? 0 : 1) + (sensorless ? 3 : 0))
+    skips = UnseenDesktop.skips(LovetestSkips.expected + (TestHome::LINUX ? 0 : off_linux_skips) + (sensorless ? 3 : 0))
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end
