@@ -50,6 +50,8 @@ bundle exec rake
 
 The checks run at once, in lanes (`tasks/gate.rake`). Each check's output prints whole when it ends, and the gate closes with a table of how long each check took. `LOTA_GATE_JOBS=1` runs them one after another.
 
+Within a check, each build and clang-tidy runs `LOTA_JOBS` processes at once, a whole number you set. Without it, they run one for each core this process may use, fewer where a Linux cgroup, as in a container or on a CI runner, gives it less CPU time or less than 1 GB of memory for each. `rake` hands the count to CMake's builds as `CMAKE_BUILD_PARALLEL_LEVEL`, unless you set that yourself, and to the Makefile LÖVE's Linux libraries build with. The lanes run side by side, so while one lane builds the sanitized extension another runs clang-tidy, each with that many processes, and each clang-tidy takes some 600 MB. On a computer that runs several checkouts' checks at once, set `LOTA_JOBS` to each one's share of the cores and memory.
+
 Run the gate before you push a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before your last push of a session. CI runs it on every push anyway; running it first keeps trunk green.
 
 ### On a computer with no desktop

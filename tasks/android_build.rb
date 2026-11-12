@@ -6,11 +6,11 @@
 #++
 
 require "digest"
-require "etc"
 require "fileutils"
 require "open3"
 require "openssl"
 require "timeout"
+require_relative "jobs"
 require_relative "source_archive"
 require_relative "windows_build"
 
@@ -315,7 +315,7 @@ class AndroidBuild
     FileUtils.mkdir_p(build)
     run(build, environment, "sh", "../configure", "--prefix=#{prefix(abi)}", "--host=#{triple}", "--enable-static",
       "--disable-shared", *options(archive.name, prefix(abi)))
-    run(build, environment, "make", "-j#{Etc.nprocessors}", "install")
+    run(build, environment, "make", "-j#{Jobs.count}", "install")
   end
 
   private def run(dir, environment, *command)

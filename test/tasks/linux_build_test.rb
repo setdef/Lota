@@ -87,6 +87,22 @@ class LinuxBuildTest < Minitest::Test
     end
   end
 
+  # The Makefile runs make and CMake with -j$(NUMBER_OF_PROCESSORS), which
+  # it takes from nproc: every core, however many other builds share them.
+  # The make command LinuxBuild runs gives it +jobs+ instead (tasks/jobs.rb).
+  def test_the_libraries_build_with_as_many_jobs_as_it_is_given
+    in_tree do |dir|
+      linux = LinuxBuild.new(makefile: MAKEFILE, sources: File.join(dir, "sources"), root: dir, jobs: 3)
+      file = linux.variables("LIBOGG_FILE").fetch("LIBOGG_FILE")
+      FileUtils.mkdir_p(File.join(dir, file, "build"))
+      output, = Open3.capture2e(*linux.make_command(dir, "--dry-run", "MAKE=true", "installdir/lib/libogg.so"),
+        chdir: dir)
+      install = output.lines.grep(%r{\Acd #{Regexp.escape(file)}/build && true install}).first.to_s
+
+      assert_includes install, "install -j3", output
+    end
+  end
+
   # A Makefile with the real one's download variables, whose rules make
   # each download and each library by writing a file, and love from
   # love2d-$(LOVE_BRANCH) in +seconds+, logging each target to make.log.

@@ -9,6 +9,7 @@ require "digest"
 require "fileutils"
 require "open3"
 require "tmpdir"
+require_relative "jobs"
 
 # LÖVE's Linux build, as LÖVE's own Linux CI runs it
 # (vendor/love/.github/workflows/main.yml, the Linux job):
@@ -117,11 +118,14 @@ class LinuxBuild
   # [sources] Where #fetch downloads (vendor/sources/linux).
   # [root] Where the build goes (tmp/dependencies).
   # [out] Where progress goes; +nil+ means wherever $stdout points.
-  def initialize(makefile:, sources:, root:, out: nil)
+  # [jobs] How many jobs its builds run at once; +nil+ means Jobs.count
+  #   at the time.
+  def initialize(makefile:, sources:, root:, out: nil, jobs: nil)
     @makefile = File.expand_path(makefile)
     @sources = File.expand_path(sources)
     @root = File.expand_path(root)
     @out = out
+    @jobs = jobs
   end
 
   # love-appimage-source's Makefile.
@@ -254,11 +258,12 @@ class LinuxBuild
   end
 
   # The command that runs the Makefile's +targets+ in +dir+, with
-  # OVERRIDES, which it writes there, read after it.
+  # OVERRIDES, which it writes there, read after it, and +jobs+ jobs at
+  # once rather than as many as nproc counts.
   def make_command(dir, *targets)
     overrides = File.join(dir, "lota-overrides.mk")
     File.write(overrides, OVERRIDES)
-    ["make", "-f", @makefile, "-f", overrides, *targets]
+    ["make", "-f", @makefile, "-f", overrides, "NUMBER_OF_PROCESSORS=#{@jobs || Jobs.count}", *targets]
   end
 
   # Runs the block until it does not fail, ATTEMPTS times at most. A

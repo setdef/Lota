@@ -5,9 +5,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-require "etc"
 require "json"
 require "open3"
+require_relative "jobs"
 
 # The gates for Lota's own C++.
 #
@@ -145,7 +145,7 @@ module CppGates
     # [compile_commands] The compilation database CMake wrote.
     # [headers] Headers under this directory are checked too.
     # [jobs] How many clang-tidy processes run at once.
-    def initialize(files:, config:, compile_commands:, headers:, jobs: Etc.nprocessors)
+    def initialize(files:, config:, compile_commands:, headers:, jobs: Jobs.count)
       @files = files
       @config = File.expand_path(config)
       @compile_commands = File.expand_path(compile_commands)

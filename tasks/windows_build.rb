@@ -6,9 +6,9 @@
 #++
 
 require "digest"
-require "etc"
 require "fileutils"
 require "open3"
+require_relative "jobs"
 require "openssl"
 require "rbconfig"
 require "timeout"
@@ -346,7 +346,7 @@ class WindowsBuild
     FileUtils.mkdir_p(build)
     run(build, "sh", "../configure", "--prefix=#{installdir}", "--build=#{host}", "--host=#{host}", "--enable-static",
       "--disable-shared", *options(archive.name))
-    run(build, "make", "-j#{Etc.nprocessors}", "install")
+    run(build, "make", "-j#{Jobs.count}", "install")
   end
 
   # zlib 1.3's CMake builds a DLL beside its static library, whatever it

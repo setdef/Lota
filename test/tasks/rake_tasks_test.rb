@@ -68,6 +68,24 @@ class RakeTasksTest < Minitest::Test
   # prepares, in order, then the tasks of each check, lane by lane.
   def gate_tasks = GATE_PREPARE + GATE_LANES.flatten.flat_map(&:tasks)
 
+  # CMake's generators run as many jobs as they like, Ninja one more than
+  # the cores, whatever else shares them, so loading the tasks tells
+  # CMake's builds how many to run (tasks/jobs.rake). It loads them in a
+  # process of its own, since this one's rake set the variable already.
+  def test_cmakes_builds_run_as_many_jobs_as_lota_jobs_says
+    script = <<~RUBY
+      require "rake"
+      Rake.application.init("rake", ["--rakefile", #{File.join(ROOT, 'Rakefile').inspect}])
+      Rake.application.load_rakefile
+      print "CMAKE=" + ENV.fetch("CMAKE_BUILD_PARALLEL_LEVEL", "unset")
+    RUBY
+    environment = { "LOTA_JOBS" => "3", "CMAKE_BUILD_PARALLEL_LEVEL" => nil }
+    output, error, status = Open3.capture3(environment, RbConfig.ruby, "-e", script, chdir: ROOT)
+
+    assert_predicate status, :success?, error
+    assert_equal "3", output[/CMAKE=(\S*)/, 1], output
+  end
+
   def test_default_task_is_the_gate
     assert_equal %w[gate], prerequisites("default")
   end
