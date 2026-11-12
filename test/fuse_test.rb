@@ -346,6 +346,41 @@ class FuseTest < Minitest::Test
     assert_equal "not really Lota", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
   end
 
+  def test_a_gem_the_gemfile_names_by_path_goes_to_the_app_with_the_game
+    write("Gemfile", %(source "https://rubygems.org"\ngem "sample_helper", path: "gems/sample_helper"\n))
+    write("Gemfile.lock", <<~LOCK)
+      PATH
+        remote: gems/sample_helper
+        specs:
+          sample_helper (0.1.0)
+
+      GEM
+        remote: https://rubygems.org/
+        specs:
+
+      PLATFORMS
+        arm64-darwin
+
+      DEPENDENCIES
+        sample_helper!
+
+      CHECKSUMS
+        sample_helper (0.1.0)
+
+      BUNDLED WITH
+        4.0.20
+    LOCK
+    write("gems/sample_helper/sample_helper.gemspec", "Gem::Specification.new\n")
+    write("gems/sample_helper/lib/sample_helper.rb", "module SampleHelper; end\n")
+
+    capture_io { fuse.call }
+
+    assert_equal read("game", "sample", "Gemfile"), File.read(File.join(@game, "Gemfile"))
+    assert_includes read("Gemfile"), %(eval_gemfile "game/sample/Gemfile")
+    assert_equal "Gem::Specification.new\n", read("game", "sample", "gems", "sample_helper", "sample_helper.gemspec")
+    assert_equal "module SampleHelper; end\n", read("game", "sample", "gems", "sample_helper", "lib", "sample_helper.rb")
+  end
+
   def test_a_gemfile_without_a_lockfile_is_refused
     write("Gemfile", "gem 'rainbow'\n")
 

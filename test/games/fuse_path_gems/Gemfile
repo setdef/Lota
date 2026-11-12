@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+# A gem of pure Ruby from a folder inside the game, for lota fuse's check
+# (.github/workflows/fuse.yml). It does not ask for Lota, which lota fuse
+# adds. The gem's folder goes to the app with the rest of the game, and the
+# Gemfile is read where the game's copy is.
+source "https://rubygems.org"
+
+gem "sample_helper", path: "gems/sample_helper"

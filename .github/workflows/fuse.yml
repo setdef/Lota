@@ -23,10 +23,12 @@
 # the gem carries, FreeType's credit, OpenAL Soft's source archive, and every
 # path it names in the app.
 #
-# Three games are fused on every platform: test/games/fuse, with no
+# Four games are fused on every platform: test/games/fuse, with no
 # Gemfile; test/games/fuse_gems, whose Gemfile asks for a gem of pure Ruby
 # and whose committed Gemfile.lock locks an older version than the
-# Gemfile allows, which the app must load; and test/games/fuse_native,
+# Gemfile allows, which the app must load;
+# test/games/fuse_path_gems, whose Gemfile names a gem of pure Ruby in a
+# folder of the game by path:; and test/games/fuse_native,
 # whose Gemfile asks for Lota, from the game's vendor/cache, and for
 # fast_blank, whose C extension compiles on the runner with the compiler
 # it has: Xcode's command line tools on macOS, GCC on Ubuntu, and the
@@ -135,7 +137,7 @@ jobs:
           - runner: windows-11-arm
             platform: aarch64-mingw-ucrt
         # The games in test/games, or game_repository's, called game.
-        game: ${{ fromJSON(inputs.game_repository && '["game"]' || '["fuse", "fuse_gems", "fuse_native"]') }}
+        game: ${{ fromJSON(inputs.game_repository && '["game"]' || '["fuse", "fuse_gems", "fuse_path_gems", "fuse_native"]') }}
     runs-on: ${{ matrix.target.runner }}
     timeout-minutes: 30
     env:
@@ -196,10 +198,10 @@ jobs:
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: "4.0"
-          windows-toolchain: ${{ (matrix.game == 'fuse' || matrix.game == 'fuse_gems') && 'none' || 'default' }}
+          windows-toolchain: ${{ (matrix.game == 'fuse' || matrix.game == 'fuse_gems' || matrix.game == 'fuse_path_gems') && 'none' || 'default' }}
 
       - name: Point RubyInstaller at setup-ruby's MSYS2
-        if: runner.os == 'Windows' && matrix.game != 'fuse' && matrix.game != 'fuse_gems'
+        if: runner.os == 'Windows' && matrix.game != 'fuse' && matrix.game != 'fuse_gems' && matrix.game != 'fuse_path_gems'
         run: echo "MSYS2_PATH=$RI_DEVKIT" >> "$GITHUB_ENV"
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

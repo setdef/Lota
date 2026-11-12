@@ -1,0 +1,25 @@
+PATH
+  remote: gems/sample_helper
+  specs:
+    sample_helper (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+
+PLATFORMS
+  aarch64-linux-gnu
+  aarch64-mingw-ucrt
+  arm64-darwin
+  ruby
+  x64-mingw-ucrt
+  x86_64-linux-gnu
+
+DEPENDENCIES
+  sample_helper!
+
+CHECKSUMS
+  sample_helper (0.1.0)
+
+BUNDLED WITH
+  4.0.20
