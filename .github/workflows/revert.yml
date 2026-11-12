@@ -10,7 +10,8 @@
 # the red run, the jobs that failed twice, and each reverted commit with
 # its author, and this run's summary repeats it. It opens no issue and
 # writes no comment. A revert is never reverted, nor is CI's release
-# bookkeeping, and nothing is reverted when trunk already holds a fix. A
+# bookkeeping; a run where only the release's jobs failed is reported,
+# not reverted; and nothing is reverted when trunk already holds a fix. A
 # push GitHub's token makes starts no workflow, so it starts CI and the
 # pre-push tier on the revert by hand.
 #
