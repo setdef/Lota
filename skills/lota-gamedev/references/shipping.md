@@ -4,8 +4,8 @@
 
 `lota fuse path/to/game` turns a game folder into an app for the platform you
 run it on, through [Fledge](https://github.com/setdef/Fledge): a folder and
-archive, and where Fledge makes them an installer. See the README's "Sharing a
-game" for what each platform needs installed and the exact options
+archive, and where Fledge makes them an installer. See the [sharing guide](https://github.com/setdef/Lota/blob/trunk/doc/guide/sharing.md)
+for what each platform needs installed and the exact options
 (`--out`, `--identifier`, `--icon`, `--app-version`, `--sign`,
 `--sign-command`, `--notarize`, `--exclude`).
 
