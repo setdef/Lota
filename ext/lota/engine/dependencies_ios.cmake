@@ -83,6 +83,20 @@ target_compile_definitions(lota_engine PUBLIC
 	LOVE_APPLE_USE_FRAMEWORKS
 )
 
+# Core Audio's decoder, as the liblove-ios target compiles it
+# (liblove.xcodeproj/project.pbxproj:4994, its Sources phase, beside every
+# decoder the macOS target compiles, so iOS leaves none out) and defines
+# LOVE_SUPPORT_COREAUDIO in each of its configurations (lines 5691-5694,
+# 5717-5720, 5743-5746), which the liblove-macosx target does not. LÖVE's
+# CMakeLists.txt never lists the file, so the generated sources_ios.cmake
+# lacks it. With the definition, Sound.cpp:76-78 tries the decoder after
+# Vorbis and before MP3, so it decodes what Audio File Services opens:
+# AIFF, CAF, AAC and Apple Lossless in M4A, and MP3 too. It needs
+# AudioToolbox, which the flags below link. Only LÖVE's own sources see the
+# definition, as only liblove-ios's do.
+target_sources(lota_engine PRIVATE ${ENGINE_SOURCE_DIR}/src/modules/sound/lullaby/CoreAudioDecoder.cpp)
+target_compile_definitions(lota_engine PRIVATE LOVE_SUPPORT_COREAUDIO)
+
 target_compile_options(lota_engine PRIVATE
 	# As on macOS (dependencies_macos.cmake): LÖVE's Objective-C relies on
 	# ARC, which the Xcode project enables for every file.
