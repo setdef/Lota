@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-12
+
 ### Added
 
 - On iOS and iPadOS, `Lota::Sound::SoundData.new`, `Lota::Sound::Decoder.new`, and `Lota::Audio::Source.new` read AIFF and AAC (`.m4a`) files through Core Audio, as LÖVE's iOS build does.
