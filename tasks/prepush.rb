@@ -38,17 +38,35 @@ class PrePush
   end
 
   # Runs rake tasks in this clone.
+  #
+  # git runs the hook with GIT_DIR set, and in a linked worktree more of
+  # the variables that point git at a repository. A check that runs git
+  # in a repository of its own, as many of Lota's tests do in a temporary
+  # one, would reach the pushing clone through them instead. So rake runs
+  # without any of the variables git rev-parse --local-env-vars lists, as
+  # git itself clears them before it runs a command in a submodule.
   class LocalRunner
-    def initialize(repository)
+    # [repository] Where rake runs.
+    # [env] The hook's environment, which rake gets without git's.
+    def initialize(repository, env: ENV)
       @repository = repository
+      @env = env
     end
 
     # The command, for Kernel#system, that runs rake with +args+.
     def command(args) = ["bundle", "exec", "rake", *args]
 
+    # The environment rake runs in.
+    def environment
+      local, status = Open3.capture2("git", "rev-parse", "--local-env-vars")
+      raise ArgumentError, "git rev-parse --local-env-vars failed" unless status.success?
+
+      @env.to_h.except(*local.split)
+    end
+
     # Runs rake +args+ here and returns its exit status.
     def run(args)
-      system(*command(args), chdir: @repository) ? 0 : ($?.exitstatus || 1)
+      system(environment, *command(args), chdir: @repository, unsetenv_others: true) ? 0 : ($?.exitstatus || 1)
     end
   end
 
@@ -99,7 +117,7 @@ class PrePush
     @env = env
     @git = git
     @repository = repository
-    @local = local || LocalRunner.new(repository)
+    @local = local || LocalRunner.new(repository, env:)
     @clock = clock || Enumerator.new { |y| loop { y << Process.clock_gettime(Process::CLOCK_MONOTONIC) } }
   end
 

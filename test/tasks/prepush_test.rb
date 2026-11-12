@@ -139,6 +139,26 @@ class PrePushTest < Minitest::Test
     assert_includes @out.string, "push refused: rake red_before_green"
   end
 
+  # git runs the hook with GIT_DIR, and in a linked worktree more, set to
+  # the clone that pushes; a check that made a repository of its own would
+  # reach that clone instead, so the checks run without them, as git runs
+  # a command in a submodule.
+  def test_the_checks_run_without_the_variables_that_point_git_at_the_pushing_clone
+    tip = commit("lib/a.rb", "a\n", "second")
+    seen = File.join(@tree, "seen")
+    git = { "GIT_DIR" => File.join(@repo, ".git"), "GIT_INDEX_FILE" => File.join(@repo, ".git", "index") }
+    env = ENV.to_h.merge(git, "LOTA_PREPUSH_PROBE" => "kept")
+    local = PrePush::LocalRunner.new(@repo, env:)
+    local.define_singleton_method(:command) do |_args|
+      [RbConfig.ruby, "-e", "File.write(ARGV[0], ENV.keys.join(' '))", seen]
+    end
+
+    assert_equal 0, hook(line(local: tip), env:, local:).run
+    names = File.read(seen).split
+    assert_includes names, "LOTA_PREPUSH_PROBE"
+    assert_empty names & git.keys
+  end
+
   def test_an_unknown_mode_refuses_the_push
     tip = commit("lib/a.rb", "a\n", "second")
 
