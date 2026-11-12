@@ -70,6 +70,18 @@ class AndroidBuild
   ARCHIVES = WindowsBuild::ARCHIVES
     .map { |archive| Archive.new(**archive.to_h) }.freeze
 
+  # The NDK Fledge's Android runtime is built with (its runtime/sources.yml),
+  # for x86-64 Linux, which rake android:ndk installs where no Android SDK
+  # is, as on a build machine with nothing of Android's. sdkmanager
+  # installs the same release as "ndk;30.0.16248370".
+  NDK = Archive.new(
+    name: "Android NDK", directory: "android-ndk-r30",
+    url: "https://dl.google.com/android/repository/android-ndk-r30-linux.zip",
+    sha256: "753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2",
+    checked: "dl.google.com/android/repository/repository2-3.xml, ndk;30.0.16248370, SHA-1 " \
+      "5107f898313790e449e87eee2183d9a20602dee9 of the same download"
+  )
+
   # The ABIs Fledge's Android runtime is built for (its ADR 022, section 1).
   ABIS = %w[arm64-v8a x86_64].freeze
 

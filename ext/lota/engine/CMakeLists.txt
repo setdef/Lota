@@ -192,3 +192,18 @@ elseif(MINGW)
 else()
 	include(${CMAKE_CURRENT_SOURCE_DIR}/dependencies_linux.cmake)
 endif()
+
+# What a target that links the engine is given, for rake phone:engine,
+# which packs a phone's engine with its headers and libraries
+# (tasks/phone_engine.rb): its include folders, in order, and its
+# definitions and options, one to a line under each heading.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+	file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/engine_interface.txt CONTENT
+"[includes]
+$<JOIN:$<TARGET_PROPERTY:lota_engine,INTERFACE_INCLUDE_DIRECTORIES>,\n>
+[definitions]
+$<JOIN:$<TARGET_PROPERTY:lota_engine,INTERFACE_COMPILE_DEFINITIONS>,\n>
+[options]
+$<JOIN:$<TARGET_PROPERTY:lota_engine,INTERFACE_COMPILE_OPTIONS>,\n>
+")
+endif()

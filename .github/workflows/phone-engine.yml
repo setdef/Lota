@@ -1,0 +1,268 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# LÖVE's engine, with its libraries, prebuilt for each iOS slice and
+# Android ABI (rake phone:engine, tasks/phone_engine.rb), which a phone
+# build fetches by the SHA-256 the gem pins (ext/lota/phone/engine.rb)
+# instead of compiling it. Each target's bundle is built on the system
+# that builds it in doc/guide/phones.md: the iOS slices on macos-15 with
+# the newest Xcode there, the Android ABIs on ubuntu-24.04 with the NDK
+# Fledge's runtime is built with. The phone-engines artifact holds the
+# four bundles and their SHA256SUMS, which is what a release publishes
+# beside its gems, and whose checksums the release pins in the gem.
+#
+# With compare_with_source, a second runner for each system builds the
+# bundles again from the same commit and checks that they are the same
+# bytes, then builds test/games/phone with fledge build twice, once with
+# the engine built from source and once with the engines fetched from
+# this run over HTTP, and checks that the two projects match
+# (.github/phones/engine_match.sh).
+
+name: Phone engines
+
+on:
+  workflow_call:
+    inputs:
+      compare_with_source:
+        description: Also rebuild the engines elsewhere, and check a phone build from them against one from source
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      compare_with_source:
+        description: Also rebuild the engines elsewhere, and check a phone build from them against one from source
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MISE_DISABLE_TOOLS: ruby,rust
+  NDK_REVISION: 30.0.16248370
+
+jobs:
+  ios:
+    name: iOS slices
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: ./.github/actions/mise
+        with:
+          install_args: cmake ninja
+
+      - &xcode
+        name: Select the newest Xcode
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name "Xcode_*.app" | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - name: Build SDL3 and the engine for each slice
+        run: |
+          bundle install --quiet
+          bundle exec rake ios:sdl3
+          for target in ios-arm64 ios-arm64-simulator; do
+            time bundle exec rake "phone:engine[$target]" || { tail -80 "tmp/phone-engine/$target/build.log"; exit 1; }
+          done
+          ls -la tmp/phone-engine/*.tar.gz
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone-engine-ios
+          path: tmp/phone-engine/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: Android ABIs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: ./.github/actions/mise
+        with:
+          install_args: cmake ninja
+
+      - &ndk
+        name: Install the NDK
+        run: |
+          # yes ends on a broken pipe once sdkmanager stops reading.
+          (yes 2> /dev/null || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_REVISION" \
+            > "$RUNNER_TEMP/sdkmanager.log" || { tail -20 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/$NDK_REVISION" >> "$GITHUB_ENV"
+          grep Pkg.Revision "$ANDROID_HOME/ndk/$NDK_REVISION/source.properties"
+
+      - name: Build LÖVE's dependencies and the engine for each ABI
+        run: |
+          bundle install --quiet
+          bundle exec rake android:deps || { tail -80 tmp/android/deps/build.log; exit 1; }
+          for target in android-arm64-v8a android-x86_64; do
+            time bundle exec rake "phone:engine[$target]" || { tail -80 "tmp/phone-engine/$target/build.log"; exit 1; }
+          done
+          ls -la tmp/phone-engine/*.tar.gz
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone-engine-android
+          path: tmp/phone-engine/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  # What a release publishes: the four bundles and their SHA256SUMS.
+  sums:
+    name: The engines and their SHA256SUMS
+    needs: [ios, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: phone-engine-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/engines
+
+      - name: Write SHA256SUMS
+        working-directory: ${{ runner.temp }}/engines
+        run: |
+          for target in ios-arm64 ios-arm64-simulator android-arm64-v8a android-x86_64; do
+            sha256sum "lota-engine-$target.tar.gz"
+          done > SHA256SUMS
+          cat SHA256SUMS
+          ls -la
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone-engines
+          path: ${{ runner.temp }}/engines
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-match:
+    name: iOS, rebuilt and matched against a build from source
+    if: inputs.compare_with_source
+    needs: sums
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: ./.github/actions/mise
+        with:
+          install_args: cmake ninja
+
+      - *xcode
+
+      - name: Install XcodeGen, which fledge build ios runs
+        run: brew install xcodegen
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: phone-engines
+          path: ${{ runner.temp }}/engines
+
+      - &rebuild
+        name: Build the engines again on this runner and check they are the same bytes
+        env:
+          PHONE: ${{ github.job == 'ios-match' && 'ios' || 'android' }}
+        run: |
+          bundle install --quiet
+          if [ "$PHONE" = ios ]; then
+            bundle exec rake ios:sdl3
+            targets="ios-arm64 ios-arm64-simulator"
+          else
+            bundle exec rake android:deps || { tail -80 tmp/android/deps/build.log; exit 1; }
+            targets="android-arm64-v8a android-x86_64"
+          fi
+          different=0
+          for target in $targets; do
+            bundle exec rake "phone:engine[$target,$RUNNER_TEMP/again]" > /dev/null \
+              || { tail -80 "tmp/phone-engine/$target/build.log"; exit 1; }
+            asset=lota-engine-$target.tar.gz
+            first=$(grep " $asset\$" "$RUNNER_TEMP/engines/SHA256SUMS" | cut -d' ' -f1)
+            again=$(shasum -a 256 "$RUNNER_TEMP/again/$asset" | cut -d' ' -f1)
+            echo "$asset: $again here, $first in the $PHONE job"
+            [ "$again" = "$first" ] || different=1
+          done
+          [ "$different" -eq 0 ] || { echo "::error::The engines built here are not the bytes the $PHONE job built"; exit 1; }
+
+      - &gem_folder
+        name: Make a folder of the files Lota's gem packages
+        run: |
+          rm -rf tmp/phone
+          mkdir -p tmp/phone
+          gem build lota.gemspec --output tmp/phone/lota.gem
+          gem unpack tmp/phone/lota.gem --target tmp/phone
+          gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
+
+      - &match
+        name: Build test/games/phone from source and from the fetched engines, and compare
+        env:
+          PHONE: ${{ github.job == 'ios-match' && 'ios' || 'android' }}
+        run: bash .github/phones/engine_match.sh "$PHONE" "$RUNNER_TEMP/engines" "$RUNNER_TEMP/match"
+
+      - &logs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: phone-engine-match-${{ github.job }}
+          path: |
+            ${{ runner.temp }}/match/*.log
+            ${{ runner.temp }}/match/dist.diff
+          if-no-files-found: ignore
+          retention-days: 14
+
+  android-match:
+    name: Android, rebuilt and matched against a build from source
+    if: inputs.compare_with_source
+    needs: sums
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
+
+      - uses: ./.github/actions/mise
+        with:
+          install_args: cmake ninja
+
+      - *ndk
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: phone-engines
+          path: ${{ runner.temp }}/engines
+
+      - *rebuild
+
+      - *gem_folder
+
+      - *match
+
+      - *logs

@@ -45,6 +45,8 @@ UNIT_TESTS = %w[
   test/tasks/jobs_test.rb
   test/tasks/licensing_test.rb
   test/tasks/native_format_pe_test.rb
+  test/tasks/phone_engine_build_test.rb
+  test/tasks/phone_engine_test.rb
   test/tasks/phone_host_test.rb
   test/tasks/phone_notices_test.rb
   test/tasks/rbs_parity_test.rb

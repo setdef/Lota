@@ -12,35 +12,61 @@
 # compilers (Fledge's ADRs 022 and 027). An iOS app loads no extension at
 # run time, so everything here is a static archive the app links.
 #
-# CMake builds LÖVE's engine and Lota::Native (CMakeLists.txt beside
-# extconf.rb) as on a desktop, but as static archives; mkmf then compiles
-# phone/native_ios.c, whose Init_native calls the extension's, and names the
-# archives and the system's libraries for Fledge to link (phone_link.txt,
-# which engine/dependencies_ios.cmake writes).
+# LÖVE's engine, with the libraries it links, comes prebuilt for the
+# slice from Lota's release (phone/engine.rb), checked against the SHA-256
+# this gem pins; or, given a clone of Lota, CMake builds it from LÖVE's
+# sources as on a desktop, as a static archive. CMake then builds
+# Lota::Native (CMakeLists.txt beside extconf.rb) over it; mkmf compiles
+# phone/native_ios.c, whose Init_native calls the extension's, and names
+# the archives and the system's libraries for Fledge to link
+# (phone_link.txt, which engine/dependencies_ios.cmake or the prebuilt
+# engine's engine.cmake writes).
 #
 # Options, which Bundler passes from `bundle config build.lota`:
 #
-# [--with-lota-source=DIR] A clone of Lota's repository with its
-#                          submodules: the gem does not carry LÖVE's
-#                          sources (vendor/love) or its iOS libraries
-#                          (vendor/love-apple-dependencies).
-# [--with-lota-sdl3=DIR] SDL3 built static for each slice, in
-#                        DIR/ios-arm64 and DIR/ios-arm64-simulator
-#                        (`rake ios:sdl3` in that clone).
+# [--with-lota-source=DIR] Build the engine from source, from a clone of
+#                          Lota's repository with its submodules: the gem
+#                          does not carry LÖVE's sources (vendor/love) or
+#                          its iOS libraries (vendor/love-apple-dependencies).
+# [--with-lota-sdl3=DIR] With --with-lota-source, SDL3 built static for
+#                        each slice, in DIR/ios-arm64 and
+#                        DIR/ios-arm64-simulator (`rake ios:sdl3` in that
+#                        clone).
+# [--with-lota-engine-url=URL] Where to fetch the prebuilt engine from, a
+#                              mirror of the release's assets; by default
+#                              the release of this version of Lota.
+# [--with-lota-engine-cache=DIR] Where fetched engines are kept; by
+#                                default lota/phone-engine in
+#                                XDG_CACHE_HOME or ~/.cache.
 # [--with-rice-dir=DIR] The rice gem's directory, since Fledge runs this
 #                       with --disable-gems.
 
 require "mkmf"
 require "rbconfig"
 require "shellwords"
+require_relative "engine"
 
 ios_slice = RbConfig::CONFIG.fetch("CC").include?("-simulator") ? "ios-arm64-simulator" : "ios-arm64"
-lota_source = with_config("lota-source") or abort "Lota's iOS build needs --with-lota-source=DIR, a clone of " \
-  "Lota's repository with its submodules (bundle config build.lota)"
-lota_source = File.expand_path(lota_source)
-abort "#{lota_source} has no vendor/love; run git submodule update --init there" unless
-  File.exist?(File.join(lota_source, "vendor/love/src/common/Object.h"))
-sdl3 = with_config("lota-sdl3") or abort "Lota's iOS build needs --with-lota-sdl3=DIR, from rake ios:sdl3"
+lota_source = with_config("lota-source")
+if lota_source
+  lota_source = File.expand_path(lota_source)
+  abort "#{lota_source} has no vendor/love; run git submodule update --init there" unless
+    File.exist?(File.join(lota_source, "vendor/love/src/common/Object.h"))
+  sdl3 = with_config("lota-sdl3") or abort "Lota's iOS build from source needs --with-lota-sdl3=DIR, from rake ios:sdl3"
+  engine = [
+    "-DENGINE_SOURCE_DIR:PATH=#{File.join(lota_source, 'vendor/love')}",
+    "-DENGINE_DEPS_DIR:PATH=#{File.join(lota_source, 'vendor/love-apple-dependencies')}",
+    "-DLOTA_IOS_SDL3_DIR:PATH=#{File.join(File.expand_path(sdl3), ios_slice)}",
+  ]
+else
+  begin
+    prebuilt = Lota::PhoneEngine.new(ios_slice, ext: File.expand_path("..", __dir__), url: with_config("lota-engine-url"))
+      .fetch(cache: with_config("lota-engine-cache", Lota::PhoneEngine.cache))
+  rescue Lota::PhoneEngine::Failure => e
+    abort e.message
+  end
+  engine = ["-DLOTA_ENGINE_DIR:PATH=#{prebuilt}"]
+end
 rice = with_config("rice-dir") or abort "Lota's iOS build needs --with-rice-dir=DIR, the rice gem's directory"
 ENV["CMAKE_TOOLCHAIN_FILE"] or abort "Lota's iOS build needs CMAKE_TOOLCHAIN_FILE, which fledge build ios sets"
 
@@ -52,9 +78,7 @@ configure = [cmake, "-S", File.expand_path("..", __dir__), "-B", build]
 configure += %w[-G Ninja] if find_executable("ninja")
 configure += [
   "-DCMAKE_BUILD_TYPE=Release",
-  "-DENGINE_SOURCE_DIR:PATH=#{File.join(lota_source, 'vendor/love')}",
-  "-DENGINE_DEPS_DIR:PATH=#{File.join(lota_source, 'vendor/love-apple-dependencies')}",
-  "-DLOTA_IOS_SDL3_DIR:PATH=#{File.join(File.expand_path(sdl3), ios_slice)}",
+  *engine,
   "-DRICE_DIR:PATH=#{File.expand_path(rice)}",
   "-DLOTA_RUBY_INCLUDE_DIRS=#{[RbConfig::CONFIG['rubyhdrdir'], RbConfig::CONFIG['rubyarchhdrdir']].uniq.join(';')}",
   "-DLOTA_NATIVE_TEST=OFF",
@@ -63,7 +87,8 @@ configure += [
 system(*configure) or abort "CMake could not configure Lota for #{ios_slice} (its output is above)."
 system(cmake, "--build", build, "--target", "lota_native") or abort "CMake could not build Lota for #{ios_slice}."
 
-archives = [File.join(build, "lib/lota/liblota_native.a"), File.join(build, "engine/liblota_engine.a")]
+engine_archive = prebuilt ? File.join(prebuilt, "lib/liblota_engine.a") : File.join(build, "engine/liblota_engine.a")
+archives = [File.join(build, "lib/lota/liblota_native.a"), engine_archive]
 libraries, flags = File.readlines(File.join(build, "phone_link.txt"), chomp: true).reject(&:empty?)
   .partition { |line| line.end_with?(".a") }
 $LOCAL_LIBS << " #{(archives + libraries).shelljoin}"

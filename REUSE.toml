@@ -42,3 +42,10 @@ SPDX-License-Identifier = "CC0-1.0"
 path = "ext/lota/phone/host/android/src/main/java/org/libsdl/app/*.java"
 SPDX-FileCopyrightText = "1997-2026 Sam Lantinga <slouken@libsdl.org>"
 SPDX-License-Identifier = "Zlib"
+
+# The checksums of the phone engines a release publishes, which the
+# release writes into the gem (rake phone:engine:pin).
+[[annotations]]
+path = "ext/lota/phone/SHA256SUMS"
+SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"
+SPDX-License-Identifier = "CC0-1.0"

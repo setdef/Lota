@@ -25,6 +25,24 @@ namespace :android do
     abort "❌ #{e.message}"
   end
 
+  desc "Install the NDK Lota builds with into tmp/android/ndk, on x86-64 Linux without an Android SDK, and print " \
+    "its ANDROID_NDK_ROOT"
+  task :ndk do
+    abort "❌ rake android:ndk installs Linux's NDK; elsewhere use sdkmanager \"ndk;30.0.16248370\"" unless
+      RUBY_PLATFORM.start_with?("x86_64-linux")
+
+    root = File.expand_path(File.join("tmp/android/ndk", AndroidBuild::NDK.directory))
+    unless File.file?(File.join(root, "source.properties"))
+      SourceArchive.new(AndroidBuild::NDK, root: ".").fetch
+      FileUtils.rm_rf(File.dirname(root))
+      FileUtils.mkdir_p(File.dirname(root))
+      sh "unzip", "-q", AndroidBuild::NDK.path, "-d", File.dirname(root)
+    end
+    puts "ANDROID_NDK_ROOT=#{root}"
+  rescue SourceArchive::Failure => e
+    abort "❌ #{e.message}"
+  end
+
   desc "Write the NOTICES.txt of a Fledge project's Android app into PROJECT, with OpenAL Soft's source in its sources folder"
   task :notices, [:project] do |_, args|
     project = args[:project] or abort "❌ Name the phone project: rake android:notices[PROJECT]"

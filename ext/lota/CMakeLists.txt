@@ -81,9 +81,24 @@ endif()
 # The test-only extension (native_test/), for rake test; never packaged.
 option(LOTA_NATIVE_TEST "Build the test-only extension in native_test/" OFF)
 
-include(cmake/LotaWarnings.cmake)
-add_subdirectory(engine)
+# A phone's engine, prebuilt for one iOS slice or Android ABI and fetched
+# by phone/engine.rb: its engine.cmake defines lota_engine as an imported
+# target, in place of building it from LÖVE's sources.
+set(LOTA_ENGINE_DIR "" CACHE PATH "A prebuilt phone engine, unpacked (phone/engine.rb)")
+# Off builds the engine alone, with no Ruby or Rice, as rake phone:engine
+# does for the engine a release publishes.
+option(LOTA_EXTENSION "Build Lota::Native beside the engine" ON)
 
+include(cmake/LotaWarnings.cmake)
+if(LOTA_ENGINE_DIR)
+	include(${LOTA_ENGINE_DIR}/engine.cmake)
+else()
+	add_subdirectory(engine)
+endif()
+
+if(NOT LOTA_EXTENSION)
+	return()
+endif()
 include(cmake/LotaExtension.cmake)
 add_subdirectory(native)
 # Windows has no rpath; the preloader loads the extension's DLLs first.

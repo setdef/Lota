@@ -129,9 +129,15 @@ class IosBuild
     ]
   end
 
+  # Apple's archivers write each member's date into an archive unless
+  # ZERO_AR_DATE is set (cctools' ar, ranlib, and libtool), so with it
+  # the same SDL builds the same libSDL3.a, which a phone's prebuilt
+  # engine carries (tasks/phone_engine.rb).
+  ENVIRONMENT = { "ZERO_AR_DATE" => "1" }.freeze
+
   private def run(dir, *command)
     FileUtils.mkdir_p(File.dirname(log))
-    output, status = Open3.capture2e(*command, chdir: dir)
+    output, status = Open3.capture2e(ENVIRONMENT, *command, chdir: dir)
     File.open(log, "a") { |file| file.write("$ #{command.join(' ')}\n#{output}") }
     raise Failure, "#{command.join(' ')} failed in #{dir}; see #{log}" unless status.success?
   end

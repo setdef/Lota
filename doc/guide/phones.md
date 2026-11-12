@@ -104,7 +104,7 @@ The zip holds the Xcode project, already generated, with one target for iPhone a
 
 For both systems:
 
-- A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`.
+- A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`, unless the gem pins a prebuilt engine ([Prebuilt engines](#prebuilt-engines) says when).
 - Ruby 4.1 with Bundler, Git, CMake 3.21 or newer, and Ninja, all on your `PATH`. Until Ruby 4.1.0 is released, that Ruby is a preview, such as 4.1.0-preview1.
 - Fledge v0.12.0, the Fledge `lota fuse` builds with. Your phone project's `Gemfile` names it by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
 
@@ -130,11 +130,13 @@ sdkmanager "platform-tools" "ndk;30.0.16248370"
 export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/30.0.16248370"
 ```
 
+On x86-64 Linux with no Android SDK at all, `bundle exec rake android:ndk` in Lota's clone installs the same NDK into `tmp/android/ndk`, checking the download's SHA-256, and prints the `ANDROID_NDK_ROOT` to export; that is enough to build Lota's parts and run `fledge build android`, though not Gradle.
+
 Gradle installs Android's platform 36 and its `build-tools` the first time it builds the app, so that first build needs the network. Lota's own checks build Android on Ubuntu 24.04; Fledge also builds Android on a Mac and on Windows, but Lota's Android libraries have not been built there.
 
 ### Build Lota's parts once
 
-Lota publishes no prebuilt phone libraries yet, so you build them. Clone Lota, here into `~/Lota`, and install its bundle:
+No release of Lota publishes prebuilt phone engines yet, so you build them. Clone Lota, here into `~/Lota`, and install its bundle:
 
 ```sh
 git clone --recurse-submodules https://github.com/setdef/Lota.git ~/Lota
@@ -163,7 +165,13 @@ gem unpack tmp/phone/lota.gem --target tmp/phone
 gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
 ```
 
-Run these again after you pull a new version of Lota. Lota's engine itself compiles each time `fledge build` runs, once for each iOS slice (device and Simulator) or Android ABI (`arm64-v8a` and `x86_64`), so a build takes several minutes.
+Run these again after you pull a new version of Lota. Built from source, Lota's engine compiles each time `fledge build` runs, once for each iOS slice (device and Simulator) or Android ABI (`arm64-v8a` and `x86_64`), so a build takes several minutes.
+
+### Prebuilt engines
+
+LÖVE's engine and its libraries do not depend on Ruby, so Lota's CI builds them once for each iOS slice and Android ABI, and a release can publish them beside its gems, with their checksums pinned in the gem's `ext/lota/phone/SHA256SUMS`. When the gem pins them, its phone build fetches the engine for each slice or ABI from the release of its own version, checks its SHA-256, and keeps it in `~/.cache/lota/phone-engine` (or under `XDG_CACHE_HOME`), so `fledge build` compiles only Lota's extension, and needs none of LÖVE's sources, SDL3, or the libraries `rake android:deps` builds. Each prebuilt engine carries the same `NOTICES.txt` that `rake ios:notices` and `rake android:notices` write, and the Android ones carry OpenAL Soft's source.
+
+`--with-lota-source=DIR` in `bundle config build.lota` asks for the engine built from source instead, as the steps here do, and is needed while the gem pins none; without it, a gem that pins none stops and says so. Two more options shape the fetch: `--with-lota-engine-url=URL` names a mirror of the release's assets, a web address or a `file://` folder, and `--with-lota-engine-cache=DIR` another folder to keep them in. Lota's extension is built against Ruby's ABI, so it still compiles in every phone build.
 
 ### Lay out the phone project
 

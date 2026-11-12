@@ -92,21 +92,39 @@ class ExtconfTest < Minitest::Test
     end
   end
 
-  # fledge build ios runs extconf.rb under an iOS Ruby's rbconfig.rb, as
-  # the shim here stands in for, and the gem it unpacks has no vendor/:
-  # the iOS build asks for a clone that has, before CMake runs.
-  def test_under_an_ios_rbconfig_it_builds_for_the_phone_from_a_clone
+  # A gem's phone build, as `fledge build` unpacks it: extconf.rb, its
+  # phone scripts, and lib/lota/version.rb, with +sums+ pinned. Returns
+  # extconf.rb's path.
+  def phone_gem(root, sums: "")
+    %w[extconf.rb phone/ios.rb phone/android.rb phone/engine.rb].each do |file|
+      write(root, "ext/lota/#{file}", File.read(File.join(ROOT, "ext/lota", file)))
+    end
+    write(root, "lib/lota/version.rb", File.read(File.join(ROOT, "lib/lota/version.rb")))
+    write(root, "ext/lota/phone/SHA256SUMS", sums)
+    File.join(root, "ext/lota/extconf.rb")
+  end
+
+  # A shim that stands in for a phone Ruby's rbconfig.rb, whose compiler
+  # aims at an iOS slice or is the NDK's for an ABI.
+  def phone_rbconfig(root, compiler)
+    write(root, "phone_rbconfig.rb", "require \"rbconfig\"\nRbConfig::CONFIG[\"CC\"] = #{compiler.inspect}\n")
+  end
+
+  IOS_SIMULATOR = "clang -target arm64-apple-ios15.0-simulator"
+  ANDROID_X86_64 = "/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang"
+
+  # fledge build ios runs extconf.rb under an iOS Ruby's rbconfig.rb, and
+  # the gem it unpacks has no vendor/: the iOS build fetches the engine
+  # the gem pins, and a gem that pins none says to build from a clone,
+  # before CMake runs.
+  def test_under_an_ios_rbconfig_a_gem_that_pins_no_engine_asks_for_a_clone
     in_tree do |root|
-      script = write(root, "ext/lota/extconf.rb", File.read(EXTCONF))
-      write(root, "ext/lota/phone/ios.rb", File.read(File.join(ROOT, "ext/lota/phone/ios.rb")))
-      shim = write(root, "ios_rbconfig.rb", <<~RUBY)
-        require "rbconfig"
-        RbConfig::CONFIG["CC"] = "clang -target arm64-apple-ios15.0-simulator"
-      RUBY
-      output, status = Open3.capture2e(RbConfig.ruby, "-r", shim, script, chdir: root)
+      script = phone_gem(root)
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, IOS_SIMULATOR), script, chdir: root)
 
       refute status.success?
-      assert_includes output, "Lota's iOS build needs --with-lota-source=DIR"
+      assert_includes output, "This Lota pins no prebuilt engine for ios-arm64-simulator"
+      assert_includes output, "--with-lota-source=DIR"
       refute_includes output, "Lota's source gem does not ship LÖVE's sources"
       refute_path_exists File.join(root, "Makefile")
     end
@@ -114,21 +132,53 @@ class ExtconfTest < Minitest::Test
 
   # fledge build android does the same under an Android Ruby's
   # rbconfig.rb, whose compiler is the NDK's for an ABI.
-  def test_under_an_android_rbconfig_it_builds_for_the_phone_from_a_clone
+  def test_under_an_android_rbconfig_a_gem_that_pins_no_engine_asks_for_a_clone
     in_tree do |root|
-      script = write(root, "ext/lota/extconf.rb", File.read(EXTCONF))
-      write(root, "ext/lota/phone/android.rb", File.read(File.join(ROOT, "ext/lota/phone/android.rb")))
-      shim = write(root, "android_rbconfig.rb", <<~RUBY)
-        require "rbconfig"
-        RbConfig::CONFIG["CC"] = "/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang"
-      RUBY
-      output, status = Open3.capture2e(RbConfig.ruby, "-r", shim, script, chdir: root)
+      script = phone_gem(root)
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script, chdir: root)
 
       refute status.success?
-      assert_includes output, "Lota's Android build needs --with-lota-source=DIR"
-      refute_includes output, "Lota's iOS build"
+      assert_includes output, "This Lota pins no prebuilt engine for android-x86_64"
+      refute_includes output, "ios"
       refute_includes output, "Lota's source gem does not ship LÖVE's sources"
       refute_path_exists File.join(root, "Makefile")
+    end
+  end
+
+  # Asked to build from source, the phone build checks the clone first.
+  def test_a_phone_build_from_source_needs_a_clone_with_vendor_love
+    in_tree do |root|
+      script = phone_gem(root)
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script,
+        "--with-lota-source=#{root}/clone", chdir: root)
+
+      refute status.success?
+      assert_includes output, "#{root}/clone has no vendor/love"
+    end
+  end
+
+  # The engine a gem pins is fetched, checked, and unpacked before the
+  # rest of the build, here from a mirror in a folder.
+  def test_a_phone_build_fetches_the_pinned_engine_from_a_mirror
+    in_tree do |root|
+      script = phone_gem(root)
+      require_relative "../../tasks/phone_engine"
+      manifest = JSON.generate("target" => "android-x86_64",
+        "engine_digest" => Lota::PhoneEngine.digest(File.join(root, "ext/lota")))
+      sha256 = PhoneEngineBuild.write(File.join(root, "mirror", Lota::PhoneEngine.asset("android-x86_64")),
+        {
+"manifest.json" => PhoneEngineBuild::Contents.new(text: manifest),
+"lib/liblota_engine.a" => PhoneEngineBuild::Contents.new(text: "!<arch>\n"),
+})
+      write(root, "ext/lota/phone/SHA256SUMS", "#{sha256}  lota-engine-android-x86_64.tar.gz\n")
+
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script,
+        "--with-lota-engine-url=file://#{root}/mirror/", "--with-lota-engine-cache=#{root}/cache", chdir: root)
+
+      refute status.success?
+      assert_includes output, "Lota's engine for android-x86_64: #{root}/cache/#{sha256}/android-x86_64"
+      assert_includes output, "Lota's Android build needs --with-rice-dir=DIR"
+      assert_path_exists File.join(root, "cache", sha256, "android-x86_64/lib/liblota_engine.a")
     end
   end
 
