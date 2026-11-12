@@ -28,6 +28,10 @@ module Lota
     @raw_game_arguments = [] #: Array[String]
     @raw_game_arguments.freeze
 
+    # Each callback #call has called, with the Method it last found and
+    # how many arguments that takes. :nodoc:
+    @accepted = {} #: Hash[Symbol, [Method, Range[Integer?]]]
+
     class << self
       # The arguments the game's load callback receives first. :nodoc:
       attr_accessor :parsed_game_arguments
@@ -48,10 +52,22 @@ module Lota
     # Ruby, which Lota leaves alone. LÖVE passes no keywords, so a keyword
     # parameter keeps its default, and a required one raises ArgumentError, as
     # Ruby does for any call that leaves it out.
+    #
+    # Lota's loop calls update and draw every frame, so how many arguments
+    # a callback takes is kept with the Method it was read from, and read
+    # again only when the game has redefined the callback since, and the
+    # arguments are passed on as they came when the callback takes that
+    # many.
     def self.call(name, *arguments)
       return unless Lota.respond_to?(name)
 
-      Lota.public_send(name, *declared(Lota.method(name).parameters, arguments))
+      method = Lota.method(name)
+      known = @accepted[name]
+      known = @accepted[name] = [method, accepted(method.parameters)] unless known && known.first == method
+      count = arguments.size.clamp(known.last) #: Integer
+      return Lota.public_send(name, *arguments) if count == arguments.size
+
+      Lota.public_send(name, *Array.new(count) { |index| arguments[index] })
     end
 
     # The parameters +callable+ declares, as Method#parameters gives them:
@@ -71,11 +87,17 @@ module Lota
     # lambda declares each of its parameters optional, and so receives as
     # many as it names. :nodoc:
     def self.declared(parameters, arguments)
+      count = arguments.size.clamp(accepted(parameters)) #: Integer
+      Array.new(count) { |index| arguments[index] }
+    end
+
+    # How many arguments +parameters+ take, as #declared counts them: from
+    # one for each required parameter to one more for each optional one,
+    # or without end with a splat. :nodoc:
+    def self.accepted(parameters)
       types = parameters.map(&:first)
       required = types.count(:req)
-      accepted = types.include?(:rest) ? [arguments.size, required].max : required + types.count(:opt)
-      count = arguments.size.clamp(required, accepted)
-      Array.new(count) { |index| arguments[index] }
+      types.include?(:rest) ? (required..) : (required..(required + types.count(:opt)))
     end
 
     # Event arguments that are names in LÖVE (enum strings), by event and

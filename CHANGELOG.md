@@ -19,6 +19,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **Breaking:** Requires Ruby 4.1 (preview or later); Ruby 4.0 is no longer supported. Each precompiled gem accepts Ruby 4.1's previews and releases, and the Windows gems are built on the head build of RubyInstaller that Fledge keeps, since RubyInstaller publishes no 4.1 preview; another day's head build need not load them.
 - `lota fuse` builds with Fledge 0.12.0, whose runtimes are Ruby 4.1, was 0.10.0.
+- Lota's loop allocates fewer objects calling a game's callbacks: two a call, the arguments and the callback's `Method`, where it allocated five to seven, so a game with an empty `update(dt)` and `draw` costs 7 objects a frame instead of 14.
 
 ### Fixed
 

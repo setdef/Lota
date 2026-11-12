@@ -143,6 +143,29 @@ class CallbacksTest < Minitest::Test
     wrapper&.remove_method(:keypressed)
   end
 
+  # Lota's loop calls update and draw every frame, so a call to a callback
+  # that takes LÖVE's arguments as they are allocates only the Array of
+  # those arguments and the Method that shows whether the game has
+  # redefined the callback since the last call.
+  def test_calling_a_callback_again_allocates_only_its_arguments_and_its_method
+    define_with_def("def update(dt) = dt", "def draw = :drawn")
+
+    assert_allocates(2) { Lota::Callbacks.call(:update, 0.016) }
+    assert_allocates(2) { Lota::Callbacks.call(:draw) }
+  end
+
+  # A callback the game redefines receives what its new definition
+  # declares, and, called again, allocates only the Array of the arguments
+  # it receives besides.
+  def test_a_redefined_callback_receives_what_its_new_definition_declares
+    define_with_def("def update(dt) = dt")
+    Lota::Callbacks.call(:update, 0.016)
+    define_with_def("def update(dt, extra) = extra.nil? ? dt : extra")
+
+    assert_in_delta 0.016, Lota::Callbacks.call(:update, 0.016)
+    assert_allocates(3) { Lota::Callbacks.call(:update, 0.016) }
+  end
+
   def test_a_handler_passes_loves_arguments_to_its_callback
     received = nil
     define_callback(:keypressed) { |*arguments| received = arguments }
@@ -236,5 +259,40 @@ class CallbacksTest < Minitest::Test
   def test_a_traceback_lays_out_ruby_frames_as_debug_traceback_does
     assert_equal "stack traceback:\n\ta.rb:1:in 'x'\n\tb.rb:2:in 'y'",
       Lota::Callbacks.traceback(["a.rb:1:in 'x'", "b.rb:2:in 'y'"])
+  end
+
+  # Defines each of +definitions+ on Lota, as <tt>def Lota.name</tt> in a
+  # game's main.rb does, replacing one already there.
+  private def define_with_def(*definitions)
+    definitions.each do |definition|
+      name = definition[/\Adef (\w+)/, 1].to_sym
+      Lota.singleton_class.remove_method(name) if Lota.singleton_methods(false).include?(name)
+      Lota.singleton_class.class_eval(definition, __FILE__, __LINE__)
+    end
+  end
+
+  # Objects allocated by +calls+ calls of the block, counted after one
+  # count of a single call, which allocates each call site's inline
+  # cache once, as test/native/allocation_test.rb counts.
+  private def allocations(calls = 100, &)
+    count(1, &)
+    count(calls, &)
+  end
+
+  private def count(calls)
+    GC.disable
+    before = GC.stat(:total_allocated_objects)
+    calls.times { yield }
+    GC.stat(:total_allocated_objects) - before
+  ensure
+    GC.enable
+  end
+
+  # Asserts that +calls+ calls of the block allocate +each+ objects a
+  # call. Ruby can grow a table of its own once after a method is
+  # redefined, an object GC.stat counts but no call allocates, so a few
+  # more than +each+ times +calls+ pass.
+  private def assert_allocates(each, calls = 100, &)
+    assert_in_delta each * calls, allocations(calls, &), 3
   end
 end
