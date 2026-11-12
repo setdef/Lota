@@ -141,6 +141,26 @@ class Headless
     !renderer.nil? && !renderer.match?(/llvmpipe|softpipe/)
   end
 
+  # How long vulkaninfo may take to answer, in seconds, and the status
+  # timeout(1) gives a command it stopped. With the GPU busy with other
+  # runs' work, vulkaninfo once took more than the 20 seconds the other
+  # probes get, and its missing answer read as no Vulkan GPU: the run
+  # drew with OpenGL instead, and failed where Vulkan passes.
+  VULKAN_PROBE = 120
+  TIMED_OUT = 124
+
+  # The mode a display asked to draw with Vulkan draws with, given what
+  # vulkaninfo --summary printed, +summary+, and whether it was stopped
+  # for taking too long, +timed_out+: vulkan when it names a GPU, opengl
+  # when it answered without one. A probe that never answered says
+  # nothing of the GPU, so it raises rather than choose for it.
+  def self.vulkan_mode(summary, timed_out:)
+    return "vulkan" if vulkan_device(summary)
+    raise Failure, "vulkaninfo did not answer within #{VULKAN_PROBE} s" if timed_out
+
+    "opengl"
+  end
+
   # The first GPU vulkaninfo --summary's +output+ names, or nil when it
   # names only llvmpipe or nothing.
   def self.vulkan_device(output)
@@ -311,11 +331,10 @@ class Headless
     end
 
     private def vulkan
-      device = Headless.vulkan_device(capture("vulkaninfo", "--summary"))
-      return say("Vulkan: #{device}") && "vulkan" if device
-
-      say "no Vulkan GPU; hiding Vulkan, as for opengl"
-      "opengl"
+      summary, timed_out = probe("vulkaninfo", "--summary", seconds: VULKAN_PROBE)
+      mode = Headless.vulkan_mode(summary, timed_out:)
+      say((mode == "vulkan") ? "Vulkan: #{Headless.vulkan_device(summary)}" : "no Vulkan GPU; hiding Vulkan, as for opengl")
+      mode
     end
 
     private def fallback(why)
@@ -441,10 +460,17 @@ class Headless
       end
     end
 
-    private def capture(*command)
-      IO.popen({ "DISPLAY" => @displays.first }, ["timeout", "20", *command], err: File::NULL, &:read)
+    private def capture(*command, seconds: 20)
+      probe(*command, seconds:).first
+    end
+
+    # What +command+ printed on the first display, and whether it ran past
+    # +seconds+ and was stopped.
+    private def probe(*command, seconds:)
+      output = IO.popen({ "DISPLAY" => @displays.first }, ["timeout", seconds.to_s, *command], err: File::NULL, &:read)
+      [output, Process.last_status&.exitstatus == TIMED_OUT]
     rescue SystemCallError
-      ""
+      ["", false]
     end
 
     private def which(tool) = Headless.which(@env, tool)

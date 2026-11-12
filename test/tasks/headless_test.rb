@@ -121,6 +121,18 @@ class HeadlessTest < Minitest::Test
     assert_nil Headless.vulkan_device("GPU0:\n\tdeviceName = llvmpipe (LLVM 20.1.2, 256 bits)\n")
   end
 
+  # A vulkaninfo that never answered says nothing of the GPU, so the
+  # displays do not quietly draw with OpenGL in Vulkan's place.
+  def test_vulkan_is_chosen_from_an_answer_and_a_probe_that_never_answered_fails
+    gpu = "GPU0:\n\tdeviceName         = AMD Radeon 890M (RADV GFX1150)\n"
+
+    assert_equal "vulkan", Headless.vulkan_mode(gpu, timed_out: false)
+    assert_equal "opengl", Headless.vulkan_mode("GPU0:\n\tdeviceName = llvmpipe\n", timed_out: false)
+    error = assert_raises(Headless::Failure) { Headless.vulkan_mode("", timed_out: true) }
+    assert_equal "vulkaninfo did not answer within 120 s", error.message
+    assert_operator Headless::VULKAN_PROBE, :>, 20
+  end
+
   def test_vulkans_drivers_are_hidden_unless_the_mode_is_vulkan
     icds = %w[/usr/share/vulkan/icd.d]
 
