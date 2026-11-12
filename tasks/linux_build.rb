@@ -36,12 +36,12 @@ require "tmpdir"
 # Three things differ from LÖVE's CI. LÖVE is vendor/love's commit, rather
 # than a fresh clone; the steps that pack love into an AppImage are left
 # out, since the harness runs love from the installdir, as the AppImage's
-# own AppRun runs it (love.sh); and libvorbis is configured so that it
-# does not need glibc's libmvec (OVERRIDES), which make reads after the
-# Makefile (#make_command), since the Makefile is LÖVE's. Everything
-# builds with the CMake the Makefile downloads, 3.30.4, as on LÖVE's CI;
-# CMake 4's FindZLIB, for one, cannot read the relative ZLIB_ROOT the
-# Makefile gives LÖVE's configure.
+# own AppRun runs it (love.sh); and libvorbis and libmodplug are
+# configured so that they do not need glibc's libmvec (OVERRIDES), which
+# make reads after the Makefile (#make_command), since the Makefile is
+# LÖVE's. Everything builds with the CMake the Makefile downloads, 3.30.4,
+# as on LÖVE's CI; CMake 4's FindZLIB, for one, cannot read the relative
+# ZLIB_ROOT the Makefile gives LÖVE's configure.
 #
 # A step is skipped when what it made was made from the same Makefile,
 # recipe (this file), and compiler, and for love the same commit of LÖVE.
@@ -94,13 +94,23 @@ class LinuxBuild
   # x86_64 it decodes Lövetest's and the fixture games' Ogg files to the
   # same samples, byte for byte, as with libmvec.
   #
+  # libmodplug 0.8.8.5's configure builds it with -ffast-math too
+  # (configure.ac:32), and from GCC 12, which vectorizes at -O2, GCC turns
+  # the sin and cos of fastmix.cpp's windowed-FIR table into the same
+  # vector calls; GCC 11, which LÖVE's CI builds with, leaves them scalar.
+  # Its configure lets autoconf's AC_PROG_CXX choose -g -O2 only when it
+  # is given no CXXFLAGS (configure.ac:20 and 32), so the -U goes in
+  # CPPFLAGS, which every compile reads after the macros -ffast-math
+  # defines, and the optimization stays what it was.
+  #
   # make passes a target's variables on to its prerequisites, so libogg's
   # configure, which the libvorbis rule's prerequisites reach, keeps the
-  # Makefile's own. Neither line needs GNU make 3.82's private, which
-  # macOS's make, 3.81, lacks.
+  # Makefile's own. No line needs GNU make 3.82's private, which macOS's
+  # make, 3.81, lacks.
   OVERRIDES = <<~MAKE
     $(LIBVORBIS_FILE)/build/Makefile: override CONFIGURE := CFLAGS=-U__FAST_MATH__ $(CONFIGURE)
     $(LIBOGG_FILE)/build/Makefile: override CONFIGURE := $(CONFIGURE)
+    $(LIBMODPLUG_FILE)/build/Makefile: override CONFIGURE := CPPFLAGS=-U__FAST_MATH__ $(CONFIGURE)
   MAKE
 
   # [makefile] love-appimage-source's Makefile, in its checkout.

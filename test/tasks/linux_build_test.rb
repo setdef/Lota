@@ -68,6 +68,25 @@ class LinuxBuildTest < Minitest::Test
     end
   end
 
+  # libmodplug's configure puts -ffast-math in its CXXFLAGS too
+  # (configure.ac:32), and GCC 12 and later vectorize fastmix.cpp's sin and
+  # cos into calls to libmvec at -O2. Its configure takes back the -g -O2
+  # autoconf would choose when given any CXXFLAGS, so the macro is taken
+  # back through CPPFLAGS instead.
+  def test_libmodplugs_configure_is_given_cppflags_that_keep_libmvec_out
+    in_tree do |dir|
+      linux = LinuxBuild.new(makefile: MAKEFILE, sources: File.join(dir, "sources"), root: dir)
+      file = linux.variables("LIBMODPLUG_FILE").fetch("LIBMODPLUG_FILE")
+      FileUtils.mkdir_p(File.join(dir, file, "build"))
+      output, = Open3.capture2e(*linux.make_command(dir, "--dry-run", "MAKE=true", "installdir/lib/libmodplug.so"),
+        chdir: dir)
+      configure = output.lines.grep(%r{\Acd #{Regexp.escape(file)}/build && .*\.\./configure }).first.to_s
+
+      assert_includes configure, "&& CPPFLAGS=-U__FAST_MATH__ LDFLAGS=", output
+      refute_includes configure, "CXXFLAGS"
+    end
+  end
+
   # A Makefile with the real one's download variables, whose rules make
   # each download and each library by writing a file, and love from
   # love2d-$(LOVE_BRANCH) in +seconds+, logging each target to make.log.

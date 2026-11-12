@@ -19,23 +19,35 @@
 //
 // rice/stl.hpp converts std::string, among others; it follows rice/rice.hpp.
 //
-// GCC 16, for MinGW, warns -Warray-bounds inside Ruby's own inline
-// functions (ruby/internal/fl_type.h:466, core/rarray.h:263) wherever Rice
-// inlines them into its own (Rice::Object::vcall, rice.hpp:16264): it
-// takes RBASIC(obj) of a VALUE it cannot rule out being a special
-// constant for a pointer to address zero ("source object is likely at
-// address zero"). Both are system headers, but GCC reports a warning it
-// finds after inlining at the inlined line regardless. Rice's and Ruby's
-// headers are first included here, so turning the warning off around these
-// two lines turns it off for their code alone: GCC decides by the line a
-// warning is reported at, and every other line keeps it, as an error.
-#if defined(__MINGW32__) && !defined(__clang__)
+// GCC from 15, and GCC 16 for MinGW, warns -Warray-bounds inside Ruby's
+// own inline functions (ruby/internal/fl_type.h:466, core/rarray.h:263)
+// wherever Rice inlines them into its own (Rice::Array::size, operator[],
+// and its iterator, rice.hpp:13318-13473; Rice::Object::vcall, 16264):
+// it takes RBASIC(obj) of a VALUE it cannot rule out being a special
+// constant, such as the nil a moved-from Pin answers (rice.hpp:1732-1743),
+// for a pointer to address zero ("source object is likely at address
+// zero"). With AddressSanitizer and optimization, GCC 12 and later also
+// warn -Wmaybe-uninitialized of std::function's _M_invoker and
+// _M_manager inside libstdc++'s <regex>, which Rice includes, as GCC bug
+// 105562 records;
+// its comment 19 suggests this same pragma, for the same condition.
+// These are all system headers, but GCC reports a warning it finds after
+// inlining unless every function it was inlined through is in one, and
+// Lota's bindings are not. Rice's and Ruby's headers, and <regex>, are
+// first included here, so turning the warnings off around these two lines
+// turns them off for their code alone: GCC also decides by each line a
+// warning was inlined through whether a pragma turned it off, and every
+// other line keeps it, as an error.
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
+#if defined(__SANITIZE_ADDRESS__) && defined(__OPTIMIZE__)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #endif
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
-#if defined(__MINGW32__) && !defined(__clang__)
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 

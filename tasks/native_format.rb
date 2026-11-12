@@ -303,7 +303,7 @@ module NativeFormat
     # Fledge check a gem's libraries against, or the dynamic linker. glibc
     # ships libmvec too, the vector math GCC's vectorized loops call on
     # x86_64, but the policy leaves it out, so LinuxBuild keeps libvorbis
-    # from needing it (LinuxBuild::OVERRIDES).
+    # and libmodplug from needing it (LinuxBuild::OVERRIDES).
     SYSTEM = %w[
       libc.so.6
       libm.so.6

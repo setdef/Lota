@@ -53,6 +53,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Lota builds from a clone of its repository with GCC 13 and 15, as on Ubuntu 24.04 and 26.04, where warnings inside Ruby's, Rice's, and libstdc++'s headers stopped the build, the sanitized one included, and the libmodplug it builds no longer needs glibc's `libmvec`.
 - Two threads that call `Lota::Data#perform_atomic` on one Data take turns, where the second stopped both for good: it waits for the first without holding Ruby's GVL. `perform_atomic` keeps out other `perform_atomic` calls, as LÖVE's does, and no longer holds the Data's own mutex while its block runs.
 - `Lota::Audio.recording_devices` returns an empty list when nothing can record, where LÖVE lists one device named `""` that cannot start.
 - A finger the system cancels, as iOS does when a gesture takes it, now calls `touchreleased` in order with the other events and leaves `Lota::Touch.touches`; in LÖVE it never ends.
