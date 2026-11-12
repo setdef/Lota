@@ -21,9 +21,11 @@ require_relative "parity_helper"
 #
 # The game generates its music in a love.thread thread and waits on the
 # splash screen for it (music.lua:281-358, main.lua:563-569), and asks a
-# server for a newer version in another (update_checker.lua:113-130), so
-# the harness runs each thread to its end as it starts (wait_for_threads
-# in test/parity/lua/conf.lua), and the splash ends in frame 1. Lota has
+# server for a newer version in another (update_checker.lua:113-130),
+# which the harness refuses in both engines alike, so no run reaches the
+# network (Parity::OFFLINE, test/parity/offline_test.rb). The harness
+# runs each thread to its end as it starts (wait_for_threads in
+# test/parity/lua/conf.lua), and the splash ends in frame 1. Lota has
 # no threads yet, so the translation's two threads run their code as they
 # start (test/games/flash_blip/threads.rb), which is what the harness
 # makes them do; test_the_translation_runs_its_threads_in_lota_threads

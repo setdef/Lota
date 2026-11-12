@@ -106,3 +106,21 @@ allow "ext/lota/native_test/loopback.cpp", line: 91,
 allow "ext/lota/native_test/answer_dialogs_linux.cpp", line: 52,
   reason: "dlsym returns SDL's message box functions as a void *, which C++ makes a function pointer only " \
     "through reinterpret_cast; bugprone-bitwise-pointer-cast forbids std::bit_cast instead."
+
+# The harness's library that keeps its runs off the network
+# (ext/lota/native_test/offline_linux.cpp and offline.mm) replaces
+# getaddrinfo, whose signature the C library and POSIX fix: the name and
+# the service are both const char *, side by side, and a replacement must
+# take them in that order to stand in for it. On Linux it reaches the C
+# library's own connect and getaddrinfo through dlsym's RTLD_NEXT, which
+# returns each as a void *, as loopback.cpp and answer_dialogs_linux.cpp
+# reach theirs.
+allow "ext/lota/native_test/offline_linux.cpp", lines: [49, 65],
+  reason: "getaddrinfo's signature is POSIX's, with the name and the service both const char * side by side; " \
+    "the replacement must match it to be called in its place."
+allow "ext/lota/native_test/offline.mm", line: 30,
+  reason: "getaddrinfo's signature is POSIX's, with the name and the service both const char * side by side; " \
+    "the replacement must match it to be called in its place."
+allow "ext/lota/native_test/offline_linux.cpp", line: 34,
+  reason: "dlsym returns the C library's connect and getaddrinfo as a void *, which C++ makes a function " \
+    "pointer only through reinterpret_cast; bugprone-bitwise-pointer-cast forbids std::bit_cast instead."

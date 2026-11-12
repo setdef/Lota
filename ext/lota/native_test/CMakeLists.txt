@@ -97,3 +97,15 @@ else()
 	target_include_directories(lota_dialogs PRIVATE ${ENGINE_DEPS_DIR}/include)
 	target_link_libraries(lota_dialogs PRIVATE ${CMAKE_DL_LIBS})
 endif()
+
+# liblota_offline (offline.mm and offline_linux.cpp), which refuses
+# every connection a program makes to an Internet address, and every look
+# up of a name, so no run of the parity harness reaches a network
+# (test/parity/parity_helper.rb, Parity.loopback).
+if(APPLE)
+	add_library(lota_offline SHARED offline.mm)
+else()
+	add_library(lota_offline SHARED offline_linux.cpp)
+	target_link_libraries(lota_offline PRIVATE ${CMAKE_DL_LIBS})
+endif()
+lota_harness_library(lota_offline)

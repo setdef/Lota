@@ -126,11 +126,22 @@ module Parity
   LOOPBACK_RATE = 48_000
   LOOPBACK_FRAME_BYTES = 2 * 4
 
+  # The harness's library that keeps every run off the network
+  # (ext/lota/native_test/offline_linux.cpp and offline.mm), which
+  # every run also loads: it refuses each connection to an Internet
+  # address at once, as a server that is there and refuses it would, and
+  # looks up only a name written as an address. A game that asks a server
+  # for something, as FLASH-BLIP asks one on the local network for a newer
+  # version at every start, then gets the same answer in both engines,
+  # whatever network the machine is on, and nothing leaves either.
+  OFFLINE = File.join(LIB, "liblota_offline.#{TestHome::LINUX ? 'so' : 'dylib'}")
+
   # The environment that loads the loopback device and names the file it
-  # writes, +audio+: the preload is the harness's alone, since a run gets
-  # no variable of this process's (Parity.environment).
+  # writes, +audio+, and loads OFFLINE, the Metal watch, and the library
+  # that answers dialogs: the preload is the harness's alone, since a run
+  # gets no variable of this process's (Parity.environment).
   def self.loopback(audio)
-    libraries = [LOOPBACK, *METAL_WATCH, *NativeHelper.dialogs(LIB)]
+    libraries = [LOOPBACK, OFFLINE, *METAL_WATCH, *NativeHelper.dialogs(LIB)]
     preload = TestHome::LINUX ? { "LD_PRELOAD" => libraries.join(" ") } : { "DYLD_INSERT_LIBRARIES" => libraries.join(":") }
     { **preload, "LOTA_LOOPBACK_FILE" => audio }
   end
