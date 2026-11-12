@@ -265,4 +265,14 @@ class PrePushTest < Minitest::Test
 
     assert_equal %w[bash .github/windows_prepush.sh], runner.command([])
   end
+
+  # A refusal says what git said, since a check that cannot start is
+  # otherwise a mystery on a machine no one is watching.
+  def test_a_snapshot_git_cannot_make_says_why
+    empty = File.join(@tree, "empty")
+    run!(@tree, "git", "init", "--quiet", empty)
+    error = assert_raises(ArgumentError) { PrePush::Git.new(empty).snapshot }
+
+    assert_match(/\Agit stash failed: .*initial commit/, error.message)
+  end
 end

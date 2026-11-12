@@ -94,18 +94,13 @@ class PrePush
     # A commit of the working tree as it is, or HEAD when it is clean,
     # made without touching the working tree, the index, or the stash.
     def snapshot
-      output, status = capture("stash", "create")
-      raise ArgumentError, "git stash create failed" unless status.success?
-
+      output = capture!("stash", "create")
       output.strip.empty? ? resolve("HEAD") : output.strip
     end
 
     # The tracked files whose contents differ from the commit +snapshot+'s.
     def changed_since(snapshot)
-      output, status = capture("diff", "--name-only", "-z", snapshot, "--")
-      raise ArgumentError, "git diff failed" unless status.success?
-
-      output.split("\0")
+      capture!("diff", "--name-only", "-z", snapshot, "--").split("\0")
     end
 
     # Puts +paths+ back as the commit +snapshot+ has them, in the working
@@ -113,8 +108,7 @@ class PrePush
     def restore(snapshot, paths)
       return if paths.empty?
 
-      _, status = capture("restore", "--source=#{snapshot}", "--worktree", "--", *paths)
-      raise ArgumentError, "git restore failed" unless status.success?
+      capture!("restore", "--source=#{snapshot}", "--worktree", "--", *paths)
     end
 
     # The commit +ref+ names, or nil.
@@ -124,6 +118,15 @@ class PrePush
     end
 
     private def capture(*) = Open3.capture2("git", "-c", "core.quotePath=false", *, chdir: @repository)
+
+    # The output of git +args+, or ArgumentError with what git said when
+    # it fails, so that the refusal says why.
+    private def capture!(*args)
+      output, error, status = Open3.capture3("git", "-c", "core.quotePath=false", *args, chdir: @repository)
+      raise ArgumentError, "git #{args.first} failed: #{error.strip}" unless status.success?
+
+      output
+    end
   end
 
   # Parses the hook's standard input into its Pushes.
