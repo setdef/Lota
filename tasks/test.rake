@@ -39,6 +39,7 @@ UNIT_TESTS = %w[
   test/tasks/api_diff_test.rb
   test/tasks/auto_revert_test.rb
   test/tasks/ios_build_test.rb
+  test/tasks/jobs_test.rb
   test/tasks/native_format_pe_test.rb
   test/tasks/phone_notices_test.rb
   test/tasks/rbs_parity_test.rb
