@@ -38,25 +38,28 @@ class ReadmeGamesTest < Minitest::Test
   HARNESS = <<~RUBY
 
     # harness
-    frames = 0
-    drawn = Lota.method(:draw)
-    Lota.define_singleton_method(:draw) do
-      drawn.call
-      frames += 1
-      next unless frames == 2
+    module ReadmeHarness
+      def draw
+        super
+        @harness_frames = @harness_frames.to_i + 1
+        return unless @harness_frames == 2
 
-      Lota::Callbacks.call(:mousepressed, 10, 10, 1, false, 1)
-      Lota::Callbacks.call(:keypressed, :escape, :escape, false)
-      Lota::Event.quit
+        Lota::Callbacks.call(:mousepressed, 10, 10, 1, false, 1)
+        Lota::Callbacks.call(:keypressed, :escape, :escape, false)
+        Lota::Event.quit
+      end
+
+      def quit(*)
+        result = defined?(super) ? super : nil
+        directory = Lota::Filesystem.save_directory
+        puts "saved in \#{directory}"
+        Dir.glob("*", base: directory.tr(File::ALT_SEPARATOR || "/", "/")).sort.each do |name|
+          puts "saved \#{name}: \#{File.read(File.join(directory, name))}"
+        end
+        result
+      end
     end
-    quit = Lota.respond_to?(:quit) ? Lota.method(:quit) : nil
-    Lota.define_singleton_method(:quit) do |*arguments|
-      result = quit&.call(*arguments)
-      directory = Lota::Filesystem.save_directory
-      puts "saved in \#{directory}"
-      Dir.glob(File.join(directory, "*")).each { |path| puts "saved \#{File.basename(path)}: \#{File.read(path)}" }
-      result
-    end
+    Lota.singleton_class.prepend(ReadmeHarness)
   RUBY
 
   # What each game printed and how it ended, by heading. Each game runs
