@@ -82,7 +82,7 @@ Inside its displays `rake` also sets what the checks need with no desktop, unles
 
 ### The Windows checks, on a Windows computer of your own
 
-The gate does not run on Windows, so CI checks Windows after you push. A change to the native code, the build, or anything of Windows' own can break there alone. If you have a Windows computer with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, you can run Lota's Windows checks on it first. From the checkout's root, in a UCRT64 shell on the computer's desktop, run:
+The gate does not run on Windows, so CI checks Windows after you push. A change to the native code, the build, or anything of Windows' own can break there alone. If you have a Windows computer, you can run Lota's Windows checks on it first. Install [mise](https://mise.jdx.dev) and run `bin/setup.ps1` from PowerShell, which does what `bin/setup` does there: it installs RubyInstaller's Ruby, the MSYS2 packages, and the tools `mise.toml` pins that the checks use ([windows.md](windows.md) lists them). Then, from the checkout's root, in a UCRT64 shell on the computer's desktop, run:
 
 ```sh
 bash .github/windows_prepush.sh

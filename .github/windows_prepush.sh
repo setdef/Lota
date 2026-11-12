@@ -15,7 +15,14 @@
 # that LÖVE's renderer takes, and a Mesa opengl32.dll beside Ruby would
 # take every Ruby program's OpenGL there.
 set -eu
+# The tools mise.toml pins, which bin/setup.ps1 installs (the REUSE tool
+# among them), come through mise: run again under mise x, once.
+if [ -z "${LOTA_UNDER_MISE:-}" ] && command -v mise > /dev/null 2>&1; then
+  LOTA_UNDER_MISE=1 exec mise x -- bash "$0" "$@"
+fi
 export PATH="/ucrt64/bin:$PATH" CC=gcc CXX=g++
+echo "ruby: $(command -v ruby); objdump: $(command -v objdump || echo none); mise: ${LOTA_UNDER_MISE:-no}"
+echo "PATH starts: $(echo "$PATH" | tr ':' '\n' | head -6 | tr '\n' ' ')"
 export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
 clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
 started=$(date +%s)
@@ -90,7 +97,8 @@ step "an OpenGL window"
 PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb opengl
 
 step "the tests"
-PATH="$clean:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd:$MINGW_PREFIX/bin" \
+# MINGW_PREFIX may be a Windows path (C:/...), whose colon would split the PATH.
+PATH="$clean:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd:$(cygpath -u "$MINGW_PREFIX")/bin" \
   ruby .github/windows_checks.rb tests tmp/windows-tests --prepush
 
 step "done"

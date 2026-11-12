@@ -29,7 +29,10 @@ class BindingTest < Minitest::Test
         using love::math::RandomGenerator;
         #{body}
       CPP
-      capture2e(TOOL_ENV, *command_for(probe))
+      command = command_for(probe)
+      output, status = capture2e(TOOL_ENV, *command)
+      output = "#{command.shelljoin} exited #{status.exitstatus.inspect}\n#{output}" unless status.success?
+      [output, status]
     end
   end
 

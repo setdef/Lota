@@ -138,12 +138,17 @@ jobs:
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with: *msys2
 
-      # The REUSE tool, at the version mise.toml pins, which checks the
-      # gem's licensing as it is built (tasks/native_gem.rb), into the
-      # runner's Python.
+      # The REUSE tool, which checks the gem's licensing as it is built
+      # (tasks/native_gem.rb), into the runner's Python, at the version
+      # mise.toml pins. bin/setup.ps1 installs it through mise on a
+      # computer of your own; the runner keeps this faster path, since
+      # setup-ruby and setup-msys2 have already given it Ruby and MSYS2.
       - name: Install the REUSE tool
         shell: pwsh
-        run: python -m pip install --disable-pip-version-check "reuse[charset-normalizer]==6.2.0"
+        run: |
+          $version = (Select-String -Path mise.toml -Pattern '"pipx:reuse"\s*=\s*\{\s*version\s*=\s*"([^"]+)"').Matches.Groups[1].Value
+          if (-not $version) { throw "mise.toml pins no version of the REUSE tool" }
+          python -m pip install --disable-pip-version-check "reuse[charset-normalizer]==$version"
 
       - name: Report the toolchain and Ruby
         id: toolchain

@@ -36,7 +36,14 @@ Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner with
 
 ## Before a push, on a Windows computer of your own
 
-If you have a Windows computer with RubyInstaller's x64 Ruby and MSYS2's UCRT64 environment, with the packages `windows.yml` installs in it (`patch`, `make`, and UCRT64's GCC, CMake, Ninja, and ccache), Lota's Windows checks can run there before you push, instead of in CI after. From the checkout's root, in a UCRT64 shell on the computer's desktop, where windows open and the GPU draws, run:
+If you have a Windows computer, Lota's Windows checks can run there before you push, instead of in CI after. Install [mise](https://mise.jdx.dev), then run `bin/setup.ps1` from PowerShell in the checkout. It installs what the checks need from Lota's own pins, and running it again changes nothing:
+
+- RubyInstaller's x64 Ruby with winget, at the version `mise.toml` pins, since mise cannot build Ruby on Windows. It asks first, because winget may need administrator rights.
+- Python and the REUSE tool through mise, at `mise.toml`'s versions. `mise.toml` limits every other tool, Ruby included, to Linux and macOS with mise's `os` option, so mise installs no second Ruby beside RubyInstaller's.
+- The packages `windows.yml` installs, in the MSYS2 that RubyInstaller's devkit carries: `patch`, `make`, and UCRT64's GCC, CMake, Ninja, and ccache. If it finds no MSYS2 beside Ruby, it names them.
+- LÖVE's source, the `vendor/love` submodule.
+
+It installs no bundle, since the checks run without Bundler. The script below runs itself again under `mise x`, so it finds the REUSE tool and the other tools without a `PATH` of your own, and `windows_checks.rb package` takes the same from `mise env`. From the checkout's root, in a UCRT64 shell on the computer's desktop, where windows open and the GPU draws, run:
 
 ```sh
 bash .github/windows_prepush.sh

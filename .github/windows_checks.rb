@@ -134,7 +134,10 @@ module WindowsChecks
   end
 
   def closure(*files)
+    $stdout.sync = true
     objdump = %w[objdump llvm-objdump].find { |tool| system(tool, "--version", out: File::NULL, err: File::NULL) }
+    abort "neither objdump nor llvm-objdump runs; PATH is #{ENV.fetch('PATH', '')}" unless objdump
+    puts "objdump: #{objdump}"
     problems = []
     seen = {}
     queue = files.map { |file| File.expand_path(file) }
@@ -145,7 +148,9 @@ module WindowsChecks
 
       done << file.downcase
       puts "#{file.delete_prefix("#{ROOT}/")}: #{File.size(file)} bytes"
-      imports, = Open3.capture2(objdump, "-p", file)
+      imports, objdump_status = Open3.capture2(objdump, "-p", file)
+      abort "#{objdump} -p #{file} exited #{objdump_status.exitstatus}" unless objdump_status.success?
+
       problems.concat(windows_functions_from_ruby(file, imports))
       imports.scan(/DLL Name: (\S+)/).flatten.each do |dll|
         next if seen[dll.downcase]
@@ -309,12 +314,25 @@ module WindowsChecks
   # Builds the precompiled gem into pkg/, as rake package:native does, from
   # what the job built, and the archives sources:fetch keeps.
   def package
+    put_mise_tools_on_path
     package_tasks
     Licensing.load(File.join(ROOT, "ext/lota/licenses.rb")).frameworks.each_value.filter_map(&:source).uniq
       .each { |source| SourceArchive.new(source, root: ROOT).fetch }
     puts "Built #{build_native_package}"
   rescue PackageCheck::Failure, SourceArchive::Failure => e
     abort "#{e.class}: #{e.message}"
+  end
+
+  # Puts the tools mise.toml pins, such as the REUSE tool bin/setup.ps1
+  # installs, on PATH, where a shell that did not run under mise x has none.
+  def put_mise_tools_on_path
+    output, status = Open3.capture2("mise", "env", "--json")
+    return unless status.success?
+
+    path = JSON.parse(output).find { |name, _| name.casecmp?("PATH") }&.last
+    ENV["PATH"] = path if path
+  rescue Errno::ENOENT
+    nil
   end
 
   # Installs the precompiled gems given into an empty GEM_HOME and runs
