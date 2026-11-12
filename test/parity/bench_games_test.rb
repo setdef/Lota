@@ -39,9 +39,14 @@ class BenchGamesTest < Minitest::Test
         assert_operator result.frame, :>=, result.draw, result.scenario.to_s
       end
     end
-    rectangle = results.find { |result| result.scenario == scenarios.find { |s| s.name == "rectangle" } }
+    # Lota::Graphics.color returns a new Array each call, so the timed
+    # frames allocate at least one per draw, whatever else the loop does.
+    # Lota::Graphics.rectangle allocates nothing (Lota::EnumName), so its
+    # count is only what the loop itself allocates each frame.
+    reader = Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "color_reader")
+    color_reader = results.find { |result| result.scenario == reader }
 
-    assert_operator rectangle.gc.fetch("total_allocated_objects"), :>=, 3 * 20, "a String per call, from :fill.to_s"
+    assert_operator color_reader.gc.fetch("total_allocated_objects"), :>=, 3 * 20, "an Array per call, from Lota::Graphics.color"
     report = Bench::Report.new(results, settings: SETTINGS, machine: []).to_s
 
     assert_match(/^Lota rectangle +interpreter /, report)
