@@ -46,6 +46,8 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
+  # Branch proof only.
+  LOTA_FLEDGE_REF: 764fecc296b090890d17a3984b5bce22b31a3622
   NDK_REVISION: 30.0.16248370
   APP_NAME: PhoneCheck
   APP_IDENTIFIER: com.example.PhoneCheck
@@ -75,6 +77,13 @@ jobs:
           brew install xcodegen
           xcodegen --version
           cmake --version | head -1
+
+      # Branch proof only: Fledge's 4.1 runtimes from its CI run.
+      - name: Fetch Fledge's branch runtimes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/branch_fledge_runtimes.sh "ios"
 
       - name: Install Lota's bundle and build SDL3 for iOS
         run: |
@@ -211,6 +220,13 @@ jobs:
             > "$RUNNER_TEMP/sdkmanager.log" || { tail -20 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/$NDK_REVISION" >> "$GITHUB_ENV"
           grep Pkg.Revision "$ANDROID_HOME/ndk/$NDK_REVISION/source.properties"
+
+      # Branch proof only: Fledge's 4.1 runtimes from its CI run.
+      - name: Fetch Fledge's branch runtimes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/branch_fledge_runtimes.sh "android"
 
       - name: Install Lota's bundle, check the engine's Android sources, and build LÖVE's dependencies and SDL3
         run: |

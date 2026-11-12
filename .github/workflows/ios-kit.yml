@@ -201,6 +201,8 @@ defaults:
 
 env:
   MISE_DISABLE_TOOLS: ruby,rust
+  # Branch proof only.
+  LOTA_FLEDGE_REF: 764fecc296b090890d17a3984b5bce22b31a3622
   # Run by a game's own CI (workflow_call), github.repository and
   # github.sha are the game's, so Lota's checkout names its own.
   LOTA_REPOSITORY: setdef/Lota
@@ -264,6 +266,13 @@ jobs:
         run: |
           brew install xcodegen
           xcodegen --version
+
+      # Branch proof only: Fledge's 4.1 runtimes from its CI run.
+      - name: Fetch Fledge's branch runtimes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/branch_fledge_runtimes.sh "ios"
 
       - name: Install the bundle
         run: |

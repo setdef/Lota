@@ -147,10 +147,18 @@ jobs:
       GAME_ENV: ${{ inputs.game_env }}
       ICON: ${{ inputs.icon }}
       APP_VERSION: ${{ inputs.app_version }}
+      LOTA_FLEDGE_REF: 764fecc296b090890d17a3984b5bce22b31a3622
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Branch proof only: Fledge's 4.1 runtimes from its CI run.
+      - name: Fetch Fledge's branch runtimes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/branch_fledge_runtimes.sh "${PLATFORM%-gnu}"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: inputs.game_repository
@@ -508,11 +516,12 @@ jobs:
     timeout-minutes: 15
     env:
       GAME: test/games/fuse_native
+      LOTA_FLEDGE_REF: 764fecc296b090890d17a3984b5bce22b31a3622
     steps:
       - name: Install Git and OpenGL's libraries, and no compiler
         run: |
           apt-get update
-          apt-get install --assume-yes --no-install-recommends git ca-certificates curl libgl1 libegl1
+          apt-get install --assume-yes --no-install-recommends git ca-certificates curl unzip libgl1 libegl1
           for tool in cc gcc clang make; do
             if command -v "$tool"; then echo "::error::the container has $tool"; exit 1; fi
           done
@@ -520,6 +529,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Branch proof only: Fledge's 4.1 runtimes from its CI run.
+      - name: Fetch Fledge's branch runtimes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/branch_fledge_runtimes.sh "x86_64-linux"
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: inputs.this_run
