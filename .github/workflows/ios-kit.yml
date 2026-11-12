@@ -272,7 +272,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash .github/branch_fledge_runtimes.sh "ios"
+        run: bash .github/branch_fledge_runtimes.sh ios arm64-darwin
 
       - name: Install the bundle
         run: |

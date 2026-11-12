@@ -83,7 +83,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash .github/branch_fledge_runtimes.sh "ios"
+        run: bash .github/branch_fledge_runtimes.sh ios arm64-darwin
 
       - name: Install Lota's bundle and build SDL3 for iOS
         run: |
@@ -226,7 +226,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash .github/branch_fledge_runtimes.sh "android"
+        run: bash .github/branch_fledge_runtimes.sh android x86_64-linux
 
       - name: Install Lota's bundle, check the engine's Android sources, and build LÖVE's dependencies and SDL3
         run: |
