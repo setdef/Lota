@@ -275,4 +275,14 @@ class PrePushTest < Minitest::Test
 
     assert_match(/\Agit stash failed: .*initial commit/, error.message)
   end
+
+  # A checkout that rewrites a file unchanged, as a copy into a build
+  # machine's workspace may, leaves the index's stat data stale.
+  def test_a_file_rewritten_unchanged_is_not_a_change
+    tip = commit("lib/a.rb", "a\n", "second")
+    later = Time.now + 5
+    File.utime(later, later, File.join(@repo, "lib/a.rb"))
+
+    assert_equal tip, PrePush::Git.new(@repo).snapshot
+  end
 end

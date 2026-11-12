@@ -92,8 +92,12 @@ class PrePush
     end
 
     # A commit of the working tree as it is, or HEAD when it is clean,
-    # made without touching the working tree, the index, or the stash.
+    # made without touching the working tree or the stash. The index's
+    # stat data is refreshed first: git stash create exits 1, saying
+    # nothing, when a file's stat data is stale though its contents are
+    # not, as in a checkout whose files were rewritten unchanged.
     def snapshot
+      capture!("update-index", "-q", "--refresh")
       output = capture!("stash", "create")
       output.strip.empty? ? resolve("HEAD") : output.strip
     end
