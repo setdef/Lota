@@ -24,13 +24,18 @@
 # runs exactly them (--desktop). CI's runners are a job's alone, and run
 # both.
 #
-# Every other test the Windows checks run keeps to its own process and
-# makes none of those calls: it pushes its key, mouse, and touch events
-# into SDL's queue (ext/lota/native_test/native_test.cpp, push), writes
-# SDL's own keyboard state (hold), changes only its own window without
-# activating it, as moving it does (SDL 3.4.10,
-# src/video/windows/SDL_windowswindow.c, WIN_SetWindowPosition, with
-# SWP_NOACTIVATE), and reads its frames back from OpenGL, not the screen.
+# Every other test the Windows checks run makes none of those calls: it
+# pushes its key, mouse, and touch events into SDL's queue
+# (ext/lota/native_test/native_test.cpp, push), writes SDL's own keyboard
+# state (hold), and reads its frames back from OpenGL, not the screen.
+# The tests that move, maximize, minimize, restore, or fill the screen
+# with their window (test/lovetest/tests/window.rb) do so with
+# SetWindowPos and ShowWindow alone (SDL 3.4.10,
+# src/video/windows/SDL_windowswindow.c, WIN_SetWindowPosition,
+# WIN_MaximizeWindow, WIN_MinimizeWindow, WIN_RestoreWindow, and
+# WIN_SetWindowFullscreen), and read back what SDL heard of the window's
+# size and state, which a desktop of the run's own gives them as the
+# visible one does.
 module WindowsDesktop
   # Tests of one file that need the desktop for one reason: +file+ runs
   # +tests+, each "Class#test", and +reason+ says why.
@@ -76,27 +81,9 @@ module WindowsDesktop
         "SetForegroundWindow (SDL_windowswindow.c, WIN_RaiseWindow)"
     ),
     Group.new(
-      file: "test/lovetest/window_test.rb",
-      tests: %w[
-        WindowTest#test_is_maximized
-        WindowTest#test_maximize
-        WindowTest#test_is_minimized
-        WindowTest#test_minimize
-        WindowTest#test_restore
-      ],
-      reason: "ShowWindow's SW_MAXIMIZE and SW_RESTORE activate the window, and SW_MINIMIZE the one " \
-        "behind it, whatever program's it is (SDL_windowswindow.c, WIN_MaximizeWindow, " \
-        "WIN_RestoreWindow, and WIN_MinimizeWindow)"
-    ),
-    Group.new(
-      file: "test/lovetest/window_test.rb",
-      tests: %w[WindowTest#test_get_fullscreen WindowTest#test_set_fullscreen],
-      reason: "the window fills the screen, over every other program's (WIN_SetWindowFullscreen)"
-    ),
-    Group.new(
       file: "test/lovetest/system_test.rb",
       tests: %w[SystemTest#test_get_clipboard_text SystemTest#test_set_clipboard_text],
-      reason: "they write the clipboard, which is the desktop's, and read it back"
+      reason: "they write the clipboard, which every desktop of the window station shares, and read it back"
     ),
     Group.new(
       file: "test/native/error_handler_test.rb",
@@ -105,7 +92,7 @@ module WindowsDesktop
         ErrorHandlerTest#test_c_alone_copies_nothing
         ErrorHandlerTest#test_an_error_whose_text_is_not_utf8_is_shown_without_its_stray_bytes
       ],
-      reason: "they write the clipboard, which is the desktop's, and read it back"
+      reason: "they write the clipboard, which every desktop of the window station shares, and read it back"
     ),
     Group.new(
       file: "test/native/lota_run_test.rb",

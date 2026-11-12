@@ -24,6 +24,16 @@ class WindowsDesktopTest < Minitest::Test
     assert_match only, "WindowStateTest#test_it_describes_sdls_window_as_macos_sees_it"
     refute_match only, "MouseTest#test_is_down"
     refute_match only, "WindowTest#test_set_position"
+    window_state = %w[
+      test_is_maximized
+      test_maximize
+      test_is_minimized
+      test_minimize
+      test_restore
+      test_get_fullscreen
+      test_set_fullscreen
+    ]
+    window_state.each { |name| refute_match only, "WindowTest##{name}" }
     refute_match only, "OtherMouseTest#test_set_position"
     refute_match only, "MouseTest#test_set_position_twice"
   end
