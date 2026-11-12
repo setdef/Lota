@@ -128,10 +128,6 @@ env:
   # The gate runs once a job, so a cache kept for the job would only be
   # written, never read.
   LOTA_PARITY_CACHE: "0"
-  # Whether a full run that passes on trunk releases its commit. Until it
-  # does, the release job there says what it would release, and a tag
-  # pushed by hand still releases.
-  LOTA_RELEASE_TRUNK: "false"
 
 jobs:
   # What this commit releases as, decided before any gem is built, so the
@@ -963,9 +959,8 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
-      # Publish for a tag, and on trunk once LOTA_RELEASE_TRUNK says so;
-      # anywhere else, rehearse. A run that went on past failing gates
-      # never publishes.
+      # Publish for a tag and on trunk; anywhere else, rehearse. A run that
+      # went on past failing gates never publishes.
       - name: Decide whether this run publishes
         id: mode
         env:
@@ -975,11 +970,7 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             publish=true
           elif [ "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH" ]; then
-            if [ "$LOTA_RELEASE_TRUNK" = true ]; then
-              publish=true
-            else
-              echo "::notice::A green run on $DEFAULT_BRANCH releases nothing yet (LOTA_RELEASE_TRUNK); this run says what it would release"
-            fi
+            publish=true
           fi
           if [ "$IGNORE_GATE_FAILURES" = true ]; then
             if [ "$publish" = true ]; then

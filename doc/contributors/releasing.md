@@ -55,8 +55,6 @@ When every job of a run on trunk passes, the release job asks again, with the ta
 
 Runs on trunk coalesce: while one runs, a newer push supersedes any that waits ([ci.md](ci.md)). That costs a release nothing, since one run proves every commit up to its own, and its commit is released like any other.
 
-Until the workflow's `LOTA_RELEASE_TRUNK` is `"true"`, a green run on trunk only says what it would release, as a rehearsal does below, and a tag pushed by hand still releases.
-
 ## The changelog afterward
 
 After every full run on trunk, the changelog job writes, on top of trunk as it is then, a dated section in CHANGELOG.md for each release tag that has none: `## [0.4.0] - 2026-11-12`, dated the day of the tag, listing exactly the entries that release's commit added, moved out of `[Unreleased]`. Entries added since the tagged commit stay in `[Unreleased]`. It pushes an ordinary commit, `chore: record v0.4.0 in the changelog`, with the trailers `Release`, `Recorded-by` (the run), `Red-before-green: none (release bookkeeping)`, and `Provenance: requested`. If trunk moves first, it rebases and tries again, three times in all; if it still cannot push, the run stays green, and the next run's changelog job writes the section then. It reads only the tags and their `[Unreleased]` sections, so it writes the same sections however often it runs (`Release#record`, and `rake changelog:record` locally).
