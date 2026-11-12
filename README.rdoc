@@ -15,7 +15,8 @@ LÖVE Development Team.
 Lota runs with Ruby 4.1, a preview until Ruby 4.1.0 is released, on
 Apple Silicon Macs, on Linux with glibc 2.35 or newer (Ubuntu 22.04,
 Debian 12, Fedora 36, and their successors) on x86_64 or arm64, and on
-Windows with RubyInstaller's head build on x64 or ARM64. Lota is not on RubyGems.org: each GitHub release at
+Windows with the day's head build of RubyInstaller that Fledge keeps, on
+x64 or ARM64. Lota is not on RubyGems.org: each GitHub release at
 https://github.com/setdef/Lota/releases carries a precompiled gem for
 each platform, with the parts of LÖVE's engine it loads, so installing
 it builds nothing:

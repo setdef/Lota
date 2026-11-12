@@ -7,11 +7,12 @@
 # quick to run again, and under CI=true it never prompts.
 #
 # It needs mise (https://mise.jdx.dev), which it does not install. It
-# installs RubyInstaller's Ruby with winget, at mise.toml's version, since
-# mise cannot build Ruby on Windows; the tools the Windows checks use
-# through mise (Python and the REUSE tool; CMake and Ninja come from
-# MSYS2); and the MSYS2 packages of RubyInstaller's devkit that .github/windows_prepush.sh
-# builds with. The gate (bundle exec rake) does not run on Windows
+# installs RubyInstaller's Ruby with winget, at mise.toml's version
+# unless that is a preview, since mise cannot build Ruby on Windows; the
+# tools the Windows checks use through mise (Python and the REUSE tool;
+# CMake and Ninja come from MSYS2); and the MSYS2 packages of
+# RubyInstaller's devkit that .github/windows_prepush.sh builds with.
+# The gate (bundle exec rake) does not run on Windows
 # (doc/contributors/windows.md), so it installs no bundle.
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -29,8 +30,15 @@ $rubyVersion = (Select-String -Path mise.toml -Pattern '^ruby\s*=\s*"([^"]+)"').
 $rubyMajorMinor = ($rubyVersion -split '\.')[0..1] -join '.'
 
 # RubyInstaller's Ruby is built with MinGW and carries the MSYS2 devkit,
-# which Lota's native extension has to match (ADR 011).
-if (-not (Get-Command ruby -ErrorAction SilentlyContinue) -or -not ((ruby --version) -match [regex]::Escape($rubyMajorMinor))) {
+# which Lota's native extension has to match (ADR 011). RubyInstaller
+# publishes no preview, so while mise.toml pins one (ADR 013) the
+# Windows checks bring the head build .github/windows_ruby.env pins
+# (.github/windows_ruby.sh), and a RubyInstaller of any version serves
+# only for the MSYS2 its devkit carries.
+$preview = $rubyVersion -match '-'
+if ($preview) {
+  Write-Host "mise.toml pins Ruby $rubyVersion, which RubyInstaller does not publish; .github/windows_prepush.sh brings the head build .github/windows_ruby.env pins."
+} elseif (-not (Get-Command ruby -ErrorAction SilentlyContinue) -or -not ((ruby --version) -match [regex]::Escape($rubyMajorMinor))) {
   Write-Host "Ruby $rubyMajorMinor is required but not installed."
   # Under CI=true nothing may prompt or ask for administrator rights.
   if ($env:CI -eq "true") {
@@ -53,7 +61,10 @@ mise x -- reuse --version
 
 # RubyInstaller's devkit is an MSYS2; the Windows checks build in its
 # UCRT64 environment (doc/contributors/windows.md).
-$msys = (ruby -e 'print RubyInstaller::Runtime.msys2_installation.msys_path rescue nil')
+$msys = $null
+if (Get-Command ruby -ErrorAction SilentlyContinue) {
+  $msys = (ruby -e 'print RubyInstaller::Runtime.msys2_installation.msys_path rescue nil')
+}
 $packages = @("patch", "make", "mingw-w64-ucrt-x86_64-gcc", "mingw-w64-ucrt-x86_64-cmake", "mingw-w64-ucrt-x86_64-ninja", "mingw-w64-ucrt-x86_64-ccache")
 if ($msys -and (Test-Path "$msys\usr\bin\pacman.exe")) {
   & "$msys\usr\bin\pacman.exe" -S --needed --noconfirm @packages

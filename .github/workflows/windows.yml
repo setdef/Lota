@@ -103,18 +103,6 @@ jobs:
         shell: pwsh
         run: git submodule update --init --depth 1 vendor/love
 
-      # RubyInstaller's Ruby, built with MinGW against the UCRT. RubyInstaller
-      # publishes no Ruby 4.1 preview, so this is its rolling head build,
-      # which setup-ruby downloads from one URL and cannot pin (ADR 013).
-      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
-        with:
-          ruby-version: head
-          windows-toolchain: none
-          # RubyInstaller's head build loads its zlib, OpenSSL, libffi,
-          # and libyaml from MSYS2, which is set up below, so setup-ruby
-          # installs no Bundler, whose gem install would need zlib.
-          bundler: none
-
       # The toolchain alone: every library LÖVE links is built from source.
       # setup-msys2 caches the packages it installs, but downloads MSYS2's
       # base from GitHub's releases each time, and an outage of those
@@ -144,16 +132,18 @@ jobs:
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with: *msys2
 
-      # RubyInstaller::Runtime finds MSYS2 through MSYS2_PATH, and adds the
-      # directories RUBY_DLL_PATH names before any other to where Windows
-      # looks for DLLs, so the head build's own extensions load from
-      # setup-msys2's MINGW bin directory.
+      # RubyInstaller's Ruby, built with MinGW against the UCRT: the head
+      # build windows_ruby.env pins, since RubyInstaller publishes no Ruby
+      # 4.1 preview (ADR 013). RubyInstaller::Runtime finds MSYS2 through
+      # MSYS2_PATH, and loads the DLLs the head build does not carry from
+      # setup-msys2's MINGW bin folder, which RUBY_DLL_PATH names.
       - name: Point RubyInstaller at setup-msys2's MSYS2
         shell: pwsh
         run: |
           "MSYS2_PATH=$env:RUNNER_TEMP\msys64" >> $env:GITHUB_ENV
-          $bin = Join-Path $env:RUNNER_TEMP "msys64\$("${{ inputs.msystem }}".ToLower())\bin"
-          "RUBY_DLL_PATH=$bin" >> $env:GITHUB_ENV
+      - uses: ./.github/actions/windows-ruby
+        with:
+          dll_path: ${{ runner.temp }}\msys64\${{ inputs.msystem }}\bin
 
       # The REUSE tool, which checks the gem's licensing as it is built
       # (tasks/native_gem.rb), into the runner's Python, at the version

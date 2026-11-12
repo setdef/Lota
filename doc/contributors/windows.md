@@ -7,7 +7,9 @@
 
 Lota ships gems for Windows on x64 and ARM64, for RubyInstaller's Ruby. That Ruby is built with MinGW, and a native extension has to match it, so Lota builds LÖVE's engine and its libraries with MinGW too, where LÖVE's own Windows build uses Microsoft's compiler ([ADR 011](adr/011.md); [packaging.md](design/packaging.md)). This page says how CI builds and tests those gems, and what its tests cannot reach.
 
-RubyInstaller publishes no Ruby 4.1 preview, so until it releases Ruby 4.1, CI takes its rolling head build, which setup-ruby downloads from one URL and cannot pin ([ADR 013](adr/013.md)). That build carries only a few of the DLLs its own extensions load, such as zlib's and OpenSSL's, and loads the rest from MSYS2's MINGW `bin` folder, which RubyInstaller's runtime adds to where Windows looks for DLLs when `RUBY_DLL_PATH` names it. So every Windows job has MSYS2 before Ruby runs, and setup-ruby installs no Bundler, whose `gem install` would need zlib before then.
+RubyInstaller publishes no Ruby 4.1 preview, so until it releases Ruby 4.1, Lota's Windows Ruby is its head build, which it rebuilds from Ruby's master every day under one URL ([ADR 013](adr/013.md)). Two days' builds can differ in ABI (`RbConfig::CONFIG["ruby_version"]`, such as `4.1.0+6`), and a gem built on one need not load in the other, so Lota pins the copy of the head build that Fledge's release keeps, the one its Windows runtime is made from. `.github/windows_ruby.env` names that copy's URL, SHA-256, and `ruby_version` for each architecture, and `.github/windows_ruby.sh` downloads it, checks both, and unpacks it. Every Windows job takes its Ruby from there (`.github/actions/windows-ruby`), and so does the pre-push script below, so CI, a push from your own computer, and a fused app run the same Ruby. Move the pin with `Lota::Fuse::FLEDGE_REF`.
+
+The head build carries no `zlib1.dll`, which its zlib extension loads, so a Windows job sets MSYS2 up before Ruby runs and names MSYS2's MINGW `bin` folder in `RUBY_DLL_PATH`, which RubyInstaller's runtime adds before any other to where Windows looks for DLLs.
 
 ## Why the gate does not run on Windows
 
@@ -34,14 +36,14 @@ The **Windows build** job runs once for x64 and once for ARM64:
 
 ## The Windows delivery job
 
-Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner with only the MSYS2 setup-ruby installs, which the head build's own extensions load from, and with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses three games with the gem and runs the apps ([ci.md](ci.md)).
+Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner with only the MSYS2 setup-ruby installs, which the head build's own extensions load from, and with a `PATH` of only Ruby, Windows, PowerShell, and Git. It runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. `fuse.yml` then fuses four games with the gem and runs the apps ([ci.md](ci.md)).
 
 ## Before a push, on a Windows computer of your own
 
 If you have a Windows computer, Lota's Windows checks can run there before you push, instead of in CI after. Install [mise](https://mise.jdx.dev), then run `bin/setup.ps1` from PowerShell in the checkout. It installs what the checks need from Lota's own pins, and running it again changes nothing:
 
-- RubyInstaller's x64 Ruby with winget, at the version `mise.toml` pins, since mise cannot build Ruby on Windows. It asks first, because winget may need administrator rights.
-- Python and the REUSE tool through mise, at `mise.toml`'s versions. `mise.toml` limits every other tool, Ruby included, to Linux and macOS with mise's `os` option, so mise installs no second Ruby beside RubyInstaller's.
+- RubyInstaller's x64 Ruby with winget, at the version `mise.toml` pins, since mise cannot build Ruby on Windows. It asks first, because winget may need administrator rights. While `mise.toml` pins a preview, which RubyInstaller does not publish, it installs none: the checks bring the head build `windows_ruby.env` pins, and the script needs a RubyInstaller of any version only for the MSYS2 its devkit carries.
+- Python and the REUSE tool through mise, at `mise.toml`'s versions. `mise.toml` limits every other tool, Ruby included, to Linux and macOS with mise's `os` option, so mise installs no second Ruby on Windows.
 - The packages `windows.yml` installs, in the MSYS2 that RubyInstaller's devkit carries: `patch`, `make`, and UCRT64's GCC, CMake, Ninja, and ccache. If it finds no MSYS2 beside Ruby, it names them.
 - LÖVE's source, the `vendor/love` submodule.
 
@@ -51,7 +53,7 @@ It installs no bundle, since the checks run without Bundler. The script below ru
 bash .github/windows_prepush.sh
 ```
 
-The script takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. The pre-push hook does not run it ([development.md](development.md)).
+The script brings its own Ruby, the one `windows_ruby.env` pins, which it unpacks once into `lota` in `XDG_CACHE_HOME`, or in `~/.cache`, and keeps its gems beside. It takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. The pre-push hook does not run it ([development.md](development.md)).
 
 ## What CI cannot check
 

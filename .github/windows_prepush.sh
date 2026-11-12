@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Lota's Windows checks before a push, on a Windows computer of your own
-# with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby. Run it
-# with bash from the checkout's root, in a session on the computer's
-# desktop, where its tests' windows open. It takes windows.yml's steps for
+# with MSYS2's UCRT64 environment. Run it with bash from the checkout's
+# root, in a session on the computer's desktop, where its tests' windows
+# open. It takes windows.yml's steps for
 # x64, in its order: LÖVE's dependencies from source, the engine's source
 # list, the engine and both extensions through ccache, the checks of
 # warnings, DLLs, loading, a restart, and an OpenGL window, and then the
@@ -21,6 +21,14 @@ if [ -z "${LOTA_UNDER_MISE:-}" ] && command -v mise > /dev/null 2>&1; then
   LOTA_UNDER_MISE=1 exec mise x -- bash "$0" "$@"
 fi
 export PATH="/ucrt64/bin:$PATH" CC=gcc CXX=g++
+# The Ruby CI's Windows jobs run, which windows_ruby.env pins, rather
+# than the computer's own: unpacked once into lota in XDG_CACHE_HOME, or
+# in ~/.cache, with its gems kept beside it.
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/lota
+ruby_bin=$(bash .github/windows_ruby.sh x64 "$(cygpath -u "$cache")/windows-ruby")
+RUBY_DLL_PATH=$(cygpath -w /ucrt64/bin)
+MSYS2_PATH=$(cygpath -w /)
+export PATH="$ruby_bin:$PATH" RUBY_DLL_PATH MSYS2_PATH
 echo "ruby: $(command -v ruby); objdump: $(command -v objdump || echo none); mise: ${LOTA_UNDER_MISE:-no}"
 echo "PATH starts: $(echo "$PATH" | tr ':' '\n' | head -6 | tr '\n' ' ')"
 export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
