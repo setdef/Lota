@@ -101,11 +101,11 @@ lota-0.4.0-aarch64-mingw-ucrt.gem
 SHA256SUMS
 ```
 
-Only two jobs' tokens may write, and only the repository's contents: the release job's, for a tag and a release, and the changelog job's, to push its commit. No other job's token may write, and none uses another secret. A tag the release job makes through the API, and a commit the changelog job pushes, start no run of their own, so nothing publishes twice.
+Only two jobs' tokens may write, and only the repository's contents: the release job's, for a tag and a release, and the changelog job's, to push its commit. No other job's token may write. The release job reads, tags, and publishes with the repository's `RELEASE_TOKEN` secret when there is one, in place of its own token, and gives it only to the steps that call GitHub; no other job uses a secret. A commit the changelog job pushes starts no run of its own, nor does a tag the release job makes with its own token. A tag made with `RELEASE_TOKEN` starts the tag's own full run, whose release job finds the tag and the release already there and does nothing, so nothing publishes twice.
 
 ## When a release stops
 
-If a platform fails, nothing is tagged or published. Rerun the failed jobs if the failure was the runner's; the release job runs when they pass. Otherwise fix trunk, and the next green run releases the next version, over the fix.
+If a platform fails, nothing is tagged or published. Rerun the failed jobs if the failure was the runner's; the release job runs when they pass. Otherwise fix trunk, and the next green run releases the next version, over the fix. If GitHub refuses the tag, the release job fails at "Tag the commit", naming the call it refused, the tag object (`git/tags`) or its ref (`git/refs`), with what `gh` printed; that is the token's right to tag, not the commits, so the automatic revert reports it and reverts nothing ([ci.md](ci.md)). Give the job a token that may tag, as `RELEASE_TOKEN`, and rerun it.
 
 ## Rehearsing a release
 

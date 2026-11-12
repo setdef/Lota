@@ -1040,10 +1040,15 @@ jobs:
       # tag on another commit is refused, as a tag never moves. The notes
       # are what this commit's [Unreleased] adds since the release before
       # it.
+      #
+      # The token that reads, tags, and publishes, named here once and
+      # given only to the steps that call GitHub: the RELEASE_TOKEN secret
+      # when the repository has one, and this job's own token otherwise,
+      # so a token with the right to tag drops in with no other change.
       - name: Decide what the release needs
         id: plan
-        env:
-          GH_TOKEN: ${{ github.token }}
+        env: &release-token
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
         run: |
           released=false
           if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
@@ -1078,22 +1083,27 @@ jobs:
           bundle exec rake "release:assemble[$RUNNER_TEMP/release,$VERSION$(printf ',%s' "${platforms[@]}")]"
           cat "$RUNNER_TEMP/release/SHA256SUMS"
 
-      # An annotated tag, made through the API, which refuses a tag that
-      # exists rather than move it.
+      # An annotated tag, made through the API in two calls, the tag object
+      # and then its ref, which refuses a tag that exists rather than move
+      # it. A refusal names the call GitHub refused, with all gh printed.
       - name: Tag the commit
         if: steps.mode.outputs.publish == 'true' && steps.plan.outputs.action == 'tag_and_publish'
-        env:
-          GH_TOKEN: ${{ github.token }}
+        env: *release-token
         run: |
-          object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="v$VERSION" -f message="Lota $VERSION" \
-            -f object="$GITHUB_SHA" -f type=commit --jq .sha)
-          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$object" > /dev/null
+          if ! object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="v$VERSION" -f message="Lota $VERSION" \
+            -f object="$GITHUB_SHA" -f type=commit --jq .sha 2> "$RUNNER_TEMP/tag-error"); then
+            echo "::error::POST repos/$GITHUB_REPOSITORY/git/tags, the tag object v$VERSION for $GITHUB_SHA, was refused: $(cat "$RUNNER_TEMP/tag-error")"
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$object" > /dev/null 2> "$RUNNER_TEMP/tag-error"; then
+            echo "::error::POST repos/$GITHUB_REPOSITORY/git/refs, the ref refs/tags/v$VERSION for tag object $object, was refused: $(cat "$RUNNER_TEMP/tag-error")"
+            exit 1
+          fi
           echo "Tagged $GITHUB_SHA v$VERSION"
 
       - name: Publish the release
         if: steps.mode.outputs.publish == 'true' && (steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish')
-        env:
-          GH_TOKEN: ${{ github.token }}
+        env: *release-token
         run: |
           gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "Lota $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/release/*
