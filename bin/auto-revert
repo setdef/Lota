@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+#--
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#++
+
+# Trunk's automatic revert, as .github/workflows/revert.yml runs it on a
+# red run (tasks/auto_revert.rb, doc/contributors/ci.md). On a run's first
+# failed attempt it runs the failed jobs again, to rule out a flaky test.
+# When they fail again, it reverts every commit since the last one whose
+# run passed, in one commit pushed to the run's branch (never forced),
+# whose message names the run, the jobs, and each commit's author, and
+# starts the branch's runs on the revert. It opens no issue and writes no
+# comment. It runs in the clone it is started in, whose origin must be
+# able to push, and needs the GitHub CLI (gh), logged in.
+#
+#   bin/auto-revert [--dry-run] RUN_ID
+#
+# --dry-run starts no run on the revert; without it, only a run on trunk
+# is acted on. It exits 1 when the branch
+# stays red for a person to see to, and 0 otherwise.
+
+require "optparse"
+require "open3"
+require_relative "../tasks/auto_revert"
+
+dry_run = false
+parser = OptionParser.new("usage: bin/auto-revert [--dry-run] RUN_ID") do |opts|
+  opts.on("--dry-run", "start no run on the revert") { dry_run = true }
+end
+run_id = Integer(parser.parse!.first || abort(parser.banner))
+
+gh = lambda do |*args|
+  output, error, status = Open3.capture3("gh", *args)
+  warn "gh #{args.first(3).join(' ')}: #{error.strip}" unless status.success? || error.strip.empty?
+  output if status.success?
+end
+
+git = lambda do |*args|
+  output, error, status = Open3.capture3({ "GIT_TERMINAL_PROMPT" => "0" }, "git", *args)
+  warn "git #{args.first(3).join(' ')}: #{error.strip}" unless status.success? || error.strip.empty?
+  output if status.success?
+end
+
+repository = ENV.fetch("GITHUB_REPOSITORY") { gh.call("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner").to_s.strip }
+abort "bin/auto-revert: gh cannot name this repository" if repository.empty?
+
+begin
+  exit AutoRevert::Bot.new(repository:, run_id:, gh:, git:, dry_run:).call
+rescue AutoRevert::Failure => e
+  abort "bin/auto-revert: #{e.message}"
+end
