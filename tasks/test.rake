@@ -41,6 +41,7 @@ UNIT_TESTS = %w[
   test/tasks/android_build_test.rb
   test/tasks/api_diff_test.rb
   test/tasks/auto_revert_test.rb
+  test/tasks/changelog_test.rb
   test/tasks/ios_build_test.rb
   test/tasks/jobs_test.rb
   test/tasks/licensing_test.rb
