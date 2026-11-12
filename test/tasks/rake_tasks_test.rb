@@ -72,6 +72,11 @@ class RakeTasksTest < Minitest::Test
     assert_equal %w[gate], prerequisites("default")
   end
 
+  # A new checkout on a headless machine has fetched nothing yet.
+  def test_the_gate_fetches_what_vendor_sources_lacks_before_it_builds
+    assert_equal "sources:fetch", GATE_PREPARE.first
+  end
+
   def test_bench_is_not_part_of_the_gate_and_builds_both_engines
     assert_equal %w[compile reference:love], prerequisites("bench")
     refute_includes gate_tasks, "bench"

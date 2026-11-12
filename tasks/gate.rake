@@ -8,8 +8,10 @@
 require_relative "gate"
 
 # The gate, bundle exec rake, in two parts. The first, run in order in this
-# process, changes files (RuboCop's autocorrection) and builds what the
-# checks load. The checks (tasks/gate.rb) then run in lanes: the checks in
+# process, fetches what vendor/sources lacks (rake sources:fetch, which
+# downloads nothing once a checkout on this computer has fetched it),
+# changes files (RuboCop's autocorrection), and builds what the checks
+# load. The checks (tasks/gate.rb) then run in lanes: the checks in
 # one lane share something only one can use at a time, so run one after
 # another, and the lanes run at the same time.
 #
@@ -37,7 +39,7 @@ require_relative "gate"
 # (Gate::LANE_TIMEOUT says why the default is 47 minutes), and
 # LOTA_GATE_HEARTBEAT how many seconds pass between the lines that name the
 # checks still running (60 unless set).
-GATE_PREPARE = %w[lint:fix engine compile].freeze
+GATE_PREPARE = %w[sources:fetch lint:fix engine compile].freeze
 GATE_LANES = [
   [Gate::Check.of("test:shard:rake_tasks"), Gate::Check.of("package:check"), Gate::Check.of("package:install")],
   [Gate::Check.of("test:shard:native")],

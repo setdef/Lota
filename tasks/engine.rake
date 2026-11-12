@@ -56,7 +56,8 @@ end
 # (tasks/linux_build.rb): rake sources:fetch downloads them, and the engine
 # build builds them into tmp/dependencies first, without the network. On
 # macOS they come built, from vendor/love-apple-dependencies.
-LINUX_BUILD = LinuxBuild.new(makefile: "vendor/love-appimage-source/Makefile", sources: "vendor/sources/linux",
+LINUX_SOURCES = "vendor/sources/linux"
+LINUX_BUILD = LinuxBuild.new(makefile: "vendor/love-appimage-source/Makefile", sources: LINUX_SOURCES,
   root: "tmp/dependencies")
 
 if ENGINE_PLATFORM == "linux"
