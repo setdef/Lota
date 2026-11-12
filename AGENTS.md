@@ -85,7 +85,7 @@ A commit holds work of one provenance and says which in a `Provenance:` trailer 
 
 ## Changelog
 
-Keep a Changelog + SemVer. Only changes downstream game or library developers can observe: public APIs, behavior, breaking changes, deprecations, dependency changes (including the pinned LÖVE commit). Not tests, docs, internal refactors, or tooling. Terse one-line entries under `## [Unreleased]`, which means "since the last tag": a change undone before the next tag removes its entry instead of adding a "Fixed" line. Never edit released sections.
+Keep a Changelog + SemVer. Only changes downstream game or library developers can observe: public APIs, behavior, breaking changes, deprecations, dependency changes (including the pinned LÖVE commit). Not tests, docs, internal refactors, or tooling. Terse one-line entries under `## [Unreleased]`, which means "since the last release's tagged commit": a change undone before the next release removes its entry instead of adding a "Fixed" line. Start a breaking change's entry with `**Breaking:**`. CI writes every released section, after it tags the release, by moving that release's entries out of `[Unreleased]` (`doc/contributors/releasing.md`); never write, move, or edit a released section or a released entry by hand, and fix one with a new entry instead.
 
 ## Definition of done
 
