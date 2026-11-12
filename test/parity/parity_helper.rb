@@ -49,6 +49,12 @@ module Parity
     def initialize(text:, status:, diagnostics: "")
       super
     end
+
+    # Whether the Metal watch saw a command buffer end other than
+    # completed: the GPU did not draw every frame the engine showed.
+    def gpu_failed?
+      diagnostics.include?(" ended with status ")
+    end
   end
 
   # A line the Metal watch prints (ext/lota/native_test/metal_watch.mm).
@@ -330,7 +336,24 @@ module Parity
       Dir[File.join(@frames_dir, "*.png")]
     end
 
+    # The GPU of a virtual Mac, as CI's runners are, has hung under the
+    # reference love partway through a run, and Metal then ignored what
+    # LÖVE sent it: LÖVE showed black frames to the script's end and quit
+    # with 0, since it never reads how the command buffer behind a
+    # screenshot ended (graphics/metal/Graphics.mm:1740-1745). Such a run
+    # is no reference to compare Lota with, so LÖVE runs once more, in an
+    # empty run folder. A second failure is kept, and fails the test with
+    # the Metal watch's report.
     private def run(environment, command)
+      output = run_once(environment, command)
+      return output unless output.gpu_failed?
+
+      [@frames_dir, @home, @sounds_dir].each { |dir| FileUtils.rm_rf(Dir.children(dir).map { |child| File.join(dir, child) }) }
+      FileUtils.rm_f(@audio)
+      run_once(environment, command)
+    end
+
+    private def run_once(environment, command)
       shown = 0
       Parity.run(environment, *command, side: "The reference love") do
         shown += 1 while File.exist?(File.join(@frames_dir, format("%04d.png", shown + 1)))

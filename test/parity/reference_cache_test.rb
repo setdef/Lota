@@ -37,6 +37,11 @@ class ReferenceCacheTest < Minitest::Test
     File.write(ENV.fetch("LOTA_LOOPBACK_FILE"), "mixed")
     File.write(File.join(ENV.fetch("LOTA_PARITY_SOUNDS_DIR"), "1.sounddata"), "decoded")
     puts "Thanks for playing \#{frames} frames!"
+    hangs = File.join(folder, "hangs")
+    if File.exist?(hangs) && Integer(File.read(hangs)).positive?
+      File.write(hangs, (Integer(File.read(hangs)) - 1).to_s)
+      puts "lota-metal-watch: a committed command buffer ended with status 5 (error), error: Caused GPU Hang Error"
+    end
     status = File.join(folder, "status")
     exit Integer(File.exist?(status) ? File.read(status) : "0")
   RUBY
@@ -305,6 +310,34 @@ class ReferenceCacheTest < Minitest::Test
     refute_predicate failed.output.status, :success?
     refute_predicate again, :cached?
     assert_equal 2, runs
+    assert_empty Dir[File.join(@cache_root, "*")]
+  end
+
+  # A virtual Mac's GPU has hung under the reference love, which then drew
+  # black frames to its end and quit with 0; the Metal watch's report is
+  # what shows it. Such a run is no reference, so LÖVE runs once more,
+  # from an empty run folder, and the run that drew is the one compared.
+  def test_a_run_whose_gpu_failed_runs_once_more_from_nothing
+    File.write(File.join(@dir, "hangs"), "1")
+    run = love_run(cache: nil)
+
+    assert_equal 2, runs
+    assert_empty run.output.diagnostics
+    assert_equal "Thanks for playing 3 frames!\n", run.output.text
+    assert_equal 3, run.frames.size
+  end
+
+  # A GPU that fails on the second run too is reported: that run, with
+  # the watch's report, is the one the test sees, and the cache keeps
+  # neither.
+  def test_a_run_whose_gpu_fails_again_is_kept_as_it_failed_and_not_cached
+    File.write(File.join(@dir, "hangs"), "4")
+    run = love_run
+
+    assert_equal 2, runs
+    assert_includes run.output.diagnostics, "ended with status 5 (error), error: Caused GPU Hang Error"
+    refute_predicate love_run, :cached?
+    assert_equal 4, runs
     assert_empty Dir[File.join(@cache_root, "*")]
   end
 

@@ -79,6 +79,7 @@ module Parity
     # cached one, with the files it wrote restored into +directory+, and
     # +true+; or, when there is none, the one the block returns, having run
     # it, and +false+. +directory+ holds only empty folders before the run.
+    # Only a run that succeeded, and whose GPU drew every frame, is kept.
     def fetch(command, environment, directory)
       begin
         key, inputs = @key.digest(command, environment, directory)
@@ -91,7 +92,7 @@ module Parity
       return [restored, true] if restored
 
       output = yield
-      store(key, inputs, directory, output) if output.status.success?
+      store(key, inputs, directory, output) if output.status.success? && !output.gpu_failed?
       [output, false]
     end
 
