@@ -14,7 +14,9 @@
 # Xcode links into the app, and on Android libfledgeext.so, already
 # linked, with libSDL3.so and libopenal.so. An archive that Apple's ar
 # wrote without ZERO_AR_DATE carries its members' dates, so two archives
-# that differ are compared member by member.
+# that differ are compared member by member (same_members.rb), forgiving
+# only the random name of fledge build's temporary folder, which the debug
+# information of what mkmf compiles there records.
 #
 # Run from the checkout, after bundle install, rake ios:sdl3 or rake
 # android:deps (with ANDROID_NDK_ROOT), and making tmp/phone/lota, the
