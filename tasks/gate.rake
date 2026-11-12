@@ -31,8 +31,9 @@ require_relative "gate"
 #
 # LOTA_GATE_DISPLAYS lists, separated by spaces, an X display for each lane
 # in the order below that opens windows, the first four, so that on Linux
-# no lane's windows open over another's (tasks/gate.rb); CI's Linux gate
-# starts them.
+# no lane's windows open over another's (tasks/gate.rb). CI's Linux gate
+# starts them; without them and a desktop, rake starts its own
+# (tasks/headless.rb).
 #
 # LOTA_GATE_LANE_TIMEOUT is how many seconds a lane may run before the gate
 # prints what it is doing and ends it, failing its check as TIMED OUT

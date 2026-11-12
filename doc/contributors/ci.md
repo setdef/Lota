@@ -26,7 +26,7 @@ Two workflows check trunk. The pre-push tier runs on every push and answers firs
 
 ## The gate jobs
 
-The macOS runner's session is logged in, so the tests open real windows there as on your Mac. The Linux runners draw on Xvfb displays with Openbox, as LÖVE's own Linux CI runs Lövetest, and cache the libraries `rake dependencies` builds. Compiled objects come from ccache, which reuses one only when the compiler, its arguments, and every file it reads are the same.
+The macOS runner's session is logged in, so the tests open real windows there as on your Mac. The Linux runners draw on Xvfb displays with Openbox, as LÖVE's own Linux CI runs Lövetest, and cache the libraries `rake dependencies` builds. The jobs start the displays themselves and name them in `LOTA_GATE_DISPLAYS`; without that, `rake` starts its own ([development.md](development.md)). Compiled objects come from ccache, which reuses one only when the compiler, its arguments, and every file it reads are the same.
 
 `LOTA_GATE_DISPLAYS` gives each of the gate's lanes its own X display on Linux, in `tasks/gate.rake`'s order. The Linux gate starts one for each lane that opens windows ([parity.md](parity.md) says why a lane needs its own).
 

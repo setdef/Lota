@@ -52,6 +52,14 @@ The checks run at once, in lanes (`tasks/gate.rake`). Each check's output prints
 
 Run the gate before you push a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before your last push of a session. CI runs it on every push anyway; running it first keeps trunk green.
 
+### On a computer with no desktop
+
+On Linux, the tests open their windows on X displays, one for each of the gate's lanes (`LOTA_GATE_DISPLAYS`). When `rake` runs a task that opens windows, such as the gate, `prepush`, `red_before_green`, or `test`, and nothing gives it displays, it starts four of its own and runs again inside them: Xvfb with Openbox, the first free displays from `:300` up, so checks running at once on one computer never share one. It ends them when it ends, however it ends. So `bundle exec rake` and the pre-push hook need nothing set up for them on a headless machine, a CI runner, or a container, beyond the packages `bin/setup` asks for. CI's Linux jobs start their own displays and set `LOTA_GATE_DISPLAYS`, and `rake` uses those.
+
+Inside its displays `rake` also sets what the checks need with no desktop, unless you set it first: `LP_PERF=no_rast_linear`, because Mesa's llvmpipe after 24.0.5 reads the wrong uniform elements in its linear rasterizer; `LOTA_PARITY_CACHE=0`, as on CI; a desktop input lock of the run's own, kept quiet; a session bus where there is none; and, when ccache is on the `PATH`, CMake's builds compile through it. Unless the displays draw with Vulkan, it runs under `bwrap`, where installed, with Vulkan's drivers hidden, since Vulkan cannot present on Xvfb.
+
+`LOTA_HEADLESS=1` starts the displays even on a desktop, so no window opens there, and `LOTA_HEADLESS=0` never starts them. `LOTA_GATE_GPU` chooses where they draw: `off` is Xvfb on llvmpipe, as on CI; `opengl` gives each display a weston of its own, whose headless backend renders on the GPU at `/dev/dri/renderD128`, with a rootful Xwayland in it as the X display; `vulkan` does the same with Vulkan visible. The GPU modes need weston, Xwayland, glxinfo, and for `vulkan` vulkaninfo, and fall back, saying why, to Xvfb, or from `vulkan` to `opengl` when the GPU has no Vulkan driver.
+
 ### The Windows checks, on a Windows computer of your own
 
 The gate does not run on Windows, so CI checks Windows after you push. A change to the native code, the build, or anything of Windows' own can break there alone. If you have a Windows computer with MSYS2's UCRT64 environment and RubyInstaller's x64 Ruby, you can run Lota's Windows checks on it first. From the checkout's root, in a UCRT64 shell on the computer's desktop, run:
