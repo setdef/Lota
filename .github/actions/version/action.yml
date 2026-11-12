@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The version a run's gems carry. ci.yml's version job decides, before any
+# gem is built, what this commit would release as, and every job that
+# builds a gem or fuses with one writes it into lib/lota/version.rb and
+# Gemfile.lock first (Release#stamp), so the gems a release publishes are
+# the ones the run built and verified, and Lota::VERSION in them is the
+# release's. Nothing is committed: the repository keeps 0.0.1.dev, and a
+# run that releases nothing builds gems of 0.0.1.dev. Plain Ruby runs it,
+# with no bundle, as the Windows jobs have none.
+name: Stamp the version
+description: Write the version this run releases as into lib/lota/version.rb and Gemfile.lock, uncommitted
+
+inputs:
+  version:
+    description: The version, MAJOR.MINOR.PATCH (empty to leave the repository's 0.0.1.dev)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.version != ''
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        ruby -r ./tasks/release -e 'Release.new(root: Dir.pwd).stamp(ARGV.fetch(0))' "$VERSION"
+        ruby -r ./lib/lota/version -e 'puts "Stamped Lota #{Lota::VERSION}"'
