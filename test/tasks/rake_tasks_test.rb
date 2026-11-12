@@ -8,6 +8,7 @@
 require_relative "tree_helper"
 require_relative "../lovetest/unseen_desktop"
 require_relative "../lovetest/lovetest_skips"
+require_relative "../../tasks/windows_desktop"
 require "rake"
 
 # Loads the repository's Rakefile and runs the engine and C++ tasks that
@@ -262,6 +263,34 @@ class RakeTasksTest < Minitest::Test
         assert tests.any? { |test| test.start_with?("#{name}#") }, "no tests of #{name}"
       end
     end
+  end
+
+  # Likewise the Windows tests that need the desktop to themselves
+  # (tasks/windows_desktop.rb): a test renamed or removed must leave its
+  # name behind, or it would come back into the checks before a push, and
+  # each is one its group's file runs, as the Windows checks run that file
+  # alone for it.
+  def test_every_test_of_the_windows_desktop_set_is_one_its_file_runs
+    WindowsDesktop::GROUPS.group_by(&:file).each do |file, groups|
+      tests = minitest_runs([file])
+
+      groups.flat_map(&:tests).each { |name| assert_includes tests, name, file }
+    end
+  end
+
+  # Each test, as "Class#test", that Minitest would run of +files+.
+  def minitest_runs(files)
+    lister = <<~RUBY
+      require "minitest"
+      def Minitest.autorun = nil
+      ARGV.each { |path| require path }
+      Minitest.seed = 0
+      Minitest::Runnable.runnables.each { |runnable| runnable.runnable_methods.each { |name| puts "\#{runnable}#\#{name}" } }
+    RUBY
+    output, status = Open3.capture2e(RbConfig.ruby, "-I#{File.join(ROOT, 'lib')}", "-I#{File.join(ROOT, 'test')}",
+      "-e", lister, *files.map { |path| File.expand_path(path, ROOT) }, chdir: ROOT)
+    assert status.success?, output
+    output.lines(chomp: true)
   end
 
   # The pattern leaves out a test it names, every test of a class it

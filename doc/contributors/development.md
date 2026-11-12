@@ -90,6 +90,12 @@ bash .github/windows_prepush.sh
 
 It takes CI's Windows steps for x64: it builds LÖVE's libraries, the engine, and the extensions, checks their warnings and DLLs, opens a window, and runs the tests with the pre-push tier's slow tests left out. It prints each step and how long the run has taken, and exits with the first failure's status. [windows.md](windows.md) says what it leaves out and why.
 
+It also leaves out the few tests that need the visible desktop, its keyboard, mouse, and focus to themselves, such as those that move the pointer or take the focus, so it can run beside other work or on a desktop of its own. After you change Lota's input, window, or focus code, run those tests too, in a session on the visible desktop, with nobody at the keyboard or mouse:
+
+```sh
+bash .github/windows_prepush.sh --desktop
+```
+
 To ask whether your commits need these checks, run `bundle exec rake windows:affected`, or `bundle exec rake "windows:affected[OLD..NEW]"` for other commits than the unpushed ones. It exits 0 and says why when they change the native code under `ext/`, a file that pins the dependencies (`Gemfile`, `Gemfile.lock`, `lota.gemspec`, `mise.toml`), or anything of Windows' own (`tasks/windows*`, `.github/windows*`, `test/native/windows*`), or when a path they change or a line they add or remove names Windows, MinGW, Win32, or a DLL outside prose: names in `doc/`, Markdown and RDoc files, the changelog, and the license texts count for nothing. It exits 1 when they do none of these, since such a change behaves on Windows as it does where the gate runs.
 
 ### Each new test must fail first: `rake red_before_green`

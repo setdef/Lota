@@ -53,7 +53,19 @@ It installs no bundle, since the checks run without Bundler. The script below ru
 bash .github/windows_prepush.sh
 ```
 
-The script brings its own Ruby, the one `windows_ruby.env` pins, which it unpacks once into `lota` in `XDG_CACHE_HOME`, or in `~/.cache`, and keeps its gems beside. It takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. The pre-push hook does not run it ([development.md](development.md)).
+The script brings its own Ruby, the one `windows_ruby.env` pins, which it unpacks once into `lota` in `XDG_CACHE_HOME`, or in `~/.cache`, and keeps its gems beside. It takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. The pre-push hook runs it only in a clone on Windows ([development.md](development.md)).
+
+### The tests that need the desktop to themselves
+
+A few tests need the visible desktop, its keyboard, mouse, and focus to themselves. They move Windows' pointer and read it back, confine it to their window, take the keyboard focus or activate a window, fill the screen, write the clipboard, or ask which window is in front. Another program on the same desktop doing any of that between their two steps fails them, and they do the same to it. The desktop input lock keeps Lota's own tests from doing it to each other, but not other projects' programs. On a desktop that is not on the screen, such as one a service gives each run of its own, Windows refuses the calls outright. `tasks/windows_desktop.rb` names those tests and says why each one needs the desktop.
+
+So the script leaves them out (`windows_checks.rb tests --shared`), and its run can share a desktop with other work or have one of its own. To run only them, after building as before, use:
+
+```sh
+bash .github/windows_prepush.sh --desktop
+```
+
+Run it after you change Lota's input, window, or focus code, or the tests of them. Run it in a session on the visible desktop, with nobody using the keyboard or mouse and no other program's tests running. CI runs both sets, since a runner's desktop belongs to its job alone.
 
 ## What CI cannot check
 

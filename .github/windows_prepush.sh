@@ -14,7 +14,24 @@
 # tier leaves to the gate, and Mesa: a desktop has a GPU and an OpenGL
 # that LÖVE's renderer takes, and a Mesa opengl32.dll beside Ruby would
 # take every Ruby program's OpenGL there.
+#
+# Other programs may share its desktop, or the desktop may be one of its
+# own that is not on the screen, so it leaves out the tests that need the
+# visible desktop, its keyboard, mouse, and focus to themselves too
+# (windows_checks.rb tests --shared; tasks/windows_desktop.rb). With
+# --desktop it builds as before and then runs only those tests
+# (windows_checks.rb tests --desktop), and none of the other checks: run
+# it so after a change to Lota's input, window, or focus code, in a
+# session on the visible desktop, with no one at the keyboard or mouse.
 set -eu
+case "${1:-}" in
+  "") desktop="" ;;
+  --desktop) desktop=1 ;;
+  *)
+    echo "usage: bash $0 [--desktop]" >&2
+    exit 2
+    ;;
+esac
 # The tools mise.toml pins, which bin/setup.ps1 installs (the REUSE tool
 # among them), come through mise: run again under mise x, once.
 if [ -z "${LOTA_UNDER_MISE:-}" ] && command -v mise > /dev/null 2>&1; then
@@ -69,6 +86,17 @@ mkdir -p tmp/ext
 (cd tmp/ext && ruby ../../ext/lota/extconf.rb "--with-cmake-build-dir=$(cygpath -m "$PWD/../engine/build")" --enable-native-test > /dev/null)
 make --silent -C tmp/ext install sitearchdir="$PWD/lib"
 
+# The tests' PATH: MINGW_PREFIX may be a Windows path (C:/...), whose
+# colon would split it.
+tests_path="$clean:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd:$(cygpath -u "$MINGW_PREFIX")/bin"
+
+if [ -n "$desktop" ]; then
+  step "the tests that need the desktop to themselves"
+  PATH="$tests_path" ruby .github/windows_checks.rb tests tmp/windows-desktop-tests --desktop
+  step "done"
+  exit 0
+fi
+
 step "warnings as errors"
 ruby .github/windows_checks.rb werror tmp/engine/build/compile_commands.json
 
@@ -105,8 +133,6 @@ step "an OpenGL window"
 PATH="$clean" /usr/bin/timeout -k 5 180 ruby .github/windows_checks.rb opengl
 
 step "the tests"
-# MINGW_PREFIX may be a Windows path (C:/...), whose colon would split the PATH.
-PATH="$clean:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Program Files/Git/cmd:$(cygpath -u "$MINGW_PREFIX")/bin" \
-  ruby .github/windows_checks.rb tests tmp/windows-tests --prepush
+PATH="$tests_path" ruby .github/windows_checks.rb tests tmp/windows-tests --prepush --shared
 
 step "done"

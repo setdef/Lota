@@ -46,12 +46,16 @@
 #   loads by name, ahead of System32's, whose OpenGL 1.1 LÖVE refuses:
 #   opengl32.dll, its driver libgallium_wgl.dll, and every DLL of BIN
 #   either needs, but none the folder has already.
-# [tests LOGS [--prepush]] Runs each file of the tests rake test runs
-#   (TEST_SUITES in tasks/test.rake), but those WINDOWS_EXCLUDED leaves
-#   out, in a Ruby of its own, as Minitest's task does, each within
-#   TEST_BUDGET seconds, keeps what each printed in LOGS, and passes only
-#   if every file passed. With --prepush each file leaves out the tests
-#   the pre-push tier leaves out (PREPUSH_EXCLUDE in tasks/test.rake).
+# [tests LOGS [--prepush] [--shared | --desktop]] Runs each file of the
+#   tests rake test runs (TEST_SUITES in tasks/test.rake), but those
+#   WINDOWS_EXCLUDED leaves out, in a Ruby of its own, as Minitest's task
+#   does, each within TEST_BUDGET seconds, keeps what each printed in
+#   LOGS, and passes only if every file passed. With --prepush each file
+#   leaves out the tests the pre-push tier leaves out (PREPUSH_EXCLUDE in
+#   tasks/test.rake). The tests that need the desktop to themselves
+#   (tasks/windows_desktop.rb) run with the rest, unless --shared leaves
+#   them out, for a desktop that other programs share, or --desktop runs
+#   them alone, from only the files that hold them.
 #
 # package, deliver, and tests load tasks/*.rake without Bundler, whose
 # Gemfile holds gems RubyInstaller's Ruby would have to compile.
@@ -61,6 +65,7 @@ require "json"
 require "open3"
 require "rbconfig"
 require "tmpdir"
+require_relative "../tasks/windows_desktop"
 
 # The checks, one method each.
 module WindowsChecks
@@ -388,18 +393,33 @@ module WindowsChecks
   # How long a file of tests may run, in seconds.
   TEST_BUDGET = 900
 
-  def tests(logs, tier = nil)
-    abort "tests takes LOGS and, optionally, --prepush" unless [nil, "--prepush"].include?(tier)
+  def tests(logs, *flags)
+    known = (flags - %w[--prepush --shared --desktop]).empty? && flags.uniq == flags
+    unless known && (flags & %w[--shared --desktop]).size < 2
+      abort "tests takes LOGS and, optionally, --prepush, and --shared or --desktop"
+    end
     FileUtils.mkdir_p(logs)
     files = test_files
-    options = tier ? ["--exclude", PREPUSH_EXCLUDE] : []
-    results = files.map { |file| run_test_file(file, logs, options) }
+    files &= WindowsDesktop.files if flags.include?("--desktop")
+    results = files.map { |file| run_test_file(file, logs, test_options(flags)) }
     report(results)
     WINDOWS_EXCLUDED.each { |file, reason| puts "Not run: #{file}, #{reason}" }
     failed = results.reject { |result| result[:passed] }
     abort "#{failed.size} of #{files.size} test files failed: #{failed.map { |result| result[:file] }.join(', ')}" if failed.any?
 
     puts "All #{files.size} test files passed"
+  end
+
+  # Minitest's options for the tests +flags+ choose (#tests).
+  def test_options(flags)
+    prepush = PREPUSH_EXCLUDE if flags.include?("--prepush")
+    if flags.include?("--desktop")
+      ["--include", WindowsDesktop.only, *(prepush && ["--exclude", prepush])]
+    elsif flags.include?("--shared")
+      ["--exclude", WindowsDesktop.leave_out(prepush)]
+    else
+      prepush ? ["--exclude", prepush] : []
+    end
   end
 
   # TEST_SUITES' test:ruby files, from tasks/test.rake, but those
