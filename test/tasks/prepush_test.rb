@@ -159,6 +159,51 @@ class PrePushTest < Minitest::Test
     assert_empty names & git.keys
   end
 
+  # Stands in for rake prepush's autocorrection: rewrites +path+ in the
+  # repository, then passes.
+  class Fixer < FakeLocal
+    def initialize(repo, path, statuses = {})
+      super(statuses)
+      @repo = repo
+      @path = path
+    end
+
+    def run(args)
+      File.write(File.join(@repo, @path), "fixed\n") if args == ["prepush"]
+      super
+    end
+  end
+
+  def test_a_check_that_changes_a_tracked_file_puts_it_back_and_fails_the_push
+    tip = commit("lib/a.rb", "a\n", "second")
+    local = Fixer.new(@repo, "lib/a.rb")
+
+    assert_equal 1, hook(line(local: tip), local:).run
+    assert_equal "a\n", File.read(File.join(@repo, "lib/a.rb"))
+    assert_includes @out.string, "push refused: rake prepush changed lib/a.rb, now put back"
+    assert_equal [["prepush"]], local.calls
+  end
+
+  def test_a_failing_check_that_changes_a_tracked_file_puts_it_back_too
+    tip = commit("lib/a.rb", "a\n", "second")
+    local = Fixer.new(@repo, "lib/a.rb", { "prepush" => 1 })
+
+    assert_equal 1, hook(line(local: tip), local:).run
+    assert_equal "a\n", File.read(File.join(@repo, "lib/a.rb"))
+    assert_includes @out.string, "push refused: rake prepush failed"
+  end
+
+  def test_putting_back_what_a_check_changed_keeps_edits_made_before_it
+    tip = commit("lib/a.rb", "a\n", "second")
+    write(@repo, "README.md", "an edit of the contributor's own\n")
+    write(@repo, "lib/a.rb", "an edit the check rewrites\n")
+    local = Fixer.new(@repo, "lib/a.rb")
+
+    assert_equal 1, hook(line(local: tip), local:).run
+    assert_equal "an edit of the contributor's own\n", File.read(File.join(@repo, "README.md"))
+    assert_equal "an edit the check rewrites\n", File.read(File.join(@repo, "lib/a.rb"))
+  end
+
   def test_an_unknown_mode_refuses_the_push
     tip = commit("lib/a.rb", "a\n", "second")
 

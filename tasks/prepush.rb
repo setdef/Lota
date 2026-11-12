@@ -12,7 +12,7 @@ require "open3"
 # hook's standard input, one "local_ref local_sha remote_ref remote_sha"
 # line each) it runs rake prepush, then rake red_before_green over the
 # commits the push adds, and fails the push, with the reason, when a
-# check fails.
+# check fails or changes a tracked file, which it then puts back.
 #
 # The checks run here, in the clone that pushes, and CI checks Windows
 # after the push. Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run
@@ -83,6 +83,32 @@ class PrePush
     def unpushed?(remote)
       output, status = capture("rev-list", "-n", "1", "HEAD", "--not", "--remotes=#{remote}")
       !status.success? || !output.strip.empty?
+    end
+
+    # A commit of the working tree as it is, or HEAD when it is clean,
+    # made without touching the working tree, the index, or the stash.
+    def snapshot
+      output, status = capture("stash", "create")
+      raise ArgumentError, "git stash create failed" unless status.success?
+
+      output.strip.empty? ? resolve("HEAD") : output.strip
+    end
+
+    # The tracked files whose contents differ from the commit +snapshot+'s.
+    def changed_since(snapshot)
+      output, status = capture("diff", "--name-only", "-z", snapshot, "--")
+      raise ArgumentError, "git diff failed" unless status.success?
+
+      output.split("\0")
+    end
+
+    # Puts +paths+ back as the commit +snapshot+ has them, in the working
+    # tree alone.
+    def restore(snapshot, paths)
+      return if paths.empty?
+
+      _, status = capture("restore", "--source=#{snapshot}", "--worktree", "--", *paths)
+      raise ArgumentError, "git restore failed" unless status.success?
     end
 
     # The commit +ref+ names, or nil.
@@ -175,10 +201,27 @@ class PrePush
       name = "rake #{args.first}"
       say "#{name} (here)"
       started = @clock.next
+      snapshot = @git.snapshot
       status = @local.run(args)
       say "#{name} #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
-      status.zero? || (refuse("#{name} failed") && false)
+      unchanged = unchanged?(name, snapshot)
+      next refuse("#{name} failed") && false unless status.zero?
+
+      unchanged
     end
+  end
+
+  # Whether the check +name+ left every tracked file as it found it. A
+  # file it changed, as RuboCop's autocorrection changes one, is put back,
+  # since the next check needs the commits as they are, and the push is
+  # refused, as CI's gate fails when a check changes a file.
+  private def unchanged?(name, snapshot)
+    changed = @git.changed_since(snapshot)
+    return true if changed.empty?
+
+    @git.restore(snapshot, changed)
+    refuse("#{name} changed #{changed.join(', ')}, now put back; " \
+      "run bundle exec rake rubocop:autocorrect_all and commit what it changes") && false
   end
 
   private def refuse(why)
