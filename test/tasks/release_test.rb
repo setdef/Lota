@@ -12,8 +12,9 @@ require "digest"
 require "open3"
 require "rubygems/package"
 
-# Release prepares a version in a real git repository of the three files
-# it edits, and assembles real gems built by RubyGems.
+# Release reads what a release needs from the commits and tags of a real
+# git repository, stamps a version into a working tree, records dated
+# sections, and assembles real gems built by RubyGems.
 class ReleaseTest < Minitest::Test
   include TreeHelper
 
@@ -30,14 +31,18 @@ class ReleaseTest < Minitest::Test
   VERSION_RB = <<~RUBY
     module Lota
       # The gem's version, following Semantic Versioning.
-      VERSION = "0.0.0"
+      VERSION = "0.0.1.dev"
     end
   RUBY
 
+  # CHANGELOG.md as it stood at an old release commit: [Unreleased] empty,
+  # the release's own dated section below it.
   CHANGELOG = <<~MARKDOWN
     # Changelog
 
     ## [Unreleased]
+
+    ## [0.1.0] - 2026-11-03
 
     ### Added
 
@@ -48,31 +53,52 @@ class ReleaseTest < Minitest::Test
     PATH
       remote: .
       specs:
-        lota (0.0.0)
+        lota (0.0.1.dev)
 
     DEPENDENCIES
       lota!
 
     CHECKSUMS
-      lota (0.0.0)
-      lotab (0.0.0)
+      lota (0.0.1.dev)
+      lotab (0.0.1.dev)
   LOCK
 
-  DATE = Date.new(2026, 11, 3)
+  TOOLS = %(# A comment naming ruby = "0.0.1"\n[tools]\nruby = "4.0.7"\nrust = "1.99.1"\n)
 
-  # A repository on +branch+ with the three files committed.
-  def repository(root, branch: "trunk", changelog: CHANGELOG)
+  GIT = %w[git -c user.name=Test -c user.email=test@example.com].freeze
+
+  # A repository on trunk with the files committed and the old release
+  # tagged v0.1.0, with git's background maintenance off: a commit starts
+  # it, and it makes and removes files under .git while in_tree removes the
+  # directory, which failed on CI with ENOENT on objects/maintenance.lock.
+  def repository(root)
     write(root, "lib/lota/version.rb", VERSION_RB)
-    write(root, "CHANGELOG.md", changelog)
+    write(root, "CHANGELOG.md", CHANGELOG)
     write(root, "Gemfile.lock", LOCKFILE)
-    run!(root, "git", "init", "--quiet", "--initial-branch=#{branch}")
-    # A commit starts git's maintenance in the background, which makes and
-    # removes files under .git while in_tree removes the directory, so
-    # removing it failed on CI with ENOENT on objects/maintenance.lock.
+    write(root, "mise.toml", TOOLS)
+    run!(root, "git", "init", "--quiet", "--initial-branch=trunk")
     run!(root, "git", "config", "maintenance.auto", "false")
     run!(root, "git", "config", "gc.auto", "0")
+    commit(root, "chore: release 0.1.0")
+    tag(root, "v0.1.0")
+  end
+
+  # Commits every change, and returns the commit.
+  def commit(root, message)
     run!(root, "git", "add", "--all")
-    run!(root, "git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--quiet", "-m", "start")
+    run!(root, *GIT, "commit", "--quiet", "--allow-empty", "-m", message)
+    run!(root, "git", "rev-parse", "HEAD").chomp
+  end
+
+  # Tags HEAD as the release job does, with an annotated tag made at +date+.
+  def tag(root, name, date: "2026-11-12T23:30:00Z")
+    _, status = Open3.capture2e({ "GIT_COMMITTER_DATE" => date }, *GIT, "tag", "--annotate", name, "-m", "Lota #{name}", chdir: root)
+    assert_predicate status, :success?
+  end
+
+  # [Unreleased] listing +entries+, above the old release's section.
+  def unreleased(*entries)
+    CHANGELOG.sub("## [Unreleased]\n", "## [Unreleased]\n\n### Added\n\n#{entries.map { |entry| "- #{entry}\n" }.join}")
   end
 
   def test_a_repository_built_for_a_test_runs_no_background_git_maintenance
@@ -84,15 +110,153 @@ class ReleaseTest < Minitest::Test
     end
   end
 
-  def test_prepare_moves_unreleased_under_the_dated_version_and_sets_the_version_everywhere
+  def test_stamp_sets_the_version_in_the_version_file_and_the_lockfile_and_commits_nothing
     in_tree do |root|
       repository(root)
-      Release.new(root:).prepare("0.1.0", date: DATE)
+      Release.new(root:).stamp("0.2.0")
 
-      assert_equal <<~MARKDOWN, File.read(File.join(root, "CHANGELOG.md"))
+      assert_equal VERSION_RB.sub("0.0.1.dev", "0.2.0"), File.read(File.join(root, "lib/lota/version.rb"))
+      assert_equal LOCKFILE.gsub("lota (0.0.1.dev)", "lota (0.2.0)"), File.read(File.join(root, "Gemfile.lock"))
+      assert_equal "0.2.0", Release.new(root:).version
+      assert_equal ["M Gemfile.lock", "M lib/lota/version.rb"], run!(root, "git", "status", "--porcelain").lines.map(&:strip).sort
+    end
+  end
+
+  def test_stamp_refuses_what_is_not_a_version_and_changes_nothing
+    in_tree do |root|
+      repository(root)
+
+      %w[0.2 0.2.0.pre.1 v0.2.0].each do |number|
+        assert_raises(Release::Refusal, number) { Release.new(root:).stamp(number) }
+      end
+      assert_empty run!(root, "git", "status", "--porcelain")
+    end
+  end
+
+  def test_tags_are_the_release_tags_by_version_and_tagged_is_the_commit_one_names
+    in_tree do |root|
+      repository(root)
+      commit(root, "feat: more")
+      tag(root, "v0.10.0")
+      tag(root, "v0.2.0")
+      run!(root, "git", "tag", "other")
+      run!(root, "git", "tag", "v1.0.0-rc1")
+      release = Release.new(root:)
+
+      assert_equal %w[v0.1.0 v0.2.0 v0.10.0], release.tags
+      assert_equal run!(root, "git", "rev-parse", "HEAD").chomp, release.tagged("v0.2.0")
+      assert_nil release.tagged("v9.9.9")
+    end
+  end
+
+  def test_covering_is_the_release_tags_on_a_commit_or_after_it
+    in_tree do |root|
+      repository(root)
+      picked = commit(root, "feat: picked")
+      commit(root, "feat: later")
+      tag(root, "v0.2.0")
+      release = Release.new(root:)
+
+      assert_equal ["v0.2.0"], release.covering(picked)
+      assert_equal %w[v0.1.0 v0.2.0], release.covering(release.tagged("v0.1.0"))
+      write(root, "new.txt", "x")
+      assert_empty release.covering(commit(root, "feat: newer"))
+    end
+  end
+
+  def test_previous_is_the_newest_release_before_a_commit_not_one_on_it
+    in_tree do |root|
+      repository(root)
+      tagged = commit(root, "feat: released")
+      tag(root, "v0.2.0")
+      release = Release.new(root:)
+
+      assert_equal "v0.1.0", release.previous(tagged)
+      assert_equal "v0.2.0", release.previous(commit(root, "feat: after"))
+    end
+  end
+
+  # The commit a release picks may come before the last release's dated
+  # section reached trunk, so its [Unreleased] still lists that release.
+  def test_added_is_what_unreleased_lists_that_the_release_before_did_not
+    in_tree do |root|
+      repository(root)
+      write(root, "CHANGELOG.md", unreleased("First."))
+      commit(root, "feat: first")
+      tag(root, "v0.1.1")
+      write(root, "CHANGELOG.md", unreleased("First.", "Second."))
+      before_recording = commit(root, "feat: second")
+      release = Release.new(root:)
+
+      assert_equal [Changelog::Entry.new("### Added", "- Second.")], release.added(before_recording)
+      assert_equal "### Added\n\n- Second.\n", release.notes(before_recording)
+      assert_equal [Changelog::Entry.new("### Added", "- First.")], release.added("v0.1.1")
+    end
+  end
+
+  def test_notes_refuse_a_commit_that_adds_nothing
+    in_tree do |root|
+      repository(root)
+      empty = commit(root, "docs: nothing to note")
+
+      error = assert_raises(Release::Refusal) { Release.new(root:).notes(empty) }
+      assert_match(/lists nothing new since v0\.1\.0/, error.message)
+    end
+  end
+
+  def test_ruby_is_the_first_ruby_line_of_mise_toml_at_a_commit
+    in_tree do |root|
+      repository(root)
+
+      assert_equal "4.0.7", Release.new(root:).ruby("HEAD")
+    end
+  end
+
+  def test_date_is_the_day_the_tag_was_made_in_utc
+    in_tree do |root|
+      repository(root)
+
+      assert_equal Date.new(2026, 11, 12), Release.new(root:).date("v0.1.0")
+    end
+  end
+
+  # Two releases tagged before either dated section reached trunk: the
+  # record writes both, each with what it added, and leaves what came
+  # after them in [Unreleased].
+  def test_record_writes_a_section_for_each_tag_without_one_and_moves_its_entries
+    in_tree do |root|
+      repository(root)
+      write(root, "CHANGELOG.md", unreleased("First."))
+      commit(root, "feat: first")
+      tag(root, "v0.1.1", date: "2026-11-12T10:00:00Z")
+      write(root, "CHANGELOG.md", unreleased("First.", "Second."))
+      commit(root, "feat: second")
+      tag(root, "v0.1.2", date: "2026-11-13T10:00:00Z")
+      write(root, "CHANGELOG.md", unreleased("First.", "Second.", "Third."))
+      commit(root, "feat: third")
+      text, recorded = Release.new(root:).record
+
+      assert_equal %w[0.1.1 0.1.2], recorded
+      assert_equal <<~MARKDOWN, text
         # Changelog
 
         ## [Unreleased]
+
+        ### Added
+
+        - Third.
+
+        ## [0.1.2] - 2026-11-13
+
+        ### Added
+
+        - Second.
+
+        ## [0.1.1] - 2026-11-12
+
+        ### Added
+
+        - First.
 
         ## [0.1.0] - 2026-11-03
 
@@ -100,81 +264,26 @@ class ReleaseTest < Minitest::Test
 
         - A precompiled gem.
       MARKDOWN
-      assert_includes File.read(File.join(root, "lib/lota/version.rb")), %(  VERSION = "0.1.0"\n)
-      assert_equal LOCKFILE.gsub("lota (0.0.0)", "lota (0.1.0)"), File.read(File.join(root, "Gemfile.lock"))
-      assert_equal "0.1.0", Release.new(root:).version
+      write(root, "CHANGELOG.md", text)
+      assert_equal [text, []], Release.new(root:).record
+      assert_empty Release.new(root:).check_changelog
     end
   end
 
-  def test_a_prepared_release_passes_its_own_check_and_its_notes_are_its_section
+  def test_check_changelog_names_a_missing_section_and_one_that_lists_other_entries
     in_tree do |root|
       repository(root)
-      release = Release.new(root:)
-      release.prepare("0.1.0", date: DATE)
-
-      assert_equal "0.1.0", release.check("v0.1.0")
-      assert_equal "### Added\n\n- A precompiled gem.\n", release.notes("0.1.0")
-    end
-  end
-
-  def test_prepare_refuses_a_tree_with_changes_and_changes_nothing
-    in_tree do |root|
-      repository(root)
-      write(root, "stray.txt", "uncommitted")
-
-      error = assert_raises(Release::Refusal) { Release.new(root:).prepare("0.1.0", date: DATE) }
-      assert_match(/changes of its own.*stray\.txt/m, error.message)
-      assert_equal CHANGELOG, File.read(File.join(root, "CHANGELOG.md"))
-    end
-  end
-
-  def test_prepare_refuses_any_branch_but_trunk
-    in_tree do |root|
-      repository(root, branch: "topic")
-
-      error = assert_raises(Release::Refusal) { Release.new(root:).prepare("0.1.0", date: DATE) }
-      assert_equal "releases are cut from trunk, not topic", error.message
-    end
-  end
-
-  def test_prepare_refuses_a_version_that_is_not_newer_or_not_a_version
-    in_tree do |root|
-      repository(root)
-
-      assert_raises(Release::Refusal) { Release.new(root:).prepare("0.0.0", date: DATE) }
-      assert_raises(Release::Refusal) { Release.new(root:).prepare("0.1", date: DATE) }
-      assert_raises(Release::Refusal) { Release.new(root:).prepare("0.1.0.pre.1", date: DATE) }
-      assert_includes File.read(File.join(root, "lib/lota/version.rb")), %(VERSION = "0.0.0")
-    end
-  end
-
-  def test_prepare_refuses_an_empty_unreleased_section
-    in_tree do |root|
-      repository(root, changelog: "# Changelog\n\n## [Unreleased]\n\n## [0.0.1] - 2026-01-01\n\n- Old.\n")
-
-      error = assert_raises(Release::Refusal) { Release.new(root:).prepare("0.1.0", date: DATE) }
-      assert_equal "CHANGELOG.md's ## [Unreleased] section lists no changes", error.message
-    end
-  end
-
-  def test_unreleased_is_the_lines_under_unreleased_up_to_the_next_section
-    in_tree do |root|
-      repository(root, changelog: "# Changelog\n\n## [Unreleased]\n\n- New.\n\n## [0.0.1] - 2026-01-01\n\n- Old.\n")
-
-      assert_equal ["\n", "- New.\n", "\n"], Release.new(root:).unreleased
-    end
-  end
-
-  def test_tags_are_the_release_tags_and_tagged_is_the_commit_an_annotated_tag_names
-    in_tree do |root|
-      repository(root)
-      run!(root, "git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "tag", "--annotate", "v0.0.0", "-m", "Lota 0.0.0")
-      run!(root, "git", "tag", "other")
+      write(root, "CHANGELOG.md", unreleased("First."))
+      commit(root, "feat: first")
+      tag(root, "v0.1.1")
       release = Release.new(root:)
 
-      assert_equal ["v0.0.0"], release.tags
-      assert_equal run!(root, "git", "rev-parse", "HEAD").chomp, release.tagged("v0.0.0")
-      assert_nil release.tagged("v9.9.9")
+      assert_equal ["CHANGELOG.md has no section for 0.1.1, which v0.1.1 released"], release.check_changelog
+      write(root, "CHANGELOG.md", "## [Unreleased]\n\n## [0.1.1] - 2026-11-12\n\n- Other.\n\n## [0.1.0] - 2026-11-03\n\n### Added\n\n- Changed.\n")
+      assert_equal [
+        "CHANGELOG.md's section for 0.1.0 lists other than v0.1.0 released",
+        "CHANGELOG.md's section for 0.1.1 lists other than v0.1.1 released",
+      ], release.check_changelog
     end
   end
 
@@ -190,37 +299,9 @@ class ReleaseTest < Minitest::Test
     end
   end
 
-  def test_check_refuses_a_tag_the_version_file_disagrees_with
-    in_tree do |root|
-      repository(root)
-
-      error = assert_raises(Release::Refusal) { Release.new(root:).check("v0.1.0") }
-      assert_match(%r{v0\.1\.0 names 0\.1\.0, but lib/lota/version\.rb says 0\.0\.0}, error.message)
-    end
-  end
-
-  def test_check_refuses_a_tag_that_is_not_v_and_three_numbers
-    in_tree do |root|
-      repository(root)
-
-      %w[0.0.0 v0.0 v0.0.0-rc1 version0.0.0].each do |tag|
-        assert_raises(Release::Refusal, tag) { Release.new(root:).check(tag) }
-      end
-    end
-  end
-
-  def test_check_refuses_a_version_whose_changelog_section_is_missing_or_undated
-    in_tree do |root|
-      repository(root, changelog: "## [Unreleased]\n\n- A change.\n\n## [0.0.0]\n\n- Undated.\n")
-
-      error = assert_raises(Release::Refusal) { Release.new(root:).check("v0.0.0") }
-      assert_equal "CHANGELOG.md has no section headed ## [0.0.0] - YYYY-MM-DD", error.message
-    end
-  end
-
   # A real gem of +name+, +version+, and +platform+, built into +dir+, and
   # the .sha256 file its delivery writes beside it.
-  def gem(dir, platform, version: "0.0.0", name: "lota", sha256: nil)
+  def gem(dir, platform, version: "0.2.0", name: "lota", sha256: nil)
     spec = Gem::Specification.new do |s|
       s.name = name
       s.version = version
@@ -229,7 +310,7 @@ class ReleaseTest < Minitest::Test
       s.authors = ["Test"]
       s.files = []
     end
-    target = "lota-0.0.0-#{platform}.gem"
+    target = "lota-0.2.0-#{platform}.gem"
     Gem::DefaultUserInteraction.use_ui(Gem::SilentUI.new) do
       Gem::Package.build(spec, true, false, File.join(dir, target))
     end
@@ -241,12 +322,11 @@ class ReleaseTest < Minitest::Test
 
   def test_assemble_replaces_each_gems_checksum_with_one_sha256sums_for_them_all
     in_tree do |root|
-      repository(root)
       dir = File.join(root, "release")
       Dir.mkdir(dir)
       gems = PLATFORMS.map { |platform| gem(dir, platform) }
 
-      assert_equal gems, Release.new(root:).assemble(dir, PLATFORMS)
+      assert_equal gems, Release.new(root:).assemble(dir, "0.2.0", PLATFORMS)
       assert_equal (gems + ["SHA256SUMS"]).sort, Dir.children(dir).sort
       assert_equal gems.sort.map { |g| "#{Digest::SHA256.file(File.join(dir, g)).hexdigest}  #{g}\n" }.join,
         File.read(File.join(dir, "SHA256SUMS"))
@@ -255,39 +335,38 @@ class ReleaseTest < Minitest::Test
 
   def test_assemble_refuses_a_missing_platform_and_an_unexpected_file
     in_tree do |root|
-      repository(root)
       dir = File.join(root, "release")
       Dir.mkdir(dir)
       gem(dir, "arm64-darwin")
       write(dir, "stray.gem")
 
-      error = assert_raises(Release::Refusal) { Release.new(root:).assemble(dir, PLATFORMS) }
-      assert_match(/missing lota-0\.0\.0-x86_64-linux-gnu\.gem, lota-0\.0\.0-x86_64-linux-gnu\.gem\.sha256; unexpected stray\.gem\z/, error.message)
+      error = assert_raises(Release::Refusal) { Release.new(root:).assemble(dir, "0.2.0", PLATFORMS) }
+      assert_match(/missing lota-0\.2\.0-x86_64-linux-gnu\.gem, lota-0\.2\.0-x86_64-linux-gnu\.gem\.sha256; unexpected stray\.gem\z/, error.message)
     end
   end
 
   def test_assemble_refuses_a_gem_whose_bytes_are_not_the_ones_delivery_verified
     in_tree do |root|
-      repository(root)
       dir = File.join(root, "release")
       Dir.mkdir(dir)
       gem(dir, "arm64-darwin", sha256: "0" * 64)
 
-      error = assert_raises(Release::Refusal) { Release.new(root:).assemble(dir, ["arm64-darwin"]) }
+      error = assert_raises(Release::Refusal) { Release.new(root:).assemble(dir, "0.2.0", ["arm64-darwin"]) }
       assert_match(/has SHA-256 \h{64}, not the 0{64} its delivery verified/, error.message)
       refute_path_exists File.join(dir, "SHA256SUMS")
     end
   end
 
+  # A gem built before the version was stamped carries the clone's
+  # version, not the release's.
   def test_assemble_refuses_a_gem_whose_specification_is_not_the_one_its_name_says
     in_tree do |root|
-      repository(root)
       dir = File.join(root, "release")
       Dir.mkdir(dir)
-      gem(dir, "arm64-darwin", version: "9.9.9")
+      gem(dir, "arm64-darwin", version: "0.0.1.dev")
 
-      error = assert_raises(Release::Refusal) { Release.new(root:).assemble(dir, ["arm64-darwin"]) }
-      assert_equal "lota-0.0.0-arm64-darwin.gem holds lota 9.9.9 arm64-darwin, not lota 0.0.0 arm64-darwin", error.message
+      error = assert_raises(Release::Refusal) { Release.new(root:).assemble(dir, "0.2.0", ["arm64-darwin"]) }
+      assert_equal "lota-0.2.0-arm64-darwin.gem holds lota 0.0.1.dev arm64-darwin, not lota 0.2.0 arm64-darwin", error.message
     end
   end
 end
