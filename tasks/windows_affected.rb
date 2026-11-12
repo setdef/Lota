@@ -13,15 +13,20 @@ require "open3"
 #
 # A range can when it changes the native code, the files that pin Lota's
 # dependencies, or anything of Windows' own, or when a path it changes or
-# a line it adds or removes names Windows, MinGW, Win32, or a DLL. Any
-# other change behaves on Windows as it does on Linux and macOS, where the
-# gate checks it.
+# a line it adds or removes names Windows, MinGW, Win32, or a DLL, in a
+# file that is not prose. Any other change behaves on Windows as it does
+# on Linux and macOS, where the gate checks it.
 module WindowsAffected
   # Raised when git cannot read the range.
   class Failure < StandardError; end
 
   # What names Windows in a path or a line.
   WORDS = /windows|mingw|win32|\.dll/i
+
+  # Prose, which can name Windows without changing how Lota builds or
+  # runs there: the documentation, Markdown and RDoc files, the changelog,
+  # and the license texts. Only the clauses that match names skip it.
+  PROSE = %r{\A(?:doc/|LICENSES/|LICENSE\z|CHANGELOG)|\.(?:md|rdoc)\z}
 
   # The files that pin Lota's dependencies.
   DEPENDENCIES = %w[Gemfile Gemfile.lock lota.gemspec mise.toml].freeze
@@ -33,7 +38,7 @@ module WindowsAffected
     "tasks/windows*" => -> (path) { path.start_with?("tasks/windows") },
     ".github/windows*" => -> (path) { path.start_with?(".github/windows") },
     "test/native/windows*" => -> (path) { path.start_with?("test/native/windows") },
-    "a path matching #{WORDS.source}" => -> (path) { WORDS.match?(path) },
+    "a path matching #{WORDS.source}" => -> (path) { WORDS.match?(path) && !PROSE.match?(path) },
   }.freeze
 
   # The clause a change met, and the path that met it.
@@ -50,7 +55,7 @@ module WindowsAffected
       path = changes.each_key.find(&meets)
       return Verdict.new(clause:, path:) if path
     end
-    path, = changes.find { |_path, lines| lines.any? { |line| WORDS.match?(line) } }
+    path, = changes.find { |path, lines| !PROSE.match?(path) && lines.any? { |line| WORDS.match?(line) } }
     Verdict.new(clause: "a changed line matching #{WORDS.source}", path:) if path
   end
 

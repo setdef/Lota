@@ -26,17 +26,33 @@ class WindowsAffectedTest < Minitest::Test
       "tasks/windows_build.rb" => "tasks/windows*",
       ".github/windows_prepush.sh" => ".github/windows*",
       "test/native/windows_paths_test.rb" => "test/native/windows*",
-      "doc/contributors/Windows.md" => "a path matching windows|mingw|win32|\\.dll",
+      "bin/windows-shell" => "a path matching windows|mingw|win32|\\.dll",
       "lib/lota/MinGW_notes.rb" => "a path matching windows|mingw|win32|\\.dll",
       "test/fixtures/openal32.DLL" => "a path matching windows|mingw|win32|\\.dll",
     }.each do |path, clause|
       assert_equal WindowsAffected::Verdict.new(clause:, path:), verdict({ path => [] }), path
     end
+    assert_nil verdict({ "doc/contributors/Windows.md" => [] }), "a path naming Windows fires only outside prose"
   end
 
   def test_a_changed_line_naming_windows_fires
     assert_equal WindowsAffected::Verdict.new(clause: "a changed line matching windows|mingw|win32|\\.dll",
       path: "lib/lota/boot.rb"), verdict({ "README.md" => ["plain"], "lib/lota/boot.rb" => ["if Gem.WIN32"] })
+  end
+
+  # Prose can name Windows without changing how Lota builds or runs there,
+  # so its names fire nothing; a path clause still does.
+  def test_prose_that_names_windows_does_not_fire
+    assert_nil verdict({
+      "doc/contributors/adr/014.md" => ["the Windows installer"],
+      "doc/contributors/windows.md" => [],
+      "README.md" => ["on Windows, run"],
+      "README.rdoc" => ["MinGW"],
+      "CHANGELOG.md" => ["Fixed: a DLL"],
+      "LICENSES/Zlib.txt" => ["win32"],
+    })
+    assert_equal ".github/windows*", verdict({ ".github/windows_checks.md" => [] }).clause
+    assert_equal "lib/lota/boot.rb", verdict({ "doc/a.md" => ["Windows"], "lib/lota/boot.rb" => ["mingw"] }).path
   end
 
   def test_a_change_that_names_nothing_of_windows_does_not_fire
