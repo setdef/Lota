@@ -661,6 +661,28 @@ module Lota
       attr_accessor y: Integer
     end
 
+    class FileDialogData
+      def self.cpp_class: () -> String
+
+      def initialize: () -> void
+
+      def set_type: (String name) -> bool
+
+      attr_accessor title: String
+
+      attr_accessor acceptlabel: String
+
+      attr_accessor cancellabel: String
+
+      attr_accessor defaultname: String
+
+      def add_filter: (String name, String pattern) -> nil
+
+      attr_accessor multiselect: bool
+
+      attr_accessor attachtowindow: bool
+    end
+
     module Filesystem
       def self.open: () -> nil
 
@@ -1147,6 +1169,10 @@ module Lota
       def self.show_message_box: (String title, String message, ?String? type, ?bool attachtowindow) -> bool
 
       def self.show_message_box_with_buttons: (String title, String message, Array[String] buttons, ?Integer? enterbutton, ?Integer? escapebutton, ?String? type, ?bool attachtowindow) -> Integer
+
+      def self.file_dialog_types: () -> Array[String]
+
+      def self.show_file_dialog: (FileDialogData data, ^(Array[String], String?, String?) -> void callable) -> nil
     end
 
     module Graphics

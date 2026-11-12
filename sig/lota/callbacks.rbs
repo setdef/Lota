@@ -19,7 +19,7 @@ module Lota
 
     type parameter = [Symbol, Symbol] | [Symbol]
 
-    def self.parameters: (Physics::World::callable callable) -> Array[parameter]
+    def self.parameters: (::Object callable) -> Array[parameter]
 
     def self.declared: [T] (Array[parameter] parameters, Array[T] arguments) -> Array[T?]
 

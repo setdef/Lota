@@ -873,6 +873,120 @@ module Lota
       end
     end
 
+    # Shows the system's dialog for choosing files or a folder, matching
+    # love.window.showFileDialog (src/modules/window/wrap_Window.cpp,
+    # w_showFileDialog), and returns +nil+ at once, before the player has
+    # chosen.
+    #
+    # [type] +:openfile+, +:openfolder+, or +:savefile+.
+    # [callable] Anything that answers +call+, or a block, which LÖVE keeps
+    #   to call with the answer (rules 12 and 31 of
+    #   doc/contributors/design/translation.md).
+    # [title] String shown in the dialog's title bar.
+    # [acceptlabel] String on the button that chooses.
+    # [cancellabel] String on the button that cancels.
+    # [defaultname] String path the dialog starts at, or the name it
+    #   offers.
+    # [filters] Hash of each filter's String name to its String pattern,
+    #   the extensions it shows separated by semicolons, such as
+    #   <tt>"png;jpg"</tt>, or <tt>"*"</tt> for every file.
+    # [multiselect] Whether the player may choose several; +false+ by
+    #   default.
+    # [attachtowindow] Whether the dialog belongs to the window; +false+ by
+    #   default, as LÖVE starts its settings zeroed.
+    #
+    # The answer arrives on the main thread when the event queue is pumped,
+    # as Lota's loop does once a frame, after the player has chosen. The
+    # callable receives as many as it declares of: an Array of the chosen
+    # paths, empty when the player cancelled; the name of the filter the
+    # player chose, or +nil+ where the system does not say; and the
+    # system's error as a String, or +nil+. An error the callable raises
+    # comes out of Lota::Event.pump as RuntimeError, its message after
+    # <tt>"Error in file dialog callback: "</tt>, as LÖVE turns it into
+    # one.
+    #
+    # Raises ArgumentError for an unknown +type+ or for both a callable
+    # and a block, TypeError for no callable, an option of the wrong type,
+    # or a filter whose name or pattern is not a String, and ThreadError
+    # off the main thread.
+    #
+    # === Examples
+    #
+    #   Lota::Window.show_file_dialog(:openfile, filters: { "Images" => "png;jpg" }) do |files, _filter, error|
+    #     @picture = files.first unless error
+    #   end
+    #
+    #   Lota::Window.show_file_dialog(:savefile, method(:save_to), defaultname: "level.txt")
+    def self.show_file_dialog(type, callable = nil, title: nil, acceptlabel: nil, cancellabel: nil, defaultname: nil,
+      filters: nil, multiselect: nil, attachtowindow: nil, &block
+    )
+      data = Native::FileDialogData.new
+      unless data.set_type(type.to_s)
+        expected = Native::Window.file_dialog_types.map { |name| "'#{name}'" }.join(", ")
+        raise ArgumentError, "Invalid file dialog type '#{type}', expected one of: #{expected}"
+      end
+      callable = file_dialog_callable(callable, block)
+      data.title = dialog_string(title, :title)
+      data.acceptlabel = dialog_string(acceptlabel, :acceptlabel)
+      data.cancellabel = dialog_string(cancellabel, :cancellabel)
+      data.defaultname = dialog_string(defaultname, :defaultname)
+      dialog_filters(filters).each { |name, pattern| data.add_filter(name, pattern) }
+      data.multiselect = dialog_flag(multiselect, :multiselect)
+      data.attachtowindow = dialog_flag(attachtowindow, :attachtowindow)
+      parameters = Callbacks.parameters(callable)
+      Native::Window.show_file_dialog(data, lambda { |files, filter, error|
+        callable.call(*Callbacks.declared(parameters, [files, filter, error]))
+      })
+    end
+
+    # The function w_showFileDialog keeps (luaL_checktype, wrap_Window.cpp:
+    # 696): the callable or the block, of which there must be one.
+    private_class_method def self.file_dialog_callable(callable, block)
+      raise ArgumentError, "wrong number of arguments (given a callable and a block, expected one)" if callable && block
+
+      case (found = callable || block)
+      when nil then raise TypeError, "wrong argument type NilClass (expected an object that answers call)"
+      else
+        raise TypeError, "wrong argument type #{found.class} (expected an object that answers call)" unless found.respond_to?(:call)
+
+        found
+      end
+    end
+
+    # An option w_showFileDialog reads with luax_checkstring, "" for none,
+    # which LÖVE's Window::showFileDialog leaves unset.
+    private_class_method def self.dialog_string(value, name)
+      case value
+      when nil then ""
+      when String then value
+      else raise TypeError, "wrong argument type #{value.class} for #{name} (expected String)"
+      end
+    end
+
+    # An option w_showFileDialog reads with luax_checkboolean, +false+ for
+    # none.
+    private_class_method def self.dialog_flag(value, name)
+      case value
+      when nil then false
+      when true, false then value
+      else raise TypeError, "wrong argument type #{value.class} for #{name} (expected true or false)"
+      end
+    end
+
+    # The filters w_showFileDialog reads from a table of names to
+    # patterns, each with luax_checkstring, in the Hash's order.
+    private_class_method def self.dialog_filters(filters)
+      return [] if filters.nil?
+      raise TypeError, "wrong argument type #{filters.class} for filters (expected Hash)" unless filters.is_a?(Hash)
+
+      filters.map do |name, pattern|
+        [name, pattern].each do |value|
+          raise TypeError, "wrong argument type #{value.class} for a filter (expected String)" unless value.is_a?(String)
+        end
+        [name, pattern]
+      end
+    end
+
     # SPDX-SnippetEnd
 
     # Sets the window's title, matching love.window.setTitle

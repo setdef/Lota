@@ -95,6 +95,22 @@ module Lota
 
     def self.show_message_box: (String title, String message, ?(Array[String] | Symbol | String)? buttons_or_type, *(Symbol | String | bool)? options, ?enterbutton: Integer?, ?escapebutton: Integer?) -> (bool | Integer)
 
+    interface _FileDialogCallable
+      def call: (*(Array[String] | String | nil)) -> void
+    end
+
+    type file_dialog_callable = ::Object & _FileDialogCallable
+
+    def self.show_file_dialog: (Symbol | String type, ?file_dialog_callable? callable, ?title: String?, ?acceptlabel: String?, ?cancellabel: String?, ?defaultname: String?, ?filters: Hash[String, String]?, ?multiselect: bool?, ?attachtowindow: bool?) ?{ (Array[String] files, String? filter, String? error) -> void } -> nil
+
+    private def self.file_dialog_callable: (file_dialog_callable? callable, Proc? block) -> file_dialog_callable
+
+    private def self.dialog_string: (::Object? value, Symbol name) -> String
+
+    private def self.dialog_flag: (::Object? value, Symbol name) -> bool
+
+    private def self.dialog_filters: (::Object? filters) -> Array[[String, String]]
+
     def self.title=: (String title) -> void
 
     def self.title: () -> String

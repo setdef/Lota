@@ -5,17 +5,21 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
 #include "window/Window.h"
 #include "window/sdl/Window.h"
 
+#include <array>
 #include <bit>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace lota::native {
 
@@ -207,6 +211,85 @@ int show_message_box_with_buttons(const std::string &title, const std::string &m
   return window().showMessageBox(data) + 1;
 }
 
+// The names of the file dialog's types, for Lota::Window.show_file_dialog's
+// error (luax_enumerror, wrap_Window.cpp:692-694).
+Rice::Array file_dialog_types() {
+  Rice::Array names;
+  for (const std::string &name : Window::getConstants(Window::FILEDIALOG_MAX_ENUM)) {
+    names.push(name, false);
+  }
+  return names;
+}
+
+// Sets +data+'s type to the one +name+ names, and returns whether one
+// does (wrap_Window.cpp:692-694).
+bool set_file_dialog_type(Window::FileDialogData &data, const std::string &name) {
+  return Window::getConstant(name.c_str(), data.type);
+}
+
+// Adds a filter to +data+, as w_showFileDialog does for each entry of its
+// filters table (wrap_Window.cpp:722-739).
+void add_file_dialog_filter(Window::FileDialogData &data, const std::string &name,
+                            const std::string &pattern) {
+  data.filters.push_back(Window::FileDialogFilter{.name = name, .pattern = pattern});
+}
+
+// The function a game gives w_showFileDialog, which LÖVE keeps in a
+// Reference until it calls it: a Ruby callable, a root of Ruby's garbage
+// collector until then.
+using FileDialogCallable = ruby::Root;
+
+// fileDialogCallback (wrap_Window.cpp:655-686): calls the callable,
+// which Lota::Window.show_file_dialog has given the game's callable to,
+// with the chosen files as an Array, the chosen filter's name or nil, and
+// the error or nil, and lets go of it. Window::handleSDLEvent calls this
+// from the event pump, on the main thread
+// (src/modules/window/sdl/Window.cpp:1545-1558). An error the callable
+// raises reaches the pump as an exception with the callback's name in
+// front, as LÖVE's does after lua_pcall; so does a throw or another
+// non-local exit, which Rice reports as a JumpException, as in Lota's
+// modal draw callback (native/event.cpp).
+//
+// An empty name is left out. No path is empty, and SDL reports a
+// cancelled zenity, which prints nothing, as one empty name where its
+// documentation promises an empty list (SDL 3.4.10,
+// src/dialog/unix/SDL_zenitydialog.c, run_zenity), which LÖVE passes on
+// (upstream/027.md).
+void file_dialog_callback(void *context, const std::vector<std::string> &files,
+                          const char *filtername, const char *errstr) {
+  const std::unique_ptr<FileDialogCallable> callable(static_cast<FileDialogCallable *>(context));
+  Rice::Array list;
+  for (const std::string &file : files) {
+    if (!file.empty()) {
+      list.push(Rice::String(file), false);
+    }
+  }
+  Rice::Array arguments;
+  arguments.push(list, false);
+  // The filter's name and the error, each nil where LÖVE pushes nil.
+  for (const char *text : std::array<const char *, 2>{filtername, errstr}) {
+    arguments.push(text != nullptr ? Rice::Object(Rice::String(text)) : ruby::nil(), false);
+  }
+  try {
+    callable->value().vcall("call", arguments);
+  } catch (const Rice::Exception &error) {
+    throw love::Exception("Error in file dialog callback: %s", error.what());
+  } catch (const Rice::JumpException &jump) {
+    throw love::Exception("Error in file dialog callback: %s", jump.what());
+  }
+}
+
+// w_showFileDialog (wrap_Window.cpp:688-757): shows the dialog +data+
+// describes, which Lota::Window.show_file_dialog has filled in from its
+// arguments as LÖVE reads its table, and returns at once; the callable
+// gets the answer later (file_dialog_callback).
+void show_file_dialog(const Window::FileDialogData &data, Rice::Object given) {
+  const Rice::Object callable = std::move(given);
+  Window &instance = window();
+  instance.showFileDialog(data, &file_dialog_callback,
+                          std::make_unique<FileDialogCallable>(callable).release());
+}
+
 // w_getPointer (wrap_Window.cpp:766-770): the address of SDL's window,
 // which LÖVE pushes as a lightuserdata, as an Integer, 0 while no window
 // is open, which Lota::Window.pointer makes a Fiddle::Pointer.
@@ -242,6 +325,21 @@ void define_window(const Rice::Module &native) {
       .define_attr("x", &WindowSettings::x)
       .define_attr("y", &WindowSettings::y);
 
+  // The settings w_showFileDialog reads from its table
+  // (wrap_Window.cpp:688-750), which start zeroed, as LÖVE's
+  // FileDialogData data = {} does: the first type, openfile, no strings,
+  // no filters, and neither multiselect nor attachtowindow.
+  Rice::define_class_under<Window::FileDialogData>(native, "FileDialogData")
+      .define_constructor(Rice::Constructor<Window::FileDialogData>())
+      .define_method("set_type", &set_file_dialog_type, Rice::Arg("name"))
+      .define_attr("title", &Window::FileDialogData::title)
+      .define_attr("acceptlabel", &Window::FileDialogData::acceptLabel)
+      .define_attr("cancellabel", &Window::FileDialogData::cancelLabel)
+      .define_attr("defaultname", &Window::FileDialogData::defaultName)
+      .define_method("add_filter", &add_file_dialog_filter, Rice::Arg("name"), Rice::Arg("pattern"))
+      .define_attr("multiselect", &Window::FileDialogData::multiSelect)
+      .define_attr("attachtowindow", &Window::FileDialogData::attachToWindow);
+
   Rice::define_module_under(native, "Window")
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
@@ -264,7 +362,10 @@ void define_window(const Rice::Module &native) {
                                  Rice::Arg("enterbutton") = std::optional<int>(),
                                  Rice::Arg("escapebutton") = std::optional<int>(),
                                  Rice::Arg("type") = std::optional<std::string>(),
-                                 Rice::Arg("attachtowindow") = true);
+                                 Rice::Arg("attachtowindow") = true)
+      .define_singleton_function("file_dialog_types", &file_dialog_types)
+      .define_singleton_function("show_file_dialog", &show_file_dialog, Rice::Arg("data"),
+                                 Rice::Arg("callable"));
 }
 
 } // namespace lota::native

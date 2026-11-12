@@ -1659,6 +1659,10 @@ bound_by_hand "love.window.close",
 bound_by_hand "love.window.showMessageBox",
   reason: "chooses between its forms by whether its third argument is a table, which also holds the " \
     "enterbutton and escapebutton settings; Lota binds each form as a function of its own"
+bound_by_hand "love.window.showFileDialog",
+  reason: "keeps its function in a Reference that a C++ callback calls from the event pump, and reads its " \
+    "filters from a table with lua_next; Lota::Window.show_file_dialog fills a FileDialogData from its " \
+    "keywords and keeps the callable as a root of Ruby's collector until the callback calls it"
 bound_by_hand "love.window.setMode",
   reason: "reads its settings table through readWindowSettings, which Lota::Window.set_mode ports to Ruby"
 generate "Font:getHeight"

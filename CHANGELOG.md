@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `Lota::Window.show_file_dialog`, translating `love.window.showFileDialog`: it shows the system's dialog for opening files, opening a folder, or saving, and calls its block or callable with the chosen paths, the chosen filter's name, and any error when the event queue is next pumped after the player chooses.
+
 ## [0.4.0] - 2026-11-12
 
 ### Added

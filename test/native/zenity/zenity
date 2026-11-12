@@ -1,0 +1,42 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Stands in for zenity, the program SDL shows its file dialogs with on
+# Linux (SDL 3.4.10, src/dialog/unix/SDL_zenitydialog.c), for
+# test/native/file_dialog_test.rb, and answers on zenity's terms: its
+# arguments in, the chosen paths out, one to a line, and its exit status.
+# SDL asks zenity's version before each dialog, and attaches a dialog to
+# a window only for zenity 3.6 and later.
+#
+# It writes each dialog's arguments to $LOTA_ZENITY_LOG, each followed by
+# a NUL, and the dialog by an ASCII record separator. A save dialog keeps
+# the name it offers (--filename), as Save does; any other dialog chooses
+# the lines of $LOTA_ZENITY_PICKS, or is cancelled, which prints nothing
+# and exits 1, when there are none.
+
+if [ "$1" = "--version" ]; then
+  echo "4.0.1"
+  exit 0
+fi
+
+printf '%s\0' "$@" >> "$LOTA_ZENITY_LOG"
+printf '\036' >> "$LOTA_ZENITY_LOG"
+
+save=no
+offered=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --save) save=yes ;;
+    --filename) shift; offered="$1" ;;
+  esac
+  shift
+done
+
+if [ "$save" = yes ]; then
+  printf '%s\n' "$offered"
+elif [ -n "$LOTA_ZENITY_PICKS" ]; then
+  printf '%s' "$LOTA_ZENITY_PICKS"
+else
+  exit 1
+fi
