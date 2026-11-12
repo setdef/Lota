@@ -49,6 +49,10 @@ export PATH="$ruby_bin:$PATH" RUBY_DLL_PATH MSYS2_PATH
 echo "ruby: $(command -v ruby); objdump: $(command -v objdump || echo none); mise: ${LOTA_UNDER_MISE:-no}"
 echo "PATH starts: $(echo "$PATH" | tr ':' '\n' | head -6 | tr '\n' ' ')"
 export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+# The builds run as many jobs as tasks/jobs.rb says (LOTA_JOBS, else the
+# cores and the memory available), as rake gives them.
+eval "$(ruby -e 'require "./tasks/jobs"
+  Jobs.environment(ENV, Jobs.count).each { |name, value| puts "export #{name}=#{value}" }')"
 clean="$(cygpath -u "$(dirname "$(which ruby)")"):/c/Windows/system32:/c/Windows"
 started=$(date +%s)
 step() { echo "== $1 ($(( $(date +%s) - started ))s)"; }
