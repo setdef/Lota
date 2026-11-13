@@ -103,8 +103,8 @@
 -- notices over each frame for 20 seconds of the real clock, which a fixed
 -- dt does not reach (graphics/Deprecations.cpp:45-130), so which frames
 -- show them, and how faded, changes with the machine's speed, and they
--- name the files of the game in each engine's language. Lota prints its
--- notices but draws none.
+-- name the files of the game in each engine's language. Lota draws them
+-- the same way, so both sides turn them off.
 --
 -- pairs visits a table's keys in sorted order (sorted_pairs), from when
 -- the game's main.lua loads, since LuaJIT's own order changes from run

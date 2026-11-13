@@ -971,6 +971,12 @@ module Lota
       def release: () -> bool
     end
 
+    module Deprecation
+      def self.record: (Array[String] fields) -> nil
+
+      def self.output=: (bool enable) -> void
+    end
+
     module Timer
       def self.open: () -> nil
 

@@ -166,12 +166,20 @@ module Lovetest
     # Run in the main thread, where Lota::Graphics runs.
     def setup
       EngineHelper.open_window
+      @deprecation_notices = EngineHelper.hide_deprecation_notices if hide_deprecation_notices?
       Lovetest.load
       Lovetest.text_run = "love.#{self.class.name.to_s.delete_suffix('Test').downcase}.#{lovetest_method}"
       @rgba_tolerance = 0
       @pixel_tolerance = 0
       @imgs = 1
     end
+
+    # Whether the test runs with the drawing of deprecation notices off, so
+    # that a frame it compares with an expected image has none over it,
+    # which a notice marked up to 20 seconds before would put there
+    # (graphics/Deprecations.cpp:41-130). The tests of whether the output is
+    # on say no.
+    def hide_deprecation_notices? = true
 
     # Lövetest runs each test in a frame of its own, from love.update
     # (vendor/love/testing/main.lua:172-182), and love.run resets the
@@ -186,6 +194,7 @@ module Lovetest
     # names, so a test that leaves a File open closes it itself
     # (tests/filesystem.rb, test_open_file).
     def teardown
+      EngineHelper.show_deprecation_notices(@deprecation_notices)
       Lota::Graphics.origin if Lota.graphics
       GC.start
     end

@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Deprecation notices are drawn over the frame, as LÖVE draws them: the newest four, in a dark band at the bottom of the window, for 20 seconds after the latest, while `Lota.deprecation_output?` is true.
 - `Lota::Window.show_file_dialog`, translating `love.window.showFileDialog`: it shows the system's dialog for opening files, opening a folder, or saving, and calls its block or callable with the chosen paths, the chosen filter's name, and any error when the event queue is next pumped after the player chooses.
 - `Lota::Graphics.clear` takes an Array of components for each canvas being drawn to, as `love.graphics.clear` takes a table for each, with an empty Array or `nil` leaving a canvas as it is.
 - A phone build fetches LÖVE's engine and its libraries prebuilt for its iOS slice or Android ABI from the release that `ext/lota/phone/engines.txt` names, checked against the SHA-256 it pins, unless `bundle config build.lota` passes `--with-lota-source`, which builds them from source as before; `--with-lota-engine-url` names a mirror and `--with-lota-engine-cache` the folder they are kept in.

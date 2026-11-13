@@ -40,7 +40,8 @@ module Parity
   #
   # Deprecation notices are printed until the game's load returns, and
   # then turned off, as the Lua side turns off LÖVE's, which LÖVE would
-  # also draw over its frames for 20 seconds of the real clock.
+  # also draw over its frames for 20 seconds of the real clock, as Lota
+  # does.
   #
   # Every dialog the game shows, such as LÖVE's version warning, which
   # boot.lua shows before the window opens, has Return pressed on it, as

@@ -19,6 +19,11 @@ class CaptureScreenshotTest < Minitest::Test
 
   def setup
     EngineHelper.open_window
+    @deprecation_notices = EngineHelper.hide_deprecation_notices
+  end
+
+  def teardown
+    EngineHelper.show_deprecation_notices(@deprecation_notices)
   end
 
   def test_the_next_present_hands_its_frame_to_the_callable

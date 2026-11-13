@@ -50,6 +50,7 @@ class ErrorHandlerTest < Minitest::Test
   # Lota.errorhandler test/lovetest/conf.rb defines when it boots.
   def setup
     EngineHelper.open_window
+    @deprecation_notices = EngineHelper.hide_deprecation_notices
     super
     Lota::Event.pump
     Lota::Event.clear
@@ -68,6 +69,7 @@ class ErrorHandlerTest < Minitest::Test
     Lota::Graphics.default_filter = @default_filter
     Lota::Graphics.line_style = @line_style
     Lota::Graphics.line_width = 1
+    EngineHelper.show_deprecation_notices(@deprecation_notices)
     super
   end
 

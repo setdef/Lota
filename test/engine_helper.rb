@@ -6,6 +6,7 @@
 #++
 
 require "lota"
+require "stringio"
 
 # Brings the engine up for tests that draw, as lota run brings it up for
 # a game: with Lota::Boot, from the conf.rb that translates Lövetest's own
@@ -20,6 +21,34 @@ module EngineHelper
   # test/lovetest/game. Call it from the main thread.
   def self.open_window
     @open_window ||= booted? || boot
+  end
+
+  # Turns the drawing of deprecation notices off for a test that compares
+  # a frame, and answers whether it was on. The engine draws a notice over
+  # every frame for 20 seconds after the latest name is marked
+  # (graphics/Deprecations.cpp:41-130), and the tests that share a process
+  # mark deprecated names of their own, which a frame the test compares
+  # would show. Pass the answer to +show_deprecation_notices+ after the
+  # test.
+  def self.hide_deprecation_notices
+    was = Lota::Deprecation.output?
+    Lota::Deprecation.output = false
+    was
+  end
+
+  # Turns the drawing of deprecation notices back on if +was+ says it was
+  # on. Turning output on prints the notice of each name used once, which
+  # a test has no use for.
+  def self.show_deprecation_notices(was)
+    return unless was
+
+    stdout = $stdout
+    $stdout = StringIO.new
+    begin
+      Lota::Deprecation.output = true
+    ensure
+      $stdout = stdout
+    end
   end
 
   private_class_method def self.booted?

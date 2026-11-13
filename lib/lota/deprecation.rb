@@ -21,6 +21,11 @@ module Lota
   # boot.lua does. LÖVE begins its notices with its own name; Lota's
   # begin with Lota's.
   #
+  # While output is on, the engine also draws the notices of the newest
+  # names over each frame Lota::Graphics.present shows, for 20 seconds
+  # after the latest name, as LÖVE does (graphics/Deprecations.cpp:41-130).
+  # The engine draws from its own record, so each name is marked there too.
+  #
   # === Example
   #
   #   Lota::Deprecation.mark("window.highdpi", :field, :replaced, "t.highdpi in Lota.conf")
@@ -73,6 +78,7 @@ module Lota
       else
         info = Info.new(type, api, 1, name, replacement.to_s, where)
         @deprecated[name] = info
+        Native::Deprecation.record([name, api.to_s, type.to_s, info.replacement, where])
         print_notice(info) if @output
       end
       nil
@@ -93,6 +99,7 @@ module Lota
       return if enable == @output
 
       @output = enable
+      Native::Deprecation.output = enable
       @deprecated.each_value { |info| print_notice(info) if info.uses == 1 } if enable
     end
 

@@ -14,6 +14,7 @@ add_library(lota_native ${LOTA_EXTENSION_TYPE}
 	audio.cpp
 	buffer.cpp
 	data.cpp
+	deprecation.cpp
 	event.cpp
 	filesystem.cpp
 	font.cpp

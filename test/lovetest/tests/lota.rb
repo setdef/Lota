@@ -13,6 +13,8 @@ require_relative "../lovetest_helper"
 # Like the graphics tests, they run in the test suite's own process
 # (test/lovetest/lota_test.rb) and under lota run (test/lovetest/game).
 class LotaModuleTest < Lovetest::TestMethod
+  def hide_deprecation_notices? = false
+
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
