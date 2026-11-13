@@ -31,16 +31,6 @@ void stay_in_background();
 void give_up_focus();
 
 #ifdef _WIN32
-// Refuses every dialog the program shows, until press_return_on_dialogs
-// asks for them to be answered: each is written to standard error, with its
-// title and message, and fails as SDL fails when it can show none. The test
-// extension does this as it loads, on Windows, where no library can be
-// loaded into a program before it starts.
-void refuse_dialogs();
-
-// Whether dialogs are being refused.
-bool refusing_dialogs();
-
 // Whether the program's first window is the foreground one and holds the
 // keyboard focus, as Windows says.
 bool has_focus();

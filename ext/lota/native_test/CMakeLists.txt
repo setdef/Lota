@@ -11,8 +11,6 @@
 # parity harness and the tests of boot.lua's version warning,
 # dialogs_linux.cpp asks liblota_dialogs to on Linux, and
 # dialogs_windows.cpp presses it through a hook of Windows' on Windows.
-# Every other dialog is refused: by liblota_dialogs on macOS and Linux, and
-# on Windows by this extension, as it loads.
 # lota.gemspec does not package this directory, and extconf.rb builds it
 # only when asked (--enable-native-test), so no installed gem contains it.
 if(APPLE)
@@ -82,19 +80,6 @@ if(APPLE)
 	add_library(lota_metal_watch SHARED metal_watch.mm)
 	lota_harness_library(lota_metal_watch)
 	target_link_options(lota_metal_watch PRIVATE "SHELL:-framework Metal" "SHELL:-framework Foundation")
-
-	# liblota_dialogs (answer_dialogs_macos.cpp), which refuses the dialogs
-	# a program shows unless dialogs.mm or the harness's Lua asks for them
-	# to be answered. It links SDL, whose message box functions it
-	# interposes, and finds it where the engine's libraries are found.
-	add_library(lota_dialogs SHARED answer_dialogs_macos.cpp)
-	lota_harness_library(lota_dialogs)
-	list(GET ENGINE_LIBRARY_DIRS 1 lota_dialogs_frameworks)
-	file(RELATIVE_PATH lota_dialogs_relative ${CMAKE_BINARY_DIR}/lib ${lota_dialogs_frameworks})
-	target_compile_options(lota_dialogs PRIVATE -F${lota_dialogs_frameworks})
-	target_link_options(lota_dialogs PRIVATE -F${lota_dialogs_frameworks} "SHELL:-framework SDL3"
-		"LINKER:-rpath,@executable_path/../Frameworks"
-		"LINKER:-rpath,@loader_path/${lota_dialogs_relative}")
 else()
 	# The reference love and Lota both load the OpenAL Soft that `rake
 	# dependencies` built (tasks/dependencies.rb), which the dynamic linker
