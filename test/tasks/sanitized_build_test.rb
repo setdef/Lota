@@ -42,17 +42,9 @@ class SanitizedBuildTest < Minitest::Test
       build = tree(root, "/usr/bin/c++")
       expected = if PLATFORM == "linux"
         cxx = Open3.capture2("/usr/bin/c++", "-print-file-name=libstdc++.so.6").first.strip
-        {
-"LD_PRELOAD" => "#{build.runtime} #{cxx}",
-"ASAN_OPTIONS" => "use_sigaltstack=0:detect_leaks=0",
-"RUBY_MN_THREADS" => "-1",
-}
+        { "LD_PRELOAD" => "#{build.runtime} #{cxx}", "ASAN_OPTIONS" => "use_sigaltstack=0:detect_leaks=0" }
       else
-        {
-"DYLD_INSERT_LIBRARIES" => build.runtime,
-"ASAN_OPTIONS" => "use_sigaltstack=0:strip_env=0",
-"RUBY_MN_THREADS" => "-1",
-}
+        { "DYLD_INSERT_LIBRARIES" => build.runtime, "ASAN_OPTIONS" => "use_sigaltstack=0:strip_env=0" }
       end
 
       assert_equal expected, build.environment
@@ -75,12 +67,10 @@ class SanitizedBuildTest < Minitest::Test
       assert_equal({
 "LD_PRELOAD" => "#{root}/libasan.so #{root}/libstdc++.so.6",
 "ASAN_OPTIONS" => "use_sigaltstack=0:detect_leaks=0",
-"RUBY_MN_THREADS" => "-1",
 }, linux.environment)
       assert_equal({
 "DYLD_INSERT_LIBRARIES" => "#{root}/libclang_rt.asan_osx_dynamic.dylib",
 "ASAN_OPTIONS" => "use_sigaltstack=0:strip_env=0",
-"RUBY_MN_THREADS" => "-1",
 }, macos.environment)
     end
   end
