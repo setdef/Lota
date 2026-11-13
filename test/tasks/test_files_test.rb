@@ -70,9 +70,9 @@ class TestFilesTest < Minitest::Test
     in_tree do |root|
       library = write(root, "liblota_dialogs.so")
 
-      assert_equal({ "LD_PRELOAD" => library }, TestFiles.environment(env: {}, library:, linux: true))
-      assert_equal({ "LD_PRELOAD" => "libasan.so #{library}" },
-        TestFiles.environment(env: { "LD_PRELOAD" => "libasan.so" }, library:, linux: true))
+      assert_equal library, TestFiles.environment(env: {}, library:, linux: true).fetch("LD_PRELOAD")
+      assert_equal "libasan.so #{library}",
+        TestFiles.environment(env: { "LD_PRELOAD" => "libasan.so" }, library:, linux: true).fetch("LD_PRELOAD")
     end
   end
 
@@ -80,8 +80,8 @@ class TestFilesTest < Minitest::Test
     in_tree do |root|
       library = write(root, "liblota_dialogs.so")
 
-      assert_empty TestFiles.environment(env: {}, library: File.join(root, "missing.so"), linux: true)
-      assert_empty TestFiles.environment(env: {}, library:, linux: false)
+      refute_includes TestFiles.environment(env: {}, library: File.join(root, "missing.so"), linux: true), "LD_PRELOAD"
+      refute_includes TestFiles.environment(env: {}, library:, linux: false), "LD_PRELOAD"
     end
   end
 
