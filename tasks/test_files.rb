@@ -47,9 +47,11 @@ module TestFiles
   # The environment a test run starts in: without SELECTION, and on Linux,
   # once the build has made DIALOGS, with the library loaded into the run
   # first, after whatever +env+ already preloads (a sanitizer's runtime has
-  # to come first), so every program the tests start inherits it. macOS
-  # and Windows show their dialogs through the system, and the harness
-  # presses a button on request.
+  # to come first), so every program the tests start inherits it. On macOS
+  # and Windows a library loaded into every program would reach the
+  # system's programs too, which may not load it, so the test extension
+  # refuses dialogs in the Ruby processes that load it instead
+  # (test/dialog_guard.rb).
   def self.environment(env: ENV, library: DIALOGS, linux: RUBY_PLATFORM.include?("linux"))
     return SELECTION unless linux && File.exist?(library)
 

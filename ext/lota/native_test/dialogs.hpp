@@ -30,6 +30,19 @@ void stay_in_background();
 // and keeps this one in the background from then on.
 void give_up_focus();
 
+#if defined(__APPLE__) || defined(_WIN32)
+// Refuses every dialog the program shows, until press_return_on_dialogs
+// asks for them to be answered: each is written to standard error, with its
+// title and message, and fails as SDL fails when it can show none. The test
+// extension does this as it loads, on macOS and Windows, so it reaches only
+// the Ruby processes that load it (test/dialog_guard.rb). On Linux
+// liblota_dialogs does it instead (answer_dialogs_linux.cpp).
+void refuse_dialogs();
+
+// Whether dialogs are being refused.
+bool refusing_dialogs();
+#endif
+
 #ifdef _WIN32
 // Whether the program's first window is the foreground one and holds the
 // keyboard focus, as Windows says.

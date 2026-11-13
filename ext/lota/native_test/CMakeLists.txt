@@ -11,6 +11,8 @@
 # parity harness and the tests of boot.lua's version warning,
 # dialogs_linux.cpp asks liblota_dialogs to on Linux, and
 # dialogs_windows.cpp presses it through a hook of Windows' on Windows.
+# Every other dialog is refused: by liblota_dialogs on Linux, and on macOS
+# and Windows by this extension, as it loads (test/dialog_guard.rb).
 # lota.gemspec does not package this directory, and extconf.rb builds it
 # only when asked (--enable-native-test), so no installed gem contains it.
 if(APPLE)
