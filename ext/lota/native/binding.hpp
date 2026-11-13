@@ -383,6 +383,14 @@ public:
     key_ = rb_ractor_local_storage_value_newkey();
   }
 
+  // Every live wrapper in this Ractor, as a Ruby Array.
+  [[nodiscard]] Rice::Array wrappers() const {
+    if (key_ == nullptr) {
+      return {};
+    }
+    return {Rice::Object(map()).call("values").value()};
+  }
+
   // The live wrapper of +object+ in this Ractor, or Qnil.
   [[nodiscard]] VALUE find(love::Object *object) const {
     if (key_ == nullptr) {

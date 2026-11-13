@@ -116,6 +116,7 @@ PREPUSH_LEAVES_OUT = %w[
   RakeTasksTest#test_the_native_suite_passes_under_the_sanitizers
   LotaRunTest
   RestartRunTest
+  CloseModulesTest
   PhysicsBindingsTest#test_bodies_never_returns_a_wrapper_the_collector_found_dead
   JoystickEventsTest#test_joysticks_never_returns_a_wrapper_the_collector_found_dead
   NativeGemTest#test_a_warning_stops_the_build

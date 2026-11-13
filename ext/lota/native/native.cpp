@@ -34,9 +34,13 @@
 #include "native/video.hpp"
 #include "native/window.hpp"
 
+#include "common/Module.h"
 #include "common/version.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -49,6 +53,113 @@ namespace {
 std::size_t drain_release_queue() { return lota::native::ReleaseQueue::instance().drain(); }
 
 std::size_t queued_releases() { return lota::native::ReleaseQueue::instance().size(); }
+
+// SPDX-SnippetBegin
+// SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+// SPDX-License-Identifier: Zlib
+//
+// The modules boot.lua opens (vendor/love/src/modules/love/boot.lua:
+// 348-368), in the opposite order, with the filesystem, which love.boot
+// opens first (line 46), last.
+
+struct Closing {
+  love::Module::ModuleType type;
+  const char *name;
+};
+
+constexpr std::array<Closing, 20> CLOSING_ORDER = {
+    {
+        {.type = love::Module::M_PHYSICS, .name = "physics"},
+        {.type = love::Module::M_MATH, .name = "math"},
+        {.type = love::Module::M_GRAPHICS, .name = "graphics"},
+        {.type = love::Module::M_WINDOW, .name = "window"},
+        {.type = love::Module::M_FONT, .name = "font"},
+        {.type = love::Module::M_VIDEO, .name = "video"},
+        {.type = love::Module::M_IMAGE, .name = "image"},
+        {.type = love::Module::M_AUDIO, .name = "audio"},
+        {.type = love::Module::M_SENSOR, .name = "sensor"},
+        {.type = love::Module::M_SYSTEM, .name = "system"},
+        {.type = love::Module::M_SOUND, .name = "sound"},
+        {.type = love::Module::M_TOUCH, .name = "touch"},
+        {.type = love::Module::M_MOUSE, .name = "mouse"},
+        {.type = love::Module::M_JOYSTICK, .name = "joystick"},
+        {.type = love::Module::M_KEYBOARD, .name = "keyboard"},
+        {.type = love::Module::M_EVENT, .name = "event"},
+        {.type = love::Module::M_TIMER, .name = "timer"},
+        {.type = love::Module::M_THREAD, .name = "thread"},
+        {.type = love::Module::M_DATA, .name = "data"},
+        {.type = love::Module::M_FILESYSTEM, .name = "filesystem"},
+    },
+};
+
+// SPDX-SnippetEnd
+
+// The modules close_modules let go of that something else still held, as
+// the window holds graphics. Lota holds no reference to them any more, so
+// they are never let go of twice.
+std::set<love::Module *> &lingering() {
+  static std::set<love::Module *> modules;
+  return modules;
+}
+
+// Drops from lingering() the modules that have closed since.
+void forget_closed() {
+  std::erase_if(lingering(), [](love::Module *module) {
+    return std::ranges::none_of(CLOSING_ORDER, [module](const Closing &closing) {
+      return love::Module::getInstance<love::Module>(closing.type) == module;
+    });
+  });
+}
+
+// Closes the engine as lua_close closes LÖVE's main Lua state when a game
+// quits or restarts (src/love.cpp:291): first it releases every engine
+// object this Ractor's wrappers hold, as closing the state collects every
+// userdata, so no object outlives a module it needs, and a wrapper that
+// is still reachable answers as a released one; then the release queue;
+// then it lets go of each module, in the opposite order to the one
+// boot.lua opened them in, as Lua collects the modules after the objects
+// they made. A module something else holds goes when that lets go of it,
+// as graphics goes with the window. The thread module stays while a
+// thread runs (Lota::Native::Thread.close). Returns the names of the
+// modules still open.
+Rice::Array close_modules() {
+  lota::native::require_main_thread("Lota::Native");
+  const Rice::Array wrappers(lota::native::WrapperIdentities::instance().wrappers());
+  for (const Rice::Object &wrapper : lota::native::ruby::elements(wrappers)) {
+    if (lota::native::EngineWrapper *engine = lota::native::EngineWrapper::of(wrapper.value())) {
+      engine->release(wrapper.value());
+    }
+  }
+  lota::native::ReleaseQueue::instance().drain();
+  forget_closed();
+
+  for (const Closing &closing : CLOSING_ORDER) {
+    if (closing.type == love::Module::M_THREAD) {
+      lota::native::close_thread_module();
+      continue;
+    }
+    auto *module = love::Module::getInstance<love::Module>(closing.type);
+    if (module != nullptr && !lingering().contains(module)) {
+      module->release();
+    }
+  }
+
+  Rice::Array open;
+  for (const Closing &closing : CLOSING_ORDER) {
+    const bool still = closing.type == love::Module::M_THREAD
+                           ? !lota::native::close_thread_module()
+                           : love::Module::getInstance<love::Module>(closing.type) != nullptr;
+    if (still) {
+      open.push(Rice::String(closing.name), false);
+    }
+  }
+  for (const Closing &closing : CLOSING_ORDER) {
+    if (auto *module = love::Module::getInstance<love::Module>(closing.type)) {
+      lingering().insert(module);
+    }
+  }
+  return open;
+}
 
 } // namespace
 
@@ -134,7 +245,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   native.const_set("VERSION_COMPATIBILITY", compatibility);
 
   native.define_singleton_function("drain_release_queue", &drain_release_queue)
-      .define_singleton_function("queued_releases", &queued_releases);
+      .define_singleton_function("queued_releases", &queued_releases)
+      .define_singleton_function("close_modules", &close_modules);
 
   // Last, once every function is bound.
   lota::native::install_engine_calls(native);

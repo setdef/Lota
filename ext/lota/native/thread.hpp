@@ -180,6 +180,10 @@ private:
 // Lota::Native::Thread: the module's functions and its classes.
 void define_thread(const Rice::Module &native);
 
+// Closes the thread module unless a thread runs, which holds it open, and
+// returns whether it is closed (Lota::Native::Thread.close).
+bool close_thread_module();
+
 } // namespace lota::native
 
 #endif // LOTA_NATIVE_THREAD_HPP

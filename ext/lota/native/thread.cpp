@@ -259,6 +259,18 @@ void Channel::mark() const {
 
 love::Type &Thread::type = thread_type();
 
+namespace {
+
+// How many threads run now, which hold the thread module open as each
+// LuaThread's Lua state holds love.thread (LuaThread.cpp:75 and
+// wrap_ThreadModule.cpp:115-128).
+std::atomic<int> &running_threads() {
+  static std::atomic<int> count{0};
+  return count;
+}
+
+} // namespace
+
 Thread::Thread(std::string name, std::string code)
     : name_(std::move(name)), code_(std::move(code)) {}
 
@@ -270,6 +282,7 @@ bool Thread::begin() {
   error_.clear();
   has_error_ = false;
   running_ = true;
+  running_threads()++;
   return true;
 }
 
@@ -283,6 +296,9 @@ void Thread::finish(const std::optional<std::string> &error) {
     on_error(*error);
   }
   const auto lock = signal_.lock();
+  if (running_) {
+    running_threads()--;
+  }
   running_ = false;
   signal_.changed();
 }
@@ -345,6 +361,25 @@ void open() { opened() = true; }
 
 bool is_open() { return opened(); }
 
+void forget_named_channels();
+
+// Lets go of the thread module, as lua_close lets go of the main Lua
+// state's reference to love.thread (src/love.cpp:291). LÖVE's module, and
+// the named channels it holds (ThreadModule.h), go once no Lua state holds
+// it, and every running thread's state does, so while a thread runs they
+// stay for the next run of the game, which takes the same module again
+// (wrap_ThreadModule.cpp:117-123). Lota's threads are Ractors, which
+// cannot hold a C++ module, so the module and its channels stay while any
+// Lota thread runs, and otherwise go. Returns whether the module closed.
+bool close() {
+  if (!opened() || running_threads() > 0) {
+    return !opened();
+  }
+  opened() = false;
+  forget_named_channels();
+  return true;
+}
+
 void require_open() {
   if (!opened()) {
     throw love::Exception("Lota::Thread is not open.");
@@ -359,8 +394,8 @@ void require_open() {
 // ThreadModule.cpp:29-58) and w_newThread, w_newChannel, and w_getChannel
 // (wrap_ThreadModule.cpp:42-94), which Lota::Thread reads the code of.
 
-// The named channels, which live as long as the process, as ThreadModule's
-// live as long as the module.
+// The named channels, which live until the module closes, as
+// ThreadModule's live as long as the module.
 struct NamedChannels {
   std::mutex mutex;
   std::map<std::string, love::StrongRef<Channel>> channels;
@@ -369,6 +404,15 @@ struct NamedChannels {
 NamedChannels &named_channels() {
   static NamedChannels named;
   return named;
+}
+
+void forget_named_channels() {
+  NamedChannels &named = named_channels();
+  std::map<std::string, love::StrongRef<Channel>> channels;
+  {
+    const std::scoped_lock lock(named.mutex);
+    channels.swap(named.channels);
+  }
 }
 
 Channel *get_channel(const std::string &name) {
@@ -466,11 +510,14 @@ void thread_finish(Thread &thread, std::optional<std::string> given) {
 
 } // namespace
 
+bool close_thread_module() { return close(); }
+
 void define_thread(const Rice::Module &native) {
   const Rice::Module thread_module =
       Rice::define_module_under(native, "Thread")
           .define_singleton_function("open", &open)
           .define_singleton_function("open?", &is_open)
+          .define_singleton_function("close", &close)
           .define_singleton_function("channel", &get_channel, Rice::Arg("name"))
           .define_singleton_function("new_channel", &new_channel, Rice::Return().takeOwnership())
           .define_singleton_function("new_thread", &new_thread, Rice::Return().takeOwnership(),

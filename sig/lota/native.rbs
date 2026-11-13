@@ -19,6 +19,8 @@ module Lota
 
     def self.queued_releases: () -> Integer
 
+    def self.close_modules: () -> Array[String]
+
     class RandomGenerator
       def self.cpp_class: () -> String
 
@@ -989,6 +991,8 @@ module Lota
       def self.open: () -> nil
 
       def self.open?: () -> bool
+
+      def self.close: () -> bool
 
       def self.channel: (String name) -> Channel
 
