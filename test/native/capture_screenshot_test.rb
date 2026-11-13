@@ -10,9 +10,9 @@ require_relative "../engine_helper"
 
 # Lota::Graphics.capture_screenshot, and the native call beneath it, which
 # the parity harness reads each frame with (test/parity/probe.rb): the
-# next present hands the frame it shows to the callable, or saves it to
-# the file, as love.graphics.captureScreenshot's function and string forms
-# do. Lövetest's own captureScreenshot test compares the frame with what
+# next present hands the frame it shows to the callable or the Channel,
+# or saves it to the file, as love.graphics.captureScreenshot's function,
+# Channel, and string forms do. Lövetest's own captureScreenshot test compares the frame with what
 # its love.draw shows, so it waits for a port of that screen.
 class CaptureScreenshotTest < Minitest::Test
   include NativeHelper
@@ -116,6 +116,23 @@ class CaptureScreenshotTest < Minitest::Test
     assert_instance_of Lota::Image::ImageData, recorder.frames.fetch(0)
   end
 
+  # w_captureScreenshot's Channel form (wrap_Graphics.cpp:542-548 and
+  # 492-506): once the frame is presented, the Channel gets it as an
+  # ImageData, which Ractors share, so another thread may pop it.
+  def test_a_channel_receives_the_frame_as_image_data_once_presented
+    channel = Lota::Thread::Channel.new
+    Lota::Graphics.capture_screenshot(channel)
+    Lota::Graphics.clear(0, 0, 1)
+
+    assert_equal 0, channel.count
+    Lota::Graphics.present
+    image_data = channel.pop
+
+    assert_instance_of Lota::Image::ImageData, image_data
+    assert_equal [0.0, 0.0, 1.0, 1.0], image_data.pixel(0, 0)
+    assert_equal 0, channel.count
+  end
+
   # w_captureScreenshot's string form (wrap_Graphics.cpp:519-540): the
   # frame is saved in the save directory, in the format the extension
   # names, once it is presented.
@@ -139,7 +156,9 @@ class CaptureScreenshotTest < Minitest::Test
 
   def test_a_target_and_a_block_together_or_neither_are_refused
     assert_raises(ArgumentError) { Lota::Graphics.capture_screenshot("shot.png") { nil } }
-    assert_raises(TypeError) { Lota::Graphics.capture_screenshot(3) }
+    error = assert_raises(TypeError) { Lota::Graphics.capture_screenshot(3) }
+    assert_equal "wrong argument type Integer (expected String, Lota::Thread::Channel, or an object that answers call)",
+      error.message
     assert_raises(TypeError) { Lota::Graphics.capture_screenshot }
   end
 

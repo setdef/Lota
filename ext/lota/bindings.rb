@@ -562,8 +562,8 @@ generate "love.graphics.getPixelDimensions"
 generate "love.graphics.flushBatch"
 bound_by_hand "love.graphics.captureScreenshot",
   reason: "takes a Lua function, a Channel, or a filename, and keeps the function or the file's name to use " \
-    "once the frame is presented; Lota binds a Ruby callable and a filename, and the Channel form waits for " \
-    "story 7's Ractor channels"
+    "once the frame is presented; Lota binds a Ruby callable and a filename, and Lota::Graphics pushes the " \
+    "frame onto a Channel through the callable"
 bound_by_hand "love.graphics.getStats",
   reason: "fills in a table it is given or makes, field by field (lua_setfield), which the generator does not " \
     "port; Lota returns the fields as a Hash, which Lota::Graphics.stats makes a frozen Data (rule 28)"

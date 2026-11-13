@@ -2870,40 +2870,44 @@ module Lota
       Native::Graphics.flush_batch
     end
 
+    # What Lota::Graphics.capture_screenshot's TypeError says it takes, as
+    # w_captureScreenshot's says "function, string, or Channel". :nodoc:
+    SCREENSHOT_TARGETS = "expected String, Lota::Thread::Channel, or an object that answers call"
+
     # Captures the next frame the window shows, matching
     # love.graphics.captureScreenshot
     # (src/modules/graphics/wrap_Graphics.cpp, w_captureScreenshot).
     #
     # [target] A String file name, to save the frame in the save
     #   directory, in the format its extension names (+png+ or +tga+); or
-    #   any object that answers +call+, or a block, which LÖVE keeps to
-    #   call with the frame as a Lota::Image::ImageData (rule 31 of
+    #   a Lota::Thread::Channel, to push the frame onto as a
+    #   Lota::Image::ImageData, which another thread may pop; or any object
+    #   that answers +call+, or a block, which LÖVE keeps to call with the
+    #   frame as a Lota::Image::ImageData (rule 31 of
     #   doc/contributors/design/translation.md), as Signal.trap keeps its
     #   handler.
     #
     # The capture happens once the frame is presented, at the end of the
     # loop's draw. LÖVE prints, rather than raises, an error in saving the
     # file, and so does Lota; an error the callable raises comes out of
-    # Lota::Graphics.present. LÖVE also sends the frame to a Channel, a form
-    # that waits for Lota's counterpart of love.thread. Raises ArgumentError for an
-    # extension LÖVE cannot encode, or for both a target and a block,
-    # TypeError for a target that is neither, and ThreadError off the main
-    # thread.
+    # Lota::Graphics.present. Raises ArgumentError for an extension LÖVE
+    # cannot encode, or for both a target and a block, TypeError for a
+    # target that is none of these, and ThreadError off the main thread.
     #
     # === Examples
     #
     #   Lota::Graphics.capture_screenshot("screenshot.png")
     #   Lota::Graphics.capture_screenshot { |image_data| frames << image_data }
+    #   Lota::Graphics.capture_screenshot(Lota::Thread.channel("frames"))
     def self.capture_screenshot(target = nil, &block)
       raise ArgumentError, "wrong number of arguments (given 1 and a block, expected 1 or a block)" if target && block
 
       case (callable = block || target)
       when String then Native::Graphics.capture_screenshot_to_file(callable)
-      when nil then raise TypeError, "wrong argument type NilClass (expected String or an object that answers call)"
+      when Lota::Thread::Channel then capture_screenshot { |image_data| callable.push(image_data) }
+      when nil then raise TypeError, "wrong argument type NilClass (#{SCREENSHOT_TARGETS})"
       else
-        unless callable.respond_to?(:call)
-          raise TypeError, "wrong argument type #{callable.class} (expected String or an object that answers call)"
-        end
+        raise TypeError, "wrong argument type #{callable.class} (#{SCREENSHOT_TARGETS})" unless callable.respond_to?(:call)
 
         Native::Graphics.capture_screenshot(-> (image) { callable.call(Lota::Image::ImageData.__send__(:from_native, image)) })
       end

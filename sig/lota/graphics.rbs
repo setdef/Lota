@@ -81,7 +81,9 @@ module Lota
 
     def self.flush_batch: () -> nil
 
-    def self.capture_screenshot: (String | callable target) -> nil
+    SCREENSHOT_TARGETS: String
+
+    def self.capture_screenshot: (String | Lota::Thread::Channel | callable target) -> nil
                                | () { (Lota::Image::ImageData image_data) -> void } -> nil
 
     interface _Callable
