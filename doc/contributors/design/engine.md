@@ -86,7 +86,25 @@ A phone pays more. Its CPU is slower, and Ruby runs there without a JIT, since i
 
 The iPhone 12 mini is a near-worst case for iOS, and the Nord is a mid-range Android phone. A 60 Hz frame holds about 12,000 draws on the one and about 4,000 on the other. On the Nord a profile puts about a fifth of a call in allocating and freeing memory, which fits Rice rebuilding its argument map.
 
-Lota keeps Rice for now ([ADR 006](../adr/006.md)). Binding through Ruby's C API directly costs a few nanoseconds a call, and the generator could emit it. Lota weighs the options again when a game's binding cost may become a problem, which a mid-range Android phone shows first.
+flash-blip itself was measured on the same two phones on 2026-11-12. A probe inside the game played the parity harness's script, 900 frames at a fixed 60 Hz with the same keys, and timed each frame's update and draw. In other runs it also wrapped every native call to count and time it, less the wrapper's own cost. LÖVE was 11.5, as above, with LuaJIT's compiler off, as it is on Android. Medians, with the 95th percentile in brackets:
+
+| flash-blip, a frame | iPhone 12 mini, Lota | Nord N30, Lota | Nord N30, LÖVE 11.5 |
+|---|---|---|---|
+| Native calls, attract mode | 2,618 | 2,613 | 2,613 |
+| Update and draw, whole run | 15.4 ms (16.3) | 10.6 ms (13.8) | 5.1 ms |
+| Of that, waiting for the GPU in `setCanvas` | 9.5 ms | not measured | 0.8 ms |
+| Time in native calls, attract mode | 3.5 ms | 10.1 ms | 2.3 ms |
+| A native call, attract mode | 1.3 µs | 3.5 µs | 0.9 µs |
+
+So the heaviest game Lota tests against holds 60 Hz on both phones. On the iPhone the GPU sets the pace, and the native calls, engine work included, take at most a fifth of a frame. On the Nord, Lota takes about twice LÖVE's time for the same frame, most of it Rice's cost per call, and keeps about 3 ms to spare in a slow frame. The Nord ran OpenGL ES here; on Vulkan, LÖVE 12's choice there, Lota's frame took about 10.3 ms.
+
+Lota keeps Rice ([ADR 006](../adr/006.md)). How Lota binds the engine is no part of its public API, so a faster binding can come in any release, once games need it. The options, cheapest first:
+
+- Remove Rice's rebuilding of its argument map on every call, in Rice or in a patch to it, which speeds up every call.
+- Bind only the busiest calls, such as drawing, colors, and sound samples, through Ruby's C API directly, at a few nanoseconds a call, and keep Rice for the rest. The generator could emit them, at the cost of a second kind of binding to maintain.
+- Bind everything through Ruby's C API, which also takes over what Rice does, such as turning C++ exceptions into Ruby exceptions.
+
+A game crosses into the engine less often by drawing through a `SpriteBatch`, which takes many sprites in one call, as in LÖVE.
 
 Neither of Ruby's JITs sees into C++. A call into a C extension is a point the JIT cannot optimize through, though it discards no compiled code. YJIT is Ruby 4.0's production JIT. ZJIT is experimental in 4.0, inlines small Ruby methods into their callers, including methods that yield, and should make the block forms of translation rules 11 and 12 cheap. As the Ruby side gets faster, binding calls become a larger share of each frame, so the benchmark runs under both JITs.
 
