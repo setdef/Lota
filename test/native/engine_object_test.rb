@@ -16,6 +16,8 @@ require_relative "../engine_helper"
 # doc/contributors/design/translation.md). And a game reaches only LÖVE's calls
 # and Ruby's own: what Lota's classes use to reach one another is not public.
 class EngineObjectTest < Minitest::Test
+  include NativeHelper
+
   # Every class of LÖVE's Data that Lota binds, with the header that makes
   # it a Data.
   DATA_CLASSES = {
@@ -95,6 +97,27 @@ class EngineObjectTest < Minitest::Test
     assert_equal [1.0, 2.0], again.position
     refute_equal again, body
     assert_equal body, body
+  end
+
+  # A released object's wrapper lives on while the game holds it, as a
+  # released userdata does in LÖVE, so every collection marks it, and
+  # marking must not ask the wrapper for its object, which a released
+  # wrapper refuses with LÖVE's error: Ruby cannot raise in the middle of
+  # a collection. It runs in a Ruby of its own, which the collection would
+  # otherwise stop.
+  def test_a_collection_leaves_a_released_object_the_game_holds_alone
+    output, status = ruby_of_its_own("-e", <<~RUBY)
+      require "lota"
+      Lota::Native::Data.open
+      Lota::Native::Physics.open
+      held = [Lota::Data::ByteData.new(1), Lota::Physics::World.new]
+      p held.map(&:release)
+      3.times { GC.start(full_mark: true, immediate_sweep: true) }
+      p held.map(&:object_type)
+    RUBY
+
+    assert_predicate status, :success?, output
+    assert_equal %([true, true]\n["ByteData", "World"]\n), output
   end
 
   # The engine hands an object back as the wrapper it already has, keyed

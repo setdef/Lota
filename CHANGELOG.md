@@ -26,6 +26,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A game that releases an object and still holds it no longer stops Ruby at the next garbage collection with "[BUG] object allocation during garbage collection phase".
 - On 64-bit Android, a new engine object, such as a `SoundData` or a `Shader`, no longer comes back as an older object of the same class or another that lay close by in memory, which released the new object and made `SoundData#sample=` raise "Attempt to set out-of-range sample!" and `Shader#send` "Shader uniform ... does not exist." on most launches.
 - `t.gammacorrect` in `Lota.conf` prints LÖVE's deprecation notice, replaced by `t.graphics.gammacorrect`, as `love.conf`'s does.
 

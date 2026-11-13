@@ -617,6 +617,18 @@ private:
   love::StrongRef<T> reference_;
 };
 
+// Marks the Ruby values the wrapper +data+ keeps alive, as the collector
+// asks of every live wrapper of an engine object. Rice's own mark
+// function (Rice 4.12.0, rice/Data_Type.ipp:6-15) also asks the wrapper
+// for its object, to pass it to a ruby_mark specialization, which Lota
+// defines none of; a released wrapper refuses that with LÖVE's error,
+// and Ruby cannot raise during a collection, so it stopped with "[BUG]
+// object allocation during garbage collection phase" at the next
+// collection after a game released an object it still held.
+inline void mark_engine_wrapper(void *data) {
+  static_cast<Rice::detail::WrapperBase *>(data)->ruby_mark();
+}
+
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
@@ -658,6 +670,7 @@ Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *n
   T::type.init();
   Rice::Data_Type<T> bound = Rice::define_class_under<T, Base>(parent, name);
   EngineWrapper::types().insert(Rice::Data_Type<T>::ruby_data_type());
+  Rice::Data_Type<T>::ruby_data_type()->function.dmark = &mark_engine_wrapper;
   if constexpr (Shareable<T>::value) {
     Rice::Data_Type<T>::ruby_data_type()->flags |= RUBY_TYPED_FROZEN_SHAREABLE;
   }
