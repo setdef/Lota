@@ -67,7 +67,7 @@ module Parity
   # and Lota::Timer.time the game's time, the frame under way times DT, as
   # love.timer.getTime does there. Each Lota::Thread::Thread the game
   # starts runs to its end before start returns, as each of LÖVE's
-  # threads does on the Lua side, once Lota has threads.
+  # threads does on the Lua side.
   #
   # Sound is measured twice, as on the Lua side. Lota.load first decodes
   # each file LOTA_PARITY_SOUNDS lists into LOTA_PARITY_SOUNDS_DIR, with
@@ -230,11 +230,9 @@ module Parity
       end
 
       # Writes the report: the frames compared, the first that differed,
-      # and how many Lota::Thread::Threads the game started, or +nil+ when
-      # this Lota has no Lota::Thread.
+      # and how many Lota::Thread::Threads the game started.
       def report
-        threads = Lota.const_defined?(:Thread, false) ? @threads : nil
-        File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch, "threads" => threads))
+        File.write(REPORT, JSON.generate("compared" => @compared, "mismatch" => @mismatch, "threads" => @threads))
       end
 
       # How frame +number+, shown by Lota as +actual+, differs from the one
@@ -351,5 +349,5 @@ Time.singleton_class.prepend(Parity::Probe::Clock)
 Lota::Timer.singleton_class.prepend(Parity::Probe::Delta)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
 Lota::Boot.prepend(Parity::Probe::SeedBeforeMain)
-Lota::Thread::Thread.prepend(Parity::Probe::Threads) if Lota.const_defined?(:Thread, false)
+Lota::Thread::Thread.prepend(Parity::Probe::Threads)
 at_exit { Parity::Probe.report }

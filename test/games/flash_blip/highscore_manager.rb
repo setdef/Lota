@@ -13,8 +13,8 @@
 # (test/fixtures/flash_blip/game/highscore_manager.lua, lines 1-215), by the
 # rules of doc/contributors/design/translation.md: love.data.compress and
 # encode are Lota::Data.compress and encode, their container and format
-# symbols (rules 9 and 40), and love.thread.getChannel is Threads.channel
-# (threads.rb), until Lota has its own threads. The data field
+# symbols (rules 9 and 40), and love.thread.getChannel is Lota::Thread.channel
+# (rule 3). The data field
 # MIN_RELEVANT_SCORE reads as HighscoreManager.min_relevant_score.
 #
 # A score from the server, a table of id, player, and score, is a
@@ -30,7 +30,6 @@
 require "lib/hmac"
 require "settings"
 require "http_client"
-require "threads"
 require "lua"
 
 module HighscoreManager
@@ -166,14 +165,14 @@ module HighscoreManager
     return if @active_download
 
     @active_download = true
-    Threads.channel("highscore_download").clear
+    Lota::Thread.channel("highscore_download").clear
     start_get("/scores", "highscore_download")
   end
 
   def self.poll_download(callback = nil)
     return false unless @active_download
 
-    msg = Threads.channel("highscore_download").pop
+    msg = Lota::Thread.channel("highscore_download").pop
     return false unless msg
 
     @active_download = false
@@ -195,7 +194,7 @@ module HighscoreManager
 
     @checking_relevance = true
 
-    channel = Threads.channel("relevance_check")
+    channel = Lota::Thread.channel("relevance_check")
     channel.clear
 
     if score < min_relevant_score
@@ -209,7 +208,7 @@ module HighscoreManager
   def self.poll_relevance_check(callback = nil)
     return false unless @checking_relevance
 
-    msg = Threads.channel("relevance_check").pop
+    msg = Lota::Thread.channel("relevance_check").pop
     return false unless msg
 
     @checking_relevance = false

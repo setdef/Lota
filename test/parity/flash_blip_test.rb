@@ -25,11 +25,9 @@ require_relative "parity_helper"
 # which the harness refuses in both engines alike, so no run reaches the
 # network (Parity::OFFLINE, test/parity/offline_test.rb). The harness
 # runs each thread to its end as it starts (wait_for_threads in
-# test/parity/lua/conf.lua), and the splash ends in frame 1. Lota has
-# no threads yet, so the translation's two threads run their code as they
-# start (test/games/flash_blip/threads.rb), which is what the harness
-# makes them do; test_the_translation_runs_its_threads_in_lota_threads
-# waits for Lota::Thread. Its first star color comes from a pairs loop
+# test/parity/lua/conf.lua), and so does Lota's probe for each of the
+# translation's Lota::Thread::Threads (test/parity/probe.rb), so the
+# splash ends in frame 1 in both. Its first star color comes from a pairs loop
 # (parallax.lua:13-16), whose order LuaJIT changes from run to run, which
 # the harness fixes (sorted_pairs).
 class FlashBlipTest < Minitest::Test
@@ -130,15 +128,9 @@ class FlashBlipTest < Minitest::Test
 
   # Each of the game's threads runs in a Lota::Thread::Thread, as each of
   # LÖVE's runs in a love.thread Thread: the music's and the update
-  # check's. Until Lota has Lota::Thread, the translation runs their code
-  # as each starts (test/games/flash_blip/threads.rb), and the probe
-  # reports no count of threads.
+  # check's, which the probe counts.
   def test_the_translation_runs_its_threads_in_lota_threads
     assert_predicate lota.output.status, :success?, lota.output.text
-    if lota.report["threads"].nil?
-      skip "pending threads: Lota has no Lota::Thread, so the music and the update check run their code as they start"
-    end
-
     assert_equal 2, lota.report["threads"]
   end
 end

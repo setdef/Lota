@@ -15,8 +15,8 @@
 # is Lota::Filesystem.info and getSaveDirectory save_directory (rule 3),
 # love.filesystem.lines an Enumerator (rule 15), love.filesystem.read an
 # Array (rule 4), love.timer.getTime Lota::Timer.time, and
-# love.thread.newThread and getChannel Threads.new_thread and
-# Threads.channel (threads.rb), until Lota has its own threads.
+# love.thread.newThread and getChannel Lota::Thread::Thread.new (rule 2)
+# and Lota::Thread.channel.
 #
 # LuaSocket's http.request, in the threads and in sync_get, is Ruby's own
 # Net::HTTP with the same timeout on connecting, sending, and receiving, as
@@ -38,7 +38,6 @@
 # regular expressions with the same meaning.
 
 require "settings"
-require "threads"
 require "lua"
 
 module HttpClient
@@ -169,10 +168,6 @@ module HttpClient
 
   NATIVE_GET_THREAD_CODE = <<~RUBY
     require "net/http"
-    # The channels this thread hands values back on: Lota::Thread's once
-    # Lota has threads, run in a Ractor of its own; until then the inline
-    # Threads', on the main thread.
-    channel = Lota.const_defined?(:Thread, false) ? Lota::Thread.method(:channel) : Threads.method(:channel)
     url, channel_name, timeout = ARGV
     uri = URI(url)
     ok = nil
@@ -194,15 +189,11 @@ module HttpClient
     rescue StandardError => e
       code = e.message
     end
-    channel.call(channel_name).push({ ok: ok, code: code, data: resp_body.join }.freeze)
+    Lota::Thread.channel(channel_name).push({ ok: ok, code: code, data: resp_body.join }.freeze)
   RUBY
 
   NATIVE_POST_THREAD_CODE = <<~RUBY
     require "net/http"
-    # The channels this thread hands values back on: Lota::Thread's once
-    # Lota has threads, run in a Ractor of its own; until then the inline
-    # Threads', on the main thread.
-    channel = Lota.const_defined?(:Thread, false) ? Lota::Thread.method(:channel) : Threads.method(:channel)
     url, channel_name, timeout, body, headers = ARGV
     uri = URI(url)
     headers = headers.merge("Content-Length" => body.bytesize.to_s)
@@ -227,7 +218,7 @@ module HttpClient
     rescue StandardError => e
       code = e.message
     end
-    channel.call(channel_name).push({ ok: ok, code: code, data: resp_body.join }.freeze)
+    Lota::Thread.channel(channel_name).push({ ok: ok, code: code, data: resp_body.join }.freeze)
   RUBY
 
   @active_threads = {}
@@ -243,7 +234,7 @@ module HttpClient
     headers ||= {}
     @next_channel_id += 1
     channel_name = "http_post_#{@next_channel_id}"
-    thread = Threads.new_thread(NATIVE_POST_THREAD_CODE)
+    thread = Lota::Thread::Thread.new(NATIVE_POST_THREAD_CODE)
     @active_threads[thread] = true
     @pending_requests << PendingRequest.new(channel_name, callback, thread)
     thread.start(@base_url + endpoint, channel_name, POST_TIMEOUT_SECONDS, body, headers)
@@ -257,7 +248,7 @@ module HttpClient
 
     @next_channel_id += 1
     channel_name = "http_get_#{@next_channel_id}"
-    thread = Threads.new_thread(NATIVE_GET_THREAD_CODE)
+    thread = Lota::Thread::Thread.new(NATIVE_GET_THREAD_CODE)
     @active_threads[thread] = true
     @pending_requests << PendingRequest.new(channel_name, callback, thread)
     thread.start(@base_url + endpoint, channel_name, timeout || DEFAULT_TIMEOUT_SECONDS)
@@ -265,7 +256,7 @@ module HttpClient
 
   def self.get_via_channel(endpoint, channel_name)
     get(endpoint, proc do |ok, status, data|
-      channel = Threads.channel(channel_name)
+      channel = Lota::Thread.channel(channel_name)
       if ok
         channel.push({ success: true, data: }.freeze)
       else
@@ -301,7 +292,7 @@ module HttpClient
   def self.poll_thread_results(entries)
     (entries.size - 1).downto(0) do |i|
       entry = entries[i]
-      msg = Threads.channel(entry.channel_name).pop
+      msg = Lota::Thread.channel(entry.channel_name).pop
       next unless msg
 
       @active_threads.delete(entry.thread)

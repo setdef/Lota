@@ -18,8 +18,9 @@
 # (rule 9); setLooping and setVolume become writers (rule 5), setSample a
 # writer that takes the index and the value (rule 6), isRunning running?
 # (rule 8), and getFreeBufferCount free_buffer_count (rules 3 and 13).
-# The module's Lua locals are its instance variables. love.thread is
-# reached through threads.rb, as Threads.new_thread and Threads.channel.
+# The module's Lua locals are its instance variables. love.thread's
+# newThread and getChannel are Lota::Thread::Thread.new (rule 2) and
+# Lota::Thread.channel (rule 3).
 #
 # The music is generated in a thread, from a Lua string that becomes a
 # Ruby string of the same code. It generates 1,572,864 samples, so the
@@ -34,7 +35,6 @@
 # by 4.0, keeps the Lua's floor-and-divide arithmetic on Floats as it is.
 
 require "settings"
-require "threads"
 require "lua"
 
 module Music
@@ -160,7 +160,7 @@ module Music
   @web_step = @full_rate.fdiv(@web_rate)
 
   @generation_thread = nil
-  @sound_data_channel = Threads.channel("sound_data")
+  @sound_data_channel = Lota::Thread.channel("sound_data")
   @is_generating_sound_data = false
   @is_ready = false
 
@@ -197,10 +197,6 @@ module Music
   # the object it runs in.
   @generate_sound_data_code = <<~RUBY
     # require("love.sound"): Lota has its sound module wherever this runs.
-
-    # Lota::Thread hands values back on its channels once Lota has threads;
-    # until then this runs inline, and threads.rb's channels do.
-    channel = Lota.const_defined?(:Thread, false) ? Lota::Thread.method(:channel) : Threads.method(:channel)
 
     rate = 32000
     step = 1
@@ -282,7 +278,7 @@ module Music
       sound_data.sample = i, sample
     end
 
-    channel.call("sound_data").push(sound_data)
+    Lota::Thread.channel("sound_data").push(sound_data)
   RUBY
 
   def self.play
@@ -302,7 +298,7 @@ module Music
 
     if !is_web
       unless @is_generating_sound_data
-        @generation_thread = Threads.new_thread(@generate_sound_data_code)
+        @generation_thread = Lota::Thread::Thread.new(@generate_sound_data_code)
         @generation_thread.start
         @is_generating_sound_data = true
       end
