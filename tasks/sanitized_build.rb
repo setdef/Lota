@@ -98,12 +98,12 @@ class SanitizedBuild
     [runtime, *COMPANIONS.fetch(@platform).map { |name| find(name) }]
   end
 
-  # On Linux, the library that refuses the dialogs a test shows, when the
-  # tree has built it (ext/lota/native_test/answer_dialogs_linux.cpp,
-  # TestFiles::DIALOGS).
+  # The library that refuses the dialogs a test shows, when the tree has
+  # built it (ext/lota/native_test/answer_dialogs_linux.cpp and
+  # answer_dialogs_macos.cpp, TestFiles::DIALOGS).
   private def dialogs
-    library = File.join(lib, "liblota_dialogs.so")
-    (@platform == "linux" && File.exist?(library)) ? [library] : []
+    library = File.join(lib, "liblota_dialogs.#{(@platform == 'linux') ? 'so' : 'dylib'}")
+    File.exist?(library) ? [library] : []
   end
 
   # The environment that loads the runtime into Ruby.

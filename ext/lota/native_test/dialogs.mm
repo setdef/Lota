@@ -10,6 +10,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 #include <atomic>
+#include <dlfcn.h>
 #include <memory>
 #include <string>
 
@@ -104,6 +105,11 @@ void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPo
 // it again changes nothing.
 void press_return_on_dialogs() {
   static const bool installed = [] {
+    // liblota_dialogs (answer_dialogs_macos.cpp) refuses every dialog until
+    // asked, where the tests loaded it; a program without it shows them.
+    if (void *const answer = dlsym(RTLD_DEFAULT, "lota_press_return_on_dialogs")) {
+      reinterpret_cast<void (*)()>(answer)();
+    }
     // SDL makes the application when it starts its video subsystem
     // (Cocoa_RegisterApp, src/video/cocoa/SDL_cocoaevents.m), which may come
     // after this, and tells it that it finished launching then.

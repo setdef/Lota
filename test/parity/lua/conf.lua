@@ -351,6 +351,13 @@ double CFAbsoluteTimeGetCurrent(void);
 void *CFStringCreateWithCString(void *allocator, const char *string, uint32_t encoding);
 ]])
 
+  -- liblota_dialogs, which the harness loads into this process with
+  -- DYLD_INSERT_LIBRARIES (ext/lota/native_test/answer_dialogs_macos.cpp),
+  -- refuses every dialog until told that the timer below answers them.
+  ffi.cdef([[
+void lota_press_return_on_dialogs(void);
+]])
+
   local send = ffi.cast("LotaParityId (*)(LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
   local send_id = ffi.cast("void (*)(LotaParityId, LotaParityId, LotaParityId)", ffi.C.objc_msgSend)
   local kCFStringEncodingUTF8 = 0x08000100
@@ -379,6 +386,7 @@ void *CFStringCreateWithCString(void *allocator, const char *string, uint32_t en
       send_id(button, ffi.C.sel_registerName("performClick:"), nil)
     end
   end)
+  ffi.C.lota_press_return_on_dialogs()
   ffi.C.CFRunLoopAddTimer(ffi.C.CFRunLoopGetMain(),
     ffi.C.CFRunLoopTimerCreate(nil, ffi.C.CFAbsoluteTimeGetCurrent() + 0.1, 0.1, 0, 0, press_return, nil),
     ffi.C.CFStringCreateWithCString(nil, "NSModalPanelRunLoopMode", kCFStringEncodingUTF8))

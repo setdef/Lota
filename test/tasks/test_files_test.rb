@@ -64,24 +64,25 @@ class TestFilesTest < Minitest::Test
     Rake.application = previous
   end
 
-  # A test run refuses the message boxes no one can answer: on Linux it
-  # loads liblota_dialogs into every program, after a sanitizer's runtime.
+  # A test run refuses the message boxes no one can answer: on Linux and
+  # macOS it loads liblota_dialogs into every program, after a sanitizer's
+  # runtime.
   def test_a_linux_run_preloads_the_library_that_refuses_dialogs_after_a_sanitizers_runtime
     in_tree do |root|
       library = write(root, "liblota_dialogs.so")
 
-      assert_equal({ "LD_PRELOAD" => library }, TestFiles.environment(env: {}, library:, linux: true))
+      assert_equal({ "LD_PRELOAD" => library }, TestFiles.environment(env: {}, library:, platform: "x86_64-linux"))
       assert_equal({ "LD_PRELOAD" => "libasan.so #{library}" },
-        TestFiles.environment(env: { "LD_PRELOAD" => "libasan.so" }, library:, linux: true))
+        TestFiles.environment(env: { "LD_PRELOAD" => "libasan.so" }, library:, platform: "x86_64-linux"))
+      assert_equal({ "DYLD_INSERT_LIBRARIES" => "libclang_rt.asan.dylib:#{library}" },
+        TestFiles.environment(env: { "DYLD_INSERT_LIBRARIES" => "libclang_rt.asan.dylib" }, library:,
+          platform: "arm64-darwin27"))
     end
   end
 
-  def test_a_run_preloads_nothing_before_the_build_or_off_linux
+  def test_a_run_preloads_nothing_before_the_build
     in_tree do |root|
-      library = write(root, "liblota_dialogs.so")
-
-      assert_empty TestFiles.environment(env: {}, library: File.join(root, "missing.so"), linux: true)
-      assert_empty TestFiles.environment(env: {}, library:, linux: false)
+      assert_empty TestFiles.environment(env: {}, library: File.join(root, "missing.so"), platform: "x86_64-linux")
     end
   end
 

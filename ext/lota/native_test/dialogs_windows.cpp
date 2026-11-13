@@ -15,12 +15,16 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <cwchar>
 #include <iterator>
 #include <string>
 #include <vector>
 
+#include <SDL3/SDL_messagebox.h>
 #include <windows.h>
 
 namespace lota::native_test {
@@ -37,6 +41,107 @@ std::atomic<int> &answered() {
 HHOOK &dialog_hook() {
   static HHOOK hook = nullptr;
   return hook;
+}
+
+// The bytes of a function's start that a jump to a refusal replaces. On
+// x64, a move of the refusal's address into rax and a jump to it; on
+// ARM64, a load of the address that follows into x16 and a branch to it.
+#if defined(__aarch64__)
+constexpr std::size_t jump_size = 16;
+#else
+constexpr std::size_t jump_size = 12;
+#endif
+
+// The jump to +address+, as it is written over a function's start.
+std::array<unsigned char, jump_size> jump_to(void *address) {
+#if defined(__aarch64__)
+  // ldr x16, #8; br x16; then the address.
+  std::array<unsigned char, jump_size> jump = {0x50, 0x00, 0x00, 0x58, 0x00, 0x02, 0x1F, 0xD6};
+  const auto target = reinterpret_cast<std::uintptr_t>(address);
+  std::memcpy(&jump[8], &target, sizeof(target));
+#else
+  std::array<unsigned char, jump_size> jump = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};
+  const auto target = reinterpret_cast<std::uintptr_t>(address);
+  std::memcpy(&jump[2], &target, sizeof(target));
+#endif
+  return jump;
+}
+
+// A function of SDL's whose start was replaced, and what was there.
+struct Replaced {
+  unsigned char *function = nullptr;
+  std::array<unsigned char, jump_size> original{};
+};
+
+// The functions SDL shows dialogs with, once replaced.
+std::array<Replaced, 2> &replaced() {
+  static std::array<Replaced, 2> functions;
+  return functions;
+}
+
+// Writes +bytes+ over the start of +function+, which is code.
+bool overwrite(unsigned char *function, const std::array<unsigned char, jump_size> &bytes) {
+  DWORD protection = 0;
+  if (VirtualProtect(function, jump_size, PAGE_EXECUTE_READWRITE, &protection) == FALSE) {
+    return false;
+  }
+  std::memcpy(function, bytes.data(), jump_size);
+  VirtualProtect(function, jump_size, protection, &protection);
+  FlushInstructionCache(GetCurrentProcess(), function, jump_size);
+  return true;
+}
+
+// Writes what a dialog said to standard error.
+void say_refused(const char *title, const char *message) {
+  std::fprintf(stderr, "lota_dialogs: refused a message box (no one can answer it): %s: %s\n",
+               title != nullptr ? title : "", message != nullptr ? message : "");
+  std::fflush(stderr);
+}
+
+// SDL_ShowMessageBox, refused.
+bool refused_message_box(const SDL_MessageBoxData *data, int *button) {
+  if (data == nullptr) {
+    return false;
+  }
+  if (button != nullptr) {
+    *button = -1;
+  }
+  say_refused(data->title, data->message);
+  return false;
+}
+
+// SDL_ShowSimpleMessageBox, refused.
+bool refused_simple_message_box(SDL_MessageBoxFlags /*flags*/, const char *title,
+                                const char *message, SDL_Window * /*window*/) {
+  say_refused(title, message);
+  return false;
+}
+
+// Replaces SDL's function +name+ with +refusal+ in the one SDL3.dll every
+// extension of Lota's shares, keeping its start in +slot+.
+void replace(Replaced &slot, const char *name, void *refusal) {
+#if defined(__x86_64__) || defined(__aarch64__)
+  HMODULE sdl = GetModuleHandleW(L"SDL3.dll");
+  if (sdl == nullptr) {
+    sdl = LoadLibraryW(L"SDL3.dll");
+  }
+  FARPROC const found = sdl == nullptr ? nullptr : GetProcAddress(sdl, name);
+  if (found == nullptr) {
+    return;
+  }
+  auto *const function = reinterpret_cast<unsigned char *>(found);
+  const std::array<unsigned char, jump_size> jump = jump_to(refusal);
+  std::array<unsigned char, jump_size> original{};
+  std::memcpy(original.data(), function, jump_size);
+  if (overwrite(function, jump)) {
+    slot.function = function;
+    slot.original = original;
+  }
+#else
+  static_cast<void>(slot);
+  static_cast<void>(name);
+  static_cast<void>(refusal);
+#endif
 }
 
 // Whether +window+ is of the window class +name+.
@@ -106,8 +211,25 @@ HWND first_window() {
 
 } // namespace
 
-// Calling it again changes nothing.
+void refuse_dialogs() {
+  if (refusing_dialogs()) {
+    return;
+  }
+  replace(replaced()[0], "SDL_ShowMessageBox", reinterpret_cast<void *>(&refused_message_box));
+  replace(replaced()[1], "SDL_ShowSimpleMessageBox",
+          reinterpret_cast<void *>(&refused_simple_message_box));
+}
+
+bool refusing_dialogs() { return replaced()[0].function != nullptr; }
+
+// Answers dialogs from now on, by putting SDL's functions back, and
+// presses Return on each. Calling it again changes nothing.
 void press_return_on_dialogs() {
+  for (Replaced &slot : replaced()) {
+    if (slot.function != nullptr && overwrite(slot.function, slot.original)) {
+      slot.function = nullptr;
+    }
+  }
   if (dialog_hook() == nullptr) {
     dialog_hook() = SetWindowsHookExW(WH_CBT, watch_for_dialogs, nullptr, GetCurrentThreadId());
   }

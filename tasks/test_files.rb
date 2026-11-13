@@ -26,22 +26,26 @@ module TestFiles
   end
 
   # The library that refuses the message boxes a test run shows
-  # (ext/lota/native_test/answer_dialogs_linux.cpp). SDL shows a dialog
-  # with zenity or a window of its own and waits for a button no one in an
-  # unattended run can press, so a test whose game fails to start would
-  # hold the run until its timeout. The build puts it beside the extensions.
-  DIALOGS = File.expand_path("../tmp/engine/build/lib/liblota_dialogs.so", __dir__)
+  # (ext/lota/native_test/answer_dialogs_linux.cpp and
+  # answer_dialogs_macos.cpp). The system shows a dialog and waits for a
+  # button no one in an unattended run can press, so a test whose game
+  # fails to start would hold the run until its timeout. The build puts it
+  # beside the extensions.
+  DIALOGS = File.expand_path(
+    "../tmp/engine/build/lib/liblota_dialogs.#{RUBY_PLATFORM.include?('linux') ? 'so' : 'dylib'}", __dir__
+  )
 
-  # The environment a test run starts in: on Linux, once the build has made
-  # DIALOGS, the library loaded into the run first, after whatever +env+
-  # already preloads (a sanitizer's runtime has to come first), so every
-  # program the tests start inherits it. Nothing, elsewhere: macOS and
-  # Windows show their dialogs through the system, and the harness presses
-  # a button on request.
-  def self.environment(env: ENV, library: DIALOGS, linux: RUBY_PLATFORM.include?("linux"))
-    return {} unless linux && File.exist?(library)
+  # The environment a test run starts in: once the build has made DIALOGS,
+  # the library loaded into the run first, after whatever +env+ already
+  # loads (a sanitizer's runtime has to come first), so every program the
+  # tests start inherits it. Nothing on Windows, which has no way to load a
+  # library into a program before it starts: the test extension refuses
+  # dialogs there as it loads (ext/lota/native_test/dialogs_windows.cpp).
+  def self.environment(env: ENV, library: DIALOGS, platform: RUBY_PLATFORM)
+    return {} if platform.match?(/mingw|mswin/) || !File.exist?(library)
 
-    { "LD_PRELOAD" => [env.fetch("LD_PRELOAD", nil), library].compact.reject(&:empty?).join(" ") }
+    variable, separator = platform.include?("linux") ? ["LD_PRELOAD", " "] : ["DYLD_INSERT_LIBRARIES", ":"]
+    { variable => [env.fetch(variable, nil), library].compact.reject(&:empty?).join(separator) }
   end
 
   # A Minitest::TestTask that runs the files TEST names, when it names

@@ -33,16 +33,19 @@ module NativeHelper
   def self.preload(*libraries)
     return { "DYLD_INSERT_LIBRARIES" => libraries.join(":") } unless TestHome::LINUX
 
-    { "LD_PRELOAD" => [ENV.fetch("LD_PRELOAD", nil), *libraries].compact.join(" ") }
+    { "LD_PRELOAD" => [ENV.fetch("LD_PRELOAD", nil), *libraries].compact.uniq.join(" ") }
   end
 
-  # On Linux, the libraries in the build tree's +lib+ that a program which
-  # calls LotaNativeTest.press_return_on_dialogs, or whose Lua presses
-  # Return on dialogs, needs loaded (ext/lota/native_test/
-  # answer_dialogs_linux.cpp). On macOS the test extension presses it
-  # through AppKit, and needs none.
+  # On Linux and macOS, the libraries in the build tree's +lib+ that a
+  # program which calls LotaNativeTest.press_return_on_dialogs, or whose
+  # Lua presses Return on dialogs, needs loaded, and that refuse the
+  # dialogs it does not ask to answer (ext/lota/native_test/
+  # answer_dialogs_linux.cpp and answer_dialogs_macos.cpp). On Windows the
+  # test extension does both, and needs none.
   def self.dialogs(lib)
-    TestHome::LINUX ? [File.join(lib, "liblota_dialogs.so")] : []
+    return [] if TestHome::WINDOWS
+
+    [File.join(lib, "liblota_dialogs.#{TestHome::LINUX ? 'so' : 'dylib'}")]
   end
 
   # Runs +command+ and returns its standard output and standard error,

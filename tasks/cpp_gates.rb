@@ -48,9 +48,9 @@ module CppGates
 
     # The platform the source at +path+ is compiled on alone, or nil for a
     # source every platform compiles: Objective-C and Objective-C++ on
-    # macOS, a source named for Linux (<tt>dialogs_linux.cpp</tt>) on
-    # Linux, one named for Windows (<tt>preload_windows.cpp</tt>) on
-    # Windows, and one named for iOS (<tt>native_ios.c</tt>) or Android
+    # macOS or named for it (<tt>answer_dialogs_macos.cpp</tt>), a source
+    # named for Linux (<tt>dialogs_linux.cpp</tt>) on Linux, one named for
+    # Windows (<tt>preload_windows.cpp</tt>) on Windows, and one named for iOS (<tt>native_ios.c</tt>) or Android
     # (<tt>native_android.c</tt>) for that phone, whose build no gate runs,
     # so clang-tidy never reads it. The iOS host's sources
     # (<tt>phone/host/ios</tt>) keep the names of the Fledge files they
@@ -60,7 +60,7 @@ module CppGates
       return "ios" if path.include?("/phone/host/ios/")
       return "macos" if %w[.m .mm].include?(File.extname(path))
 
-      File.basename(path, ".*")[/_(linux|windows|ios|android)\z/, 1]
+      File.basename(path, ".*")[/_(linux|windows|macos|ios|android)\z/, 1]
     end
 
     # Every source and header, as absolute paths.

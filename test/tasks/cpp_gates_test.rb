@@ -100,6 +100,7 @@ class CppGatesTest < Minitest::Test
       assert_equal(%w[ext/a.cpp ext/lota/phone/host/ios/Host/main.m].map { |path| File.join(root, path) },
         CppGates::Files.new(root:, platform: "ios").sources)
       assert_equal "ios", CppGates::Files.platform_of("ext/lota/phone/host/ios/Host/main.m")
+      assert_equal "macos", CppGates::Files.platform_of("ext/lota/native_test/answer_dialogs_macos.cpp")
     end
   end
 

@@ -52,4 +52,20 @@ ENV.update("SDL_MAC_BACKGROUND_APP" => "1", "SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => 
 # registers run after the tests do.
 require "lota" unless defined?(UnitGuard) && UnitGuard.installed?
 
+# On Windows no library can be loaded into a program before it starts, so
+# the test extension refuses the dialogs nobody can answer as it loads
+# (ext/lota/native_test/dialogs_windows.cpp), here and in the programs
+# that load it (test/native/refused_dialogs_test.rb). On macOS and Linux
+# liblota_dialogs does, which the test tasks load into every program
+# (tasks/test_files.rb).
+if TestHome::WINDOWS && !(defined?(UnitGuard) && UnitGuard.installed?)
+  native_test = File.expand_path("../tmp/engine/build/lib", __dir__)
+  $LOAD_PATH.push(native_test) unless $LOAD_PATH.include?(native_test)
+  begin
+    require "lota_native_test"
+  rescue LoadError
+    nil
+  end
+end
+
 require "minitest/autorun"
