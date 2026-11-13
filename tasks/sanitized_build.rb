@@ -7,6 +7,7 @@
 
 require "open3"
 require "rbconfig"
+require "shellwords"
 
 # The build tree rake test:native compiles with AddressSanitizer and
 # UndefinedBehaviorSanitizer, and how to run Ruby against it.
@@ -127,9 +128,13 @@ PRELOADS.fetch(@platform) => [*preloaded, *dialogs].join(separator),
   # The command, for Kernel#system or Rake's sh, that runs the Minitest
   # files +tests+ in a sanitized Ruby. The tree's lib comes first on the
   # load path, ahead of +load_path+, so require "lota/native" loads the
-  # sanitized bundle.
-  def command(tests, load_path: [])
+  # sanitized bundle. Minitest gets the options in +env+'s A, as Minitest's
+  # own test tasks give it them, so A=--verbose names each test as it
+  # starts here too. They follow --, since Ruby reads the options after
+  # -e's script as its own.
+  def command(tests, load_path: [], env: ENV)
     runner = ['require "minitest/autorun"', *tests.map { |test| %(require "#{File.expand_path(test)}") }]
-    [environment, RbConfig.ruby, "-I#{[lib, *load_path].join(File::PATH_SEPARATOR)}", "-w", "-e", runner.join("; ")]
+    options = ["--", *Shellwords.split(env.fetch("A", ""))]
+    [environment, RbConfig.ruby, "-I#{[lib, *load_path].join(File::PATH_SEPARATOR)}", "-w", "-e", runner.join("; "), *options]
   end
 end

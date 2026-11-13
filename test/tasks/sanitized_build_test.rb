@@ -141,4 +141,23 @@ class SanitizedBuildTest < Minitest::Test
       assert_includes output, "1 runs, 5 assertions, 0 failures, 0 errors"
     end
   end
+
+  # A, which Minitest's own test tasks pass to Minitest, reaches the
+  # sanitized run's Minitest too: with --verbose it names each test as the
+  # test starts, so a run that hangs shows which test it hangs in.
+  def test_the_command_passes_the_options_in_a_to_minitest
+    in_tree do |root|
+      build = tree(root, "/usr/bin/c++")
+      probe = write(root, "probe_test.rb", <<~RUBY)
+        class ProbeTest < Minitest::Test
+          def test_named = pass
+        end
+      RUBY
+
+      output, status = Open3.capture2e(*build.command([probe], env: { "A" => "--verbose --name test_named" }))
+      assert status.success?, output
+      assert_match(/^ProbeTest#test_named = \d/, output)
+      assert_includes output, "1 runs, 1 assertions"
+    end
+  end
 end
