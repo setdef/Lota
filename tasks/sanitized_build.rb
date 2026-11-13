@@ -8,6 +8,7 @@
 require "open3"
 require "rbconfig"
 require "shellwords"
+require_relative "test_files"
 
 # The build tree rake test:native compiles with AddressSanitizer and
 # UndefinedBehaviorSanitizer, and how to run Ruby against it.
@@ -131,10 +132,12 @@ PRELOADS.fetch(@platform) => [*preloaded, *dialogs].join(separator),
   # sanitized bundle. Minitest gets the options in +env+'s A, as Minitest's
   # own test tasks give it them, so A=--verbose names each test as it
   # starts here too. They follow --, since Ruby reads the options after
-  # -e's script as its own.
+  # -e's script as its own. The run starts without
+  # TestFiles::SELECTION, as every test run does, so a test it runs that
+  # invokes a test task runs that task's own files.
   def command(tests, load_path: [], env: ENV)
     runner = ['require "minitest/autorun"', *tests.map { |test| %(require "#{File.expand_path(test)}") }]
     options = ["--", *Shellwords.split(env.fetch("A", ""))]
-    [environment, RbConfig.ruby, "-I#{[lib, *load_path].join(File::PATH_SEPARATOR)}", "-w", "-e", runner.join("; "), *options]
+    [environment.merge(TestFiles::SELECTION), RbConfig.ruby, "-I#{[lib, *load_path].join(File::PATH_SEPARATOR)}", "-w", "-e", runner.join("; "), *options]
   end
 end

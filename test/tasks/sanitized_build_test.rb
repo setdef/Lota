@@ -160,4 +160,22 @@ class SanitizedBuildTest < Minitest::Test
       assert_includes output, "1 runs, 1 assertions"
     end
   end
+
+  # The run starts without the TEST that picked the files of the run that
+  # starts it, so a test in it that invokes a test task runs that task's
+  # files rather than the same ones again.
+  def test_the_command_runs_its_tests_without_the_outer_runs_selection
+    in_tree do |root|
+      probe = write(root, "probe_test.rb", <<~RUBY)
+        class ProbeTest < Minitest::Test
+          def test_unselected = assert_nil ENV["TEST"]
+        end
+      RUBY
+
+      environment, *command = tree(root, "/usr/bin/c++").command([probe])
+      output, status = Open3.capture2e({ "TEST" => "test/tasks/rake_tasks_test.rb" }.merge(environment), *command)
+      assert status.success?, output
+      assert_includes output, "1 runs, 1 assertions, 0 failures"
+    end
+  end
 end

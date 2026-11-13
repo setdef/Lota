@@ -32,16 +32,28 @@ module TestFiles
   # hold the run until its timeout. The build puts it beside the extensions.
   DIALOGS = File.expand_path("../tmp/engine/build/lib/liblota_dialogs.so", __dir__)
 
-  # The environment a test run starts in: on Linux, once the build has made
-  # DIALOGS, the library loaded into the run first, after whatever +env+
-  # already preloads (a sanitizer's runtime has to come first), so every
-  # program the tests start inherits it. Nothing, elsewhere: macOS and
-  # Windows show their dialogs through the system, and the harness presses
-  # a button on request.
-  def self.environment(env: ENV, library: DIALOGS, linux: RUBY_PLATFORM.include?("linux"))
-    return {} unless linux && File.exist?(library)
+  # The variables that pick which tests a run runs: TEST above, and those
+  # Minitest's TestTask reads (minitest/test_task.rb, make_test_cmd). A
+  # task reads them as it starts its run, so the run itself starts without
+  # them. A test that invokes a test task in its own process, as
+  # test/tasks/rake_tasks_test.rb invokes test:native, would otherwise run
+  # the files the outer run was told to: rake test:ruby
+  # TEST=test/tasks/rake_tasks_test.rb ran that file again in test:native,
+  # whose run ran it again, one process inside another, without end. A,
+  # Minitest's options, still reaches the run, so A=--verbose names each
+  # test of a nested run as well.
+  SELECTION = %w[TEST TESTOPTS N I X E FILTER].to_h { |name| [name, nil] }.freeze
 
-    { "LD_PRELOAD" => [env.fetch("LD_PRELOAD", nil), library].compact.reject(&:empty?).join(" ") }
+  # The environment a test run starts in: without SELECTION, and on Linux,
+  # once the build has made DIALOGS, with the library loaded into the run
+  # first, after whatever +env+ already preloads (a sanitizer's runtime has
+  # to come first), so every program the tests start inherits it. macOS
+  # and Windows show their dialogs through the system, and the harness
+  # presses a button on request.
+  def self.environment(env: ENV, library: DIALOGS, linux: RUBY_PLATFORM.include?("linux"))
+    return SELECTION unless linux && File.exist?(library)
+
+    SELECTION.merge("LD_PRELOAD" => [env.fetch("LD_PRELOAD", nil), library].compact.reject(&:empty?).join(" "))
   end
 
   # A Minitest::TestTask that runs the files TEST names, when it names

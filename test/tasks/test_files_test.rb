@@ -85,6 +85,23 @@ class TestFilesTest < Minitest::Test
     end
   end
 
+  # A run starts without what picked its files, so a test in it that
+  # invokes a test task, as rake_tasks_test.rb invokes test:native, runs
+  # that task's files, not the outer run's again, one run inside another.
+  def test_a_run_starts_without_the_variables_that_picked_its_tests
+    in_tree do |root|
+      [true, false].each do |linux|
+        environment = TestFiles.environment(env: {}, library: write(root, "liblota_dialogs.so"), linux:)
+
+        %w[TEST TESTOPTS N I X E FILTER].each do |name|
+          assert_includes environment, name
+          assert_nil environment.fetch(name)
+        end
+        refute_includes environment, "A"
+      end
+    end
+  end
+
   def test_a_task_runs_its_tests_in_that_environment
     environment = TestFiles.environment
     previous = Rake.application
