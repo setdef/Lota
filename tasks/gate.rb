@@ -57,17 +57,21 @@ class Gate
   CHILD = File.expand_path("gate_child.rb", __dir__)
 
   # How long, in seconds, a lane may run before the gate diagnoses and ends
-  # it (LOTA_GATE_LANE_TIMEOUT). The bound is CI's: the macOS Gate step
-  # may run 55 minutes, 3300 s (.github/workflows/ci.yml), and by then the
-  # lane must have been sampled and ended and the report printed. The gate
-  # has spent up to 207 s fixing and building before the lanes start, and
-  # the diagnosis can take up to about 130 s (two listings of processes of
-  # up to 30 s each, samples of up to 60 s taken together, and 5 s to end
-  # the group), which leaves 2963 s; two minutes more for the report and
-  # whatever else is slow that day leaves 47 minutes. The slowest lane on
-  # CI, test:shard:rake_tasks's, has taken 16 to 37 minutes (2246 s), most
-  # of it one test that runs the sanitized suite; a run on a
-  # contributor's Mac takes about seven.
+  # it (LOTA_GATE_LANE_TIMEOUT). The slowest lane on CI,
+  # test:shard:rake_tasks's, has taken 16 to 41 minutes (2449 s), most of
+  # it one test that runs the sanitized suite; a run on a contributor's
+  # Mac takes about seven.
+  #
+  # CI's macOS Gate step (.github/workflows/ci.yml) must outlast it, so
+  # that the lane is sampled and ended and the report printed before
+  # GitHub ends the step and prints nothing. Before the lanes start, the
+  # gate fixes and builds, which takes about three minutes, but 605 s when
+  # a header every binding includes changed and ccache missed each file
+  # that includes it; allow 900. The diagnosis can take up to about 130 s
+  # (two listings of processes of up to 30 s each, samples of up to 60 s
+  # taken together, and 5 s to end the group), and the report and
+  # whatever else is slow that day two minutes more: 900 + 2820 + 130 +
+  # 120 is 3970 s, within the step's 70 minutes, 4200 s.
   LANE_TIMEOUT = 47 * 60
 
   # How often, in seconds, the gate names the checks still running

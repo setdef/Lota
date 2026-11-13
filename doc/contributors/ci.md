@@ -33,7 +33,7 @@ The macOS runner's session is logged in, so the tests open real windows there as
 
 ### When a lane hangs
 
-GitHub ends a step that runs past its time and prints nothing about why. So the gate ends a hung lane itself, first. Each lane may run 47 minutes (`LOTA_GATE_LANE_TIMEOUT`, in seconds): the macOS Gate step may run 55, the gate spends up to about three and a half building before its lanes start, and its diagnosis takes up to about two. `Gate::LANE_TIMEOUT` in `tasks/gate.rb` keeps the arithmetic.
+GitHub ends a step that runs past its time and prints nothing about why. So the gate ends a hung lane itself, first, and each step that runs it has room for that. Each lane may run 47 minutes (`LOTA_GATE_LANE_TIMEOUT`, in seconds), and the macOS Gate step 70: before its lanes start, the gate builds for about three minutes, but for ten when a header every binding includes has changed and ccache misses each file that includes it, and its diagnosis takes up to about two. `Gate::LANE_TIMEOUT` in `tasks/gate.rb` keeps the arithmetic. The pre-push tier's lanes may run 20 minutes, and its steps 40.
 
 While lanes run, the gate prints a line, stamped in UTC, as each check starts and ends, and every minute (`LOTA_GATE_HEARTBEAT`) names each check still running and how long it has run. A lane past its budget is diagnosed: the gate prints the check's output so far, every process under it as `ps` lists them, and a one-second stack sample of each, taken with `/usr/bin/sample` on macOS and with `eu-stack` or `gdb` on Linux where either is installed. Then it ends the check's process group and fails the check as TIMED OUT.
 
