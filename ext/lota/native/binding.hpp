@@ -47,6 +47,7 @@
 #endif
 #include <rice/rice.hpp> // IWYU pragma: export
 #include <rice/stl.hpp>  // IWYU pragma: export
+#include <ruby/ractor.h>
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -217,22 +218,15 @@ template <> struct ReleasedOnMainThread<love::graphics::Video> : std::true_type 
 // love.thread's channels pass LÖVE's objects between threads
 // (doc/contributors/design/engine.md, "Threads and Ractors"): a
 // love::Data, which guards its bytes with LÖVE's own lock
-// (src/common/Data.h). Their Ruby type is RUBY_TYPED_FROZEN_SHAREABLE and
-// each wrapper is frozen as it is made (wrap_engine_object), so Ruby
-// shares it rather than refusing it. Wrappers of every other class stay
-// in the Ractor that made them.
+// (src/common/Data.h), or a class of Lota's that says it guards itself,
+// with a static member +shareable+. Their Ruby type is
+// RUBY_TYPED_FROZEN_SHAREABLE and each wrapper is frozen as it is made
+// (wrap_engine_object), so Ruby shares it rather than refusing it.
+// Wrappers of every other class stay in the Ractor that made them.
 template <typename T> struct Shareable {
-  static constexpr bool value = std::derived_from<T, love::Data>;
+  static constexpr bool value =
+      std::derived_from<T, love::Data> || requires { requires T::shareable; };
 };
-
-// Freezes +wrapper+, a new wrapper of an engine object of the data type
-// +type+, when Ractors share wrappers of its class (Shareable), so Ruby
-// counts it shareable from the start.
-inline void freeze_if_shareable(VALUE wrapper, const rb_data_type_t *type) {
-  if ((type->flags & RUBY_TYPED_FROZEN_SHAREABLE) != 0) {
-    rb_obj_freeze(wrapper);
-  }
-}
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.
@@ -357,9 +351,16 @@ Base *open_module(love::Module::ModuleType type) {
 //
 // Init_native turns it on for Lota::Native. Another bundle, such as the
 // test extension, makes a new wrapper each time it wraps an object, once
-// it turns Rice's registry off itself. A WeakMap is not shareable, and only the main Ractor
-// reaches it: Lota::Native does not declare itself Ractor-safe yet
-// (doc/contributors/design/engine.md), so Ruby lets no other Ractor call into it.
+// it turns Rice's registry off itself.
+//
+// Each Ractor keeps a map of its own, in its Ractor-local storage, as each
+// of LÖVE's threads keeps the userdata of its own Lua state. One map for
+// every Ractor does not work: a WeakMap has no lock, so two Ractors that
+// wrap objects at once corrupt it and crash Ruby, and a wrapper is not
+// shareable, so one map would hand one Ractor's wrapper to another, which
+// Ruby forbids (test/native/ractor_test.rb). So the same object read in two
+// Ractors has a wrapper in each, as it has a userdata in each of LÖVE's
+// Lua states.
 class WrapperIdentities {
 public:
   static WrapperIdentities &instance() {
@@ -374,30 +375,30 @@ public:
   ~WrapperIdentities() = default;
 
   // Starts keeping each wrapper's identity, and stops Rice's registry
-  // from keeping any, since its stale entries are what this replaces.
+  // from keeping any, since its stale entries are what this replaces. It
+  // runs in Init_native, on the main Ractor, before any other Ractor can
+  // call into Lota::Native.
   void keep() {
-    if (map_ != Qnil) {
+    if (key_ != nullptr) {
       return;
     }
     Rice::detail::Registries::instance.instances.mode = Rice::detail::InstanceRegistry::Mode::Off;
-    const VALUE weak_map = Rice::detail::protect(rb_path2class, "ObjectSpace::WeakMap");
-    map_ = Rice::detail::protect(rb_class_new_instance, 0, static_cast<const VALUE *>(nullptr),
-                                 weak_map);
-    rb_gc_register_address(&map_);
+    key_ = rb_ractor_local_storage_value_newkey();
   }
 
-  // The live wrapper of +object+, or Qnil.
+  // The live wrapper of +object+ in this Ractor, or Qnil.
   [[nodiscard]] VALUE find(love::Object *object) const {
-    if (map_ == Qnil) {
+    if (key_ == nullptr) {
       return Qnil;
     }
-    return Rice::Object(map_).call("[]", key(object)).value();
+    return Rice::Object(map()).call("[]", key(object)).value();
   }
 
-  // Remembers +wrapper+ as the wrapper of +object+ while it lives.
+  // Remembers +wrapper+ as the wrapper of +object+ in this Ractor while it
+  // lives.
   void remember(love::Object *object, VALUE wrapper) const {
-    if (map_ != Qnil) {
-      Rice::Object(map_).call("[]=", key(object), Rice::Object(wrapper));
+    if (key_ != nullptr) {
+      Rice::Object(map()).call("[]=", key(object), Rice::Object(wrapper));
     }
   }
 
@@ -406,8 +407,8 @@ public:
   // w__release removes the object from LÖVE's REGISTRY_OBJECTS table
   // (vendor/love/src/common/runtime.cpp:170-197).
   void forget(love::Object *object, VALUE wrapper) const {
-    if (map_ != Qnil && find(object) == wrapper) {
-      Rice::Object(map_).call("delete", key(object));
+    if (key_ != nullptr && find(object) == wrapper) {
+      Rice::Object(map()).call("delete", key(object));
     }
   }
 
@@ -450,7 +451,21 @@ public:
 private:
   WrapperIdentities() = default;
 
-  VALUE map_ = Qnil;
+  // This Ractor's map, made the first time the Ractor wraps an object.
+  // Ractor-local storage marks it.
+  [[nodiscard]] VALUE map() const {
+    VALUE map = Qnil;
+    if (rb_ractor_local_storage_value_lookup(key_, &map) && !NIL_P(map)) {
+      return map;
+    }
+    const VALUE weak_map = Rice::detail::protect(rb_path2class, "ObjectSpace::WeakMap");
+    map = Rice::detail::protect(rb_class_new_instance, 0, static_cast<const VALUE *>(nullptr),
+                                weak_map);
+    rb_ractor_local_storage_value_set(key_, map);
+    return map;
+  }
+
+  rb_ractor_local_key_t key_ = nullptr;
 };
 
 // What every wrapper of an engine object answers, whatever the object's
@@ -883,6 +898,38 @@ inline void install_engine_calls(const Rice::Module &module) {
     }
   }
 }
+
+// Freezes +wrapper+, a new wrapper of an engine object of the data type
+// +type+, when Ractors share wrappers of its class (Shareable), so Ruby
+// counts it shareable from the start.
+inline void freeze_if_shareable(VALUE wrapper, const rb_data_type_t *type) {
+  if ((type->flags & RUBY_TYPED_FROZEN_SHAREABLE) != 0) {
+    rb_obj_freeze(wrapper);
+  }
+}
+
+// Sets whether the methods defined while it lives may be called from a
+// Ractor other than the main one (rb_ext_ractor_safe, load.c), and turns
+// it back on when it ends, as Init_native leaves it. Ruby reads the
+// setting as each method is defined (vm_method.c), and raises
+// Ractor::UnsafeError when another Ractor calls one defined without it.
+// Init_native defines every binding safe for every Ractor, since LÖVE lets
+// a thread load every module but window and graphics
+// (vendor/love/src/modules/thread/LuaThread.cpp:71-73), whose bindings
+// raise ThreadError off the main thread (require_main_thread), in another
+// Ractor as on another Ruby thread. Other Ractors may call into the
+// bundle at all because Ruby 4.1's
+// rb_gc_register_address, which Rice calls for every value a
+// Rice::Object holds, keeps a list for each Ractor (Feature #22277).
+class RactorSafety {
+public:
+  explicit RactorSafety(bool safe) { rb_ext_ractor_safe(safe); }
+  RactorSafety(const RactorSafety &) = delete;
+  RactorSafety(RactorSafety &&) = delete;
+  RactorSafety &operator=(const RactorSafety &) = delete;
+  RactorSafety &operator=(RactorSafety &&) = delete;
+  ~RactorSafety() { rb_ext_ractor_safe(true); }
+};
 
 // Pins the singleton class of +module+, and of every module and class
 // among its constants and theirs, so that GC.compact never moves one. Rice

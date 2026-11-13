@@ -17,6 +17,11 @@ class SanitizerTest < Minitest::Test
 
   parallelize_me!
 
+  # How long a child Ruby that runs a Ractor may take before it is killed,
+  # so a hang fails the test that started it, with the child's output
+  # (NativeHelper#ruby_of_its_own), rather than outlasting the suite.
+  CHILD_TIMEOUT = 120
+
   def sanitized_lib
     File.dirname(loaded("lota_native_test"))
   end
@@ -113,5 +118,51 @@ class SanitizerTest < Minitest::Test
     refute status.success?
     assert_includes output, "runtime error: signed integer overflow: 2147483647 + 1"
     refute_includes output, "the bug went unreported"
+  end
+
+  # A Ractor other than the main one runs its Ruby threads M:N, on stacks
+  # Ruby switches between itself, whose bounds ASan cannot find, so the
+  # sanitized Ruby runs every thread 1:1 (tasks/sanitized_build.rb,
+  # ONE_TO_ONE). ASan then reports an overflow there, and nothing else:
+  # after the engine has raised in the Ractor, in a block an engine call
+  # runs, on the stack and on the heap.
+  def test_asan_reports_a_stack_overflow_in_another_ractor
+    output, status = run_in_a_ractor("LotaNativeTest.stack_overflow(4)")
+
+    refute status.success?
+    assert_includes output, "ERROR: AddressSanitizer: stack-buffer-overflow"
+    assert_includes output, "stack_overflow"
+    refute_includes output, "the bug went unreported"
+  end
+
+  def test_asan_reports_a_heap_overflow_in_another_ractor
+    output, status = run_in_a_ractor("LotaNativeTest.heap_overflow(4)")
+
+    refute status.success?
+    assert_includes output, "ERROR: AddressSanitizer: heap-buffer-overflow"
+    assert_includes output, "heap_overflow"
+    refute_includes output, "the bug went unreported"
+  end
+
+  # Runs +bug+ in a Ractor other than the main one, in a child Ruby, after
+  # the engine has raised there three times, from inside a block
+  # Lota::Native's perform_atomic calls. The child loads the sanitized
+  # extensions this process did, and is killed after CHILD_TIMEOUT.
+  def run_in_a_ractor(bug)
+    ruby_of_its_own("-e", <<~RUBY, timeout: CHILD_TIMEOUT)
+      require "lota_native_test"
+      require "lota/native"
+      Warning[:experimental] = false
+      Lota::Native::Data.open
+      Ractor.new do
+        3.times do
+          Lota::Native::Graphics.open?
+        rescue ThreadError
+          nil
+        end
+        Lota::Native::Data.new_byte_data_of_size(4).perform_atomic([proc { #{bug} }])
+      end.join
+      puts "the bug went unreported"
+    RUBY
   end
 end
