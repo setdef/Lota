@@ -75,6 +75,7 @@ require_relative "lota/window"
 require_relative "lota/settings"
 require_relative "lota/callbacks"
 require_relative "lota/info"
+require_relative "lota/archive"
 require_relative "lota/boot"
 
 # The lowercase spelling of each module, so that a LÖVE tutorial's

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Archive
+    class Refused < RuntimeError
+    end
+
+    type entry = [String, Symbol?]
+
+    NATIVE: Regexp
+
+    FORBIDDEN: Regexp
+
+    RESERVED: Regexp
+
+    FILE_PATH_LIMIT: Integer
+
+    FOLDER_PATH_LIMIT: Integer
+
+    attr_reader path: String
+
+    def self.cache_directory: (String os, RBS::Unnamed::ENVClass | Hash[String, String] env, String home) -> String
+
+    def initialize: (String path) -> void
+
+    def check: (Array[entry] entries, String destination, ?path_limit: bool) -> nil
+
+    private def refusal: (String name, Symbol? type) -> String?
+
+    private def length_refusal: (String path, Symbol? type) -> String?
+  end
+end

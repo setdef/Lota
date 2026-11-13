@@ -6,6 +6,7 @@
 target :lib do
   signature "sig"
   library "strscan"
+  library "digest"
   library "fileutils"
   library "json"
   library "tmpdir"

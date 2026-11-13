@@ -31,6 +31,7 @@ TEST_SUITES = {
 # those. Every other test is an integration test: it needs the build, a
 # process of its own, or the machine.
 UNIT_TESTS = %w[
+  test/archive_test.rb
   test/cli_test.rb
   test/notices_test.rb
   test/restart_test.rb
