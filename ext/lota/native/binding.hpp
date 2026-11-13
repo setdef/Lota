@@ -473,10 +473,13 @@ public:
       return false;
     }
     forget(self);
-    if (busy_.load() == 0) {
+    // The release is pending first, and whichever of this and the last
+    // unpin takes it lets go, once: a call that ended between a check of
+    // busy_ and the setting of pending_ would otherwise leave the
+    // reference held until the collector frees the wrapper.
+    pending_ = true;
+    if (busy_.load() == 0 && pending_.exchange(false)) {
       let_go();
-    } else {
-      pending_ = true;
     }
     return true;
   }
