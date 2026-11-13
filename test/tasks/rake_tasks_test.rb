@@ -446,9 +446,20 @@ class RakeTasksTest < Minitest::Test
 
   # How many of the native suite's tests skip off Linux, counted from
   # their source, as LovetestSkips counts Lövetest's, so that a skip added
-  # off Linux is counted without a number written down for it.
+  # off Linux is counted without a number written down for it. A skip in a
+  # file's setup skips each of its tests, as refused_dialogs_test.rb's does.
   def off_linux_skips
-    Dir.glob(TEST_SUITES.fetch(:native), base: ROOT).sum { |file| File.read(File.join(ROOT, file)).scan(OFF_LINUX_SKIP).size }
+    Dir.glob(TEST_SUITES.fetch(:native), base: ROOT).sum { |file| off_linux_skips_in(File.read(File.join(ROOT, file))) }
+  end
+
+  def off_linux_skips_in(source)
+    method = nil
+    source.each_line.sum do |line|
+      method = Regexp.last_match(1) if line =~ /^\s*def (\w+)/
+      next 0 unless line.match?(OFF_LINUX_SKIP)
+
+      (method == "setup") ? source.scan(/^\s*def test_/).size : 1
+    end
   end
 
   # rake test runs the sanitized suite through this test, so every line of
