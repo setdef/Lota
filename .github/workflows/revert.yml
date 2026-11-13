@@ -4,7 +4,9 @@
 # Trunk's automatic revert (bin/auto-revert, tasks/auto_revert.rb,
 # doc/contributors/ci.md), the backstop for a commit the pre-push checks
 # let through. A red full run on trunk has its failed jobs run again
-# once, to rule out a flaky test; when they fail again, every commit
+# once, to rule out a flaky test, unless a newer run is already going,
+# behind which the rerun would wait to be cancelled; when they fail
+# again, or the newer run would have cancelled the rerun, every commit
 # since the last one whose run passed is reverted in one commit, pushed
 # to trunk without force. That commit is the notice: its message names
 # the red run, the jobs that failed twice, and each reverted commit with

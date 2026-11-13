@@ -77,6 +77,80 @@ class AutoRevertTest < Minitest::Test
     refute git.called?(/\A(?:revert|push)/)
   end
 
+  # A rerun joins the branch's concurrency group behind a newer run already
+  # running there, and the next push cancels it before it starts, so on a
+  # busy trunk a rerun is never judged. With a newer run in the group, the
+  # first failed attempt is judged as it is, and an outage is left to the
+  # newer run, which holds the same commits.
+  def test_a_run_a_newer_run_has_overtaken_is_judged_without_a_rerun
+    assert_nil AutoRevert.triage(run_of(attempt: 1), outage: false, newer: 43)
+    assert_equal :nothing, AutoRevert.triage(run_of(attempt: 1), outage: true, newer: 43).action
+    assert_match(/run 43, newer, holds the same commits/, AutoRevert.triage(run_of(attempt: 2), outage: true, newer: 43).reason)
+    assert_equal :report, AutoRevert.triage(run_of(attempt: 1), outage: false, jobs: ["Release"], newer: 43).action
+  end
+
+  # A job that hung or ran out of time fails on an innocent commit too,
+  # when a runner is slow, so with no rerun to rule that out it is left
+  # to the newer run, and reported with its hang, so that a hang a commit
+  # caused shows in every run it repeats in; a hang on a rerun, or beside
+  # a real failure, still goes to the commits.
+  def test_a_hang_a_newer_run_has_overtaken_is_reported_and_left_to_the_newer_run
+    line = "gate: lane 1 TIMED OUT: test:shard:rake_tasks ran past the lane's budget of 2820 s"
+    plan = AutoRevert.triage(run_of(attempt: 1), outage: false, newer: 43, hang: line)
+
+    assert_equal :report, plan.action
+    assert_includes plan.reason, "every failed job hung or ran out of time (#{line})"
+    assert_includes plan.reason, "left to run 43, newer, which holds the same commits"
+    assert_equal :rerun, AutoRevert.triage(run_of(attempt: 1), outage: false, hang: line).action
+    assert_nil AutoRevert.triage(run_of(attempt: 2), outage: false, newer: 43, hang: line)
+  end
+
+  def test_hang_is_the_first_hang_line_when_every_failed_job_hung
+    timed_out = "gate: lane 1 TIMED OUT: test:shard:rake_tasks ran past the lane's budget of 2820 s\n"
+    frozen = "Lota showed no new frame for 60 seconds, after starting, and was stopped.\n"
+    expired = "##[error]The job running on runner GitHub Actions 12 has exceeded the maximum execution time of 60 minutes.\n"
+    failed = "Failure:\nGameTest#test_draw [test/game_test.rb:12]\n"
+
+    assert_equal timed_out.strip, AutoRevert.hang([timed_out, frozen, expired])
+    assert_equal frozen.strip, AutoRevert.hang([frozen, timed_out])
+    assert_equal timed_out.strip, AutoRevert.hang(["\e[31m#{timed_out}\e[0m"])
+    assert_nil AutoRevert.hang([timed_out, failed])
+    assert_nil AutoRevert.hang([])
+  end
+
+  def test_the_bot_reports_a_hang_a_newer_run_has_overtaken_and_reverts_nothing
+    newer = { /\Arun list .*--json databaseId,status\z/ => JSON.generate([{ databaseId: 43, status: "in_progress" }]) }
+    hung = {
+%r{actions/jobs/7/logs} => "Lota showed no new frame for 60 seconds, after starting, and was stopped.\n" \
+  "##[error]Process completed with exit code 1.\n",
+}
+    gh = Fake.new(newer.merge(gh_answers(attempt: 1)).merge(hung))
+    git = Fake.new(git_answers)
+    status, out = bot(gh, git)
+
+    assert_equal 1, status, out
+    assert_match(/\ARED: ci\.yml run 42 on trunk \(3333333\) failed in Gate; reverted nothing: every failed job hung or ran out of time \(Lota showed no new frame for 60 seconds, after starting, and was stopped\.\)/, out)
+    assert_includes out, "left to run 43, newer"
+    refute gh.called?(/\Arun rerun/)
+    refute git.called?(/\A(?:revert|push)/)
+  end
+
+  # The newest run of the branch's workflow after +id+ that has not
+  # finished, in the JSON of gh run list --json databaseId,status.
+  def test_newer_is_the_newest_unfinished_run_after_this_one
+    json = JSON.generate([
+      { databaseId: 45, status: "pending" },
+      { databaseId: 44, status: "in_progress" },
+      { databaseId: 43, status: "completed" },
+      { databaseId: 42, status: "completed" },
+      { databaseId: 41, status: "in_progress" },
+])
+
+    assert_equal 45, AutoRevert.newer(json, 42)
+    assert_nil AutoRevert.newer(JSON.generate([{ databaseId: 43, status: "completed" }]), 42)
+    assert_nil AutoRevert.newer("not json", 42)
+  end
+
   # git rev-list --parents, newest first.
   GRAPH = "#{SECOND} #{FIRST}\n#{FIRST} #{GREEN}\n#{GREEN} #{'0' * 40}\n".freeze
 
@@ -253,6 +327,20 @@ class AutoRevertTest < Minitest::Test
     out = StringIO.new
     status = AutoRevert::Bot.new(repository: "setdef/Lota", run_id: 42, gh: gh.to_proc, git: git.to_proc, dry_run:, out:).call
     [status, out.string]
+  end
+
+  def test_the_bot_judges_a_first_failed_attempt_a_newer_run_has_overtaken_without_rerunning_it
+    newer = { /\Arun list .*--json databaseId,status\z/ => JSON.generate([{ databaseId: 43, status: "in_progress" }]) }
+    gh = Fake.new(newer.merge(gh_answers(attempt: 1)))
+    git = Fake.new(git_answers)
+    status, out = bot(gh, git)
+
+    assert_equal 0, status, out
+    refute gh.called?(/\Arun rerun/)
+    assert git.called?(/\Arevert --no-commit #{SECOND} #{FIRST}\z/)
+    message = git.calls.find { |args| args.include?("commit") }.last.tr("\n", " ")
+    assert_includes message, "a newer run, already going, would have cancelled a rerun before it started"
+    refute_includes message, "failed again when run again"
   end
 
   def test_the_bot_reruns_a_first_failed_attempt_and_reverts_nothing

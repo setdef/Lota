@@ -15,11 +15,13 @@ require_relative "trunk_watch"
 # red run may hold several commits, and the commit that broke trunk is not
 # named by the run alone. Waiting for someone to bisect leaves trunk red
 # for everyone in the meantime. So when a run on trunk fails, its failed
-# jobs run once more, which rules out a flaky test; when they fail again,
-# every commit since the last commit whose run passed is reverted in one
-# commit pushed to trunk, never forced, whose message names the run, the
-# jobs, and each commit with its author, which is how they are told. Each
-# lands again once fixed.
+# jobs run once more, which rules out a flaky test, unless a newer run is
+# going already, which would leave the rerun waiting until a push cancels
+# it; when they fail again, or no rerun could be judged, every commit
+# since the last commit whose run passed is reverted in one commit pushed
+# to trunk, never forced, whose message names the run, the jobs, and each
+# commit with its author, which is how they are told. Each lands again
+# once fixed.
 #
 # The decisions are pure functions of what +gh+ and +git+ report (triage,
 # batch, screen, fixed), so the tests can ask them every case, and Bot
@@ -83,16 +85,63 @@ module AutoRevert
   # rule out a flaky test, and after that while every error was an
   # +outage+ (TrunkWatch's classification) and attempts remain; a report
   # when outages outlast them. Otherwise nil: the commits decide.
-  def self.triage(run, outage:, jobs: [])
+  #
+  # +newer+ is the id of a newer run of the workflow on the branch that
+  # has not finished, or nil. A rerun joins the branch's concurrency group
+  # behind it, and the next push cancels the rerun before it starts, so
+  # on a busy branch a rerun is never judged and trunk stays red unseen.
+  # With a newer run there, the first failed attempt goes to the commits
+  # as it is, unless it may be a flake no rerun has ruled out: an outage,
+  # or a +hang+, where every failed job hung or ran out of time (HANG), as
+  # a test that waits on a slow runner does on an innocent commit, and
+  # +hang+ is the first such line. Those are left to the newer run, which
+  # holds the same commits; a hang is reported, naming its line, so a hang
+  # a commit caused shows in every run it repeats in.
+  def self.triage(run, outage:, jobs: [], newer: nil, hang: nil)
     return Plan.of(:nothing, "run #{run.id} is #{run.status}") unless run.status == "completed"
     return Plan.of(:nothing, "run #{run.id} concluded #{run.conclusion.empty? ? 'nothing' : run.conclusion}") unless run.conclusion == "failure"
     return Plan.of(:nothing, "run #{run.id} was started by #{run.event}, which does not judge a branch") unless EVENTS.include?(run.event)
     return Plan.of(:report, "only CI's release jobs failed (#{jobs.join(', ')}), which says nothing about the commits") if
       !jobs.empty? && (jobs - RELEASE_JOBS).empty?
-    return Plan.of(:rerun, "attempt 1 of run #{run.id} failed; running its failed jobs again rules out a flaky test") if run.attempt == 1
+    return Plan.of(:nothing, "every error of run #{run.id} was an outage, and run #{newer}, newer, holds the same commits") if outage && newer
+    if hang && newer && run.attempt == 1
+      return Plan.of(:report, "every failed job hung or ran out of time (#{hang}), as a flake does too, so it is left to " \
+        "run #{newer}, newer, which holds the same commits; if it hangs there as well, a commit may be the cause")
+    end
+    return Plan.of(:rerun, "attempt 1 of run #{run.id} failed; running its failed jobs again rules out a flaky test") if run.attempt == 1 && !newer
     return Plan.of(:rerun, "every error of run #{run.id} was an outage") if outage && run.attempt < ATTEMPTS
     return Plan.of(:report, "every error of run #{run.id} was an outage, through #{run.attempt} attempts") if outage
 
+    nil
+  end
+
+  # A line of a job's log that says the job hung or ran out of time rather
+  # than failed a check: the gate's own end of a lane past its budget, the
+  # parity harness's stop of an engine that showed no new frame, and
+  # GitHub's end of a job past its timeout-minutes.
+  HANG = Regexp.union(
+    /TIMED OUT/,
+    /showed no new frame for \d+ seconds/,
+    /has exceeded the maximum execution time/
+  )
+
+  # The first line that shows a HANG in +logs+, the failed jobs' logs,
+  # when every one of them shows one; otherwise nil.
+  def self.hang(logs)
+    lines = logs.map { |log| TrunkWatch.strip_ansi(log).lines.find { |line| line.match?(HANG) } }
+    lines.first&.strip unless lines.empty? || lines.any?(&:nil?)
+  end
+
+  # The states of a run that has not finished, and so holds or waits for
+  # the branch's concurrency group.
+  UNFINISHED = %w[queued in_progress pending waiting requested].freeze
+
+  # The id of the newest run after +id+ that has not finished, in the JSON
+  # of gh run list --json databaseId,status, or nil.
+  def self.newer(json, id)
+    JSON.parse(json.to_s).select { |run| run["databaseId"].to_i > id && UNFINISHED.include?(run["status"]) }
+      .map { |run| run["databaseId"] }.max
+  rescue JSON::ParserError
     nil
   end
 
@@ -171,9 +220,13 @@ module AutoRevert
       "so it brought in #{count} that it alone proved, and nothing tells which of them broke the branch. " \
         "This reverts all of them together: #{named}.#{left} Land each again once it is fixed."
     end
+    again = if run.attempt == 1
+      "and a newer run, already going, would have cancelled a rerun before it started, so this attempt is judged as it is"
+    else
+      "and those jobs failed again when run again, so this is no flaky test"
+    end
     body = "#{run.workflow} run #{run.id} failed on #{run.sha[0, 7]} in #{jobs.empty? ? 'jobs it did not name' : jobs.join(', ')}, " \
-      "and those jobs failed again when run again, so this is no flaky test. The run was the first to finish since " \
-      "#{green[0, 7]}, the last commit whose run passed, #{batch}"
+      "#{again}. The run was the first to finish since #{green[0, 7]}, the last commit whose run passed, #{batch}"
     trailers = [
       "Reverts: #{commits.map(&:first).join(' ')}",
       "Red-run: #{run.url}",
@@ -238,8 +291,10 @@ module AutoRevert
       return refuse("run #{run.id} is on #{run.branch}; only a dry run acts on a branch other than #{TRUNK}") unless @dry_run || run.branch == TRUNK
 
       jobs = failed_jobs(run)
-      plan = AutoRevert.triage(run, outage: run.status == "completed" && run.conclusion == "failure" && outage?(jobs),
-        jobs: jobs.map(&:last))
+      red = run.status == "completed" && run.conclusion == "failure"
+      logs = red ? logs(jobs) : []
+      plan = AutoRevert.triage(run, outage: !logs.empty? && TrunkWatch.classify_jobs(logs, 1).outage,
+        jobs: jobs.map(&:last), newer: newer_run(run), hang: AutoRevert.hang(logs))
       plan ||= plan_for(run)
       act(run, jobs.map(&:last), plan)
     end
@@ -260,19 +315,26 @@ module AutoRevert
       end
     end
 
+    # A newer run of the workflow on the run's branch that has not
+    # finished, or nil (AutoRevert.newer).
+    private def newer_run(run)
+      AutoRevert.newer(@gh.call("run", "list", "--repo", @repository, "--workflow", run.workflow, "--branch", run.branch,
+        "--limit", "20", "--json", "databaseId,status"), run.id)
+    end
+
     # [id, name] of each failed job of the run's latest attempt.
     private def failed_jobs(run)
       TrunkWatch.failed_job_ids(@gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs"))
     end
 
-    # Whether every failed job's errors were outages, as TrunkWatch tells
-    # them. A job whose log cannot be read counts as the code's.
-    private def outage?(jobs)
-      logs = jobs.map do |id, name|
+    # Each failed job's log, which TrunkWatch tells outages from the
+    # code's failures in, and AutoRevert.hang hangs. A log that cannot be
+    # read counts as the code's failure, and as no hang.
+    private def logs(jobs)
+      jobs.map do |id, name|
         @gh.call("api", "--allow-escape-sequences", "repos/#{@repository}/actions/jobs/#{id}/logs") ||
           "##[error]the log of job #{name} (#{id}) could not be read\n"
       end
-      !logs.empty? && TrunkWatch.classify_jobs(logs, 1).outage
     end
 
     private def plan_for(run)
