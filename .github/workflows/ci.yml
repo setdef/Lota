@@ -380,9 +380,13 @@ jobs:
 
       # The gem's SHA-256 travels with it, so the delivery job installs
       # the gem this job built, and a release publishes the gem the
-      # delivery job installed, byte for byte.
+      # delivery job installed, byte for byte. Where the gate runs
+      # package:install, it leaves a gem of 0.0.1.dev in pkg/, built before
+      # the version was stamped, so pkg/ is emptied of this platform's gems
+      # first, and the artifact holds the stamped gem alone.
       - name: Build the precompiled gem
         run: |
+          rm -f pkg/lota-*-arm64-darwin.gem pkg/lota-*-arm64-darwin.gem.sha256
           bundle exec rake package:native
           cd pkg
           for gem in lota-*-arm64-darwin.gem; do shasum -a 256 "$gem" > "$gem.sha256"; done
@@ -656,10 +660,12 @@ jobs:
         with:
           version: ${{ needs.version.outputs.version }}
 
+      # As on macOS: the stamped gem alone, not the gate's own of 0.0.1.dev.
       - name: Build the precompiled gem
         env:
           PLATFORM: ${{ matrix.platform }}
         run: |
+          rm -f pkg/lota-*-"$PLATFORM".gem pkg/lota-*-"$PLATFORM".gem.sha256
           bundle exec rake package:native
           cd pkg
           for gem in lota-*-"$PLATFORM".gem; do sha256sum "$gem" > "$gem.sha256"; done

@@ -323,6 +323,7 @@ jobs:
         env:
           PLATFORM: ${{ inputs.platform }}
         run: |
+          rm -f pkg/lota-*-"$PLATFORM".gem pkg/lota-*-"$PLATFORM".gem.sha256
           ruby .github/windows_checks.rb package
           cd pkg
           for gem in lota-*-"$PLATFORM".gem; do sha256sum "$gem" > "$gem.sha256"; cat "$gem.sha256"; ls -l "$gem"; done
