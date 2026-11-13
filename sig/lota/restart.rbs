@@ -62,7 +62,11 @@ module Lota
 
     private def self.ask: (Variant::carried value, phone: bool) -> void
 
-    private def self.in_process?: (?_Variables environment) -> bool
+    private def self.in_process_allowed?: (?_Variables environment) -> bool
+
+    private def self.in_process?: (?phone: bool, ?environment: _Variables, ?platform: String, ?release: String) -> bool
+
+    private def self.sandboxed_before_macos26?: (_Variables environment, String platform, String release) -> bool
 
     private def self.keep: (Variant::carried value) -> [value]
 

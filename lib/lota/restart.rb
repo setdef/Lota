@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require "etc"
 require "rbconfig"
 require "strscan"
 require_relative "variant"
@@ -110,8 +111,10 @@ module Lota
     MAXIMUM_DEPTH = 100
 
     # The feature flag that starts the game again in the same process, as
-    # LÖVE does, rather than by exec: unset, never; +always+, on every
-    # restart. :nodoc:
+    # LÖVE does, rather than by exec: unset, never; +1+, where exec cannot
+    # start it again, on a phone, which forbids replacing a process, and in
+    # the App Sandbox on macOS before 26, which kills a process that does;
+    # +always+, on every restart. :nodoc:
     IN_PROCESS = "LOTA_IN_PROCESS_RESTART"
 
     # Rejects what the event queue cannot carry. :nodoc:
@@ -231,7 +234,7 @@ module Lota
       # though +value+ is checked all the same. Raises TypeError, before
       # the game ends, for a value that cannot cross. :nodoc:
       private def ask(value, phone:)
-        if in_process?
+        if in_process?(phone:)
           keep(value)
         elsif restartable? && !phone
           request(value)
@@ -240,9 +243,30 @@ module Lota
         end
       end
 
-      # Whether a restart starts the game again in this process. :nodoc:
-      private def in_process?(environment = ENV)
-        environment[IN_PROCESS] == "always"
+      # Whether IN_PROCESS lets a game start again in this process.
+      # :nodoc:
+      private def in_process_allowed?(environment = ENV)
+        %w[1 always].include?(environment[IN_PROCESS])
+      end
+
+      # Whether a restart starts the game again in this process, as
+      # IN_PROCESS says, on a +phone+ or not, under the system +release+
+      # (Etc.uname's) of the platform +platform+ names. :nodoc:
+      private def in_process?(phone: false, environment: ENV, platform: RUBY_PLATFORM, release: Etc.uname[:release])
+        case environment[IN_PROCESS]
+        when "always" then true
+        when "1" then phone || sandboxed_before_macos26?(environment, platform, release)
+        else false
+        end
+      end
+
+      # Whether the process runs in the App Sandbox, as the system tells a
+      # sandboxed app with APP_SANDBOX_CONTAINER_ID, on macOS before 26,
+      # whose Darwin release is 25. There exec gives the new image a
+      # sandbox the process already has, and the system kills it with
+      # SIGTRAP; on macOS 26 it starts. :nodoc:
+      private def sandboxed_before_macos26?(environment, platform, release)
+        platform.include?("darwin") && !environment["APP_SANDBOX_CONTAINER_ID"].nil? && release.to_i < 25
       end
 
       # Keeps +value+ for the run that starts next in this process, as
@@ -267,7 +291,7 @@ module Lota
       # the value. Returns the last run's status. Unless IN_PROCESS says
       # so, it runs the block once. :nodoc:
       private def in_process(directory)
-        return yield unless in_process?
+        return yield unless in_process_allowed?
 
         snapshot = Snapshot.new
         Kernel.prepend(ExitProcs) unless Kernel.ancestors.include?(ExitProcs)
