@@ -95,10 +95,13 @@ module Lota
       # wrap_ThreadModule.cpp:70). Lua shows that name as the file; Ruby
       # needs the file's real path for +__FILE__+, +__dir__+, and
       # +require_relative+, so it is the path the game's folder or save
-      # directory holds the file at, or the name alone for a file in an
-      # archive, which has none. :nodoc:
+      # directory holds the file at, or, for a file in an archive, the
+      # path of its copy in the folder Lota::Archive unpacked the archive
+      # into, or the name alone for one in any other archive, which has
+      # none. :nodoc:
       private_class_method def self.chunk_name(filename)
         directory, = Filesystem.real_directory(filename)
+        directory = Archive.unpacked(directory) || directory if directory
         path = directory && ::File.join(directory, filename)
         "@#{(path && ::File.file?(path)) ? path : filename}"
       end

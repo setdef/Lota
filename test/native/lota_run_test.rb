@@ -1004,6 +1004,32 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # A thread of a file runs under the file's real path, so __dir__ and
+  # require_relative work from its folder; in a game in one file, that is
+  # the copy unpacked from the archive, as for the game's other Ruby.
+  def test_a_thread_of_a_file_in_a_lota_runs_from_its_unpacked_copy
+    worker = "require_relative 'weapon'\nLota::Thread.channel('out').push([__dir__, Weapon.name])\n"
+    main = <<~RUBY
+      def Lota.load
+        thread = Lota::Thread::Thread.new("lib/worker.rb")
+        thread.start
+        thread.wait
+        p thread.error
+        puts Lota::Thread.channel("out").pop
+        Lota::Event.quit(4)
+      end
+    RUBY
+    in_archive("threads.lota", ARCHIVED_GAME.merge("lib/worker.rb" => worker, "main.rb" => main)) do |archive, environment, cache|
+      output, status = lota_run(archive, environment:)
+
+      assert_equal 4, status.exitstatus, output
+      error, folder, name = output.lines(chomp: true)
+
+      assert_equal ["nil", "weapon"], [error, name], output
+      assert File.identical?(File.join(unpacked(cache, archive), "lib"), folder), output
+    end
+  end
+
   # The cache is named for the archive's SHA-256 and kept whole: a second
   # run plays from it as it is, and one that finds a file of it missing,
   # or no record that it was finished, as an unpack cut short leaves it,

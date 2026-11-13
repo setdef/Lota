@@ -80,6 +80,28 @@ module Lota
     # The archive's path, as an absolute path.
     attr_reader :path
 
+    @unpacked = {} #: Hash[String, String]
+    @unpacked.freeze
+
+    # The folder this process unpacked the archive the filesystem names
+    # +source+ into, as Lota::Filesystem.source and
+    # Lota::Filesystem.real_directory name it, or +nil+ for one it did not
+    # unpack. Any Ractor may ask.
+    #
+    # === Example
+    #
+    #   Lota::Archive.unpacked(Lota::Filesystem.source)
+    #   # => "/home/you/.cache/lota/games/9f86d081884c7d65/game"
+    def self.unpacked(source)
+      @unpacked[source]
+    end
+
+    # Records that +source+ was unpacked into +folder+, in a frozen Hash
+    # every Ractor may read.
+    private_class_method def self.remember(source, folder)
+      @unpacked = Ractor.make_shareable(@unpacked.merge(source => folder))
+    end
+
     # The folder of the cache, under the system's folder for caches, that
     # Lota unpacks archives in, for the system named +os+ as
     # Lota::System.os names it, the environment +env+, and the home folder
@@ -120,6 +142,14 @@ module Lota
     #   Windows cannot hold is refused everywhere, so that a game that plays
     #   on one system plays on every one.
     def unpack(cache, windows: Gem.win_platform?)
+      game = unpack_into(cache, windows)
+      Archive.__send__(:remember, Filesystem.source, game)
+      game
+    end
+
+    # Unpacks the archive into +cache+ for unpack, and returns the folder
+    # of the game.
+    private def unpack_into(cache, windows)
       digest = Digest::SHA256.file(@path).hexdigest
       folder = File.join(cache, digest[0, 16].to_s)
       return File.join(folder, "game") if whole?(folder, digest)

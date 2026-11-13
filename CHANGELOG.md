@@ -12,7 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- `lota run game.lota` plays a game in one file, its folder zipped, as `love game.love` plays a `.love`: `Lota::Filesystem` reads the archive, which is its `source`, and the game saves under the archive's name, while its Ruby runs from a copy unpacked once into the system's cache folder, so `require`, `require_relative`, `__dir__`, and `File` work as from the folder. An archive with an entry that would land outside the folder, match another but for case, take a name Windows forbids, hold native code, be a symbolic link, or, on Windows without long paths, need a path longer than 259 characters, is refused, naming the entry.
+- `lota run game.lota` plays a game in one file, its folder zipped, as `love game.love` plays a `.love`: `Lota::Filesystem` reads the archive, which is its `source`, and the game saves under the archive's name, while its Ruby runs from a copy unpacked once into the system's cache folder, so `require`, `require_relative`, `__dir__`, and `File` work as from the folder, in a `Lota::Thread::Thread` of one of its files too. An archive with an entry that would land outside the folder, match another but for case, take a name Windows forbids, hold native code, be a symbolic link, or, on Windows without long paths, need a path longer than 259 characters, is refused, naming the entry.
 
 ## [0.5.1] - 2026-11-14
 

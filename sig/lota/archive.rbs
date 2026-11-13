@@ -24,11 +24,19 @@ module Lota
 
     attr_reader path: String
 
+    self.@unpacked: Hash[String, String]
+
+    def self.unpacked: (String source) -> String?
+
+    private def self.remember: (String source, String folder) -> void
+
     def self.cache_directory: (String os, RBS::Unnamed::ENVClass | Hash[String, String] env, String home) -> String
 
     def initialize: (String path) -> void
 
     def unpack: (String cache, ?windows: bool) -> String
+
+    private def unpack_into: (String cache, bool windows) -> String
 
     def check: (Array[entry] entries, String destination, ?path_limit: bool) -> nil
 
