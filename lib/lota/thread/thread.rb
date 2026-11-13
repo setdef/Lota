@@ -57,9 +57,10 @@ module Lota
       #   is. Or a Lota::Filesystem::File or Lota::Filesystem::FileData of
       #   the code, or any other Lota::Data.
       #
-      # A thread of a file is named for it, one of a String of code
-      # "string", as LÖVE names them, and its backtraces name that; one of
-      # another Data is "Thread code". Raises RuntimeError, with LÖVE's
+      # A thread of a file is named for it, as LÖVE names it, and its
+      # backtraces, +__FILE__+, +__dir__+, and +require_relative+ use the
+      # file's real path; one of a String of code is "string"; one of
+      # a FileData is its filename; one of another Data is "Thread code". Raises RuntimeError, with LÖVE's
       # message, for a file that cannot be read, and when the thread module
       # is not open, and TypeError for any other +code+.
       #
@@ -79,12 +80,27 @@ module Lota
         when String
           return ["@string", code] if code.bytesize >= 1024 || code.include?("\n")
 
-          source(Filesystem::FileData.__send__(:from_native, Native::Filesystem.file_data(code)))
-        when Filesystem::File then source(code.read(:data).first)
+          [chunk_name(code), Filesystem::FileData.__send__(:from_native, Native::Filesystem.file_data(code)).string]
+        when Filesystem::File
+          _, text = source(code.read(:data).first)
+          [chunk_name(code.filename), text]
         when Filesystem::FileData then ["@#{code.filename}", code.string]
         when Lota::Data then ["Thread code", code.string]
         else raise TypeError, "wrong argument type #{code.class} (expected Lota::Data)"
         end
+      end
+
+      # The name of the chunk of the file +filename+ of the game's, as
+      # LÖVE names it, "@" and the file's name (w_newThread,
+      # wrap_ThreadModule.cpp:70). Lua shows that name as the file; Ruby
+      # needs the file's real path for +__FILE__+, +__dir__+, and
+      # +require_relative+, so it is the path the game's folder or save
+      # directory holds the file at, or the name alone for a file in an
+      # archive, which has none. :nodoc:
+      private_class_method def self.chunk_name(filename)
+        directory, = Filesystem.real_directory(filename)
+        path = directory && ::File.join(directory, filename)
+        "@#{(path && ::File.file?(path)) ? path : filename}"
       end
 
       # Starts the thread, matching Thread:start: runs its code in a new

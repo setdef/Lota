@@ -31,6 +31,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A `Lota::Thread::Thread` made from a file runs its code under the file's real path, so `__FILE__`, `__dir__`, `require_relative`, and backtraces name the file, as LÖVE names a thread's chunk for its file, where they named the file as the game knows it, relative to the working directory.
 - An object a game releases while another thread's call still uses it is let go as that call ends, rather than when Ruby collects its wrapper.
 - A game that releases an object and still holds it no longer stops Ruby at the next garbage collection with "[BUG] object allocation during garbage collection phase".
 - On 64-bit Android, a new engine object, such as a `SoundData` or a `Shader`, no longer comes back as an older object of the same class or another that lay close by in memory, which released the new object and made `SoundData#sample=` raise "Attempt to set out-of-range sample!" and `Shader#send` "Shader uniform ... does not exist." on most launches.

@@ -38,8 +38,8 @@ class ThreadModuleTest < Minitest::Test
     end
   RUBY
 
-  def run_script(script)
-    output, status = ruby_of_its_own("-e", SETUP + script)
+  def run_script(script, game: GAME)
+    output, status = ruby_of_its_own("-e", SETUP.sub(GAME.dump, game.dump) + script)
     assert_predicate status, :success?, output
     output
   end
@@ -433,6 +433,41 @@ class ThreadModuleTest < Minitest::Test
     assert_match(/\Aworker\.rb:2:in .*: bad \(ArgumentError\)$/, lines[8])
     assert_equal [":threaderror\n", "true\n", "true\n", "true\n"], lines[9, 4]
     assert_match(/\AThread error \(Thread: 0x\h+\)\n\nworker.rb:2/, lines[13..].join)
+  end
+
+  # LÖVE names a thread's chunk for its file, "@" and the filename
+  # (w_newThread, wrap_ThreadModule.cpp:70), "@string" for code, and
+  # "Thread code" for other Data. Ruby's counterpart of a file's name is
+  # its real path, so that __FILE__, __dir__, require_relative, and a
+  # backtrace work from the file's own folder.
+  def test_a_thread_of_a_file_runs_under_the_files_real_path
+    Dir.mktmpdir do |game|
+      Dir.mkdir(File.join(game, "sub"))
+      File.write(File.join(game, "sub", "helper.rb"), "module SubHelper\n  ANSWER = 42\nend\n")
+      File.write(File.join(game, "sub", "worker.rb"), <<~WORKER)
+        require_relative "helper"
+        out = Lota::Thread.channel("out")
+        out.push([__FILE__, __dir__, SubHelper::ANSWER])
+        begin
+          raise "boom"
+        rescue => e
+          out.push(e.backtrace.first)
+        end
+      WORKER
+      output = run_script(<<~RUBY, game:)
+        file = Lota::Filesystem.real_directory("sub/worker.rb").first + "/sub/worker.rb"
+        run_thread("sub/worker.rb")
+        p CHANNEL.pop == [file, File.dirname(file), 42], CHANNEL.pop.start_with?(file + ":5:")
+        run_thread(Lota::Filesystem.new_file("sub/worker.rb", :r).first)
+        p CHANNEL.pop == [file, File.dirname(file), 42], CHANNEL.pop.start_with?(file + ":5:")
+        run_thread("Lota::Thread.channel('out').push(__FILE__)\\n")
+        p CHANNEL.pop
+        run_thread(Lota::Filesystem.new_file_data("Lota::Thread.channel('out').push(__FILE__)\\n", "data.rb").first)
+        p CHANNEL.pop
+      RUBY
+
+      assert_equal "true\ntrue\ntrue\ntrue\n\"string\"\n\"data.rb\"\n", output
+    end
   end
 
   # A thread's error is kept as Ruby prints it, and printing an error

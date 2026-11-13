@@ -9,6 +9,7 @@ module Lota
       def self.new: (String | Filesystem::File | Lota::Data code) -> Thread
 
       private def self.source: (::Object? code) -> [String, String]
+      private def self.chunk_name: (String filename) -> String
 
       def start: (*::Object? arguments) -> bool
 
