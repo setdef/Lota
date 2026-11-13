@@ -101,6 +101,31 @@ class InProcessRestartTest < Minitest::Test
     assert_equal Array.new(loads.size) { |index| (index + 1).to_s }, loads.map { |fields| fields["ruby_runs"] }, "the same Ruby"
   end
 
+  # The entry script lota fuse writes, as a phone's kit writes one too,
+  # boots the game with Lota::Boot#call, which restarts it in the process
+  # where the flag says so: always, here, so on Windows too the process
+  # stays.
+  def test_a_fused_games_entry_script_restarts_the_game_in_its_process
+    FileUtils.mkdir_p(File.join(@directory, "game"))
+    FileUtils.cp_r(RESTART, File.join(@directory, "game", "restart"))
+    entry = File.join(@directory, "main.rb")
+    File.write(entry, <<~RUBY)
+      require "lota"
+      exit Lota::Boot.new(File.join(__dir__, "game", "restart"), ARGV, fused: true).call
+    RUBY
+    native = File.dirname(File.dirname(loaded("lota/native")))
+    variables = { "LOTA_RESTART_LOG" => @log, "LOTA_IN_PROCESS_RESTART" => "always" }
+    output, status = capture2e(variables, RbConfig.ruby, "-w", "-I#{native}", "-I#{File.join(ROOT, 'lib')}", entry,
+      "string")
+
+    assert_equal 3, status.exitstatus, output
+    assert_equal %w[load at_exit load at_exit], log.map(&:first), output
+    first, _, second, = log.map(&:last)
+
+    assert_equal first["pid"], second["pid"]
+    assert_equal "\"café\\nline\"", second["restart"]
+  end
+
   # Each run opens its window, draws, plays a sound, steps a world, and
   # runs a thread, and the next finds none of what it defined or changed:
   # not its constants, files, callbacks, globals, or named channels, and
