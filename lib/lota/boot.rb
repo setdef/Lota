@@ -237,14 +237,33 @@ module Lota
       init_game
     end
 
-    # The part of starting up that is love.boot's (boot.lua:43-173): puts
-    # the game's folder on <tt>$LOAD_PATH</tt>, and opens the filesystem
-    # and the system module, which LÖVE opens before conf.lua whatever the
-    # settings say (boot.lua:44-49).
+    # The part of starting up that is love.boot's (boot.lua:43-173): opens
+    # the filesystem and the system module, which LÖVE opens before
+    # conf.lua whatever the settings say (boot.lua:44-49), unpacks a game
+    # in one file, and puts the game's folder on <tt>$LOAD_PATH</tt>.
     private def boot
-      add_to_load_path
       open_filesystem
       Native::System.open
+      unpack
+      add_to_load_path
+    end
+
+    # For a game in one file, whose archive open_filesystem made the
+    # source, as love.filesystem.setSource mounts a .love (boot.lua:123),
+    # unpacks it with Lota::Archive into the cache, whose folder then holds
+    # the game's Ruby for <tt>require</tt>, as ADR 016 decides. A file the
+    # filesystem could not mount is reported with the message love.init
+    # gives a path it could not load (boot.lua:453-455), before any window
+    # opens.
+    private def unpack
+      return unless File.file?(@directory)
+
+      if Filesystem.source.empty?
+        raise "Cannot load game at path '#{@directory}'.\nMake sure a folder exists at the specified path."
+      end
+
+      cache = Archive.cache_directory(Native::System.os, ENV, Filesystem.user_directory)
+      @code_directory = Archive.new(@directory).unpack(cache)
     end
 
     # The part of starting up that is love.init's (boot.lua:175-456):
@@ -521,7 +540,7 @@ module Lota
     # (src/modules/filesystem/wrap_Filesystem.cpp:897-929 and 1122-1124).
     # Like LÖVE, it leaves the working directory alone.
     private def add_to_load_path
-      $LOAD_PATH.unshift(@directory) unless $LOAD_PATH.include?(@directory)
+      $LOAD_PATH.unshift(code_directory) unless $LOAD_PATH.include?(code_directory)
     end
 
     # Gets desired modules (boot.lua:347-372). Lota's event handlers
@@ -610,12 +629,18 @@ module Lota
 
     # SPDX-SnippetEnd
 
+    # The folder the game's Ruby is in: the game's own, or, for a game in
+    # one file, the folder unpack put it in.
+    private def code_directory
+      @code_directory || @directory
+    end
+
     private def conf_file
-      File.join(@directory, "conf.rb")
+      File.join(code_directory, "conf.rb")
     end
 
     private def main_file
-      File.join(@directory, "main.rb")
+      File.join(code_directory, "main.rb")
     end
 
     # Runs the block and returns what it raised, or +nil+, as Lua's pcall

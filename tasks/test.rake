@@ -142,6 +142,7 @@ PREPUSH_LEAVES_OUT = %w[
 PREPUSH_KEEPS = %w[
   LotaRunTest#test_callbacks_run_in_loves_order_and_the_game_exits_with_its_status
   LotaRunTest#test_an_error_in_a_callback_shows_the_error_screen_and_prints_a_backtrace
+  LotaRunTest#test_a_game_plays_from_a_lota_as_love_plays_a_love
   RestartRunTest#test_a_restart_runs_the_game_again_in_the_same_process_and_hands_over_its_value
   ArkanoidTest#test_1_01_theballthebricktheplatform_matches_love_frame_by_frame
 ].freeze

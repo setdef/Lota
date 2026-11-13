@@ -70,6 +70,13 @@ module Lota
     # (CreateDirectoryW).
     FOLDER_PATH_LIMIT = 247
 
+    # The file in an unpacked folder that records what the folder holds,
+    # written before the folder is renamed into place.
+    RECORD = "unpacked"
+
+    # What the record's first line starts with.
+    RECORD_HEADER = "lota-archive 1"
+
     # The archive's path, as an absolute path.
     attr_reader :path
 
@@ -99,6 +106,38 @@ module Lota
     # Prepares to unpack the archive at +path+.
     def initialize(path)
       @path = File.expand_path(path)
+    end
+
+    # Unpacks the archive into a folder in +cache+, unless an earlier
+    # unpack left it there whole, and returns the folder the game's files
+    # are in. Reads the archive through Lota::Filesystem, whose source it
+    # must be, as Lota::Boot makes it. Raises Refused, writing nothing, for
+    # an archive with an entry it will not unpack.
+    #
+    # [cache] String path of the cache's folder (Archive.cache_directory).
+    # [windows] Whether the files land on Windows, where the names and
+    #   path lengths Windows refuses are checked. An archive with a name
+    #   Windows cannot hold is refused everywhere, so that a game that plays
+    #   on one system plays on every one.
+    def unpack(cache, windows: Gem.win_platform?)
+      digest = Digest::SHA256.file(@path).hexdigest
+      folder = File.join(cache, digest[0, 16].to_s)
+      return File.join(folder, "game") if whole?(folder, digest)
+
+      entries = walk("")
+      FileUtils.mkdir_p(cache)
+      temporary = File.join(cache, ".tmp#{Random.urandom(6).unpack1('H*')}")
+      begin
+        Dir.mkdir(temporary)
+        limit = windows && !long_paths?(temporary)
+        check(entries, File.join(folder, "game"), path_limit: limit)
+        write(entries, File.join(temporary, "game"))
+        File.write(File.join(temporary, RECORD), record(digest, entries, File.join(temporary, "game")))
+        settle(temporary, folder, digest)
+      ensure
+        FileUtils.rm_rf(temporary)
+      end
+      File.join(folder, "game")
     end
 
     # Raises Refused for the first of +entries+ that Lota will not unpack
@@ -154,6 +193,92 @@ module Lota
       return if length <= limit
 
       "makes a path of #{length} characters, longer than the #{limit} Windows allows where long paths are not enabled"
+    end
+
+    # Whether this process can make a path longer than MAX_PATH in
+    # +folder+, as it can where Windows has long paths enabled and the
+    # program declares it knows them.
+    private def long_paths?(folder)
+      probe = File.join(folder, "l" * 160, "l" * 160)
+      FileUtils.mkdir_p(probe)
+      true
+    rescue SystemCallError
+      false
+    ensure
+      FileUtils.rm_rf(File.join(folder, "l" * 160))
+    end
+
+    # The entries of the archive under +folder+, "" for its top, as
+    # [path, type] pairs, each folder before what it holds, read through
+    # Lota::Filesystem, which also lists the save directory's files: those
+    # are left out. An entry whose name PhysFS cannot open, such as "..",
+    # is listed with no type and not looked into.
+    private def walk(folder)
+      entries = [] #: Array[entry]
+      Filesystem.directory_items(folder).sort.each do |name|
+        entry = folder.empty? ? name : "#{folder}/#{name}"
+        type = Filesystem.info(entry)&.type
+        next entries << [entry, nil] if type.nil?
+        next unless Filesystem.real_directory(entry).first == Filesystem.source
+
+        entries << [entry, type]
+        entries.concat(walk(entry)) if type == :directory
+      end
+      entries
+    end
+
+    # Writes +entries+ into the folder +destination+, reading each file
+    # from the archive.
+    private def write(entries, destination)
+      Dir.mkdir(destination)
+      entries.each do |name, type|
+        target = File.join(destination, name)
+        next Dir.mkdir(target) if type == :directory
+
+        contents, message = Filesystem.read(name)
+        raise Refused, "Cannot play the game in '#{@path}': its entry #{name.inspect} cannot be read: #{message}" unless contents
+
+        File.binwrite(target, contents)
+      end
+    end
+
+    # The record of +entries+, unpacked into +game+ from the archive whose
+    # SHA-256 is +digest+: a header with the digest, then a line for each
+    # entry, "d" and the path of a folder, or "f", the size, and the path
+    # of a file, which no tab or newline can be in, since check refuses
+    # control characters.
+    private def record(digest, entries, game)
+      lines = entries.map do |name, type|
+        (type == :directory) ? "d\t#{name}" : "f\t#{File.size(File.join(game, name))}\t#{name}"
+      end
+      "#{RECORD_HEADER} #{digest}\n#{lines.map { |line| "#{line}\n" }.join}"
+    end
+
+    # Whether +folder+ holds a whole unpack of the archive whose SHA-256
+    # is +digest+: its record names the digest, and every folder and file
+    # the record lists is there, each file the size it was written.
+    private def whole?(folder, digest)
+      lines = File.readlines(File.join(folder, RECORD), chomp: true)
+      return false unless lines.shift == "#{RECORD_HEADER} #{digest}"
+
+      game = File.join(folder, "game")
+      lines.all? do |line|
+        kind, *fields = line.split("\t", 3)
+        path = File.join(game, fields.last.to_s)
+        (kind == "d") ? File.directory?(path) : (File.file?(path) && File.size(path) == fields.first.to_i)
+      end
+    rescue SystemCallError, IOError
+      false
+    end
+
+    # Renames the whole unpack in +temporary+ to +folder+, replacing a
+    # folder there that is not whole, or leaves the one another unpack put
+    # there first.
+    private def settle(temporary, folder, digest)
+      FileUtils.rm_rf(folder) if File.exist?(folder) && !whole?(folder, digest)
+      File.rename(temporary, folder)
+    rescue SystemCallError
+      raise unless whole?(folder, digest)
     end
   end
 end

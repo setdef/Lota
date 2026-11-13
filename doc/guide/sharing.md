@@ -5,7 +5,7 @@
 
 # Sharing a Game
 
-A player should not need Ruby, Lota, or a terminal to play your game. `lota fuse` builds the game into an app they download and run, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. This page covers what it writes, what it needs, every option, and how it treats your files and your gems.
+A player should not need Ruby, Lota, or a terminal to play your game. `lota fuse` builds the game into an app they download and run, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. This page covers what it writes, what it needs, every option, and how it treats your files and your gems, and then how to hand your game, as one file, to someone who has Lota.
 
 ## The command
 
@@ -82,6 +82,18 @@ Your other gems go into the app whole, with the license files their packages hol
 ## Notices
 
 Every app carries a notices file, `app/NOTICES.txt`, in the folder beside the app's program (in `NAME.app/Contents/Resources` on macOS). It states Lota's license, AGPL-3.0-or-later, and names each library Lota's gem for that platform carries, compiled into Lota's extension or beside it, with its version where it is known, its licenses, and its notices of copyright. It gives FreeType's credit in the words FreeType's license asks for, says where OpenAL Soft's source archive is in the app, and ends with the text of each license it names. `lota fuse` writes it on every build from the very gem the app ships, and stops on a Lota gem that does not carry what it needs. Fledge's own `notices/NOTICES.txt`, beside it, covers Ruby and the rest of the runtime.
+
+## A game in one file
+
+Someone who has Lota can play your game from one file, as someone who has LÖVE plays a `.love`. Zip the game's folder, with `main.rb` at the top of the zip rather than inside a folder of its own, and rename the zip `NAME.lota`. Then:
+
+```console
+$ lota run "Sample Game.lota"
+```
+
+The game sees the archive as LÖVE's game sees a `.love`: `Lota::Filesystem` reads the archive, `Lota::Filesystem.source` names it, and the game saves under the archive's name, `Sample Game` here, unless `conf.rb` sets `t.identity`. Its Ruby, though, runs from a copy: the first time, Lota unpacks the whole archive into a folder named for the archive's contents, in `~/.cache/lota/games` on Linux (or under `XDG_CACHE_HOME`), `~/Library/Caches/Lota/games` on macOS, and `%LOCALAPPDATA%\Lota\Cache\games` on Windows, and plays it from there, as it plays a folder. So `require`, `require_relative`, `__dir__`, and `File` work as they do in your folder. The next time, it plays from that copy, unless the archive has changed or the copy is missing a file. Deleting the folder is safe; Lota unpacks the archive again.
+
+Lota refuses an archive it cannot unpack the same way everywhere, before it writes anything, and names the entry at fault: one that would land outside the folder, such as `../main.rb`; two names that differ only by case, which Windows and macOS cannot tell apart; a name Windows forbids, with `< > : " | ? * \` or a control character in it, ending in a dot or a space, or one of Windows' device names, such as `CON` or `aux.txt`; native code, a `.so`, `.bundle`, `.dll`, or `.dylib`, which LÖVE cannot load from a `.love` either; and a symbolic link. On Windows, where long paths are not enabled, it also refuses an entry whose path in the cache would be longer than 259 characters.
 
 ## Restarting, and what is missing
 

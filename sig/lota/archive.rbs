@@ -18,16 +18,34 @@ module Lota
 
     FOLDER_PATH_LIMIT: Integer
 
+    RECORD: String
+
+    RECORD_HEADER: String
+
     attr_reader path: String
 
     def self.cache_directory: (String os, RBS::Unnamed::ENVClass | Hash[String, String] env, String home) -> String
 
     def initialize: (String path) -> void
 
+    def unpack: (String cache, ?windows: bool) -> String
+
     def check: (Array[entry] entries, String destination, ?path_limit: bool) -> nil
 
     private def refusal: (String name, Symbol? type) -> String?
 
     private def length_refusal: (String path, Symbol? type) -> String?
+
+    private def long_paths?: (String folder) -> bool
+
+    private def walk: (String folder) -> Array[entry]
+
+    private def write: (Array[entry] entries, String destination) -> void
+
+    private def record: (String digest, Array[entry] entries, String game) -> String
+
+    private def whole?: (String folder, String digest) -> bool
+
+    private def settle: (String temporary, String folder, String digest) -> void
   end
 end

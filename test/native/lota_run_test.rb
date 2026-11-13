@@ -15,6 +15,7 @@ require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
 require_relative "../../tasks/lovetest_image"
+require_relative "../zip_writer"
 
 # lota run, end to end: each test runs the lota executable on a game
 # folder in a Ruby of its own, which opens a real window, as a player's
@@ -952,6 +953,134 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # A game in one file, as ADR 016 plays it: the game's folder, zipped,
+  # with Ruby beside its assets in folders of its own. Its conf.rb turns
+  # off the window, which an archive has nothing to do with.
+  ARCHIVED_GAME = {
+    "conf.rb" => "require 'title'\ndef Lota.conf(t) = (t.window = false; t.title = TITLE)\n",
+    "title.rb" => "TITLE = 'From one file'\n",
+    "lib" => :directory,
+    "lib/player.rb" => "module Player\n  def self.name = 'player'\nend\n",
+    "lib/weapon.rb" => "module Weapon\n  def self.name = 'weapon'\nend\n",
+    "data" => :directory,
+    "data/level.txt" => "level one\n",
+    "main.rb" => <<~RUBY,
+      require "lib/player"
+      require_relative "lib/weapon"
+      def Lota.load(arguments)
+        archive = arguments.first
+        p [Player.name, Weapon.name, TITLE]
+        p [File.read(File.join(__dir__, "data/level.txt")), Lota::Filesystem.read("data/level.txt").first]
+        p [File.identical?(Lota::Filesystem.source, archive),
+          File.identical?(Lota::Filesystem.source_base_directory, File.dirname(archive)),
+          File.identical?(Lota::Filesystem.real_directory("main.rb").first, archive)]
+        p [Lota::Filesystem.fused?, Lota::Filesystem.identity, Dir.pwd]
+        puts __dir__
+        Lota::Event.quit(4)
+      end
+    RUBY
+  }.freeze
+
+  # love game.love mounts the archive as the game's source and names its
+  # save directory after the archive (boot.lua:98-150), and is not fused
+  # (lines 86-92), so love.filesystem reads the archive; Lota unpacks it
+  # into its cache too, where the game's Ruby runs from, so require,
+  # require_relative, __dir__, and File work as from its folder.
+  def test_a_game_plays_from_a_lota_as_love_plays_a_love
+    in_archive("sample.game.lota", ARCHIVED_GAME) do |archive, environment, cache|
+      output, status = lota_run(archive, archive, environment:)
+
+      assert_equal 4, status.exitstatus, output
+      lines = output.lines(chomp: true)
+
+      assert_equal [
+        '["player", "weapon", "From one file"]',
+        '["level one\\n", "level one\\n"]',
+        "[true, true, true]",
+        "[false, \"sample_game\", #{Dir.pwd.inspect}]",
+      ], lines.first(4)
+      assert_equal [unpacked(cache, archive)], Dir.children(cache).map { |name| File.join(cache, name, "game") }
+      assert File.identical?(unpacked(cache, archive), lines.last), output
+    end
+  end
+
+  # The cache is named for the archive's SHA-256 and kept whole: a second
+  # run plays from it as it is, and one that finds a file of it missing,
+  # or no record that it was finished, as an unpack cut short leaves it,
+  # unpacks the archive again.
+  def test_a_lota_is_unpacked_once_and_again_when_its_cache_is_not_whole
+    in_archive("sample.lota", ARCHIVED_GAME) do |archive, environment, cache|
+      game = unpacked(cache, archive)
+      _, status = lota_run(archive, archive, environment:)
+
+      assert_equal 4, status.exitstatus
+      past = Time.at(0)
+      File.utime(past, past, File.join(game, "main.rb"))
+      _, status = lota_run(archive, archive, environment:)
+
+      assert_equal 4, status.exitstatus
+      assert_equal past, File.mtime(File.join(game, "main.rb"))
+
+      File.delete(File.join(game, "lib/weapon.rb"))
+      output, status = lota_run(archive, archive, environment:)
+
+      assert_equal 4, status.exitstatus, output
+      assert_path_exists File.join(game, "lib/weapon.rb")
+
+      File.delete(File.join(File.dirname(game), "unpacked"))
+      File.write(File.join(game, "main.rb"), "raise 'half written'\n")
+      output, status = lota_run(archive, archive, environment:)
+
+      assert_equal 4, status.exitstatus, output
+      assert_equal ARCHIVED_GAME.fetch("main.rb"), File.read(File.join(game, "main.rb"))
+      assert_equal [File.basename(File.dirname(game))], Dir.children(cache)
+    end
+  end
+
+  # An archive with an entry Lota cannot unpack safely is refused before
+  # anything is written, with a message naming the entry (ADR 016). PhysFS
+  # lists an entry "../evil.rb" as a folder named "..".
+  def test_a_lota_that_cannot_be_unpacked_safely_is_refused_naming_the_entry
+    {
+      { "../evil.rb" => "raise 'escaped'\n" } => %(its entry ".." would land outside the game's folder),
+      { "lib" => :directory, "lib/x.rb" => "", "Lib" => :directory } =>
+        %(its entry "lib" has the same name as "Lib" but for case),
+      { "lib" => :directory, "lib/ext.so" => "\x7FELF" } => %(its entry "lib/ext.so" is native code),
+      { "CON.rb" => "" } => %(its entry "CON.rb" has a name Windows reserves for a device),
+    }.each do |entries, message|
+      in_archive("refused.lota", { "main.rb" => "puts 'played'\n", **entries }) do |archive, environment, cache|
+        output, status = lota_run(archive, environment:)
+
+        assert_equal 1, status.exitstatus, output
+        assert_includes output, "Cannot play the game in '#{archive}': #{message}"
+        refute_includes output, "played"
+        assert_empty Dir.exist?(cache) ? Dir.children(cache) : []
+      end
+    end
+  end
+
+  # Windows opens no path longer than MAX_PATH unless long paths are
+  # enabled, so where this process cannot make one, an archive that would
+  # need one is refused, naming the entry, and where it can, it plays.
+  def test_a_lota_needing_a_path_longer_than_windows_allows_plays_only_where_the_system_allows_it
+    folders = Array.new(4) { |i| "#{i}#{'d' * 70}" }
+    deep = folders.join("/")
+    entries = { "main.rb" => "def Lota.load = Lota::Event.quit(4)\n" }
+    folders.each_index { |i| entries[folders.first(i + 1).join("/")] = :directory }
+    entries["#{deep}/asset.txt"] = "deep\n"
+    in_archive("deep.lota", entries) do |archive, environment, cache|
+      output, status = lota_run(archive, environment:)
+
+      if long_paths?
+        assert_equal 4, status.exitstatus, output
+        assert_equal "deep\n", File.read(File.join(unpacked(cache, archive), deep, "asset.txt"))
+      else
+        assert_equal 1, status.exitstatus, output
+        assert_match(/its entry "#{folders.first}[^"]*" makes a path of \d+ characters, longer than/, output)
+      end
+    end
+  end
+
   # A file that PhysFS cannot mount is no game, and is reported with the
   # message boot.lua gives a path it cannot load (boot.lua:453-455).
   def test_a_file_that_is_not_a_lota_archive_is_no_game
@@ -963,6 +1092,43 @@ class LotaRunTest < Minitest::Test
       assert_includes output, "Cannot load game at path '#{file}'."
       assert_includes output, "\nMake sure a folder exists at the specified path.\n"
     end
+  end
+
+  # Whether a path longer than MAX_PATH can be made, as everywhere but on
+  # Windows without long paths enabled.
+  private def long_paths?
+    return true unless Gem.win_platform?
+
+    Dir.mktmpdir do |folder|
+      FileUtils.mkdir_p(File.join(folder, "l" * 160, "l" * 160))
+      true
+    rescue SystemCallError
+      false
+    end
+  end
+
+  # Writes the archive +name+ of +entries+ (ZipWriter.write) in a folder
+  # of its own, and yields its path, the environment that gives lota run a
+  # cache of its own there, and the folder of that cache.
+  private def in_archive(name, entries)
+    Dir.mktmpdir("lota-run-archive") do |folder|
+      archive = File.join(folder, name)
+      ZipWriter.write(archive, entries)
+      home = File.join(folder, "home")
+      Dir.mkdir(home)
+      os, variable = if TestHome::LINUX then %w[Linux XDG_CACHE_HOME]
+      elsif TestHome::WINDOWS then %w[Windows LOCALAPPDATA]
+      else ["OS X", "CFFIXED_USER_HOME"]
+      end
+      environment = { variable => home }
+      yield archive, environment, Lota::Archive.cache_directory(os, environment, home)
+    end
+  end
+
+  # The folder in +cache+ that the archive at +archive+ unpacks its game
+  # into, named for its SHA-256.
+  private def unpacked(cache, archive)
+    File.join(cache, Digest::SHA256.file(archive).hexdigest[0, 16], "game")
   end
 
   # Writes a game folder of +files+ (name to source) and yields its path.

@@ -19,8 +19,11 @@ module Lota
       #
       # This command starts the game in the folder you name, or in the
       # current directory, with Lota::Boot, and exits with the status the
-      # game quits with. Arguments after the folder reach the game's load
-      # callback. The folder goes on <tt>$LOAD_PATH</tt>, so main.rb can
+      # game quits with. It also plays a game in one file, a
+      # <tt>.lota</tt>: the game's folder, zipped, as
+      # <tt>love game.love</tt> plays a LÖVE game (Lota::Archive).
+      # Arguments after the folder reach the game's load callback. The
+      # folder goes on <tt>$LOAD_PATH</tt>, so main.rb can
       # <tt>require "player"</tt> for the player.rb beside it, as LÖVE's
       # require searches the game's folder; the working directory stays
       # where you ran the command, as it does for LÖVE.
@@ -37,6 +40,7 @@ module Lota
       #   lota run
       #   lota run path/to/game
       #   lota run path/to/game --level 2
+      #   lota run game.lota
       module Run
         # Runs the run command.
         #
@@ -57,8 +61,9 @@ module Lota
           <<~USAGE
             Usage: lota run [path] [arguments]
 
-            Runs the game in path, or in the current directory. The game's
-            load callback receives the arguments.
+            Runs the game in path, a folder or a .lota file, or in the
+            current directory. The game's load callback receives the
+            arguments.
 
             Options:
               --help, -h  Show this help
@@ -70,13 +75,15 @@ module Lota
         # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
         # SPDX-License-Identifier: Zlib
         #
-        # The message boot.lua raises when the game's path is not a folder
-        # (vendor/love/src/modules/love/boot.lua:453-455). LÖVE reports it
-        # after opening its window, on its error screen; Lota reports it
-        # before opening anything, as a usage error.
+        # The message boot.lua raises when the game's path is neither a
+        # folder nor an archive (vendor/love/src/modules/love/boot.lua:
+        # 453-455). LÖVE reports it after opening its window, on its error
+        # screen; Lota reports a path that is nothing before opening
+        # anything, as a usage error, and a file that is no archive as
+        # Lota::Boot finds it is not, before opening a window.
         def self.run_game(path, arguments) # :nodoc:
           directory = File.expand_path(path || ".")
-          unless File.directory?(directory)
+          unless File.exist?(directory)
             warn "Error: Cannot load game at path '#{directory}'."
             warn "Make sure a folder exists at the specified path."
             exit(1)

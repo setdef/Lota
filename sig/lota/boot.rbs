@@ -47,6 +47,12 @@ module Lota
 
     private def boot: () -> void
 
+    @code_directory: String?
+
+    private def unpack: () -> void
+
+    private def code_directory: () -> String
+
     private def init_game: () -> void
 
     private def earlyinit: () -> Integer?
