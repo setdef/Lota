@@ -165,4 +165,41 @@ class SanitizerTest < Minitest::Test
       puts "the bug went unreported"
     RUBY
   end
+
+  # Threads share LÖVE's objects as LÖVE's threads do, with no lock beyond
+  # LÖVE's, so two Ractors that write and read one ByteData's bytes, and
+  # push it through one Channel and pop it again, each through wrappers of
+  # its own, while a third collects garbage over and over, leave ASan
+  # nothing to report: the design is tested, not only argued.
+  def test_ractors_racing_over_one_data_and_one_channel_leave_asan_nothing_to_report
+    output, status = ruby_of_its_own("-e", <<~RUBY, timeout: CHILD_TIMEOUT)
+      require "lota"
+      Warning[:experimental] = false
+      %i[Data Thread Timer Event].each { |name| Lota::Native.const_get(name).open }
+      data = Lota::Data::ByteData.new(64)
+      channel = Lota::Thread::Channel.new
+      shared = Ractor.make_shareable(Lota::Thread.carry([data, channel]))
+      workers = Array.new(2) do |worker|
+        Ractor.new(shared, worker) do |carried, index|
+          theirs, queue = Lota::Thread.receive(carried)
+          1_000.times do |step|
+            theirs.uint8 = step % 64, index
+            theirs.uint8(step % 64)
+            queue.push([index, step, theirs])
+            queue.pop&.last&.size
+          end
+          :done
+        end
+      end
+      collector = Ractor.new do
+        100.times { GC.start }
+        :collected
+      end
+      p workers.map(&:value), collector.value, data.size, channel.count
+      3.times { GC.start }
+    RUBY
+
+    assert_predicate status, :success?, output
+    assert_equal "[:done, :done]\n:collected\n64\n0\n", output
+  end
 end

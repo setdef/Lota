@@ -223,13 +223,13 @@ class CallbacksTest < Minitest::Test
     assert_equal "Unknown event: nonsense", error.message
   end
 
-  def test_every_handler_but_threaderror_is_ported
+  def test_every_handler_is_ported
     callbacks_lua = File.read(File.expand_path("../vendor/love/src/modules/love/callbacks.lua", __dir__))
     handlers = callbacks_lua[/love\.handlers = setmetatable\(\{(.*?)\n\t\}, \{/m, 1]
     names = handlers.scan(/^\t\t(\w+) = function/).flatten.map(&:to_sym)
 
-    assert_includes names, :audiodisconnected
-    assert_equal names - %i[threaderror], Lota::Callbacks::HANDLERS.keys
+    assert_includes names, :threaderror
+    assert_equal names, Lota::Callbacks::HANDLERS.keys
   end
 
   # callbacks.lua:145-149: the handler passes the stopped Sources to the

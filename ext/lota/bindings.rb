@@ -1565,6 +1565,31 @@ bound_by_hand "love.system.getPreferredLocales",
   reason: "builds a table of strings with lua_createtable and lua_rawseti in a loop, which the generator does " \
     "not port; Lota returns the locales as an Array of Strings"
 
+# Why love.thread's functions are bound by hand.
+love_thread = "ports Channel.cpp and LuaThread.cpp to hold Ruby values that Ractors share and to wait without " \
+  "Ruby's GVL, which the generator does not write; Lota::Thread makes each value shareable first"
+
+# love.thread. LÖVE's Channel and LuaThread hold Lua values and run Lua
+# states, so the engine's source lists leave them out, and
+# ext/lota/native/thread.cpp ports them to hold Ruby values and to keep the
+# state of the Ractor that runs a thread's code (ADR 007).
+bound_by_hand "love.thread.newThread", reason: love_thread
+bound_by_hand "love.thread.newChannel", reason: love_thread
+bound_by_hand "love.thread.getChannel", reason: love_thread
+bound_by_hand "LuaThread:start", reason: love_thread
+bound_by_hand "LuaThread:wait", reason: love_thread
+bound_by_hand "LuaThread:getError", reason: love_thread
+bound_by_hand "LuaThread:isRunning", reason: love_thread
+bound_by_hand "Channel:push", reason: love_thread
+bound_by_hand "Channel:supply", reason: love_thread
+bound_by_hand "Channel:pop", reason: love_thread
+bound_by_hand "Channel:demand", reason: love_thread
+bound_by_hand "Channel:peek", reason: love_thread
+bound_by_hand "Channel:getCount", reason: love_thread
+bound_by_hand "Channel:hasRead", reason: love_thread
+bound_by_hand "Channel:clear", reason: love_thread
+bound_by_hand "Channel:performAtomic", reason: love_thread
+
 # love.timer
 generate "love.timer.step"
 generate "love.timer.getDelta"

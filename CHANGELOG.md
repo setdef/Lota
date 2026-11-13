@@ -13,6 +13,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - Deprecation notices are drawn over the frame, as LÖVE draws them: the newest four, in a dark band at the bottom of the window, for 20 seconds after the latest, while `Lota.deprecation_output?` is true.
+- `love.thread`: `Lota::Thread`, which boot opens unless `t.modules.thread` is false, and `lota.thread`; `Lota::Thread.channel`; `Lota::Thread::Channel` (`new`, `push`, `supply`, `pop`, `demand`, `peek`, `count`, `read?`, `clear`, `perform_atomic`), which carries any of Lota's objects as itself and hands back a fresh copy of each message, its Strings, Arrays, and Hashes unfrozen; and `Lota::Thread::Thread` (`new`, `start`, `wait`, `error`, `running?`), whose code runs in a Ractor of its own. `lota.graphics` and `lota.window` are `nil` in a thread's code, as in LÖVE, and the user data and World callbacks one thread sets raise `Ractor::IsolationError` in another.
+- `Lota.threaderror(thread, error)`, called when a thread's code raises; its default raises the error in the game, as `love.threaderror` does.
 - A Ractor other than the main one may call Lota's modules, holding wrappers of its own for the engine objects it reads, but `Lota::Graphics` and `Lota::Window` raise `ThreadError` there, as on any thread but the main one.
 - `Lota::Window.show_file_dialog`, translating `love.window.showFileDialog`: it shows the system's dialog for opening files, opening a folder, or saving, and calls its block or callable with the chosen paths, the chosen filter's name, and any error when the event queue is next pumped after the player chooses.
 - `Lota::Graphics.clear` takes an Array of components for each canvas being drawn to, as `love.graphics.clear` takes a table for each, with an empty Array or `nil` leaving a canvas as it is.
@@ -20,6 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **Breaking:** A `Lota::Data` is no longer `Ractor.shareable?`: each Ractor holds its own wrapper of an engine object, as each of LÖVE's Lua states holds its own userdata, so a release in one ends only that one's use. Pass a Data, or any of Lota's objects, to another Ractor through a `Lota::Thread::Channel` or a thread's arguments, which carry it as itself.
 - **Breaking:** Requires Ruby 4.1 (preview or later); Ruby 4.0 is no longer supported. Each precompiled gem accepts Ruby 4.1's previews and releases, and the Windows gems are built on the head build of RubyInstaller that Fledge keeps, since RubyInstaller publishes no 4.1 preview; another day's head build need not load them.
 - `lota fuse` builds with Fledge 0.12.0, whose runtimes are Ruby 4.1, was 0.10.0.
 - Lota's loop allocates fewer objects calling a game's callbacks: two a call, the arguments and the callback's `Method`, where it allocated five to seven, so a game with an empty `update(dt)` and `draw` costs 7 objects a frame instead of 14.

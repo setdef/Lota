@@ -40,7 +40,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
 - Phones and tablets have no gem yet. A game builds for them with [Fledge](https://github.com/setdef/Fledge) and a clone of Lota, or for iPhone and iPad from your game's CI: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has both routes. Games have run in the iOS Simulator, on Android emulators, on real iPads and iPhones, and on one Android phone.
 
-Lota binds every module of LÖVE's but `love.thread`, whose binding is under way: threads will be Ruby Ractors, and a game cannot start one yet. A few functions in the other modules are not bound yet either, and a game that calls one stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
+Lota binds every module of LÖVE's. Its threads are Ruby Ractors, which Ruby still calls experimental: a thread's code runs in a Ractor of its own, and talks to the game through channels, as in LÖVE. A few functions are not bound yet, and a game that calls one stops with a `NoMethodError`. The [changelog](CHANGELOG.md) lists what each release added.
 
 ## Installation
 

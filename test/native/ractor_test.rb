@@ -135,21 +135,23 @@ class RactorTest < Minitest::Test
     assert_equal "true\n", output
   end
 
-  # Every Data guards its bytes with LÖVE's own lock, so its wrapper is
-  # frozen and Ractors share it, as love.thread's channels pass LÖVE's
-  # objects: another Ractor reads and changes the same bytes.
+  # A Data crosses Ractors as the same engine object, as love.thread's
+  # channels pass LÖVE's objects, through a carrier Ractors share
+  # (Lota::Thread.carry), and the other Ractor wraps it anew, so it reads
+  # and changes the same bytes through a wrapper of its own.
   def test_a_data_crosses_ractors_as_itself
     output = run_script(<<~RUBY)
       data = Lota::Data::ByteData.new("hello")
       p Ractor.shareable?(data)
-      p(Ractor.new(data) do |shared|
-        shared.uint8 = 0, 106
-        shared.string
+      p(Ractor.new(Ractor.make_shareable(Lota::Thread.carry(data))) do |carried|
+        theirs = Lota::Thread.receive(carried)
+        theirs.uint8 = 0, 106
+        theirs.string
       end.value)
       p data.string
     RUBY
 
-    assert_equal "true\n\"jello\"\n\"jello\"\n", output
+    assert_equal "false\n\"jello\"\n\"jello\"\n", output
   end
 
   # Two threads that hold one Data with perform_atomic take turns, and a
@@ -171,7 +173,8 @@ class RactorTest < Minitest::Test
       order.pop
       waiter = Thread.new { data.perform_atomic { order << :second } }
       [holder, waiter].each(&:join)
-      other = Ractor.new(data) { |shared| shared.perform_atomic { :other } }
+      carried = Ractor.make_shareable(Lota::Thread.carry(data))
+      other = Ractor.new(carried) { |theirs| Lota::Thread.receive(theirs).perform_atomic { :other } }
       data.perform_atomic { sleep 0.2; GC.start }
       p [order.pop, order.pop, other.value]
     RUBY

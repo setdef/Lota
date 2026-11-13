@@ -77,7 +77,7 @@ Lota's; the LÖVE function is in the RDoc.
   applies the last; on iOS set the audio session in the app's host instead:
   Ambient mixes with other apps and obeys the silent switch).
 - Part of `love.physics` (for example some `Body` and `MouseJoint` setters),
-  video, and `Lota::Thread` and channels (LÖVE's `love.thread`).
+  and video.
 - A `NoMethodError` on a LÖVE function usually means it is not bound.
 
 **Ruby-specific**
@@ -86,6 +86,13 @@ Lota's; the LÖVE function is in the RDoc.
 - On phones, Ruby's `$stdout` is block-buffered when it is a pipe unless the
   runtime line-buffers it (Fledge 0.5.1 and later do): set `$stdout.sync = true`
   early so log lines arrive as they happen.
+- A `Lota::Thread::Thread` runs its code in a Ractor of its own. A Channel
+  hands back a fresh copy of each message, which you may change, and every
+  Lota object as itself, but a Proc cannot be pushed (`ArgumentError`). User
+  data and World callbacks set in one thread raise `Ractor::IsolationError` in
+  another. A game
+  file a thread requires loads in the main Ractor, so the classes it defines
+  belong to the main Ractor.
 - Use Lota 0.1.3 or newer: earlier gems can crash a game that fetches the same
   engine object (`World#bodies`, `Joystick.joysticks`) every frame.
 

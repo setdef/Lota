@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Thread
+    CHANNEL_EXPECTED: String
+
+    START_EXPECTED: String
+
+    def self.channel: (String name) -> Channel
+
+    class Carried
+      attr_reader lota_class: singleton(Lota::Object)
+
+      attr_reader carried: Native::Thread::Carried
+
+      def self.new: (lota_class: singleton(Lota::Object), carried: Native::Thread::Carried) -> Carried
+    end
+
+    def self.share: (::Object? value, Integer position, String name, String expected) -> ::Object?
+
+    def self.carry: (::Object? value) -> ::Object?
+
+    def self.receive: (::Object? value) -> ::Object?
+  end
+end

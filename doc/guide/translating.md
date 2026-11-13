@@ -117,6 +117,14 @@ A pair's block form is the Lua that tests the first call before it makes the sec
 
 `love.filesystem.load` loads a file of Lua as a function; `Lota::Filesystem.load("level.rb")` loads a file of Ruby as a Proc, in an Array. It reads the file where LÖVE's filesystem finds it, including the save folder and mounted archives, which `require` does not search. A syntax error raises at once, and the code runs, at the top level, each time you call the Proc, with the Proc's arguments as its `ARGV`.
 
+### Threads are Ractors
+
+`love.thread.newThread(code)` is `Lota::Thread::Thread.new(code)`, and `thread.start(...)` runs the code in a Ruby Ractor of its own, as LÖVE runs it in a Lua state of its own. The code is a file of the game's or a String of Ruby, with what `start` was given in its `ARGV`, where Lua's chunk reads `...`. Every module is open in it, so it needs nothing like Lua's `require("love.timer")`. A local function in the thread's Lua becomes a lambda, and `channel:performAtomic(f, "ping")` becomes `channel.perform_atomic("ping", &f)`.
+
+Threads talk through Channels, as in LÖVE: `love.thread.getChannel("results")` is `Lota::Thread.channel("results")`. A Channel keeps a copy of each message, and each `pop` hands back a fresh one you may change, as LÖVE hands back a new table: a String, an Array, or a Hash arrives unfrozen, and an Integer or a Symbol as itself. Every Lota object goes as itself, as LÖVE passes its objects, and reaches the popping thread as a wrapper of that thread's own, of the same object, so a `release` there ends only that thread's use of it. The Ruby values you set on an object, a Body's user data or a World's callbacks, stay with the thread that set them: another thread that reads them, or whose `World#update` would call them, raises `Ractor::IsolationError`, because Ruby lets no other Ractor touch them, as in LÖVE they stay in the Lua state that set them. A Proc raises `ArgumentError`, as LÖVE refuses a Lua function. A thread's code may use every module but `Lota::Graphics` and `Lota::Window`, which are `nil` through `lota.graphics` and `lota.window` there, as in LÖVE.
+
+When a thread's code raises, Lota calls `Lota.threaderror(thread, error)`, as LÖVE calls `love.threaderror`, and the default raises the error in the game.
+
 ### Objects and their types
 
 LÖVE's root types are classes: every engine object is a `Lota::Object`, and every Data, such as an ImageData, SoundData, FileData, or ByteData, is a `Lota::Data` too. `Lota::Data`'s class methods are `love.data`'s, so `Lota::Data.hash(:string, :md5, s)` is `love.data.hash`, while `Lota::Data.hash` with no arguments is Ruby's own `Object#hash`. In the same way, `Lota::Sensor.name(:accelerometer)` is `love.sensor.getName`, and `Lota::Sensor.name` is Ruby's `Module#name`.

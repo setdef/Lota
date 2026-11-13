@@ -22,11 +22,13 @@
 #include "native/particle_system.hpp"
 #include "native/physics.hpp"
 #include "native/random_generator.hpp"
+#include "native/ruby.hpp"
 #include "native/sensor.hpp"
 #include "native/shader.hpp"
 #include "native/sound.hpp"
 #include "native/system.hpp"
 #include "native/texture.hpp"
+#include "native/thread.hpp"
 #include "native/timer.hpp"
 #include "native/touch.hpp"
 #include "native/video.hpp"
@@ -58,6 +60,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   // Graphics and window raise ThreadError there, as off the main thread
   // (native/binding.hpp, require_main_thread).
   const lota::native::RactorSafety safety(true);
+  // The values the engine keeps for Ruby in C++ (native/ruby.hpp, Marks).
+  lota::native::ruby::Marks::instance().install();
   // Before any binding can ask whether it runs there (native/binding.hpp).
   lota::native::record_main_thread();
   // Before any binding, so that every error the engine raises reaches Ruby
@@ -75,6 +79,7 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
   lota::native::define_font(native);
   lota::native::define_timer(native);
   lota::native::define_deprecation(native);
+  lota::native::define_thread(native);
   lota::native::define_event(native);
   lota::native::define_keyboard(native);
   lota::native::define_joystick(native);

@@ -105,6 +105,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -118,11 +119,21 @@
 #endif
 
 namespace lota::native {
-
 // A LÖVE engine object: anything that counts its references with
 // love::Object (vendor/love/src/common/Object.h).
 template <typename T>
 concept EngineObject = std::derived_from<std::remove_cv_t<T>, love::Object>;
+} // namespace lota::native
+
+// Declared here, defined below, for define_engine_class's table of how
+// to wrap each class again (Rewrap).
+namespace Rice::detail {
+template <typename T>
+  requires lota::native::EngineObject<T>
+VALUE wrap_engine_object_as(T *data, bool isOwner);
+} // namespace Rice::detail
+
+namespace lota::native {
 
 // Whether this is the process's main thread, the one the operating system
 // started the process on. macOS runs windows and graphics only there. SDL's
@@ -213,20 +224,6 @@ template <> struct ReleasedOnMainThread<love::graphics::Mesh> : std::true_type {
 template <> struct ReleasedOnMainThread<love::graphics::ParticleSystem> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::GraphicsReadback> : std::true_type {};
 template <> struct ReleasedOnMainThread<love::graphics::Video> : std::true_type {};
-
-// Whether Ractors share the wrappers of engine objects of class T, as
-// love.thread's channels pass LÖVE's objects between threads
-// (doc/contributors/design/engine.md, "Threads and Ractors"): a
-// love::Data, which guards its bytes with LÖVE's own lock
-// (src/common/Data.h), or a class of Lota's that says it guards itself,
-// with a static member +shareable+. Their Ruby type is
-// RUBY_TYPED_FROZEN_SHAREABLE and each wrapper is frozen as it is made
-// (wrap_engine_object), so Ruby shares it rather than refusing it.
-// Wrappers of every other class stay in the Ractor that made them.
-template <typename T> struct Shareable {
-  static constexpr bool value =
-      std::derived_from<T, love::Data> || requires { requires T::shareable; };
-};
 
 // The object a wrapper of an engine object of class T also holds a
 // reference to, so that it outlives the wrapper's own object, or nullptr.
@@ -647,6 +644,26 @@ inline void mark_engine_wrapper(void *data) {
   static_cast<Rice::detail::WrapperBase *>(data)->ruby_mark();
 }
 
+// How to wrap again, in any Ractor, an engine object whose wrapper had the
+// Ruby data type it is keyed by: the wrapper of the object as the class
+// bound for it, the one this Ractor already has or a new one
+// (Rice::detail::wrap_engine_object_as), and whether the object of that
+// class is released only on the main thread (ReleasedOnMainThread). LÖVE
+// pushes an object a channel carried as a userdata of the Lua state that
+// pops it (luax_pushvariant, common/Variant.cpp), and Lota gives the
+// Ractor that pops it a wrapper of its own. define_engine_class records
+// each class it binds, in Init_native, on the main Ractor, before any
+// other Ractor reads the table.
+struct Rewrap {
+  VALUE (*wrap)(love::Object *object) = nullptr;
+  bool released_on_main_thread = false;
+};
+
+inline std::unordered_map<const rb_data_type_t *, Rewrap> &rewraps() {
+  static std::unordered_map<const rb_data_type_t *, Rewrap> table;
+  return table;
+}
+
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
 // SPDX-License-Identifier: Zlib
@@ -689,9 +706,13 @@ Rice::Data_Type<T> define_engine_class(const Rice::Module &parent, const char *n
   Rice::Data_Type<T> bound = Rice::define_class_under<T, Base>(parent, name);
   EngineWrapper::types().insert(Rice::Data_Type<T>::ruby_data_type());
   Rice::Data_Type<T>::ruby_data_type()->function.dmark = &mark_engine_wrapper;
-  if constexpr (Shareable<T>::value) {
-    Rice::Data_Type<T>::ruby_data_type()->flags |= RUBY_TYPED_FROZEN_SHAREABLE;
-  }
+  rewraps()[Rice::Data_Type<T>::ruby_data_type()] = {
+      .wrap =
+          [](love::Object *object) {
+            return Rice::detail::wrap_engine_object_as<T>(dynamic_cast<T *>(object), false);
+          },
+      .released_on_main_thread = ReleasedOnMainThread<T>::value,
+  };
   return bound
       .define_method("object_type", [](VALUE /*self*/) { return std::string(T::type.getName()); })
       .define_method(
@@ -899,15 +920,6 @@ inline void install_engine_calls(const Rice::Module &module) {
   }
 }
 
-// Freezes +wrapper+, a new wrapper of an engine object of the data type
-// +type+, when Ractors share wrappers of its class (Shareable), so Ruby
-// counts it shareable from the start.
-inline void freeze_if_shareable(VALUE wrapper, const rb_data_type_t *type) {
-  if ((type->flags & RUBY_TYPED_FROZEN_SHAREABLE) != 0) {
-    rb_obj_freeze(wrapper);
-  }
-}
-
 // Sets whether the methods defined while it lives may be called from a
 // Ractor other than the main one (rb_ext_ractor_safe, load.c), and turns
 // it back on when it ends, as Init_native leaves it. Ruby reads the
@@ -1034,7 +1046,6 @@ VALUE wrap_engine_object(U *data, bool isOwner) {
   }
   const std::pair<VALUE, rb_data_type_t *> type = Registries::instance.types.figureType(*data);
   const VALUE wrapped = wrap(type.first, type.second, data, isOwner);
-  lota::native::freeze_if_shareable(wrapped, type.second);
   identities.remember(data, wrapped);
   return wrapped;
 }
@@ -1056,7 +1067,6 @@ VALUE wrap_engine_object_as(T *data, bool isOwner) {
     return found;
   }
   const VALUE wrapped = wrap(Data_Type<T>::klass(), Data_Type<T>::ruby_data_type(), data, isOwner);
-  lota::native::freeze_if_shareable(wrapped, Data_Type<T>::ruby_data_type());
   identities.remember(data, wrapped);
   return wrapped;
 }

@@ -128,8 +128,8 @@ module Bindings
     # The Ruby class a LÖVE type's methods belong to, where LÖVE's Lua type
     # name differs from the name its wrap file registers: Buffer.cpp's type
     # is "GraphicsBuffer" (rule 2 then makes Buffer a module, as it makes
-    # Image one for Texture).
-    RUBY_TYPE_NAMES = { "Buffer" => "GraphicsBuffer" }.freeze
+    # Image one for Texture), and LuaThread.cpp's is "Thread".
+    RUBY_TYPE_NAMES = { "Buffer" => "GraphicsBuffer", "LuaThread" => "Thread" }.freeze
     # The setters whose first value is itself an Array or a Data, which
     # stay methods, since a writer cannot tell that value from a list of
     # several (rule 35).

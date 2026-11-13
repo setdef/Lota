@@ -10,9 +10,15 @@
 
 #include "native/binding.hpp"
 
+#include <ruby/ractor.h>
 #include <ruby/thread.h>
 
+#include <atomic>
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace lota::native::ruby {
@@ -81,6 +87,27 @@ inline ThreadId no_thread() { return Qfalse; }
 // The Ruby thread running this code.
 inline ThreadId current_thread() { return rb_thread_current(); }
 
+// A Ruby value as the C API holds it, and the description of a typed
+// data object's type, for the bindings that keep Ruby values in C++.
+using Value = VALUE;
+using DataType = rb_data_type_t;
+
+// The type of the typed data object +object+.
+inline const DataType *data_type(Value object) { return RTYPEDDATA_TYPE(object); }
+
+// Marks +value+ for Ruby's collector, from a Marked's mark.
+inline void mark(VALUE value) { rb_gc_mark(value); }
+
+// Whether Ractors share +value+, as Ractor.shareable? answers. Ruby 4.0's
+// inline rb_ractor_shareable_p (ruby/ractor.h:249-262) declares
+// rb_ractor_shareable_p_continue inside its own body, outside the header's
+// extern "C" block, so from C++ it names a mangled symbol that no Ruby
+// exports; Ruby's method links everywhere.
+inline bool shareable(const Rice::Object &value) {
+  const Rice::Object ractor(Rice::detail::protect(rb_path2class, "Ractor"));
+  return truthy(ractor.call("shareable?", value));
+}
+
 // Runs the interrupts Ruby has pending for this thread, as Ruby does as it
 // returns from a call that released the GVL; an exception one raises
 // reaches C++ as Rice's, rather than as a longjmp through C++ frames.
@@ -118,14 +145,137 @@ inline std::vector<Rice::Object> elements(const Rice::Array &array) {
   throw Rice::Exception(rb_eArgError, "%s", message.c_str());
 }
 
+// Something the engine holds that holds Ruby values, which Ruby's garbage
+// collector must see however long the engine keeps it (Marks, below).
+class Marked {
+public:
+  Marked() = default;
+  Marked(const Marked &) = delete;
+  Marked(Marked &&) = delete;
+  Marked &operator=(const Marked &) = delete;
+  Marked &operator=(Marked &&) = delete;
+
+  // Marks the Ruby values it holds. It runs while Ruby collects, when no
+  // Ruby code runs, so it must neither allocate nor call Ruby.
+  virtual void mark() const = 0;
+
+protected:
+  ~Marked() = default;
+};
+
+// The Marked objects there are, which one hidden object, made by
+// Init_native and marked by Ruby on every collection, marks.
+//
+// A Marked object is made and destroyed in any Ractor, so a lock guards
+// the set. It guards a set only C++ allocates for, so whoever holds it
+// never waits on Ruby, and the collector, which stops every Ractor first,
+// takes it only once no Ractor's Ruby code does; a lock that Ruby could
+// wait on while it allocated would let a collection that started there
+// wait for the other Ractor, which would wait for the lock. A Marked
+// object marks only shareable values, as Ruby 4.1 asks of what a root
+// shared by every Ractor holds (Feature #22277).
+class Marks {
+public:
+  static Marks &instance() {
+    static Marks marks;
+    return marks;
+  }
+
+  Marks(const Marks &) = delete;
+  Marks(Marks &&) = delete;
+  Marks &operator=(const Marks &) = delete;
+  Marks &operator=(Marks &&) = delete;
+  ~Marks() = default;
+
+  // Makes the object Ruby marks them from, once, from Init_native, on the
+  // main Ractor. Ruby never frees it.
+  void install() {
+    if (installed_) {
+      return;
+    }
+    rb_gc_register_mark_object(rb_data_typed_object_wrap(0, this, type()));
+    installed_ = true;
+  }
+
+  void add(const Marked *marked) {
+    const std::scoped_lock lock(mutex_);
+    marked_.insert(marked);
+  }
+
+  // It may run while Ruby collects another object whose release destroys
+  // +marked+, and allocates nothing.
+  void remove(const Marked *marked) noexcept {
+    const std::scoped_lock lock(mutex_);
+    marked_.erase(marked);
+  }
+
+private:
+  Marks() = default;
+
+  static void mark_all(void *data) {
+    const auto *marks = static_cast<Marks *>(data);
+    const std::scoped_lock lock(marks->mutex_);
+    for (const Marked *marked : marks->marked_) {
+      marked->mark();
+    }
+  }
+
+  // Ruby's description of the hidden object, every field but these two
+  // zero, whichever fields this Ruby's rb_data_type_t has.
+  static const rb_data_type_t *type() {
+    static const rb_data_type_t described = [] {
+      rb_data_type_t type{};
+      type.wrap_struct_name = "Lota::Native marks";
+      type.function.dmark = &mark_all;
+      return type;
+    }();
+    return &described;
+  }
+
+  mutable std::mutex mutex_;
+  std::unordered_set<const Marked *> marked_;
+  bool installed_ = false;
+};
+
+// A number for the Ractor running this code, the same each time it asks,
+// and never another Ractor's, even one that has ended: a count kept in the
+// Ractor's local storage, which frees it as the Ractor ends.
+inline std::uint64_t current_ractor() {
+  static const rb_ractor_local_storage_type type = {
+      .mark = nullptr,
+      .free =
+          [](void *number) {
+            const std::unique_ptr<std::uint64_t> owned(static_cast<std::uint64_t *>(number));
+          },
+  };
+  static rb_ractor_local_key_t key = rb_ractor_local_storage_ptr_newkey(&type);
+  static std::atomic<std::uint64_t> made{0};
+  const auto *number = static_cast<const std::uint64_t *>(rb_ractor_local_storage_ptr(key));
+  if (number == nullptr) {
+    auto owned = std::make_unique<std::uint64_t>(++made);
+    number = owned.get();
+    rb_ractor_local_storage_ptr_set(key, owned.release());
+  }
+  return *number;
+}
+
 // A Ruby value that stays alive while this object does: a root of Ruby's
 // garbage collector, as a Lua reference keeps its value in the registry.
 // Its destructor only unregisters the address, which allocates nothing, so
 // it may run while Ruby collects another object whose release destroys
 // this one.
+//
+// Only the Ractor that set the value may read it. The engine object that
+// holds it, a Body with user data or a World with callbacks, may reach
+// another Ractor, as LÖVE's channels carry it to another thread, but the
+// value is the setting Ractor's own: Ruby lets no other Ractor touch an
+// object it does not share, and its collector is the one that marks it.
+// In LÖVE the value lives in the registry of the Lua state that set it, so
+// no other state uses it either. Reading it elsewhere raises
+// Ractor::IsolationError, saying so.
 class Root {
 public:
-  explicit Root(const Rice::Object &value) : value_(value.value()) {
+  explicit Root(const Rice::Object &value) : value_(value.value()), owner_(current_ractor()) {
     rb_gc_register_address(&value_);
   }
 
@@ -136,13 +286,22 @@ public:
 
   ~Root() { rb_gc_unregister_address(&value_); }
 
-  [[nodiscard]] Rice::Object value() const { return {value_}; }
+  [[nodiscard]] Rice::Object value() const {
+    if (owner_ != current_ractor()) {
+      const Rice::Object isolation(Rice::detail::protect(rb_path2class, "Ractor::IsolationError"));
+      throw Rice::Exception(isolation.value(),
+                            "this Ruby value was set in another thread, whose Ractor alone may "
+                            "use it");
+    }
+    return {value_};
+  }
 
   // Lets the value go, while this object lives on.
   void clear() { value_ = Qnil; }
 
 private:
   VALUE value_;
+  std::uint64_t owner_;
 };
 
 } // namespace lota::native::ruby
