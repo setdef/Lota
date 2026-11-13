@@ -17,9 +17,15 @@
 
 namespace {
 
-// connect, refused for an Internet address.
+// connect, refused for an Internet address. No address at all fails as
+// the kernel fails it, with EFAULT, rather than reaching ::connect, whose
+// address the system declares never null.
 int offline_connect(int socket, const sockaddr *address, socklen_t length) {
-  if (address != nullptr && (address->sa_family == AF_INET || address->sa_family == AF_INET6)) {
+  if (address == nullptr) {
+    errno = EFAULT;
+    return -1;
+  }
+  if (address->sa_family == AF_INET || address->sa_family == AF_INET6) {
     errno = ECONNREFUSED;
     return -1;
   }
@@ -48,8 +54,8 @@ template <typename Function> struct Interpose {
 };
 
 __attribute__((used, section("__DATA,__interpose"))) const Interpose<decltype(::connect)>
-    interposed_connect{&offline_connect, &::connect};
+    interposed_connect{.replacement = &offline_connect, .replaced = &::connect};
 __attribute__((used, section("__DATA,__interpose"))) const Interpose<decltype(::getaddrinfo)>
-    interposed_getaddrinfo{&offline_getaddrinfo, &::getaddrinfo};
+    interposed_getaddrinfo{.replacement = &offline_getaddrinfo, .replaced = &::getaddrinfo};
 
 } // namespace

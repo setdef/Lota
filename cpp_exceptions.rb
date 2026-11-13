@@ -118,7 +118,7 @@ allow "ext/lota/native_test/answer_dialogs_linux.cpp", line: 52,
 allow "ext/lota/native_test/offline_linux.cpp", lines: [49, 65],
   reason: "getaddrinfo's signature is POSIX's, with the name and the service both const char * side by side; " \
     "the replacement must match it to be called in its place."
-allow "ext/lota/native_test/offline.mm", line: 30,
+allow "ext/lota/native_test/offline.mm", line: 36,
   reason: "getaddrinfo's signature is POSIX's, with the name and the service both const char * side by side; " \
     "the replacement must match it to be called in its place."
 allow "ext/lota/native_test/offline_linux.cpp", line: 34,
