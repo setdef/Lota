@@ -152,6 +152,12 @@ module Lota
     def call
       Restart.__send__(:take)
       Restart.__send__(:remember, @arguments, fused: true) if @fused
+      Restart.__send__(:in_process, @directory) { play }
+    end
+
+    # Runs the game once, as boot.lua's root function does, and returns
+    # its exit status.
+    private def play
       @restart = false
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
@@ -199,8 +205,7 @@ module Lota
     private def finish(retval)
       first, value = retval.is_a?(Array) ? retval : [retval]
       if first == "restart"
-        restartable = Restart.__send__(:restartable?) && !phone?
-        restartable ? Restart.__send__(:request, value) : Restart.__send__(:encode, value)
+        Restart.__send__(:ask, value, phone: phone?)
         @restart = true
         @restart_value = value
         return 0

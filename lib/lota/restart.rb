@@ -8,6 +8,7 @@
 require "rbconfig"
 require "strscan"
 require_relative "variant"
+require_relative "restart/snapshot"
 
 module Lota
   # Starts the game again after it asks to restart, as LÖVE's main loop
@@ -108,8 +109,30 @@ module Lota
     # deep, so that reading it cannot exhaust the stack. :nodoc:
     MAXIMUM_DEPTH = 100
 
+    # The feature flag that starts the game again in the same process, as
+    # LÖVE does, rather than by exec: unset, never; +always+, on every
+    # restart. :nodoc:
+    IN_PROCESS = "LOTA_IN_PROCESS_RESTART"
+
     # Rejects what the event queue cannot carry. :nodoc:
     class Unsupported < TypeError; end
+
+    # Catches the exit procs a game registers while it runs in a process
+    # that starts it again, so that they run when that run ends, as they
+    # would when its process ended. Only the main Ractor's are caught;
+    # a Lota thread's run when the process ends. :nodoc:
+    module ExitProcs
+      private def at_exit(&block)
+        return super unless Ractor.current.equal?(Ractor.main)
+
+        procs = Restart.__send__(:exit_procs) #: Array[Proc]?
+        if procs && block
+          procs << block
+          return block
+        end
+        super
+      end
+    end
 
     @value = nil
     @taken = false
@@ -118,6 +141,8 @@ module Lota
     @pending = nil
     @arguments = []
     @fused = false
+    @kept = nil
+    @exit_procs = nil
 
     class << self
       # The value the game that restarted chose, or +nil+ when the game
@@ -152,6 +177,11 @@ module Lota
       private def decode(text)
         raise ArgumentError, "not a restart value" if text.bytesize > MAXIMUM_LENGTH
 
+        parse(text)
+      end
+
+      # The value +text+ holds, of any length. :nodoc:
+      private def parse(text)
         scanner = StringScanner.new(text.b)
         tokens = [] #: Array[Variant::token]
         read(scanner, 0, tokens)
@@ -192,6 +222,82 @@ module Lota
         @fused = fused
         @directory = Dir.pwd
         install
+      end
+
+      # Starts the game again with +value+ once it has ended: in this
+      # process, when IN_PROCESS says so (keep); otherwise by exec when the
+      # command was remembered and the game is not on a phone, which
+      # cannot replace its process (request); and otherwise not at all,
+      # though +value+ is checked all the same. Raises TypeError, before
+      # the game ends, for a value that cannot cross. :nodoc:
+      private def ask(value, phone:)
+        if in_process?
+          keep(value)
+        elsif restartable? && !phone
+          request(value)
+        else
+          encode(value)
+        end
+      end
+
+      # Whether a restart starts the game again in this process. :nodoc:
+      private def in_process?(environment = ENV)
+        environment[IN_PROCESS] == "always"
+      end
+
+      # Keeps +value+ for the run that starts next in this process, as
+      # love.cpp keeps its Variant (src/love.cpp, runlove): it crosses as
+      # it would cross exec, so a game sees the same value either way.
+      # Raises TypeError as encode does, but for its length. :nodoc:
+      private def keep(value)
+        @kept = [parse(written(value, []))]
+      end
+
+      # The exit procs the run in progress has registered, or +nil+ when
+      # none is caught. :nodoc:
+      attr_reader :exit_procs
+      private :exit_procs
+
+      # Runs the block, which runs the game in the folder +directory+ once
+      # and returns its exit status, and runs it again each time the game
+      # restarts in this process, as love.cpp's main runs runlove again
+      # (src/love.cpp, main). Between runs it runs the exit procs the game
+      # registered, takes away what the game defined (Snapshot), closes
+      # the engine (Lota::Native.close_modules), and hands the next run
+      # the value. Returns the last run's status. Unless IN_PROCESS says
+      # so, it runs the block once. :nodoc:
+      private def in_process(directory)
+        return yield unless in_process?
+
+        snapshot = Snapshot.new
+        Kernel.prepend(ExitProcs) unless Kernel.ancestors.include?(ExitProcs)
+        loop do
+          status = catching_exit_procs { yield }
+          kept = @kept
+          return status unless kept
+
+          @kept = nil
+          snapshot.restore(directory)
+          GC.start(full_mark: true, immediate_sweep: true)
+          Lota::Native.close_modules
+          @value = kept.first
+        end
+      end
+
+      # Runs the block, catching the exit procs it registers, and runs
+      # them once it ends, the last registered first, as Ruby runs them,
+      # printing what one raises. Returns the block's value.
+      private def catching_exit_procs
+        @exit_procs = []
+        yield
+      ensure
+        procs = @exit_procs || []
+        @exit_procs = nil
+        procs.reverse_each do |block|
+          block.call
+        rescue StandardError, ScriptError => e
+          warn e.full_message
+        end
       end
 
       # Whether the game can restart: whether the command was remembered.

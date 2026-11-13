@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Restart
+    class Snapshot
+      @constants: Hash[Module, Array[Symbol]]
+
+      @methods: Array[Symbol]
+
+      @callbacks: Hash[Symbol, UnboundMethod]
+
+      @variables: Hash[Symbol, top]
+
+      @module_variables: Hash[Module, Array[Symbol]]
+
+      @globals: Array[Symbol]
+
+      def initialize: () -> void
+
+      def restore: (String directory) -> nil
+
+      private def top_level_methods: () -> Array[Symbol]
+
+      private def lota_modules: () -> Array[Module]
+
+      private def restore_callbacks: () -> void
+
+      private def restore_variables: () -> void
+
+      private def remove_module_variables: () -> void
+
+      private def remove_constants: (Module namespace, Array[Symbol] names, String prefix) -> void
+
+      private def remove_methods: (String prefix) -> void
+
+      private def clear_globals: () -> void
+    end
+  end
+end

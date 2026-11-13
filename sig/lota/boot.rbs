@@ -43,6 +43,8 @@ module Lota
 
     def call: () -> Integer
 
+    private def play: () -> Integer
+
     def init: () -> void
 
     private def boot: () -> void

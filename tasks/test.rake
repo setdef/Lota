@@ -34,6 +34,7 @@ UNIT_TESTS = %w[
   test/archive_test.rb
   test/cli_test.rb
   test/notices_test.rb
+  test/restart_snapshot_test.rb
   test/restart_test.rb
   test/rubocop_test.rb
   test/translation_examples_test.rb
@@ -117,6 +118,7 @@ PREPUSH_LEAVES_OUT = %w[
   LotaRunTest
   RestartRunTest
   CloseModulesTest
+  InProcessRestartTest
   PhysicsBindingsTest#test_bodies_never_returns_a_wrapper_the_collector_found_dead
   JoystickEventsTest#test_joysticks_never_returns_a_wrapper_the_collector_found_dead
   NativeGemTest#test_a_warning_stops_the_build
@@ -145,6 +147,7 @@ PREPUSH_KEEPS = %w[
   LotaRunTest#test_an_error_in_a_callback_shows_the_error_screen_and_prints_a_backtrace
   LotaRunTest#test_a_game_plays_from_a_lota_as_love_plays_a_love
   RestartRunTest#test_a_restart_runs_the_game_again_in_the_same_process_and_hands_over_its_value
+  InProcessRestartTest#test_each_run_finds_the_engine_and_the_games_definitions_fresh
   ArkanoidTest#test_1_01_theballthebricktheplatform_matches_love_frame_by_frame
 ].freeze
 

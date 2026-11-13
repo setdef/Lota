@@ -41,10 +41,18 @@ def Lota.load(arguments)
   @arguments = arguments.empty? ? [*ENV.fetch("LOTA_RESTART_ARGUMENT", nil)] : arguments
   @run = File.exist?(LOG) ? File.readlines(LOG).count { |line| line.start_with?("load ") } + 1 : 1
   log("load pid=#{Process.pid} arguments=#{arguments.inspect} restart=#{Lota.restart.inspect} " \
-    "variable=#{ENV.key?('LOTA_RESTART_VALUE')} verbose=#{$VERBOSE.inspect}")
+    "variable=#{ENV.key?('LOTA_RESTART_VALUE')} verbose=#{$VERBOSE.inspect} ruby_runs=#{ruby_runs}")
   at_exit { log("at_exit pid=#{Process.pid}") }
   log("window module=#{Lota::Native::Window.open?} shown=#{shown?}")
   Lota::Native::Window.singleton_class.prepend(LogClose) if ENV.key?("LOTA_RESTART_WINDOW")
+end
+
+# How many runs of the game this Ruby has seen, when the test loaded
+# RestartMarker into it before the game (in_process_restart_test.rb): one
+# for each run in the same process, and always 1 when each run is a Ruby
+# of its own.
+def ruby_runs
+  defined?(RestartMarker) ? RestartMarker.count : "none"
 end
 
 # Logs a close of the window, which Lota::Restart makes after the exit
