@@ -64,6 +64,41 @@ class TestFilesTest < Minitest::Test
     Rake.application = previous
   end
 
+  # A test run refuses the message boxes no one can answer: on Linux it
+  # loads liblota_dialogs into every program, after a sanitizer's runtime.
+  def test_a_linux_run_preloads_the_library_that_refuses_dialogs_after_a_sanitizers_runtime
+    in_tree do |root|
+      library = write(root, "liblota_dialogs.so")
+
+      assert_equal({ "LD_PRELOAD" => library }, TestFiles.environment(env: {}, library:, linux: true))
+      assert_equal({ "LD_PRELOAD" => "libasan.so #{library}" },
+        TestFiles.environment(env: { "LD_PRELOAD" => "libasan.so" }, library:, linux: true))
+    end
+  end
+
+  def test_a_run_preloads_nothing_before_the_build_or_off_linux
+    in_tree do |root|
+      library = write(root, "liblota_dialogs.so")
+
+      assert_empty TestFiles.environment(env: {}, library: File.join(root, "missing.so"), linux: true)
+      assert_empty TestFiles.environment(env: {}, library:, linux: false)
+    end
+  end
+
+  def test_a_task_runs_its_tests_in_that_environment
+    environment = TestFiles.environment
+    previous = Rake.application
+    Rake.application = Rake::Application.new
+    task = TestFiles::Task.create(:probe) { |t| t.test_globs = %w[test/*_test.rb] }
+    ran = nil
+    task.define_singleton_method(:sh) { |*command, **| ran = command }
+    in_test_tree { Rake::Task[:probe].invoke }
+
+    assert_equal [environment, RbConfig.ruby], ran.first(2)
+  ensure
+    Rake.application = previous
+  end
+
   def guarded = Object.new.extend(UnitGuard::Kernel)
 
   def assert_refused(what, &)

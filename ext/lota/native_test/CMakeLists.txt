@@ -90,12 +90,11 @@ else()
 		INSTALL_RPATH "\$ORIGIN/${lota_loopback_relative}")
 
 	# liblota_dialogs (answer_dialogs_linux.cpp), which answers the dialogs
-	# a program shows (dialogs_linux.cpp). It links nothing of SDL's, and
-	# finds SDL's own functions in whichever SDL the program loads.
+	# a program shows (dialogs_linux.cpp), and refuses the rest. It links
+	# nothing of SDL's but its headers.
 	add_library(lota_dialogs SHARED answer_dialogs_linux.cpp)
 	lota_harness_library(lota_dialogs)
 	target_include_directories(lota_dialogs PRIVATE ${ENGINE_DEPS_DIR}/include)
-	target_link_libraries(lota_dialogs PRIVATE ${CMAKE_DL_LIBS})
 endif()
 
 # liblota_offline (offline.mm and offline_linux.cpp), which refuses

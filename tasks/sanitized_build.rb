@@ -97,11 +97,19 @@ class SanitizedBuild
     [runtime, *COMPANIONS.fetch(@platform).map { |name| find(name) }]
   end
 
+  # On Linux, the library that refuses the dialogs a test shows, when the
+  # tree has built it (ext/lota/native_test/answer_dialogs_linux.cpp,
+  # TestFiles::DIALOGS).
+  private def dialogs
+    library = File.join(lib, "liblota_dialogs.so")
+    (@platform == "linux" && File.exist?(library)) ? [library] : []
+  end
+
   # The environment that loads the runtime into Ruby.
   def environment
     separator = (@platform == "linux") ? " " : ":"
     {
-PRELOADS.fetch(@platform) => preloaded.join(separator),
+PRELOADS.fetch(@platform) => [*preloaded, *dialogs].join(separator),
 "ASAN_OPTIONS" => OPTIONS.fetch(@platform),
 "RUBY_MN_THREADS" => ONE_TO_ONE,
 }
