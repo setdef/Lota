@@ -45,8 +45,13 @@ env:
   # Minitest prints each test's name and time, so a stuck test shows
   # which it is.
   A: --verbose
-  # A lane may run 20 minutes, within the step's 25, before the gate
-  # prints what it is doing and ends it (tasks/gate.rb).
+  # A lane may run 20 minutes before the gate prints what it is doing
+  # and ends it (tasks/gate.rb). The step that runs the tier must outlast
+  # that by enough for the gate to do so: the tier first builds what the
+  # lanes load, which on macOS took up to 10 minutes when a header every
+  # binding includes changed, and the diagnosis takes up to about 2, so
+  # each such step may run 40 minutes. Were the step shorter, GitHub
+  # would end it first, and a stuck lane would end with nothing printed.
   LOTA_GATE_LANE_TIMEOUT: "1200"
 
 jobs:
@@ -56,7 +61,7 @@ jobs:
   macos:
     name: macOS
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,7 +115,7 @@ jobs:
         run: ccache --zero-stats
 
       - name: Run the pre-push tier
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: bundle exec rake prepush
 
       - name: Fail if the tier changed a file
@@ -142,7 +147,7 @@ jobs:
   linux:
     name: Linux (x86_64-linux-gnu)
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 80
     env:
       DISPLAY: ":99"
       LOTA_PARITY_DISPLAY: ":98"
@@ -223,7 +228,7 @@ jobs:
         run: ccache --zero-stats
 
       - name: Run the pre-push tier
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: bundle exec rake prepush
 
       - name: Fail if the tier changed a file
