@@ -25,7 +25,7 @@ module Lota
 
     private def set_default_modal_draw_callback: (_Frame? frame) -> void
 
-    attr_reader directory: String?
+    attr_reader directory: String
 
     attr_reader settings: Settings
 
@@ -39,11 +39,7 @@ module Lota
 
     private def phone?: () -> bool
 
-    private def start_dropped_game: (Restart::value restart) -> void
-
     def initialize: (String? path, ?Array[String] arguments, ?fused: bool) -> void
-
-    private def self.no_game: (?Array[String] arguments) -> Boot
 
     def call: () -> Integer
 
@@ -87,9 +83,9 @@ module Lota
 
     private def no_game_code?: () -> bool
 
-    private def conf_file: () -> String?
+    private def conf_file: () -> String
 
-    private def main_file: () -> String?
+    private def main_file: () -> String
 
     private def capture: () { () -> top } -> (StandardError | ScriptError)?
   end

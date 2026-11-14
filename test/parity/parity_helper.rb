@@ -312,9 +312,7 @@ module Parity
     attr_reader :frames_dir, :output, :home, :audio, :sounds_dir
 
     # Runs the game in the folder +game+ under +script+, keeping its frames
-    # in +directory+, or with +game+ +nil+, LÖVE's no-game screen
-    # (vendor/love/src/scripts/nogame.lua), which test/parity/lua/conf.lua
-    # starts as boot.lua starts it when it finds no game. LÖVE's home directory is +directory+/home
+    # in +directory+. LÖVE's home directory is +directory+/home
     # (test/test_home.rb), so a game that saves starts each run with
     # nothing saved and leaves nothing behind. When +cache+ holds a run
     # under the same inputs (ReferenceCache), what that run wrote and
@@ -327,8 +325,7 @@ module Parity
       @audio = File.join(directory, "love.f32")
       @sounds_dir = File.join(directory, "love-sounds")
       Dir.mkdir(@sounds_dir)
-      game_variable = game ? { "LOTA_PARITY_GAME" => game } : { "LOTA_PARITY_NOGAME" => "1" }
-      environment = Parity.environment(script.environment.merge(**game_variable,
+      environment = Parity.environment(script.environment.merge("LOTA_PARITY_GAME" => game,
         "LOTA_PARITY_FRAMES_DIR" => @frames_dir, "HOME" => @home, **TestHome.environment(@home),
         "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, **Parity.loopback(@audio)))
       command = [love, File.join(ROOT, "test/parity/lua")]
@@ -389,29 +386,23 @@ module Parity
   # this folder, can be seen.
   MISMATCHES = File.join(ROOT, "tmp/parity-mismatches")
 
-  # What starts Lota with no game, for a LotaRun of its no-game screen
-  # (test/parity/no_game.rb).
-  NO_GAME = File.join(ROOT, "test/parity/no_game.rb")
-
   # A translated game run in Lota, each frame compared with a LoveRun's.
   class LotaRun
     attr_reader :output, :report, :home, :audio, :sounds_dir, :mismatch_dir
 
     # Runs the game in the folder +game+ under +script+ with
-    # test/parity/probe.rb, or with +game+ +nil+, Lota's no-game screen
-    # (NO_GAME), comparing its frames with +love+'s, and keeps
+    # test/parity/probe.rb, comparing its frames with +love+'s, and keeps
     # its report in +directory+. Lota's home directory is a new folder in
     # +directory+, as LÖVE's is, so a game that saves starts each run with
     # nothing saved and leaves nothing behind. The first frame that differs
     # goes to a folder of the run's own in MISMATCHES, as LÖVE's and Lota's
     # PNG files.
     def initialize(game, script, love, directory)
-      name = game ? File.basename(game) : "no_game"
-      report = File.join(directory, "lota-#{name}-#{object_id}.json")
-      @mismatch_dir = File.join(MISMATCHES, "#{name}-#{Process.pid}-#{object_id}")
+      report = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.json")
+      @mismatch_dir = File.join(MISMATCHES, "#{File.basename(game)}-#{Process.pid}-#{object_id}")
       @home = File.join(directory, "lota-home-#{object_id}")
       Dir.mkdir(@home)
-      @audio = File.join(directory, "lota-#{name}-#{object_id}.f32")
+      @audio = File.join(directory, "lota-#{File.basename(game)}-#{object_id}.f32")
       @sounds_dir = File.join(directory, "lota-sounds-#{object_id}")
       Dir.mkdir(@sounds_dir)
       progress = File.join(directory, "lota-progress-#{object_id}")
@@ -420,9 +411,8 @@ module Parity
         "LOTA_PARITY_SOUNDS_DIR" => @sounds_dir, "LOTA_PARITY_MISMATCH_DIR" => @mismatch_dir,
         "LOTA_PARITY_PROGRESS" => progress, **Parity.loopback(@audio)))
       native_test = LIB
-      start = game ? [File.join(ROOT, "exe/lota"), "run", game] : [NO_GAME]
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
-        "-r#{File.join(ROOT, 'test/parity/probe.rb')}", *start, side: "Lota") do
+        "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game, side: "Lota") do
         File.exist?(progress) ? File.read(progress).to_i : 0
       end
       @report = File.exist?(report) ? JSON.parse(File.read(report)) : {}

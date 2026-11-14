@@ -112,13 +112,7 @@
 --
 -- The game's own code is not changed, and runs as love.run calls it.
 
--- LOTA_PARITY_NOGAME=1, in place of LOTA_PARITY_GAME, runs LÖVE's own
--- no-game screen (src/scripts/nogame.lua) where the game would run, as
--- love.boot runs it when it finds no game (boot.lua:156-170): before
--- love.init, which calls the love.conf it defines. With no main.lua to
--- require, the callbacks are wrapped as love.run starts.
-local NOGAME = os.getenv("LOTA_PARITY_NOGAME") == "1"
-local GAME = NOGAME or assert(os.getenv("LOTA_PARITY_GAME"), "LOTA_PARITY_GAME is not set")
+local GAME = assert(os.getenv("LOTA_PARITY_GAME"), "LOTA_PARITY_GAME is not set")
 local FRAMES_DIR = assert(os.getenv("LOTA_PARITY_FRAMES_DIR"), "LOTA_PARITY_FRAMES_DIR is not set")
 local FRAMES = assert(tonumber(os.getenv("LOTA_PARITY_FRAMES")), "LOTA_PARITY_FRAMES is not a number")
 local DT = 1 / assert(tonumber(os.getenv("LOTA_PARITY_FPS")), "LOTA_PARITY_FPS is not a number")
@@ -427,14 +421,10 @@ void lota_press_return_on_dialogs(void);
   function stay_in_background() end
 end
 
-if NOGAME then
-  require("love.nogame")()
-else
-  assert(love.filesystem.mountFullPath(GAME, "/", "read", false), "could not mount " .. GAME)
+assert(love.filesystem.mountFullPath(GAME, "/", "read", false), "could not mount " .. GAME)
 
-  if love.filesystem.getRealDirectory("conf.lua") == GAME then
-    assert(love.filesystem.load("conf.lua"))()
-  end
+if love.filesystem.getRealDirectory("conf.lua") == GAME then
+  assert(love.filesystem.load("conf.lua"))()
 end
 
 -- The parity harness's audio device (ext/lota/native_test/loopback.cpp),
@@ -570,8 +560,6 @@ local function wait_for_threads()
   end
 end
 
-local wrap_callbacks
-
 local real_require = require
 _G.require = function(name, ...)
   if name == "love.window" then
@@ -588,24 +576,7 @@ _G.require = function(name, ...)
   end
   _G.pairs = sorted_pairs
   local main = real_require(name, ...)
-  wrap_callbacks()
-  return main
-end
 
-if NOGAME then
-  local run = love.run
-  love.run = function(...)
-    if love.math then
-      love.math.setRandomSeed(CLOCK)
-    end
-    _G.pairs = sorted_pairs
-    wrap_callbacks()
-    return run(...)
-  end
-end
-
--- Wraps the game's callbacks, once its main.lua has defined them.
-function wrap_callbacks()
   local frame = 0
   local update, draw, load = love.update, love.draw, love.load
 
@@ -669,4 +640,6 @@ function wrap_callbacks()
       end
     end)
   end
+
+  return main
 end

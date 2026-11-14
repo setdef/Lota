@@ -21,8 +21,6 @@ The tests open a real window, as Lövetest does. SDL's offscreen driver cannot c
 
 The games are pinned submodules under `test/fixtures`: the arkanoid tutorial, Gravity-Wars, KleleAtoms, whose two runs must also save the same settings and game, byte for byte, and FLASH-BLIP, the heaviest, which draws every frame through four shaders and its text a rectangle a pixel, and whose two runs must save the same progress. Their translations live in `test/games`. Lota's lint, its REUSE check, and the gem all leave `test/fixtures` out, as they leave out `vendor/`. A published game joins only when its code and every asset are under licenses compatible with AGPL-3.0-or-later.
 
-LÖVE's own no-game screen, `vendor/love/src/scripts/nogame.lua`, is a game of this kind too, and the one fixture that is not a submodule of its own. LÖVE runs it from inside the reference `love`, and Lota runs its port, `Lota::NoGame`, started with no game (`test/parity/no_game.rb`). Lota ships none of the screen's pictures, which are LÖVE's artwork, so the test reads them from `nogame.lua` as it runs (`test/no_game_artwork.rb`).
-
 ### Running it
 
 `bundle exec rake test:parity` runs the harness, after `rake reference:love` builds the reference `love` into `tmp/reference`. On macOS that build uses LÖVE's own CI commands (`xcodebuild` archive and export, read from `vendor/love/.github/workflows/main.yml`), so it needs Xcode itself, not only its command line tools. On Linux it is the build LÖVE's Linux CI makes with love-appimage-source's Makefile, beside the libraries Lota links (`tasks/linux_build.rb`). Both compile through ccache when it is on your `PATH`. The gate runs the harness in two shards, Gravity-Wars and everything else (`PARITY_SHARDS` in `tasks/test.rake`), since Gravity-Wars alone takes as long as the rest.
@@ -31,7 +29,7 @@ When a frame differs, the harness reports the first one and the pixel where, and
 
 ### The two sides
 
-`test/parity/lua/conf.lua` is the harness's side in LÖVE. It mounts the game, or with `LOTA_PARITY_NOGAME` set starts `nogame.lua` where `boot.lua` would, wraps `love.update` to hold keys in SDL's keyboard state and pass the fixed `dt`, and wraps `love.draw` to save each frame with `love.graphics.captureScreenshot`. `test/parity/probe.rb` is the harness's side in Lota. It does what `conf.lua` does, loaded into `lota run` with `ruby -r`, and compares each frame with LÖVE's as it goes.
+`test/parity/lua/conf.lua` is the harness's side in LÖVE. It mounts the game, wraps `love.update` to hold keys in SDL's keyboard state and pass the fixed `dt`, and wraps `love.draw` to save each frame with `love.graphics.captureScreenshot`. `test/parity/probe.rb` is the harness's side in Lota. It does what `conf.lua` does, loaded into `lota run` with `ruby -r`, and compares each frame with LÖVE's as it goes.
 
 ### What both sides share
 
