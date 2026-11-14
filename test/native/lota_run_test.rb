@@ -952,6 +952,19 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # A file that PhysFS cannot mount is no game, and is reported with the
+  # message boot.lua gives a path it cannot load (boot.lua:453-455).
+  def test_a_file_that_is_not_a_lota_archive_is_no_game
+    in_game("notes.txt" => "not a zip\n") do |directory|
+      file = File.join(directory, "notes.txt")
+      output, status = lota_run(file)
+
+      assert_equal 1, status.exitstatus, output
+      assert_includes output, "Cannot load game at path '#{file}'."
+      assert_includes output, "\nMake sure a folder exists at the specified path.\n"
+    end
+  end
+
   # Writes a game folder of +files+ (name to source) and yields its path.
   private def in_game(files)
     Dir.mktmpdir("lota-run-test") do |directory|

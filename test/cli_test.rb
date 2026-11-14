@@ -70,13 +70,6 @@ class CLITest < Minitest::Test
       stderr
   end
 
-  def test_run_reports_a_file_as_not_a_folder
-    _stdout, stderr, status = lota("run", __FILE__)
-
-    assert_equal 1, status
-    assert_includes stderr, "Cannot load game at path '#{File.expand_path(__FILE__)}'."
-  end
-
   def test_the_command_list_names_every_command
     assert_equal %w[run fuse], Lota::CLI::COMMANDS.keys
   end
