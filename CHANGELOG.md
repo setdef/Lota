@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-14
+
 ### Fixed
 
 - A `Lota::Thread::Thread` made from a file runs its code under the file's real path, so `__FILE__`, `__dir__`, `require_relative`, and backtraces name the file, as LÖVE names a thread's chunk for its file, where they named the file as the game knows it, relative to the working directory.
