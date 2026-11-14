@@ -1,0 +1,254 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class NoGame
+    type artwork = Hash[Symbol, Hash[Integer, Hash[Symbol, String]]]
+
+    type picture = String | Data
+
+    interface _Object
+      def step: () -> void
+
+      def update: (Float dt) -> void
+
+      def draw: () -> void
+    end
+
+    self.@artwork: artwork?
+
+    def self.artwork: () -> artwork?
+
+    def self.artwork=: (artwork? artwork) -> artwork?
+
+    STEP: Float
+
+    DEBUG: bool
+
+    CALLBACKS: Array[Symbol]
+
+    def self.call: (?artwork? artwork) -> nil
+
+    @r: Hash[Symbol, Hash[Integer, Hash[Symbol, picture]]]
+
+    @g_t: Float
+
+    @g_step: Float
+
+    @g_frame_count: Integer
+
+    @g_step_count: Integer
+
+    @world: Physics::World
+
+    @duckloon: Duckloon
+
+    @chain: Chain
+
+    @clouds: Clouds
+
+    @g_objs: Array[_Object]
+
+    def initialize: (artwork artwork) -> void
+
+    attr_reader g_t: Float
+
+    attr_reader g_step: Float
+
+    attr_reader img_duckloon_normal: Graphics::Texture
+
+    attr_reader img_duckloon_blink: Graphics::Texture
+
+    attr_reader img_n: Graphics::Texture
+
+    attr_reader img_o: Graphics::Texture
+
+    attr_reader img_g: Graphics::Texture
+
+    attr_reader img_a: Graphics::Texture
+
+    attr_reader img_m: Graphics::Texture
+
+    attr_reader img_e: Graphics::Texture
+
+    attr_reader img_square: Graphics::Texture
+
+    attr_reader img_cloud_1: Graphics::Texture
+
+    attr_reader cloud_images: Array[Graphics::Texture]
+
+    def define_callbacks: () -> nil
+
+    def self.lua_mod: (Float a, Float | Integer b) -> Float
+
+    class State
+      @t0: Float
+
+      @x0: Float
+
+      @y0: Float
+
+      @r0: Float
+
+      @t1: Float
+
+      @x1: Float
+
+      @y1: Float
+
+      @r1: Float
+
+      def initialize: (Physics::Body body) -> void
+
+      def save: (Physics::Body body, Float t) -> void
+
+      def get: (Float t) -> [Float, Float, Float]
+    end
+
+    class Blink
+      @closed_t: Float
+
+      @next_blink_t: Float
+
+      def initialize: () -> void
+
+      def update: (Float dt) -> void
+
+      def closed?: () -> bool
+    end
+
+    class Duckloon
+      @screen: NoGame
+
+      @shape: Physics::PolygonShape
+
+      @img_normal: Graphics::Texture
+
+      @img_blink: Graphics::Texture
+
+      @img: Graphics::Texture
+
+      @blink: Blink
+
+      @pin: Physics::MouseJoint
+
+      @state: State
+
+      attr_reader body: Physics::Body
+
+      def initialize: (NoGame screen, Physics::World world, Float | Integer x, Float | Integer y) -> void
+
+      def step: () -> void
+
+      def update: (Float dt) -> void
+
+      def draw: () -> void
+
+      def attachment_point: () -> [Float, Float]
+    end
+
+    class Link
+      attr_accessor x: Float
+
+      attr_accessor y: Float
+
+      attr_accessor info: DrawInfo
+
+      attr_accessor radius: Integer
+
+      attr_accessor body: Physics::Body
+
+      attr_accessor shape: Physics::CircleShape
+
+      attr_accessor state: State
+
+      attr_accessor joint: Physics::RevoluteJoint
+
+      attr_accessor join2: Physics::RopeJoint?
+    end
+
+    class DrawInfo < ::Data
+      attr_reader r: Integer
+
+      attr_reader img: Graphics::Texture?
+
+      def self.new: (Integer r, Graphics::Texture? img) -> DrawInfo
+    end
+
+    class Chain
+      @screen: NoGame
+
+      @links: Array[Link]
+
+      @str: String
+
+      def initialize: (NoGame screen, Physics::World world, Float x, Float y, String str, Duckloon duckloon) -> void
+
+      def step: () -> void
+
+      def update: (Float dt) -> void
+
+      def draw: () -> void
+    end
+
+    class CloudTrack
+      @screen: NoGame
+
+      @x: Integer
+
+      @y: Integer
+
+      @initial_offset: Float
+
+      @h_spacing: Integer
+
+      @img: Graphics::Texture
+
+      @w: Integer
+
+      @speed: Integer
+
+      @count: Float
+
+      @initial_img: Float | Integer
+
+      def initialize: (NoGame screen, Integer x, Integer y, Float offset, Integer speed, Graphics::Texture img) -> void
+
+      def update: (Float dt) -> void
+
+      def draw: () -> void
+    end
+
+    class Clouds
+      @tracks: Array[CloudTrack]
+
+      def initialize: (NoGame screen) -> void
+
+      def draw: () -> void
+    end
+
+    def create_world: () -> void
+
+    def load: () -> void
+
+    private def texture: (Hash[Symbol, picture] pictures, Symbol name, Integer dpiscale) -> Graphics::Texture
+
+    def update: (Float dt) -> void
+
+    def draw: () -> void
+
+    def mousepressed: (Float | Integer x, Float | Integer y, Integer b, bool istouch, Integer clicks) -> void
+
+    def keypressed: (Symbol key) -> void
+
+    def resize: () -> void
+
+    def conf: (Settings t) -> void
+
+    def restart_with_new_game: (String path) -> void
+
+    def filedropped: (Filesystem::File file) -> void
+
+    def directorydropped: (String path) -> void
+  end
+end

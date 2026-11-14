@@ -59,7 +59,7 @@ module Lota
       physics: -> { Native::Physics.open },
     }.freeze
 
-    # The game's folder, as an absolute path.
+    # The game's folder, as an absolute path, or +nil+ with no game.
     attr_reader :directory
 
     # The Lota::Settings conf.rb changed, once configure has run.
@@ -94,10 +94,20 @@ module Lota
     #   Lota::Boot.new("Pong.app/Contents/Resources/game", fused: true)
     def initialize(path, arguments = [], fused: false)
       @path = path
-      @directory = File.expand_path(path || ".")
+      @directory = File.expand_path(path || ".") #: String?
       @arguments = arguments
       @fused = fused
       @settings = Settings.new
+    end
+
+    # A Boot given no game, with +arguments+ for the game a player drops
+    # on the no-game screen it shows, as LÖVE started with no game shows
+    # nogame.lua's (Lota::NoGame). Lota starts with no game only in its
+    # own tests until <tt>lota run</tt> and the player app do. :nodoc:
+    private_class_method def self.no_game(arguments = [])
+      boot = new(nil, arguments)
+      boot.instance_variable_set(:@directory, nil)
+      boot
     end
 
     # SPDX-SnippetBegin
@@ -152,6 +162,7 @@ module Lota
     def call
       Restart.__send__(:take)
       Restart.__send__(:remember, @arguments, fused: true) if @fused
+      start_dropped_game(Lota.restart)
       @restart = false
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
@@ -216,6 +227,27 @@ module Lota
       Native::System.open? && %w[iOS Android].include?(Native::System.os)
     end
 
+    # Starts the game the no-game screen restarted with, when Lota.restart
+    # is its +restart+ value: puts the path of the file or folder a player
+    # dropped on it first, ahead of the game's path and arguments, as
+    # love.boot puts it first in arg (boot.lua:51-60), so it is the
+    # game's path and what was there before goes to the game.
+    private def start_dropped_game(restart)
+      # nogame.lua returns _noGameRestartInfo when
+      # dropping a file or directory on to its window.
+      return unless restart.is_a?(Hash)
+
+      was_no_game = restart["_noGameRestartInfo"]
+      return unless was_no_game.is_a?(Hash)
+
+      gamepath = was_no_game["gamepath"]
+      return unless gamepath.is_a?(String)
+
+      @arguments = [@path, *@arguments].compact
+      @path = gamepath
+      @directory = File.expand_path(gamepath)
+    end
+
     # Brings the game up to the point where its loop starts, as love.boot
     # and love.init do (boot.lua:43-456): puts the game's folder on
     # <tt>$LOAD_PATH</tt>, configures the game, opens its modules and its
@@ -240,11 +272,18 @@ module Lota
     # The part of starting up that is love.boot's (boot.lua:43-173): puts
     # the game's folder on <tt>$LOAD_PATH</tt>, and opens the filesystem
     # and the system module, which LÖVE opens before conf.lua whatever the
-    # settings say (boot.lua:44-49).
+    # settings say (boot.lua:44-49). With no game it prints how to give
+    # one and shows the no-game screen, as boot.lua prints LÖVE's usage
+    # and runs nogame.lua (lines 156-170).
     private def boot
       add_to_load_path
       open_filesystem
       Native::System.open
+      return if @directory
+
+      require_relative "cli"
+      puts CLI.usage
+      NoGame.call
     end
 
     # The part of starting up that is love.init's (boot.lua:175-456):
@@ -271,7 +310,8 @@ module Lota
       # boot.lua also passes t.externalstorage on (line 441), which
       # matters only on Android.
       Filesystem.identity = [@settings.identity || Filesystem.identity, @settings.appendidentity]
-      require main_file if File.exist?(main_file)
+      main_file = self.main_file
+      require main_file if main_file && File.exist?(main_file)
       return unless no_game_code?
 
       gamestr = @path.nil? ? "" : " at #{@path}"
@@ -359,7 +399,8 @@ module Lota
       conf_error = nil
 
       # If config file exists, load it and allow it to update config table.
-      unless Lota.respond_to?(:conf) || !File.exist?(conf_file)
+      conf_file = self.conf_file
+      if conf_file && !Lota.respond_to?(:conf) && File.exist?(conf_file)
         conf_error = capture { require conf_file }
       end
 
@@ -475,7 +516,8 @@ module Lota
       end
       Deprecation.output = !Filesystem.fused?
       begin
-        Native::Filesystem.set_source(@directory)
+        directory = @directory
+        Native::Filesystem.set_source(directory) if directory
       rescue RuntimeError
         nil
       end
@@ -492,9 +534,10 @@ module Lota
     # an underscore (lines 145-147). A name left empty becomes "lotagame",
     # where LÖVE's is "lovegame" (line 148), so that Lota's own folder
     # names carry Lota's name, as doc/contributors/design/game.md names the
-    # folder it saves in.
+    # folder it saves in. With no game it is the program's name, as
+    # boot.lua names it after the program it runs in (lines 131-134).
     private def identity
-      Boot.folder_identity(@directory)
+      Boot.folder_identity(@directory || $PROGRAM_NAME)
     end
 
     # The identity boot.lua gives a game folder at +directory+, which a
@@ -521,7 +564,8 @@ module Lota
     # (src/modules/filesystem/wrap_Filesystem.cpp:897-929 and 1122-1124).
     # Like LÖVE, it leaves the working directory alone.
     private def add_to_load_path
-      $LOAD_PATH.unshift(@directory) unless $LOAD_PATH.include?(@directory)
+      directory = @directory or return
+      $LOAD_PATH.unshift(directory) unless $LOAD_PATH.include?(directory)
     end
 
     # Gets desired modules (boot.lua:347-372). Lota's event handlers
@@ -604,18 +648,23 @@ module Lota
     end
 
     # Whether the folder holds neither main.rb nor conf.rb (boot.lua:152-154).
+    # With no game there is no folder, and no code is missing from it.
     private def no_game_code?
+      main_file = self.main_file or return false
+      conf_file = self.conf_file or return false
       !(File.exist?(main_file) || File.exist?(conf_file))
     end
 
     # SPDX-SnippetEnd
 
     private def conf_file
-      File.join(@directory, "conf.rb")
+      directory = @directory
+      directory && File.join(directory, "conf.rb")
     end
 
     private def main_file
-      File.join(@directory, "main.rb")
+      directory = @directory
+      directory && File.join(directory, "main.rb")
     end
 
     # Runs the block and returns what it raised, or +nil+, as Lua's pcall

@@ -114,6 +114,7 @@ PREPUSH_LEAVES_OUT = %w[
   RakeTasksTest#test_the_native_suite_passes_under_the_sanitizers
   LotaRunTest
   RestartRunTest
+  NoGameRunTest
   PhysicsBindingsTest#test_bodies_never_returns_a_wrapper_the_collector_found_dead
   JoystickEventsTest#test_joysticks_never_returns_a_wrapper_the_collector_found_dead
   NativeGemTest#test_a_warning_stops_the_build
@@ -127,6 +128,7 @@ PREPUSH_LEAVES_OUT = %w[
   GravityWarsTest
   KleleAtomsTest
   FlashBlipTest
+  NoGameScreenTest
   BenchGamesTest
   ReferenceCacheTest#test_a_cached_run_of_the_reference_love_is_what_running_it_again_gives
   DirectoryTest
@@ -141,6 +143,7 @@ PREPUSH_KEEPS = %w[
   LotaRunTest#test_callbacks_run_in_loves_order_and_the_game_exits_with_its_status
   LotaRunTest#test_an_error_in_a_callback_shows_the_error_screen_and_prints_a_backtrace
   RestartRunTest#test_a_restart_runs_the_game_again_in_the_same_process_and_hands_over_its_value
+  NoGameRunTest#test_a_folder_dropped_on_the_screen_starts_as_the_game
   ArkanoidTest#test_1_01_theballthebricktheplatform_matches_love_frame_by_frame
 ].freeze
 
