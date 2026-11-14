@@ -51,6 +51,7 @@ UNIT_TESTS = %w[
   test/tasks/phone_host_test.rb
   test/tasks/phone_notices_test.rb
   test/tasks/rbs_parity_test.rb
+  test/tasks/release_engines_test.rb
   test/tasks/release_plan_test.rb
   test/tasks/test_files_test.rb
   test/tasks/trunk_watch_test.rb

@@ -11,6 +11,7 @@ require "fileutils"
 require "open3"
 require "rubygems/package"
 require_relative "changelog"
+require_relative "../ext/lota/phone/engine"
 
 # A release of Lota: a tag on a commit CI proved, its notes, and one
 # precompiled gem for each platform, published on GitHub
@@ -55,6 +56,9 @@ class Release
   # The file of checksums each release carries, in sha256sum's format.
   CHECKSUMS = "SHA256SUMS"
 
+  # Where the gem pins the phone engines it fetches (Lota::PhoneEngine::PIN).
+  ENGINES = "ext/lota/phone/engines.txt"
+
   # [root] The repository.
   def initialize(root:)
     @root = root
@@ -80,6 +84,23 @@ class Release
 
     binwrite(LOCKFILE, lockfile.gsub(pattern) { "#{Regexp.last_match(1)}#{number}#{Regexp.last_match(2)}" })
     binwrite(VERSION_FILE, binread(VERSION_FILE).sub(ASSIGNMENT) { "#{Regexp.last_match(1)}#{number}#{Regexp.last_match(3)}" })
+  end
+
+  # Pins the phone engines that the release +tag+ publishes, whose
+  # checksums +sums+ gives in sha256sum's format, in ENGINES of the
+  # working tree, as a release's gems are built, and commits nothing. A
+  # phone build of those gems fetches each engine from that release by its
+  # checksum (Lota::PhoneEngine). Refuses sums that are not one for each
+  # of Lota::PhoneEngine::TARGETS.
+  def pin_engines(tag, sums)
+    raise Refusal, "#{tag} is not a release tag, which is v and MAJOR.MINOR.PATCH" unless tag.match?(TAG)
+
+    text = Lota::PhoneEngine.pin_text(tag, sums)
+    check_engines(Lota::PhoneEngine.pin(text).sums.keys)
+    FileUtils.mkdir_p(File.dirname(File.join(@root, ENGINES)))
+    binwrite(ENGINES, text)
+  rescue Lota::PhoneEngine::Failure => e
+    raise Refusal, e.message
   end
 
   # The repository's release tags, oldest version first.
@@ -231,6 +252,17 @@ class Release
     raise Refusal, "#{dir} is not one verified gem for each platform:" \
       "#{" missing #{missing.join(', ')};" unless missing.empty?}" \
       "#{" unexpected #{extra.join(', ')};" unless extra.empty?}".chomp(";")
+  end
+
+  private def check_engines(pinned)
+    assets = Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) }
+    missing = assets - pinned
+    extra = pinned - assets
+    return if missing.empty? && extra.empty?
+
+    raise Refusal, "the phone engines' checksums are not one for each target:" \
+      "#{" lacks #{missing.join(', ')};" unless missing.empty?}" \
+      "#{" names #{extra.join(', ')}, which Lota does not build;" unless extra.empty?}".chomp(";")
   end
 
   private def check_gem(dir, gem, number, platform)

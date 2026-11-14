@@ -6,6 +6,7 @@
 #++
 
 require_relative "phone_engine"
+require_relative "release"
 
 # A phone's prebuilt engine (tasks/phone_engine.rb), which Lota's CI builds
 # for each target and a release publishes, and the checksums the gem pins
@@ -41,14 +42,9 @@ namespace :phone do
     task :pin, [:sums, :tag] do |_, args|
       abort "❌ Name the checksums and the release: rake phone:engine:pin[SUMS,TAG]" unless args[:sums] && args[:tag]
 
-      text = Lota::PhoneEngine.pin_text(args[:tag], File.read(args[:sums]))
-      pinned = Lota::PhoneEngine.pin(text).sums.keys.sort
-      assets = Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) }.sort
-      abort "❌ #{args[:sums]} names #{pinned.join(', ')}, not #{assets.join(', ')}" unless pinned == assets
-
-      File.write(Lota::PhoneEngine::PIN, text)
-      puts "✅ Pinned the #{assets.size} phone engines of #{args[:tag]} in #{Lota::PhoneEngine::PIN}"
-    rescue Lota::PhoneEngine::Failure => e
+      Release.new(root: Dir.pwd).pin_engines(args[:tag], File.read(args[:sums]))
+      puts "✅ Pinned the #{Lota::PhoneEngine::TARGETS.size} phone engines of #{args[:tag]} in #{Release::ENGINES}"
+    rescue Release::Refusal => e
       abort "❌ #{e.message}"
     end
   end
