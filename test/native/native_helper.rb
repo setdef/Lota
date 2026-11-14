@@ -128,11 +128,7 @@ module NativeHelper
   # not write and still exits 0, so a parent slow to read sees its output
   # cut off at the pipe's capacity. The child gets a blocking pipe, as a
   # program expects of its standard output.
-  #
-  # A Ruby it starts refuses the dialogs nobody can answer, as this process
-  # does (DialogGuard.command).
   def self.spawn(command, output, variables)
-    command = DialogGuard.command(command)
     return WindowsSupport.spawn(command, output, variables) if TestHome::WINDOWS
 
     output.nonblock = false

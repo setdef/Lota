@@ -6,23 +6,12 @@
 #import <AppKit/AppKit.h>
 #import <CoreFoundation/CoreFoundation.h>
 
-#include <SDL3/SDL_messagebox.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
-#include <array>
 #include <atomic>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-#include <dlfcn.h>
-#include <mach-o/dyld.h>
-#include <mach-o/loader.h>
-#include <mach-o/nlist.h>
 #include <memory>
 #include <string>
-#include <sys/mman.h>
-#include <unistd.h>
 
 namespace lota::native_test {
 
@@ -82,177 +71,6 @@ void press_return(CFRunLoopTimerRef /*timer*/, void * /*info*/) {
   ++answered();
 }
 
-// Whether press_return_on_dialogs has been called, after which dialogs go
-// on to SDL rather than being refused.
-std::atomic<bool> &answering() {
-  static std::atomic<bool> on{false};
-  return on;
-}
-
-// Whether refuse_dialogs has been called.
-std::atomic<bool> &refusing() {
-  static std::atomic<bool> on{false};
-  return on;
-}
-
-// Writes what a refused dialog said to standard error, as liblota_dialogs
-// does on Linux (answer_dialogs_linux.cpp).
-void say_refused(const char *title, const char *message) {
-  std::fprintf(stderr, "lota_dialogs: refused a message box (no one can answer it): %s: %s\n",
-               title != nullptr ? title : "", message != nullptr ? message : "");
-  std::fflush(stderr);
-}
-
-// SDL's own function +name+, as SDL exports it, which no rebinding
-// reaches.
-template <typename Function> Function *sdl_function(const char *name) {
-  return reinterpret_cast<Function *>(dlsym(RTLD_DEFAULT, name));
-}
-
-// SDL_ShowMessageBox, refused until press_return_on_dialogs is called, and
-// SDL's own from then on, with the button pressed for it.
-bool message_box(const SDL_MessageBoxData *data, int *button) {
-  if (answering()) {
-    static auto *const original = sdl_function<decltype(SDL_ShowMessageBox)>("SDL_ShowMessageBox");
-    return original != nullptr && original(data, button);
-  }
-  if (data == nullptr) {
-    return false;
-  }
-  if (button != nullptr) {
-    *button = -1;
-  }
-  say_refused(data->title, data->message);
-  return false;
-}
-
-// SDL_ShowSimpleMessageBox, as message_box.
-bool simple_message_box(SDL_MessageBoxFlags flags, const char *title, const char *message,
-                        SDL_Window *window) {
-  if (answering()) {
-    static auto *const original =
-        sdl_function<decltype(SDL_ShowSimpleMessageBox)>("SDL_ShowSimpleMessageBox");
-    return original != nullptr && original(flags, title, message, window);
-  }
-  say_refused(title, message);
-  return false;
-}
-
-// A function an image imports, by its Mach-O symbol name, and where its
-// calls go instead.
-struct Rebinding {
-  const char *symbol;
-  void *replacement;
-};
-
-const std::array<Rebinding, 2> &rebindings() {
-  static const std::array<Rebinding, 2> all{{
-      {.symbol = "_SDL_ShowMessageBox", .replacement = reinterpret_cast<void *>(&message_box)},
-      {.symbol = "_SDL_ShowSimpleMessageBox",
-       .replacement = reinterpret_cast<void *>(&simple_message_box)},
-  }};
-  return all;
-}
-
-// Writes +value+ into the pointer +slot+, in a segment that dyld made
-// read-only once it bound it (__DATA_CONST), or in a writable one.
-void write_slot(void **slot, void *value, bool read_only) {
-  if (!read_only) {
-    *slot = value;
-    return;
-  }
-  const auto page_size = static_cast<std::uintptr_t>(getpagesize());
-  auto *const page =
-      reinterpret_cast<void *>(reinterpret_cast<std::uintptr_t>(slot) & ~(page_size - 1));
-  if (mprotect(page, page_size, PROT_READ | PROT_WRITE) != 0) {
-    return;
-  }
-  *slot = value;
-  mprotect(page, page_size, PROT_READ);
-}
-
-// Calls +visit+ with each load command of the image +header+.
-template <typename Visit> void each_command(const mach_header_64 *header, Visit visit) {
-  const auto *command = reinterpret_cast<const load_command *>(header + 1);
-  for (std::uint32_t i = 0; i < header->ncmds; ++i) {
-    visit(command);
-    command = reinterpret_cast<const load_command *>(reinterpret_cast<const char *>(command) +
-                                                     command->cmdsize);
-  }
-}
-
-// Points the image's imports of SDL's message box functions at
-// message_box and simple_message_box. An image calls a function it
-// imports through a pointer dyld binds, in a section of symbol pointers
-// whose entries the image's indirect symbol table names
-// (mach-o/loader.h, S_NON_LAZY_SYMBOL_POINTERS and
-// S_LAZY_SYMBOL_POINTERS), so rewriting that pointer changes where the
-// image's calls go and nothing else. No code is written, which macOS
-// refuses in a signed image, and SDL's export stays SDL's. The system's
-// images, in the shared cache, import nothing of SDL's and are left
-// alone. dyld calls this for each image as it loads, and at once for each
-// already loaded (_dyld_register_func_for_add_image), so the order in
-// which a process loads Lota and this extension does not matter.
-void rebind(const mach_header *mach, intptr_t slide) {
-  if (mach->magic != MH_MAGIC_64 || (mach->flags & MH_DYLIB_IN_CACHE) != 0) {
-    return;
-  }
-  const auto *header = reinterpret_cast<const mach_header_64 *>(mach);
-  const segment_command_64 *linkedit = nullptr;
-  const symtab_command *symtab = nullptr;
-  const dysymtab_command *dysymtab = nullptr;
-  each_command(header, [&](const load_command *command) {
-    if (command->cmd == LC_SEGMENT_64) {
-      const auto *segment = reinterpret_cast<const segment_command_64 *>(command);
-      if (std::strcmp(segment->segname, SEG_LINKEDIT) == 0) {
-        linkedit = segment;
-      }
-    } else if (command->cmd == LC_SYMTAB) {
-      symtab = reinterpret_cast<const symtab_command *>(command);
-    } else if (command->cmd == LC_DYSYMTAB) {
-      dysymtab = reinterpret_cast<const dysymtab_command *>(command);
-    }
-  });
-  if (linkedit == nullptr || symtab == nullptr || dysymtab == nullptr ||
-      dysymtab->nindirectsyms == 0) {
-    return;
-  }
-  const std::uintptr_t base =
-      static_cast<std::uintptr_t>(slide) + linkedit->vmaddr - linkedit->fileoff;
-  const auto *symbols = reinterpret_cast<const nlist_64 *>(base + symtab->symoff);
-  const auto *names = reinterpret_cast<const char *>(base + symtab->stroff);
-  const auto *indirect = reinterpret_cast<const std::uint32_t *>(base + dysymtab->indirectsymoff);
-  each_command(header, [&](const load_command *command) {
-    if (command->cmd != LC_SEGMENT_64) {
-      return;
-    }
-    const auto *segment = reinterpret_cast<const segment_command_64 *>(command);
-    const bool read_only = std::strcmp(segment->segname, "__DATA_CONST") == 0;
-    const auto *sections = reinterpret_cast<const section_64 *>(segment + 1);
-    for (std::uint32_t s = 0; s < segment->nsects; ++s) {
-      const section_64 &section = sections[s];
-      const std::uint32_t type = section.flags & SECTION_TYPE;
-      if (type != S_NON_LAZY_SYMBOL_POINTERS && type != S_LAZY_SYMBOL_POINTERS) {
-        continue;
-      }
-      auto **slots = reinterpret_cast<void **>(static_cast<std::uintptr_t>(slide) + section.addr);
-      for (std::uint64_t n = 0; n < section.size / sizeof(void *); ++n) {
-        const std::uint32_t index = indirect[section.reserved1 + n];
-        if ((index & (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS)) != 0 ||
-            index >= symtab->nsyms) {
-          continue;
-        }
-        const char *const name = names + symbols[index].n_un.n_strx;
-        for (const Rebinding &rebinding : rebindings()) {
-          if (std::strcmp(name, rebinding.symbol) == 0) {
-            write_slot(&slots[n], rebinding.replacement, read_only);
-          }
-        }
-      }
-    }
-  });
-}
-
 // Keeps the program from becoming the active one. The tests start their
 // programs with SDL's hints that keep a window from activating its program
 // (SDL_MAC_BACKGROUND_APP, SDL_WINDOW_ACTIVATE_WHEN_SHOWN, and
@@ -272,25 +90,6 @@ NSRunningApplication *&previous() {
 
 } // namespace
 
-// SDL shows a dialog with NSAlert's runModal (SDL 3.4.10,
-// src/video/cocoa/SDL_cocoamessagebox.m), which waits for a button no one
-// in an unattended run can press, so a test whose game fails to start
-// would hold the run until its timeout. The calls the images of this
-// process make to SDL's two message box functions go to message_box and
-// simple_message_box instead (rebind), which refuse them until
-// press_return_on_dialogs. Only a process that loads the test extension
-// is changed, never another program a test starts.
-void refuse_dialogs() {
-  static const bool installed = [] {
-    _dyld_register_func_for_add_image(&rebind);
-    return true;
-  }();
-  static_cast<void>(installed);
-  refusing() = true;
-}
-
-bool refusing_dialogs() { return refusing() && !answering(); }
-
 void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited]; }
 
 // A timer in AppKit's modal panel run loop mode, which runs only while a
@@ -301,11 +100,9 @@ void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPo
 // nor macOS's Accessibility permission, which System Events would need to
 // press Return from another process. The parity harness's Lua side does
 // the same through LuaJIT's FFI (test/parity/lua/conf.lua). It also keeps
-// the program from becoming the active one (stay_in_background), and lets
-// the dialogs refuse_dialogs refuses go on to SDL. Calling it again
-// changes nothing.
+// the program from becoming the active one (stay_in_background). Calling
+// it again changes nothing.
 void press_return_on_dialogs() {
-  answering() = true;
   static const bool installed = [] {
     // SDL makes the application when it starts its video subsystem
     // (Cocoa_RegisterApp, src/video/cocoa/SDL_cocoaevents.m), which may come

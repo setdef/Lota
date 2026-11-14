@@ -52,8 +52,4 @@ ENV.update("SDL_MAC_BACKGROUND_APP" => "1", "SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => 
 # registers run after the tests do.
 require "lota" unless defined?(UnitGuard) && UnitGuard.installed?
 
-# The dialogs nobody can answer are refused in this process, on macOS and
-# Windows, and in each Ruby a test starts (test/dialog_guard.rb).
-require_relative "dialog_guard" unless defined?(UnitGuard) && UnitGuard.installed?
-
 require "minitest/autorun"
