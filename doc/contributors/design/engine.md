@@ -34,7 +34,11 @@ The engine builds as one static library. LÖVE's sources compile with warnings o
 
 ## Patch files
 
-Lota changes LÖVE's engine only where its own code cannot do the work, and then as little as it can ([ADR 005](../adr/005.md)). Each change is a patch file in `ext/lota/engine/`. When CMake configures, it copies the files a patch touches into the build tree, applies the patch to the copy, and compiles the copy in place of `vendor/love`'s file. It copies again whenever a patch or a file it patches changes, and writes a patched file only when it differs, so an unchanged file does not rebuild. Nothing ever writes to `vendor/love`.
+Sometimes LÖVE's engine has to change. Lua reaches past the wrapper files in one module: LÖVE's Box2D classes hold a `lua_State*` for callbacks and user data, so they do not compile without Lua. Other changes fix defects a game cannot avoid, such as a Mesh whose vertex data is allocated with `new[]` and freed with `delete`, which no code outside LÖVE's file can change.
+
+Lota changes LÖVE's engine only where its own code cannot do the work, and then as little as it can. The maintainer decided so on 2026-10-24 for the physics module, and widened it on 2026-11-04 to any change Lota's own code cannot make. Each change is a patch file in `ext/lota/engine/`, rather than a commit on a fork of LÖVE, so an upgrade bumps the submodule and reapplies a short list of patches instead of rebasing a branch, and `vendor/love` stays LÖVE's own commit. LÖVE accepts no contribution made with generative AI tools (its README, Contributing), so a fix that belongs upstream stays in a patch for as long as LÖVE needs it. A patch stops applying when LÖVE changes the lines under it, and is ported by hand; `physics.patch` alone is about 2,000 lines, so an upgrade that touches LÖVE's physics module is the costly case.
+
+When CMake configures, it copies the files a patch touches into the build tree, applies the patch to the copy, and compiles the copy in place of `vendor/love`'s file. It copies again whenever a patch or a file it patches changes, and writes a patched file only when it differs, so an unchanged file does not rebuild. A patch that does not apply stops the build, saying to update it for this LÖVE, so a stale patch fails the first build after an upgrade. Nothing ever writes to `vendor/love`. Every build machine carries a `patch` program and keeps LÖVE's line endings as they are; CI's Windows job installs `patch` and turns off Git's line-ending conversion.
 
 Each patch:
 
