@@ -39,7 +39,7 @@ While lanes run, the gate prints a line, stamped in UTC, as each check starts an
 
 ### Tools
 
-CI takes its Ruby from `ruby/setup-ruby` rather than mise, and mise skips Ruby and the Rust that compiles it. setup-ruby's Ruby is built by ruby-build with Rust, so it has ZJIT without compiling Ruby on every run. mise's installs are cached under a key of `mise.toml`'s hash, but mise itself, and MSYS2's base on Windows, download from GitHub's releases on every run. A job that fails to set either up tries again after a pause, twice for mise (`.github/actions/mise`) and once for MSYS2, so an outage of those downloads does not stop trunk.
+CI takes its Ruby from `ruby/setup-ruby` rather than mise, and mise skips Ruby and the Rust that compiles it. setup-ruby's Ruby, which ruby/ruby-builder builds with ruby-build, has ZJIT, so CI gets both JITs without compiling Ruby on every run: each gate job's `test/parity/bench_games_test.rb` runs Lota under ZJIT and fails if it gets the interpreter. mise's installs are cached under a key of `mise.toml`'s hash, but mise itself, and MSYS2's base on Windows, download from GitHub's releases on every run. A job that fails to set either up tries again after a pause, twice for mise (`.github/actions/mise`) and once for MSYS2, so an outage of those downloads does not stop trunk.
 
 ## The gem's checks
 

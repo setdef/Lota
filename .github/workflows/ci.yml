@@ -110,14 +110,15 @@ env:
   # Ruby comes from ruby/setup-ruby, not mise, so mise ignores the Ruby in
   # mise.toml, and the Rust it pins only for compiling that Ruby.
   # mise.toml has mise compile Ruby with ruby-build, since jdx/ruby's
-  # precompiled macOS build passes --enable-yjit and installs Rust 1.58
+  # precompiled build passes --enable-yjit alone and installs Rust 1.58
   # (libexec/package.rb), too old for Ruby's ZJIT check (configure.ac's
   # "prerequisites for ZJIT", which needs Rust 1.85 or newer, for the 2024
-  # edition), so it has no ZJIT, and ruby --zjit only warns and runs the
-  # interpreter. setup-ruby's Ruby is built by ruby-build with the
-  # runner's Rust (ruby/ruby-builder, .github/workflows/build.yml), as a
-  # Ruby mise compiles is, and has both JITs, which rake bench measures,
-  # without compiling Ruby on every run.
+  # edition), so on macOS and on Linux it has no ZJIT, and ruby --zjit
+  # only warns and runs the interpreter. setup-ruby's Ruby is built by
+  # ruby-build (ruby/ruby-builder, .github/workflows/build.yml), as a Ruby
+  # mise compiles is, and has both JITs, which rake bench measures and
+  # test/parity/bench_games_test.rb checks, without compiling Ruby on
+  # every run.
   MISE_DISABLE_TOOLS: ruby,rust
   # Install exactly what Gemfile.lock locks, or fail.
   BUNDLE_FROZEN: "true"
