@@ -1103,6 +1103,9 @@ constexpr bool sanitized() {
 
 extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
   lota::native::install_error_translation();
+#if defined(__APPLE__) || defined(_WIN32)
+  lota::native_test::refuse_dialogs();
+#endif
   // A new wrapper for each object this bundle wraps, which the memory
   // tests count, and none of Rice's registry, whose entries outlive the
   // wrappers the collector found dead (lota::native::WrapperIdentities,
@@ -1254,6 +1257,9 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("press_return_on_dialogs",
                               &lota::native_test::press_return_on_dialogs)
       .define_module_function("dialogs_answered", &lota::native_test::dialogs_answered)
+#if defined(__APPLE__) || defined(_WIN32)
+      .define_module_function("refusing_dialogs?", &lota::native_test::refusing_dialogs)
+#endif
       .define_module_function("focus_window", &focus_window)
       .define_module_function("unfocus_window", &unfocus_window)
       .define_module_function("stay_in_background", &lota::native_test::stay_in_background)

@@ -6,12 +6,34 @@
 #import <AppKit/AppKit.h>
 #import <CoreFoundation/CoreFoundation.h>
 
+#include <SDL3/SDL_messagebox.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
+#include <algorithm>
+#include <array>
 #include <atomic>
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <dlfcn.h>
+#include <iterator>
+#include <mach-o/dyld.h>
+#include <mach-o/getsect.h>
+#include <mach-o/loader.h>
+#include <mach-o/nlist.h>
+#include <mach/kern_return.h>
+#include <mach/mach_init.h>
+#include <mach/vm_map.h>
+#include <mach/vm_prot.h>
+#include <mach/vm_types.h>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace lota::native_test {
 
@@ -71,6 +93,329 @@ void press_return(CFRunLoopTimerRef /*timer*/, void * /*info*/) {
   ++answered();
 }
 
+// Whether press_return_on_dialogs has been called, after which dialogs go
+// on to SDL rather than being refused.
+std::atomic<bool> &answering() {
+  static std::atomic<bool> on{false};
+  return on;
+}
+
+// Whether refuse_dialogs has been called.
+std::atomic<bool> &refusing() {
+  static std::atomic<bool> on{false};
+  return on;
+}
+
+// What a dialog says.
+struct Said {
+  const char *title;
+  const char *message;
+};
+
+// Writes what a refused dialog +said+ to standard error, as
+// liblota_dialogs does on Linux (answer_dialogs_linux.cpp).
+void say_refused(const Said &said) {
+  std::string line = "lota_dialogs: refused a message box (no one can answer it): ";
+  line += said.title != nullptr ? said.title : "";
+  line += ": ";
+  line += said.message != nullptr ? said.message : "";
+  line += '\n';
+  std::fputs(line.c_str(), stderr);
+  std::fflush(stderr);
+}
+
+// SDL_ShowMessageBox, refused until press_return_on_dialogs is called, and
+// SDL's own from then on, with the button pressed for it. This image's
+// own calls to SDL are never rebound (rebind), so the call by name here
+// reaches SDL's.
+bool message_box(const SDL_MessageBoxData *data, int *button) {
+  if (answering()) {
+    return SDL_ShowMessageBox(data, button);
+  }
+  if (data == nullptr) {
+    return false;
+  }
+  if (button != nullptr) {
+    *button = -1;
+  }
+  say_refused({.title = data->title, .message = data->message});
+  return false;
+}
+
+// SDL_ShowSimpleMessageBox, as message_box.
+bool simple_message_box(SDL_MessageBoxFlags flags, const char *title, const char *message,
+                        SDL_Window *window) {
+  if (answering()) {
+    return SDL_ShowSimpleMessageBox(flags, title, message, window);
+  }
+  say_refused({.title = title, .message = message});
+  return false;
+}
+
+// The bytes of a function pointer, as an image keeps one in a slot.
+using Pointer = std::array<std::byte, sizeof(void *)>;
+
+// A function an image imports, by its Mach-O symbol name, and the bytes
+// of the pointer that go into the image's slot for it instead.
+struct Rebinding {
+  const char *symbol;
+  Pointer replacement;
+};
+
+const std::array<Rebinding, 2> &rebindings() {
+  static const std::array all{
+      Rebinding{
+          .symbol = "_SDL_ShowMessageBox",
+          .replacement = std::bit_cast<Pointer>(&message_box),
+      },
+      Rebinding{
+          .symbol = "_SDL_ShowSimpleMessageBox",
+          .replacement = std::bit_cast<Pointer>(&simple_message_box),
+      },
+  };
+  return all;
+}
+
+// The start of this extension's own image, whose calls rebind leaves to
+// SDL, so that message_box and simple_message_box reach SDL's functions
+// by name once dialogs are to be answered.
+const void *own_image() {
+  static const void *const start = [] {
+    Dl_info info{};
+    return (dladdr(&rebindings(), &info) != 0) ? info.dli_fbase : nullptr;
+  }();
+  return start;
+}
+
+// The T at +offset+ in +bytes+, copied out, or nothing when +bytes+ ends
+// before it. An image's Mach-O structures sit at the offsets its load
+// commands give, where no C++ object was made, so each is read by copying
+// its bytes.
+template <typename T>
+std::optional<T> copy_of(std::span<const std::byte> bytes, std::size_t offset = 0) {
+  if (offset > bytes.size() || bytes.size() - offset < sizeof(T)) {
+    return std::nullopt;
+  }
+  T value{};
+  std::memcpy(&value, bytes.subspan(offset, sizeof(T)).data(), sizeof(T));
+  return value;
+}
+
+// The bytes +length+ long at file offset +offset+ in an image's
+// __LINKEDIT segment, whose bytes are +segment+ and whose own file offset
+// is +start+, or none when they are not all in it.
+std::span<const std::byte> linked(std::span<const std::byte> segment, std::uint64_t start,
+                                  std::uint64_t offset, std::uint64_t length) {
+  if (offset < start || offset - start > segment.size() ||
+      segment.size() - (offset - start) < length) {
+    return {};
+  }
+  return segment.subspan(offset - start, length);
+}
+
+// A segment's or a section's name, which fills its 16 characters with no
+// terminating NUL when it is that long (mach-o/loader.h).
+template <typename Name> std::string_view name_of(const Name &name) {
+  const std::string_view field(std::data(name), std::size(name));
+  return field.substr(0, field.find('\0'));
+}
+
+// Whether the string table's +names+, from a symbol's name on, hold
+// +symbol+ and its terminating NUL.
+bool names(std::span<const std::byte> names, const char *symbol) {
+  const std::size_t length = std::strlen(symbol) + 1;
+  return names.size() >= length && std::memcmp(names.data(), symbol, length) == 0;
+}
+
+// An image's load commands, after its header, and how many there are.
+struct Commands {
+  std::span<const std::byte> bytes;
+  std::uint32_t count;
+};
+
+// Calls +visit+ with the kind of each of +commands+ and its bytes on.
+template <typename Visit> void each_command(const Commands &commands, Visit visit) {
+  std::size_t offset = 0;
+  for (std::uint32_t i = 0; i < commands.count; ++i) {
+    const std::optional<load_command> command = copy_of<load_command>(commands.bytes, offset);
+    if (!command || command->cmdsize < sizeof(load_command)) {
+      return;
+    }
+    visit(command->cmd, commands.bytes.subspan(offset));
+    offset += command->cmdsize;
+  }
+}
+
+// An image's symbols (nlist_64), their names, and its indirect symbol
+// table, whose entries name the symbol of each pointer an image calls an
+// imported function through.
+struct Tables {
+  std::span<const std::byte> symbols;
+  std::span<const std::byte> names;
+  std::span<const std::byte> indirect;
+};
+
+// The symbol tables of the image +header+, whose load commands are
+// +commands+, in its __LINKEDIT segment, or nothing when it has none.
+std::optional<Tables> tables_of(const mach_header_64 *header, const Commands &commands) {
+  std::optional<segment_command_64> linkedit;
+  std::optional<symtab_command> symtab;
+  std::optional<dysymtab_command> dysymtab;
+  each_command(commands, [&](std::uint32_t kind, std::span<const std::byte> bytes) {
+    if (kind == LC_SEGMENT_64) {
+      const std::optional<segment_command_64> segment = copy_of<segment_command_64>(bytes);
+      if (segment && name_of(segment->segname) == SEG_LINKEDIT) {
+        linkedit = segment;
+      }
+    } else if (kind == LC_SYMTAB) {
+      symtab = copy_of<symtab_command>(bytes);
+    } else if (kind == LC_DYSYMTAB) {
+      dysymtab = copy_of<dysymtab_command>(bytes);
+    }
+  });
+  if (!linkedit || !symtab || !dysymtab || dysymtab->nindirectsyms == 0) {
+    return std::nullopt;
+  }
+  unsigned long size = 0;
+  const std::span<const std::byte> segment =
+      std::as_bytes(std::span(getsegmentdata(header, SEG_LINKEDIT, &size), size));
+  const std::uint64_t start = linkedit->fileoff;
+  return Tables{
+      .symbols = linked(segment, start, symtab->symoff,
+                        static_cast<std::uint64_t>(symtab->nsyms) * sizeof(nlist_64)),
+      .names = linked(segment, start, symtab->stroff, symtab->strsize),
+      .indirect =
+          linked(segment, start, dysymtab->indirectsymoff,
+                 static_cast<std::uint64_t>(dysymtab->nindirectsyms) * sizeof(std::uint32_t)),
+  };
+}
+
+// The rebinding for the pointer the indirect symbol table's entry +entry+
+// names, or nullptr when it names none of SDL's two functions. A symbol's
+// name is its n_strx, an offset into the string table, the first field
+// of an nlist_64 (mach-o/nlist.h), which keeps it in a union of that one
+// member, read here at its offset.
+const Rebinding *rebinding_for(const Tables &tables, std::uint64_t entry) {
+  const std::optional<std::uint32_t> index =
+      copy_of<std::uint32_t>(tables.indirect, entry * sizeof(std::uint32_t));
+  if (!index || (*index & (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS)) != 0) {
+    return nullptr;
+  }
+  const std::optional<std::uint32_t> name =
+      copy_of<std::uint32_t>(tables.symbols, (static_cast<std::size_t>(*index) * sizeof(nlist_64)) +
+                                                 offsetof(nlist_64, n_un));
+  if (!name || *name >= tables.names.size()) {
+    return nullptr;
+  }
+  for (const Rebinding &rebinding : rebindings()) {
+    if (names(tables.names.subspan(*name), rebinding.symbol)) {
+      return &rebinding;
+    }
+  }
+  return nullptr;
+}
+
+// Sets the protection of the page or pages that hold +bytes+, which the
+// kernel rounds out to whole pages.
+bool protect(std::span<std::byte> bytes, vm_prot_t protection) {
+  return vm_protect(mach_task_self(), std::bit_cast<vm_address_t>(bytes.data()), bytes.size(), 0,
+                    protection) == KERN_SUCCESS;
+}
+
+// Writes the pointer +replacement+ into +slot+, in a segment that dyld
+// made read-only once it bound it (__DATA_CONST), or in a writable one.
+void write_slot(std::span<std::byte, sizeof(void *)> slot, const Pointer &replacement,
+                bool read_only) {
+  if (read_only && !protect(slot, VM_PROT_READ | VM_PROT_WRITE)) {
+    return;
+  }
+  std::ranges::copy(replacement, slot.begin());
+  if (read_only) {
+    protect(slot, VM_PROT_READ);
+  }
+}
+
+// Points each of +section+'s symbol pointers that names one of SDL's two
+// functions at its replacement.
+void rebind_section(const mach_header_64 *header, const section_64 &section, const Tables &tables) {
+  unsigned long size = 0;
+  const std::span<std::byte> slots = std::as_writable_bytes(std::span(
+      getsectiondata(header, std::data(section.segname), std::data(section.sectname), &size),
+      size));
+  const bool read_only = name_of(section.segname) == "__DATA_CONST";
+  for (std::size_t n = 0; n < slots.size() / sizeof(void *); ++n) {
+    const Rebinding *const rebinding = rebinding_for(tables, section.reserved1 + n);
+    if (rebinding != nullptr) {
+      write_slot(slots.subspan(n * sizeof(void *)).first<sizeof(void *)>(), rebinding->replacement,
+                 read_only);
+    }
+  }
+}
+
+// Rebinds the sections of symbol pointers in the segment whose load
+// command starts +command+.
+void rebind_segment(const mach_header_64 *header, std::span<const std::byte> command,
+                    const Tables &tables) {
+  const std::optional<segment_command_64> segment = copy_of<segment_command_64>(command);
+  if (!segment) {
+    return;
+  }
+  for (std::uint32_t s = 0; s < segment->nsects; ++s) {
+    const std::optional<section_64> section =
+        copy_of<section_64>(command, sizeof(segment_command_64) + (s * sizeof(section_64)));
+    if (!section) {
+      return;
+    }
+    const std::uint32_t type = section->flags & SECTION_TYPE;
+    if (type == S_NON_LAZY_SYMBOL_POINTERS || type == S_LAZY_SYMBOL_POINTERS) {
+      rebind_section(header, *section, tables);
+    }
+  }
+}
+
+// Points the image's imports of SDL's message box functions at
+// message_box and simple_message_box. An image calls a function it
+// imports through a pointer dyld binds, in a section of symbol pointers
+// whose entries the image's indirect symbol table names
+// (mach-o/loader.h, S_NON_LAZY_SYMBOL_POINTERS and
+// S_LAZY_SYMBOL_POINTERS), so rewriting that pointer changes where the
+// image's calls go and nothing else. No code is written, which macOS
+// refuses in a signed image, and SDL's export stays SDL's. The system's
+// images, in the shared cache, import nothing of SDL's and are left
+// alone, and so is this extension's own. dyld calls this for each image
+// as it loads, and at once for each already loaded
+// (_dyld_register_func_for_add_image), so the order in which a process
+// loads Lota and this extension does not matter. getsectiondata and
+// getsegmentdata find where the image's sections and segments were
+// loaded, slide included, and dladdr gives the image's start, its header,
+// as the untyped pointer it is.
+void rebind(const mach_header *image, std::intptr_t /*slide*/) {
+  if (image->magic != MH_MAGIC_64 || (image->flags & MH_DYLIB_IN_CACHE) != 0 ||
+      image == own_image()) {
+    return;
+  }
+  Dl_info info{};
+  if (dladdr(image, &info) == 0 || info.dli_fbase != image) {
+    return;
+  }
+  const auto *const header = static_cast<const mach_header_64 *>(info.dli_fbase);
+  const Commands commands{
+      .bytes = std::span(static_cast<const std::byte *>(info.dli_fbase),
+                         sizeof(mach_header_64) + header->sizeofcmds)
+                   .subspan(sizeof(mach_header_64)),
+      .count = header->ncmds,
+  };
+  const std::optional<Tables> tables = tables_of(header, commands);
+  if (!tables) {
+    return;
+  }
+  each_command(commands, [&](std::uint32_t kind, std::span<const std::byte> bytes) {
+    if (kind == LC_SEGMENT_64) {
+      rebind_segment(header, bytes, *tables);
+    }
+  });
+}
+
 // Keeps the program from becoming the active one. The tests start their
 // programs with SDL's hints that keep a window from activating its program
 // (SDL_MAC_BACKGROUND_APP, SDL_WINDOW_ACTIVATE_WHEN_SHOWN, and
@@ -90,6 +435,25 @@ NSRunningApplication *&previous() {
 
 } // namespace
 
+// SDL shows a dialog with NSAlert's runModal (SDL 3.4.10,
+// src/video/cocoa/SDL_cocoamessagebox.m), which waits for a button no one
+// in an unattended run can press, so a test whose game fails to start
+// would hold the run until its timeout. The calls the images of this
+// process make to SDL's two message box functions go to message_box and
+// simple_message_box instead (rebind), which refuse them until
+// press_return_on_dialogs. Only a process that loads the test extension
+// is changed, never another program a test starts.
+void refuse_dialogs() {
+  static const bool installed = [] {
+    _dyld_register_func_for_add_image(&rebind);
+    return true;
+  }();
+  static_cast<void>(installed);
+  refusing() = true;
+}
+
+bool refusing_dialogs() { return refusing() && !answering(); }
+
 void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited]; }
 
 // A timer in AppKit's modal panel run loop mode, which runs only while a
@@ -100,9 +464,11 @@ void stay_in_background() { [NSApp setActivationPolicy:NSApplicationActivationPo
 // nor macOS's Accessibility permission, which System Events would need to
 // press Return from another process. The parity harness's Lua side does
 // the same through LuaJIT's FFI (test/parity/lua/conf.lua). It also keeps
-// the program from becoming the active one (stay_in_background). Calling
-// it again changes nothing.
+// the program from becoming the active one (stay_in_background), and lets
+// the dialogs refuse_dialogs refuses go on to SDL. Calling it again
+// changes nothing.
 void press_return_on_dialogs() {
+  answering() = true;
   static const bool installed = [] {
     // SDL makes the application when it starts its video subsystem
     // (Cocoa_RegisterApp, src/video/cocoa/SDL_cocoaevents.m), which may come

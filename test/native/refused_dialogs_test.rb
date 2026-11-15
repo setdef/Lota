@@ -10,14 +10,16 @@ require_relative "../test_helper"
 require_relative "native_helper"
 
 # A run of the tests has no one to press a button on a message box, and
-# SDL waits for one as long as the run lasts: its zenity, or its window
-# of its own, never closes by itself. On Linux liblota_dialogs refuses
-# every dialog but those a test asks it to answer (ext/lota/native_test/
-# answer_dialogs_linux.cpp), and the tests load it into every program
-# they start (tasks/test_files.rb), so a game that fails to start fails
-# at once, with what its dialog would have said on standard error. On
-# macOS and Windows the harness presses the dialog's button on request
-# (dialogs.mm, dialogs_windows.cpp) and nothing refuses one before then.
+# the system waits for one as long as the run lasts: SDL's zenity, its
+# window of its own, an NSAlert or a task dialog never closes by itself.
+# So every dialog but those a test asks to answer is refused, written with
+# its title and message to standard error, and fails as SDL fails when it
+# can show none, so a game that fails to start fails at once. On Linux
+# liblota_dialogs does it (ext/lota/native_test/answer_dialogs_linux.cpp),
+# loaded into every program the tests start (tasks/test_files.rb). On
+# macOS and Windows the test extension does it in each Ruby process that
+# loads it: the test process, and every Ruby a test starts
+# (test/dialog_guard.rb), and no other program.
 class RefusedDialogsTest < Minitest::Test
   # How long a program may take to show and refuse a dialog; a dialog
   # nobody answers takes the rest of the run.
@@ -30,11 +32,9 @@ class RefusedDialogsTest < Minitest::Test
     puts "buttons: \#{Lota::Native::Window.show_message_box_with_buttons('Quit?', 'Really?', %w[Yes No], nil, nil, 'warning', false)}"
   RUBY
 
-  def setup
-    skip "liblota_dialogs is Linux's" unless TestHome::LINUX
-  end
-
   def test_the_library_refuses_a_dialog_with_its_message_on_standard_error
+    skip "liblota_dialogs is Linux's" unless TestHome::LINUX
+
     library = NativeHelper.dialogs(File.dirname(loaded("lota_native_test")))
     output, status = run_bounded(NativeHelper.preload(*library))
 
@@ -46,12 +46,22 @@ class RefusedDialogsTest < Minitest::Test
     assert_includes output, "buttons: 0"
   end
 
-  def test_a_program_a_test_starts_gets_the_library_without_asking_for_it
+  def test_a_ruby_a_test_starts_refuses_dialogs_without_asking
     output, status = run_bounded({})
 
     assert_predicate status, :success?, output
+    assert_includes output, "refused a message box"
     assert_includes output, "Initialization error: The window failed to start"
+    assert_includes output, "Quit?: Really?"
     assert_includes output, "shown: false"
+    assert_includes output, "buttons: 0"
+  end
+
+  # On Linux liblota_dialogs refuses them in every process, this one too.
+  unless TestHome::LINUX
+    def test_the_test_process_refuses_dialogs
+      assert_predicate LotaNativeTest, :refusing_dialogs?
+    end
   end
 
   private def loaded(feature)
