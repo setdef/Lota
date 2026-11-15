@@ -13,5 +13,8 @@
 *.dll
 *.o
 
+# The gems bin/setup installs for this checkout
+/vendor/bundle/
+
 # Source archives rake sources:fetch downloads (ext/lota/licenses.rb)
 /vendor/sources/

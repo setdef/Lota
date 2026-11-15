@@ -27,12 +27,19 @@ if command -v mise >/dev/null 2>&1; then
   # Rust and the Ruby mise compiles with it, CMake, Ninja, clang-format,
   # clang-tidy, and the REUSE tool, pinned in mise.toml
   mise install
+  # The gems go into this checkout's own vendor/bundle, never into the
+  # Ruby's own gem folder. A Ruby mise compiles is not relocatable: a copy
+  # of it in another folder still installs gems into the folder its build
+  # named, so checkouts that share a Ruby's install share its gems, and
+  # two of them installing at once leave gems half written under each
+  # other.
+  mise x -- bundle config set --local path vendor/bundle
   # A warm checkout can outlive the Ruby that installed its gems: mise
   # puts a tool of the same version in a new folder when its configuration
-  # changes, and the gems, their executables, and their compiled
-  # extensions in the old Ruby's folders name the old Ruby's path. When
-  # the Ruby that runs now is not the one recorded in tmp/.bundled_ruby,
-  # install every gem again for it, so bundle exec finds each executable.
+  # changes, and the gems' executables and compiled extensions in
+  # vendor/bundle name the old Ruby's path. When the Ruby that runs now is
+  # not the one recorded in tmp/.bundled_ruby, install every gem again for
+  # it, so bundle exec finds each executable.
   ruby_now="$(mise x -- ruby -e 'print RbConfig.ruby')"
   ruby_then="$(cat tmp/.bundled_ruby 2>/dev/null || true)"
   if [ "$ruby_now" = "$ruby_then" ]; then

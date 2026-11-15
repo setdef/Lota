@@ -17,6 +17,8 @@ AllCops:
     # it downloads (tasks/linux_build.rb), likewise not ours
     - "vendor/love-appimage-source/**/*"
     - "vendor/sources/**/*"
+    # The gems bin/setup installs for this checkout
+    - "vendor/bundle/**/*"
     # Fixture games, pinned submodules of other people's code, which the
     # parity harness runs unchanged
     - "test/fixtures/**/*"

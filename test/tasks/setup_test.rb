@@ -64,6 +64,23 @@ class SetupTest < Minitest::Test
     assert_equal ["pre-commit install", "bundle exec rake rdoc"], contributor - ci
   end
 
+  # A Ruby mise compiles is not relocatable, so each copy of it that a
+  # checkout gets still installs gems into the one folder its build
+  # named, and two checkouts installing there at once left gems half
+  # written under each other. Every bundle install, the one that installs
+  # every gem again among them, goes into the checkout's own vendor/bundle.
+  def test_every_bundle_install_goes_into_the_checkouts_own_vendor_bundle
+    first, same = setup_runs({}, {})
+
+    [first, same].each do |commands|
+      installs = commands.each_index.select { |index| commands[index].start_with?("bundle install") }
+      path = commands.index("bundle config set --local path vendor/bundle")
+
+      refute_nil path, commands.join("\n")
+      assert_operator path, :<, installs.min, commands.join("\n")
+    end
+  end
+
   # mise puts a tool in a new folder when its configuration changes, and
   # the gems a warm checkout holds then name the old Ruby's path, which
   # made bundle exec report an installed gem's executable as not found.
