@@ -37,6 +37,8 @@ class SanitizedBuildTest < Minitest::Test
     end
   end
 
+  # The options themselves, each platform's, are the next test's to pin;
+  # this one checks the runtime this platform's real compiler names.
   def test_the_environment_inserts_the_runtime_with_rubys_options
     in_tree do |root|
       build = tree(root, "/usr/bin/c++")
@@ -44,13 +46,13 @@ class SanitizedBuildTest < Minitest::Test
         cxx = Open3.capture2("/usr/bin/c++", "-print-file-name=libstdc++.so.6").first.strip
         {
 "LD_PRELOAD" => "#{build.runtime} #{cxx}",
-"ASAN_OPTIONS" => "use_sigaltstack=0:detect_leaks=0",
+"ASAN_OPTIONS" => SanitizedBuild::OPTIONS.fetch(PLATFORM),
 "RUBY_MN_THREADS" => "-1",
 }
       else
         {
 "DYLD_INSERT_LIBRARIES" => build.runtime,
-"ASAN_OPTIONS" => "use_sigaltstack=0:strip_env=0",
+"ASAN_OPTIONS" => SanitizedBuild::OPTIONS.fetch(PLATFORM),
 "RUBY_MN_THREADS" => "-1",
 }
       end
