@@ -9,6 +9,8 @@ Phones and tablets are where many games are played, and a Lota game runs there o
 
 [Fledge](https://github.com/setdef/Fledge) writes that project. It puts a Ruby of its own and your game in it, and compiles Lota's engine for the phone while it does. This page takes your game from its folder to an app in a Simulator, an emulator, and on a device, and on to the files the App Store and Google Play take.
 
+You build and sign the app yourself, in Xcode or Android Studio, with your own Apple account and your own Android key, as a LÖVE developer does; Lota holds no key of yours. LÖVE has no command that builds and signs a phone app either, and the maintainer decided on 2026-11-13 that Lota adds none. If one comes, it belongs in Fledge, for every framework built on it. Nor does Lota keep a fixed phone project of its own, as LÖVE does: Fledge writes the project afresh on each build, so it always holds the Ruby, gems, and extensions your game has now.
+
 The phone route is experimental. Games have run on real iPads and iPhones and on one Android phone; [What has run](#what-has-run) says exactly what, so read it before you promise anyone a phone build.
 
 ## Two ways to build
