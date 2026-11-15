@@ -33,7 +33,7 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 - Research before designing: read the LÖVE source, the relevant ADR in `doc/contributors/adr/`, and the design document in `doc/contributors/design/` first.
 - Root-cause every fix. If you cannot explain why a change fixed the symptom, it is not a fix.
 - Write tests first. A test must fail if the code it covers is deleted or mutated, and must exercise real collaborators, not stubs that hide missing behavior. Where LÖVE's behavior is the contract, the acceptance test is a fixture someone else wrote, behaving as it does in LÖVE.
-- See each test fail first. `bundle exec rake red_before_green` runs every test a commit adds or changes against its parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`, and the pre-push hook runs it over what you push; a test it reports NEVER RED was never seen failing, so fix it before pushing. A commit that changes no behavior (a refactor, or tests of behavior already there) says so in a trailer, `Red-before-green: none (reason)`, and the reason is required.
+- See each test fail first. `bundle exec rake red_before_green` runs every test a commit adds or changes against its parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`; a test it reports NEVER RED was never seen failing, so fix it. A commit that changes no behavior (a refactor, or tests of behavior already there) says so in a trailer, `Red-before-green: none (reason)`, and the reason is required.
 - Lota is a dependency of games, so the dependency points one way: nothing on trunk (code, tests, docs, comments, examples, CI) names or depends on a game that uses Lota. Examples use Lota's own sample names, such as "Sample Game". Temporary material, such as the Windows kit and experiment branches, is exempt, and history may mention a game. Likewise nothing on trunk refers to a particular agent; agents are ephemeral.
 - Never edit `vendor/love`. Engine changes go in patch files in this repository (ADR 005; `doc/contributors/design/engine.md`), and every patch needs a reason it cannot be avoided.
 - Design in the spirit of Kent Beck (small steps, Implementation Patterns), Freeman & Pryce (tests drive interfaces), Sandi Metz (duplication over the wrong abstraction), Rebecca Wirfs-Brock (responsibility-driven roles), Martin Fowler (refactor in behavior-preserving steps), and Matz (programmer happiness). Write prose in the style of `doc/contributors/documentation_style.md`.
@@ -43,8 +43,6 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 - `Data.define` for value objects (`class Foo < Data.define(...)`), `class` for entities. Value types that games pass between Ractors must be frozen `Data` (ADR 007; `doc/contributors/design/engine.md`).
 - Every Ruby method has an RBS signature in `sig/` mirroring `lib/`. No `untyped`, no comments in `.rbs`. For `Data.define` classes, declare `self.new` instead of `initialize` (Steep mis-checks `initialize` there); plain classes declare `initialize` as usual.
 - RDoc (never YARD) in `.rb` files only. Wrap SPDX headers in `#--` / `#++`.
-- An ADR records one architecturally significant decision, briefly: its context, the options considered, the outcome, and its consequences, good and bad. Detailed design, such as the translation rules, lives in its own document in `doc/contributors/design/`, not in an ADR.
-- When an ADR is fully superseded, delete it; git history keeps it.
 - Plans live in `doc/contributors/plan/` and are short-lived: delete a plan once its work is done, and never cite a plan from code, tests, or docs, because the citation outlives it.
 - Before you edit a markdown file (anything in `doc/`, a README, or this file), read the whole file, then edit it so it still reads as one coherent piece. Don't append to it or patch lines found by search. A README edit also means reading README.md and README.rdoc both in full. Use whatever writing skill you have for the kind of document.
 
@@ -52,8 +50,8 @@ LÖVE does not accept pull requests, bug reports, or other contributions made wi
 
 - Run Ruby with `bundle exec ruby`. Run the unit tests, which need nothing built and take about a second, with `bundle exec rake test:unit`, and every test with `bundle exec rake test`; `TEST=path` runs one file. Never `ruby -Ilib:test`.
 - A unit test is imperceptibly fast: it loads no native extension, starts no process, opens no socket, and never sleeps, and `test/unit_guard.rb` fails one that does. A test that needs any of those is an integration test.
-- `bundle exec rake` is the gate: tests, RuboCop, RubyCritic, Steep, signature parity, RDoc coverage, REUSE, and the package check. It must pass with zero errors and zero warnings. Run `bundle exec rake rubocop:autocorrect_all` first to save time.
-- `bin/setup` installs a pre-push hook that runs `bundle exec rake prepush` and `red_before_green` on exactly what you push; `doc/contributors/development.md` says where they can run. Never bypass it (`--no-verify`, `LOTA_PREPUSH=skip`) except in an emergency, and say so in the commit. Run the full gate, `bundle exec rake`, before pushing a change to `ext/`, the bindings, the patches, packaging, or the parity harness, and before a session's last push. Never push to find out whether a change is green.
+- `bundle exec rake` is the gate, which CI runs after every push: tests, RuboCop, RubyCritic, Steep, signature parity, RDoc coverage, REUSE, and the package check. It must pass with zero errors and zero warnings.
+- Never bypass the pre-push hook `bin/setup` installs (`--no-verify`, `LOTA_PREPUSH=skip`) except in an emergency, and say so in the commit.
 - When a slow test is added or renamed, update `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake`.
 - Approved exceptions live in `rbs_exceptions.rb`; adding one needs a justification that it is impossible otherwise.
 - Rake tasks use `git ls-files`: new or deleted files must be staged before they count.
@@ -75,13 +73,10 @@ A commit holds work of one provenance and says which in a `Provenance:` trailer 
 
 ## Committing
 
-- Work on `trunk`, never on a branch. Your working copy holds only commits you have not pushed yet, for minutes, not hours: sync with `origin/trunk`, make one small, complete change that keeps the build green, run the gate, sync again, and push. If the push is rejected, rebase onto `origin/trunk`, run the gate again, and push.
-- Take other agents' work only from `trunk`, never from their working copies.
-- Before changing what other agents are likely changing too, such as the binding generator, `ext/lota/bindings.rb`, or a test that counts Lövetest's tests, say so first.
-- Work too big for one commit lands as small commits behind a feature flag or by branch by abstraction.
-- A red build on `trunk` stops all other work until it is fixed or the commit that broke it is reverted.
+- Work on `trunk`, never on a branch.
+- Say so before changing the binding generator, `ext/lota/bindings.rb`, or a test that counts Lövetest's tests: other agents change them too.
 - Before 1.0.0, tag and release only a commit CI has proven green, as `doc/contributors/releasing.md` describes, and never publish to RubyGems.org. From 1.0.0 on, never tag or release.
-- Commit an ADR as soon as your user approves it, before the work that follows it, so that work can cite it. A plan item goes in the commit that finishes its work.
+- A plan item goes in the commit that finishes its work.
 - Conventional Commits, plain text, wrapped at 72. The body explains why this approach over alternatives, in prose (no lists, no markdown, no file inventories). Types: `lib/ext/sig` feat/fix/refactor/perf; `bin/tasks`/CI chore; `examples/` and `doc/` docs; `test/` test. End with a `Red-before-green: none (reason)` trailer when the commit waives that check, then the `Provenance:` trailer, then the AI footer shown by `git log -n1`.
 
 ## Changelog
@@ -92,6 +87,6 @@ Keep a Changelog + SemVer. Only changes downstream game or library developers ca
 
 1. Every item in the plan is done, or explicitly deferred with a reason.
 2. Behavior matches the cited LÖVE source; deviations are justified by the precedence above and documented.
-3. `bundle exec rake` passes from a clean build (`rm -rf tmp`), zero errors, zero warnings.
+3. CI's gate is green on trunk, zero errors, zero warnings.
 4. RDoc, RBS, `doc/`, README, and CHANGELOG updated where behavior changed.
 5. A commit message is written (and the commit made, per Committing).
