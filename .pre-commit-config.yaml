@@ -9,8 +9,3 @@ repos:
           language: system
           files: (Gemfile|Gemfile\.lock|lota\.gemspec)
           pass_filenames: false
-      -   id: rake
-          name: rake
-          entry: bundle exec rake
-          language: system
-          pass_filenames: false
