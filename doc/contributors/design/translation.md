@@ -6,11 +6,11 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Translating LÖVE's API into Ruby
 
-A decade of LÖVE tutorials teaches games in Lua. This document holds the rules Lota translates that API by ([ADR 008](../adr/008.md)), the reasons behind them, and the literal mode for copying Lua verbatim.
+A decade of LÖVE tutorials teaches games in Lua. This document holds the rules Lota translates that API by, the reasons behind them, and the literal mode for copying Lua verbatim.
 
 ## The rules
 
-Lota does not make Ruby imitate Lua. It translates LÖVE's API by fixed rules, so that a reader can turn any tutorial line into Ruby without guessing. LÖVE has 815 distinct function names across its 74 `wrap_*.cpp` files, as the binding generator's catalog counts them at the pinned commit. Seven of them start with `_` and get no Lota name (rule 22); of the other 808, 323 start with `get`, 183 with `set`, 72 with `is`, `has`, or `are`, 68 with `new`, and 162 with other verbs. `rake bindings:report` finds none that falls under no rule. The table decides each function's Ruby name and the shape of a call to it; what the function does follows LÖVE's source. Apply every rule that fits, in any order: `getDPIScale` drops `get` by rule 3 and becomes `dpi_scale` by rule 13. Where two rules would disagree, the row says which one wins; where none does, it is a collision, settled as described below.
+Lota does not make Ruby imitate Lua. It translates LÖVE's API by fixed rules, so that a reader can turn any tutorial line into Ruby without guessing. The maintainer chose fixed rules on 2026-10-24, over a literal port, which would have Rubyists write camelCase, Lua-style code, and over a Ruby API designed case by case, which no generator could apply everywhere. LÖVE has 815 distinct function names across its 74 `wrap_*.cpp` files, as the binding generator's catalog counts them at the pinned commit. Seven of them start with `_` and get no Lota name (rule 22); of the other 808, 323 start with `get`, 183 with `set`, 72 with `is`, `has`, or `are`, 68 with `new`, and 162 with other verbs. `rake bindings:report` finds none that falls under no rule. The table decides each function's Ruby name and the shape of a call to it; what the function does follows LÖVE's source. Apply every rule that fits, in any order: `getDPIScale` drops `get` by rule 3 and becomes `dpi_scale` by rule 13. Where two rules would disagree, the row says which one wins; where none does, it is a collision, settled as described below.
 
 | # | Rule | LÖVE | Lota |
 |---|---|---|---|
