@@ -61,7 +61,7 @@ A fused game carries a Ruby interpreter, the standard library, and LÖVE's engin
 
 The macOS app is code-signed with the hardened runtime. Ruby's JITs mark memory executable with plain `mprotect` rather than `MAP_JIT`, so Fledge's signature carries `com.apple.security.cs.allow-unsigned-executable-memory` and `com.apple.security.cs.disable-library-validation`. LÖVE's own macOS build already declares the first (`vendor/love/platform/xcode/love.entitlements`). YJIT runs under both, signed ad hoc. Whether notarization accepts them under a Developer ID signature is confirmed when Lota first signs one.
 
-Under the macOS App Sandbox, a fused game runs with YJIT on and no entitlement but `com.apple.security.app-sandbox`, and saves inside its container, as a sandboxed LÖVE game does. On macOS 15 the sandbox kills a restart, since it uses `exec` ([ADR 012](../adr/012.md)). Fledge does not add the sandbox entitlement: it builds for Developer ID, not for the Mac App Store.
+Under the macOS App Sandbox, a fused game runs with YJIT on and no entitlement but `com.apple.security.app-sandbox`, and saves inside its container, as a sandboxed LÖVE game does. On macOS 15 the sandbox kills a restart, since it uses `exec` ([game.md](game.md), "Restarting"). Fledge does not add the sandbox entitlement: it builds for Developer ID, not for the Mac App Store.
 
 ## Licenses and notices
 

@@ -102,11 +102,39 @@ LÖVE keeps a game's saved files in the system's application data folder, under 
 
 ## Restarting
 
-`Lota::Event.restart` queues LÖVE's quit message with `"restart"` first. LÖVE then runs the game again in the same program, with the same arguments, and passes the value on as `love.restart` (`src/love.cpp`, `runlove` and `main`). Lota restarts in every case LÖVE does, by `exec` ([ADR 012](../adr/012.md)):
+`Lota::Event.restart` queues LÖVE's quit message with `"restart"` first. LÖVE then runs the game again in the same program, with the same arguments, and passes the value on as `love.restart` (`src/love.cpp`, `runlove` and `main`). Ruby cannot close the world a game defined, as `lua_close` closes a Lua state: its classes, constants, and threads stay. Lota restarts in every case LÖVE does, fused games included, as the maintainer settled on 2026-11-07. It restarts by `exec`, and in the same process where a flag says so.
+
+### By `exec`
+
+`exec` gives the whole fresh start LÖVE gives, without tracking what a game changed.
 
 - The game ends as a quit ends it, with the window closed and the exit procs run.
 - `lota run` replaces its process with itself, with the same arguments. It remembers `$0`, so a restart under `bundle exec` runs Lota again rather than `bundle`.
-- A fused game runs the program the process runs, with the same arguments. That program is Fledge's launcher, found as LÖVE's `getExecutablePath` finds it, so the app sets itself up as it did the first time. Only when the program is Ruby's own, as when someone runs the entry script with `ruby`, does the game start again through Ruby and the script.
+- A fused game runs the program the process runs, with the same arguments. That program is Fledge's launcher, found as LÖVE's `getExecutablePath` finds it, so the app sets itself up as it did the first time. Only when the program is Ruby's own, as when someone runs the entry script with `ruby`, does the game start again through Ruby and the script. Running Ruby instead, as `exec RbConfig.ruby, $0, *ARGV` would, starts the console Ruby on Windows, with the player's own settings, rather than the app.
 - On Windows, Ruby's `exec` starts a new process and waits for it. Each run has its own process id, and the process that restarted stays, with any audio device it opened, until the new run ends.
 - The new process reads the value as `Lota.restart`. It crosses in an environment variable, `Lota::Restart::VARIABLE`, that holds `nil`, `true`, `false`, a number, a String, or an Array or Hash of them, and nothing in it is evaluated.
-- A phone cannot replace its process, and a game started any other way, such as by `Lota::Boot` in your own program, ends when it restarts, as a quit ends it.
+- On a phone `exec` cannot restart an app (iOS lets no app run a program, and Android stops running as the app a process that replaces itself), and a game started any other way, such as by `Lota::Boot` in your own program, ends when it restarts, as a quit ends it.
+- Under the App Sandbox on macOS 15, the new image dies with `SIGTRAP` as it asks for a sandbox the process already has. On macOS 26 it restarts.
+
+### In the same process
+
+`LOTA_IN_PROCESS_RESTART` is a feature flag, unset by default. Set to `1`, it restarts a game in its process where `exec` cannot: on a phone, and in a sandboxed process on macOS before 26, which Lota tells by `APP_SANDBOX_CONTAINER_ID`, a variable not yet confirmed there. It is meant to become the default on every platform, as LÖVE restarts, once it has restarted a game on a phone and in a sandboxed app on macOS 15; it has done neither yet. Set to `always`, it does so on every restart. `Lota::Boot#call` then runs the game again, as `love.cpp`'s `main` runs `runlove` again, and the process keeps its id on every system. Between two runs:
+
+1. The exit procs the game registered run, the last one first. Ruby runs exit procs only as a process ends, so while a game runs, a module prepended to `Kernel` catches the main Ractor's `at_exit`.
+2. What the game defined is taken away. Before the first run Lota records the constants of `Object` and `Lota`, the top-level methods, `Lota`'s own methods and instance variables, the instance variables of Lota's other modules, and the global variables. After a run it puts `Lota`'s methods and instance variables back as they were. It removes each new constant and top-level method that a file in the game's folder defined, and each instance variable the game added to another of Lota's modules. It sets each new global variable to `nil`, and forgets the game's files, so `require` loads them again.
+3. The collector runs, and the engine closes as `lua_close` closes LÖVE's (`Lota::Native.close_modules`). Every engine object the main Ractor's wrappers hold is released, and such a wrapper then answers as a released object does. The modules are let go in the opposite order to `boot.lua`'s, the filesystem last. A module something else holds goes when that lets go, as graphics goes with the window.
+4. The next run reads the value as `Lota.restart`. It crosses in memory, by the rules it crosses `exec` with, so a game reads the same value either way.
+
+A thread that is still running keeps its own objects, and keeps the thread module and its named channels open, as a running LÖVE thread's Lua state keeps `love.thread`.
+
+A game's files are not loaded into a module that is dropped (`Kernel#load` with a module). In such a file `module Lota` and `class String` open new modules inside it, so callbacks and changes to built-in classes are lost, and `require` ignores it.
+
+Nor does a game run inside a `Ruby::Box` dropped on restart. Ruby, through 4.1.0-preview1, never frees a dropped box that defined a named class or module, and every Lota box defines `Lota`, so each restart would leave a copy of the engine behind, with its audio devices and threads ([research note](../research/2026-11-12-ruby-box.md)). A box becomes worth trying again once a Ruby release frees one.
+
+LÖVE's next run finds a fresh Lua state. Lota's finds what the game changed outside its own files:
+
+- a change to a built-in class, or to any class or module the game did not define, a method added to `Lota::Graphics` among them;
+- a constant added inside a namespace other than `Object` and `Lota`;
+- a gem or a part of Ruby's standard library the game loaded, which `require` does not load again;
+- the name of a global variable, though its value is `nil`;
+- an exit proc a Lota thread registered, which runs when the process ends.
