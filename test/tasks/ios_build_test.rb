@@ -16,7 +16,11 @@ require "stringio"
 class IosBuildTest < Minitest::Test
   include TreeHelper
 
-  def ios_build(root = "/r") = IosBuild.new(root:, repository: "/repo", out: StringIO.new)
+  # The build's folder, absolute as File.expand_path makes it here: on
+  # Windows, a path from the root gains the current drive.
+  ROOT_DIR = File.expand_path("/r")
+
+  def ios_build(root = ROOT_DIR) = IosBuild.new(root:, repository: "/repo", out: StringIO.new)
 
   # One SDL for every platform Lota builds from source: LÖVE's.
   def test_sdl_is_the_release_windows_builds
@@ -37,7 +41,7 @@ class IosBuildTest < Minitest::Test
       assert_includes options, "-DCMAKE_OSX_SYSROOT=#{sdk}"
       assert_includes options, "-DCMAKE_OSX_ARCHITECTURES=arm64"
       assert_includes options, "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"
-      assert_includes options, "-DCMAKE_INSTALL_PREFIX=/r/#{slice}"
+      assert_includes options, "-DCMAKE_INSTALL_PREFIX=#{ROOT_DIR}/#{slice}"
       assert_includes options, "-DSDL_STATIC=ON"
       assert_includes options, "-DSDL_SHARED=OFF"
     end

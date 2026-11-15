@@ -20,6 +20,10 @@ class LicensingTest < Minitest::Test
     Licensing.load(File.join(ROOT, "ext/lota/licenses.rb"))
   end
 
+  # +paths+ made absolute as File.expand_path makes them here: on
+  # Windows, a path from the root gains the current drive.
+  def absolute(*paths) = paths.map { |path| File.expand_path(path) }
+
   # A linker map's object files, as ld -map writes them.
   def map(*objects)
     listed = objects.each_with_index.map { |object, index| "[#{index + 1}] #{object}\n" }.join
@@ -42,10 +46,10 @@ class LicensingTest < Minitest::Test
       "other/CMakeFiles/other.dir/Font.cpp.o" => ["/other/Font.cpp"]
     ), build: "/build")
 
-    assert_equal ["/src/font/Font.cpp", "/src/font/Font.h", "/src/graphics/Font.cpp", "/toolchain/librt.a"],
+    assert_equal absolute("/src/font/Font.cpp", "/src/font/Font.h", "/src/graphics/Font.cpp", "/toolchain/librt.a"),
       linked.files.sort
-    assert_equal ["/src/font/Font.cpp", "/src/graphics/Font.cpp"], linked.sources.sort
-    assert_equal ["/other/Font.cpp", "/src/Data.cpp", "/src/font/Font.cpp", "/src/graphics/Font.cpp"],
+    assert_equal absolute("/src/font/Font.cpp", "/src/graphics/Font.cpp"), linked.sources.sort
+    assert_equal absolute("/other/Font.cpp", "/src/Data.cpp", "/src/font/Font.cpp", "/src/graphics/Font.cpp"),
       linked.compiled.sort
   end
 
@@ -84,14 +88,14 @@ class LicensingTest < Minitest::Test
       "engine/CMakeFiles/engine.dir/src/font/Font.cpp.o" => ["/src/font/Font.cpp"]
     ), build: "/build")
 
-    assert_equal [
+    assert_equal absolute(
       "/src/font/Font.cpp",
       "/src/native/font.cpp",
       "/usr/lib/gcc/aarch64-linux-gnu/11/crtbeginS.o",
-      "/usr/lib/gcc/aarch64-linux-gnu/11/libgcc.a",
-],
+      "/usr/lib/gcc/aarch64-linux-gnu/11/libgcc.a"
+    ),
       linked.files.sort
-    assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
+    assert_equal absolute("/src/font/Font.cpp", "/src/native/font.cpp"), linked.sources.sort
   end
 
   # GNU ld's map with MinGW's GCC: CMake's objects end in .obj, GCC's own
@@ -117,13 +121,13 @@ class LicensingTest < Minitest::Test
       "engine/CMakeFiles/lota_engine.dir/src/font/Font.cpp.obj" => ["/src/font/Font.cpp"]
     ), build: "/build")
 
-    assert_equal [
+    assert_equal absolute(
       "/msys64/ucrt64/lib/crt2.o",
       "/msys64/ucrt64/lib/libmingwex.a",
       "/src/font/Font.cpp",
-      "/src/native/font.cpp",
-], linked.files.sort
-    assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
+      "/src/native/font.cpp"
+    ), linked.files.sort
+    assert_equal absolute("/src/font/Font.cpp", "/src/native/font.cpp"), linked.sources.sort
   end
 
   # A map in link.exe's form (/map), as LLD writes it with MinGW's clang:
@@ -174,11 +178,10 @@ class LicensingTest < Minitest::Test
         File.join(dir, "deps/libSDL3.a"),
         File.join(dir, "toolchain/crt2.o"),
         File.join(dir, "toolchain/libc++.a"),
-        "/src/font/Font.cpp",
-        "/src/native/font.cpp",
+        *absolute("/src/font/Font.cpp", "/src/native/font.cpp"),
 ].sort,
         linked.files.sort
-      assert_equal ["/src/font/Font.cpp", "/src/native/font.cpp"], linked.sources.sort
+      assert_equal absolute("/src/font/Font.cpp", "/src/native/font.cpp"), linked.sources.sort
     end
   end
 

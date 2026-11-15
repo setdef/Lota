@@ -16,7 +16,11 @@ require "zlib"
 class PhoneEngineBuildTest < Minitest::Test
   include TreeHelper
 
-  def build(target, **) = PhoneEngineBuild.new(target, repository: "/repo", ndk: "/ndk", out: StringIO.new, **)
+  # The folders a build is given, absolute as File.expand_path makes them
+  # here: on Windows, a path from the root gains the current drive.
+  REPO, NDK, SDL, DEPS = %w[/repo /ndk /sdl /deps].map { |path| File.expand_path(path) }
+
+  def build(target, **) = PhoneEngineBuild.new(target, repository: REPO, ndk: NDK, out: StringIO.new, **)
 
   # Fledge aims each target at its runtime's triple (its
   # lib/fledge/mobile_extensions.rb): iOS 15 for a slice, API 26 for an ABI.
@@ -45,26 +49,26 @@ class PhoneEngineBuildTest < Minitest::Test
     assert_includes build("android-arm64-v8a").toolchain, <<~CMAKE
       set(ANDROID_ABI arm64-v8a)
       set(ANDROID_PLATFORM android-26)
-      include("/ndk/build/cmake/android.toolchain.cmake")
+      include("#{NDK}/build/cmake/android.toolchain.cmake")
     CMAKE
   end
 
   # What phone/ios.rb and phone/android.rb pass CMake, with the extension
   # left out.
   def test_it_configures_the_engine_as_the_phone_extconf_does_without_the_extension
-    ios = build("ios-arm64", ios_sdl3: "/sdl").options
-    android = build("android-x86_64", android_deps: "/deps").options
+    ios = build("ios-arm64", ios_sdl3: SDL).options
+    android = build("android-x86_64", android_deps: DEPS).options
 
     [ios, android].each do |options|
       assert_includes options, "-DCMAKE_BUILD_TYPE=Release"
-      assert_includes options, "-DENGINE_SOURCE_DIR:PATH=/repo/vendor/love"
+      assert_includes options, "-DENGINE_SOURCE_DIR:PATH=#{REPO}/vendor/love"
       assert_includes options, "-DLOTA_EXTENSION=OFF"
       assert_includes options, "-DLOTA_SANITIZE=OFF"
     end
-    assert_includes ios, "-DENGINE_DEPS_DIR:PATH=/repo/vendor/love-apple-dependencies"
-    assert_includes ios, "-DLOTA_IOS_SDL3_DIR:PATH=/sdl/ios-arm64"
-    assert_includes android, "-DLOTA_ANDROID_DEPS_DIR:PATH=/deps/x86_64"
-    assert_includes android, "-DLOTA_ANDROID_SDL3_DIR:PATH=/deps/x86_64"
+    assert_includes ios, "-DENGINE_DEPS_DIR:PATH=#{REPO}/vendor/love-apple-dependencies"
+    assert_includes ios, "-DLOTA_IOS_SDL3_DIR:PATH=#{SDL}/ios-arm64"
+    assert_includes android, "-DLOTA_ANDROID_DEPS_DIR:PATH=#{DEPS}/x86_64"
+    assert_includes android, "-DLOTA_ANDROID_SDL3_DIR:PATH=#{DEPS}/x86_64"
     refute(ios.any? { |option| option.include?("RICE") })
   end
 

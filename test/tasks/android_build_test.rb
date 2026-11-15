@@ -17,7 +17,12 @@ require "stringio"
 class AndroidBuildTest < Minitest::Test
   include TreeHelper
 
-  def android_build(ndk: "/ndk") = AndroidBuild.new(root: "/r", ndk:, repository: "/repo", out: StringIO.new)
+  # The build's folders, absolute as File.expand_path makes them here: on
+  # Windows, a path from the root gains the current drive.
+  ROOT_DIR = File.expand_path("/r")
+  NDK = File.expand_path("/ndk")
+
+  def android_build(ndk: NDK) = AndroidBuild.new(root: ROOT_DIR, ndk:, repository: "/repo", out: StringIO.new)
 
   # One release of each library for every platform Lota builds from
   # source, SDL among them, LÖVE's version, which Lota builds for Android
@@ -39,11 +44,11 @@ class AndroidBuildTest < Minitest::Test
     AndroidBuild::ABIS.each do |abi|
       options = android_build.cmake_options(abi)
 
-      assert_includes options, "-DCMAKE_TOOLCHAIN_FILE=/ndk/build/cmake/android.toolchain.cmake"
+      assert_includes options, "-DCMAKE_TOOLCHAIN_FILE=#{NDK}/build/cmake/android.toolchain.cmake"
       assert_includes options, "-DANDROID_ABI=#{abi}"
       assert_includes options, "-DANDROID_PLATFORM=android-26"
       assert_includes options, "-DANDROID_STL=c++_static"
-      assert_includes options, "-DCMAKE_INSTALL_PREFIX=/r/#{abi}"
+      assert_includes options, "-DCMAKE_INSTALL_PREFIX=#{ROOT_DIR}/#{abi}"
     end
     assert_equal %w[arm64-v8a x86_64], AndroidBuild::ABIS
   end
