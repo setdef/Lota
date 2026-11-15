@@ -8,6 +8,7 @@
 require "rubocop/rake_task"
 require "rubycritic/rake_task"
 require "inch/rake"
+require_relative "reuse_lint"
 
 RuboCop::RakeTask.new
 
@@ -21,9 +22,16 @@ Inch::Rake::Suggest.new("doc:suggest", "exe/**/*.rb", "lib/**/*.rb", "sig/**/*.r
 end
 
 namespace :reuse do
-  desc "Run the REUSE Tool to confirm REUSE compliance"
+  desc "Run the REUSE Tool over the files git knows, tracked or staged, to confirm REUSE compliance"
   task :lint do
-    sh "reuse lint"
+    report = ReuseLint.new(Dir.pwd).check
+    next puts("reuse: the #{report.files} files git knows comply with REUSE") if report.compliant?
+
+    problems = report.problems.map { |problem| "  #{problem}" }
+    abort "❌ reuse: the files git knows do not comply with REUSE:\n#{problems.join("\n")}\n" \
+      "  (reuse lint in the checkout says more, and reads untracked files too)"
+  rescue ReuseLint::Failure => e
+    abort "❌ reuse: #{e.message}"
   end
 
   desc "Add SPDX headers to files missing them (per AGENTS.md standards)"
@@ -38,17 +46,9 @@ namespace :reuse do
     doc_extensions = %w[md txt].freeze
     doc_license = "CC-BY-SA-4.0"
 
-    # Find files missing headers (listed after "no copyright and licensing" message)
+    # The files git knows, tracked or staged, that lack a header.
     puts "Checking for files missing REUSE headers..."
-    output = `reuse lint 2>&1`
-    in_missing_section = false
-    missing_files = output.lines.filter_map do |line|
-      in_missing_section = true if line.include?("no copyright and licensing")
-      in_missing_section = false if line.start_with?("# ") && !line.include?("copyright")
-      next unless in_missing_section
-
-      line.match(/^\* (.+)/)&.[](1)
-    end
+    missing_files = ReuseLint.new(Dir.pwd).check.missing
 
     if missing_files.empty?
       puts "All files have REUSE headers!"
