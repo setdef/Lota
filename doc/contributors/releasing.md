@@ -34,7 +34,7 @@ An entry is easy to write without the mark, so the decision checks for it. It co
 
 A method counts as changed when one of its old overloads has no new overload that takes every call the old one took and returns nothing it did not promise. A wider parameter, a new optional parameter, or a narrower return keeps it; so does a type alias or a subclass that covers the old type. Anything else counts as changed, so the check errs toward asking. Answer a refusal by adding the **Breaking:** entry, or by restoring the API, or its signature, if the change was not meant to break anything.
 
-CI releases nothing at 1.0.0 or later on its own; those versions are tagged by hand. Nor does any release of 1.0.0 or later go out while mise.toml pins a Ruby that is not a release, such as `4.1.0-preview1` or a release candidate: 1.0.0 freezes Lota's API, and ships only on a released Ruby ([ADR 013](adr/013.md)).
+CI releases nothing at 1.0.0 or later on its own; those versions are tagged by hand. Nor does any release of 1.0.0 or later go out while mise.toml pins a Ruby that is not a release, such as `4.1.0-preview1` or a release candidate. 1.0.0 freezes Lota's API, so it ships only on the Ruby it will live on, Ruby 4.1.0, and on Fledge's runtimes built on it, as the maintainer decided on 2026-11-09 ([packaging.md](design/packaging.md), "Platform gems").
 
 ## What a release carries
 

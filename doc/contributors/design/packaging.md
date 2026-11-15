@@ -24,6 +24,8 @@ Fledge (github.com/setdef/Fledge) publishes a runtime for each platform: Ruby wi
 
 Lota publishes its native extension as a precompiled gem for each platform, with LÖVE's engine libraries beside it. A native gem has to match the Ruby it loads into, so each Lota gem names the Ruby versions it was built for, and a new Fledge Ruby needs a matching Lota gem first. Lota's continuous integration builds and publishes a gem for every supported platform, so precompiled gems are part of the product. The source gem refuses to build and points to them.
 
+Lota runs on Ruby 4.1, its previews included. `lota.gemspec` asks for `>= 4.1.0.a`, which RubyGems reads as accepting 4.1's previews and refusing 4.0, and each precompiled gem also stops below 4.2 (`tasks/native_gem.rb`). The maintainer chose 4.1 from its previews on 2026-11-09. A player never meets that Ruby, since the app carries Fledge's, and Lota had no outside users to strand. Lota's threads need it: Ruby 4.0 keeps one list for `rb_gc_register_address` that every Ractor changes with no lock, and Rice registers every object it holds there ([engine.md](engine.md), "Threads and Ractors"). So a developer runs `lota run` and `lota fuse` on a 4.1 preview, and each preview, the release candidate, and 4.1.0 need every platform's gem built again. Lota 1.0.0 ships only on Ruby 4.1.0 ([releasing.md](../releasing.md)).
+
 The platforms are:
 
 | RubyGems platform | Machine |
