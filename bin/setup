@@ -75,7 +75,7 @@ hook="$(git rev-parse --show-toplevel)/.githooks/pre-push"
 exec "$hook" "$@"
 STUB
     chmod +x "$stub"
-    echo "Git hooks: $stub runs .githooks/pre-push, so git push runs rake prepush and red_before_green first."
+    echo "Git hooks: $stub runs .githooks/pre-push, so git push runs rake push_check first."
   fi
   if [ "${CI:-}" != true ]; then
     bundle exec rake rdoc
