@@ -8,15 +8,23 @@
 # standard input, which the Ruby reads.
 #
 # It sets up what the checks need where that is missing, so it also runs
-# in a checkout bin/setup has never touched: the tools mise.toml pins,
-# under mise x; LÖVE's source, which two unit tests read; and the bundle,
-# in the checkout's own vendor/bundle, where bin/setup puts it. On Windows
-# the Ruby is the one every Windows job runs, which
-# .github/windows_ruby.env pins.
+# in a checkout bin/setup has never touched, under a HOME where nothing
+# is installed: the tools mise.toml pins, under mise x, which installs
+# those missing and trusts the checkout's mise.toml for its own run;
+# LÖVE's source, which two unit tests read; and the bundle, in the
+# checkout's own vendor/bundle, where bin/setup puts it. On Windows the
+# Ruby is the one every Windows job runs, which .github/windows_ruby.env
+# pins.
+#
+# Of mise.toml's tools it asks only for those the checks run: Ruby, with
+# the Rust mise compiles it with, and the REUSE tool, with the Python and
+# uv mise installs it with. The rest, which build and lint the C++, stay
+# bin/setup's to install, so a first push from a new checkout does not
+# wait for a C++ toolchain.
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
 if [ -z "${LOTA_UNDER_MISE:-}" ] && command -v mise > /dev/null 2>&1; then
-  LOTA_UNDER_MISE=1 exec mise x -- sh "$0" "$@"
+  MISE_ENABLE_TOOLS=ruby,rust,python,uv,pipx:reuse LOTA_UNDER_MISE=1 exec mise x -- sh "$0" "$@"
 fi
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*)
