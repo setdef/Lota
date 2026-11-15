@@ -5,7 +5,7 @@
 
 # Sharing a Game
 
-A player should not need Ruby, Lota, or a terminal to play your game. `lota fuse` builds the game into an app they download and run, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. This page covers what it writes, what it needs, every option, and how it treats your files and your gems, and then how to hand your game, as one file, to someone who has Lota.
+A player should not need Ruby, Lota, or a terminal to play your game. `lota fuse` builds the game into an app they download and run, as LÖVE fuses a game into an executable of its own. It hands the game to [Fledge](https://github.com/setdef/Fledge), which packages a Ruby program with a Ruby of its own. This page covers what it writes, what it needs, every option, and how it treats your files and your gems, then how to hand your game, as one file, to someone who has Lota, and where a fused game's output goes.
 
 ## The command
 
@@ -67,6 +67,8 @@ Built the app for x64-mingw-ucrt only. Run lota fuse on each platform you ship f
 
 A pattern is a glob relative to the game's folder, matched as Ruby's `File.fnmatch` does with `FNM_PATHNAME`, `FNM_EXTGLOB`, and `FNM_DOTMATCH`. So `*` stays within a folder, `**/` crosses folders (`**/*.psd`), `{a,b}` picks one of two (`*.{psd,xcf}`), and `*` matches dotfiles too, because someone who writes `assets/*` means the `.DS_Store` in it. Quote a pattern with a star, so your shell hands it to `lota fuse` as written. A path that matches is left out whole: `server` leaves out the folder `server` at the top of the game, with everything in it, but not `lib/server`. A pattern that ends in a slash (`doc/`) matches folders only. `test/**` is everything in `test`, as `fnmatch` reads it, so it leaves an empty `test` folder. `lota fuse` reads no file of patterns, and it prints the paths it left out. A pattern that matches nothing is reported, but does not stop the build. One that would leave out `conf.rb` or `main.rb`, which the game needs to start, stops it before it writes anything, as every error of `lota fuse` does, with exit status 1.
 
+`lota fuse` leaves out nothing else on its own, so the app carries your dotfiles and your tools' files too: `.gitignore`, `.gitattributes`, an editor's settings, mise's `mise.local.toml`. Name each with `--exclude`, and look in `dist/fuse-project/game` after a build to see what went in. Keep one of them: the file your Gemfile's `ruby file:` line names, such as `.ruby-version`, `.tool-versions`, or `mise.toml`. Bundler reads it as `lota fuse` locks the game's gems, and without it the build stops there.
+
 ## Your gems
 
 If your game has a `Gemfile`, the app ships the gems its `Gemfile.lock` locks, at the versions it locks, but for the `development` and `test` groups. `lota fuse` builds from your Gemfile and lockfile, and adds Lota if your Gemfile does not ask for it. Before it builds, it checks that:
@@ -95,8 +97,18 @@ The game sees the archive as LÖVE's game sees a `.love`: `Lota::Filesystem` rea
 
 Lota refuses an archive it cannot unpack the same way everywhere, before it writes anything, and names the entry at fault: one that would land outside the folder, such as `../main.rb`; two names that differ only by case, which Windows and macOS cannot tell apart; a name Windows forbids, with `< > : " | ? * \` or a control character in it, ending in a dot or a space, or one of Windows' device names, such as `CON` or `aux.txt`; native code, a `.so`, `.bundle`, `.dll`, or `.dylib`, which LÖVE cannot load from a `.love` either; and a symbolic link. On Windows, where long paths are not enabled, it also refuses an entry whose path in the cache would be longer than 259 characters.
 
+## What the game prints
+
+A fused game prints where its program's output goes: the terminal that started it, a pipe, or a file. Into a pipe or a file, Ruby holds what the game prints until its buffer fills or the game ends, as LÖVE holds a Lua game's, so a game that is killed loses what it had not yet written. To have each line written as it is printed, put this at the top of `conf.rb`, which Lota loads before anything else of your game's:
+
+```ruby
+$stdout.sync = true
+```
+
+On Windows the app opens no console, so what the game prints goes nowhere.
+
 ## Restarting, and what is missing
 
 A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app's program starts it again with the same arguments, with `Lota.restart` holding the value, as `lota run` and `bundle exec lota run` do.
 
-What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](phones.md) builds one with Fledge directly, or with the iOS kit from your game's CI. On Windows the app opens no console, so what the game prints goes nowhere, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
+What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](phones.md) builds one with Fledge directly, or with the iOS kit from your game's CI. Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
