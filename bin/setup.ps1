@@ -8,7 +8,8 @@
 #
 # It needs mise (https://mise.jdx.dev), which it does not install. It
 # installs RubyInstaller's Ruby with winget, at mise.toml's version
-# unless that is a preview, since mise cannot build Ruby on Windows; the
+# unless that is a preview, since mise.toml has mise install Ruby on
+# Linux and macOS alone; the
 # tools the Windows checks use through mise (Python and the REUSE tool;
 # CMake and Ninja come from MSYS2); and the MSYS2 packages of
 # RubyInstaller's devkit that .github/windows_prepush.sh builds with.

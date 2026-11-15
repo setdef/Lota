@@ -25,8 +25,8 @@
 # API 33 emulator's software renderer gives LÖVE Vulkan, where API 36's
 # gives it OpenGL ES alone, so each renderer runs. Nothing
 # here runs on a phone or tablet, signs with an Apple team, or exports an
-# IPA, and no runner can boot an arm64 Android emulator, so arm64-v8a is
-# built and never run.
+# IPA, and no job here boots an arm64 Android emulator, which nobody has
+# tried on a runner, so arm64-v8a is built and never run.
 #
 # CI (ci.yml) calls it on every push, so it runs on every commit of every
 # branch, and a tag releases nothing unless it passed; it also runs by hand.

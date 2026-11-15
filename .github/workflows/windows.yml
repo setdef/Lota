@@ -10,12 +10,13 @@
 # Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest. x64
 # builds with MSYS2's UCRT64 environment (GCC), ARM64 with its CLANGARM64
 # environment (clang), the toolchains RubyInstaller builds its Ruby with
-# for each. The gate (bundle exec rake) does not run here: its Bundler
-# would compile gems RubyInstaller's Ruby has no build of, and its other
-# checks, RuboCop, Steep, clang-tidy, and the sanitizers among them, read
-# the same sources on macOS and Linux, all but the C++ only Windows
-# compiles, which no clang-tidy reads; so the tests run file by file,
-# without its Rake tasks (windows_checks.rb tests).
+# for each. The gate (bundle exec rake) does not run here, and has never
+# been tried on Windows; its checks, RuboCop, Steep, clang-tidy, and the
+# sanitizers among them, run on macOS and Linux, all but the C++ only
+# Windows compiles, which no clang-tidy reads, and the pre-push hook runs
+# those that build nothing on Windows too (doc/contributors/windows.md).
+# So the tests run file by file, without the gate's Rake tasks
+# (windows_checks.rb tests).
 #
 # ci.yml calls it for x64 and ARM64, and keeps each gem it builds for the
 # delivery, fuse, and release jobs; prepush.yml calls it for x64 alone,
