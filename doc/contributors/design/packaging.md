@@ -18,7 +18,7 @@ Fledge (github.com/setdef/Fledge) publishes a runtime for each platform: Ruby wi
 - It sets the player's own Ruby environment aside, so nothing on the player's machine changes the game.
 - It runs Ruby on the process's main thread, as the engine needs ([engine.md](engine.md)).
 - The standard library ships whole, as LÖVE ships the whole of Lua's, because a game that requires a library and finds it missing is broken. Bundled gems ship only when the game's Gemfile asks for them.
-- Fledge chooses where each platform's Ruby comes from (`runtime/sources.yml` in its repository). On Windows it is RubyInstaller's Ruby, built with MinGW against the UCRT ([ADR 011](../adr/011.md)).
+- Fledge chooses where each platform's Ruby comes from (`runtime/sources.yml` in its repository). On Windows it is RubyInstaller's Ruby, built with MinGW against the UCRT ("Windows builds with MinGW", below).
 
 ## Platform gems
 
@@ -40,7 +40,11 @@ Phones and tablets are a target: iPhones, iPads, and Android phones and tablets 
 
 ## Windows builds with MinGW
 
-Lota builds LÖVE's engine and its libraries with MinGW, to match RubyInstaller's Ruby ([ADR 011](../adr/011.md)). LÖVE's own Windows builds use Microsoft's compiler. Lota builds the libraries from source at the versions LÖVE builds against, not from MSYS2's newer packages, which keeps OpenAL Soft the only LGPL library in a game. x64 builds with GCC and ARM64 with clang.
+Lota builds LÖVE's engine and its libraries with MinGW, against the UCRT. A native gem has to match the Ruby it loads into, and Fledge's only Windows Ruby is RubyInstaller's, built that way. LÖVE's own Windows builds use Microsoft's compiler, which would need a Ruby built with it, and neither Lota nor Fledge builds one; the maintainer chose MinGW on 2026-11-02. Lota builds the libraries from source at the versions LÖVE builds against, not from MSYS2's newer packages, which keeps OpenAL Soft the only LGPL library in a game. x64 builds with GCC and ARM64 with clang, the toolchains RubyInstaller builds its Ruby with, and no change to LÖVE's source is needed for either.
+
+- The gem carries the compiler's runtime linked in, libstdc++ or libc++, and winpthreads.
+- Ruby's MinGW import library exports some of Windows' own functions, such as `Sleep`, under Ruby's DLL. So each extension links kernel32 first, and the gem build refuses a binary that takes a kernel32 function from Ruby, or imports a DLL that is neither the gem's, Ruby's, nor one of Windows' own (`NativeFormat::PE`).
+- A build that differs from LÖVE's own can behave differently. [windows.md](../windows.md) says how CI and a Windows PC check it.
 
 ## `lota run` and `lota fuse`
 

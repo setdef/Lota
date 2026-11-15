@@ -5,7 +5,7 @@
 
 # Building and Testing on Windows
 
-Lota ships gems for Windows on x64 and ARM64, for RubyInstaller's Ruby. That Ruby is built with MinGW, and a native extension has to match it, so Lota builds LÖVE's engine and its libraries with MinGW too, where LÖVE's own Windows build uses Microsoft's compiler ([ADR 011](adr/011.md); [packaging.md](design/packaging.md)). This page says how CI builds and tests those gems, and what its tests cannot reach.
+Lota ships gems for Windows on x64 and ARM64, for RubyInstaller's Ruby. That Ruby is built with MinGW, and a native extension has to match it, so Lota builds LÖVE's engine and its libraries with MinGW too, where LÖVE's own Windows build uses Microsoft's compiler ([packaging.md](design/packaging.md), "Windows builds with MinGW"). This page says how CI builds and tests those gems, and what its tests cannot reach.
 
 RubyInstaller publishes no Ruby 4.1 preview, so until it releases Ruby 4.1, Lota's Windows Ruby is its head build, which it rebuilds from Ruby's master every day under one URL ([packaging.md](design/packaging.md), "Platform gems"). Two days' builds can differ in ABI (`RbConfig::CONFIG["ruby_version"]`, such as `4.1.0+6`), and a gem built on one need not load in the other, so Lota pins the copy of the head build that Fledge's release keeps, the one its Windows runtime is made from. `.github/windows_ruby.env` names that copy's URL, SHA-256, and `ruby_version` for each architecture, and `.github/windows_ruby.sh` downloads it, checks both, and unpacks it. Every Windows job takes its Ruby from there (`.github/actions/windows-ruby`), and so does the pre-push script below, so CI, a push from your own computer, and a fused app run the same Ruby. Move the pin with `Lota::Fuse::FLEDGE_REF`.
 
@@ -71,4 +71,6 @@ Run it after you change Lota's input, window, or focus code, or the tests of the
 
 ## What CI cannot check
 
-GitHub's Windows runners have no GPU and no audio device. CI therefore draws only on llvmpipe, takes no input from a person, and plays sound to no real device. Outside CI, by 2026-11-09 a game had been played on a Windows PC, and Lövetest had passed there on an NVIDIA RTX 4090 with both Vulkan and OpenGL. Nothing in the repository repeats that check, so it says nothing about any commit since.
+GitHub's Windows runners have no GPU and no audio device. CI therefore draws only on llvmpipe, takes no input from a person, and plays sound to no real device. Outside CI, a game built this way has been played on a Windows PC, with its window, input, and sound. On an NVIDIA RTX 4090, Lövetest gave the same results in Lota's x64 build as in LÖVE's own build of the same commit, on Vulkan and on OpenGL: the same passes, the same 13 skips, and LÖVE's `setGrabbed` test failing only where its window lacked keyboard focus. At a 300% display scale both reported the same window size and DPI scale. The ARM64 build has run only on CI.
+
+The parity harness has not been ported to Windows, since it injects its test libraries with `LD_PRELOAD` or `DYLD_INSERT_LIBRARIES`. So a difference seen on Windows is checked by hand against LÖVE's own build of the same commit, as that comparison was on 2026-11-09.
