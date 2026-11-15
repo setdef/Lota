@@ -120,9 +120,20 @@ class MemoryTest < Minitest::Test
   PNG = File.binread(File.join(ROOT, "vendor/love/testing/output/expected/love.test.graphics.clear-1.png"))
 
   # LotaNativeTest observes each object; once Ruby frees the wrappers, the
-  # observer's reference is the only one left.
+  # observer's reference is the only one left. The block runs with the
+  # collector off, so only the collection this runs frees them. A major
+  # collection marks incrementally while the program allocates, and does
+  # not mark what is allocated meanwhile, so one that began before the
+  # block could end in it and free the wrappers the block had dropped by
+  # then, with GC.count unchanged; GC.disable first finishes a collection
+  # in progress (gc.c, rb_gc_disable, which calls gc_rest).
   def assert_released_once_collected(count)
-    yield
+    begin
+      GC.disable
+      yield
+    ensure
+      GC.enable
+    end
     assert_equal [2] * count, LotaNativeTest.observed_reference_counts
     collect_garbage
 
