@@ -13,7 +13,7 @@
 
 Lota is an independent project. It is not made, endorsed, or supported by the LÖVE Development Team.
 
-Lota is for Rubyists who want to make a 2D game in Ruby. If you have worked through a LÖVE tutorial, you already know Lota's modules and functions: they keep LÖVE's names, and a few fixed rules turn each Lua call into Ruby. `love.graphics.rectangle("fill", 10, 10, 50, 50)` becomes `Lota::Graphics.rectangle(:fill, 10, 10, 50, 50)`. A game you write in Lota behaves as the same game written for LÖVE, because both run the same engine code. On every change, Lota's CI runs three published LÖVE games on macOS and Linux in LÖVE and their Ruby translations in Lota, and compares every frame.
+Lota is for Rubyists who want to make a 2D game in Ruby. If you have worked through a LÖVE tutorial, you already know Lota's modules and functions: they keep LÖVE's names, and a few fixed rules turn each Lua call into Ruby. `love.graphics.rectangle("fill", 10, 10, 50, 50)` becomes `Lota::Graphics.rectangle(:fill, 10, 10, 50, 50)`. A game you write in Lota behaves as the same game written for LÖVE, because both run the same engine code. On every change, Lota's CI runs four published LÖVE games on macOS and Linux in LÖVE and their Ruby translations in Lota, and compares every frame.
 
 The name comes from the Lota Bowl, a classic Indian magic trick: the magician empties a brass vessel, and it fills itself again, as often as it is poured out. A game loop does the same, every frame.
 
@@ -36,7 +36,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 
 - Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1. On Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on one day's head build of RubyInstaller, the copy [Fledge](https://github.com/setdef/Fledge)'s release keeps, which `.github/windows_ruby.env` names. Use that build: another day's head build can have another ABI, and need not load Lota's gem. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
-- On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so those checks happen on a PC instead: a game has been played on a Windows PC, and Lövetest passes on an NVIDIA RTX 4090 with both Vulkan and OpenGL.
+- On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so CI plays sound through OpenAL Soft's null backend. On a PC, a game has been played with its window, input, and sound, and on an NVIDIA RTX 4090 Lövetest gives the same results in Lota as in LÖVE's own build, on Vulkan and on OpenGL.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
 - Phones and tablets have no gem yet. A game builds for them with [Fledge](https://github.com/setdef/Fledge) and a clone of Lota, or for iPhone and iPad from your game's CI: [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) has both routes. Games have run in the iOS Simulator, on Android emulators, on real iPads and iPhones, and on one Android phone.
 
@@ -181,7 +181,7 @@ Three things in it differ from Lua.
 - **Setters are writers.** `love.graphics.setColor(1, 1, 0)` is `Lota::Graphics.color = 1, 1, 0`, and getters drop `get`: `love.graphics.getWidth()` is `Lota::Graphics.width`.
 - **LÖVE's names for things are Symbols.** `"left"`, `"static"`, and `"escape"` are `:left`, `:static`, and `:escape`.
 
-For whole games to read, Lota's repository holds Ruby translations of three published LÖVE games, which its CI runs frame for frame against the originals: the [arkanoid tutorial](test/games/arkanoid), [Gravity-Wars](test/games/gravity_wars), and [KleleAtoms](test/games/klele_atoms).
+For whole games to read, Lota's repository holds Ruby translations of four published LÖVE games, which its CI runs frame for frame against the originals: the [arkanoid tutorial](test/games/arkanoid), [Gravity-Wars](test/games/gravity_wars), [KleleAtoms](test/games/klele_atoms), and [FLASH-BLIP](test/games/flash_blip).
 
 ## Coming from LÖVE
 
