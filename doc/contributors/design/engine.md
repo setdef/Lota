@@ -10,7 +10,7 @@ Lota runs LÖVE's own C++ engine and replaces only the Lua around it ([ADR 004](
 
 ## The pinned engine
 
-LÖVE's engine is the submodule `vendor/love`, pinned to commit `b7daef0f7` on LÖVE's `main` branch, from 2026-09-20. LÖVE 12.0 is unreleased. The pin makes an update deliberate: its behavior changes get reviewed rather than arriving whenever upstream moves.
+LÖVE's engine is the submodule `vendor/love`, pinned to commit `b7daef0f7` on LÖVE's `main` branch, from 2026-09-20. LÖVE 12.0 is unreleased, so Lota follows that commit rather than a release, and its 1.0.0 ships on it ([releasing.md](../releasing.md)). The pin makes an update deliberate: its behavior changes get reviewed rather than arriving whenever upstream moves.
 
 Everything LÖVE links, Lota links, each at the version LÖVE builds against. From outside LÖVE's tree that means SDL3, FreeType, HarfBuzz, OpenAL Soft, Vorbis, Ogg, Theora, ModPlug, and zlib. From `src/libraries` it means Box2D 2.4, PhysicsFS, glslang, SPIRV-Cross, and the rest.
 

@@ -36,6 +36,8 @@ A method counts as changed when one of its old overloads has no new overload tha
 
 CI releases nothing at 1.0.0 or later on its own; those versions are tagged by hand. Nor does any release of 1.0.0 or later go out while mise.toml pins a Ruby that is not a release, such as `4.1.0-preview1` or a release candidate. 1.0.0 freezes Lota's API, so it ships only on the Ruby it will live on, Ruby 4.1.0, and on Fledge's runtimes built on it, as the maintainer decided on 2026-11-09 ([packaging.md](design/packaging.md), "Platform gems").
 
+1.0.0 does not wait for LÖVE 12.0. `vendor/love` pins a commit of LÖVE's `main` branch, where 12.0 is developed, and 12.0 has no release date, so the maintainer decided on 2026-11-12 that 1.0.0 ships on the pinned commit. A move of the pin after that is a change like any other: the API check above marks what LÖVE renamed or removed as breaking, so it ships in a major release, and what LÖVE added ships in a minor one.
+
 ## What a release carries
 
 **The notes** are the entries the commit's `[Unreleased]` adds since the release before it: those that the previous release tag's `[Unreleased]` did not already list. A commit CI picks may come before the last release's dated section reached trunk, so its `[Unreleased]` can still list that release's entries, and comparing with the previous tag leaves them out. `rake "release:notes[SHA,FILE]"` writes a commit's notes.
