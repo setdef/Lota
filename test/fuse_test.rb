@@ -977,6 +977,62 @@ class FuseTest < Minitest::Test
     refute_path_exists project
   end
 
+  # A game whose Gemfile has its Ruby version read from +file+, as
+  # Bundler's ruby DSL takes it, by the line +line+.
+  def write_bundle_reading(file, line = %(ruby file: "#{file}"))
+    write_bundle
+    write("Gemfile", "#{line}\n#{File.read(File.join(@game, 'Gemfile'))}")
+    write(file, "4.1.0\n")
+  end
+
+  def test_exclude_that_would_leave_out_the_gemfiles_ruby_version_file_is_refused
+    write_bundle_reading(".ruby-version")
+    [".ruby-version", ".*", "*-version", "{.ruby-version,x}"].each do |pattern|
+      error = assert_raises(Lota::Fuse::Error) do
+        fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [pattern])).call
+      end
+
+      assert_equal "--exclude #{pattern} would leave out .ruby-version, which the game's Gemfile reads its Ruby version " \
+        "from as lota fuse locks the game's gems", error.message
+    end
+    refute_path_exists @log
+    refute_path_exists project
+  end
+
+  def test_exclude_that_would_leave_out_the_folder_of_the_gemfiles_ruby_version_file_is_refused
+    write_bundle_reading("config/.tool-versions", %(ruby(:file => './config/.tool-versions')))
+    %w[config config/ config/*].each do |pattern|
+      error = assert_raises(Lota::Fuse::Error) do
+        fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [pattern])).call
+      end
+
+      assert_includes error.message, "--exclude #{pattern} would leave out config/.tool-versions, which the game's Gemfile"
+    end
+    refute_path_exists project
+  end
+
+  def test_exclude_may_leave_out_a_version_file_the_gemfile_does_not_read
+    write(".ruby-version", "4.1.0\n")
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [".ruby-version"])).call }
+
+    assert_equal %w[main.rb], game_files
+
+    write_bundle_reading(".tool-versions", %(# ruby file: ".tool-versions"\nruby "4.1.0"))
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [".tool-versions"])).call }
+
+    refute_includes game_files, ".tool-versions"
+
+    write_bundle_reading(".tool-versions")
+    capture_io { fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [".ruby-version"])).call }
+
+    assert_includes game_files, ".tool-versions"
+    error = assert_raises(Lota::Fuse::Error) do
+      fuse(Lota::Fuse.options(out: File.join(@root, "dist"), exclude: [".tool-versions"])).call
+    end
+
+    assert_includes error.message, "would leave out .tool-versions"
+  end
+
   def test_exclude_may_name_a_folder_that_holds_neither_required_file
     write("conf.rb", "")
     write("a/conf.rb", "")

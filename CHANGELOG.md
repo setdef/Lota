@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- `lota fuse` stops before it writes anything when an `--exclude` pattern would leave out the file the game's Gemfile reads its Ruby version from (`ruby file: ".ruby-version"`), or its folder, as it stops for `conf.rb` and `main.rb`, where Bundler stopped later, as it locked the project's gems.
+
 ## [0.5.2] - 2026-11-14
 
 ### Added

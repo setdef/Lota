@@ -76,8 +76,10 @@ module Lota
   # empty. A pattern that ends in a slash matches folders only. A pattern
   # that matches nothing is reported and does not stop the build. An
   # exclusion that would leave out conf.rb or main.rb, which the game
-  # needs to start, stops it with an Error, before anything is
-  # written. Fuse reads no file of patterns.
+  # needs to start, or the file the game's Gemfile reads its Ruby version
+  # from (its <tt>ruby file:</tt> line), which Bundler reads as it locks
+  # the project, stops it with an Error, before anything is written. Fuse
+  # reads no file of patterns.
   #
   # Use it through <tt>lota fuse</tt>.
   #
@@ -218,6 +220,10 @@ module Lota
 
     # The files of a game that an exclusion may not leave out.
     REQUIRED = %w[conf.rb main.rb].freeze
+
+    # A Gemfile's line that has Bundler read the Ruby version from a file,
+    # as <tt>ruby file: ".ruby-version"</tt>, with the file's name second.
+    VERSION_FILE = /^[ \t]*ruby\b[ \t(]*(?:file:|:file[ \t]*=>)[ \t]*(["'])(.+?)\1/
 
     # The flags with which Options#exclude patterns match.
     EXCLUDE_FLAGS = File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH
@@ -372,15 +378,51 @@ module Lota
       raise Error, "--out can't be the game's own folder, #{@options.out}; choose one beside or inside it."
     end
 
-    # Raises Error when an exclusion would leave out a file of
-    # REQUIRED.
+    # Raises Error when an exclusion would leave out a file of REQUIRED,
+    # or the game's version file (#version_file), or a folder that holds
+    # it.
     private def check_exclude
+      needed = REQUIRED.to_h { |name| [name, "which the game needs to start"] }
+      version = version_file
+      needed[version] = "which the game's Gemfile reads its Ruby version from as lota fuse locks the game's gems" if version
       @options.exclude.each do |pattern|
-        file = REQUIRED.find { |name| excludes?(pattern, name, directory: false) }
+        file, why = needed.find { |name, _| leaves_out?(pattern, name) }
         next unless file
 
-        raise Error, "--exclude #{pattern} would leave out #{file}, which the game needs to start"
+        raise Error, "--exclude #{pattern} would leave out #{file}, #{why}"
       end
+    end
+
+    # The path, relative to the game's folder, of the file the game's
+    # Gemfile reads its Ruby version from, as its <tt>ruby file:</tt> line
+    # names it (Bundler's RubyDsl#ruby), or +nil+ for a game whose Gemfile
+    # has no such line, which has no Gemfile, or whose file is outside its
+    # folder. It is read from the Gemfile's text, with VERSION_FILE, rather
+    # than by evaluating the Gemfile, which would run the game's code in
+    # this program before anything else checks it.
+    private def version_file
+      gemfile = File.join(@directory, "Gemfile")
+      return unless File.file?(gemfile)
+
+      name = File.read(gemfile).scrub[VERSION_FILE, 2]
+      return unless name
+
+      path = File.expand_path(name, @directory)
+      path.delete_prefix("#{@directory}/") if path.start_with?("#{@directory}/")
+    end
+
+    # Whether +pattern+ leaves out the file +relative+: the file itself, or
+    # a folder that holds it.
+    private def leaves_out?(pattern, relative)
+      return true if excludes?(pattern, relative, directory: false)
+
+      folder = File.dirname(relative)
+      until folder == "."
+        return true if excludes?(pattern, folder, directory: true)
+
+        folder = File.dirname(folder)
+      end
+      false
     end
 
     # Raises Error for the signing options Fledge refuses together, with
