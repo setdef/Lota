@@ -34,7 +34,7 @@ The platforms are:
 
 Intel Macs and musl Linux wait: Fledge builds no Intel Mac runtime, and few players run Alpine.
 
-Phones and tablets are a target: iPhones, iPads, and Android phones and tablets are among the largest places games are played. Fledge links a gem's native extension into its iOS and Android runtimes, so what stands between Lota and them is Lota's own build: the engine and its libraries as static libraries for each target, the audio library's license on iOS, and a restart without `exec`, which phones forbid. Until that is built, no Lota gem targets a phone, and `lota fuse` refuses one. `doc/guide/phones.md` builds for phones from a clone.
+Phones and tablets are a target: iPhones, iPads, and Android phones and tablets are among the largest places games are played. Fledge links a gem's native extension into its iOS and Android runtimes, and Lota's phone build compiles LÖVE's engine for each iOS slice and Android ABI, against libraries built for each. No Lota gem targets a phone yet, and `lota fuse` builds only for the computer it runs on, so a phone app is built from a clone of Lota, as `doc/guide/phones.md` describes. On iOS, sound plays through Apple's OpenAL framework, as in LÖVE's iOS build, so no LGPL code is in an iOS app. Neither phone restarts a game by `exec`: iOS lets no app run a program, and on Android a process that replaces itself with `exec` is no longer run as the app (Fledge's ADR 082). So `Lota::Event.restart` ends a phone game as a quit does, unless `LOTA_IN_PROCESS_RESTART` asks for a restart in the same process (`lib/lota/restart.rb`), which has not yet run on a phone.
 
 ## Windows builds with MinGW
 
@@ -55,13 +55,13 @@ During development, `lota run` runs a game on the developer's own Ruby, as `love
 
 Fledge builds an app on a computer of the app's own platform. A developer builds each platform's app on that platform, or on a continuous integration runner for it. One machine does not build for every platform.
 
-A fused game carries a Ruby interpreter, the standard library, and LÖVE's engine, so it is larger than a fused LÖVE game: about 93 MB unpacked on macOS.
+A fused game carries a Ruby interpreter, the standard library, and LÖVE's engine, so it is larger than a fused LÖVE game: about 93 MB unpacked on macOS, as a spike measured it before 2026-11-02, with no run cited.
 
 ## Signing on macOS
 
 The macOS app is code-signed with the hardened runtime. Ruby's JITs mark memory executable with plain `mprotect` rather than `MAP_JIT`, so Fledge's signature carries `com.apple.security.cs.allow-unsigned-executable-memory` and `com.apple.security.cs.disable-library-validation`. LÖVE's own macOS build already declares the first (`vendor/love/platform/xcode/love.entitlements`). YJIT runs under both, signed ad hoc. Whether notarization accepts them under a Developer ID signature is confirmed when Lota first signs one.
 
-Under the macOS App Sandbox, a fused game runs with YJIT on and no entitlement but `com.apple.security.app-sandbox`, and saves inside its container, as a sandboxed LÖVE game does. On macOS 15 the sandbox kills a restart, since it uses `exec` ([ADR 012](../adr/012.md)). Fledge cannot add the sandbox entitlement yet.
+Under the macOS App Sandbox, a fused game runs with YJIT on and no entitlement but `com.apple.security.app-sandbox`, and saves inside its container, as a sandboxed LÖVE game does. On macOS 15 the sandbox kills a restart, since it uses `exec` ([ADR 012](../adr/012.md)). Fledge does not add the sandbox entitlement: it builds for Developer ID, not for the Mac App Store.
 
 ## Licenses and notices
 
