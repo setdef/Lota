@@ -55,7 +55,19 @@ class SanitizedBuild
   # LD_PRELOAD stays, and ASan runs LeakSanitizer at exit, which macOS's
   # ASan does not, and which reports the memory Ruby leaves for the system
   # to reclaim at exit; detect_leaks=0 checks on Linux what macOS checks.
-  OPTIONS = { "macos" => "use_sigaltstack=0:strip_env=0", "linux" => "use_sigaltstack=0:detect_leaks=0" }.freeze
+  #
+  # After a report, a sanitizer ends the process with _exit and its exit
+  # status, 1, on Linux, but with abort on macOS (abort_on_error, which is
+  # on by default on Apple's platforms alone: compiler-rt's
+  # sanitizer_flags.inc and sanitizer_termination.cpp, Die). Ruby's handler
+  # of SIGABRT then writes a crash report of its own (signal.c, sigabrt;
+  # vm_dump.c, rb_vm_bugreport), which in a process under ASan took two to
+  # six minutes on CI's macOS runners, for each deliberate bug the
+  # sanitizer tests make. abort_on_error=0 ends it on macOS as on Linux.
+  OPTIONS = {
+    "macos" => "use_sigaltstack=0:strip_env=0:abort_on_error=0",
+    "linux" => "use_sigaltstack=0:detect_leaks=0",
+  }.freeze
 
   # [build] The CMake build tree, configured with LOTA_SANITIZE on.
   # [platform] The platform it builds for, as EngineSources names it.

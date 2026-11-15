@@ -58,8 +58,8 @@ class RakeTasksTest < Minitest::Test
   end
 
   # What a sanitized run printed to stderr, where ASan's and UBSan's
-  # reports go, and Ruby's [BUG] report when the report's abort reaches
-  # Ruby's signal handler, less the memory map that report ends with, a
+  # reports go, and Ruby's [BUG] report when a crash reaches Ruby's
+  # signal handler, less the memory map that report ends with, a
   # line for each of thousands of regions.
   def reported(err) = err.lines.grep_v(/\A\h+-\h+ [-r][-w][-x]/).join
 

@@ -42,6 +42,16 @@ class SanitizerTest < Minitest::Test
     RUBY
   end
 
+  # A sanitizer's report ends the child with the sanitizer's exit status,
+  # 1, on every platform, not through abort, whose SIGABRT Ruby's handler
+  # turns into a crash report that under ASan takes minutes on macOS
+  # (tasks/sanitized_build.rb, OPTIONS). A child killed after
+  # CHILD_TIMEOUT has no exit status.
+  def assert_ended_by_its_report(output, status)
+    assert_equal 1, status.exitstatus, output
+    refute_includes output, "[BUG]"
+  end
+
   def test_the_extensions_are_the_sanitized_build
     assert LotaNativeTest.sanitized?, "lota_native_test was built without the sanitizers"
     assert_equal sanitized_lib, File.dirname(File.dirname(loaded("lota/native")))
@@ -52,7 +62,7 @@ class SanitizerTest < Minitest::Test
   def test_asan_reports_a_read_after_free
     output, status = run_bug("LotaNativeTest.use_after_free")
 
-    refute status.success?
+    assert_ended_by_its_report output, status
     assert_includes output, "ERROR: AddressSanitizer: heap-use-after-free"
     assert_includes output, "use_after_free"
     refute_includes output, "the bug went unreported"
@@ -68,7 +78,7 @@ class SanitizerTest < Minitest::Test
       LotaNativeTest.drop
     RUBY
 
-    refute status.success?
+    assert_ended_by_its_report output, status
     assert_includes output, "ERROR: AddressSanitizer: heap-use-after-free"
     assert_includes output, "love::Object::release()"
     refute_includes output, "the bug went unreported"
@@ -115,7 +125,7 @@ class SanitizerTest < Minitest::Test
   def test_ubsan_reports_signed_overflow
     output, status = run_bug("LotaNativeTest.add_one(2**31 - 1)")
 
-    refute status.success?
+    assert_ended_by_its_report output, status
     assert_includes output, "runtime error: signed integer overflow: 2147483647 + 1"
     refute_includes output, "the bug went unreported"
   end
@@ -129,7 +139,7 @@ class SanitizerTest < Minitest::Test
   def test_asan_reports_a_stack_overflow_in_another_ractor
     output, status = run_in_a_ractor("LotaNativeTest.stack_overflow(4)")
 
-    refute status.success?
+    assert_ended_by_its_report output, status
     assert_includes output, "ERROR: AddressSanitizer: stack-buffer-overflow"
     assert_includes output, "stack_overflow"
     refute_includes output, "the bug went unreported"
@@ -138,7 +148,7 @@ class SanitizerTest < Minitest::Test
   def test_asan_reports_a_heap_overflow_in_another_ractor
     output, status = run_in_a_ractor("LotaNativeTest.heap_overflow(4)")
 
-    refute status.success?
+    assert_ended_by_its_report output, status
     assert_includes output, "ERROR: AddressSanitizer: heap-buffer-overflow"
     assert_includes output, "heap_overflow"
     refute_includes output, "the bug went unreported"

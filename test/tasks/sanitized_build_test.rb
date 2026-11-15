@@ -81,7 +81,7 @@ class SanitizedBuildTest < Minitest::Test
 }, linux.environment)
       assert_equal({
 "DYLD_INSERT_LIBRARIES" => "#{root}/libclang_rt.asan_osx_dynamic.dylib",
-"ASAN_OPTIONS" => "use_sigaltstack=0:strip_env=0",
+"ASAN_OPTIONS" => "use_sigaltstack=0:strip_env=0:abort_on_error=0",
 "RUBY_MN_THREADS" => "-1",
 }, macos.environment)
     end
