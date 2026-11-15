@@ -120,7 +120,7 @@ LÖVE keeps a game's saved files in the system's application data folder, under 
 
 ### In the same process
 
-`LOTA_IN_PROCESS_RESTART` is a feature flag, unset by default. Set to `1`, it restarts a game in its process where `exec` cannot: on a phone, and in a sandboxed process on macOS before 26, which Lota tells by `APP_SANDBOX_CONTAINER_ID`, a variable not yet confirmed there. It is meant to become the default on every platform, as LÖVE restarts, once it has restarted a game on a phone and in a sandboxed app on macOS 15; it has done neither yet. Set to `always`, it does so on every restart. `Lota::Boot#call` then runs the game again, as `love.cpp`'s `main` runs `runlove` again, and the process keeps its id on every system. Between two runs:
+`LOTA_IN_PROCESS_RESTART` is a feature flag, unset by default. Set to `1`, it restarts a game in its process where `exec` cannot: on a phone, and in a sandboxed process on macOS before 26, which Lota tells by `APP_SANDBOX_CONTAINER_ID`, a variable not yet confirmed there. Set to `always`, it does so on every restart. `Lota::Boot#call` then runs the game again, as `love.cpp`'s `main` runs `runlove` again, and the process keeps its id on every system. Between two runs:
 
 1. The exit procs the game registered run, the last one first. Ruby runs exit procs only as a process ends, so while a game runs, a module prepended to `Kernel` catches the main Ractor's `at_exit`.
 2. What the game defined is taken away. Before the first run Lota records the constants of `Object` and `Lota`, the top-level methods, `Lota`'s own methods and instance variables, the instance variables of Lota's other modules, and the global variables. After a run it puts `Lota`'s methods and instance variables back as they were. It removes each new constant and top-level method that a file in the game's folder defined, and each instance variable the game added to another of Lota's modules. It sets each new global variable to `nil`, and forgets the game's files, so `require` loads them again.
@@ -140,3 +140,5 @@ LÖVE's next run finds a fresh Lua state. Lota's finds what the game changed out
 - a gem or a part of Ruby's standard library the game loaded, which `require` does not load again;
 - the name of a global variable, though its value is `nil`;
 - an exit proc a Lota thread registered, which runs when the process ends.
+
+A restart in the same process is meant to become the default on every platform, as LÖVE restarts, once it has restarted a game on a phone and in a sandboxed app on macOS 15. It has done neither yet.
