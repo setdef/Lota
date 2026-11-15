@@ -25,8 +25,9 @@ if command -v mise >/dev/null 2>&1; then
   # vendor/love and vendor/love-apple-dependencies, which the engine builds from
   git submodule update --init
   # Rust and the Ruby mise compiles with it, CMake, Ninja, clang-format,
-  # clang-tidy, and the REUSE tool, pinned in mise.toml
-  mise install
+  # clang-tidy, and the REUSE tool, pinned in mise.toml; on macOS, the
+  # libyaml Ruby's psych builds from first (bin/with-libyaml)
+  bin/with-libyaml mise install
   # The gems go into this checkout's own vendor/bundle, never into the
   # Ruby's own gem folder. A Ruby mise compiles is not relocatable: a copy
   # of it in another folder still installs gems into the folder its build

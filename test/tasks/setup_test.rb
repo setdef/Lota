@@ -30,7 +30,7 @@ class SetupTest < Minitest::Test
   # run one after another in one checkout, as a warm one is.
   def setup_runs(*envs)
     in_tree do |dir|
-      write(dir, "bin/setup", File.read(File.join(ROOT, "bin/setup")))
+      %w[bin/setup bin/with-libyaml].each { |path| write(dir, path, File.read(File.join(ROOT, path))) }
       write(dir, "bin/apt-packages", "#!/bin/sh\n")
       TOOLS.each { |name, body| write(dir, "tools/#{name}", "#!/bin/sh\n#{body}") }
       FileUtils.chmod(0o755, Dir[File.join(dir, "{bin,tools}/*")])

@@ -1,0 +1,27 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Usage: bin/with-libyaml CMD [ARGS...]
+#
+# Runs CMD so that the Ruby mise compiles builds psych, Ruby's YAML
+# library, on a Mac with no libyaml. psych needs libyaml, which macOS
+# does not ship, and ruby-build fails Ruby's build when psych does not
+# compile (its --with-ext=openssl,psych,+); it finds Homebrew's libyaml,
+# but a Mac need not have Homebrew. So on macOS this installs the libyaml
+# source mise.toml pins and names it in RUBY_CONFIGURE_OPTS with psych's
+# own option, --with-libyaml-source-dir: Ruby's build then builds that
+# libyaml in psych's build folder and links it into psych, and the source
+# folder is left as mise unpacked it. Elsewhere it runs CMD as it is:
+# Ubuntu's libyaml-dev is among the packages bin/setup asks for
+# (tasks/apt/build.txt), and on Windows the Ruby carries its own libyaml.
+# bin/setup and the pre-push hook (.githooks/pre-push) both install Ruby
+# through it.
+set -e
+if [ "$(uname -s)" = Darwin ]; then
+  mise install http:libyaml
+  source=$(mise where http:libyaml)
+  RUBY_CONFIGURE_OPTS="--with-libyaml-source-dir=$source${RUBY_CONFIGURE_OPTS:+ $RUBY_CONFIGURE_OPTS}"
+  export RUBY_CONFIGURE_OPTS
+fi
+exec "$@"

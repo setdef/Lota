@@ -28,6 +28,9 @@ ruby_build_opts = "--enable-yjit --enable-zjit"
 [tools]
 ruby = "4.1.0-preview1"
 rust = { version = "1.99.1", profile = "minimal", os = ["linux", "macos"] }
+# libyaml's source, which Ruby's psych builds and links in on macOS, where
+# no libyaml comes with the system (bin/with-libyaml).
+"http:libyaml" = { version = "0.2.5", url = "https://github.com/yaml/libyaml/releases/download/0.2.5/yaml-0.2.5.tar.gz", checksum = "sha256:c642ae9b75fee120b2d96c712538bd2cf283228d2337df2cf2988e3c02678ef4", os = ["macos"] }
 python = "3.12"
 pre-commit = { version = "latest", os = ["linux", "macos"] }
 cmake = { version = "4.3.2", os = ["linux", "macos"] }
