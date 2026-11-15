@@ -63,6 +63,21 @@ Fledge builds an app on a computer of the app's own platform. A developer builds
 
 A fused game carries a Ruby interpreter, the standard library, and LÖVE's engine, so it is larger than a fused LÖVE game: about 93 MB unpacked on macOS, as a spike measured it before 2026-11-02, with no run cited.
 
+## A game in one file
+
+A LÖVE game can also be handed out as a `.love`, its folder zipped, which LÖVE's own app plays when it is opened with it or dropped on its "no game" screen (`vendor/love/src/modules/love/boot.lua`, lines 52–60). A Lota game is handed out the same way, as a `.lota`, as the maintainer decided on 2026-11-13. [sharing.md](../../guide/sharing.md) says how to make one and what Lota refuses in one.
+
+`lota run game.lota` plays one (`Lota::Archive`). The engine reads the archive through PhysFS, as LÖVE's does, and Lota unpacks it whole into a cache folder and runs the game's Ruby from there. Ruby's `require` loads code only from real files, and Fledge runs no program through a virtual filesystem, so the game's `require`, `require_relative`, `__dir__`, `File`, and error messages behave as they do from its folder. A hook on `require` that read the zip in place would have to rewrite `require_relative`, would give `__dir__` a path `File` cannot open, and would lose the highlighted line in error messages.
+
+A `.lota` holds Ruby files and assets and no native code, as LÖVE cannot load a native module from a `.love` either (`vendor/love/src/modules/filesystem/wrap_Filesystem.cpp`, line 1011). Its code may require Lota, Ruby's standard library, and the gems the player app ships. Its extension is not `.love` because LÖVE's app cannot run Ruby, and an app Fledge builds is offered for a file type without becoming its default, so a shared extension would open LÖVE's app.
+
+Two apps are to come, built with Fledge, and neither exists yet:
+
+- **A player app**, for desktops and Android, and none for iOS, as LÖVE ships none. It plays a `.lota` opened with it or dropped on its "no game" screen, and adds nothing to what LÖVE's app does. It carries no developer's signature, as LÖVE's carries none, so a player who downloads it gets past the system's refusal for such apps by hand. From 2027 an Android app installed outside Google Play needs a developer registered with Google.
+- **A fuser app**, for each desktop. A `.lota` dropped on it becomes an app of its own through Fledge's `fledge build --from`, which copies a built app, puts the game in it as real files, gives the copy its own name and identity, and on macOS seals it again. The app it makes is as large as the fuser, holds only the gems the fuser ships, and runs only on the system it was made on.
+
+The player app looks for no game added to it, as LÖVE's app finds a fused game. On macOS, Fledge seals every app it signs without a developer's identity, and a downloaded app whose seal an edit broke is refused as damaged, with no way past, where an intact sealed app gets the ordinary refusal for an unsigned one ([Fledge's research note](https://github.com/setdef/Fledge/blob/trunk/doc/contributors/research/2026-11-13-mac-seal.md)). So a game is made into an app by the fuser, `lota fuse`, or `fledge build --from`, never by hand as LÖVE's wiki describes.
+
 ## Signing on macOS
 
 The macOS app is code-signed with the hardened runtime. Ruby's JITs mark memory executable with plain `mprotect` rather than `MAP_JIT`, so Fledge's signature carries `com.apple.security.cs.allow-unsigned-executable-memory` and `com.apple.security.cs.disable-library-validation`. LÖVE's own macOS build already declares the first (`vendor/love/platform/xcode/love.entitlements`). YJIT runs under both, signed ad hoc. Whether notarization accepts them under a Developer ID signature is confirmed when Lota first signs one.
