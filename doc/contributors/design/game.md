@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 A LÖVE game is a folder. Its `main.lua` defines callbacks as functions on the global `love` table (`function love.update(dt)`). An optional `conf.lua` defines `love.conf(t)`, which LÖVE calls with a table of settings before it loads any module or opens the window (`vendor/love/src/modules/love/boot.lua`, lines 178–256). `love.run` then calls each callback that exists and skips the rest (`callbacks.lua`).
 
-A Lota game is laid out the same way, in Ruby ([ADR 009](../adr/009.md)). This document says how a game is found, configured, called, and restarted, and where it saves.
+A Lota game is laid out the same way, in Ruby, as the maintainer decided in October 2026. This document says how a game is found, configured, called, and restarted, and where it saves.
 
 ## A game is a folder
 
@@ -55,6 +55,8 @@ Ruby methods do everything LÖVE code does with its callbacks:
 | saving and wrapping `love.update` | prepending a module to `Lota.singleton_class` and calling `super` |
 
 A game-state library for Lota wraps callbacks with `prepend` where a Lua one reassigns a table field.
+
+A method is the most faithful translation of a function on `love`: a tutorial's callbacks keep their shape line for line, and so does every use above. Callbacks registered as blocks were the maintainer's first preference, as closer to idiomatic Ruby, until a test showed that `return` inside a stored block raises `LocalJumpError` once the block outlives the code that defined it, and Lua games return early from callbacks routinely.
 
 ## A callback gets the arguments it declares
 
