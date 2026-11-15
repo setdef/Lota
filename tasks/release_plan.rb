@@ -83,7 +83,7 @@ module ReleasePlan
     return if Gem::Version.new(version) < BY_HAND
     return unless Gem::Version.correct?(ruby) && Gem::Version.new(ruby).prerelease?
 
-    raise Refusal, "#{version} would be 1.0.0 or later, while mise.toml pins Ruby #{ruby}, a preview (ADR 013); " \
+    raise Refusal, "#{version} would be 1.0.0 or later, while mise.toml pins Ruby #{ruby}, a preview (doc/contributors/releasing.md); " \
       "pin a released Ruby first"
   end
 

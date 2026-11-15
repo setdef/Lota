@@ -118,7 +118,7 @@ class ReleasePlanTest < Minitest::Test
   def test_one_point_oh_is_refused_while_the_pinned_ruby_is_a_preview
     error = assert_raises(ReleasePlan::Refusal) { check_tag("v1.0.0", entries: BREAKING, ruby: "4.1.0-preview1") }
 
-    assert_match(/pins Ruby 4\.1\.0-preview1, a preview \(ADR 013\)/, error.message)
+    assert_match(%r{pins Ruby 4\.1\.0-preview1, a preview \(doc/contributors/releasing\.md\)}, error.message)
     assert_raises(ReleasePlan::Refusal) { check_tag("v1.0.0", entries: BREAKING, ruby: "4.1.0-rc1") }
     assert_raises(ReleasePlan::Refusal) { check_tag("v2.0.0", previous: "1.0.0", entries: BREAKING, ruby: "4.1.0-rc1") }
     assert_equal "0.4.0", check_tag("v0.4.0", entries: BREAKING, ruby: "4.1.0-preview1")
