@@ -283,7 +283,7 @@ If the device refuses, check these first:
 - **Developer Mode is off.** Turn it on in Settings, Privacy & Security, Developer Mode, and let the device restart.
 - **There is no signing certificate.** A team has none until the first build with `-allowProvisioningUpdates` makes one.
 - **The device is trusted but not paired.** If `devicectl manage pair` fails with a transport error, unplug the cable and plug it in again.
-- **A free Personal Team has limits.** It signs at most 3 apps on a device and 10 App IDs a week, and its profile expires after about 7 days. The first launch also needs Settings, General, VPN & Device Management, and trusting the developer.
+- **A free Personal Team has limits.** Apple sets them, and this page cites no Apple source for them; as recorded on 2026-11-05, it signs at most 3 apps on a device and 10 App IDs a week, and its profile expires after about 7 days. The first launch also needs Settings, General, VPN & Device Management, and trusting the developer.
 - **Xcode does not know the device's iOS.** An older Xcode cannot install on a newer iOS.
 - **The game prints nothing to the log.** Keep `OS_ACTIVITY_DT_MODE` out of the scheme's environment. With it set, the host leaves the game's output on its own streams, so the unified log gets none of it.
 
@@ -339,7 +339,7 @@ SDL owns a phone's screen and its main loop, so a Lota app starts through SDL's 
 
 **Android** (`host/android`). `MainActivity.java` is SDL's Activity. It loads SDL, OpenAL Soft, Ruby, and the app's extensions, runs the game's Ruby on a thread with a 64 MB stack, and has the methods LÖVE's engine calls on it. `AndroidManifest.xml` asks for OpenGL ES 3.0, vibration, and a full screen. The host departs from LÖVE's Android app twice:
 
-- Android restarts an activity for any change of configuration its manifest does not list, and SDL then closes the app. LÖVE's app lists only a turn of the screen and a keyboard coming or going, so a change to dark mode, the font, the language, or the display size ends a LÖVE game. Lota's manifest also lists `uiMode`, `fontScale`, `fontWeightAdjustment`, `locale`, `layoutDirection`, `assetsPaths`, and `density` in `android:configChanges`, so the game keeps running, and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`. Keep them when you change the manifest.
+- Android restarts an activity for any change of configuration its manifest does not list, and SDL then closes the app. LÖVE's app lists only a turn of the screen and a keyboard coming or going, so a change to dark mode, the font, the language, or the display size ends a LÖVE game (`doc/contributors/upstream/014.md`). Lota's manifest also lists `uiMode`, `fontScale`, `fontWeightAdjustment`, `locale`, `layoutDirection`, `assetsPaths`, and `density` in `android:configChanges`, so the game keeps running, and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`. Keep them when you change the manifest.
 - When the game leaves the screen, SDL lets go of its window at once, and LÖVE's Vulkan renderer, still drawing a frame, then crashes, in LÖVE's own Android app as well (`doc/contributors/upstream/017.md`). The host waits, up to 2 seconds and usually a few milliseconds, until the game has paused. Keep `gamePaused` and `createSDLSurface` when you change the activity.
 
 ## Screens and input
@@ -356,7 +356,7 @@ Android's Back reaches the game as `Lota.keypressed(:escape, :acback)`, and then
 <meta-data android:name="SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON" android:value="1" />
 ```
 
-A phone cannot restart a program in place, so `Lota::Event.restart` ends the game as a quit does.
+On a desktop, `Lota::Event.restart` starts a fused game again by replacing its process with a new run of the app. Neither phone can do that: iOS lets no app run a program, and on Android a process that replaces itself with `exec` is no longer run as the app (Fledge ADR 082). So on a phone `Lota::Event.restart` ends the game as a quit does.
 
 ## Sound files
 
@@ -419,12 +419,11 @@ end
 
 ### Not yet tried
 
-- Any other Android phone, and any Android tablet. No free runner boots an arm64 emulator, so the `arm64-v8a` build has run only on the one phone above.
-- iOS 27 in a Simulator; CI's Simulators run iOS 26.
+- Any other Android phone, and any Android tablet. CI's emulators are `x86_64`, and booting an `arm64-v8a` emulator in CI has not been tried, so the `arm64-v8a` build has run only on the one phone above.- iOS 27 in a Simulator; CI's Simulators run iOS 26.
 - Signing with a paid Apple team, exporting an IPA, TestFlight, App Review, and Google Play's review.
 - Building Android on a Mac or on Windows.
 - A game whose `Gemfile` names other gems.
 - Android's opt-in to handle Back.
 - On Android, a real speaker, a real accelerometer, and the frame rate on a device.
 
-Fledge's phone runtimes have no JIT, since iOS gives an app no memory it may write code into and run, and Ruby builds none for Android. A game's Ruby therefore runs slower on a phone than on a desktop with YJIT, and each call into the engine costs several times what it costs on a desktop.
+Ruby runs on a phone without a JIT. iOS gives an app no memory it may write code into and run. On Android, Fledge v0.12.0 builds Ruby without one only because Ruby's `configure` builds none by default for a cross build, and Fledge's unreleased trunk enables YJIT and ZJIT there (Fledge ADR 090). A game's Ruby therefore runs slower on a phone than on a desktop with YJIT, and each call into the engine, on a slower CPU, costs several times what it costs on a desktop.
