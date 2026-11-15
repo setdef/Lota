@@ -46,6 +46,12 @@ class RedBeforeGreen
   # How long a test file may run against the parent.
   BUDGET = 900
 
+  # Each test file runs in a process group of its own, so that one that
+  # runs out of time ends with what it started. Windows has no process
+  # groups of that kind, and Process.spawn refuses pgroup: there.
+  WINDOWS = Gem.win_platform?
+  GROUP = WINDOWS ? { new_pgroup: true } : { pgroup: true }
+
   # What a test of the parity harness raises when it needs the reference
   # love, which only test:parity builds (test/parity/parity_helper.rb). It
   # would fail so against any parent, which shows nothing, so such a test
@@ -153,12 +159,20 @@ class RedBeforeGreen
   # A checker of the commits of the checkout at +root+. +suites+ are the
   # globs of the test files it runs (TEST_SUITES[:ruby]); a test in any
   # other file goes unchecked. +compile+ is the command that builds the
-  # native extension, run in +root+.
-  def initialize(root:, suites:, compile:, out: $stdout)
+  # native extension, run in +root+, or nil to build nothing, for suites
+  # that load no native code, such as the unit tests; then a parent's
+  # engine need not match HEAD's. +outside+ says why a test in no file of
+  # +suites+ goes unchecked. +prelude+, Ruby source, runs before each test
+  # file, as rake test:unit runs the unit guard (UNIT_PRELUDE in
+  # tasks/test.rake): without it a unit test's helper loads the engine,
+  # and a file that cannot load it would count as red against any parent.
+  def initialize(root:, suites:, compile:, out: $stdout, outside: "no file of the suite runs it", prelude: nil)
     @root = root
     @suites = suites
     @compile = compile
     @out = out
+    @outside = outside
+    @prelude = prelude
     # The revision whose native extension the checkout holds built.
     @built = "HEAD"
   end
@@ -252,7 +266,7 @@ class RedBeforeGreen
   end
 
   private def unchecked_reason(parent)
-    return unless changed?(parent, "HEAD", ENGINE)
+    return unless @compile && changed?(parent, "HEAD", ENGINE)
 
     "the parent's engine (#{ENGINE.join(', ')}) differs from HEAD's, and rebuilding it is not cheap"
   end
@@ -277,7 +291,7 @@ class RedBeforeGreen
   private def overlay(parent, commit)
     restore_from(parent, IMPLEMENTATION)
     restore_from(commit, ["test"])
-    build(parent) if changed?(parent, @built, NATIVE)
+    build(parent) if @compile && changed?(parent, @built, NATIVE)
   end
 
   private def restore(extra)
@@ -312,7 +326,7 @@ class RedBeforeGreen
 
   private def run(tests)
     tests.group_by(&:runner).flat_map do |runner, group|
-      next group.map { |test| Verdict.new(test:, outcome: :unchecked, detail: "no file of the suite runs it") } unless runner
+      next group.map { |test| Verdict.new(test:, outcome: :unchecked, detail: @outside) } unless runner
 
       run = run_file(runner, group.map(&:name))
       group.map { |test| verdict(test, run) }
@@ -322,16 +336,19 @@ class RedBeforeGreen
   # Runs the tests named +names+ in +runner+, and returns its Run.
   private def run_file(runner, names)
     Dir.mktmpdir("red-before-green-") do |directory|
-      results, reporter, errors = %w[results.jsonl reporter.rb errors.log].map { |name| File.join(directory, name) }
+      results, reporter, prelude, errors = %w[results.jsonl reporter.rb prelude.rb errors.log]
+        .map { |name| File.join(directory, name) }
       File.write(reporter, REPORTER)
+      File.write(prelude, @prelude) if @prelude
       pattern = "/\\A(?:#{names.map { |name| Regexp.escape(name) }.join('|')})\\z/"
       # Ruby 4.1 runs RUBYOPT's -rbundler/setup only after the command
       # line's -r (Feature #21951), so under bundle exec the reporter would
       # load Minitest before Bundler chose its gems; it is set up first.
       setup = ENV["BUNDLER_SETUP"] ? ["-r", ENV["BUNDLER_SETUP"]] : []
+      setup += ["-r", prelude] if @prelude
       pid = Process.spawn({ "RED_BEFORE_GREEN_RESULTS" => results }, RbConfig.ruby, "-w", "-Ilib", "-Itest",
         *setup, "-r", reporter, runner, "-i", pattern, chdir: @root, in: File::NULL, out: File::NULL, err: errors,
-        pgroup: true)
+        **GROUP)
       status = wait(pid)
       lines = File.file?(results) ? File.readlines(results, chomp: true) : []
       Run.new(results: lines.to_h { |line| JSON.parse(line).then { |result| [result.fetch("test"), result] } },
@@ -346,7 +363,7 @@ class RedBeforeGreen
       return status if status
 
       if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-        Process.kill("KILL", -pid)
+        Process.kill("KILL", WINDOWS ? pid : -pid)
         Process.wait(pid)
         return nil
       end

@@ -26,7 +26,7 @@ The submodules hold what Lota builds against. `vendor/love` is LÖVE's source at
 - It installs the tools `mise.toml` pins: Ruby, CMake, Ninja, ccache, clang-format, clang-tidy, the REUSE tool, actionlint, shellcheck, and on Linux patchelf.
 - It compiles Ruby, once, with the Rust `mise.toml` pins, because the precompiled Ruby mise would install has no ZJIT, which `rake bench` measures and the gate's bench test asks for. On 2026-11-15, jdx/ruby's Ruby 4.1.0-preview1 for macOS on Apple silicon and for x86_64 Linux warned at `--zjit` and ran the interpreter. Compiling needs ruby-build's [suggested build environment](https://github.com/rbenv/ruby-build/wiki#suggested-build-environment). If you installed this Ruby before without ZJIT, `mise install --force ruby` replaces it.
 - It runs `bundle install`, which puts the gems in the checkout's own `vendor/bundle` rather than in the Ruby's gem folder, which every checkout using that Ruby shares. Then it runs `rake sources:fetch`, which downloads the source archives the precompiled gem carries, such as OpenAL Soft's, into `vendor/sources`, and keeps each only if its SHA-256 matches `ext/lota/licenses.rb`. On Linux it also downloads the release of each library LÖVE's Makefile builds. On Linux and macOS the downloads go into one cache that every checkout on the computer shares, `lota/sources` in `XDG_CACHE_HOME` (or `~/.cache`), one fetch at a time, and each checkout links them in file by file. The gate runs `sources:fetch` first, so it downloads only what no checkout here has fetched yet.
-- It installs pre-commit's hooks and Lota's pre-push hook (below), and writes the API documentation into `tmp/rdoc`. With `CI=true`, as on a CI runner or a build machine that only runs the checks, it skips pre-commit's hooks and the documentation.
+- It installs pre-commit's hook, which checks that `Gemfile.lock` matches the `Gemfile` when you commit a change to either, and Lota's pre-push hook (below), and writes the API documentation into `tmp/rdoc`. With `CI=true`, as on a CI runner or a build machine that only runs the checks, it skips pre-commit's hooks and the documentation.
 
 On Ubuntu, `bin/setup` first checks for the packages in `tasks/apt/build.txt`, which LÖVE's Linux CI installs too. If any are missing, it prints the `sudo apt-get install` command and stops. It never runs `sudo` itself.
 
@@ -50,13 +50,29 @@ bundle exec rake test TEST=test/native/font_test.rb N=test_a_size_is_cut_to_a_wh
 
 Every test task reads `TEST` and `N`. A name in `TEST` that matches no file stops the task, rather than run nothing and pass. `rake test` builds what is out of date first, which takes a second or two when nothing changed; `rake test:unit` builds nothing.
 
-### Before every push: `rake prepush`
+### Before every push: `rake push_check`
+
+```sh
+bundle exec rake push_check
+```
+
+`rake push_check` is what the pre-push hook (below) runs, over the commits you have not pushed, or over the commits of a range you name as `git rev-list` takes it, `rake "push_check[OLD..NEW]"`. It builds nothing, and runs the same checks on Linux, macOS, and Windows, in seconds, or in about a minute when RuboCop reads every file:
+
+- RuboCop over the files the commits change, or over every file git knows when they change RuboCop's settings, Lota's own cops, or `Gemfile.lock`;
+- the unit tests;
+- the licensing check, `rake reuse:lint`, over every file git knows;
+- Steep, when they change `lib/`, `sig/`, `Steepfile`, `rbs_exceptions.rb`, or `Gemfile.lock`;
+- `rake red_before_green:unit` over the commits (below).
+
+It prints each check and how long it took, and stops at the first that fails. The unit tests and the licensing check always run, so it never passes having checked nothing. It shows that the commits broke nothing those checks reach, and no more: the native code, the build, the integration tests, the parity harness, and how Lota behaves on each system are CI's to check after you push.
+
+### CI's first verdict: `rake prepush`
 
 ```sh
 bundle exec rake prepush
 ```
 
-The pre-push checks build what changed, then run every check that takes seconds and a slice of each slow one, in parallel lanes. They leave out the tests that run a whole game in a process of their own, most of the parity games, the generator's later runs over all of LÖVE, and most of the sanitized suite. Of clang-tidy, which takes minutes over all of Lota's C++, they run only `rake cpp:tidy:platform`, over the sources only your system compiles, such as the Objective-C++ that only macOS's clang-tidy can read; the gate's `cpp:tidy` reads the rest. `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake` name them, test by test. When you add or rename a slow test, update those lists; `test/tasks/rake_tasks_test.rb` fails when a name in them stops naming a test.
+`rake prepush` is the pre-push tier, which CI runs on every push to trunk (below). It builds what changed, then runs every check that takes seconds and a slice of each slow one, in parallel lanes. It leaves out the tests that run a whole game in a process of their own, most of the parity games, the generator's later runs over all of LÖVE, and most of the sanitized suite. Of clang-tidy, which takes minutes over all of Lota's C++, it runs only `rake cpp:tidy:platform`, over the sources only your system compiles, such as the Objective-C++ that only macOS's clang-tidy can read; the gate's `cpp:tidy` reads the rest. `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake` name them, test by test. When you add or rename a slow test, update those lists; `test/tasks/rake_tasks_test.rb` fails when a name in them stops naming a test.
 
 ### The gate: `rake`
 
@@ -74,7 +90,7 @@ Run the gate before you push a change to `ext/`, the bindings, the patches, pack
 
 ### On a computer with no desktop
 
-On Linux, the tests open their windows on X displays, one for each of the gate's lanes (`LOTA_GATE_DISPLAYS`). When `rake` runs a task that opens windows, such as the gate, `prepush`, `red_before_green`, or `test`, and nothing gives it displays, it starts four of its own and runs again inside them: Xvfb with Openbox, the first free displays from `:300` up, so checks running at once on one computer never share one. It ends them when it ends, however it ends. So `bundle exec rake` and the pre-push hook need nothing set up for them on a headless machine, a CI runner, or a container, beyond the packages `bin/setup` asks for. CI's Linux jobs start their own displays and set `LOTA_GATE_DISPLAYS`, and `rake` uses those.
+On Linux, the tests open their windows on X displays, one for each of the gate's lanes (`LOTA_GATE_DISPLAYS`). When `rake` runs a task that opens windows, such as the gate, `prepush`, `red_before_green`, or `test`, and nothing gives it displays, it starts four of its own and runs again inside them: Xvfb with Openbox, the first free displays from `:300` up, so checks running at once on one computer never share one. It ends them when it ends, however it ends. So `bundle exec rake` and `rake prepush` need nothing set up for them on a headless machine, a CI runner, or a container, beyond the packages `bin/setup` asks for. CI's Linux jobs start their own displays and set `LOTA_GATE_DISPLAYS`, and `rake` uses those.
 
 Inside its displays `rake` also sets what the checks need with no desktop, unless you set it first: `LP_PERF=no_rast_linear`, because Mesa's llvmpipe after 24.0.5 reads the wrong uniform elements in its linear rasterizer; `LOTA_PARITY_CACHE=0`, as on CI; a desktop input lock of the run's own, kept quiet; a session bus where there is none; and, when ccache is on the `PATH`, CMake's builds compile through it. Unless the displays draw with Vulkan, it runs under `bwrap`, where installed, with Vulkan's drivers hidden, since Vulkan cannot present on Xvfb.
 
@@ -82,7 +98,7 @@ Inside its displays `rake` also sets what the checks need with no desktop, unles
 
 ### The Windows checks, on a Windows computer of your own
 
-The gate does not run on Windows, so CI checks Windows after you push. A change to the native code, the build, or anything of Windows' own can break there alone. If you have a Windows computer, you can run Lota's Windows checks on it first. Install [mise](https://mise.jdx.dev) and run `bin/setup.ps1` from PowerShell, which does what `bin/setup` does there: it installs RubyInstaller's Ruby, the MSYS2 packages, and the tools `mise.toml` pins that the checks use ([windows.md](windows.md) lists them). Then, from the checkout's root, in a UCRT64 shell on the computer's desktop, run:
+The gate has only ever run on macOS and Linux, and Windows has checks of its own outside it ([windows.md](windows.md)), which CI runs after you push; the pre-push hook runs on Windows as it does elsewhere, and none of them. A change to the native code, the build, or anything of Windows' own can break there alone. If you have a Windows computer, you can run Lota's Windows checks on it first. Install [mise](https://mise.jdx.dev) and run `bin/setup.ps1` from PowerShell, which does what `bin/setup` does there: it installs RubyInstaller's Ruby, the MSYS2 packages, and the tools `mise.toml` pins that the checks use ([windows.md](windows.md) lists them). Then, from the checkout's root, in a UCRT64 shell on the computer's desktop, run:
 
 ```sh
 bash .github/windows_prepush.sh
@@ -96,13 +112,15 @@ It also leaves out the few tests that need the visible desktop, its keyboard, mo
 bash .github/windows_prepush.sh --desktop
 ```
 
-To ask whether your commits need these checks, run `bundle exec rake windows:affected`, or `bundle exec rake "windows:affected[OLD..NEW]"` for other commits than the unpushed ones. It exits 0 and says why when they change the native code under `ext/`, a file that pins the dependencies (`Gemfile`, `Gemfile.lock`, `lota.gemspec`, `mise.toml`), or anything of Windows' own (`tasks/windows*`, `.github/windows*`, `test/native/windows*`), or when a path they change or a line they add or remove names Windows, MinGW, Win32, or a DLL outside prose: names in `doc/`, Markdown and RDoc files, the changelog, and the license texts count for nothing. It exits 1 when they do none of these, since such a change behaves on Windows as it does where the gate runs.
+To ask whether your commits need these checks, run `bundle exec rake windows:affected`, or `bundle exec rake "windows:affected[OLD..NEW]"` for other commits than the unpushed ones. It exits 0 and says why when they change the native code under `ext/`, a file that pins the dependencies (`Gemfile`, `Gemfile.lock`, `lota.gemspec`, `mise.toml`), or anything of Windows' own (`tasks/windows*`, `.github/windows*`, `test/native/windows*`), or when a path they change or a line they add or remove names Windows, MinGW, Win32, or a DLL outside prose: names in `doc/`, Markdown and RDoc files, the changelog, and the license texts count for nothing. It exits 1 when they do none of these. That is a guess from the diff, not a proof: plain Ruby that touches paths, processes, or the filesystem can still behave differently on Windows, and CI's Windows jobs are what check it.
 
 ### Each new test must fail first: `rake red_before_green`
 
 A test you never saw fail proves nothing. `bundle exec rake red_before_green` runs each test your unpushed commits add or change against each commit's parent's `lib/`, `ext/`, `exe/`, `tasks/`, and `bin/`. It prints each test as `red`, with the first line of its failure, or as `NEVER RED`, which fails the task. Pass a range as `git rev-list` takes it to check other commits.
 
 It works in your checkout, which must be clean in those folders and in `test/`, and it puts them back afterward. It skips a commit whose parent's engine differs from `HEAD`'s, since rebuilding LÖVE's engine is slow. It checks the tests `rake test` runs and the parity harness's own unit tests, which `PARITY_UNITS` in `tasks/test.rake` names. It skips the parity games and `test/sanitizers`, which need the reference `love` or the sanitized build, and marks `unchecked` any test that stops because the reference `love` is not built.
+
+`rake red_before_green:unit` does the same for the unit tests alone, and builds nothing, since they load no native code: it checks a commit whatever its parent's engine, and marks `unchecked` every other test, which CI's pre-push tier checks with `rake red_before_green` after the push. The pre-push hook runs it. Both check every commit's trailers.
 
 A commit that changes no behavior, such as a refactor or tests of behavior already there, waives the check with a trailer above `Provenance:` that says why:
 
@@ -112,7 +130,7 @@ Red-before-green: none (refactor)
 
 ### The pre-push hook
 
-`bin/setup` installs a hook that runs `rake prepush`, then `rake red_before_green` over exactly the commits you push, before git sends anything. It runs them here, in the clone you push from. It prints each check and how long it took, and refuses the push if one fails (`.githooks/pre-push` and `tasks/prepush.rb`). It also refuses the push when a check changed a tracked file, as RuboCop's autocorrection does, since CI's gate fails then too; it puts back what the check changed and keeps any edit you made before. Pushed from Linux or macOS, it does not run the Windows checks; CI does, after the push, unless you ran them yourself first (above). Pushed from a clone on Windows, where the gate cannot run, it runs the Windows checks instead, with plain Ruby rather than Bundler, and only when `windows:affected` would say the commits can change Lota on Windows; otherwise it runs nothing and says why. A new branch is checked from `origin/trunk`, or from `origin/HEAD` in a clone that has no `origin/trunk`.
+`bin/setup` installs a hook that runs `rake push_check` (above) over exactly the commits you push, before git sends anything. It runs it here, in the clone you push from, and the same on every system, so a push is checked alike wherever it is made. It prints each check and how long it took, and refuses the push if one fails (`.githooks/pre-push` and `tasks/prepush.rb`). It also refuses the push when a check changed a tracked file, since CI's gate fails then too; it puts back what the check changed and keeps any edit you made before. It runs neither `rake prepush` nor the Windows checks: CI does, after the push, unless you ran them yourself first (above). On Windows it runs on the Ruby `.github/windows_ruby.env` pins, under `mise x`, and installs the bundle on that Ruby first when it is missing, which takes a minute or two the first time. A new branch is checked from `origin/trunk`, or from `origin/HEAD` in a clone that has no `origin/trunk`.
 
 Pushing a tag or deleting a ref runs nothing. git hands the hook the refs it pushes on standard input, and a hook that runs Lota's, such as a global one in `core.hooksPath`, can read them first. So when the hook gets no refs while `HEAD` has commits the remote lacks, it refuses the push rather than check nothing. In an emergency, such as pushing a revert to a red trunk, `LOTA_PREPUSH=skip git push` skips the checks.
 
@@ -134,7 +152,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 
 ## What CI does after you push
 
-GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. Each push to trunk first gets the pre-push checks on macOS, Linux, and Windows, and `red_before_green` over the commits it brings, within about fifteen minutes. A red job on trunk stops all other work until it is fixed or reverted. A full run still red after its failed jobs ran again has every commit it brought in reverted by CI, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
+GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. Each push to trunk first gets the pre-push tier, `rake prepush`, on macOS and Linux, Windows' own build and tests, and `red_before_green` over the commits it brings, within about fifteen minutes. A red job on trunk stops all other work until it is fixed or reverted. A full run still red after its failed jobs ran again has every commit it brought in reverted by CI, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
 
 ## Try a checkout in a game
 

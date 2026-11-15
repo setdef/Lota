@@ -12,8 +12,9 @@
 # tools the Windows checks use through mise (Python and the REUSE tool;
 # CMake and Ninja come from MSYS2); and the MSYS2 packages of
 # RubyInstaller's devkit that .github/windows_prepush.sh builds with.
-# The gate (bundle exec rake) does not run on Windows
-# (doc/contributors/windows.md), so it installs no bundle.
+# It installs no bundle: those checks run without Bundler, and the
+# pre-push hook (.githooks/pre-push) installs the bundle on the Ruby
+# .github/windows_ruby.env pins when it is missing.
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 

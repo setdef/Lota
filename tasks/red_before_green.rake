@@ -20,15 +20,33 @@ def red_before_green_range
   (status.success? && !unpushed.empty?) ? "origin/trunk..HEAD" : "HEAD^..HEAD"
 end
 
-desc "Check that each test the commits of RANGE (default: the unpushed ones) add or change fails against " \
-  "each commit's parent's lib/ and ext/"
-task :red_before_green, [:range] => :compile do |_task, args|
-  checker = RedBeforeGreen.new(root: Dir.pwd, suites: red_before_green_suites, compile: %w[bundle exec rake compile])
-  reports = checker.check_range(args[:range] || red_before_green_range)
-  failed = reports.reject(&:passed?)
-  next puts("red_before_green: every test checked was seen failing first") if failed.empty?
+# Checks the commits of +range+ with +checker+, and fails unless each
+# passes.
+def red_before_green(checker, range)
+  failed = checker.check_range(range).reject(&:passed?)
+  return puts("red_before_green: every test checked was seen failing first") if failed.empty?
 
   abort "red_before_green: #{failed.size} commit(s) add or change a test that passes against the parent, " \
     "or have a malformed #{RedBeforeGreen::TRAILER} trailer; make each test fail without its change, or, " \
     "for a commit that changes no behavior, add the trailer #{RedBeforeGreen::TRAILER}: none (reason)"
+end
+
+desc "Check that each test the commits of RANGE (default: the unpushed ones) add or change fails against " \
+  "each commit's parent's lib/ and ext/"
+task :red_before_green, [:range] => :compile do |_task, args|
+  red_before_green(RedBeforeGreen.new(root: Dir.pwd, suites: red_before_green_suites,
+    compile: %w[bundle exec rake compile]), args[:range] || red_before_green_range)
+end
+
+namespace :red_before_green do
+  # The pre-push hook's part (rake push_check): the unit tests load no
+  # native code, so it builds nothing and runs alike on every system,
+  # and the trailers of every commit are checked too. CI's pre-push tier
+  # runs red_before_green over every commit pushed to trunk.
+  desc "Check, as red_before_green does but building nothing, the unit tests the commits of RANGE add or change"
+  task :unit, [:range] do |_task, args|
+    red_before_green(RedBeforeGreen.new(root: Dir.pwd, suites: UNIT_TESTS, compile: nil, prelude: UNIT_PRELUDE,
+      outside: "not a unit test, so CI's pre-push tier checks it (rake red_before_green)"),
+      args[:range] || red_before_green_range)
+  end
 end

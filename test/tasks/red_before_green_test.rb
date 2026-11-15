@@ -236,6 +236,44 @@ class RedBeforeGreenTest < Minitest::Test
     end
   end
 
+  # A checker that builds nothing (rake red_before_green:unit) runs its
+  # suites' tests against a parent whatever its engine or native code,
+  # since they load neither, and says why it leaves every other test
+  # unchecked.
+  def test_a_checker_that_builds_nothing_checks_its_suites_whatever_the_engine_and_names_why_it_leaves_the_rest
+    in_repository do |root|
+      sha = commit(root, "feat: double", "ext/lota/engine/fix.patch" => "--- a\n+++ b\n", "ext/calc.c" => "int two;\n",
+        "lib/calc.rb" => CALC.sub("  end\nend", "  end\n\n  def self.double(value)\n    value * 2\n  end\nend"),
+        "test/calc_test.rb" => CALC_TEST.sub("  end\nend",
+          "  end\n\n  def test_double\n    assert_equal 4, Calc.double(2)\n  end\nend"),
+        "test/native/engine_test.rb" => CALC_TEST.sub("CalcTest", "EngineTest"))
+      checker = RedBeforeGreen.new(root:, suites: ["test/calc_test.rb"], compile: nil, out: StringIO.new,
+        outside: "not a unit test")
+
+      report = checker.check(sha)
+
+      assert_nil report.unchecked
+      assert_equal({ "CalcTest#test_double" => :red, "EngineTest#test_add" => :unchecked }, outcomes(report))
+      assert_equal "not a unit test", report.verdicts.find { |verdict| verdict.outcome == :unchecked }.detail
+      refute_path_exists File.join(root, "builds")
+    end
+  end
+
+  # A unit test's helper loads the engine unless the unit guard is on
+  # (test/test_helper.rb), so a checker of the unit tests runs the guard
+  # first, as rake test:unit does: a file that cannot load against the
+  # parent counts as red, and without the prelude every unit test would.
+  def test_the_prelude_runs_before_each_test_file
+    in_repository do |root|
+      guarded = CALC_TEST.sub(%(require "calc"\n), %(require "calc"\nraise "no prelude" unless defined?(Prelude)\n))
+      sha = commit(root, "test: again", "test/calc_test.rb" => guarded.sub("def test_add", "def test_add_again"))
+      checker = RedBeforeGreen.new(root:, suites: ["test/calc_test.rb"], compile: nil, out: StringIO.new,
+        prelude: "Prelude = true\n")
+
+      assert_equal({ "CalcTest#test_add_again" => :never_red }, outcomes(checker.check(sha)))
+    end
+  end
+
   # The parent's native extension is built only when its ext/ differs from
   # what the checkout holds built, and the checkout is HEAD's again after.
   def test_the_parent_is_built_only_when_its_native_code_differs_and_the_checkout_is_put_back

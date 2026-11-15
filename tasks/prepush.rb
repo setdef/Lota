@@ -6,19 +6,18 @@
 #++
 
 require "open3"
-require_relative "windows_affected"
 
 # What .githooks/pre-push runs: the checks a push needs, over what the
 # push brings. For each ref git is about to update (it names them on the
 # hook's standard input, one "local_ref local_sha remote_ref remote_sha"
-# line each) it runs rake prepush, then rake red_before_green over the
-# commits the push adds, and fails the push, with the reason, when a
+# line each) it runs rake push_check over the commits the push adds
+# (tasks/push_check.rb), and fails the push, with the reason, when a
 # check fails or changes a tracked file, which it then puts back.
 #
-# The checks run here, in the clone that pushes. On Windows, where the
-# gate cannot run, the hook runs Lota's Windows checks instead
-# (.github/windows_prepush.sh), and only when a pushed range can change
-# Lota there (WindowsAffected); elsewhere CI checks Windows after the push.
+# The checks run here, in the clone that pushes, and are the same on
+# Linux, macOS, and Windows: they build nothing and take seconds, and
+# CI's pre-push tier (rake prepush) and the gate check the rest after the
+# push.
 # Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run nothing; the
 # last is for emergencies. git push --no-verify skips the hook itself, as
 # git always allows.
@@ -149,21 +148,13 @@ class PrePush
   # [local] What runs rake tasks here: #run(args) answering an exit status.
   # [clock] Answers the time in seconds, with #next.
   # [remote] The remote git pushes to, the hook's first argument.
-  # [platform] The platform the hook runs on, as RUBY_PLATFORM names it.
-  # [windows] What runs the Windows checks there: #run([]) answering an
-  #   exit status.
-  def initialize(input:, output:, env:, git:, repository:, local: nil, clock: nil, remote: "origin",
-    platform: RUBY_PLATFORM, windows: nil
-  )
+  def initialize(input:, output:, env:, git:, repository:, local: nil, clock: nil, remote: "origin")
     @input = input
     @remote = remote
     @output = output
     @env = env
     @git = git
-    @repository = repository
     @local = local || LocalRunner.new(repository, env:)
-    @platform = platform
-    @windows = windows || LocalRunner.new(repository, env:, command: %w[bash .github/windows_prepush.sh])
     @clock = clock || Enumerator.new { |y| loop { y << Process.clock_gettime(Process::CLOCK_MONOTONIC) } }
   end
 
@@ -193,10 +184,8 @@ class PrePush
     checked = pushes.reject { |push| push.delete? || push.tag? }
     return skipped("nothing but tags or deletions") if checked.empty?
 
-    return windows(checked) if @platform.match?(/mingw|mswin/)
-
     (checked.all? { |push| here(push) }) ? 0 : 1
-  rescue ArgumentError, WindowsAffected::Failure => e
+  rescue ArgumentError => e
     refuse(e.message)
   end
 
@@ -219,40 +208,19 @@ class PrePush
     0
   end
 
+  # Runs rake push_check over the commits +push+ adds.
   private def here(push)
-    range = "#{base(push)}..#{push.local_sha}"
-    [["prepush"], ["red_before_green[#{range}]"]].all? do |args|
-      name = "rake #{args.first}"
-      say "#{name} (here)"
-      started = @clock.next
-      snapshot = @git.snapshot
-      status = @local.run(args)
-      say "#{name} #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
-      unchanged = unchanged?(name, snapshot)
-      next refuse("#{name} failed") && false unless status.zero?
-
-      unchanged
-    end
-  end
-
-  # Runs the Windows checks once when any of +pushes+ can change Lota on
-  # Windows, and nothing when none can.
-  private def windows(pushes)
-    ranges = pushes.map { |push| "#{base(push)}..#{push.local_sha}" }
-    range, verdict = ranges.lazy.map { |each| [each, WindowsAffected.verdict(WindowsAffected.changes(@repository, each))] }
-      .find { |_range, found| found }
-    return skipped_windows(ranges) unless verdict
-
-    say "Windows checks (here): #{range} can change Lota on Windows: #{verdict}"
+    args = ["push_check[#{base(push)}..#{push.local_sha}]"]
+    name = "rake #{args.first}"
+    say "#{name} (here)"
     started = @clock.next
-    status = @windows.run([])
-    say "Windows checks #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
-    status.zero? ? 0 : refuse("the Windows checks failed")
-  end
+    snapshot = @git.snapshot
+    status = @local.run(args)
+    say "#{name} #{status.zero? ? 'passed' : 'failed'} in #{format('%.1f', @clock.next - started)}s"
+    unchanged = unchanged?(name, snapshot)
+    return refuse("#{name} failed") && false unless status.zero?
 
-  private def skipped_windows(ranges)
-    say "#{ranges.join(', ')} cannot change Lota on Windows; no Windows checks"
-    0
+    unchanged
   end
 
   # Whether the check +name+ left every tracked file as it found it. A

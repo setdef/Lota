@@ -2,16 +2,32 @@
 # SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Runs rake prepush and rake red_before_green on what is being pushed
-# (tasks/prepush.rb), or on Windows Lota's Windows checks when the push
-# can change Lota there. bin/setup writes a stub into the clone's hooks
-# folder that runs this file. git passes the refs on standard input,
-# which the Ruby reads. On Windows it runs without Bundler, whose bundle
-# RubyInstaller's Ruby cannot build (doc/contributors/windows.md), since
-# tasks/prepush.rb needs only Ruby's standard library.
+# Runs rake push_check over what is being pushed (tasks/prepush.rb), the
+# same checks on Linux, macOS, and Windows. bin/setup writes a stub into
+# the clone's hooks folder that runs this file. git passes the refs on
+# standard input, which the Ruby reads.
+#
+# On Windows the checks run on the Ruby every Windows job runs, the one
+# .github/windows_ruby.env pins, under mise x for the tools mise.toml pins
+# there, such as the REUSE tool, with the bundle installed when it is
+# missing, as bin/setup installs it elsewhere.
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
 case "$(uname -s)" in
-  MINGW* | MSYS* | CYGWIN*) exec ruby tasks/prepush.rb "$@" ;;
-  *) exec bundle exec ruby tasks/prepush.rb "$@" ;;
+  MINGW* | MSYS* | CYGWIN*)
+    if [ -z "${LOTA_UNDER_MISE:-}" ] && command -v mise > /dev/null 2>&1; then
+      LOTA_UNDER_MISE=1 exec mise x -- sh "$0" "$@"
+    fi
+    case "$(uname -m)" in
+      aarch64 | arm64) arch=arm64 ;;
+      *) arch=x64 ;;
+    esac
+    cache=$(cygpath -u "${XDG_CACHE_HOME:-$HOME/.cache}")/lota/windows-ruby
+    ruby_bin=$(bash .github/windows_ruby.sh "$arch" "$cache") || exit 1
+    PATH="$ruby_bin:$PATH"
+    RUBY_DLL_PATH=$(cygpath -w "$(cygpath -u "${MINGW_PREFIX:-/ucrt64}")/bin")
+    export PATH RUBY_DLL_PATH
+    bundle check > /dev/null 2>&1 || bundle install --quiet || exit 1
+    ;;
 esac
+exec bundle exec ruby tasks/prepush.rb "$@"

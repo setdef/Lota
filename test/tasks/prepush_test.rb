@@ -18,7 +18,8 @@ class PrePushTest < Minitest::Test
   ZERO = "0" * 40
 
   # Stands in for rake here: records each call and answers with the
-  # status it was given for the task (0 unless set).
+  # status it was given for the task, by its name without its arguments
+  # (0 unless set).
   class FakeLocal
     attr_reader :calls
 
@@ -29,7 +30,7 @@ class PrePushTest < Minitest::Test
 
     def run(args)
       @calls << args
-      @statuses.fetch(args.first, 0)
+      @statuses.fetch(args.first[/\A[^\[]*/], 0)
     end
   end
 
@@ -38,7 +39,6 @@ class PrePushTest < Minitest::Test
     @repo = File.join(@tree, "repo")
     @out = StringIO.new
     @local = FakeLocal.new
-    @windows = FakeLocal.new
     run!(@tree, "git", "init", "--quiet", "--initial-branch=trunk", @repo)
     @trunk = commit("README.md", "Sample Game\n", "first")
     run!(@repo, "git", "update-ref", "refs/remotes/origin/trunk", @trunk)
@@ -56,9 +56,9 @@ class PrePushTest < Minitest::Test
   end
 
   # The hook as git runs it, with +env+.
-  def hook(stdin, env: {}, local: @local, platform: "x86_64-linux", windows: @windows)
+  def hook(stdin, env: {}, local: @local)
     PrePush.new(input: StringIO.new(stdin), output: @out, env:, git: PrePush::Git.new(@repo), repository: @repo,
-      local:, clock: [0.0, 12.5].cycle, platform:, windows:)
+      local:, clock: [0.0, 12.5].cycle)
   end
 
   def line(local:, remote: @trunk, ref: "refs/heads/trunk", remote_ref: ref)
@@ -71,9 +71,19 @@ class PrePushTest < Minitest::Test
     status = hook(line(local: tip)).run
 
     assert_equal 0, status
-    assert_equal [["prepush"], ["red_before_green[#{@trunk}..#{tip}]"]], @local.calls
-    assert_includes @out.string, "pre-push: rake prepush (here)"
+    assert_equal [["push_check[#{@trunk}..#{tip}]"]], @local.calls
+    assert_includes @out.string, "pre-push: rake push_check[#{@trunk}..#{tip}] (here)"
     assert_includes @out.string, "passed in 12.5s"
+  end
+
+  # The hook is the same wherever it runs: it neither runs the pre-push
+  # tier, which builds the engine, nor a set of checks of Windows' own.
+  def test_the_hook_runs_push_check_alone
+    tip = commit("ext/lota/windows_paths.cpp", "a\n", "second")
+
+    hook(line(local: tip)).run
+
+    assert_equal ["push_check"], @local.calls.map { |args| args.first[/\A[^\[]*/] }
   end
 
   def test_a_new_branch_is_checked_from_origin_trunk
@@ -81,7 +91,7 @@ class PrePushTest < Minitest::Test
 
     hook(line(local: tip, remote: ZERO, ref: "refs/heads/topic")).run
 
-    assert_equal ["red_before_green[#{@trunk}..#{tip}]"], @local.calls.last
+    assert_equal ["push_check[#{@trunk}..#{tip}]"], @local.calls.last
   end
 
   def test_a_remote_tip_this_clone_lacks_falls_back_to_origin_trunk
@@ -89,7 +99,7 @@ class PrePushTest < Minitest::Test
 
     hook(line(local: tip, remote: "c" * 40)).run
 
-    assert_equal ["red_before_green[#{@trunk}..#{tip}]"], @local.calls.last
+    assert_equal ["push_check[#{@trunk}..#{tip}]"], @local.calls.last
   end
 
   def test_deleting_a_ref_pushing_a_tag_and_the_emergency_variable_skip_the_checks
@@ -108,7 +118,7 @@ class PrePushTest < Minitest::Test
 
     hook(line(local: tip, ref: "refs/tags/v1", remote: ZERO) + line(local: tip)).run
 
-    assert_equal 2, @local.calls.size
+    assert_equal [["push_check[#{@trunk}..#{tip}]"]], @local.calls
   end
 
   def test_no_refs_on_standard_input_pass_only_when_the_remote_holds_head
@@ -123,21 +133,20 @@ class PrePushTest < Minitest::Test
     assert_empty @local.calls
   end
 
-  def test_a_failing_prepush_fails_the_push_and_skips_red_before_green
+  def test_a_failing_push_check_fails_the_push
     tip = commit("lib/a.rb", "a\n", "second")
-    local = FakeLocal.new("prepush" => 2)
+    local = FakeLocal.new("push_check" => 2)
 
     assert_equal 1, hook(line(local: tip), local:).run
-    assert_equal [["prepush"]], local.calls
-    assert_includes @out.string, "push refused: rake prepush failed"
+    assert_includes @out.string, "push refused: rake push_check[#{@trunk}..#{tip}] failed"
   end
 
-  def test_a_failing_red_before_green_fails_the_push
+  def test_the_first_ref_whose_checks_fail_refuses_the_push_without_checking_the_rest
     tip = commit("lib/a.rb", "a\n", "second")
-    local = FakeLocal.new("red_before_green[#{@trunk}..#{tip}]" => 1)
+    local = FakeLocal.new("push_check" => 1)
 
-    assert_equal 1, hook(line(local: tip), local:).run
-    assert_includes @out.string, "push refused: rake red_before_green"
+    assert_equal 1, hook(line(local: tip) + line(local: tip, remote: ZERO, ref: "refs/heads/topic"), local:).run
+    assert_equal 1, local.calls.size
   end
 
   # git runs the hook with GIT_DIR, and in a linked worktree more, set to
@@ -160,7 +169,7 @@ class PrePushTest < Minitest::Test
     assert_empty names & git.keys
   end
 
-  # Stands in for rake prepush's autocorrection: rewrites +path+ in the
+  # Stands in for a check that rewrites a file, as RuboCop's autocorrection: rewrites +path+ in the
   # repository, then passes.
   class Fixer < FakeLocal
     def initialize(repo, path, statuses = {})
@@ -170,7 +179,7 @@ class PrePushTest < Minitest::Test
     end
 
     def run(args)
-      File.write(File.join(@repo, @path), "fixed\n") if args == ["prepush"]
+      File.write(File.join(@repo, @path), "fixed\n") if args.first.start_with?("push_check[")
       super
     end
   end
@@ -181,17 +190,16 @@ class PrePushTest < Minitest::Test
 
     assert_equal 1, hook(line(local: tip), local:).run
     assert_equal "a\n", File.read(File.join(@repo, "lib/a.rb"))
-    assert_includes @out.string, "push refused: rake prepush changed lib/a.rb, now put back"
-    assert_equal [["prepush"]], local.calls
+    assert_includes @out.string, "push refused: rake push_check[#{@trunk}..#{tip}] changed lib/a.rb, now put back"
   end
 
   def test_a_failing_check_that_changes_a_tracked_file_puts_it_back_too
     tip = commit("lib/a.rb", "a\n", "second")
-    local = Fixer.new(@repo, "lib/a.rb", { "prepush" => 1 })
+    local = Fixer.new(@repo, "lib/a.rb", { "push_check" => 1 })
 
     assert_equal 1, hook(line(local: tip), local:).run
     assert_equal "a\n", File.read(File.join(@repo, "lib/a.rb"))
-    assert_includes @out.string, "push refused: rake prepush failed"
+    assert_includes @out.string, "push refused: rake push_check[#{@trunk}..#{tip}] failed"
   end
 
   def test_putting_back_what_a_check_changed_keeps_edits_made_before_it
@@ -222,48 +230,7 @@ class PrePushTest < Minitest::Test
 
     hook(line(local: tip, remote: ZERO, ref: "refs/heads/topic")).run
 
-    assert_equal ["red_before_green[#{@trunk}..#{tip}]"], @local.calls.last
-  end
-
-  # On Windows the gate cannot run, so the hook runs Lota's Windows checks
-  # instead, and only for a push that can change Lota there
-  # (WindowsAffected).
-  def test_on_windows_a_push_that_cannot_change_windows_runs_nothing
-    tip = commit("lib/a.rb", "a\n", "second")
-
-    assert_equal 0, hook(line(local: tip), platform: "x64-mingw-ucrt").run
-    assert_empty @local.calls
-    assert_empty @windows.calls
-    assert_includes @out.string, "pre-push: #{@trunk}..#{tip} cannot change Lota on Windows; no Windows checks"
-  end
-
-  def test_on_windows_a_push_that_can_change_windows_runs_the_windows_checks_once
-    tip = commit("ext/lota/a.cpp", "a\n", "second")
-    other = commit("lib/b.rb", "b\n", "third")
-
-    status = hook(line(local: other) + line(local: tip, remote: ZERO, ref: "refs/heads/topic"),
-      platform: "x64-mingw-ucrt").run
-
-    assert_equal 0, status
-    assert_equal [[]], @windows.calls
-    assert_empty @local.calls
-    assert_includes @out.string, "pre-push: Windows checks (here): #{@trunk}..#{other} can change Lota on Windows: " \
-      "ext/ (ext/lota/a.cpp)"
-    assert_includes @out.string, "pre-push: Windows checks passed in 12.5s"
-  end
-
-  def test_on_windows_failing_windows_checks_refuse_the_push
-    tip = commit("lib/windows_paths.rb", "a\n", "second")
-    windows = FakeLocal.new({ nil => 3 })
-
-    assert_equal 1, hook(line(local: tip), platform: "x64-mingw-ucrt", windows:).run
-    assert_includes @out.string, "push refused: the Windows checks failed"
-  end
-
-  def test_the_windows_checks_are_windows_prepush_sh_run_without_gits_variables
-    runner = PrePush::LocalRunner.new(@repo, command: %w[bash .github/windows_prepush.sh])
-
-    assert_equal %w[bash .github/windows_prepush.sh], runner.command([])
+    assert_equal ["push_check[#{@trunk}..#{tip}]"], @local.calls.last
   end
 
   # A refusal says what git said, since a check that cannot start is

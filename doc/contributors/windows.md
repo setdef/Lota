@@ -11,9 +11,11 @@ RubyInstaller publishes no Ruby 4.1 preview, so until it releases Ruby 4.1, Lota
 
 The head build carries no `zlib1.dll`, which its zlib extension loads, so a Windows job sets MSYS2 up before Ruby runs and names MSYS2's MINGW `bin` folder in `RUBY_DLL_PATH`, which RubyInstaller's runtime adds before any other to where Windows looks for DLLs.
 
-## Why the gate does not run on Windows
+## Windows has checks of its own, outside the gate
 
-The gate's Bundler would compile gems that RubyInstaller's Ruby has no build of, and its lint, type, and package checks read the same sources on macOS and Linux. So Windows has a workflow of its own, `.github/workflows/windows.yml`, which builds and tests without the gate's Rake tasks; `ci.yml` calls it for both platforms, and the pre-push tier on trunk (`prepush.yml`) for x64. `.github/windows_checks.rb` holds its checks, and its steps are the recipe for a Windows build by hand.
+The gate, `bundle exec rake`, has only ever run on macOS and Linux, so nobody knows which of its tasks that build or test the native code work on Windows. Windows has a workflow of its own instead, `.github/workflows/windows.yml`, which builds and tests without the gate's Rake tasks and without Bundler; `ci.yml` calls it for both platforms, and the pre-push tier on trunk (`prepush.yml`) for x64. `.github/windows_checks.rb` holds its checks, and its steps are the recipe for a Windows build by hand.
+
+Bundler and the checks that build nothing do run there. On 2026-11-15, on the x64 head build `windows_ruby.env` pins, `bundle install` installed the whole bundle, compiling the gems that need it, in about 80 seconds from nothing, and `rake test:unit`, RuboCop, Steep, and `rake reuse:lint` ran there, and pass once the unit tests' paths and RuboCop's line endings were made the same on every system. So the pre-push hook, `rake push_check`, runs on Windows as it does elsewhere ([development.md](development.md)). `Gemfile.lock` lists `x64-mingw-ucrt` for it; ARM64 Windows has not been tried. The gate's other tasks, and with them clang-tidy, the sanitizers, and `rake red_before_green` over tests that need the native extension, still never run there.
 
 ## The Windows build job
 
@@ -42,18 +44,18 @@ Back in `ci.yml`, the **Windows delivery** job installs the gem on a runner with
 
 If you have a Windows computer, Lota's Windows checks can run there before you push, instead of in CI after. Install [mise](https://mise.jdx.dev), then run `bin/setup.ps1` from PowerShell in the checkout. It installs what the checks need from Lota's own pins, and running it again changes nothing:
 
-- RubyInstaller's x64 Ruby with winget, at the version `mise.toml` pins, since mise cannot build Ruby on Windows. It asks first, because winget may need administrator rights. While `mise.toml` pins a preview, which RubyInstaller does not publish, it installs none: the checks bring the head build `windows_ruby.env` pins, and the script needs a RubyInstaller of any version only for the MSYS2 its devkit carries.
+- RubyInstaller's x64 Ruby with winget, at the version `mise.toml` pins. It asks first, because winget may need administrator rights. While `mise.toml` pins a preview, which RubyInstaller does not publish, it installs none: the checks bring the head build `windows_ruby.env` pins, and the script needs a RubyInstaller of any version only for the MSYS2 its devkit carries.
 - Python and the REUSE tool through mise, at `mise.toml`'s versions. `mise.toml` limits every other tool, Ruby included, to Linux and macOS with mise's `os` option, so mise installs no second Ruby on Windows.
 - The packages `windows.yml` installs, in the MSYS2 that RubyInstaller's devkit carries: `patch`, `make`, and UCRT64's GCC, CMake, Ninja, and ccache. If it finds no MSYS2 beside Ruby, it names them.
 - LÖVE's source, the `vendor/love` submodule.
 
-It installs no bundle, since the checks run without Bundler. The script below runs itself again under `mise x`, so it finds the REUSE tool and the other tools without a `PATH` of your own, and `windows_checks.rb package` takes the same from `mise env`. From the checkout's root, in a UCRT64 shell on the computer's desktop, where windows open and the GPU draws, run:
+It installs no bundle: the checks below run without Bundler, and the pre-push hook installs the bundle on the Ruby `windows_ruby.env` pins the first time it runs. The script below runs itself again under `mise x`, so it finds the REUSE tool and the other tools without a `PATH` of your own, and `windows_checks.rb package` takes the same from `mise env`. From the checkout's root, in a UCRT64 shell on the computer's desktop, where windows open and the GPU draws, run:
 
 ```sh
 bash .github/windows_prepush.sh
 ```
 
-The script brings its own Ruby, the one `windows_ruby.env` pins, which it unpacks once into `lota` in `XDG_CACHE_HOME`, or in `~/.cache`, and keeps its gems beside. It takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. The pre-push hook runs it only in a clone on Windows ([development.md](development.md)).
+The script brings its own Ruby, the one `windows_ruby.env` pins, which it unpacks once into `lota` in `XDG_CACHE_HOME`, or in `~/.cache`, and keeps its gems beside. It takes `windows.yml`'s steps for x64, in their order, and installs the gems the tests need where they are missing. It leaves out the gem, which the pre-push tier leaves to the gate, and Mesa, since the computer has a GPU, and runs the tests with the pre-push tier's slow tests left out (`windows_checks.rb tests --prepush`). It builds through ccache, as CI does. It takes minutes, so the pre-push hook never runs it: run it yourself when a change's behavior lives on Windows ([development.md](development.md)).
 
 ### The tests that need the desktop to themselves
 
