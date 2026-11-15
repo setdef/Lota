@@ -71,4 +71,4 @@ Run it after you change Lota's input, window, or focus code, or the tests of the
 
 ## What CI cannot check
 
-GitHub's Windows runners have no GPU and no audio device. CI therefore draws only on llvmpipe, takes no input from a person, and plays sound to no real device. Outside CI, a game has been played on a Windows PC, and Lövetest passes there on an NVIDIA RTX 4090 with both Vulkan and OpenGL.
+GitHub's Windows runners have no GPU and no audio device. CI therefore draws only on llvmpipe, takes no input from a person, and plays sound to no real device. Outside CI, by 2026-11-09 a game had been played on a Windows PC, and Lövetest had passed there on an NVIDIA RTX 4090 with both Vulkan and OpenGL. Nothing in the repository repeats that check, so it says nothing about any commit since.

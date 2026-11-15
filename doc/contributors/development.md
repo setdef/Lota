@@ -38,7 +38,7 @@ On Ubuntu, `bin/setup` first checks for the packages in `tasks/apt/build.txt`, w
 bundle exec rake test:unit
 ```
 
-The unit tests run in a few seconds, on any computer, with nothing built: no engine, no extension, no display. A unit test loads no native extension, starts no process, opens no socket, and never sleeps, so it takes milliseconds. `rake test:unit` runs under a guard (`test/unit_guard.rb`) that fails any test that does one of those, and says so. `UNIT_TESTS` in `tasks/test.rake` lists the files whose tests are all unit tests; every other test is an integration test, which needs the build, a process of its own, or the machine's window and sound.
+The unit tests run in a few seconds with nothing built: no engine, no extension, no display. A unit test loads no native extension, starts no process, opens no socket, and never sleeps, so it takes milliseconds. `rake test:unit` runs under a guard (`test/unit_guard.rb`) that fails any test that does one of those, and says so. `UNIT_TESTS` in `tasks/test.rake` lists the files whose tests are all unit tests; every other test is an integration test, which needs the build, a process of its own, or the machine's window and sound.
 
 To run one file, or a few, name them in `TEST`, separated by commas, and pick tests by name with `N`, a name or a `/regular expression/`:
 
@@ -152,7 +152,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 
 ## What CI does after you push
 
-GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses three games into apps on all five platforms. Each push to trunk first gets the pre-push tier, `rake prepush`, on macOS and Linux, Windows' own build and tests, and `red_before_green` over the commits it brings, within about fifteen minutes. A red job on trunk stops all other work until it is fixed or reverted. A full run still red after its failed jobs ran again has every commit it brought in reverted by CI, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
+GitHub Actions runs the gate on every push, on macOS and on Linux for x86_64 and arm64. It then installs each platform's gem on a fresh runner and runs Lövetest from it, builds and tests the Windows gems, builds phone apps in the iOS Simulator and an Android emulator, builds the iOS kit, and fuses four games into apps on all five platforms. Each push to trunk first gets the pre-push checks on macOS, Linux, and Windows, and `red_before_green` over the commits it brings; with a warm compiler cache that took seven minutes on 2026-11-15. A red job on trunk stops all other work until it is fixed or reverted. A full run still red after its failed jobs ran again has every commit it brought in reverted by CI, and `bin/trunk-watch`, left running, reverts a single bad commit by itself. [ci.md](ci.md) has the details.
 
 ## Try a checkout in a game
 
