@@ -953,9 +953,10 @@ class LotaRunTest < Minitest::Test
     end
   end
 
-  # A game in one file, as ADR 016 plays it: the game's folder, zipped,
-  # with Ruby beside its assets in folders of its own. Its conf.rb turns
-  # off the window, which an archive has nothing to do with.
+  # A game in one file (doc/contributors/design/packaging.md): the game's
+  # folder, zipped, with Ruby beside its assets in folders of its own.
+  # Its conf.rb turns off the window, which an archive has nothing to do
+  # with.
   ARCHIVED_GAME = {
     "conf.rb" => "require 'title'\ndef Lota.conf(t) = (t.window = false; t.title = TITLE)\n",
     "title.rb" => "TITLE = 'From one file'\n",
@@ -1064,8 +1065,9 @@ class LotaRunTest < Minitest::Test
   end
 
   # An archive with an entry Lota cannot unpack safely is refused before
-  # anything is written, with a message naming the entry (ADR 016). PhysFS
-  # lists an entry "../evil.rb" as a folder named "..".
+  # anything is written, with a message naming the entry
+  # (doc/contributors/design/packaging.md). PhysFS lists an entry
+  # "../evil.rb" as a folder named "..".
   def test_a_lota_that_cannot_be_unpacked_safely_is_refused_naming_the_entry
     {
       { "../evil.rb" => "raise 'escaped'\n" } => %(its entry ".." would land outside the game's folder),

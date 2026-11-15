@@ -90,7 +90,7 @@ class RactorTest < Minitest::Test
   # never the main Ractor's, which Ractors may not share. Ractors that wrap
   # objects at once, and collect them, leave every map whole, and the
   # roots Rice keeps for the values it holds too, which Ruby 4.1 keeps for
-  # each Ractor (ADR 013).
+  # each Ractor (doc/contributors/design/engine.md).
   def test_each_ractor_has_one_wrapper_of_its_own_for_each_object
     output = run_script(<<~RUBY)
       main = Lota::Native::Math.random_generator

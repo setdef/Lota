@@ -111,9 +111,10 @@ class ReleasePlanTest < Minitest::Test
     assert_raises(ReleasePlan::Refusal) { check_tag("v0.4.0", breaks: ["removed Lota::Sensor.get_name"]) }
   end
 
-  # ADR 013: 1.0.0 freezes Lota's API and ships only on a released Ruby,
-  # so no 1.0 or later goes out while the Ruby Lota pins is a preview or a
-  # release candidate; a version below 1.0 still does.
+  # 1.0.0 freezes Lota's API and ships only on a released Ruby
+  # (doc/contributors/releasing.md), so no 1.0 or later goes out while the
+  # Ruby Lota pins is a preview or a release candidate; a version below
+  # 1.0 still does.
   def test_one_point_oh_is_refused_while_the_pinned_ruby_is_a_preview
     error = assert_raises(ReleasePlan::Refusal) { check_tag("v1.0.0", entries: BREAKING, ruby: "4.1.0-preview1") }
 
