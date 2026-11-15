@@ -56,7 +56,7 @@ Every test task reads `TEST` and `N`. A name in `TEST` that matches no file stop
 bundle exec rake prepush
 ```
 
-The pre-push checks build what changed, then run every check that takes seconds and a slice of each slow one, in parallel lanes. They leave out the tests that run a whole game in a process of their own, most of the parity games, the generator's later runs over all of LÖVE, and most of the sanitized suite. `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake` name them, test by test. When you add or rename a slow test, update those lists; `test/tasks/rake_tasks_test.rb` fails when a name in them stops naming a test.
+The pre-push checks build what changed, then run every check that takes seconds and a slice of each slow one, in parallel lanes. They leave out the tests that run a whole game in a process of their own, most of the parity games, the generator's later runs over all of LÖVE, and most of the sanitized suite. Of clang-tidy, which takes minutes over all of Lota's C++, they run only `rake cpp:tidy:platform`, over the sources only your system compiles, such as the Objective-C++ that only macOS's clang-tidy can read; the gate's `cpp:tidy` reads the rest. `PREPUSH_LEAVES_OUT` and `PREPUSH_KEEPS` in `tasks/test.rake` name them, test by test. When you add or rename a slow test, update those lists; `test/tasks/rake_tasks_test.rb` fails when a name in them stops naming a test.
 
 ### The gate: `rake`
 
@@ -128,7 +128,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 - `rake engine:sources` regenerates the list of LÖVE sources the engine compiles on this platform, after a bump of `vendor/love`; `engine:sources:check` fails until you do.
 - `rake ios:sdl3`, `rake android:deps`, and `rake android:sources` build for phones, as [the phone guide](../guide/phones.md) describes. The gate runs none of them.
 - `rake package:native` builds the precompiled gem for this platform, and `package:check` and `package:install` check it, as [ci.md](ci.md) describes.
-- `rake cpp` runs clang-format and clang-tidy over Lota's C++, and `rake cpp:format:fix` fixes the layout.
+- `rake cpp` runs clang-format and clang-tidy over Lota's C++, and `rake cpp:format:fix` fixes the layout. clang-tidy reads only the sources your system compiles, so a change to Objective-C++ is checked only on macOS, and the sources only Windows compiles, such as `dialogs_windows.cpp`, are read by no clang-tidy.
 - `rake lint:workflows` checks `.github/workflows` with actionlint and shellcheck.
 - `rake bench` times draw calls in Lota and in LÖVE.
 

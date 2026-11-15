@@ -70,9 +70,20 @@ module CppGates
 
     # The sources alone, those the platform's build compiles; clang-tidy
     # reaches headers through them, and reads how to compile each from
-    # the build, so another platform's source is checked on that platform.
+    # the build, so another platform's source is checked on that platform,
+    # where the gate runs: macOS and Linux, and not Windows, whose sources
+    # clang-tidy never reads.
     def sources
       all.select { |path| SOURCES.include?(File.extname(path)) && compiled_here?(path) }
+    end
+
+    # The sources the platform's build compiles and no other's does, such
+    # as Objective-C++ on macOS, which only that platform's clang-tidy can
+    # read; none without a platform.
+    def own_sources
+      return [] if @platform.nil?
+
+      sources.select { |path| self.class.platform_of(path) == @platform }
     end
 
     private def compiled_here?(path)

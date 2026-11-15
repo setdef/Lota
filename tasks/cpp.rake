@@ -19,11 +19,18 @@ def cpp_format(files = CPP_FILES)
   CppGates::Format.new(files: files.all, style: "ext/.clang-format")
 end
 
-# The clang-tidy check of +files+' sources, as cpp:tidy runs it, with
-# Lota's settings and the engine build's compilation database.
-def cpp_tidy(files = CPP_FILES)
-  CppGates::Tidy.new(files: files.sources, config: "ext/.clang-tidy", compile_commands: ENGINE.compile_commands,
+# The clang-tidy check of +sources+, by default all of +files+' sources, as
+# cpp:tidy runs it, with Lota's settings and the engine build's
+# compilation database.
+def cpp_tidy(files = CPP_FILES, sources: files.sources)
+  CppGates::Tidy.new(files: sources, config: "ext/.clang-tidy", compile_commands: ENGINE.compile_commands,
     headers: files.ext)
+end
+
+# The clang-tidy check of the sources only this platform compiles, as
+# cpp:tidy:platform runs it.
+def cpp_tidy_platform(files = CPP_FILES)
+  cpp_tidy(files, sources: files.own_sources)
 end
 
 # Prints a gate's Result, and aborts the run if it failed.
@@ -49,6 +56,17 @@ namespace :cpp do
   desc "Check Lota's own C++ with clang-tidy, every warning an error"
   task tidy: "engine:configure" do
     cpp_gate!("cpp:tidy", cpp_tidy.check)
+  end
+
+  namespace :tidy do
+    # The pre-push tier runs this rather than cpp:tidy, which takes
+    # minutes: the sources only this platform compiles are the ones a
+    # gate on another platform cannot read, such as Objective-C++, which
+    # Linux's gate leaves to macOS's.
+    desc "Check with clang-tidy the C++ only this platform compiles"
+    task platform: "engine:configure" do
+      cpp_gate!("cpp:tidy:platform", cpp_tidy_platform.check)
+    end
   end
 
   desc "Forbid NOLINT in Lota's own C++ except approved exceptions"

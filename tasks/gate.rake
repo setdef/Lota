@@ -54,14 +54,16 @@ GATE_LANES = [
 # seconds, and of its slow ones a part, in lanes whose checks that open
 # windows come first, as the gate's do, so each opens them on a display
 # of its own (tasks/test.rake says which tests it leaves out).
-# cpp:tidy, package:install, and the parity games are the gate's alone.
+# package:install and the parity games are the gate's alone, and of
+# clang-tidy it runs only cpp:tidy:platform, over the sources no other
+# platform's gate reads.
 PREPUSH_LANES = [
   [Gate::Check.of("test:prepush:sanitized"), Gate::Check.of("package:check")],
   [Gate::Check.of("test:prepush:native")],
   [Gate::Check.of("test:prepush:parity")],
   [Gate::Check.of("test:shard:unit"), Gate::Check.of("test:prepush:tasks")],
   [Gate::Check.of("test:prepush:generator")],
-  [Gate::Check.of("cpp:format", "cpp:no_nolint"), Gate::Check.of("lint"), Gate::Check.of("steep")],
+  [Gate::Check.of("cpp:format", "cpp:no_nolint", "cpp:tidy:platform"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 
 # The pre-push tier also builds the sanitized tree its first lane loads

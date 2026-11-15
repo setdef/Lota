@@ -87,6 +87,20 @@ class CppGatesTest < Minitest::Test
     end
   end
 
+  # A platform's own sources are those no other platform compiles, the
+  # ones only its clang-tidy can read; every platform compiles the rest.
+  def test_a_platforms_own_sources_are_those_only_it_compiles
+    in_tree do |root|
+      %w[ext/a.cpp ext/b_linux.cpp ext/c.mm ext/d.m ext/e_linux.hpp ext/f_windows.cpp].each { |path| write(root, path) }
+      git_stage(root)
+
+      assert_equal(%w[ext/c.mm ext/d.m].map { |path| File.join(root, path) },
+        CppGates::Files.new(root:, platform: "macos").own_sources)
+      assert_equal [File.join(root, "ext/b_linux.cpp")], CppGates::Files.new(root:, platform: "linux").own_sources
+      assert_empty files(root).own_sources
+    end
+  end
+
   # The iOS host's Host/main.m keeps the name Fledge's file has, which it
   # replaces in an app's Xcode project, so its folder, not its name, says
   # it is iOS's: Objective-C that no macOS build compiles.

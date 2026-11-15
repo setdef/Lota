@@ -115,6 +115,7 @@ class RakeTasksTest < Minitest::Test
   def test_engine_checks_its_source_list_and_generated_bindings_before_building
     assert_equal %w[dependencies engine:sources:check bindings:check engine:configure], prerequisites("engine")
     assert_equal %w[engine:configure], prerequisites("cpp:tidy")
+    assert_equal %w[engine:configure], prerequisites("cpp:tidy:platform")
   end
 
   # On Linux the engine links what love-appimage-source's Makefile builds
@@ -229,7 +230,7 @@ class RakeTasksTest < Minitest::Test
       %w[test:prepush:parity],
       %w[test:shard:unit test:prepush:tasks],
       %w[test:prepush:generator],
-      %w[cpp:format cpp:no_nolint lint steep],
+      %w[cpp:format cpp:no_nolint cpp:tidy:platform lint steep],
     ]
 
     assert_equal lanes, PREPUSH_LANES.map { |lane| lane.flat_map(&:tasks) }
@@ -557,6 +558,21 @@ class RakeTasksTest < Minitest::Test
     assert_equal File.join(ROOT, "ext/.clang-tidy"), tidy.config
     assert_equal File.expand_path(ENGINE.compile_commands), tidy.compile_commands
     assert_equal File.join(ROOT, "ext"), tidy.headers
+  end
+
+  # The pre-push tier's clang-tidy reads the sources only this platform
+  # compiles, which no gate on another platform reads, with the gate's
+  # settings: on macOS its Objective-C++, on Linux the sources named for
+  # Linux.
+  def test_the_pre_push_tidy_checks_the_sources_only_this_platform_compiles
+    tidy = cpp_tidy_platform
+    own = RUBY_PLATFORM.include?("darwin") ? "dialogs.mm" : "answer_dialogs_linux.cpp"
+
+    assert_equal CPP_FILES.own_sources, tidy.files
+    assert_includes tidy.files, File.join(ROOT, "ext/lota/native_test", own)
+    refute_includes tidy.files, File.join(ROOT, "ext/lota/native_test/native_test.cpp")
+    assert_equal File.join(ROOT, "ext/.clang-tidy"), tidy.config
+    assert_equal File.expand_path(ENGINE.compile_commands), tidy.compile_commands
   end
 
   def test_a_cpp_gate_task_fails_the_gate_on_a_file_with_a_problem
