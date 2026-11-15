@@ -483,9 +483,9 @@ module NativeFormat
   end
 
   # PE, on Windows, with MinGW against the UCRT, for RubyInstaller's Ruby
-  # (ADR 011). Windows has no rpath: it finds a DLL a binary
-  # imports by its name alone, in directories the process chooses, never
-  # the extension's own. So the gem carries, beside the bundle, the
+  # (doc/contributors/design/packaging.md). Windows has no rpath: it
+  # finds a DLL a binary imports by its name alone, in directories the
+  # process chooses, never the extension's own. So the gem carries, beside the bundle, the
   # preloader (ext/lota/preload), which loads each DLL in
   # lib/lota/libraries by its absolute path before Ruby loads the bundle,
   # and which lib/lota.rb requires first. Each binary is staged without its

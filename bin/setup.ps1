@@ -32,8 +32,8 @@ $rubyVersion = (Select-String -Path mise.toml -Pattern '^ruby\s*=\s*"([^"]+)"').
 $rubyMajorMinor = ($rubyVersion -split '\.')[0..1] -join '.'
 
 # RubyInstaller's Ruby is built with MinGW and carries the MSYS2 devkit,
-# which Lota's native extension has to match (ADR 011). RubyInstaller
-# publishes no preview, so while mise.toml pins one (ADR 013) the
+# which Lota's native extension has to match. RubyInstaller publishes no
+# preview, so while mise.toml pins one (doc/contributors/windows.md) the
 # Windows checks bring the head build .github/windows_ruby.env pins
 # (.github/windows_ruby.sh), and a RubyInstaller of any version serves
 # only for the MSYS2 its devkit carries.

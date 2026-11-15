@@ -6,9 +6,10 @@
 # SHA-256 and its ruby_version (.github/windows_ruby.sh), put first on the
 # PATH. It takes the place of setup-ruby's Ruby, which for head is
 # whatever RubyInstaller built last, and whose ABI can differ from the
-# Ruby a fused app runs (ADR 013). It names the MSYS2 MINGW bin folder
-# the caller gives in RUBY_DLL_PATH, where RubyInstaller's runtime finds
-# the zlib1.dll the head build does not carry.
+# Ruby a fused app runs (doc/contributors/windows.md). It names the
+# MSYS2 MINGW bin folder the caller gives in RUBY_DLL_PATH, where
+# RubyInstaller's runtime finds the zlib1.dll the head build does not
+# carry.
 name: Set up the pinned Windows Ruby
 description: RubyInstaller's head build at the SHA-256 windows_ruby.env pins, first on the PATH
 

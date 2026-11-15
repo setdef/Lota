@@ -78,7 +78,7 @@ module ReleasePlan
 
   # Refuses +version+ 1.0.0 or later while +ruby+, the Ruby the commit
   # pins, is a preview or a release candidate: a 1.0 freezes Lota's API,
-  # and ships only on a released Ruby (ADR 013).
+  # and ships only on a released Ruby (doc/contributors/releasing.md).
   def self.check_ruby(version, ruby)
     return if Gem::Version.new(version) < BY_HAND
     return unless Gem::Version.correct?(ruby) && Gem::Version.new(ruby).prerelease?
