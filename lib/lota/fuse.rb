@@ -171,8 +171,9 @@ module Lota
     # project declares none of, 0.11.0 takes a gem's source build when its
     # precompiled build's required_ruby_version excludes the runtime's
     # Ruby, as Bundler does, and 0.12.0 carries Ruby 4.1 in every runtime
-    # (ADR 013): 4.1.0-preview1, and on Windows one day's head build of
-    # RubyInstaller, which publishes no preview.
+    # (doc/contributors/design/packaging.md): 4.1.0-preview1, and on
+    # Windows one day's head build of RubyInstaller, which publishes no
+    # preview.
     FLEDGE_REF = "v0.12.0"
 
     # The environment variable that names another FLEDGE_REF, such as a

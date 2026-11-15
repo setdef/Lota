@@ -19,7 +19,7 @@
 // source's own #include from defining the macro again, and then defines
 // it as Lota's. A fused game saves without the folder, as LÖVE's does
 // (line 610), so it saves exactly where LÖVE's fused game does. No file
-// of LÖVE's changes (ADR 005).
+// of LÖVE's changes (doc/contributors/design/engine.md).
 
 #ifndef LOTA_ENGINE_APPDATA_FOLDER_H
 #define LOTA_ENGINE_APPDATA_FOLDER_H

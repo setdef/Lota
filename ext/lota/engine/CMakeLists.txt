@@ -19,7 +19,7 @@ elseif(APPLE)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_linux.cmake)
 elseif(MINGW)
-	# Windows, with MinGW (ADR 011).
+	# Windows, with MinGW (doc/contributors/design/packaging.md).
 	include(${CMAKE_CURRENT_SOURCE_DIR}/sources_windows.cmake)
 else()
 	message(FATAL_ERROR "Lota builds its engine for macOS, iOS, Android, Linux, and MinGW only, not ${CMAKE_SYSTEM_NAME}.")
@@ -27,8 +27,8 @@ endif()
 
 # Lota's patches of LÖVE's engine, each applied to a copy of the files it
 # changes in the build tree, which the engine compiles in place of
-# vendor/love's: physics.patch (ADR 005) to LÖVE's physics
-# module, and mesh.patch, which frees a Mesh's vertex data as it was
+# vendor/love's (doc/contributors/design/engine.md): physics.patch to
+# LÖVE's physics module, and mesh.patch, which frees a Mesh's vertex data as it was
 # allocated, to graphics/Mesh.cpp, lz4.patch, which backports LZ4's own
 # fix for its arithmetic on null pointers, to libraries/lz4/lz4.c, and
 # to graphics/vulkan/Graphics.cpp, wherever LÖVE builds its Vulkan

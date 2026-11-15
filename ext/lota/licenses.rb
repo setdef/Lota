@@ -403,7 +403,8 @@ work "Box2D",
 
 # LÖVE's physics module as Lota's physics patch changes it
 # (ext/lota/engine/physics.patch), which CMake writes into the build tree
-# and the bundle compiles in place of vendor/love's (ADR 005).
+# and the bundle compiles in place of vendor/love's
+# (doc/contributors/design/engine.md).
 # The patched files are LÖVE's, under LÖVE's license, with changes the
 # patch's own header puts under the same license.
 work "LÖVE's patched physics module",

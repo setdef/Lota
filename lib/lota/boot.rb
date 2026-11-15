@@ -256,10 +256,10 @@ module Lota
     # For a game in one file, whose archive open_filesystem made the
     # source, as love.filesystem.setSource mounts a .love (boot.lua:123),
     # unpacks it with Lota::Archive into the cache, whose folder then holds
-    # the game's Ruby for <tt>require</tt>, as ADR 016 decides. A file the
-    # filesystem could not mount is reported with the message love.init
-    # gives a path it could not load (boot.lua:453-455), before any window
-    # opens.
+    # the game's Ruby for <tt>require</tt>
+    # (doc/contributors/design/packaging.md). A file the filesystem could
+    # not mount is reported with the message love.init gives a path it
+    # could not load (boot.lua:453-455), before any window opens.
     private def unpack
       return unless File.file?(@directory)
 

@@ -10,7 +10,8 @@ require "fileutils"
 
 module Lota
   # A game in one file: its folder, zipped, which <tt>lota run</tt> plays
-  # as <tt>love game.love</tt> plays a LÖVE game (ADR 016).
+  # as <tt>love game.love</tt> plays a LÖVE game
+  # (doc/contributors/design/packaging.md).
   #
   # LÖVE reads a <tt>.love</tt> in place, through PhysFS. Ruby loads code
   # only from real files, and a game's Ruby should behave as it does from
