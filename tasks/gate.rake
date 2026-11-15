@@ -64,13 +64,20 @@ PREPUSH_LANES = [
   [Gate::Check.of("cpp:format", "cpp:no_nolint"), Gate::Check.of("lint"), Gate::Check.of("steep")],
 ].freeze
 
-# Runs +lanes+ after GATE_PREPARE, as the gate does.
-def run_gate(lanes)
+# The pre-push tier also builds the sanitized tree its first lane loads
+# before the lanes start, as it builds the engine, so that a lane's budget
+# times its checks and not how much ccache missed. Built in that lane, it
+# took 13 to 19 minutes of the lane's 20 on CI's macOS runner, and 15 on
+# Linux, once a header every binding includes had changed.
+PREPUSH_PREPARE = [*GATE_PREPARE, "compile:sanitized"].freeze
+
+# Runs +lanes+ after +prepared+, as the gate does.
+def run_gate(lanes, prepared: GATE_PREPARE)
   jobs = Integer(ENV.fetch("LOTA_GATE_JOBS", lanes.size))
   displays = ENV.fetch("LOTA_GATE_DISPLAYS", "").split
   lane_timeout = Float(ENV.fetch("LOTA_GATE_LANE_TIMEOUT", Gate::LANE_TIMEOUT))
   heartbeat = Float(ENV.fetch("LOTA_GATE_HEARTBEAT", Gate::HEARTBEAT))
-  Gate.new(prepared: GATE_PREPARE, lanes:, jobs:, displays:, lane_timeout:, heartbeat:)
+  Gate.new(prepared:, lanes:, jobs:, displays:, lane_timeout:, heartbeat:)
     .run { |name| Rake::Task[name].invoke }
 rescue Gate::Failure => e
   abort "❌ #{e.message}"
@@ -79,5 +86,5 @@ end
 desc "Run the gate's checks in lanes, after fixing, engine, and compile"
 task(:gate) { run_gate(GATE_LANES) }
 
-desc "Run the pre-push tier: the gate's fast checks, and a part of its slow ones, in lanes"
-task(:prepush) { run_gate(PREPUSH_LANES) }
+desc "Run the pre-push tier: the gate's fast checks, and a part of its slow ones, in lanes, after fixing and building"
+task(:prepush) { run_gate(PREPUSH_LANES, prepared: PREPUSH_PREPARE) }

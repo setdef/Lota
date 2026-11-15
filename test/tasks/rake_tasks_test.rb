@@ -239,6 +239,14 @@ class RakeTasksTest < Minitest::Test
     assert_empty PREPUSH_SANITIZED - Dir.chdir(ROOT) { Dir[*TEST_SUITES.fetch(:native)] }
   end
 
+  # The pre-push tier builds the sanitized tree before its lanes, as it
+  # builds the engine, so no lane's budget pays for what ccache missed;
+  # the gate's lanes build it in the test that runs the sanitized suite.
+  def test_prepush_builds_the_sanitized_tree_before_its_lanes_and_the_gate_does_not
+    assert_equal [*GATE_PREPARE, "compile:sanitized"], PREPUSH_PREPARE
+    refute_includes GATE_PREPARE, "compile:sanitized"
+  end
+
   # The tests pre-push leaves out are named, so a test renamed or removed
   # must leave its name behind here, or the slow test it was would come
   # back into the tier unnoticed: every name is a test Minitest would run.

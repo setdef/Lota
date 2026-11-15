@@ -48,10 +48,14 @@ env:
   # A lane may run 20 minutes before the gate prints what it is doing
   # and ends it (tasks/gate.rb). The step that runs the tier must outlast
   # that by enough for the gate to do so: the tier first builds what the
-  # lanes load, which on macOS took up to 10 minutes when a header every
-  # binding includes changed, and the diagnosis takes up to about 2, so
-  # each such step may run 40 minutes. Were the step shorter, GitHub
-  # would end it first, and a stuck lane would end with nothing printed.
+  # lanes load, the engine and the sanitized tree (PREPUSH_PREPARE in
+  # tasks/gate.rake), and the diagnosis and the report take up to about 4
+  # minutes. When a header every binding includes changed, the engine took
+  # up to 9 minutes on macOS and 6 on Linux, and the sanitized tree, built
+  # then in a lane beside the others, up to 19 and 16, so the macOS step
+  # may run 55 minutes (9 + 19 + 20 + 4, and 3 to spare) and the Linux one
+  # 50. Were a step shorter, GitHub would end it first, and a stuck lane
+  # would end with nothing printed.
   LOTA_GATE_LANE_TIMEOUT: "1200"
 
 jobs:
@@ -61,7 +65,7 @@ jobs:
   macos:
     name: macOS
     runs-on: macos-15
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,7 +119,7 @@ jobs:
         run: ccache --zero-stats
 
       - name: Run the pre-push tier
-        timeout-minutes: 40
+        timeout-minutes: 55
         run: bundle exec rake prepush
 
       - name: Fail if the tier changed a file
@@ -228,7 +232,7 @@ jobs:
         run: ccache --zero-stats
 
       - name: Run the pre-push tier
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: bundle exec rake prepush
 
       - name: Fail if the tier changed a file
