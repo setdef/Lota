@@ -22,9 +22,14 @@ require "fileutils"
 #   given the first, pointing at the second in its own home.
 # - On Windows, LÖVE asks the shell for the user's roaming application
 #   data folder (src/modules/filesystem/physfs/Filesystem.cpp:659-660,
-#   SHGetKnownFolderPath with FOLDERID_RoamingAppData), which no variable
-#   moves, so every run saves in the runner's own, which the runner throws
-#   away with everything else when its job ends.
+#   SHGetKnownFolderPath with FOLDERID_RoamingAppData, and for the
+#   desktop, documents, and home folders beside it at 656-667). The shell
+#   makes each of these from USERPROFILE as the program's environment has
+#   it, and answers only for a folder that exists, so a run is given
+#   USERPROFILE in its own home, which holds those folders
+#   (WINDOWS_FOLDERS). Without it every run of one Windows account saves
+#   in the same folder, and two runs at once overwrite and remove each
+#   other's files.
 #
 # LOTA_TEST_HOME names the home itself, for alsoft.conf and for the tests.
 module TestHome
@@ -32,9 +37,10 @@ module TestHome
   LINUX = RUBY_PLATFORM.include?("linux")
   WINDOWS = Gem.win_platform?
 
-  # The user's roaming application data folder on Windows, where the shell
-  # puts it for every program.
-  WINDOWS_APPDATA = (ENV.fetch("APPDATA", "").tr("\\", "/") if WINDOWS)
+  # The folders of a Windows home that the shell answers for: the roaming
+  # and local application data folders, which APPDATA and LOCALAPPDATA
+  # also name, the desktop, and the documents.
+  WINDOWS_FOLDERS = %w[AppData/Roaming AppData/Local Desktop Documents].freeze
 
   # The folder LÖVE adds under the application data folder for a game run
   # by the love program, not fused (src/modules/filesystem/Filesystem.h:36-54),
@@ -43,20 +49,32 @@ module TestHome
   LOVE_FOLDER = LINUX ? "love" : "LOVE"
   LOTA_FOLDER = LINUX ? "lota" : "Lota"
 
-  # The environment that gives a program +home+.
+  # The environment that gives a program +home+. On Windows it first makes
+  # the home's folders, since the shell answers for none that is missing.
   def self.environment(home)
     system = if LINUX then { "XDG_DATA_HOME" => File.join(home, ".local/share") }
-    elsif WINDOWS then {}
+    elsif WINDOWS then windows_environment(home)
     else { "CFFIXED_USER_HOME" => home }
     end
     { "LOTA_TEST_HOME" => home, **system }
   end
 
+  # USERPROFILE, APPDATA, and LOCALAPPDATA in +home+, with Windows'
+  # separators, once the folders they name exist.
+  private_class_method def self.windows_environment(home)
+    WINDOWS_FOLDERS.each { |folder| FileUtils.mkdir_p(File.join(home, folder)) }
+    profile = home.tr("/", "\\")
+    {
+      "USERPROFILE" => profile,
+      "APPDATA" => "#{profile}\\AppData\\Roaming",
+      "LOCALAPPDATA" => "#{profile}\\AppData\\Local",
+    }
+  end
+
   # The system's application data folder (LÖVE's COMMONPATH_USER_APPDATA)
-  # for a program given +home+, which on Windows is the user's whatever
-  # the home.
+  # for a program given +home+.
   def self.application_data(home)
-    return WINDOWS_APPDATA if WINDOWS
+    return File.join(home, "AppData/Roaming") if WINDOWS
 
     File.join(File.realpath(home), LINUX ? ".local/share" : "Library/Application Support")
   end
@@ -78,13 +96,15 @@ module TestHome
 
   # Gives this process, and each program it starts, the home +home+, with
   # the folders a home has on macOS. mise, which installs the tools the
-  # tests run (mise.toml), finds them under XDG_DATA_HOME too, unless told
-  # where they are, so on Linux it is told first, from where it would
-  # look now. On Windows a home is LOTA_TEST_HOME alone.
+  # tests run (mise.toml), finds them under XDG_DATA_HOME on Linux and
+  # under the local application data folder on Windows, unless told where
+  # they are, so there it is told first, from where it would look now.
   def self.enter(home)
     if LINUX
       ENV["MISE_DATA_DIR"] ||= File.join(ENV.fetch("XDG_DATA_HOME", File.join(Dir.home, ".local/share")), "mise")
-    elsif !WINDOWS
+    elsif WINDOWS
+      ENV["MISE_DATA_DIR"] ||= File.join(ENV["LOCALAPPDATA"], "mise") if ENV.key?("LOCALAPPDATA")
+    else
       HOME_FOLDERS.each { |folder| FileUtils.mkdir_p(File.join(home, folder)) }
     end
     ENV.update(environment(home))
