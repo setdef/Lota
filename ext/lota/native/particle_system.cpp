@@ -206,7 +206,7 @@ Rice::Array particle_system_colors(const ParticleSystem &t) {
   require_main_thread(MODULE);
   Rice::Array colors;
   for (const love::Colorf &color : t.getColor()) {
-    Rice::Array components;
+    Rice::Array components = ruby::array_with_room(COLOR_COMPONENTS);
     components.push(static_cast<double>(color.r), false);
     components.push(static_cast<double>(color.g), false);
     components.push(static_cast<double>(color.b), false);

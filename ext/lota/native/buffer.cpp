@@ -382,7 +382,7 @@ void write_element(const std::vector<Buffer::DataMember> &members, const Values 
 // The numbers of every member of the element +element+ holds, in order.
 Rice::Array read_element(const std::vector<Buffer::DataMember> &members,
                          std::span<const std::byte> element) {
-  Rice::Array numbers;
+  Rice::Array numbers = ruby::array_with_room(component_count(members));
   for (const Buffer::DataMember &member : members) {
     read_member(member.decl.format, numbers, element.subspan(member.offset));
   }
@@ -558,7 +558,8 @@ void buffer_set_array_data(Buffer &t, Rice::Array list) {
 Rice::Array buffer_format(const Buffer &t) {
   Rice::Array members;
   for (const Buffer::DataMember &member : t.getDataMembers()) {
-    Rice::Array fields;
+    constexpr std::size_t field_count = 6;
+    Rice::Array fields = ruby::array_with_room(field_count);
     fields.push(member.decl.name, false);
     fields.push(format_name(member.decl.format), false);
     fields.push(member.decl.arrayLength, false);
@@ -860,7 +861,7 @@ Rice::Array mesh_vertex_attribute(Mesh &t, Rice::Array list) {
   const Values given = ruby::elements(position);
   const Buffer::DataMember &member = attribute_at(t, check_integer(at(given, 1)));
   const std::span<std::byte> vertex = vertex_at(t, check_integer(at(given, 0)), nullptr);
-  Rice::Array numbers;
+  Rice::Array numbers = ruby::array_with_room(components_of(member.decl.format));
   read_member(member.decl.format, numbers, vertex.subspan(member.offset));
   return numbers;
 }
@@ -871,7 +872,8 @@ Rice::Array mesh_vertex_format(const Mesh &t) {
   require_main_thread(MODULE);
   Rice::Array members;
   for (const Buffer::DataMember &member : t.getVertexFormat()) {
-    Rice::Array fields;
+    constexpr std::size_t field_count = 5;
+    Rice::Array fields = ruby::array_with_room(field_count);
     fields.push(member.decl.name, false);
     fields.push(member.decl.bindingLocation, false);
     fields.push(format_name(member.decl.format), false);

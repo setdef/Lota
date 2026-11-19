@@ -951,7 +951,8 @@ Rice::Array render_target_fields(const Graphics::RenderTarget &rt) {
   const bool layered =
       type == love::graphics::TEXTURE_2D_ARRAY || type == love::graphics::TEXTURE_VOLUME;
   const bool cube = type == love::graphics::TEXTURE_CUBE;
-  Rice::Array fields;
+  constexpr std::size_t field_count = 4;
+  Rice::Array fields = ruby::array_with_room(field_count);
   fields.push(rt.texture, false);
   for (const bool named : {layered, cube}) {
     if (named) {

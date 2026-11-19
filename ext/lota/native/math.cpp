@@ -103,7 +103,7 @@ RandomGenerator *random_generator() { return instance()->getRandomGenerator(); }
 Rice::Array transform_matrix(const Transform &transform) {
   constexpr std::size_t side = 4;
   const std::span<const float> stored(transform.getMatrix().getElements(), side * side);
-  Rice::Array matrix;
+  Rice::Array matrix = ruby::array_with_room(side * side);
   for (std::size_t row = 0; row < side; row++) {
     for (std::size_t column = 0; column < side; column++) {
       matrix.push(static_cast<double>(stored.subspan((column * side) + row).front()), false);

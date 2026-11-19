@@ -218,7 +218,7 @@ void set_orientation(Rice::Array orientation) {
 Rice::Array orientation() {
   std::array<float, orientation_size> v{};
   module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getOrientation(v.data());
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(v.size());
   for (const float component : v) {
     results.push(static_cast<double>(component), false);
   }

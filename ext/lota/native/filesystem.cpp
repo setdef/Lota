@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Data.h"
 #include "common/Exception.h"
@@ -154,7 +155,8 @@ Rice::Object info(const std::string &filepath, const std::optional<std::string> 
     throw love::Exception("Unknown file type.");
   }
 
-  Rice::Array fields;
+  constexpr std::size_t field_count = 4;
+  Rice::Array fields = ruby::array_with_room(field_count);
   fields.push(std::string(typestr), false);
   fields.push(info.readonly, false);
   info.size = std::min<love::int64>(info.size, LARGEST_EXACT_DOUBLE);

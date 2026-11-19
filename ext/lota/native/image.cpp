@@ -524,7 +524,7 @@ std::span<std::byte> pixel_at(const ImageData &data, double x, double y) {
 }
 
 Rice::Array to_array(const Components &c) {
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(c.size());
   for (const double component : c) {
     results.push(component, false);
   }

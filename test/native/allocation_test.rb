@@ -100,4 +100,63 @@ class AllocationTest < Minitest::Test
   ensure
     Lota::Graphics.scissor = nil
   end
+
+  # Fails unless each of +arrays+, by name, holds its values in its own
+  # slot, naming every one that has a buffer of its own.
+  def assert_embedded(arrays)
+    buffered = arrays.reject { |_name, values| ObjectSpace.dump(values).include?(%("embedded":true)) }
+
+    assert_empty buffered.keys, "a buffer of its own holds the values of each of #{buffered.keys.join(', ')}"
+  end
+
+  # The hand-written bindings that return four or more values of a fixed
+  # count make their Array with room for them all, as the generated ones
+  # do (ext/lota/native/ruby.hpp, ruby::array_with_room).
+  def test_a_hand_written_records_array_needs_no_buffer_of_its_own
+    canvas = Lota::Graphics::Canvas.new(4, 4)
+    Lota::Graphics.canvas = canvas
+    _tables, targets, = Lota::Native::Graphics.canvas
+    Lota::Graphics.canvas = nil
+    particles = Lota::Graphics::ParticleSystem.new(canvas)
+    particles.colors = [[1, 0, 0, 1], [0, 1, 0, 0.5]]
+    buffer = Lota::Graphics::Buffer.new([{ name: "VertexPosition", format: :floatvec2, location: 0 }], 2, vertex: true)
+    mesh = Lota::Graphics::Mesh.new(3, :fan)
+
+    assert_embedded(
+      "Native::Graphics.blend_state" => Lota::Native::Graphics.blend_state,
+      "Native::Graphics.canvas's target" => targets.first,
+      "ParticleSystem#colors" => particles.colors.first,
+      "Buffer#format" => buffer.__send__(:native).format.first,
+      "Mesh#vertex_format" => mesh.__send__(:native).vertex_format.first,
+      "Mesh#vertex" => mesh.vertex(1),
+      "Mesh#vertex_attribute" => mesh.vertex_attribute(1, 3),
+      "ImageData#pixel" => Lota::Image::ImageData.new(2, 2).pixel(1, 1),
+      "Transform#matrix" => Lota::Math::Transform.new.matrix,
+      "Native::Audio.orientation" => Lota::Native::Audio.orientation,
+    )
+  end
+
+  def test_a_ray_casts_hit_needs_no_buffer_of_its_own
+    world = Lota::Physics::World.new(0, 0)
+    Lota::Physics::RectangleShape.new(Lota::Physics::Body.new(world, 10, 0, :static), 4, 4)
+    native = world.__send__(:native)
+
+    assert_embedded(
+      "World#ray_cast_any" => native.ray_cast_any(0, 0, 20, 0, nil),
+      "World#ray_cast_closest" => native.ray_cast_closest(0, 0, 20, 0, nil),
+    )
+  ensure
+    world&.destroy
+  end
+
+  def test_a_files_information_needs_no_buffer_of_its_own
+    previous = Lota::Filesystem.identity
+    Lota::Filesystem.identity = "lota-allocation-test"
+    Lota::Filesystem.write("info.txt", "hi")
+
+    assert_embedded("Native::Filesystem.info" => Lota::Native::Filesystem.info("info.txt", nil))
+  ensure
+    Lota::Filesystem.remove("info.txt")
+    Lota::Filesystem.identity = previous
+  end
 end

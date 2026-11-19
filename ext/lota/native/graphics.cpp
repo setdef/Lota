@@ -583,10 +583,10 @@ void set_blend_state(Rice::Array names) {
 // setBlendState's order, or six nils while blending is off.
 Rice::Array blend_state() {
   const love::graphics::BlendState &state = graphics().getBlendState();
-  Rice::Array results;
-  constexpr int count = 6;
+  constexpr std::size_t count = 6;
+  Rice::Array results = ruby::array_with_room(count);
   if (!state.enable) {
-    for (int i = 0; i < count; i++) {
+    for (std::size_t i = 0; i < count; i++) {
       results.push(Rice::Object(), false);
     }
     return results;

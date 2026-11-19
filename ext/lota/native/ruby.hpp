@@ -14,6 +14,7 @@
 #include <ruby/thread.h>
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -77,6 +78,15 @@ inline std::string class_name(const Rice::Object &value) { return rb_obj_classna
 inline bool truthy(const Rice::Object &value) { return RTEST(value.value()); }
 
 inline Rice::Object nil() { return {Qnil}; }
+
+// An empty Array with room for +count+ values, to push them into. Grown
+// by push past three, an Array moves its values to a buffer from malloc,
+// which Ruby 4.1 counts toward a major collection (oldmalloc); made with
+// room for them all, it keeps as many as its slot holds (126 on 64-bit
+// Ruby 4.1) in the slot itself, as the generated bindings' Arrays do.
+inline Rice::Array array_with_room(std::size_t count) {
+  return {rb_ary_new_capa(static_cast<long>(count))};
+}
 
 // A Ruby thread, which holds a Data in perform_atomic, compared by
 // identity; no_thread() is none.

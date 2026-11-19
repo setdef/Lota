@@ -906,7 +906,8 @@ Rice::Array ray_cast_one(World &world, double x1, double y1, double x2, double y
   };
   Shape *shape = any ? world.rayCastAny(fx1, fy1, fx2, fy2, bits, x, y, xn, yn, fraction)
                      : world.rayCastClosest(fx1, fy1, fx2, fy2, bits, x, y, xn, yn, fraction);
-  Rice::Array results;
+  constexpr std::size_t hit_count = 6;
+  Rice::Array results = ruby::array_with_room(shape != nullptr ? hit_count : 0);
   if (shape != nullptr) {
     results.push(shape, false);
     for (const float value : {x, y, xn, yn, fraction}) {
