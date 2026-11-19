@@ -66,6 +66,18 @@ class AllocationTest < Minitest::Test
     assert_equal 200, allocations(100) { Lota::Keyboard.down?(:a, :b) }
   end
 
+  # Setting a color allocates only the Array its four values arrive in.
+  def test_setting_a_color_allocates_only_its_values
+    batch = Lota::Graphics::SpriteBatch.new(Lota::Graphics::Canvas.new(8, 4))
+
+    assert_equal 100, allocations(100) { Lota::Graphics.color = 0.25, 0.5, 0.75, 1.0 }
+    assert_equal 100, allocations(100) { Lota::Graphics.background_color = 0.25, 0.5, 0.75, 1.0 }
+    assert_equal 100, allocations(100) { batch.color = 0.25, 0.5, 0.75, 1.0 }
+  ensure
+    Lota::Graphics.color = 1, 1, 1, 1
+    Lota::Graphics.background_color = 0, 0, 0, 1
+  end
+
   # A String works where a Symbol does, as LÖVE's names were strings.
   def test_a_string_name_still_works
     Lota::Graphics.rectangle("fill", 1, 2, 3, 4)

@@ -232,8 +232,9 @@ module Lota
       #
       #   batch.color = 1, 0, 0 # red from now on
       def color=(color)
-        red, green, blue, alpha = Graphics.__send__(:color_components, color, "Lota::Graphics::SpriteBatch#color=")
-        @native.set_color(red, green, blue, alpha)
+        Graphics.__send__(:color_components, color, "Lota::Graphics::SpriteBatch#color=") do |red, green, blue, alpha|
+          @native.set_color(red, green, blue, alpha)
+        end
       end
 
       # The color sprites are added in, as an Array of red, green, blue,

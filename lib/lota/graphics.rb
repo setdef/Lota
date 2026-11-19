@@ -911,8 +911,9 @@ module Lota
     #   Lota::Graphics.color = 0, 0, 1, 0.5  # half-transparent blue
     #   Lota::Graphics.color = [1, 1, 1]     # an Array works too
     def self.color=(color)
-      red, green, blue, alpha = color_components(color, "Lota::Graphics.color=")
-      Native::Graphics.set_color(red, green, blue, alpha)
+      color_components(color, "Lota::Graphics.color=") do |red, green, blue, alpha|
+        Native::Graphics.set_color(red, green, blue, alpha)
+      end
     end
 
     # The red, green, blue, and alpha of a color as
@@ -921,14 +922,16 @@ module Lota
     # w_setColor, w_setBackgroundColor, and w_SpriteBatch_setColor all do:
     # the elements after the fourth are ignored, and the alpha is 1 when
     # +nil+. +function+ is Lota's name for the function whose argument it
-    # is, for the error. :nodoc:
+    # is, for the error. It yields the four to the block and returns what
+    # the block returns, so a setter called every frame passes them on
+    # without an Array of its own. :nodoc:
     private_class_method def self.color_components(color, function)
       elements = color.is_a?(::Array) ? color : [color]
       red = color_element(elements, 0, function)
       green = color_element(elements, 1, function)
       blue = color_element(elements, 2, function)
       alpha = elements[3].nil? ? 1.0 : color_element(elements, 3, function)
-      [red, green, blue, alpha]
+      yield red, green, blue, alpha
     end
 
     # The number at +index+ of a color's elements, or the TypeError
@@ -1839,7 +1842,7 @@ module Lota
       parts = [] #: Array[[String, Float | Integer, Float | Integer, Float | Integer, Float | Integer]]
       Array(text).each do |part|
         case part
-        when Array then color = color_components(part, function)
+        when Array then color = color_components(part, function) { |red, green, blue, alpha| [red, green, blue, alpha] }
         when String then parts << [part, color[0], color[1], color[2], color[3]]
         else raise TypeError, "wrong argument type #{part.class} (expected String or Array)"
         end
@@ -1994,8 +1997,9 @@ module Lota
     #   Lota::Graphics.background_color = 0.1, 0.1, 0.2
     #   Lota::Graphics.background_color = [1, 1, 1, 0]
     def self.background_color=(color)
-      red, green, blue, alpha = color_components(color, "Lota::Graphics.background_color=")
-      Native::Graphics.set_background_color(red, green, blue, alpha)
+      color_components(color, "Lota::Graphics.background_color=") do |red, green, blue, alpha|
+        Native::Graphics.set_background_color(red, green, blue, alpha)
+      end
     end
 
     # Sets how what is drawn mixes with what is already there, matching
