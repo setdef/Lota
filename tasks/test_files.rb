@@ -58,17 +58,35 @@ module TestFiles
     SELECTION.merge("LD_PRELOAD" => [env.fetch("LD_PRELOAD", nil), library].compact.reject(&:empty?).join(" "))
   end
 
+  # Fails as Rake's +sh+ fails when a test run, +command+, did not pass,
+  # but says which signal ended a run that a signal ended. Rake's own
+  # message gives only the exit status, which such a run has none of, so
+  # it read "Command failed with status ()" whether the kernel's
+  # out-of-memory killer ended the run (SIGKILL) or the run crashed where
+  # Ruby could not report it. Pass it to +sh+ as its block.
+  def self.check(passed, status, command)
+    return if passed
+
+    shown = command.flat_map { |word| word.is_a?(Hash) ? word.map { |name, value| "#{name}=#{value}" } : word }.join(" ")
+    signal = status.termsig if status.respond_to?(:termsig)
+    raise "Command was ended by SIG#{Signal.signame(signal)} (signal #{signal}): [#{shown}]" if signal
+
+    raise "Command failed with status (#{status.exitstatus}): [#{shown}]"
+  end
+
   # A Minitest::TestTask that runs the files TEST names, when it names
   # any. It reads TEST when it runs, not when the Rakefile loads. It runs
   # them in the environment above, which Minitest's own task, that calls
-  # Rake's +ruby+, cannot give a program.
+  # Rake's +ruby+, cannot give a program, and fails as TestFiles.check
+  # says.
   class Task < Minitest::TestTask
     def define
       super
       defined = task(name)
       defined.clear_actions
       defined.enhance do
-        sh(TestFiles.environment, RbConfig.ruby, *Shellwords.split(make_test_cmd), verbose:)
+        command = [TestFiles.environment, RbConfig.ruby, *Shellwords.split(make_test_cmd)]
+        sh(*command, verbose:) { |passed, status| TestFiles.check(passed, status, command) }
       end
     end
 

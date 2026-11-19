@@ -215,7 +215,8 @@ namespace :test do
 
   desc "Run the native tests against Lota::Native built with ASan and UBSan"
   task native: %w[compile compile:sanitized] do
-    sh(*SANITIZED.command(TestFiles.of(TEST_SUITES.fetch(:native)), load_path: %w[lib test]))
+    command = SANITIZED.command(TestFiles.of(TEST_SUITES.fetch(:native)), load_path: %w[lib test])
+    sh(*command) { |passed, status| TestFiles.check(passed, status, command) }
   end
 
   # The pre-push tier's tests, in the gate's shards: the native tests and
@@ -237,7 +238,8 @@ namespace :test do
 
     desc "Run a part of the native tests against Lota::Native built with ASan and UBSan"
     task sanitized: %w[compile compile:sanitized] do
-      sh(*SANITIZED.command(TestFiles.of(PREPUSH_SANITIZED), load_path: %w[lib test]))
+      command = SANITIZED.command(TestFiles.of(PREPUSH_SANITIZED), load_path: %w[lib test])
+      sh(*command) { |passed, status| TestFiles.check(passed, status, command) }
     end
   end
 end
