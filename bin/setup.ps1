@@ -10,8 +10,8 @@
 # installs RubyInstaller's Ruby with winget, at mise.toml's version
 # unless that is a preview, since mise.toml has mise install Ruby on
 # Linux and macOS alone; the
-# tools the Windows checks use through mise (Python and the REUSE tool;
-# CMake and Ninja come from MSYS2); and the MSYS2 packages of
+# tools the Windows checks use through mise (Python, the REUSE tool,
+# and on x64 clang-tidy; CMake and Ninja come from MSYS2); and the MSYS2 packages of
 # RubyInstaller's devkit that .github/windows_prepush.sh builds with.
 # It installs no bundle: those checks run without Bundler, and the
 # pre-push hook (.githooks/pre-push) installs the bundle on the Ruby
@@ -56,8 +56,8 @@ if ($preview) {
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 }
 
-# mise.toml gives Windows only Python, uv, and the REUSE tool: its other
-# tools carry an os option that leaves Windows out.
+# mise.toml gives Windows only Python, uv, the REUSE tool, and on x64
+# clang-tidy: its other tools carry an os option that leaves Windows out.
 mise install
 mise x -- reuse --version
 

@@ -70,9 +70,9 @@ module CppGates
 
     # The sources alone, those the platform's build compiles; clang-tidy
     # reaches headers through them, and reads how to compile each from
-    # the build, so another platform's source is checked on that platform,
-    # where the gate runs: macOS and Linux, and not Windows, whose sources
-    # clang-tidy never reads.
+    # the build, so another platform's source is checked on that platform:
+    # in the gate on macOS and Linux, and on Windows, where no gate runs,
+    # by .github/windows_checks.rb tidy.
     def sources
       all.select { |path| SOURCES.include?(File.extname(path)) && compiled_here?(path) }
     end

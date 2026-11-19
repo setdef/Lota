@@ -105,7 +105,7 @@ The gate has only ever run on macOS and Linux, and Windows has checks of its own
 bash .github/windows_prepush.sh
 ```
 
-It takes CI's Windows steps for x64: it builds LÖVE's libraries, the engine, and the extensions, checks their warnings and DLLs, opens a window, and runs the tests with the pre-push tier's slow tests left out. It prints each step and how long the run has taken, and exits with the first failure's status. [windows.md](windows.md) says what it leaves out and why.
+It takes CI's Windows steps for x64: it builds LÖVE's libraries, the engine, and the extensions, checks their warnings, the C++ only Windows compiles with clang-tidy, and their DLLs, opens a window, and runs the tests with the pre-push tier's slow tests left out. It prints each step and how long the run has taken, and exits with the first failure's status. [windows.md](windows.md) says what it leaves out and why.
 
 It also leaves out the few tests that need the visible desktop, its keyboard, mouse, and focus to themselves, such as those that move the pointer or take the focus, so it can run beside other work or on a desktop of its own. After you change Lota's input, window, or focus code, run those tests too, in a session on the visible desktop, with nobody at the keyboard or mouse:
 
@@ -149,7 +149,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 - `rake engine:sources` regenerates the list of LÖVE sources the engine compiles on this platform, after a bump of `vendor/love`; `engine:sources:check` fails until you do.
 - `rake ios:sdl3`, `rake android:deps`, and `rake android:sources` build for phones, as [the phone guide](../guide/phones.md) describes. The gate runs none of them.
 - `rake package:native` builds the precompiled gem for this platform, and `package:check` and `package:install` check it, as [ci.md](ci.md) describes.
-- `rake cpp` runs clang-format and clang-tidy over Lota's C++, and `rake cpp:format:fix` fixes the layout. clang-tidy reads only the sources your system compiles, so a change to Objective-C++ is checked only on macOS, and the sources only Windows compiles, such as `dialogs_windows.cpp`, are read by no clang-tidy.
+- `rake cpp` runs clang-format and clang-tidy over Lota's C++, and `rake cpp:format:fix` fixes the layout. clang-tidy reads only the sources your system compiles, so a change to Objective-C++ is checked only on macOS, and the sources only Windows compiles, such as `dialogs_windows.cpp`, only by the Windows checks on x64 ([windows.md](windows.md)).
 - `rake lint:workflows` checks `.github/workflows` with actionlint and shellcheck.
 - `rake bench` times draw calls in Lota and in LÖVE.
 

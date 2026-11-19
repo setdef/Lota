@@ -14,6 +14,10 @@
 # [werror COMPILE_COMMANDS] Compiles a file of Lota's with an array read
 #   out of bounds, with the extension's own command, and passes only if
 #   that fails as an error while the same file without the read compiles.
+# [tidy COMPILE_COMMANDS] Checks with clang-tidy, as rake
+#   cpp:tidy:platform does on macOS and Linux, the sources only Windows
+#   compiles, with the commands COMPILE_COMMANDS gives them, and passes
+#   only if it read at least one and found nothing.
 # [closure FILE...] Every DLL each FILE loads, and those load, and passes
 #   only if each is Windows', Ruby's, or one of lib/lota/libraries, and
 #   no FILE imports from Ruby's DLL a function of Windows' kernel32.dll.
@@ -84,6 +88,14 @@ module WindowsChecks
     "Redistribution and use",
   ].freeze
 
+  # What clang-tidy compiles for: the MinGW target the build's GCC
+  # compiles for, rather than the Microsoft one LLVM's own Windows build
+  # assumes, whose headers and library the build does not use.
+  TIDY_TARGET = "--target=x86_64-w64-windows-gnu"
+  # GCC's options that the build's commands carry, from RubyInstaller's
+  # Ruby, and that clang, which clang-tidy compiles with, refuses.
+  GCC_ONLY = %w[-fno-keep-inline-dllexport].freeze
+
   extend self
 
   def notices(build, source)
@@ -123,6 +135,30 @@ module WindowsChecks
 
     puts "Lota's code still fails on a warning (-Warray-bounds among them):"
     puts output.lines.grep(/error/).first(3)
+  end
+
+  def tidy(commands)
+    require_relative "../tasks/cpp_gates"
+    files = CppGates::Files.new(root: ROOT, platform: "windows")
+    result = CppGates::Tidy.new(files: files.own_sources, config: File.join(ROOT, "ext/.clang-tidy"),
+      compile_commands: tidy_commands(commands), headers: files.ext).check
+    abort "clang-tidy failed:\n#{result.problems.join("\n")}" unless result.ok?
+    abort "clang-tidy found no source only Windows compiles" if result.checked.zero?
+
+    puts "clang-tidy: #{result.checked} files only Windows compiles, no problems"
+  end
+
+  # A copy of the compilation database +commands+ for clang-tidy, under
+  # tmp/tidy: each command compiles for TIDY_TARGET, without GCC_ONLY.
+  def tidy_commands(commands)
+    entries = JSON.parse(File.read(commands)).map do |entry|
+      command = GCC_ONLY.reduce(entry.fetch("command")) { |line, flag| line.gsub(/ #{Regexp.escape(flag)}(?= |\z)/, "") }
+      entry.merge("command" => command.sub(/\A("[^"]*"|\S+)/) { "#{Regexp.last_match(1)} #{TIDY_TARGET}" })
+    end
+    path = File.join(ROOT, "tmp", "tidy", "compile_commands.json")
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.pretty_generate(entries))
+    path
   end
 
   # Compiles +body+ after binding.hpp, as +file+ is compiled by +command+.

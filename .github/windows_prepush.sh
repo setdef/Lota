@@ -8,7 +8,8 @@
 # open. It takes windows.yml's steps for
 # x64, in its order: LÖVE's dependencies from source, the engine's source
 # list, the engine and both extensions through ccache, the checks of
-# warnings, DLLs, loading, a restart, and an OpenGL window, and then the
+# warnings, of the C++ only Windows compiles with clang-tidy, of DLLs,
+# loading, a restart, and an OpenGL window, and then the
 # tests file by file with the pre-push tier's slow tests left out
 # (windows_checks.rb tests --prepush). It leaves out the gem, which the
 # tier leaves to the gate, and Mesa: a desktop has a GPU and an OpenGL
@@ -103,6 +104,9 @@ fi
 
 step "warnings as errors"
 ruby .github/windows_checks.rb werror tmp/engine/build/compile_commands.json
+
+step "clang-tidy over the C++ only Windows compiles"
+ruby .github/windows_checks.rb tidy tmp/engine/build/compile_commands.json
 
 step "the extension's DLLs"
 ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/*.dll

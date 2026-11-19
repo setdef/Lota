@@ -13,8 +13,9 @@
 # for each. The gate (bundle exec rake) does not run here, and has never
 # been tried on Windows; its checks, RuboCop, Steep, clang-tidy, and the
 # sanitizers among them, run on macOS and Linux, all but the C++ only
-# Windows compiles, which no clang-tidy reads, and the pre-push hook runs
-# those that build nothing on Windows too (doc/contributors/windows.md).
+# Windows compiles, which clang-tidy reads here, on x64, and the pre-push
+# hook runs those that build nothing on Windows too
+# (doc/contributors/windows.md).
 # So the tests run file by file, without the gate's Rake tasks
 # (windows_checks.rb tests).
 #
@@ -257,6 +258,21 @@ jobs:
 
       - name: Check that Lota's code still warns as errors
         run: ruby .github/windows_checks.rb werror tmp/engine/build/compile_commands.json
+
+      # The C++ only Windows compiles, which no gate reads, through
+      # clang-tidy at the version mise.toml pins, from LLVM's PyPI wheel,
+      # as the REUSE tool comes. The wheel is built for x64 alone, and
+      # ARM64 compiles the same files.
+      - name: Install clang-tidy
+        if: inputs.platform == 'x64-mingw-ucrt'
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path mise.toml -Pattern '"pipx:clang-tidy"\s*=\s*\{\s*version\s*=\s*"([^"]+)"').Matches.Groups[1].Value
+          if (-not $version) { throw "mise.toml pins no version of clang-tidy" }
+          python -m pip install --disable-pip-version-check "clang-tidy==$version"
+      - name: Check the C++ only Windows compiles with clang-tidy
+        if: inputs.platform == 'x64-mingw-ucrt'
+        run: ruby .github/windows_checks.rb tidy tmp/engine/build/compile_commands.json
 
       - name: Check the extension's DLLs
         run: ruby .github/windows_checks.rb closure lib/lota/native.so lib/lota/preload.so lib/lota/libraries/*.dll
