@@ -48,7 +48,8 @@ Touch *instance() {
 
 // love.touch.getPosition: w_getPosition (wrap_Touch.cpp:78-89).
 Rice::Array w_getPosition(std::uintptr_t id) {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   Touch::TouchInfo touch = {};
   touch = instance()->getTouch(static_cast<love::int64>(static_cast<std::intptr_t>(id)));
   results.push(touch.x, false);

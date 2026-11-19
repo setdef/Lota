@@ -197,8 +197,12 @@ object:,
         # Room for the most values it returns, so Ruby keeps them in the
         # Array's own slot: grown by push past three, an Array moves them
         # to a buffer from malloc, which Ruby 4.1 counts toward a major
-        # collection (oldmalloc).
-        body.unshift("Rice::Array results(rb_ary_new_capa(#{returns(@body).max}));") if @result_mode == :many
+        # collection (oldmalloc). The count is a named constant, as
+        # clang-tidy asks of every number above four.
+        if @result_mode == :many
+          body.unshift("constexpr long most_results = #{returns(@body).max};",
+            "Rice::Array results(rb_ary_new_capa(most_results));")
+        end
         body.unshift("require_main_thread(MODULE);") if @main_thread && !singleton?
         params = ([@self_parameter && "#{self_const? ? 'const ' : ''}#{@self_parameter[:type]} &#{@self_parameter[:name]}"] +
           parameters.map(&:declaration)).compact

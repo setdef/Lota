@@ -106,7 +106,8 @@ void w_BezierCurve_scale(BezierCurve &curve, double s, double ox, double oy) {
 
 // BezierCurve:evaluate: w_BezierCurve_evaluate (wrap_BezierCurve.cpp:145-158).
 Rice::Array w_BezierCurve_evaluate(const BezierCurve &curve, double t) {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const Vector2 v = curve.evaluate(t);
   results.push(static_cast<double>(v.x), false);
   results.push(static_cast<double>(v.y), false);

@@ -136,7 +136,8 @@ void w_Font_setFilter(Font &t, const std::string &minstr, const std::optional<st
 // Font:getFilter: w_Font_getFilter (wrap_Font.cpp:169-181).
 Rice::Array w_Font_getFilter(const Font &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = t.getSamplerState();
   const char *minstr = nullptr;
   const char *magstr = nullptr;
@@ -201,7 +202,8 @@ int w_getPixelHeight() { return instance()->getPixelHeight(); }
 
 // love.graphics.getPixelDimensions: w_getPixelDimensions (wrap_Graphics.cpp:238-243).
 Rice::Array w_getPixelDimensions() {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   results.push(instance()->getPixelWidth(), false);
   results.push(instance()->getPixelHeight(), false);
   return results;
@@ -215,7 +217,8 @@ Buffer *w_getQuadIndexBuffer() { return instance()->getQuadIndexBuffer(); }
 
 // love.graphics.getScissor: w_getScissor (wrap_Graphics.cpp:599-611).
 Rice::Array w_getScissor() {
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   FRect rect{};
   if (!instance()->getScissor(rect)) {
     return results;
@@ -243,7 +246,8 @@ void w_setStencilMode(const std::optional<std::string> &mode, std::optional<int>
 
 // love.graphics.getStencilMode: w_getStencilMode (wrap_Graphics.cpp:632-644).
 Rice::Array w_getStencilMode() {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   int value = 0;
   const StencilMode mode = instance()->getStencilMode(value);
   const char *modestr = nullptr;
@@ -280,7 +284,8 @@ void w_setStencilState(const std::optional<std::string> &actionstr,
 
 // love.graphics.getStencilState: w_getStencilState (wrap_Graphics.cpp:672-690).
 Rice::Array w_getStencilState() {
-  Rice::Array results(rb_ary_new_capa(5));
+  constexpr long most_results = 5;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const StencilState &s = instance()->getStencilState();
   const char *actionstr = nullptr;
   if (!getConstant(s.action, actionstr)) {
@@ -332,7 +337,8 @@ GraphicsReadback *w_readbackBufferAsync(Buffer *b, long long offset, std::option
 
 // love.graphics.getColor: w_getColor (wrap_Graphics.cpp:2517-2525).
 Rice::Array w_getColor() {
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const Colorf c = instance()->getColor();
   results.push(static_cast<double>(c.r), false);
   results.push(static_cast<double>(c.g), false);
@@ -343,7 +349,8 @@ Rice::Array w_getColor() {
 
 // love.graphics.getBackgroundColor: w_getBackgroundColor (wrap_Graphics.cpp:2553-2561).
 Rice::Array w_getBackgroundColor() {
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const Colorf c = instance()->getBackgroundColor();
   results.push(static_cast<double>(c.r), false);
   results.push(static_cast<double>(c.g), false);
@@ -386,7 +393,8 @@ void w_setColorMask(std::optional<bool> r, std::optional<bool> g, std::optional<
 
 // love.graphics.getColorMask: w_getColorMask (wrap_Graphics.cpp:2617-2627).
 Rice::Array w_getColorMask() {
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const ColorChannelMask mask = instance()->getColorMask();
   results.push(mask.r, false);
   results.push(mask.g, false);
@@ -413,7 +421,8 @@ void w_setBlendMode(const std::string &mode, const std::optional<std::string> &a
 
 // love.graphics.getBlendMode: w_getBlendMode (wrap_Graphics.cpp:2648-2665).
 Rice::Array w_getBlendMode() {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const char *str = nullptr;
   const char *alphastr = nullptr;
   BlendAlpha alphamode{};
@@ -446,7 +455,8 @@ void w_setDefaultFilter(const std::string &minstr, const std::optional<std::stri
 
 // love.graphics.getDefaultFilter: w_getDefaultFilter (wrap_Graphics.cpp:2769-2782).
 Rice::Array w_getDefaultFilter() {
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = instance()->getDefaultSamplerState();
   const char *minstr = nullptr;
   const char *magstr = nullptr;
@@ -478,7 +488,8 @@ void w_setDefaultMipmapFilter(const std::optional<std::string> &str, double lod_
 
 // love.graphics.getDefaultMipmapFilter: w_getDefaultMipmapFilter (wrap_Graphics.cpp:2801-2814).
 Rice::Array w_getDefaultMipmapFilter() {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = instance()->getDefaultSamplerState();
   const char *str = nullptr;
   if (SamplerState::getConstant(s.mipmapFilter, str)) {
@@ -557,7 +568,8 @@ void w_setDepthMode(const std::optional<std::string> &compare, std::optional<boo
 
 // love.graphics.getDepthMode: w_getDepthMode (wrap_Graphics.cpp:2903-2916).
 Rice::Array w_getDepthMode() {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   CompareMode compare = COMPARE_ALWAYS;
   bool write = false;
   instance()->getDepthMode(compare, write);
@@ -635,7 +647,8 @@ Shader *w_getShader() {
 
 // love.graphics.getRendererInfo: w_getRendererInfo (wrap_Graphics.cpp:3170-3180).
 Rice::Array w_getRendererInfo() {
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   Graphics::RendererInfo info{};
   info = instance()->getRendererInfo();
   results.push(info.name, false);
@@ -864,7 +877,8 @@ void w_Mesh_setDrawRange(Mesh &t, std::optional<int> start, std::optional<int> c
 // Mesh:getDrawRange: w_Mesh_getDrawRange (wrap_Mesh.cpp:601-613).
 Rice::Array w_Mesh_getDrawRange(const Mesh &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   int start = 0;
   int count = 1;
   if (!t.getDrawRange(start, count)) {
@@ -968,7 +982,8 @@ void w_ParticleSystem_setParticleLifetime(ParticleSystem &t, double arg1,
 // (wrap_ParticleSystem.cpp:152-160).
 Rice::Array w_ParticleSystem_getParticleLifetime(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float min{};
   float max{};
   t.getParticleLifetime(min, max);
@@ -1022,7 +1037,8 @@ void w_ParticleSystem_setEmissionArea(ParticleSystem &t,
 // (wrap_ParticleSystem.cpp:217-234).
 Rice::Array w_ParticleSystem_getEmissionArea(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(5));
+  constexpr long most_results = 5;
+  Rice::Array results(rb_ary_new_capa(most_results));
   love::Vector2 p{};
   float angle{};
   bool directionRelativeToCenter{};
@@ -1071,7 +1087,8 @@ void w_ParticleSystem_setSpeed(ParticleSystem &t, double arg1, std::optional<dou
 // ParticleSystem:getSpeed: w_ParticleSystem_getSpeed (wrap_ParticleSystem.cpp:275-283).
 Rice::Array w_ParticleSystem_getSpeed(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float min{};
   float max{};
   t.getSpeed(min, max);
@@ -1095,7 +1112,8 @@ void w_ParticleSystem_setLinearAcceleration(ParticleSystem &t, double xmin, doub
 // (wrap_ParticleSystem.cpp:296-306).
 Rice::Array w_ParticleSystem_getLinearAcceleration(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   love::Vector2 min{};
   love::Vector2 max{};
   t.getLinearAcceleration(min, max);
@@ -1119,7 +1137,8 @@ void w_ParticleSystem_setRadialAcceleration(ParticleSystem &t, double arg1,
 // (wrap_ParticleSystem.cpp:317-325).
 Rice::Array w_ParticleSystem_getRadialAcceleration(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float min{};
   float max{};
   t.getRadialAcceleration(min, max);
@@ -1141,7 +1160,8 @@ void w_ParticleSystem_setTangentialAcceleration(ParticleSystem &t, double arg1,
 // (wrap_ParticleSystem.cpp:336-344).
 Rice::Array w_ParticleSystem_getTangentialAcceleration(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float min{};
   float max{};
   t.getTangentialAcceleration(min, max);
@@ -1162,7 +1182,8 @@ void w_ParticleSystem_setLinearDamping(ParticleSystem &t, double arg1, std::opti
 // (wrap_ParticleSystem.cpp:355-363).
 Rice::Array w_ParticleSystem_getLinearDamping(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float min{};
   float max{};
   t.getLinearDamping(min, max);
@@ -1198,7 +1219,8 @@ void w_ParticleSystem_setRotation(ParticleSystem &t, double arg1, std::optional<
 // ParticleSystem:getRotation: w_ParticleSystem_getRotation (wrap_ParticleSystem.cpp:427-435).
 Rice::Array w_ParticleSystem_getRotation(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float min{};
   float max{};
   t.getRotation(min, max);
@@ -1216,7 +1238,8 @@ void w_ParticleSystem_setSpin(ParticleSystem &t, double arg1, std::optional<doub
 // ParticleSystem:getSpin: w_ParticleSystem_getSpin (wrap_ParticleSystem.cpp:446-454).
 Rice::Array w_ParticleSystem_getSpin(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float start{};
   float end{};
   t.getSpin(start, end);
@@ -1248,7 +1271,8 @@ void w_ParticleSystem_setOffset(ParticleSystem &t, double x, double y) {
 // ParticleSystem:getOffset: w_ParticleSystem_getOffset (wrap_ParticleSystem.cpp:480-487).
 Rice::Array w_ParticleSystem_getOffset(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const love::Vector2 offset = t.getOffset();
   results.push(static_cast<double>(offset.x), false);
   results.push(static_cast<double>(offset.y), false);
@@ -1332,7 +1356,8 @@ void w_ParticleSystem_update(ParticleSystem &t, double dt) {
 // Quad:getViewport: w_Quad_getViewport (wrap_Quad.cpp:56-65).
 Rice::Array w_Quad_getViewport(const Quad &quad) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const Quad::Viewport v = quad.getViewport();
   results.push(v.x, false);
   results.push(v.y, false);
@@ -1344,7 +1369,8 @@ Rice::Array w_Quad_getViewport(const Quad &quad) {
 // Quad:getTextureDimensions: w_Quad_getTextureDimensions (wrap_Quad.cpp:67-75).
 Rice::Array w_Quad_getTextureDimensions(const Quad &quad) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const double sw = quad.getTextureWidth();
   const double sh = quad.getTextureHeight();
   results.push(sw, false);
@@ -1390,7 +1416,8 @@ bool w_Shader_hasStage(Shader &shader, const std::string &stage) {
 // Shader:getLocalThreadgroupSize: w_Shader_getLocalThreadgroupSize (wrap_Shader.cpp:499-515).
 Rice::Array w_Shader_getLocalThreadgroupSize(Shader &shader) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   if (!shader.hasStage(SHADERSTAGE_COMPUTE)) {
     results.push(nullptr, false);
     return results;
@@ -1442,7 +1469,8 @@ Texture *w_SpriteBatch_getTexture(const SpriteBatch &t) {
 // SpriteBatch:getColor: w_SpriteBatch_getColor (wrap_SpriteBatch.cpp:184-194).
 Rice::Array w_SpriteBatch_getColor(const SpriteBatch &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(4));
+  constexpr long most_results = 4;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const Colorf color = t.getColor();
   results.push(static_cast<double>(color.r), false);
   results.push(static_cast<double>(color.g), false);
@@ -1479,7 +1507,8 @@ void w_SpriteBatch_setDrawRange(SpriteBatch &t, std::optional<int> start,
 // SpriteBatch:getDrawRange: w_SpriteBatch_getDrawRange (wrap_SpriteBatch.cpp:249-261).
 Rice::Array w_SpriteBatch_getDrawRange(const SpriteBatch &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   int start = 0;
   int count = 1;
   if (!t.getDrawRange(start, count)) {
@@ -1524,7 +1553,8 @@ double w_TextBatch_getHeight(const TextBatch &t, int index) {
 // TextBatch:getDimensions: w_TextBatch_getDimensions (wrap_TextBatch.cpp:180-187).
 Rice::Array w_TextBatch_getDimensions(const TextBatch &t, int index) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   results.push(static_cast<double>(t.getWidth((index - 1))), false);
   results.push(static_cast<double>(t.getHeight((index - 1))), false);
   return results;
@@ -1595,7 +1625,8 @@ void w_Texture_setFilter(Texture &t, const std::string &minstr,
 // Texture:getFilter: w_Texture_getFilter (wrap_Texture.cpp:173-190).
 Rice::Array w_Texture_getFilter(const Texture &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = t.getSamplerState();
   const char *minstr = nullptr;
   const char *magstr = nullptr;
@@ -1631,7 +1662,8 @@ void w_Texture_setMipmapFilter(Texture &t, const std::optional<std::string> &mip
 // Texture:getMipmapFilter: w_Texture_getMipmapFilter (wrap_Texture.cpp:213-226).
 Rice::Array w_Texture_getMipmapFilter(const Texture &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = t.getSamplerState();
   const char *mipmapstr = nullptr;
   if (SamplerState::getConstant(s.mipmapFilter, mipmapstr)) {
@@ -1663,7 +1695,8 @@ void w_Texture_setWrap(Texture &t, const std::string &sstr, const std::optional<
 // Texture:getWrap: w_Texture_getWrap (wrap_Texture.cpp:248-268).
 Rice::Array w_Texture_getWrap(const Texture &t) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = t.getSamplerState();
   const char *sstr = nullptr;
   const char *tstr = nullptr;
@@ -1798,7 +1831,8 @@ int w_Video_getHeight(const Video &video) {
 // Video:getDimensions: w_Video_getDimensions (wrap_Video.cpp:83-89).
 Rice::Array w_Video_getDimensions(const Video &video) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   results.push(video.getWidth(), false);
   results.push(video.getHeight(), false);
   return results;
@@ -1819,7 +1853,8 @@ int w_Video_getPixelHeight(const Video &video) {
 // Video:getPixelDimensions: w_Video_getPixelDimensions (wrap_Video.cpp:105-111).
 Rice::Array w_Video_getPixelDimensions(const Video &video) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   results.push(video.getPixelWidth(), false);
   results.push(video.getPixelHeight(), false);
   return results;
@@ -1844,7 +1879,8 @@ void w_Video_setFilter(Video &video, const std::string &minstr,
 // Video:getFilter: w_Video_getFilter (wrap_Video.cpp:132-149).
 Rice::Array w_Video_getFilter(const Video &video) {
   require_main_thread(MODULE);
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   const SamplerState &s = video.getSamplerState();
   const char *minstr = nullptr;
   const char *magstr = nullptr;

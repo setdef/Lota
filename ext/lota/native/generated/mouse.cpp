@@ -98,7 +98,8 @@ double w_getY() {
 
 // love.mouse.getPosition: w_getPosition (wrap_Mouse.cpp:157-164).
 Rice::Array w_getPosition() {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   double x{};
   double y{};
   instance()->getPosition(x, y);

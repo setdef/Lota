@@ -56,7 +56,8 @@ std::string w_Joystick_getName(const Joystick &j) { return j.getName(); }
 
 // Joystick:getID: w_Joystick_getID (wrap_Joystick.cpp:52-66).
 Rice::Array w_Joystick_getID(const Joystick &j) {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   results.push(j.getID() + 1, false);
   const int instanceid = j.getInstanceID();
   if (instanceid >= 0) {
@@ -72,7 +73,8 @@ std::string w_Joystick_getGUID(const Joystick &j) { return j.getGUID(); }
 
 // Joystick:getDeviceInfo: w_Joystick_getDeviceInfo (wrap_Joystick.cpp:75-87).
 Rice::Array w_Joystick_getDeviceInfo(const Joystick &j) {
-  Rice::Array results(rb_ary_new_capa(3));
+  constexpr long most_results = 3;
+  Rice::Array results(rb_ary_new_capa(most_results));
   int vendorID = 0;
   int productID = 0;
   int productVersion = 0;
@@ -148,7 +150,8 @@ bool w_Joystick_isVibrationSupported(Joystick &j) { return j.isVibrationSupporte
 
 // Joystick:getVibration: w_Joystick_getVibration (wrap_Joystick.cpp:370-378).
 Rice::Array w_Joystick_getVibration(Joystick &j) {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   float left{};
   float right{};
   j.getVibration(left, right);
@@ -189,7 +192,8 @@ void w_Joystick_setSensorEnabled(Joystick &j, const std::string &type, bool enab
 
 // Joystick:getDevicePowerInfo: w_Joystick_getDevicePowerInfo (wrap_Joystick.cpp:450-469).
 Rice::Array w_Joystick_getDevicePowerInfo(const Joystick &j) {
-  Rice::Array results(rb_ary_new_capa(2));
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
   int batteryPercent = 0;
   const char *str = nullptr;
   const Joystick::PowerType state = j.getPowerInfo(batteryPercent);
