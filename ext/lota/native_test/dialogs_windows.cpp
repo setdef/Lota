@@ -13,14 +13,17 @@
 
 #include "native_test/dialogs.hpp"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
 #include <iterator>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -43,27 +46,34 @@ HHOOK &dialog_hook() {
   return hook;
 }
 
-// The bytes of a function's start that a jump to a refusal replaces. On
-// x64, a move of the refusal's address into rax and a jump to it; on
-// ARM64, a load of the address that follows into x16 and a branch to it.
-#if defined(__aarch64__)
-constexpr std::size_t jump_size = 16;
+// The bytes of a function pointer, as a jump carries the address it goes
+// to.
+using Pointer = std::array<unsigned char, sizeof(void *)>;
+
+// The instructions of a jump to a refusal, which replaces a function's
+// start, before and after the refusal's address. On x64, a move of the
+// address into rax (REX.W B8) and a jump to it (FF E0); on ARM64, a load
+// of the address that follows into x16 (ldr x16, #8) and a branch to it
+// (br x16), each a little-endian word.
+#ifdef __aarch64__
+constexpr std::array<unsigned char, 8> jump_start = {0x50, 0x00, 0x00, 0x58,
+                                                     0x00, 0x02, 0x1F, 0xD6};
+constexpr std::array<unsigned char, 0> jump_end{};
 #else
-constexpr std::size_t jump_size = 12;
+constexpr std::array<unsigned char, 2> jump_start = {0x48, 0xB8};
+constexpr std::array<unsigned char, 2> jump_end = {0xFF, 0xE0};
 #endif
 
+// The bytes of a function's start that the jump replaces.
+constexpr std::size_t jump_size = jump_start.size() + sizeof(Pointer) + jump_end.size();
+
 // The jump to +address+, as it is written over a function's start.
-std::array<unsigned char, jump_size> jump_to(void *address) {
-#if defined(__aarch64__)
-  // ldr x16, #8; br x16; then the address.
-  std::array<unsigned char, jump_size> jump = {0x50, 0x00, 0x00, 0x58, 0x00, 0x02, 0x1F, 0xD6};
-  const auto target = reinterpret_cast<std::uintptr_t>(address);
-  std::memcpy(&jump[8], &target, sizeof(target));
-#else
-  std::array<unsigned char, jump_size> jump = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};
-  const auto target = reinterpret_cast<std::uintptr_t>(address);
-  std::memcpy(&jump[2], &target, sizeof(target));
-#endif
+std::array<unsigned char, jump_size> jump_to(const Pointer &address) {
+  std::array<unsigned char, jump_size> jump{};
+  const std::span<unsigned char> bytes(jump);
+  std::ranges::copy(jump_start, bytes.begin());
+  std::ranges::copy(address, bytes.subspan(jump_start.size()).begin());
+  std::ranges::copy(jump_end, bytes.subspan(jump_start.size() + address.size()).begin());
   return jump;
 }
 
@@ -119,7 +129,7 @@ bool refused_simple_message_box(SDL_MessageBoxFlags /*flags*/, const char *title
 
 // Replaces SDL's function +name+ with +refusal+ in the one SDL3.dll every
 // extension of Lota's shares, keeping its start in +slot+.
-void replace(Replaced &slot, const char *name, void *refusal) {
+void replace(Replaced &slot, const char *name, const Pointer &refusal) {
 #if defined(__x86_64__) || defined(__aarch64__)
   HMODULE sdl = GetModuleHandleW(L"SDL3.dll");
   if (sdl == nullptr) {
@@ -223,12 +233,13 @@ void refuse_dialogs() {
   if (refusing_dialogs()) {
     return;
   }
-  replace(replaced()[0], "SDL_ShowMessageBox", reinterpret_cast<void *>(&refused_message_box));
-  replace(replaced()[1], "SDL_ShowSimpleMessageBox",
-          reinterpret_cast<void *>(&refused_simple_message_box));
+  auto &[message_box, simple_message_box] = replaced();
+  replace(message_box, "SDL_ShowMessageBox", std::bit_cast<Pointer>(&refused_message_box));
+  replace(simple_message_box, "SDL_ShowSimpleMessageBox",
+          std::bit_cast<Pointer>(&refused_simple_message_box));
 }
 
-bool refusing_dialogs() { return replaced()[0].function != nullptr; }
+bool refusing_dialogs() { return replaced().front().function != nullptr; }
 
 // Answers dialogs from now on, by putting SDL's functions back, and
 // presses Return on each. Calling it again changes nothing.
