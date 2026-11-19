@@ -5,7 +5,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "provenance"
 require_relative "push_check"
+
+desc "Check that each commit of RANGE (default: the unpushed ones) says its provenance in a trailer git reads"
+task :provenance, [:range] do |_task, args|
+  refusal = Provenance.refusal(Provenance.read(Dir.pwd, args[:range] || red_before_green_range))
+  next puts("provenance: every commit says its provenance in a trailer") unless refusal
+
+  abort "provenance: #{refusal}"
+end
 
 # Runs +step+ of PushCheck in this process, and answers whether it passed.
 # RuboCop runs as its rake task does, through its CLI, which takes every

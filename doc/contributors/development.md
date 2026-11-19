@@ -58,13 +58,14 @@ bundle exec rake push_check
 
 `rake push_check` is what the pre-push hook (below) runs, over the commits you have not pushed, or over the commits of a range you name as `git rev-list` takes it, `rake "push_check[OLD..NEW]"`. It builds nothing, and runs the same checks on Linux, macOS, and Windows, in seconds, or in about a minute when RuboCop reads every file:
 
+- `rake provenance`, which refuses a commit, merges and reverts included, without one `Provenance:` trailer git reads (`written`, `wrought`, or `requested`, in the message's last paragraph, with no blank line before `Co-Authored-By:`), and says how to mend its message;
 - RuboCop over the files the commits change, or over every file git knows when they change RuboCop's settings, Lota's own cops, or `Gemfile.lock`;
 - the unit tests;
 - the licensing check, `rake reuse:lint`, over every file git knows;
 - Steep, when they change `lib/`, `sig/`, `Steepfile`, `rbs_exceptions.rb`, or `Gemfile.lock`;
 - `rake red_before_green:unit` over the commits (below).
 
-It prints each check and how long it took, and stops at the first that fails. The unit tests and the licensing check always run, so it never passes having checked nothing. It shows that the commits broke nothing those checks reach, and no more: the native code, the build, the integration tests, the parity harness, and how Lota behaves on each system are CI's to check after you push.
+It prints each check and how long it took, and stops at the first that fails. The provenance check, the unit tests, and the licensing check always run, so it never passes having checked nothing. It shows that the commits broke nothing those checks reach, and no more: the native code, the build, the integration tests, the parity harness, and how Lota behaves on each system are CI's to check after you push.
 
 ### CI's first verdict: `rake prepush`
 

@@ -62,7 +62,7 @@ class PrePushHookTest < Minitest::Test
     write(@repo, ".rubocop.yml", "AllCops:\n  NewCops: enable\n  SuggestExtensions: false\n")
     write(@repo, "lib/sample_game.rb", CLEAN)
     write(@repo, "lib/old.rb", CLEAN)
-    @base = commit("first")
+    @base = commit("first", trailers: "")
     run!(@repo, "git", "update-ref", "refs/remotes/origin/trunk", @base)
   end
 
@@ -70,9 +70,14 @@ class PrePushHookTest < Minitest::Test
     FileUtils.rm_rf(@tree)
   end
 
-  def commit(subject)
+  # The trailers every commit pushed carries, as git reads them: one
+  # paragraph, the message's last.
+  TRAILERS = "Provenance: requested\nCo-Authored-By: Sample <sample@example.com>\n"
+
+  def commit(subject, trailers: TRAILERS)
     run!(@repo, "git", "add", "--all")
-    run!(@repo, "git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--quiet", "-m", subject)
+    run!(@repo, "git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--quiet", "-m",
+      "#{subject}\n\nWhy it changed.\n\n#{trailers}")
     run!(@repo, "git", "rev-parse", "HEAD").strip
   end
 
@@ -80,14 +85,17 @@ class PrePushHookTest < Minitest::Test
   # trunk, with +fail+ naming the check that fails; answers its output
   # and exit status.
   def push(tip, fail: "", remote: "origin", refs: "refs/heads/trunk #{tip} refs/heads/trunk #{@base}\n")
-    env = {
+    Open3.capture2e(env(fail), RbConfig.ruby, PREPUSH, remote, stdin_data: refs, chdir: @repo)
+  end
+
+  def env(fail = "")
+    {
       "LOTA_PREPUSH" => nil,
       "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile"),
       "LOTA_PUSH_CHECK_RAKE" => File.join(ROOT, "tasks/push_check.rake"),
       "PUSH_CHECK_LOG" => @log,
       "PUSH_CHECK_FAIL" => fail,
     }
-    Open3.capture2e(env, RbConfig.ruby, PREPUSH, remote, stdin_data: refs, chdir: @repo)
   end
 
   def ran = File.exist?(@log) ? File.readlines(@log, chomp: true) : []
@@ -102,7 +110,49 @@ class PrePushHookTest < Minitest::Test
     assert status.success?, output
     assert_includes output, "push_check: rubocop (1 files)\n"
     assert_includes output, "push_check: rubocop passed"
+    assert_includes output, "push_check: provenance[#{@base}..#{tip}] passed"
     assert_equal ["test:unit", "reuse:lint", "steep", "red_before_green:unit[#{@base}..#{tip}]"], ran
+  end
+
+  # The commit already on the remote has no trailer, and cannot be mended,
+  # so it is never checked; of those the push brings, one whose
+  # provenance line a blank line cuts off from the footer refuses it, and
+  # names it, the fault, and the remedy, before any other check runs.
+  def test_a_commit_whose_provenance_git_does_not_read_as_a_trailer_refuses_the_push
+    write(@repo, "lib/sample_game.rb", CLEAN.sub("3", "4"))
+    stray = commit("second", trailers: TRAILERS.sub("\n", "\n\n"))
+    write(@repo, "lib/sample_game.rb", CLEAN.sub("3", "5"))
+    tip = commit("third")
+
+    output, status = push(tip)
+
+    refute status.success?, output
+    assert_includes output, "1 commit does not say its provenance in a trailer git reads:\n" \
+      "  #{stray[0, 12]} second\n    has a Provenance: line that is not in the trailer block"
+    refute_includes output, "#{tip[0, 12]} third"
+    refute_includes output, "#{@base[0, 12]} first"
+    assert_includes output, "git rebase -i #{stray}^"
+    assert_includes output, "push refused: rake push_check[#{@base}..#{tip}] failed"
+    assert_empty ran
+  end
+
+  def test_a_commit_with_no_provenance_trailer_refuses_the_push
+    write(@repo, "lib/sample_game.rb", CLEAN.sub("3", "4"))
+    tip = commit("second", trailers: "Co-Authored-By: Sample <sample@example.com>\n")
+
+    output, status = push(tip)
+
+    refute status.success?, output
+    assert_includes output, "  #{tip[0, 12]} second\n    has no Provenance: trailer\n"
+    assert_empty ran
+  end
+
+  # Commits git cannot list are not commits that passed.
+  def test_a_range_git_cannot_read_fails_the_provenance_check
+    output, status = Open3.capture2e(env, "bundle", "exec", "rake", "provenance[nowhere..#{@base}]", chdir: @repo)
+
+    refute status.success?, output
+    assert_includes output, "git log nowhere..#{@base} failed"
   end
 
   def test_an_offence_rubocop_finds_refuses_the_push

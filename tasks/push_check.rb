@@ -13,12 +13,13 @@ require "open3"
 # its hook runs. They show the commits broke nothing they reach; CI's
 # pre-push tier (rake prepush) and the gate check the rest after the push.
 #
-# In order: RuboCop over the files the commits change (or over every file
-# git knows, when they change RuboCop's settings or its gems), the unit
+# In order: each commit's Provenance: trailer (tasks/provenance.rb),
+# RuboCop over the files the commits change (or over every file git
+# knows, when they change RuboCop's settings or its gems), the unit
 # tests, the licensing of every file git knows, Steep when they change
 # typed code or its signatures, and red_before_green over the unit tests
-# they add or change. The unit tests and the licensing always run, so a
-# push is never let through having checked nothing.
+# they add or change. The provenance, the unit tests, and the licensing
+# always run, so a push is never let through having checked nothing.
 class PushCheck
   # One check: the rake task, or RuboCop, by +name+, with the +files+
   # RuboCop inspects.
@@ -63,6 +64,7 @@ class PushCheck
   # file for it, since given none it would inspect every file there.
   def steps
     [
+      Step.new(name: "provenance[#{@range}]"),
       *(Step.new(name: "rubocop", files: linted) unless linted.empty?),
       Step.new(name: "test:unit"),
       Step.new(name: "reuse:lint"),
