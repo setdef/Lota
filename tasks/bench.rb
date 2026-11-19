@@ -28,7 +28,7 @@ module Bench
   # The frame scenarios each engine runs (tasks/bench/lota/main.rb and
   # tasks/bench/love/main.lua say what each does), and +calls+, which
   # times single calls.
-  LOTA_SCENARIOS = %w[ruby_noop noop native rectangle set_color color_writer color_reader calls].freeze
+  LOTA_SCENARIOS = %w[ruby_noop noop native rectangle set_color color_writer color_reader frame calls].freeze
   LOVE_SCENARIOS = %w[rectangle set_color color_reader calls].freeze
 
   # The budgets a frame's share is reported against: 60 and 120 Hz.
@@ -145,6 +145,12 @@ module Bench
     # or an empty Hash for LÖVE.
     def gc
       data.fetch("gc", {})
+    end
+
+    # How many major collections each cause set off over the timed frames
+    # (Bench::Recorder#major_causes), or an empty Hash for LÖVE.
+    def major_causes
+      data.fetch("gc_major_by", {})
     end
 
     # The longest the collector ran in one frame, in seconds.
@@ -413,7 +419,7 @@ module Bench
 
     private def collector
       rows = lota_jits.flat_map do |jit|
-        %w[native rectangle set_color color_writer color_reader].filter_map { |name| find("lota", jit, name) }
+        %w[native rectangle set_color color_writer color_reader frame].filter_map { |name| find("lota", jit, name) }
       end
       rows += %w[set_color color_reader].filter_map { |name| find("love", "luajit", name) }
       table("Allocations and the collector over #{@settings.frames} frames",
@@ -423,6 +429,7 @@ module Bench
           "draw ms",
           "objects/frame",
           "GCs (minor/major)",
+          "major causes",
           "GC ms total",
           "GC ms max/frame",
           "frame ms p50/p99/max",
@@ -434,11 +441,12 @@ module Bench
       gc = result.gc
       frames = result.data.fetch("frame").size
       collected = if gc.empty?
-        ["-", "-", "-", "-"]
+        ["-", "-", "-", "-", "-"]
       else
         [
           (gc.fetch("total_allocated_objects") / frames).to_s,
           "#{gc.fetch('count')} (#{gc.fetch('minor_gc_count')}/#{gc.fetch('major_gc_count')})",
+          causes(result.major_causes),
           ms(gc.fetch("time_ns") / 1e9),
           ms(result.gc_max),
 ]
@@ -450,6 +458,13 @@ module Bench
         *collected,
         [result.frame, result.frame_p99, result.frame_max].map { |seconds| ms(seconds) }.join("/"),
 ]
+    end
+
+    # "oldmalloc 17, nofree 1", the most frequent first, or "none".
+    private def causes(counts)
+      return "none" if counts.empty?
+
+      counts.sort_by { |cause, count| [-count, cause] }.map { |cause, count| "#{cause} #{count}" }.join(", ")
     end
 
     private def table(title, headings, rows)

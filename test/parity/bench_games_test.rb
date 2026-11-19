@@ -37,6 +37,7 @@ class BenchGamesTest < Minitest::Test
       else
         assert_equal [3, 3], [result.data.fetch("draw").size, result.data.fetch("frame").size], result.scenario.to_s
         assert_operator result.frame, :>=, result.draw, result.scenario.to_s
+        assert_kind_of Hash, result.data.fetch("gc_major_by"), result.scenario.to_s if result.scenario.engine == "lota"
       end
     end
     # Lota::Graphics.color returns a new Array each call, so the timed

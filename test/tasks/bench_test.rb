@@ -85,6 +85,20 @@ class BenchTest < Minitest::Test
     assert_equal recorder.gc_times.size, recorder.to_h.fetch("frame_gc_ns").size
   end
 
+  # GC.start's full collection is a major one Ruby says it was forced to,
+  # and the minor one before it has no such cause.
+  def test_the_recorder_names_what_caused_each_major_collection_in_its_frames
+    recorder = Bench::Recorder.new(warmup: 1, frames: 3)
+    recorder.draw { GC.start }
+    recorder.draw { GC.start(full_mark: false) }
+    recorder.draw { GC.start }
+    recorder.draw { 2.times { GC.start } }
+    recorder.draw { flunk "the frames are over" }
+
+    assert_equal({ "force" => 2, "unseen" => 1 }, recorder.major_causes)
+    assert_equal recorder.major_causes, recorder.to_h.fetch("gc_major_by")
+  end
+
   # The first two steps of the clock time the untimed run that warms the
   # call sites, which is not kept even though it is the fastest.
   def test_per_call_counts_allocations_and_keeps_the_fastest_run
@@ -198,6 +212,7 @@ class BenchTest < Minitest::Test
         "total_allocated_objects" => 10_000,
         "time_ns" => 4_000_000,
       },
+      "gc_major_by" => { "oldmalloc" => 1 },
     }
   end
 
@@ -232,7 +247,17 @@ class BenchTest < Minitest::Test
 
     assert_match(/^Lota::Graphics\.color +700 +1\.00$/, text)
     assert_match(/^love\.graphics\.getColor +20$/, text)
-    assert_match(%r{^Lota rectangle +yjit +8\.000 +10000 +3 \(2/1\) +4\.000 +2\.000 +10\.000/10\.000/10\.000$}, text)
+    assert_match(%r{^Lota rectangle +yjit +8\.000 +10000 +3 \(2/1\) +oldmalloc 1 +4\.000 +2\.000 +10\.000/10\.000/10\.000$},
+      text)
+  end
+
+  def test_the_report_says_no_major_collection_had_a_cause_when_there_was_none
+    data = frames(0.008, 0.010).merge("gc_major_by" => {})
+    data["gc"] = data.fetch("gc").merge("major_gc_count" => 0)
+    text = Bench::Report.new([result("lota", "yjit", "frame", data)], settings: Bench::Settings.from({}),
+      machine: []).to_s
+
+    assert_match(%r{^Lota frame +yjit +8\.000 +10000 +3 \(2/0\) +none +4\.000 }, text)
   end
 
   def test_the_machine_names_the_processor_the_system_and_the_commits

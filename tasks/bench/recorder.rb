@@ -19,12 +19,21 @@ module Bench
   # took, from the start of its draw to the start of the next, which takes
   # in events, update, clearing, presenting, and the loop's 1 ms sleep.
   # The collector's work in each timed frame is counted from GC.stat and
-  # GC.total_time over the same span.
+  # GC.total_time over the same span, and each major collection's cause
+  # is read from GC.latest_gc_info after the block and at the frame's end
+  # (#major_causes).
   class Recorder
     # Monotonic seconds, as a Float.
     CLOCK = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
 
     attr_reader :draw_times, :frame_times, :gc_times, :gc_counts
+
+    # How many of the timed frames' major collections each cause set off,
+    # by GC.latest_gc_info(:major_by): "oldmalloc", "oldgen", "nofree",
+    # "shady", or "force". Ruby keeps only its latest collection's cause,
+    # so a major collection that another collection followed before the
+    # next look counts as "unseen".
+    attr_reader :major_causes
 
     # [warmup] Frames run before timing starts.
     # [frames] Frames timed.
@@ -40,6 +49,8 @@ module Bench
       @gc_times = []
       @gc_counts = []
       @gc_start = nil
+      @majors = nil
+      @major_causes = Hash.new(0)
     end
 
     # Runs the frame's work, the block, and times it. Returns +true+ once
@@ -58,9 +69,11 @@ module Bench
       end
 
       @gc_start ||= gc_snapshot
+      @majors ||= @gc_start.fetch(:major_gc_count)
       @open = [start, GC.total_time, GC.count]
       yield
       @draw_times << (@clock.call - start)
+      note_majors
       false
     end
 
@@ -85,6 +98,7 @@ module Bench
         "frame_gc_ns" => @gc_times,
         "frame_gc_count" => @gc_counts,
         "gc" => gc,
+        "gc_major_by" => @major_causes,
       }
     end
 
@@ -102,6 +116,19 @@ module Bench
       @gc_times << (GC.total_time - gc_time)
       @gc_counts << (GC.count - gc_count)
       @open = nil
+      note_majors
+    end
+
+    # Counts the major collections since the last look by their cause.
+    private def note_majors
+      majors = GC.stat(:major_gc_count)
+      return if majors == @majors
+
+      cause = GC.latest_gc_info(:major_by)
+      @major_causes[cause.to_s] += 1 if cause
+      unseen = majors - @majors - (cause ? 1 : 0)
+      @major_causes["unseen"] += unseen if unseen.positive?
+      @majors = majors
     end
   end
 

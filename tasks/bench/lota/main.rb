@@ -101,6 +101,25 @@ module BenchScenarios
     end
   end
 
+  # A game's frame in small, once for each of its things: the transform
+  # pushed and moved to the thing, a color set and read back, a rectangle
+  # and a word drawn, and the transform popped. Each of these is a call a
+  # game makes every frame, so what any of them allocates, and any major
+  # collection it sets off, shows here as a game would meet it.
+  def self.frame
+    i = 0
+    while i < DRAWS
+      Lota::Graphics.push
+      Lota::Graphics.translate((i % 100) * 8, (i / 100) * 6)
+      Lota::Graphics.color = (i % 8) * 0.125, (i % 4) * 0.25, (i % 2) * 0.5, 1.0
+      Lota::Graphics.color
+      Lota::Graphics.rectangle(:fill, 0, 0, 4, 4)
+      Lota::Graphics.print("hp", 0, 0)
+      Lota::Graphics.pop
+      i += 1
+    end
+  end
+
   # The single calls the scenario +calls+ times, by name.
   def self.calls
     red = 0.25
