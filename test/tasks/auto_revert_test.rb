@@ -470,4 +470,30 @@ class AutoRevertTest < Minitest::Test
     assert_match(/#{SECOND[0, 7]} feat: a change, by Someone <someone@example.com>/, out)
     refute gh.called?(/\Aissue|comments/)
   end
+
+  OTHER = "6" * 40
+
+  # git as the Bot calls it when trunk moves under its push: the first
+  # push is refused, and +landed+ (sha => message) is what arrived first.
+  def raced_git(landed)
+    pushes = 0
+    landed.to_h { |sha, message| [/\Alog -1 --format=%B #{sha}/, message] }
+      .merge(%r{\Arev-list HEAD\.\.origin/trunk\z} => landed.keys.map { |sha| "#{sha}\n" }.join, / rebase --quiet / => "")
+      .merge(git_answers, /\Apush/ => -> (_) { ((pushes += 1) > 1) ? "" : nil })
+  end
+
+  # A commit that landed first and reverts nothing of this batch, or is no
+  # revert, leaves this revert to go on top of it.
+  def test_a_revert_that_loses_its_push_to_anything_else_rebases_and_pushes_again
+    ["feat: unrelated\n", "revert: feat: older\n\nReverts: #{GREEN}\n"].each do |message|
+      gh = Fake.new(gh_answers)
+      git = Fake.new(raced_git(OTHER => message))
+      status, out = bot(gh, git)
+
+      assert_equal 0, status, out
+      assert git.called?(%r{ rebase --quiet origin/trunk\z})
+      assert_equal 2, git.calls.count { |args| args.first == "push" }, message
+      assert_match(/REVERTED/, out)
+    end
+  end
 end
