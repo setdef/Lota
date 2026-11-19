@@ -26,8 +26,9 @@ class TrunkWatch
 
   # Error lines that say a download or a runner broke, not the code: curl
   # exit codes, HTTP 5xx, failed downloads, DNS failures, resets, canceled
-  # operations, lost runners, and timeouts.
+  # operations, lost runners, a job no runner ever took, and timeouts.
   OUTAGE = Regexp.union(
+    /The job was not acquired by Runner/,
     /curl.? failed with exit code/,
     /Unexpected HTTP response: 5/,
     /Download failed/,
@@ -198,6 +199,31 @@ class TrunkWatch
     []
   end
 
+  # The [id, name] pairs of the jobs in the JSON of +gh run view --json
+  # jobs+ that GitHub cancelled before any of their steps ran, or none if
+  # +json+ is unreadable. Such a job has no log: what GitHub says of it,
+  # such as that no runner ever took it, is in its check run's
+  # annotations (annotation_log).
+  def self.unstarted_job_ids(json)
+    jobs = JSON.parse(json.to_s).fetch("jobs", [])
+    jobs.select { |job| job["conclusion"] == "cancelled" && job["steps"] == [] }.map { |job| [job["databaseId"], job["name"]] }
+  rescue JSON::ParserError, TypeError
+    []
+  end
+
+  # What stands for the log of the job +name+ that never started: each
+  # failure annotation in +json+ (its check run's annotations, as the API
+  # returns them) as an error line. When +json+ is unreadable or holds
+  # none, a line that is no outage's, so that an unseen job never lets a
+  # run pass as an outage.
+  def self.annotation_log(json, name)
+    messages = JSON.parse(json.to_s).select { |note| note["annotation_level"] == "failure" }.map { |note| note["message"] }
+    messages = ["job #{name} never started, and GitHub gave no reason"] if messages.empty?
+    messages.map { |message| "##[error]#{message}\n" }.join
+  rescue JSON::ParserError, TypeError, NoMethodError
+    "##[error]the annotations of job #{name}, which never started, could not be read\n"
+  end
+
   # The names of the failed jobs in the JSON of +gh run view --json jobs+,
   # or none if +json+ is unreadable.
   def self.failed_jobs(json)
@@ -325,17 +351,20 @@ class TrunkWatch
     end
   end
 
-  # The raw log of each of the run's failed jobs. A job whose log cannot
-  # be read gives an error that is no outage's, so that an unseen job
-  # never lets a run pass as an outage.
+  # The raw log of each of the run's failed jobs, and what stands for the
+  # log of each job that never started (TrunkWatch.annotation_log). A job
+  # whose log cannot be read gives an error that is no outage's, so that
+  # an unseen job never lets a run pass as an outage.
   private def logs(run)
-    jobs = TrunkWatch.failed_job_ids(@gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs"))
-    return ["##[error]no failed job of run #{run.id} could be listed\n"] if jobs.empty?
+    json = @gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs")
+    jobs = TrunkWatch.failed_job_ids(json)
+    unstarted = TrunkWatch.unstarted_job_ids(json)
+    return ["##[error]no failed job of run #{run.id} could be listed\n"] if jobs.empty? && unstarted.empty?
 
     jobs.map do |id, name|
       raw = @gh.call("api", "--allow-escape-sequences", "repos/#{@repository}/actions/jobs/#{id}/logs")
       raw ? TrunkWatch.strip_ansi(raw) : "##[error]the log of job #{name} (#{id}) could not be read\n"
-    end
+    end + unstarted.map { |id, name| TrunkWatch.annotation_log(@gh.call("api", "repos/#{@repository}/check-runs/#{id}/annotations"), name) }
   end
 
   private def failed_job_names(run)

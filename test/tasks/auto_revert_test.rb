@@ -382,6 +382,22 @@ class AutoRevertTest < Minitest::Test
     refute_includes message, "failed again when run again"
   end
 
+  def test_the_bot_reruns_a_run_whose_job_no_runner_took_and_reverts_nothing
+    unstarted = {
+      /\Arun view 42/ => JSON.generate(jobs: [{ databaseId: 8, name: "iOS kit / The Xcode project", conclusion: "cancelled", steps: [] }]),
+      %r{\Aapi repos/setdef/Lota/check-runs/8/annotations\z} =>
+        JSON.generate([{ annotation_level: "failure", message: "The job was not acquired by Runner of type hosted even after multiple attempts" }]),
+    }
+    gh = Fake.new(gh_answers.merge(unstarted))
+    git = Fake.new(git_answers)
+    status, out = bot(gh, git)
+
+    assert_equal 0, status, out
+    assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
+    refute git.called?(/\Arevert/)
+    assert_match(/every error of run 42 was an outage/, out)
+  end
+
   def test_the_bot_reruns_a_first_failed_attempt_and_reverts_nothing
     gh = Fake.new(gh_answers(attempt: 1))
     git = Fake.new(git_answers)

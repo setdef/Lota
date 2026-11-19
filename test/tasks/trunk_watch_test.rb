@@ -181,15 +181,81 @@ class TrunkWatchTest < Minitest::Test
     assert_empty TrunkWatch.failed_job_ids("not json")
   end
 
+  # A job GitHub cancelled because no hosted runner ever took it, recorded
+  # from an iOS kit run: no step ran, and no log was kept.
+  UNSTARTED_JOBS = JSON.generate(jobs: [
+    { databaseId: 701, name: "ios-kit / The Xcode project", conclusion: "success", steps: [{ name: "Set up job" }] },
+    {
+      completedAt: "2026-11-17T16:28:22Z",
+      conclusion: "cancelled",
+      databaseId: 702,
+      name: "ios-kit / Build the project on a fresh Mac and run it in portrait",
+      startedAt: "2026-11-17T16:13:21Z",
+      status: "completed",
+      steps: [],
+    },
+  ])
+
+  # That job's check run's annotations, as the API returned them.
+  NEVER_ACQUIRED = JSON.generate([
+    {
+      path: ".github",
+      start_line: 1,
+      end_line: 1,
+      annotation_level: "failure",
+      title: "",
+      message: "The job was not acquired by Runner of type hosted even after multiple attempts",
+      raw_details: "",
+    },
+    {
+      path: ".github",
+      start_line: 1,
+      end_line: 1,
+      annotation_level: "notice",
+      title: "",
+      message: "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+      raw_details: "",
+    },
+  ])
+
+  def test_unstarted_job_ids_are_the_jobs_cancelled_before_any_step_ran
+    jobs = JSON.generate(jobs: [
+      { databaseId: 1, name: "never ran", conclusion: "cancelled", steps: [] },
+      { databaseId: 2, name: "ran, then cancelled", conclusion: "cancelled", steps: [{ name: "Set up job" }] },
+      { databaseId: 3, name: "failed before a step", conclusion: "failure", steps: [] },
+      { databaseId: 4, name: "steps unlisted", conclusion: "cancelled" },
+    ])
+
+    assert_equal [[1, "never ran"]], TrunkWatch.unstarted_job_ids(jobs)
+    assert_equal [[702, "ios-kit / Build the project on a fresh Mac and run it in portrait"]], TrunkWatch.unstarted_job_ids(UNSTARTED_JOBS)
+    assert_empty TrunkWatch.unstarted_job_ids("not json")
+  end
+
+  def test_a_job_no_runner_ever_took_is_an_outage_and_no_other_reason_is
+    log = TrunkWatch.annotation_log(NEVER_ACQUIRED, "portrait")
+
+    assert_equal "##[error]The job was not acquired by Runner of type hosted even after multiple attempts\n", log
+    assert_equal :rerun, TrunkWatch.classify(log, 1).action
+    cancelled = JSON.generate([{ annotation_level: "failure", message: "The run was canceled by @someone." }])
+    notices = JSON.generate(JSON.parse(NEVER_ACQUIRED).reject { |annotation| annotation["annotation_level"] == "failure" })
+    [cancelled, notices, "[]", "not json", nil].each do |json|
+      verdict = TrunkWatch.classify(TrunkWatch.annotation_log(json, "portrait"), 1)
+
+      assert_equal :stop, verdict.action, json.inspect
+      refute verdict.outage, json.inspect
+    end
+  end
+
   # A gh that answers from recorded output and remembers what it was asked.
   class FakeGh
     attr_reader :calls
 
-    def initialize(runs, log, jobs: JOBS, logs: nil)
+    def initialize(runs, log, jobs: JOBS, logs: nil, annotations: {})
       @runs = runs
       @log = log
       @logs = logs
       @jobs = jobs
+      @annotations = annotations
       @calls = []
     end
 
@@ -200,8 +266,11 @@ class TrunkWatchTest < Minitest::Test
       when %w[run view] then args.include?("jobs") ? @jobs : visible(@log)
       when %w[api --allow-escape-sequences] then job_log(args.last)
       when %w[run rerun] then ""
+      else annotations(args.last) if args.first == "api"
       end
     end
+
+    private def annotations(path) = @annotations[path[%r{check-runs/(\d+)/annotations\z}, 1].to_i]
 
     # What gh run view --log-failed prints: lines with an ESC are dropped.
     def visible(log) = log.lines.reject { |line| line.include?("\e") }.join
@@ -282,6 +351,31 @@ class TrunkWatchTest < Minitest::Test
     gh = FakeGh.new(runs, "", jobs: JSON.generate(jobs: []))
 
     assert_equal 30, watch(gh).check.id
+  end
+
+  def test_a_run_whose_job_no_runner_took_is_rerun_from_its_annotations
+    gh = FakeGh.new(runs, "", jobs: UNSTARTED_JOBS, annotations: { 702 => NEVER_ACQUIRED })
+    out = StringIO.new
+
+    assert_nil watch(gh, out:).check
+    assert_includes gh.calls, %w[api repos/o/r/check-runs/702/annotations]
+    assert_includes gh.calls, %w[run rerun 30 --repo o/r --failed]
+    assert_match(/reran 30 .* after an outage/, out.string)
+  end
+
+  def test_only_a_job_that_never_started_is_judged_by_its_annotations
+    unstarted = FakeGh.new(runs, "", jobs: UNSTARTED_JOBS, annotations: { 702 => NEVER_ACQUIRED })
+    ran = JSON.parse(UNSTARTED_JOBS)
+    ran["jobs"].last["steps"] = [{ name: "Set up job" }]
+    started = FakeGh.new(runs, "", jobs: JSON.generate(ran), annotations: { 702 => NEVER_ACQUIRED })
+    silent = FakeGh.new(runs, "", jobs: UNSTARTED_JOBS, annotations: { 702 => "[]" })
+    out = StringIO.new
+
+    assert_nil watch(unstarted).check
+    assert_equal 30, watch(started).check.id
+    refute_includes started.calls, %w[api repos/o/r/check-runs/702/annotations]
+    assert_equal 30, watch(silent, out:).check.id
+    assert_includes out.string, "never started, and GitHub gave no reason"
   end
 
   def test_runs_at_or_below_the_floor_are_ignored

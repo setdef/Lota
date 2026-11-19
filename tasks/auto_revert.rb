@@ -326,9 +326,10 @@ module AutoRevert
       run = Run.parse(gh!("api", "repos/#{@repository}/actions/runs/#{@run_id}"))
       return refuse("run #{run.id} is on #{run.branch}; only a dry run acts on a branch other than #{TRUNK}") unless @dry_run || run.branch == TRUNK
 
-      jobs = failed_jobs(run)
+      json = @gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs")
+      jobs = TrunkWatch.failed_job_ids(json)
       red = run.status == "completed" && run.conclusion == "failure"
-      logs = red ? logs(jobs) : []
+      logs = red ? logs(jobs) + unstarted_logs(TrunkWatch.unstarted_job_ids(json)) : []
       plan = AutoRevert.triage(run, outage: !logs.empty? && TrunkWatch.classify_jobs(logs, 1).outage,
         jobs: jobs.map(&:last), newer: newer_run(run), hang: AutoRevert.hang(logs))
       plan ||= plan_for(run)
@@ -358,11 +359,6 @@ module AutoRevert
         "--limit", "20", "--json", "databaseId,status"), run.id)
     end
 
-    # [id, name] of each failed job of the run's latest attempt.
-    private def failed_jobs(run)
-      TrunkWatch.failed_job_ids(@gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs"))
-    end
-
     # Each failed job's log, which TrunkWatch tells outages from the
     # code's failures in, and AutoRevert.hang hangs. A log that cannot be
     # read counts as the code's failure, and as no hang.
@@ -371,6 +367,12 @@ module AutoRevert
         @gh.call("api", "--allow-escape-sequences", "repos/#{@repository}/actions/jobs/#{id}/logs") ||
           "##[error]the log of job #{name} (#{id}) could not be read\n"
       end
+    end
+
+    # What stands for the log of each job of +jobs+ ([id, name]), which
+    # never started, as TrunkWatch.annotation_log reads it.
+    private def unstarted_logs(jobs)
+      jobs.map { |id, name| TrunkWatch.annotation_log(@gh.call("api", "repos/#{@repository}/check-runs/#{id}/annotations"), name) }
     end
 
     private def plan_for(run)
