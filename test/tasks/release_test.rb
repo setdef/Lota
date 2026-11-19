@@ -163,6 +163,23 @@ class ReleaseTest < Minitest::Test
     end
   end
 
+  def test_on_is_the_release_tags_on_the_commit_itself_by_version
+    in_tree do |root|
+      repository(root)
+      commit(root, "feat: picked")
+      run!(root, "git", "tag", "v0.2.0-rc1")
+      run!(root, "git", "tag", "other")
+      release = Release.new(root:)
+
+      assert_empty release.on("HEAD")
+      tag(root, "v0.10.0")
+      run!(root, "git", "tag", "v0.2.0")
+
+      assert_equal %w[v0.2.0 v0.10.0], release.on("HEAD")
+      assert_equal ["v0.1.0"], release.on("HEAD~1")
+    end
+  end
+
   def test_covering_is_the_release_tags_on_a_commit_or_after_it
     in_tree do |root|
       repository(root)

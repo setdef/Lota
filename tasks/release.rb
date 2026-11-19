@@ -119,6 +119,11 @@ class Release
     git("rev-parse", "--verify", "#{ref}^{commit}").chomp
   end
 
+  # The release tags on the commit +ref+ names itself, oldest first.
+  def on(ref)
+    sorted(git("tag", "--list", "v*", "--points-at", ref).split)
+  end
+
   # The release tags on +sha+ or on a commit after it, oldest first: the
   # releases that already hold it.
   def covering(sha)

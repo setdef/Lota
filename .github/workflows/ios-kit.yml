@@ -301,13 +301,12 @@ jobs:
       # folder of the files Lota's gem packages (lota.gemspec), made as
       # doc/guide/phones.md makes it, rather than this checkout, with its
       # submodules and builds. The extension still builds from the
-      # checkout's vendor/love (--with-lota-source).
+      # checkout's vendor/love (--with-lota-source). Checked out at a
+      # release's tag, which the checkout fetches, the gem carries that
+      # release's version (tasks/phone_gem.rb).
       - name: Lay out the project
         run: |
-          mkdir -p tmp/phone
-          gem build lota.gemspec --output tmp/phone/lota.gem
-          gem unpack tmp/phone/lota.gem --target tmp/phone
-          gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
+          bundle exec rake phone:gem
           gem=$GITHUB_WORKSPACE/tmp/phone/lota
           du -sh "$gem"
           export KIT_LOTA_GEM=$gem KIT_PROJECT=$RUNNER_TEMP/project KIT_JSON=$RUNNER_TEMP/kit/kit.json

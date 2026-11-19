@@ -5,12 +5,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require_relative "../lib/lota/version"
 require_relative "phone_engine"
+require_relative "phone_gem"
 require_relative "release"
 
 # A phone's prebuilt engine (tasks/phone_engine.rb), which Lota's CI builds
 # for each target and a release publishes, and the checksums the gem pins
-# for phone/engine.rb to fetch them by.
+# for phone/engine.rb to fetch them by; and the gem a phone project names
+# (tasks/phone_gem.rb).
 namespace :phone do
   desc "Build and pack LÖVE's engine for a phone TARGET (#{Lota::PhoneEngine::TARGETS.join(', ')}) into OUT, " \
     "after rake ios:sdl3 or rake android:deps"
@@ -47,5 +50,14 @@ namespace :phone do
     rescue Release::Refusal => e
       abort "❌ #{e.message}"
     end
+  end
+
+  desc "Lay out tmp/phone/lota, the files Lota's gem packages, for a phone project to name as its lota gem; " \
+    "at a release's tag, with that release's version"
+  task :gem do
+    gem = PhoneGem.new(root: Dir.pwd, out: "tmp/phone")
+    puts "✅ Laid out lota #{gem.version || Lota::VERSION} in #{gem.build}"
+  rescue PhoneGem::Failure, Release::Refusal => e
+    abort "❌ #{e.message}"
   end
 end

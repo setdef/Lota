@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- A phone app built from a clone of Lota at a release's tag, by the iOS kit or by hand, has that release's `Lota::VERSION`, where it had `0.0.1.dev`: `rake phone:gem`, which lays out the folder a phone project names as its `lota` gem, stamps it in.
+
 ## [0.5.3] - 2026-11-15
 
 ### Changed

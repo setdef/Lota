@@ -84,11 +84,7 @@ jobs:
       - &gem_folder
         name: Make a folder of the files Lota's gem packages
         run: |
-          rm -rf tmp/phone
-          mkdir -p tmp/phone
-          gem build lota.gemspec --output tmp/phone/lota.gem
-          gem unpack tmp/phone/lota.gem --target tmp/phone
-          gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
+          bundle exec rake phone:gem
           du -sh tmp/phone/lota
 
       - &project

@@ -158,14 +158,13 @@ For Android, with `ANDROID_NDK_ROOT` set, build SDL3 and LÖVE's other libraries
 bundle exec rake android:deps
 ```
 
-Then make a folder of the files Lota's gem packages, which your phone project names as its `lota` gem. A gem named by its path carries its whole folder into the app, so name this folder, not the clone:
+Then make a folder of the files Lota's gem packages, `tmp/phone/lota`, which your phone project names as its `lota` gem. A gem named by its path carries its whole folder into the app, so name this folder, not the clone:
 
 ```sh
-mkdir -p tmp/phone
-gem build lota.gemspec --output tmp/phone/lota.gem
-gem unpack tmp/phone/lota.gem --target tmp/phone
-gem specification tmp/phone/lota.gem --ruby > tmp/phone/lota/lota.gemspec
+bundle exec rake phone:gem
 ```
+
+A release's tag holds no version of its own, since a release stamps its version into its gems as it builds them. So with the clone checked out at a release's tag, such as `git checkout v0.5.3`, the task stamps that release's version into the gem, and `Lota::VERSION` in your app is `0.5.3`; it leaves the clone's files as they were. At any other commit the gem is `0.0.1.dev`, as every gem built from a clone is.
 
 Run these again after you pull a new version of Lota. Built from source, Lota's engine compiles each time `fledge build` runs, once for each iOS slice (device and Simulator) or Android ABI (`arm64-v8a` and `x86_64`), so a build takes several minutes.
 
