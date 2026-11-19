@@ -40,8 +40,15 @@ require_relative "../tasks/lovetest_image"
 GAMES = {
   "fuse" => ["FuseCheck", []],
   "fuse_gems" => ["FuseCheckGems", ["rainbow: 3.0.0", "rainbow from the app: true", 'rainbow says: "\e[31mok\e[0m"']],
-  "fuse_path_gems" => ["FuseCheckPathGems", ["sample_helper: 0.1.0", "sample_helper from the app: true", %(sample_helper says: "OK!"),
-                                             "sample_tool in the app: false",]],
+  "fuse_path_gems" => [
+    "FuseCheckPathGems",
+    [
+      "sample_helper: 0.1.0",
+      "sample_helper from the app: true",
+      %(sample_helper says: "OK!"),
+      "sample_tool in the app: false",
+    ],
+],
   "fuse_native" => ["FuseCheckNative", ["fast_blank: true false", "fast_blank from the app: true"]],
 }.freeze
 
