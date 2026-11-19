@@ -556,8 +556,9 @@ void buffer_set_array_data(Buffer &t, Rice::Array list) {
 // w_Buffer_getFormat (lines 384-421): the name, format, array length,
 // location, offset, and size of each member.
 Rice::Array buffer_format(const Buffer &t) {
-  Rice::Array members;
-  for (const Buffer::DataMember &member : t.getDataMembers()) {
+  const std::vector<Buffer::DataMember> &data_members = t.getDataMembers();
+  Rice::Array members = ruby::array_with_room(data_members.size());
+  for (const Buffer::DataMember &member : data_members) {
     constexpr std::size_t field_count = 6;
     Rice::Array fields = ruby::array_with_room(field_count);
     fields.push(member.decl.name, false);
@@ -870,8 +871,9 @@ Rice::Array mesh_vertex_attribute(Mesh &t, Rice::Array list) {
 // array length, and offset of each attribute.
 Rice::Array mesh_vertex_format(const Mesh &t) {
   require_main_thread(MODULE);
-  Rice::Array members;
-  for (const Buffer::DataMember &member : t.getVertexFormat()) {
+  const std::vector<Buffer::DataMember> &attributes = t.getVertexFormat();
+  Rice::Array members = ruby::array_with_room(attributes.size());
+  for (const Buffer::DataMember &member : attributes) {
     constexpr std::size_t field_count = 5;
     Rice::Array fields = ruby::array_with_room(field_count);
     fields.push(member.decl.name, false);
@@ -1039,7 +1041,7 @@ Rice::Object mesh_vertex_map(const Mesh &t) {
   if (!t.getVertexMap(vertex_map)) {
     return ruby::nil();
   }
-  Rice::Array indices;
+  Rice::Array indices = ruby::array_with_room(vertex_map.size());
   for (const love::uint32 index : vertex_map) {
     indices.push(static_cast<long long>(index) + 1, false);
   }

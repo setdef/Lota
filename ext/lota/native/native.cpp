@@ -144,7 +144,7 @@ Rice::Array close_modules() {
     }
   }
 
-  Rice::Array open;
+  Rice::Array open = lota::native::ruby::array_with_room(CLOSING_ORDER.size());
   for (const Closing &closing : CLOSING_ORDER) {
     const bool still = closing.type == love::Module::M_THREAD
                            ? !lota::native::close_thread_module()

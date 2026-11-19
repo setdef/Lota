@@ -4,6 +4,7 @@
 #include "native/system.hpp"
 
 #include "native/binding.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -43,8 +44,9 @@ Rice::Array preferred_locales() {
   if (instance == nullptr) {
     throw love::Exception("Lota::System is not open.");
   }
-  Rice::Array locales;
-  for (const std::string &locale : instance->getPreferredLocales()) {
+  const auto &preferred = instance->getPreferredLocales();
+  Rice::Array locales = ruby::array_with_room(preferred.size());
+  for (const std::string &locale : preferred) {
     locales.push(locale, false);
   }
   return locales;

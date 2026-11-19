@@ -753,8 +753,9 @@ Texture *new_texture_view(Texture *base, Rice::Array settings) {
 // pixel formats the texture's viewformats setting listed, in its order.
 Rice::Array texture_view_formats(const Texture &texture) {
   require_main_thread(MODULE);
-  Rice::Array names;
-  for (const love::PixelFormat format : texture.getViewFormats()) {
+  const std::vector<love::PixelFormat> &formats = texture.getViewFormats();
+  Rice::Array names = ruby::array_with_room(formats.size());
+  for (const love::PixelFormat format : formats) {
     const char *str = nullptr;
     if (!love::getConstant(format, str)) {
       throw love::Exception("Unknown pixel format.");
@@ -973,7 +974,7 @@ Rice::Array render_target_fields(const Graphics::RenderTarget &rt) {
 Rice::Array canvas() {
   const Graphics::RenderTargets targets = graphics().getRenderTargets();
   bool tables = targets.depthStencil.texture != nullptr;
-  Rice::Array colors;
+  Rice::Array colors = ruby::array_with_room(targets.colors.size());
   for (const Graphics::RenderTarget &rt : targets.colors) {
     tables = tables || rt.mipmap != 0 || rt.texture->getTextureType() != love::graphics::TEXTURE_2D;
     colors.push(render_target_fields(rt), false);

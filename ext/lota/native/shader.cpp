@@ -679,7 +679,7 @@ Rice::Array shader_buffer_format(Shader &shader, const std::string &name) {
   if (format == nullptr) {
     throw love::Exception("Buffer '%s' does not exist in the Shader.", name.c_str());
   }
-  Rice::Array members;
+  Rice::Array members = ruby::array_with_room(format->size());
   for (const Buffer::DataDeclaration &member : *format) {
     const char *formatname = "unknown";
     love::graphics::getConstant(member.format, formatname);

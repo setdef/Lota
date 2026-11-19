@@ -140,8 +140,9 @@ void particle_system_set_sizes(ParticleSystem &t, Rice::Array sizes) {
 // w_ParticleSystem_getSizes (lines 389-396).
 Rice::Array particle_system_sizes(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array sizes;
-  for (const float size : t.getSizes()) {
+  const auto &values = t.getSizes();
+  Rice::Array sizes = ruby::array_with_room(values.size());
+  for (const float size : values) {
     sizes.push(static_cast<double>(size), false);
   }
   return sizes;
@@ -204,8 +205,9 @@ void particle_system_set_colors(ParticleSystem &t, Rice::Array colors, bool tabl
 // red, green, blue, and alpha.
 Rice::Array particle_system_colors(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array colors;
-  for (const love::Colorf &color : t.getColor()) {
+  const auto &values = t.getColor();
+  Rice::Array colors = ruby::array_with_room(values.size());
+  for (const love::Colorf &color : values) {
     Rice::Array components = ruby::array_with_room(COLOR_COMPONENTS);
     components.push(static_cast<double>(color.r), false);
     components.push(static_cast<double>(color.g), false);
@@ -233,8 +235,9 @@ void particle_system_set_quads(ParticleSystem &t, Rice::Array quads) {
 // w_ParticleSystem_getQuads (lines 604-618).
 Rice::Array particle_system_quads(const ParticleSystem &t) {
   require_main_thread(MODULE);
-  Rice::Array quads;
-  for (Quad *quad : t.getQuads()) {
+  const auto &values = t.getQuads();
+  Rice::Array quads = ruby::array_with_room(values.size());
+  for (Quad *quad : values) {
     quads.push(quad, false);
   }
   return quads;

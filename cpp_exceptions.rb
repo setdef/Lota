@@ -50,7 +50,7 @@ allow "ext/lota/native/event.cpp", lines: [183, 222],
 # itself (vendor/love/src/modules/joystick/Joystick.h:177-190). LÖVE's own
 # wrap_JoystickModule.cpp and wrap_Joystick.cpp fill and read it the same
 # way, in a switch on the type, as Lota's two ports do.
-allow "ext/lota/native/joystick.cpp", lines: [86, 96, 112, 132, 253, 271],
+allow "ext/lota/native/joystick.cpp", lines: [87, 97, 113, 133, 255, 273],
   reason: "Joystick::JoystickInput exposes its axis, button, and hat only as a union tagged by its type; " \
     "there is no other accessor."
 

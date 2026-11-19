@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -66,8 +67,8 @@ JoystickModule &module() {
 // connected, in the order SDL connected them.
 Rice::Array joysticks() {
   JoystickModule &instance = module();
-  Rice::Array sticks;
   const int count = instance.getJoystickCount();
+  Rice::Array sticks = ruby::array_with_room(static_cast<std::size_t>(count));
   for (int i = 0; i < count; i++) {
     sticks.push(instance.getJoystick(i), false);
   }
@@ -177,8 +178,9 @@ std::string save_gamepad_mappings() { return module().saveGamepadMappings(); }
 
 // w_Joystick_getAxes (wrap_Joystick.cpp:127-136): every axis's value.
 Rice::Array axes(const Joystick &j) {
-  Rice::Array values;
-  for (const float value : j.getAxes()) {
+  const auto &positions = j.getAxes();
+  Rice::Array values = ruby::array_with_room(positions.size());
+  for (const float value : positions) {
     values.push(static_cast<double>(value), false);
   }
   return values;

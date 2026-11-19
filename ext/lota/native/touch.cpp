@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -64,8 +65,10 @@ Rice::Array touches(const std::optional<std::string> &filter) {
     throw love::Exception("Lota::Touch is not open.");
   }
 
-  Rice::Array ids;
-  for (const Touch::TouchInfo &touch : instance->getTouches()) {
+  // Room for every touch, since the type can only leave fewer.
+  const auto &touches = instance->getTouches();
+  Rice::Array ids = ruby::array_with_room(touches.size());
+  for (const Touch::TouchInfo &touch : touches) {
     if (!type.has_value() || type.value() == touch.deviceType) {
       ids.push(static_cast<std::uintptr_t>(static_cast<std::intptr_t>(touch.id)), false);
     }

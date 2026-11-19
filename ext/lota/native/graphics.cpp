@@ -118,8 +118,9 @@ void set_low_power_preferred(bool preferred) {
 
 Rice::Array default_renderers() {
   require_main_thread(MODULE);
-  Rice::Array names;
-  for (const love::graphics::Renderer renderer : love::graphics::getDefaultRenderers()) {
+  const std::vector<love::graphics::Renderer> &renderers = love::graphics::getDefaultRenderers();
+  Rice::Array names = ruby::array_with_room(renderers.size());
+  for (const love::graphics::Renderer renderer : renderers) {
     const char *name = nullptr;
     if (love::graphics::getConstant(renderer, name)) {
       names.push(std::string(name), false);
@@ -813,7 +814,7 @@ Rice::Array font_wrap(Font &font, Rice::Array text, double wraplimit) {
   for (const float width : widths) {
     max_width = std::max(max_width, width);
   }
-  Rice::Array wrapped;
+  Rice::Array wrapped = ruby::array_with_room(lines.size());
   for (const std::string &line : lines) {
     wrapped.push(line, false);
   }

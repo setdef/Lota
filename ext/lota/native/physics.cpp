@@ -130,7 +130,9 @@ public:
   // The two Shapes, the Contact, and each contact point's normal and
   // tangent impulse, as World::ContactCallback::process gives them.
   void call(Shape *a, Shape *b, Contact *contact, const float *impulses, int count) override {
-    Rice::Array arguments;
+    constexpr std::size_t contact_arguments = 3;
+    Rice::Array arguments =
+        ruby::array_with_room(contact_arguments + static_cast<std::size_t>(count));
     arguments.push(a, false);
     arguments.push(b, false);
     arguments.push(contact, false);
@@ -275,7 +277,7 @@ std::vector<double> numbers(const Rice::Array &array) {
 }
 
 Rice::Array floats(std::initializer_list<float> values) {
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(values.size());
   for (const float value : values) {
     results.push(static_cast<double>(value), false);
   }
@@ -283,7 +285,7 @@ Rice::Array floats(std::initializer_list<float> values) {
 }
 
 template <typename T> Rice::Array objects(const std::vector<T> &values) {
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(values.size());
   for (const auto &value : values) {
     results.push(value, false);
   }
@@ -556,8 +558,9 @@ Rice::Array body_joints(const Body &body) {
 
 Rice::Array body_contacts(const Body &body) {
   check(body);
-  Rice::Array results;
-  for (const auto &contact : body.getContacts()) {
+  const auto &contacts = body.getContacts();
+  Rice::Array results = ruby::array_with_room(contacts.size());
+  for (const auto &contact : contacts) {
     results.push(contact.get(), false);
   }
   return results;
@@ -592,7 +595,7 @@ Rice::Array points(Body &body, const Rice::Array &coordinates,
     coords.push_back(static_cast<float>(value));
   }
   (body.*transform)(coords);
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(coords.size());
   for (std::size_t i = 0; i < coords.size(); i++) {
     results.push((i == coords.size() - 1 && coords.size() % 2 != 0)
                      ? given.at(i)
@@ -740,7 +743,7 @@ Rice::Array callbacks(World &world) {
   check(world);
   std::array<box2d::ContactFunction *, 4> functions{};
   world.getCallbacks(functions.at(0), functions.at(1), functions.at(2), functions.at(3));
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(functions.size());
   for (const box2d::ContactFunction *function : functions) {
     results.push(callable_of<RubyContactFunction>(function), false);
   }
@@ -774,8 +777,9 @@ Rice::Array world_joints(const World &world) {
 
 Rice::Array world_contacts(World &world) {
   check(world);
-  Rice::Array results;
-  for (const auto &contact : world.getContacts()) {
+  const auto &contacts = world.getContacts();
+  Rice::Array results = ruby::array_with_room(contacts.size());
+  for (const auto &contact : contacts) {
     results.push(contact.get(), false);
   }
   return results;
@@ -812,7 +816,7 @@ public:
 
   // Whether to go on: Ruby's truth, which is Lua's (luax_toboolean).
   bool call(Shape *shape) override {
-    Rice::Array arguments;
+    Rice::Array arguments = ruby::array_with_room(1 + arguments_.size());
     arguments.push(shape, false);
     for (const Rice::Object &argument : arguments_) {
       arguments.push(argument, false);
@@ -832,7 +836,8 @@ public:
 
   // The fraction to clip the ray to, which must be a number.
   float call(Shape *shape, float x, float y, float xn, float yn, float fraction) override {
-    Rice::Array arguments;
+    constexpr std::size_t hit_arguments = 6;
+    Rice::Array arguments = ruby::array_with_room(hit_arguments + arguments_.size());
     arguments.push(shape, false);
     for (const float value : {x, y, xn, yn, fraction}) {
       arguments.push(static_cast<double>(value), false);
@@ -944,7 +949,7 @@ std::vector<int> bit_list(const Rice::Array &given) {
 }
 
 Rice::Array integers(const std::vector<int> &values) {
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(values.size());
   for (const int value : values) {
     results.push(value, false);
   }
@@ -1060,8 +1065,9 @@ Rice::Array reaction_force(Joint &joint, double dt) {
 // PolygonShape::getPoints and EdgeShape::getPoints as Lota's physics patch
 // leaves them: each vertex's x and y, in pixels.
 Rice::Array polygon_points(box2d::PolygonShape &shape) {
-  Rice::Array results;
-  for (const float value : shape.getPoints()) {
+  const auto &points = shape.getPoints();
+  Rice::Array results = ruby::array_with_room(points.size());
+  for (const float value : points) {
     results.push(static_cast<double>(value), false);
   }
   return results;
@@ -1083,7 +1089,7 @@ Rice::Array edge_points(box2d::EdgeShape &shape) {
 Rice::Array chain_points(const box2d::ChainShape &shape) {
   const b2Vec2 *verts = shape.getPoints();
   const int count = shape.getVertexCount();
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(2 * static_cast<std::size_t>(count));
   for (const b2Vec2 &vertex : std::span<const b2Vec2>(verts, static_cast<std::size_t>(count))) {
     const b2Vec2 v = Physics::scaleUp(vertex);
     results.push(static_cast<double>(v.x), false);
@@ -1171,8 +1177,9 @@ Rice::Array normal(Contact &contact) {
 
 Rice::Array positions(Contact &contact) {
   check(contact);
-  Rice::Array results;
-  for (const float value : contact.getPositions()) {
+  const auto &values = contact.getPositions();
+  Rice::Array results = ruby::array_with_room(values.size());
+  for (const float value : values) {
     results.push(static_cast<double>(value), false);
   }
   return results;

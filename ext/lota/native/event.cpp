@@ -276,7 +276,7 @@ void push_argument(Rice::Array &result, const Variant &variant) {
 // message's reference, which the StrongRef releases.
 Rice::Array message_array(Message *message) {
   const love::StrongRef<Message> owned(message, love::Acquire::NORETAIN);
-  Rice::Array result;
+  Rice::Array result = ruby::array_with_room(1 + owned->args.size());
   result.push(owned->name, false);
   for (const Variant &argument : owned->args) {
     push_argument(result, argument);

@@ -78,7 +78,7 @@ ImageData *new_image_data(love::Data *data) { return image()->newImageData(data)
 // faces.
 Rice::Array new_cube_faces(ImageData *id) {
   const std::vector<love::StrongRef<ImageData>> faces = image()->newCubeFaces(id);
-  Rice::Array result;
+  Rice::Array result = ruby::array_with_room(faces.size());
   for (const love::StrongRef<ImageData> &face : faces) {
     result.push(face.get(), false);
   }

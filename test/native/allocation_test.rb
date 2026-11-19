@@ -159,4 +159,72 @@ class AllocationTest < Minitest::Test
     Lota::Filesystem.remove("info.txt")
     Lota::Filesystem.identity = previous
   end
+
+  # A list whose length the binding knows before its first value, here
+  # four or more, is made with room for them all.
+  def test_a_hand_written_lists_array_needs_no_buffer_of_its_own
+    world = Lota::Physics::World.new(0, 0)
+    body = Lota::Physics::Body.new(world, 0, 0, :dynamic)
+    box = Lota::Physics::RectangleShape.new(body, 2, 2)
+    particles = Lota::Graphics::ParticleSystem.new(Lota::Graphics::Canvas.new(2, 2))
+    particles.sizes = 1, 2, 3, 4, 5, 6, 7, 8
+    data = Lota::Data::ByteData.new(64)
+
+    assert_embedded(
+      "PolygonShape#points" => box.points,
+      "Body#world_points" => body.world_points(0, 0, 1, 0, 1, 1, 0, 1),
+      "Body#mass_data" => body.__send__(:native).mass_data,
+      "ParticleSystem#sizes" => particles.sizes,
+      "Data#float" => data.__send__(:native).float(0, 6),
+    )
+  ensure
+    world&.destroy
+  end
+
+  # Lota's loop polls each message as an Array of its name and arguments,
+  # six of them for a moving mouse.
+  def test_a_messages_array_needs_no_buffer_of_its_own
+    Lota::Event.push(:mousemoved, 1.0, 2.0, 3.0, 4.0, false)
+    message = Lota::Native::Event.poll
+    message = Lota::Native::Event.poll until message.nil? || message.first == "mousemoved"
+
+    assert_equal 6, message&.size
+    assert_embedded("Native::Event.poll" => message)
+  end
+
+  # The Array of arguments a binding hands a Ruby callback is splatted
+  # into the call, so the test finds it among Ruby's objects while the
+  # callback runs: the only Array of that size whose values are what the
+  # binding passes.
+  def test_a_callbacks_arguments_need_no_buffer_of_their_own
+    world = Lota::Physics::World.new(0, 10)
+    Lota::Physics::RectangleShape.new(Lota::Physics::Body.new(world, 0, 10, :static), 100, 2)
+    Lota::Physics::RectangleShape.new(Lota::Physics::Body.new(world, 0, 8, :dynamic), 2, 2)
+    found = {}
+    post_solve = lambda do |*|
+      found["post-solve"] ||= native_arguments { |values| values.size > 4 && values[2].instance_of?(Lota::Native::Contact) }
+    end
+    world.callbacks = [nil, nil, nil, post_solve]
+    20.times { world.update(1 / 60.0) }
+    marks = Array.new(3) { Object.new }
+    world.ray_cast(-10, 8, 10, 8, *marks) do
+      found["ray cast"] ||= native_arguments { |values| values.size == 9 && values.last.equal?(marks.last) }
+      1
+    end
+    world.query_shapes_in_area(-10, 0, 10, 20, *marks) do
+      found["query"] ||= native_arguments { |values| values[1].equal?(marks.first) && !values.first.is_a?(Proc) }
+      true
+    end
+
+    assert_equal ["post-solve", "ray cast", "query"], found.keys
+    assert_embedded(found)
+  ensure
+    world&.destroy
+  end
+
+  # The Array, among every Array Ruby holds, whose values the block
+  # accepts, or nil.
+  def native_arguments(&)
+    ObjectSpace.each_object(Array).find(&)
+  end
 end

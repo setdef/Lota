@@ -227,7 +227,7 @@ Rice::Object perform_atomic(const love::Data &data, Rice::Array call_given) {
   const Rice::Array call = std::move(call_given);
   const std::vector<Rice::Object> given = ruby::elements(call);
   Rice::Object block = given.empty() ? ruby::nil() : given.front();
-  Rice::Array arguments;
+  Rice::Array arguments = ruby::array_with_room(given.empty() ? 0 : given.size() - 1);
   for (std::size_t i = 1; i < given.size(); i++) {
     arguments.push(given.at(i), false);
   }
@@ -262,7 +262,7 @@ Rice::Array data_values(const love::Data &data, double offset_number,
 
   const std::span<const std::byte> bytes(static_cast<const std::byte *>(data.getData()),
                                          data.getSize());
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(static_cast<std::size_t>(count));
   for (int i = 0; i < count; i++) {
     T value{};
     std::memcpy(&value,

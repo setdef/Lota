@@ -98,8 +98,9 @@ Rice::Array get_window(WindowSettings &settings) {
 }
 
 Rice::Array fullscreen_types() {
-  Rice::Array names;
-  for (const std::string &name : Window::getConstants(Window::FULLSCREEN_MAX_ENUM)) {
+  const std::vector<std::string> types = Window::getConstants(Window::FULLSCREEN_MAX_ENUM);
+  Rice::Array names = ruby::array_with_room(types.size());
+  for (const std::string &name : types) {
     names.push(name, false);
   }
   return names;
@@ -141,8 +142,9 @@ Rice::Array get_fullscreen_modes(std::optional<int> display) {
     window().getPosition(x, y, displayindex);
   }
 
-  Rice::Array list;
-  for (const Window::DisplayMode &mode : window().getFullscreenModes(displayindex)) {
+  const std::vector<Window::DisplayMode> modes = window().getFullscreenModes(displayindex);
+  Rice::Array list = ruby::array_with_room(modes.size());
+  for (const Window::DisplayMode &mode : modes) {
     Rice::Array entry;
     entry.push(mode.width, false);
     entry.push(mode.height, false);
@@ -214,8 +216,9 @@ int show_message_box_with_buttons(const std::string &title, const std::string &m
 // The names of the file dialog's types, for Lota::Window.show_file_dialog's
 // error (luax_enumerror, wrap_Window.cpp:692-694).
 Rice::Array file_dialog_types() {
-  Rice::Array names;
-  for (const std::string &name : Window::getConstants(Window::FILEDIALOG_MAX_ENUM)) {
+  const std::vector<std::string> types = Window::getConstants(Window::FILEDIALOG_MAX_ENUM);
+  Rice::Array names = ruby::array_with_room(types.size());
+  for (const std::string &name : types) {
     names.push(name, false);
   }
   return names;
@@ -258,7 +261,7 @@ using FileDialogCallable = ruby::Root;
 void file_dialog_callback(void *context, const std::vector<std::string> &files,
                           const char *filtername, const char *errstr) {
   const std::unique_ptr<FileDialogCallable> callable(static_cast<FileDialogCallable *>(context));
-  Rice::Array list;
+  Rice::Array list = ruby::array_with_room(files.size());
   for (const std::string &file : files) {
     if (!file.empty()) {
       list.push(Rice::String(file), false);

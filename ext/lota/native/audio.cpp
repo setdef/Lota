@@ -260,7 +260,7 @@ void set_request_recording_permission(bool request) {
 Rice::Array pause() {
   const std::vector<Source *> sources =
       module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->pause();
-  Rice::Array paused;
+  Rice::Array paused = ruby::array_with_room(sources.size());
   for (Source *source : sources) {
     paused.push(source, false);
   }
@@ -306,7 +306,7 @@ void pause_sources(Rice::Array sources) {
 
 // The names of a list LÖVE fills a table with in a loop, as an Array.
 Rice::Array names_of(const std::vector<std::string> &list) {
-  Rice::Array names;
+  Rice::Array names = ruby::array_with_room(list.size());
   for (const std::string &name : list) {
     names.push(name, false);
   }
@@ -343,7 +343,7 @@ bool invented_recording_device(RecordingDevice &device) {
 Rice::Array recording_devices() {
   const std::vector<RecordingDevice *> &devices =
       module<Audio>(love::Module::M_AUDIO, "Lota::Audio")->getRecordingDevices();
-  Rice::Array list;
+  Rice::Array list = ruby::array_with_room(devices.size());
   for (RecordingDevice *device : devices) {
     if (invented_recording_device(*device)) {
       continue;
@@ -537,7 +537,7 @@ Rice::Object effect(const std::string &namestr) {
   const char *valstr = nullptr;
   const auto type = static_cast<Effect::Type>(static_cast<int>(params[Effect::EFFECT_TYPE]));
 
-  Rice::Array settings;
+  Rice::Array settings = ruby::array_with_room(params.size());
   for (const auto &p : params) {
     if (!Effect::getConstant(p.first, keystr, type)) {
       Effect::getConstant(p.first, keystr, Effect::TYPE_BASIC);
@@ -613,7 +613,7 @@ Rice::Array filter_pairs(std::map<Filter::Parameter, float> &params) {
   const char *valstr = nullptr;
   const auto type = static_cast<Filter::Type>(static_cast<int>(params[Filter::FILTER_TYPE]));
 
-  Rice::Array settings;
+  Rice::Array settings = ruby::array_with_room(params.size());
   for (const auto &p : params) {
     if (!Filter::getConstant(p.first, keystr, type)) {
       Filter::getConstant(p.first, keystr, Filter::TYPE_BASIC);

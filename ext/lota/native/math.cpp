@@ -165,7 +165,7 @@ std::vector<love::Vector2> points_of(const Rice::Array &coordinates) {
 // The coordinates of +points+, x then y for each, as w_BezierCurve_render
 // and w_triangulate push them, each a float pushed as a lua_Number.
 Rice::Array coordinates_of(const std::vector<love::Vector2> &points) {
-  Rice::Array coordinates;
+  Rice::Array coordinates = ruby::array_with_room(2 * points.size());
   for (const love::Vector2 &point : points) {
     coordinates.push(static_cast<double>(point.x), false);
     coordinates.push(static_cast<double>(point.y), false);
@@ -194,7 +194,7 @@ Rice::Array triangulate(Rice::Array coordinates_given) {
   } else {
     triangles = love::math::triangulate(vertices);
   }
-  Rice::Array results;
+  Rice::Array results = ruby::array_with_room(triangles.size());
   for (const love::math::Triangle &tri : triangles) {
     results.push(coordinates_of({tri.a, tri.b, tri.c}), false);
   }
