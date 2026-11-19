@@ -18,8 +18,13 @@ class ExtconfTest < Minitest::Test
 
   EXTCONF = File.join(ROOT, "ext/lota/extconf.rb")
 
-  def extconf(dir, *options, script: EXTCONF)
-    Open3.capture2e(RbConfig.ruby, script, *options, chdir: dir)
+  def extconf(dir, *options, script: EXTCONF, env: {})
+    Open3.capture2e(env, RbConfig.ruby, script, *options, chdir: dir)
+  end
+
+  # An environment whose PATH looks in +dir+ first.
+  def path_first(dir)
+    { "PATH" => [dir, ENV.fetch("PATH")].join(File::PATH_SEPARATOR) }
   end
 
   # The CMake cache's entries, one per line.
@@ -55,6 +60,34 @@ class ExtconfTest < Minitest::Test
       assert status.success?, output
       assert_includes cache(build), "LOTA_NATIVE_TEST:BOOL=ON"
       assert_includes cache(build), "LOTA_SANITIZE:BOOL=ON"
+    end
+  end
+
+  # A version manager moves ninja, as mise does when its data folder or the
+  # pinned version changes, between two configures of one tree. The tree
+  # keeps the first ninja's path in its cache, and the second configure
+  # names the ninja on PATH now rather than fail in project() running the
+  # one that is gone.
+  def test_a_tree_whose_ninja_moved_configures_with_the_ninja_on_path
+    in_tree do |root|
+      exe = "ninja#{RbConfig::CONFIG['EXEEXT']}"
+      ninja = ENV.fetch("PATH").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, exe) }
+        .find { |path| File.executable?(path) && !File.directory?(path) }
+      assert ninja, "no ninja on PATH, which mise.toml pins"
+      build = File.join(root, "build")
+      old = File.join(root, "old")
+      FileUtils.mkdir_p(old)
+      FileUtils.cp(File.realpath(ninja), old)
+      output, status = extconf(root, "--with-cmake-build-dir=#{build}", env: path_first(old))
+      assert status.success?, output
+      assert_includes cache(build), "CMAKE_MAKE_PROGRAM:FILEPATH=#{File.join(old, exe)}"
+
+      new = File.join(root, "new")
+      FileUtils.mv(old, new)
+      output, status = extconf(root, "--with-cmake-build-dir=#{build}", env: path_first(new))
+
+      assert status.success?, output
+      assert_includes cache(build), "CMAKE_MAKE_PROGRAM:FILEPATH=#{File.join(new, exe)}"
     end
   end
 

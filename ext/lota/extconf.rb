@@ -69,7 +69,14 @@ gem "rice", RICE_VERSION
 rice = Gem.loaded_specs.fetch("rice").full_gem_path
 
 configure = [cmake, "-S", __dir__, "-B", build]
-configure += %w[-G Ninja] if find_executable("ninja")
+# The ninja on PATH now, by its path. CMake keeps the generator's program
+# in its cache, CMAKE_MAKE_PROGRAM, which find_program fills once and never
+# searches for again while it is set (CMakeNinjaFindMake.cmake), so a tree
+# configured before a version manager moved or upgraded ninja otherwise
+# fails in project(), running a ninja that is gone. Naming it changes no
+# compile command, so nothing is rebuilt for it.
+ninja = find_executable("ninja")
+configure += ["-G", "Ninja", "-DCMAKE_MAKE_PROGRAM:FILEPATH=#{ninja}"] if ninja
 configure += [
   "-DRuby_EXECUTABLE:FILEPATH=#{RbConfig.ruby}",
   "-DRICE_DIR:PATH=#{rice}",
