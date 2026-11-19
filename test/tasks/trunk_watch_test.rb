@@ -301,6 +301,19 @@ class TrunkWatchTest < Minitest::Test
     assert_match(/\A\d\d:\d\dZ reran 30 \(abcdef0 CI, attempt 1\) after an outage\n\z/, out.string)
   end
 
+  # The automatic revert's own run is red when it tells people of a red
+  # run it reverted nothing for, which the watch sees in that run itself,
+  # or when it could not act; neither is a commit's fault, so the watch
+  # neither reruns it nor reverts a commit for it.
+  def test_a_red_run_of_the_automatic_revert_is_no_commits_fault
+    gh = FakeGh.new([run_row(31, "abcdef0123", "failure", workflow: "Revert a red trunk")] + runs.drop(1), CODE_LOG)
+    out = StringIO.new
+
+    assert_nil watch(gh, out:).check
+    refute(gh.calls.any? { |call| call.first(2) == %w[run rerun] })
+    refute_includes out.string, "TRUNK RED"
+  end
+
   def test_a_real_failure_is_reported_and_returned
     out = StringIO.new
     red = watch(FakeGh.new(runs, CODE_LOG), out:).check

@@ -87,6 +87,12 @@ class TrunkWatch
   # two-character escapes.
   ANSI = %r{\e\[[0-?]*[ -/]*[@-~]|\e[@-Z\\-_]}
 
+  # The workflows whose red runs are no commit's fault: the automatic
+  # revert's (.github/workflows/revert.yml), which is red when it tells
+  # people of a red run it reverted nothing for, which the watch sees in
+  # that run itself, or when it could not act.
+  BYSTANDERS = ["Revert a red trunk"].freeze
+
   # A run is run again while its attempt is below this.
   ATTEMPTS = 3
 
@@ -346,6 +352,7 @@ class TrunkWatch
   private def failed_runs
     @runs.filter_map do |run|
       next unless run["status"] == "completed" && run["conclusion"] == "failure" && run["databaseId"] > @floor
+      next if BYSTANDERS.include?(run["workflowName"])
 
       Run.new(id: run["databaseId"], attempt: run["attempt"], sha: run["headSha"][0, 7], head: run["headSha"], workflow: run["workflowName"])
     end
