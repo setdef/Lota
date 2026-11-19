@@ -98,12 +98,20 @@ module AutoRevert
   # +hang+ is the first such line. Those are left to the newer run, which
   # holds the same commits; a hang is reported, naming its line, so a hang
   # a commit caused shows in every run it repeats in.
-  def self.triage(run, outage:, jobs: [], newer: nil, hang: nil)
+  #
+  # +tests_only+ says every failed job failed only in TESTS_ONLY_STEPS,
+  # which judge how the commits were tested, not what they do: that is
+  # reported, and nothing runs again.
+  def self.triage(run, outage:, jobs: [], newer: nil, hang: nil, tests_only: false)
     return Plan.of(:nothing, "run #{run.id} is #{run.status}") unless run.status == "completed"
     return Plan.of(:nothing, "run #{run.id} concluded #{run.conclusion.empty? ? 'nothing' : run.conclusion}") unless run.conclusion == "failure"
     return Plan.of(:nothing, "run #{run.id} was started by #{run.event}, which does not judge a branch") unless EVENTS.include?(run.event)
     return Plan.of(:report, "only CI's release jobs failed (#{jobs.join(', ')}), which says nothing about the commits") if
       !jobs.empty? && (jobs - RELEASE_JOBS).empty?
+    if tests_only
+      return Plan.of(:report, "only the check that each new test failed before its commit failed, which says how the commits " \
+        "were tested, not what they do, and leaves the next push's run green")
+    end
     return Plan.of(:nothing, "every error of run #{run.id} was an outage, and run #{newer}, newer, holds the same commits") if outage && newer
     if hang && newer && run.attempt == 1
       return Plan.of(:report, "every failed job hung or ran out of time (#{hang}), as a flake does too, so it is left to " \
@@ -114,6 +122,76 @@ module AutoRevert
     return Plan.of(:report, "every error of run #{run.id} was an outage, through #{run.attempt} attempts") if outage
 
     nil
+  end
+
+  # The workflows that run once for each commit pushed to trunk, never
+  # cancelled (doc/contributors/ci.md): the pre-push tier. A rerun of
+  # theirs waits behind no newer run, so a newer run changes nothing in
+  # triage; and a commit's own run judges it, so a red run waits for the
+  # verdict of the commit before it (AutoRevert.ahead).
+  PER_COMMIT = %w[prepush.yml].freeze
+
+  # The steps whose failure judges how a commit was tested, not what it
+  # does: the pre-push tier's check that each test a push adds or changes
+  # failed before its commit (rake red_before_green). It reads the push's
+  # own commits, so the next push's run passes it again, and a revert
+  # would take back a commit that works.
+  TESTS_ONLY_STEPS = ["Check that each new test failed before its commit"].freeze
+
+  # Whether every failed job in the JSON of gh run view --json jobs failed
+  # only in TESTS_ONLY_STEPS.
+  def self.tests_only?(json)
+    jobs = JSON.parse(json.to_s).fetch("jobs", []).select { |job| job["conclusion"] == "failure" }
+    steps = jobs.map { |job| job.fetch("steps", []).select { |step| step["conclusion"] == "failure" }.map { |step| step["name"] } }
+    !steps.empty? && steps.all? { |names| !names.empty? && (names - TESTS_ONLY_STEPS).empty? }
+  rescue JSON::ParserError, TypeError
+    false
+  end
+
+  # Each commit's verdict from its runs, in the JSON of gh run list --json
+  # databaseId,headSha,status,conclusion: [:green, id] when a run of it
+  # passed, else [:going, id] when one has not finished, else [:red, id]
+  # when one failed. A commit whose every run was cancelled or skipped has
+  # none, as has a commit a push brought in under another.
+  def self.verdicts(json)
+    JSON.parse(json.to_s).group_by { |run| run["headSha"] }.filter_map do |sha, runs|
+      green = runs.find { |run| run["status"] == "completed" && run["conclusion"] == "success" }
+      going = runs.find { |run| UNFINISHED.include?(run["status"]) }
+      red = runs.find { |run| run["status"] == "completed" && run["conclusion"] == "failure" }
+      verdict = (green && [:green, green]) || (going && [:going, going]) || (red && [:red, red])
+      [sha, [verdict.first, verdict.last["databaseId"]]] if verdict
+    end.to_h
+  rescue JSON::ParserError
+    {}
+  end
+
+  # For a run of a PER_COMMIT workflow on +head+: the plan to do nothing
+  # when the newest commit before it in +graph+ (git rev-list --parents,
+  # newest first) with a verdict in +verdicts+ (AutoRevert.verdicts) has
+  # not passed. That commit's own run judges it first, and this run may be
+  # red only for what that one brought; reverting both would take back
+  # one that works. When it fails, its revert is later than +head+, so
+  # this run then asks for nothing (AutoRevert.fixed); when it passes,
+  # its run hands this one back (AutoRevert.next_red). Otherwise nil.
+  def self.ahead(head, graph, verdicts)
+    sha = graph.to_s.lines.map { |line| line.split.first }.find { |commit| commit != head && verdicts.key?(commit) }
+    return nil unless sha
+
+    state, id = verdicts.fetch(sha)
+    return nil if state == :green
+
+    Plan.of(:nothing, "#{sha[0, 7]}, before #{head[0, 7]}, has a run of its own, #{id}, which " \
+      "#{(state == :red) ? 'failed' : 'has not finished'}; it judges #{sha[0, 7]} first, and hands this run back if it passes")
+  end
+
+  # The id of the run to judge once a PER_COMMIT run has passed: the red
+  # run of the first commit in +later+ (the commits after it, oldest
+  # first) with a verdict in +verdicts+, which AutoRevert.ahead left
+  # waiting on this one. Nil when that commit's verdict is not red.
+  def self.next_red(later, verdicts)
+    sha = later.find { |commit| verdicts.key?(commit) }
+    state, id = verdicts[sha] if sha
+    id if state == :red
   end
 
   # A line of a job's log that says the job hung or ran out of time rather
@@ -325,15 +403,47 @@ module AutoRevert
     def call
       run = Run.parse(gh!("api", "repos/#{@repository}/actions/runs/#{@run_id}"))
       return refuse("run #{run.id} is on #{run.branch}; only a dry run acts on a branch other than #{TRUNK}") unless @dry_run || run.branch == TRUNK
+      return hand_on(run) if per_commit?(run) && run.status == "completed" && run.conclusion == "success"
 
+      judge(run)
+    end
+
+    # Judges a red run. A run +handed+ on by the run before it
+    # (hand_on) goes on to its commits only where triage leaves it to them:
+    # anything triage asks for, its own verdict has asked for already.
+    private def judge(run, handed: false)
       json = @gh.call("run", "view", run.id.to_s, "--repo", @repository, "--json", "jobs")
       jobs = TrunkWatch.failed_job_ids(json)
       red = run.status == "completed" && run.conclusion == "failure"
       logs = red ? logs(jobs) + unstarted_logs(TrunkWatch.unstarted_job_ids(json)) : []
       plan = AutoRevert.triage(run, outage: !logs.empty? && TrunkWatch.classify_jobs(logs, 1).outage,
-        jobs: jobs.map(&:last), newer: newer_run(run), hang: AutoRevert.hang(logs))
+        jobs: jobs.map(&:last), newer: per_commit?(run) ? nil : newer_run(run), hang: AutoRevert.hang(logs),
+        tests_only: AutoRevert.tests_only?(json) && TrunkWatch.unstarted_job_ids(json).empty?)
+      return act(run, jobs.map(&:last), Plan.of(:nothing, "run #{run.id}'s own verdict saw to it: #{plan.reason}")) if handed && plan
+
       plan ||= plan_for(run)
       act(run, jobs.map(&:last), plan)
+    end
+
+    # A PER_COMMIT run that passed: the red run of the next commit, left
+    # waiting on this one's verdict (AutoRevert.ahead), is judged now.
+    private def hand_on(run)
+      branch = "origin/#{run.branch}"
+      git!("fetch", "--quiet", "origin", "+refs/heads/#{run.branch}:refs/remotes/#{branch}")
+      later = @git.call("merge-base", "--is-ancestor", run.sha, branch) ? git!("rev-list", "--reverse", "#{run.sha}..#{branch}").split : []
+      id = AutoRevert.next_red(later, AutoRevert.verdicts(runs_of(run)))
+      return act(run, [], Plan.of(:nothing, "run #{run.id} passed, and no red run after it waited on it")) unless id
+
+      @out.puts "Run #{run.id} passed on #{run.sha[0, 7]}, so run #{id}, of the next commit with a run, which waited on it, is judged now"
+      judge(Run.parse(gh!("api", "repos/#{@repository}/actions/runs/#{id}")), handed: true)
+    end
+
+    private def per_commit?(run) = PER_COMMIT.include?(run.workflow)
+
+    # The workflow's latest runs on the run's branch, as JSON.
+    private def runs_of(run)
+      @gh.call("run", "list", "--repo", @repository, "--workflow", run.workflow, "--branch", run.branch,
+        "--limit", "200", "--json", "databaseId,headSha,status,conclusion")
     end
 
     private def act(run, jobs, plan)
@@ -380,13 +490,17 @@ module AutoRevert
       git!("fetch", "--quiet", "origin", "+refs/heads/#{run.branch}:refs/remotes/#{branch}")
       return Plan.of(:report, "#{run.sha[0, 7]} is no longer on #{run.branch}") unless @git.call("merge-base", "--is-ancestor", run.sha, branch)
 
-      green = AutoRevert.green(@gh.call("run", "list", "--repo", @repository, "--workflow", run.workflow, "--branch", run.branch,
-        "--limit", "200", "--json", "headSha,status,conclusion"))
+      runs = runs_of(run)
+      green = AutoRevert.green(runs)
       later = git!("rev-list", "#{run.sha}..#{branch}").split
       fixed = AutoRevert.fixed(later, green, messages(later))
       return fixed if fixed
 
-      plan = AutoRevert.batch(run.sha, git!("rev-list", "--parents", "--max-count=#{HISTORY}", run.sha), green)
+      graph = git!("rev-list", "--parents", "--max-count=#{HISTORY}", run.sha)
+      ahead = AutoRevert.ahead(run.sha, graph, AutoRevert.verdicts(runs)) if per_commit?(run)
+      return ahead if ahead
+
+      plan = AutoRevert.batch(run.sha, graph, green)
       plan = AutoRevert.screen(plan, messages(plan.commits)) if plan.action == :revert
       return plan unless plan.action == :revert
 

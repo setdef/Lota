@@ -90,6 +90,73 @@ class AutoRevertTest < Minitest::Test
     assert_equal :report, AutoRevert.triage(run_of(attempt: 1), outage: false, jobs: ["Release"], newer: 43).action
   end
 
+  # The pre-push tier's check that each new test failed before its commit
+  # says how a commit was tested, not what it does, and the next push's
+  # run passes it again, so its red alone is reported, not rerun or
+  # reverted; beside any other failure the commits still decide.
+  def test_a_run_red_only_in_the_check_of_how_its_commits_were_tested_is_reported
+    plan = AutoRevert.triage(run_of(attempt: 1), outage: false, jobs: ["Linux (x86_64-linux-gnu)"], tests_only: true)
+
+    assert_equal :report, plan.action
+    assert_match(/how the commits were tested, not what they do/, plan.reason)
+  end
+
+  def jobs_json(*jobs)
+    JSON.generate(jobs: jobs.each_with_index.map do |(conclusion, failed), index|
+      steps = [
+        { name: "Run the pre-push tier", conclusion: failed.include?(:tier) ? "failure" : "success" },
+        { name: "Check that each new test failed before its commit", conclusion: failed.include?(:tests) ? "failure" : "success" },
+        { name: "Report ccache's statistics", conclusion: "success" },
+]
+      { databaseId: index, name: "job #{index}", conclusion:, steps: }
+    end)
+  end
+
+  def test_tests_only_is_every_failed_job_failing_only_in_the_check_of_its_tests
+    assert AutoRevert.tests_only?(jobs_json(["failure", [:tests]], ["success", []]))
+    refute AutoRevert.tests_only?(jobs_json(["failure", [:tests]], ["failure", [:tier]]))
+    refute AutoRevert.tests_only?(jobs_json(["failure", [:tier]]))
+    refute AutoRevert.tests_only?(jobs_json(["failure", []]))
+    refute AutoRevert.tests_only?(jobs_json(["success", []]))
+    refute AutoRevert.tests_only?("not json")
+  end
+
+  def runs_json(verdicts)
+    JSON.generate(verdicts.flat_map do |sha, runs|
+      runs.map { |id, status, conclusion| { databaseId: id, headSha: sha, status:, conclusion: } }
+    end)
+  end
+
+  def test_a_commits_verdict_is_green_over_going_over_red_and_none_when_cancelled
+    json = runs_json(GREEN => [[1, "completed", "failure"], [2, "completed", "success"]],
+      FIRST => [[3, "completed", "failure"], [4, "in_progress", ""]], SECOND => [[5, "completed", "failure"]],
+      LATER => [[6, "completed", "cancelled"]])
+
+    assert_equal({ GREEN => [:green, 2], FIRST => [:going, 4], SECOND => [:red, 5] }, AutoRevert.verdicts(json))
+    assert_empty AutoRevert.verdicts("not json")
+  end
+
+  # A tier run judges its own commit, so a red one waits for the verdict
+  # of the newest commit before it that has a run: that commit may be what
+  # made this run red too.
+  def test_a_per_commit_run_waits_for_the_verdict_of_the_commit_before_it
+    assert_nil AutoRevert.ahead(SECOND, GRAPH, FIRST => [:green, 1])
+    assert_nil AutoRevert.ahead(SECOND, GRAPH, GREEN => [:green, 1])
+    assert_nil AutoRevert.ahead(SECOND, GRAPH, SECOND => [:red, 42])
+    assert_match(/#{FIRST[0, 7]}, before #{SECOND[0, 7]}, has a run of its own, 41, which failed/,
+      AutoRevert.ahead(SECOND, GRAPH, FIRST => [:red, 41], GREEN => [:green, 1]).reason)
+    assert_match(/41, which has not finished/, AutoRevert.ahead(SECOND, GRAPH, FIRST => [:going, 41]).reason)
+    assert_equal :nothing, AutoRevert.ahead(SECOND, GRAPH, FIRST => [:going, 41]).action
+  end
+
+  def test_the_run_a_passed_run_hands_on_is_the_next_commits_when_red
+    assert_equal 42, AutoRevert.next_red([SECOND, LATER], SECOND => [:red, 42], LATER => [:red, 43])
+    assert_equal 43, AutoRevert.next_red([SECOND, LATER], LATER => [:red, 43])
+    assert_nil AutoRevert.next_red([SECOND, LATER], SECOND => [:going, 42], LATER => [:red, 43])
+    assert_nil AutoRevert.next_red([SECOND], SECOND => [:green, 42])
+    assert_nil AutoRevert.next_red([], {})
+  end
+
   # A job that hung or ran out of time fails on an innocent commit too,
   # when a runner is slow, so with no rerun to rule that out it is left
   # to the newer run, and reported with its hang, so that a hang a commit
@@ -326,9 +393,9 @@ class AutoRevertTest < Minitest::Test
     def called?(pattern) = @calls.any? { |args| pattern.match?(args.join(" ")) }
   end
 
-  def run_json(attempt: 2, branch: "trunk")
-    JSON.generate(id: 42, run_attempt: attempt, status: "completed", conclusion: "failure", head_sha: SECOND, head_branch: branch,
-      event: "push", path: ".github/workflows/ci.yml", html_url: "https://github.com/setdef/Lota/actions/runs/42")
+  def run_json(attempt: 2, branch: "trunk", id: 42, sha: SECOND, conclusion: "failure", workflow: "ci.yml")
+    JSON.generate(id:, run_attempt: attempt, status: "completed", conclusion:, head_sha: sha, head_branch: branch,
+      event: "push", path: ".github/workflows/#{workflow}", html_url: "https://github.com/setdef/Lota/actions/runs/#{id}")
   end
 
   def gh_answers(attempt: 2, branch: "trunk", runs: [GREEN])
@@ -532,5 +599,168 @@ class AutoRevertTest < Minitest::Test
       assert_equal 2, git.calls.count { |args| args.first == "push" }, message
       assert_match(/REVERTED/, out)
     end
+  end
+
+  # The pre-push tier: GREEN and FIRST passed, run 42 is SECOND's, and run
+  # 43 LATER's, the commit pushed after it.
+  TIER_LOG = "Failure: GameTest#test_draw [test/game_test.rb:12]\n"
+
+  # The jobs of a tier run whose Linux job failed in +steps+, and, when
+  # +unstarted+, whose macOS job no runner took.
+  # GitHub's annotation on a job no runner took.
+  NOT_ACQUIRED = { annotation_level: "failure", message: "The job was not acquired by Runner of type hosted even after multiple attempts" }.freeze
+
+  def tier_job(id, steps = ["Run the pre-push tier"], unstarted: false)
+    failed = steps.map { |name| { name:, conclusion: "failure" } }
+    linux = { databaseId: id, name: "Linux (x86_64-linux-gnu)", conclusion: "failure", steps: failed }
+    macos = { databaseId: id + 100, name: "macOS", conclusion: "cancelled", steps: [] }
+    JSON.generate(jobs: unstarted ? [linux, macos] : [linux])
+  end
+
+  # gh for the tier: run 42 on SECOND, run 43 on LATER, the commits'
+  # verdicts, and, as on a busy trunk, a newer run of the workflow going.
+  def tier_gh(verdicts, attempt: 2, conclusion: "failure", steps: ["Run the pre-push tier"])
+    {
+      %r{\Aapi repos/setdef/Lota/actions/runs/42\z} => run_json(attempt:, conclusion:, workflow: "prepush.yml"),
+      %r{\Aapi repos/setdef/Lota/actions/runs/43\z} => run_json(id: 43, sha: LATER, workflow: "prepush.yml"),
+      /\Arun view 42/ => tier_job(7, steps),
+      /\Arun view 43/ => tier_job(8),
+      %r{actions/jobs/\d+/logs} => TIER_LOG,
+      /\Arun rerun/ => "",
+      /\Arun list .*--json databaseId,status\z/ => JSON.generate([{ databaseId: 44, status: "in_progress" }]),
+      /\Arun list/ => runs_json(verdicts),
+      /\Aworkflow run/ => "",
+    }
+  end
+
+  # git with LATER on trunk after SECOND.
+  def tier_git(**answers)
+    {
+      %r{\Arev-list --reverse #{SECOND}\.\.origin/trunk\z} => "#{LATER}\n",
+      /\Arev-list #{LATER}\.\./ => "",
+      /\Arev-list --parents --max-count=\d+ #{LATER}/ => "#{LATER} #{SECOND}\n#{GRAPH}",
+      /\Arev-list #{SECOND}\.\./ => "#{LATER}\n",
+}.merge(git_answers(**answers))
+  end
+
+  def bot_for(run_id, gh, git)
+    out = StringIO.new
+    status = AutoRevert::Bot.new(repository: "setdef/Lota", run_id:, gh: gh.to_proc, git: git.to_proc, out:).call
+    [status, out.string]
+  end
+
+  # The tier runs each commit once, never cancelled, so a rerun of its
+  # waits behind nothing: a newer run going does not stop the first failed
+  # attempt from running again to rule out a flaky test.
+  def test_a_tier_runs_first_failed_attempt_runs_again_though_newer_runs_are_going
+    gh = Fake.new(tier_gh({ FIRST => [[41, "completed", "success"]], SECOND => [[42, "completed", "failure"]] }, attempt: 1))
+    git = Fake.new(tier_git)
+    status, out = bot(gh, git)
+
+    assert_equal 0, status, out
+    assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
+    refute git.called?(/\Arevert/)
+  end
+
+  def test_a_tier_run_red_only_in_the_check_of_its_tests_is_reported_and_reverts_nothing
+    gh = Fake.new(tier_gh({ FIRST => [[41, "completed", "success"]], SECOND => [[42, "completed", "failure"]] },
+      attempt: 1, steps: ["Check that each new test failed before its commit"]))
+    git = Fake.new(tier_git)
+    status, out = bot(gh, git)
+
+    assert_equal 1, status
+    refute gh.called?(/\Arun rerun/)
+    refute git.called?(/\A(?:revert|push)/)
+    assert_match(/reverted nothing: only the check that each new test failed before its commit failed/, out)
+  end
+
+  # A job no runner took has judged nothing yet, so beside it that check's
+  # red is no verdict on the run: the run's first attempt runs again.
+  def test_a_tier_run_red_in_the_check_of_its_tests_beside_a_job_never_started_runs_again
+    gh = Fake.new(tier_gh({ SECOND => [[42, "completed", "failure"]] }, attempt: 1, steps: ["Check that each new test failed before its commit"])
+      .merge(/\Arun view 42/ => tier_job(7, ["Check that each new test failed before its commit"], unstarted: true),
+        %r{check-runs/107/annotations} => JSON.generate([NOT_ACQUIRED])))
+    git = Fake.new(tier_git)
+    status, out = bot(gh, git)
+
+    assert_equal 0, status, out
+    assert gh.called?(/\Arun rerun 42/)
+  end
+
+  # Two neighbouring commits each with a red tier run, SECOND's the one
+  # that broke trunk: LATER's verdict comes first, while SECOND's run has
+  # not finished or its own verdict is still to come. LATER's waits, and
+  # SECOND's then reverts SECOND alone.
+  def test_a_later_commits_tier_verdict_first_waits_and_the_earlier_reverts_alone
+    [[42, "in_progress", ""], [42, "completed", "failure"]].each do |second|
+      verdicts = {
+GREEN => [[1, "completed", "success"]],
+FIRST => [[41, "completed", "success"]],
+SECOND => [second],
+LATER => [[43, "completed", "failure"]],
+}
+      gh = Fake.new(tier_gh(verdicts))
+      git = Fake.new(tier_git)
+      status, out = bot_for(43, gh, git)
+
+      assert_equal 0, status, out
+      refute git.called?(/\A(?:revert|push)/)
+      assert_match(/Nothing to do: #{SECOND[0, 7]}, before #{LATER[0, 7]}, has a run of its own, 42/, out)
+    end
+
+    verdicts = {
+GREEN => [[1, "completed", "success"]],
+FIRST => [[41, "completed", "success"]],
+SECOND => [[42, "completed", "failure"]],
+LATER => [[43, "completed", "failure"]],
+}
+    gh = Fake.new(tier_gh(verdicts))
+    git = Fake.new(tier_git)
+    status, out = bot_for(42, gh, git)
+
+    assert_equal 0, status, out
+    assert git.called?(/\Arevert --no-commit #{SECOND}\z/)
+  end
+
+  # LATER's red verdict waited on SECOND's run, which then passed on its
+  # rerun: SECOND's run hands LATER's back, and LATER is reverted alone.
+  def test_a_tier_run_that_passes_hands_on_the_red_run_that_waited_on_it
+    verdicts = {
+FIRST => [[41, "completed", "success"]],
+SECOND => [[42, "completed", "success"]],
+LATER => [[43, "completed", "failure"]],
+}
+    gh = Fake.new(tier_gh(verdicts, conclusion: "success"))
+    git = Fake.new(tier_git)
+    status, out = bot_for(42, gh, git)
+
+    assert_equal 0, status, out
+    assert_match(/Run 42 passed on #{SECOND[0, 7]}, so run 43/, out)
+    assert git.called?(/\Arevert --no-commit #{LATER}\z/)
+    assert_match(/REVERTED #{LATER[0, 7]} as/, out)
+  end
+
+  # A passed run hands on nothing when the next commit's run has not
+  # finished, or passed, or is red but still its own verdict's to rerun.
+  def test_a_tier_run_that_passes_hands_on_nothing_else
+    [[43, "in_progress", ""], [43, "completed", "success"]].each do |later|
+      gh = Fake.new(tier_gh({ SECOND => [[42, "completed", "success"]], LATER => [later] }, conclusion: "success"))
+      git = Fake.new(tier_git)
+      status, out = bot_for(42, gh, git)
+
+      assert_equal 0, status, out
+      refute gh.called?(%r{actions/runs/43|\Arun rerun})
+      assert_match(/Nothing to do: run 42 passed, and no red run after it waited on it/, out)
+    end
+
+    gh = Fake.new(tier_gh({ SECOND => [[42, "completed", "success"]], LATER => [[43, "completed", "failure"]] }, conclusion: "success")
+      .merge(%r{\Aapi repos/setdef/Lota/actions/runs/43\z} => run_json(id: 43, sha: LATER, workflow: "prepush.yml", attempt: 1)))
+    git = Fake.new(tier_git)
+    status, out = bot_for(42, gh, git)
+
+    assert_equal 0, status, out
+    refute gh.called?(/\Arun rerun/)
+    refute git.called?(/\Arevert/)
+    assert_match(/Nothing to do: run 43's own verdict saw to it/, out)
   end
 end
