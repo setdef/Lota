@@ -69,6 +69,25 @@ class TrunkWatch
   REFERENCE_WATCH = "The reference love's Metal watch reported:"
   LOTA_PRINTED = /\ALota printed/
 
+  # The lines of Gradle's report of a failed build: the heading of each
+  # failure, the line that ends the failures, the line that says a
+  # configuration could not be resolved, the head of each cause listed
+  # under it, and the cause that names a module (group:name:version) no
+  # repository had.
+  GRADLE_FAILURE = "* What went wrong:"
+  GRADLE_END = /\A\* |\ABUILD FAILED/
+  GRADLE_RESOLUTION = /\A> Could not resolve all (?:artifacts|files|dependencies) for configuration /
+  GRADLE_CAUSE = /\A {3}> /
+  GRADLE_MISSING = /\A {3}> Could not find ([^:\s]+):[^:\s]+:\S+\.\z/
+
+  # Maven Central, the repository that holds the modules other published
+  # modules depend on.
+  MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/"
+
+  # The fewest groups of modules a repository must have said it lacks
+  # before its silence is an outage rather than one wrong dependency.
+  UNANSWERED_GROUPS = 3
+
   # The lines of the gate's report (tasks/gate.rb): the heading of each
   # check's output, the heading of its table of timings, and a check's
   # row there that did not pass.
@@ -130,19 +149,77 @@ class TrunkWatch
   # The verdict on a failed run's +log+ at +attempt+: :rerun when every
   # error line is an outage's or noise and the attempt is below ATTEMPTS,
   # otherwise :stop. In a job whose every failed gate check failed only
-  # on the GPU's hang (gpu_hang), those checks' error lines and the
-  # step's exit status are the hang's, and its first line is shown among
-  # the errors.
+  # on the GPU's hang (gpu_hang), or whose Gradle build failed only for
+  # modules a repository did not give it (unanswered), those lines and
+  # the step's exit status are the outage's, and its first line is shown
+  # among the errors.
   def self.classify(log, attempt)
     lines = strip_ansi(log).lines(chomp: true)
-    hung = gpu_hang(lines.map { |line| line.sub(STAMP, "") })
+    bare = lines.map { |line| line.sub(STAMP, "") }
+    hung = gpu_hang(bare)
+    unanswered = unanswered(bare)
+    explained = hung + unanswered
     broken = lines.grep(BROKEN_DOWNLOAD)
-    errors = broken + lines.values_at(*hung).grep(GPU_HANG).first(1) + lines.grep(ERROR_LINE)
-    real = broken + lines.reject.with_index { |_, index| hung.include?(index) }.grep(ERROR_LINE)
+    shown = lines.values_at(*hung).grep(GPU_HANG).first(1) + lines.values_at(*unanswered).grep(/> Could not find /).first(1)
+    real = broken + lines.reject.with_index { |_, index| explained.include?(index) }.grep(ERROR_LINE)
     real = real.grep_v(OUTAGE).grep_v(NOISE).grep_v(BROKEN_DOWNLOAD)
-    real = real.grep_v(STEP_EXIT) unless broken.empty? && hung.empty?
-    Verdict.new(action: (real.empty? && attempt < ATTEMPTS) ? :rerun : :stop, errors:, outage: real.empty?)
+    real = real.grep_v(STEP_EXIT) unless broken.empty? && explained.empty?
+    Verdict.new(action: (real.empty? && attempt < ATTEMPTS) ? :rerun : :stop, errors: broken + shown + lines.grep(ERROR_LINE), outage: real.empty?)
   end
+
+  # The indexes of the +lines+ (a job's log, without escapes or
+  # timestamps) of Gradle's report, when its every failure is a
+  # configuration it could not resolve, and its every cause a module no
+  # repository had, though Maven Central was searched for it and each
+  # path that required it passes through a module Gradle resolved, whose
+  # published metadata names it; and when the modules are of at least
+  # UNANSWERED_GROUPS groups. Otherwise none. A module a build names
+  # itself, such as one whose version a commit got wrong, is required by
+  # the project alone (a project's name holds no ">"), and is the code's,
+  # and so are a few modules of one or two groups, and modules never
+  # searched for in Maven Central.
+  def self.unanswered(lines)
+    failures = lines.each_index.select { |index| lines[index] == GRADLE_FAILURE }.map { |start| gradle_failure(lines, start) }
+    groups = failures.map { |failure| missing_groups(lines[failure]) }
+    return [] unless !failures.empty? && groups.all? && groups.flatten.uniq.size >= UNANSWERED_GROUPS
+
+    failures.flat_map(&:to_a)
+  end
+
+  # The range of +lines+ that holds the failure of Gradle's report that
+  # starts at +start+, up to the next failure, its hints, or its verdict.
+  def self.gradle_failure(lines, start)
+    length = lines.drop(start + 1).index { |line| line.match?(GRADLE_END) } || (lines.size - start - 1)
+    start..(start + length)
+  end
+  private_class_method :gradle_failure
+
+  # The groups of the modules a +failure+ of Gradle's report could not
+  # find, when it is a configuration Gradle could not resolve and every
+  # cause it lists is a module no repository had, searched for in Maven
+  # Central and required only through other modules; otherwise nil.
+  def self.missing_groups(failure)
+    heading, *causes = failure.drop(1).reject(&:empty?).slice_before(GRADLE_CAUSE).to_a
+    return unless heading&.any?(GRADLE_RESOLUTION) && !causes.empty?
+
+    groups = causes.map { |cause| unanswered_group(cause) }
+    groups if groups.all?
+  end
+
+  # The group of the module a +cause+ of Gradle's report names, when it
+  # is a module no repository had, Maven Central among those searched,
+  # and every path that required it holds a module between the build and
+  # it; otherwise nil.
+  def self.unanswered_group(cause)
+    group = cause.first[GRADLE_MISSING, 1]
+    searched, required = cause.drop(1).map(&:strip).slice_before("Required by:").to_a
+    return unless group && searched&.first == "Searched in the following locations:" && required && required.size > 1
+
+    locations = searched.drop(1)
+    group if locations.all? { |line| line.start_with?("- ") } && locations.any? { |line| line.start_with?("- #{MAVEN_CENTRAL}") } &&
+      required.drop(1).all? { |path| path.include?(" > ") }
+  end
+  private_class_method :missing_groups, :unanswered_group
 
   # The indexes of the +lines+ (a job's log, without escapes or
   # timestamps) of the gate checks a hung GPU explains, when it explains

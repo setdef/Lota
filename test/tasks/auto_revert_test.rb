@@ -8,6 +8,7 @@
 require_relative "../test_helper"
 require_relative "../../tasks/auto_revert"
 require_relative "gate_logs"
+require_relative "gradle_logs"
 require "json"
 require "stringio"
 
@@ -246,6 +247,38 @@ class AutoRevertTest < Minitest::Test
 
     assert_equal 0, status, out
     assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
+  end
+
+  # Full run 44470744879 failed in its Android build only because Maven
+  # Central answered that it held none of the modules the Android Gradle
+  # plugin's metadata names (GradleLogs), with a newer run going, and the
+  # bot set out to revert an innocent commit. It is an outage: left to the
+  # newer run, and otherwise run again. A module the build itself names
+  # and Gradle cannot find is still the commit's, and reverted.
+  def test_the_bot_reverts_nothing_for_a_maven_repository_that_did_not_answer
+    newer = { /\Arun list .*--json databaseId,status\z/ => JSON.generate([{ databaseId: 43, status: "in_progress" }]) }
+    unanswered = { %r{actions/jobs/7/logs} => GradleLogs::UNANSWERED }
+    gh = Fake.new(newer.merge(gh_answers(attempt: 1)).merge(unanswered))
+    status, out = bot(gh, git = Fake.new(git_answers))
+
+    assert_equal 0, status, out
+    assert_includes out, "Nothing to do: every error of run 42 was an outage, and run 43, newer, holds the same commits"
+    refute git.called?(/\A(?:revert|push)/)
+
+    gh = Fake.new(gh_answers(attempt: 2).merge(unanswered))
+    status, out = bot(gh, Fake.new(git_answers))
+
+    assert_equal 0, status, out
+    assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
+
+    typo = GradleLogs.missing("com.android.tools.build:gradle:9.4.11", ["buildscript of root project 'PhoneCheck'"])
+    named = { %r{actions/jobs/7/logs} => GradleLogs.log(failures: [GradleLogs.resolution([typo])]) }
+    gh = Fake.new(gh_answers(attempt: 2).merge(named))
+    status, out = bot(gh, git = Fake.new(git_answers))
+
+    assert_equal 0, status, out
+    refute gh.called?(/\Arun rerun/)
+    assert git.called?(/\Arevert --no-commit #{SECOND} #{FIRST}\z/)
   end
 
   # The newest run of the branch's workflow after +id+ that has not

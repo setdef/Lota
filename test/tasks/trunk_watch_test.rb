@@ -7,6 +7,7 @@
 
 require_relative "tree_helper"
 require_relative "gate_logs"
+require_relative "gradle_logs"
 require_relative "../../tasks/trunk_watch"
 require "json"
 require "stringio"
@@ -163,6 +164,64 @@ class TrunkWatchTest < Minitest::Test
     assert TrunkWatch.classify(GateLogs::HUNG, 1).outage
     logs.each_with_index do |log, index|
       refute TrunkWatch.classify(log, 1).outage, "log #{index}"
+    end
+  end
+
+  # Maven Central answered that it held none of the modules the Android
+  # Gradle plugin's metadata names (GradleLogs), so the build stopped on
+  # an innocent commit, and the step's exit status is the outage's.
+  def test_a_gradle_build_maven_central_did_not_answer_is_an_outage
+    verdict = TrunkWatch.classify(GradleLogs::UNANSWERED, 1)
+
+    assert_equal :rerun, verdict.action
+    assert verdict.outage
+    assert(verdict.errors.any? { |line| line.include?("Could not find org.jetbrains.kotlin:kotlin-stdlib:2.2.10.") }, verdict.errors)
+    assert_equal :stop, TrunkWatch.classify(GradleLogs::UNANSWERED, 3).action
+    assert TrunkWatch.classify(GradleLogs::UNANSWERED, 3).outage
+    assert TrunkWatch.classify(GradleLogs::UNANSWERED.gsub(/^\S+ /, ""), 1).outage
+  end
+
+  # A commit that asks for a module that does not exist, as a typo in a
+  # version the build names, makes Gradle print the same "Could not find",
+  # but the build requires that module itself, and it is one module, not
+  # many in unrelated groups. A build that no longer searches Maven
+  # Central misses many, but none was searched for where it lives. Each is
+  # the code's.
+  def test_a_dependency_the_commit_got_wrong_is_the_codes
+    typo = GradleLogs.missing("com.android.tools.build:gradle:9.4.11", ["buildscript of root project 'PhoneCheck'"])
+    forced = GradleLogs.missing("com.google.guava:guava:33.4.0-jr", ["#{GradleLogs::PLUGIN} > com.android.tools.build:gradle-api:9.4.1"])
+    logs = {
+      "a module the build names" => GradleLogs.log(failures: [GradleLogs.resolution(GradleLogs.unanswered + [typo])]),
+      "one module a published one names" => GradleLogs.log(failures: [GradleLogs.resolution([forced])]),
+      "modules in two groups" => GradleLogs.log(failures: [GradleLogs.resolution(GradleLogs.unanswered.first(3).drop(1))]),
+      "no search of Maven Central" => GradleLogs.log(failures: [GradleLogs.resolution(GradleLogs.unanswered(repositories: GradleLogs::REPOSITORIES.first(1)))]),
+    }
+
+    assert TrunkWatch.classify(GradleLogs::UNANSWERED, 1).outage
+    logs.each do |name, log|
+      verdict = TrunkWatch.classify(log, 1)
+
+      assert_equal :stop, verdict.action, name
+      refute verdict.outage, name
+    end
+  end
+
+  # The repository's silence excuses only the failure it explains: not a
+  # cause Gradle gives that is no missing module, nor another failure of
+  # its report, nor an error after the build, nor a log with no report.
+  def test_a_repository_that_did_not_answer_excuses_no_other_failure_in_its_job
+    refused = ["   > Could not resolve com.google.guava:guava:33.4.0-jre.", "      > Could not GET 'https://repo.maven.apache.org/maven2/com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.pom'. Received status code 403 from server: Forbidden"]
+    logs = {
+      "another cause" => GradleLogs.log(failures: [GradleLogs.resolution(GradleLogs.unanswered + [refused])]),
+      "another failure" => GradleLogs.log(failures: [GradleLogs.resolution, GradleLogs::COMPILE]),
+      "an error after it" => GradleLogs.log(also: ["Error: the APK was not built"]),
+      "no report" => GradleLogs.log(failures: []),
+      "no path" => GradleLogs.log(failures: [GradleLogs.resolution(GradleLogs.unanswered.map { |entry| entry.take_while { |line| !line.include?("Required by:") } })]),
+    }
+
+    assert TrunkWatch.classify(GradleLogs::UNANSWERED, 1).outage
+    logs.each do |name, log|
+      refute TrunkWatch.classify(log, 1).outage, name
     end
   end
 
