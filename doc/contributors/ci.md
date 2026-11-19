@@ -78,7 +78,7 @@ A launch passes when no crash report appears, no line holds `[BUG]`, and the app
 `ext/lota/phone/host/ios` is the host the kit and the phone guide both use. Each choice keeps a lesson the first kits taught:
 
 - **`OS_ACTIVITY_DT_MODE` stays unset.** With it in the environment, whatever its value, the unified log copies every entry to standard error, and forwarding standard error to the log would feed the app its own output until it froze. The host and Fledge's runtime both leave the streams alone when it is set, and the kit's scheme never sets it. Xcode's console and XCTest's launches do set it, so their output stays on the app's own streams.
-- **Standard output is in sync mode.** Fledge's runtime puts `$stdout` in sync mode whenever it is not a terminal, as on a phone it never is, so a game's lines reach the log as it prints them.
+- **Standard output is written line by line.** On a phone `$stdout` is never a terminal, and Fledge's runtime still writes each line as the game prints it, as Ruby writes to a terminal, with `$stdout.sync` false as under `ruby main.rb`, so a game's lines reach the log as it prints them.
 - **SDL's accelerometer joystick is off.** SDL shows the accelerometer as a joystick on iOS, and LÖVE leaves it so. An early Lota crashed while a game read that joystick every frame, so the host sets `SDL_ACCELEROMETER_AS_JOYSTICK=0` unless the environment already sets it. A game reads the accelerometer through `Lota::Sensor`.
 - **The audio session is ambient by default**, as a game's usually is: it mixes with other apps' audio, and the silent switch mutes it.
 

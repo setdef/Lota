@@ -12,9 +12,8 @@ module Lota
   #
   # Fiddle is a gem of its own, bundled with Ruby since 4.0.0, which Lota
   # does not depend on: a game that wants pointers adds
-  # <tt>gem "fiddle"</tt> to its Gemfile. Fledge's iOS runtime leaves
-  # Fiddle out, as the App Store asks, so depending on it would put it in
-  # every phone build.
+  # <tt>gem "fiddle"</tt> to its Gemfile. Fledge's iOS runtime carries
+  # Fiddle from Fledge 0.13.0; it had left it out.
   #
   # === Example
   #
