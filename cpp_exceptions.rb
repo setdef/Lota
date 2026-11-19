@@ -124,3 +124,28 @@ allow "ext/lota/native_test/offline.mm", line: 36,
 allow "ext/lota/native_test/offline_linux.cpp", line: 34,
   reason: "dlsym returns the C library's connect and getaddrinfo as a void *, which C++ makes a function " \
     "pointer only through reinterpret_cast; bugprone-bitwise-pointer-cast forbids std::bit_cast instead."
+
+# The tests' refusal of dialogs on Windows
+# (ext/lota/native_test/dialogs_windows.cpp) writes a jump over the start
+# of SDL's SDL_ShowMessageBox and SDL_ShowSimpleMessageBox, which
+# GetProcAddress returns as a FARPROC, a function pointer
+# (libloaderapi.h), while VirtualProtect and the copy into the code it
+# unprotects take an object pointer. C++ converts a function pointer to
+# an object pointer only through reinterpret_cast, which every compiler
+# for Windows supports, since Windows' own APIs pass code both ways;
+# std::bit_cast, which would avoid it, bugprone-bitwise-pointer-cast
+# forbids between pointers.
+allow "ext/lota/native_test/dialogs_windows.cpp", line: 152,
+  reason: "GetProcAddress returns SDL's function as a FARPROC, whose code VirtualProtect and the copy reach only " \
+    "through an object pointer, which C++ makes of it only through reinterpret_cast; " \
+    "bugprone-bitwise-pointer-cast forbids std::bit_cast instead."
+
+# Windows hands a CBT hook the window that HCBT_ACTIVATE names as the
+# hook's WPARAM, an integer (CBTProc's documentation), and EnumWindows
+# hands its callback the caller's pointer as an LPARAM, an integer too
+# (EnumWindowsProc's). The hook and the callback take those types because
+# Windows calls them with them, and C++ makes a pointer of an integer only
+# through reinterpret_cast.
+allow "ext/lota/native_test/dialogs_windows.cpp", lines: [222, 239],
+  reason: "Windows passes a CBT hook's window as its WPARAM and EnumWindows's callback its caller's pointer as " \
+    "an LPARAM, both integers, which C++ makes a pointer only through reinterpret_cast."

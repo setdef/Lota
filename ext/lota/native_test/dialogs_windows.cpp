@@ -149,6 +149,7 @@ void replace(Replaced &slot, const char *name, const Pointer &refusal) {
   if (found == nullptr) {
     return;
   }
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto *const function = reinterpret_cast<unsigned char *>(found);
   const std::array<unsigned char, jump_size> jump = jump_to(refusal);
   std::array<unsigned char, jump_size> original{};
@@ -218,6 +219,7 @@ void CALLBACK press_return(HWND dialog, UINT /*message*/, UINT_PTR timer, DWORD 
 // message loop runs, which dispatches the timer's message.
 LRESULT CALLBACK watch_for_dialogs(int code, WPARAM wparam, LPARAM lparam) {
   if (code == HCBT_ACTIVATE) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     HWND window = reinterpret_cast<HWND>(wparam);
     if (of_class(window, L"#32770")) {
       SetTimer(window, return_timer, return_delay, press_return);
@@ -234,11 +236,12 @@ std::vector<HWND> sdl_windows() {
         DWORD process = 0;
         GetWindowThreadProcessId(window, &process);
         if (process == GetCurrentProcessId() && of_class(window, L"SDL_app")) {
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
           reinterpret_cast<std::vector<HWND> *>(found)->push_back(window);
         }
         return TRUE;
       },
-      reinterpret_cast<LPARAM>(&windows));
+      std::bit_cast<LPARAM>(&windows));
   return windows;
 }
 
@@ -358,7 +361,7 @@ std::string window_state() {
   for (HWND window : sdl_windows()) {
     RECT rect{};
     GetWindowRect(window, &rect);
-    state += "window " + std::to_string(reinterpret_cast<std::uintptr_t>(window)) +
+    state += "window " + std::to_string(std::bit_cast<std::uintptr_t>(window)) +
              (IsWindowVisible(window) != FALSE ? " visible" : " hidden") +
              (window == foreground ? " foreground" : "") + " at " + std::to_string(rect.left) +
              "," + std::to_string(rect.top) + " " + std::to_string(rect.right - rect.left) + "x" +
@@ -372,7 +375,7 @@ std::string window_state() {
   }
   state += "in front: " +
            (foreground == nullptr ? std::string("no window")
-                                  : std::to_string(reinterpret_cast<std::uintptr_t>(foreground)) +
+                                  : std::to_string(std::bit_cast<std::uintptr_t>(foreground)) +
                                         " of class " + in_front) +
            "\n";
   return state;
