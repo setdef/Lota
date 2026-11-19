@@ -21,8 +21,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <cwchar>
-#include <iterator>
 #include <span>
 #include <string>
 #include <vector>
@@ -154,12 +152,23 @@ void replace(Replaced &slot, const char *name, const Pointer &refusal) {
 #endif
 }
 
-// Whether +window+ is of the window class +name+.
-bool of_class(HWND window, const wchar_t *name) {
-  wchar_t found[32] = {};
-  return GetClassNameW(window, found, static_cast<int>(std::size(found))) > 0 &&
-         std::wcscmp(found, name) == 0;
+// The longest name a window class can have, 256 characters
+// (WNDCLASSW's lpszClassName), and the zero that ends it.
+constexpr std::size_t class_name_capacity = 257;
+
+// The name of +window+'s class, or an empty one when Windows cannot say.
+std::wstring class_of(HWND window) {
+  std::array<wchar_t, class_name_capacity> name{};
+  const int length = GetClassNameW(window, name.data(), static_cast<int>(name.size()));
+  return length > 0 ? std::wstring(name.data(), static_cast<std::size_t>(length)) : std::wstring();
 }
+
+// The first character past ASCII's, which a class name in window_state
+// shows as a question mark.
+constexpr wchar_t ascii_end = 0x80;
+
+// Whether +window+ is of the window class +name+.
+bool of_class(HWND window, const wchar_t *name) { return class_of(window) == name; }
 
 // The timer that presses Return once a dialog has taken the focus, and
 // how long after the dialog is activated it does, in milliseconds.
@@ -340,13 +349,11 @@ std::string window_state() {
              "," + std::to_string(rect.top) + " " + std::to_string(rect.right - rect.left) + "x" +
              std::to_string(rect.bottom - rect.top) + "\n";
   }
-  wchar_t name[64] = {};
-  if (foreground != nullptr) {
-    GetClassNameW(foreground, name, static_cast<int>(std::size(name)));
-  }
   std::string in_front;
-  for (const wchar_t *c = name; *c != 0; ++c) {
-    in_front += *c < 128 ? static_cast<char>(*c) : '?';
+  if (foreground != nullptr) {
+    for (const wchar_t c : class_of(foreground)) {
+      in_front += c < ascii_end ? static_cast<char>(c) : '?';
+    }
   }
   state += "in front: " +
            (foreground == nullptr ? std::string("no window")
