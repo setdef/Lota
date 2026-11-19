@@ -11,8 +11,8 @@
 # SHA256SUMS, pinned in the gem as a release pins them. Then it
 # compares the two generated projects file by file. They carry what Lota's
 # extension links: on iOS the archives, the engine's among them, which
-# Xcode links into the app, and on Android libfledgeext.so, already
-# linked, with libSDL3.so and libopenal.so. An archive that Apple's ar
+# Xcode links into the app, and on Android libfledgeext.lota.native.so,
+# already linked, with libSDL3.so and libopenal.so. An archive that Apple's ar
 # wrote without ZERO_AR_DATE carries its members' dates, so two archives
 # that differ are compared member by member (same_members.rb), forgiving
 # only the random name of fledge build's temporary folder, which the debug

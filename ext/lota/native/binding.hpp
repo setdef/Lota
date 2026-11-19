@@ -158,8 +158,8 @@ inline void record_main_thread() {}
 // its own, which SDL's Android video takes for its main thread (Fledge's
 // ADR 025, section 4), as LÖVE's Android build runs Lua on the thread SDL
 // starts its main function on; so the main thread here is Ruby's.
-// libfledgeext.so, which holds the extension, is loaded on the UI thread
-// before Ruby starts, so a static initializer, as on Windows, would record
+// The library that holds the extension may be loaded on the UI thread
+// before Ruby starts, so a static initializer, as on Windows, could record
 // the UI thread; Init_native records the thread that require
 // "lota/native" runs on, Ruby's own, before any binding exists.
 inline pthread_t main_thread{};

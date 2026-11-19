@@ -29,10 +29,14 @@ import org.setdef.fledge.FledgeRuby;
  * and Gradle files find it (Fledge's ADR 025, and its
  * examples/sdl_phone/host/android). It is SDL's Activity: it loads
  * libSDL3.so first, whose JNI_OnLoad registers SDL's Java methods, then
- * OpenAL Soft's libopenal.so, Fledge's Ruby, and libfledgeext.so, which
- * holds Lota's engine and extension, and runs the app's Ruby program from
- * SDL's main function, on a thread with FledgeRuby's 64 MB stack that
- * SDL's thread waits for, so the game ends when Ruby does.
+ * OpenAL Soft's libopenal.so, Fledge's Ruby, and Fledge's libfledgeext.so,
+ * which Fledge's runtime would also load itself and which a host may name
+ * (Fledge's doc/phones.md, "Frameworks that start the app themselves"),
+ * and runs the app's Ruby program from SDL's main function, on a thread
+ * with FledgeRuby's 64 MB stack that SDL's thread waits for, so the game
+ * ends when Ruby does. Lota's engine and extension are in
+ * libfledgeext.lota.native.so, which Ruby loads, on its own thread, when
+ * the game requires "lota/native"; no host may name it.
  *
  * LÖVE's engine calls methods of love-android's GameActivity through JNI
  * (vendor/love/src/common/android.cpp) without checking that they exist:

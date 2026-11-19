@@ -1547,9 +1547,9 @@ work "LÖVE's patched Core Audio decoder (iOS)",
   license: ["Zlib"],
   title: "LÖVE #{love_version}'s sound/lullaby/CoreAudioDecoder.cpp, as Lota's Core Audio patch changes it"
 
-# Android. No gem carries these yet: Fledge links an app's extension into
-# the app's libfledgeext.so for each ABI (`fledge build android`,
-# ext/lota/phone/android.rb), with the static archives
+# Android. No gem carries these yet: Fledge builds Lota's extension as
+# the app's libfledgeext.lota.native.so for each ABI (`fledge build
+# android`, ext/lota/phone/android.rb), with the static archives
 # engine/dependencies_android.cmake names, from which the link takes the
 # members it needs, and carries the two shared libraries it links,
 # libSDL3.so and libopenal.so, beside it, as LÖVE's own Android build
@@ -1636,5 +1636,5 @@ phone "iOS",
   without: ["Vulkan-Headers", "volk", "Vulkan Memory Allocator"]
 
 phone "Android",
-  extension: "libfledgeext.so",
+  extension: "libfledgeext.lota.native.so",
   libraries: ["libopenal.so", "libSDL3.so"]

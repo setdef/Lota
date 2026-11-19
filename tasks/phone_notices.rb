@@ -13,7 +13,8 @@ require_relative "../lib/lota/notices"
 # The notices of a phone's app (rake ios:notices, rake android:notices),
 # which lota fuse cannot write, since a phone's app links Lota from no
 # gem's manifest: Fledge links the extension into the app's executable on
-# iOS and into libfledgeext.so on Android (doc/guide/phones.md).
+# iOS and builds it as libfledgeext.lota.native.so on Android
+# (doc/guide/phones.md).
 #
 # It writes NOTICES.txt at the top of the phone project, which Fledge puts
 # in the app's +app+ folder beside the runtime's +notices+, as lota fuse
@@ -41,7 +42,7 @@ class PhoneNotices
   # Where each phone's app holds its native libraries, as its notices say.
   LIBRARIES = {
     "iOS" => "Lota's extension and the libraries it names are linked into the app's executable.",
-    "Android" => "Lota's extension, libfledgeext.so, and each library of its own are in the app's lib folder " \
+    "Android" => "Lota's extension, libfledgeext.lota.native.so, and each library of its own are in the app's lib folder " \
       "for each of its ABIs, arm64-v8a and x86_64.",
   }.freeze
 

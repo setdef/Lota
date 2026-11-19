@@ -7,11 +7,14 @@
 
 # Lota's extension for an Android app, which ext/lota/extconf.rb loads
 # when Fledge's `fledge build android` runs it for one of the app's ABIs:
-# under the phone Ruby's rbconfig.rb, with mkmf's $static set, and
-# CMAKE_TOOLCHAIN_FILE in the environment naming the NDK's toolchain for
-# the ABI (Fledge's ADRs 022 and 027). Fledge links every extension's
-# archive, and the archives and libraries it names, into the app's one
-# libfledgeext.so for the ABI (its ADR 022, section 3).
+# under the phone Ruby's rbconfig.rb, and CMAKE_TOOLCHAIN_FILE in the
+# environment naming the NDK's toolchain for the ABI. mkmf makes the
+# shared object a desktop's does, linked with the archives and libraries
+# it names against Fledge's libfledgeruby.so, which Fledge puts in the
+# app as libfledgeext.lota.native.so for the ABI, and Ruby loads it at
+# require "lota/native", on the thread that requires it (Fledge's
+# doc/contributors/design/phone-projects.md, "Linking extensions on
+# Android").
 #
 # LÖVE's engine, with the libraries it links, comes prebuilt for the ABI
 # from Lota's release (phone/engine.rb), checked against the SHA-256 this
@@ -19,11 +22,10 @@
 # as a static archive, as phone/ios.rb does. CMake then builds
 # Lota::Native (CMakeLists.txt beside extconf.rb) over it; mkmf compiles
 # phone/native_android.c, whose Init_native calls the extension's, and
-# names the archives, the shared libraries, and the system's libraries for
-# Fledge to link (phone_link.txt, which engine/dependencies_android.cmake
-# or the prebuilt engine's engine.cmake writes). Fledge copies the shared
-# libraries, libSDL3.so and libopenal.so, into the app beside
-# libfledgeext.so (its ADR 025, section 2).
+# names the archives, the shared libraries, and the system's libraries it
+# links (phone_link.txt, which engine/dependencies_android.cmake or the
+# prebuilt engine's engine.cmake writes). Fledge copies the shared
+# libraries, libSDL3.so and libopenal.so, into the app beside it.
 #
 # Options, which Bundler passes from `bundle config build.lota`:
 #

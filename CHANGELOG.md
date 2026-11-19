@@ -15,6 +15,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `lota fuse` builds with Fledge 0.14.0, was 0.13.0; Fledge's changelog says what changes in an app.
 - `lota fuse` judges a Gemfile's `ruby` line by the Ruby of Fledge's runtime as RubyGems names it, `4.1.0.preview1` on macOS and Linux and `4.1.0.dev` on Windows, where it judged plain `4.1.0`: a line that asks for `4.1.0-preview1` exactly now fuses on macOS and Linux, though not on Windows, and a range whose first bound is a preview, such as `ruby ">= 4.1.0.a", "< 4.2"`, now fuses under Bundler 4.0.
 - When the lockfile has no checksum for its Bundler, the advice `lota fuse` passes on from Fledge is to run `gem install bundler -v VERSION`, then `bundle lock --add-checksums`, where it was `bundle install`, which wrote no checksum for a Ruby's own Bundler.
+- An Android app carries Lota's engine and extension as a library of their own, `libfledgeext.lota.native.so`, which Ruby loads on its own thread when the game requires Lota, where Fledge linked them into `libfledgeext.so`, which the host loaded before Ruby started; `rake android:notices` names the new file.
 
 ## [0.5.4] - 2026-11-19
 

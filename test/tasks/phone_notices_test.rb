@@ -68,7 +68,7 @@ class PhoneNoticesTest < Minitest::Test
     assert_equal "1.3", by_name.fetch("zlib").version
     assert_equal "2.13.3", by_name.fetch("FreeType").version
     assert_includes by_name.fetch("FreeType").credit, "The FreeType Project"
-    assert_equal "libfledgeext.so", by_name.fetch("LÖVE").file
+    assert_equal "libfledgeext.lota.native.so", by_name.fetch("LÖVE").file
     openal = by_name.fetch("OpenAL Soft")
 
     assert_equal ["libopenal.so", true, "1.24.3"], [openal.file, openal.separate, openal.version]
@@ -105,7 +105,7 @@ class PhoneNoticesTest < Minitest::Test
 
     assert_includes text, "rake android:notices wrote this file into this app's project"
     assert_includes text, "  In this app: app/vendor/cache/lota\n"
-    assert_includes text, "\nCompiled into Lota's extension, libfledgeext.so:\n"
+    assert_includes text, "\nCompiled into Lota's extension, libfledgeext.lota.native.so:\n"
     assert_includes text, "\nA library of its own, libopenal.so:\n\nOpenAL Soft 1.24.3\n"
     assert_includes text, "  Source: app/sources/openal-soft-1.24.3.tar.bz2\n"
     assert_includes text, "\n==== LGPL-2.0-or-later ====\n"

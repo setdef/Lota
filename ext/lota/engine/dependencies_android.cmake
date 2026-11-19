@@ -7,13 +7,13 @@
 # tasks/android_build.rb's tree for the ABI, and SDL3 and OpenAL Soft as
 # the shared libraries libSDL3.so and libopenal.so, which love-android's
 # GameActivity loads by name and which Fledge copies into the app beside
-# libfledgeext.so (its ADR 025, section 2). OpenAL Soft stays a library
+# the extension's library. OpenAL Soft stays a library
 # apart, so a player can replace it, as its license, the GNU Library
 # General Public License, allows. Included by CMakeLists.txt beside this
 # file, once lota_engine exists.
 #
-# Nothing here is linked into a binary: Fledge links the extension's
-# archives, with everything below, into the app's libfledgeext.so. So the
+# Nothing here is linked into a binary: mkmf links the extension's
+# archives, with everything below, into libfledgeext.lota.native.so. So the
 # archives and flags are also written to ${CMAKE_BINARY_DIR}/phone_link.txt,
 # one to a line, for phone/android.rb, as dependencies_ios.cmake writes
 # them for iOS.

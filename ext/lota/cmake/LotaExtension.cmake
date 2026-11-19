@@ -18,7 +18,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "^(iOS|Android)$")
 	# headers are; extconf.rb, which runs under that Ruby's rbconfig.rb,
 	# passes them. The extension is a static archive the app links, with
 	# Ruby itself (Fledge's FledgeRuby.xcframework), or on Android into the
-	# app's libfledgeext.so, which links Fledge's libfledgeruby.so.
+	# extension's own library, which links Fledge's libfledgeruby.so.
 	set(LOTA_RUBY_INCLUDE_DIRS "" CACHE STRING "The phone's Ruby headers (extconf.rb sets them)")
 	if(NOT LOTA_RUBY_INCLUDE_DIRS)
 		message(FATAL_ERROR "LOTA_RUBY_INCLUDE_DIRS is empty; configure through ext/lota/extconf.rb")

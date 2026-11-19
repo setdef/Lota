@@ -32,8 +32,8 @@ require_relative "windows_build"
 # License, allows. SDL is libSDL3.so, because SDL's Java side loads it by
 # name and registers its Java methods from its JNI_OnLoad
 # (SDLActivity.getLibraries; src/core/android/SDL_android.c). Fledge
-# copies a shared library the extension links into the app beside
-# libfledgeext.so (its ADR 025, section 2).
+# copies a shared library the extension links into the app beside the
+# extension's own library.
 #
 # Fledge ships no SDL (its ADR 025), so Lota builds LÖVE's, 3.4.10, the
 # release every other Lota build links, and its Android host carries
@@ -310,7 +310,7 @@ class AndroidBuild
 
   # Runs the release's configure for the ABI's triple, with the NDK's
   # compilers for it at API_LEVEL, position-independent, as everything
-  # linked into libfledgeext.so must be.
+  # linked into the extension's shared library must be.
   private def autotools(archive, source, abi)
     triple = self.class.triple(abi)
     bin = ndk_bin
