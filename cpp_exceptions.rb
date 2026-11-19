@@ -18,7 +18,7 @@
 # registries it cannot see, by calling the wrapper's virtual get() with
 # the object's own Ruby data type. RTYPEDDATA_TYPE returns that type as
 # const, and Rice's get() takes it as non-const though it only reads it.
-allow "ext/lota/native_test/native_test.cpp", line: 232,
+allow "ext/lota/native_test/native_test.cpp", line: 231,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
     "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go."
 
@@ -31,7 +31,7 @@ allow "ext/lota/native_test/native_test.cpp", line: 232,
 # Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
 # (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
 # through the cast is defined; only the cast can reach it.
-allow "ext/lota/native_test/native_test.cpp", line: 411,
+allow "ext/lota/native_test/native_test.cpp", line: 410,
   reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
     "the test-only key hold must write it, which only a const_cast can do."
 

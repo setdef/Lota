@@ -211,8 +211,7 @@ Counted *held_counted() {
 // bundle has its own Rice registries, so this one cannot unwrap through
 // them, but both are compiled from the same Rice header, so its wrapper's
 // virtual get() returns the pointer here as it would there.
-template <typename T>
-T *foreign(VALUE value, const char *name) {
+template <typename T> T *foreign(VALUE value, const char *name) {
   const Rice::Object object(value);
   // +name+ may name a class inside a module of Lota::Native, such as
   // Graphics::Font, which Ruby's constants are looked up in one by one.
