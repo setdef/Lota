@@ -62,7 +62,7 @@ int w_CompressedImageData_getHeight(const CompressedImageData &t, int miplevel) 
 // CompressedImageData:getDimensions: w_CompressedImageData_getDimensions
 // (wrap_CompressedImageData.cpp:67-82).
 Rice::Array w_CompressedImageData_getDimensions(const CompressedImageData &t, int miplevel) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   int width = 0;
   int height = 0;
   width = t.getWidth(miplevel - 1);

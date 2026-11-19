@@ -20,6 +20,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- On Ruby 4.1, reading four or more values at once (`Lota::Graphics.color`, `background_color`, `scissor`, and the like) no longer sets off major garbage collections: each such Array now holds its values inline, with no buffer from malloc, which Ruby 4.1 counts toward an `oldmalloc` major collection. A frame that read the color 1,000 times ran 17 of them in 10,000 frames, and now runs none.
 - A phone app built from a clone of Lota at a release's tag, by the iOS kit or by hand, has that release's `Lota::VERSION`, where it had `0.0.1.dev`: `rake phone:gem`, which lays out the folder a phone project names as its `lota` gem, stamps it in.
 
 ## [0.5.3] - 2026-11-15

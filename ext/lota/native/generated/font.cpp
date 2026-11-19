@@ -49,7 +49,7 @@ int w_GlyphData_getHeight(const GlyphData &t) { return t.getHeight(); }
 
 // GlyphData:getDimensions: w_GlyphData_getDimensions (wrap_GlyphData.cpp:56-62).
 Rice::Array w_GlyphData_getDimensions(const GlyphData &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   results.push(t.getWidth(), false);
   results.push(t.getHeight(), false);
   return results;
@@ -69,7 +69,7 @@ int w_GlyphData_getAdvance(const GlyphData &t) { return t.getAdvance(); }
 
 // GlyphData:getBearing: w_GlyphData_getBearing (wrap_GlyphData.cpp:87-93).
 Rice::Array w_GlyphData_getBearing(const GlyphData &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   results.push(t.getBearingX(), false);
   results.push(t.getBearingY(), false);
   return results;
@@ -77,7 +77,7 @@ Rice::Array w_GlyphData_getBearing(const GlyphData &t) {
 
 // GlyphData:getBoundingBox: w_GlyphData_getBoundingBox (wrap_GlyphData.cpp:95-113).
 Rice::Array w_GlyphData_getBoundingBox(const GlyphData &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(4));
   const int minX = t.getMinX();
   const int minY = t.getMinY();
   const int maxX = t.getMaxX();

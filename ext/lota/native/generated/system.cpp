@@ -67,7 +67,7 @@ std::string w_getClipboardText() {
 
 // love.system.getPowerInfo: w_getPowerInfo (wrap_System.cpp:65-88).
 Rice::Array w_getPowerInfo() {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   int seconds = -1;
   int percent = -1;
   const char *str = nullptr;

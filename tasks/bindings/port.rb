@@ -194,7 +194,11 @@ object:,
         raise Unsupported, "#{@function.love_name} still reaches Lua after its port: #{lua.strip}" if lua
 
         body.unshift(*helper_checks)
-        body.unshift("Rice::Array results;") if @result_mode == :many
+        # Room for the most values it returns, so Ruby keeps them in the
+        # Array's own slot: grown by push past three, an Array moves them
+        # to a buffer from malloc, which Ruby 4.1 counts toward a major
+        # collection (oldmalloc).
+        body.unshift("Rice::Array results(rb_ary_new_capa(#{returns(@body).max}));") if @result_mode == :many
         body.unshift("require_main_thread(MODULE);") if @main_thread && !singleton?
         params = ([@self_parameter && "#{self_const? ? 'const ' : ''}#{@self_parameter[:type]} &#{@self_parameter[:name]}"] +
           parameters.map(&:declaration)).compact

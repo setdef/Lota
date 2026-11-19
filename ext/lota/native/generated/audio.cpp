@@ -78,7 +78,7 @@ void w_setPosition(double argument1, double argument2, double argument3) {
 
 // love.audio.getPosition: w_getPosition (wrap_Audio.cpp:234-242).
 Rice::Array w_getPosition() {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   std::array<float, 3> v{};
   instance()->getPosition(v.data());
   results.push(static_cast<double>(v.at(0)), false);
@@ -98,7 +98,7 @@ void w_setVelocity(double argument1, double argument2, double argument3) {
 
 // love.audio.getVelocity: w_getVelocity (wrap_Audio.cpp:280-288).
 Rice::Array w_getVelocity() {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   std::array<float, 3> v{};
   instance()->getVelocity(v.data());
   results.push(static_cast<double>(v.at(0)), false);
@@ -140,7 +140,7 @@ bool w_setOutputSpatialization(bool enable, const std::optional<std::string> &fi
 
 // love.audio.getOutputSpatialization: w_getOutputSpatialization (wrap_Audio.cpp:552-562).
 Rice::Array w_getOutputSpatialization() {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   const char *filter = nullptr;
   const bool enabled = instance()->getOutputSpatialization(filter);
   results.push(enabled, false);
@@ -164,7 +164,7 @@ std::string w_getPlaybackDevice() {
 
 // love.audio.setPlaybackDevice: w_setPlaybackDevice (wrap_Audio.cpp:609-628).
 Rice::Array w_setPlaybackDevice(const std::optional<std::string> &device) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   try {
     instance()->setPlaybackDevice(device.has_value() ? device->c_str() : nullptr);
     results.push(true, false);
@@ -266,7 +266,7 @@ void w_Source_setPosition(Source &t, double argument1, double argument2, double 
 
 // Source:getPosition: w_Source_getPosition (wrap_Source.cpp:158-167).
 Rice::Array w_Source_getPosition(const Source &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   std::array<float, 3> v{};
   t.getPosition(v.data());
   results.push(static_cast<double>(v.at(0)), false);
@@ -286,7 +286,7 @@ void w_Source_setVelocity(Source &t, double argument1, double argument2, double 
 
 // Source:getVelocity: w_Source_getVelocity (wrap_Source.cpp:180-189).
 Rice::Array w_Source_getVelocity(const Source &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   std::array<float, 3> v{};
   t.getVelocity(v.data());
   results.push(static_cast<double>(v.at(0)), false);
@@ -306,7 +306,7 @@ void w_Source_setDirection(Source &t, double argument1, double argument2, double
 
 // Source:getDirection: w_Source_getDirection (wrap_Source.cpp:202-211).
 Rice::Array w_Source_getDirection(const Source &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   std::array<float, 3> v{};
   t.getDirection(v.data());
   results.push(static_cast<double>(v.at(0)), false);
@@ -324,7 +324,7 @@ void w_Source_setCone(Source &t, double inner_angle, double outer_angle, double 
 
 // Source:getCone: w_Source_getCone (wrap_Source.cpp:224-234).
 Rice::Array w_Source_getCone(const Source &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(4));
   float innerAngle{};
   float outerAngle{};
   float outerVolume{};
@@ -365,7 +365,7 @@ void w_Source_setVolumeLimits(Source &t, double vmin, double vmax) {
 
 // Source:getVolumeLimits: w_Source_getVolumeLimits (wrap_Source.cpp:283-289).
 Rice::Array w_Source_getVolumeLimits(const Source &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   results.push(static_cast<double>(t.getMinVolume()), false);
   results.push(static_cast<double>(t.getMaxVolume()), false);
   return results;
@@ -383,7 +383,7 @@ void w_Source_setAttenuationDistances(Source &t, double dref, double dmax) {
 
 // Source:getAttenuationDistances: w_Source_getAttenuationDistances (wrap_Source.cpp:305-313).
 Rice::Array w_Source_getAttenuationDistances(const Source &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   results.push(static_cast<double>(t.getReferenceDistance()), false);
   results.push(static_cast<double>(t.getMaxDistance()), false);
   return results;

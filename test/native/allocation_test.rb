@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
+require "objspace"
 require_relative "native_helper"
 require_relative "../engine_helper"
 
@@ -71,5 +72,20 @@ class AllocationTest < Minitest::Test
     Lota::Graphics.line_style = "rough"
 
     assert_equal :rough, Lota::Graphics.line_style
+  end
+
+  # A getter's Array of four holds its values in its own slot, with no
+  # buffer from malloc, which Ruby 4.1 counts toward a major collection
+  # (oldmalloc). Lota's loop reads the background color every frame, and
+  # games read the color and the scissor (tasks/bindings/port.rb).
+  def test_a_getters_array_of_four_needs_no_buffer_of_its_own
+    Lota::Graphics.scissor = 1, 2, 3, 4
+
+    [Lota::Graphics.color, Lota::Graphics.background_color, Lota::Graphics.scissor].each do |values|
+      assert_equal 4, values.size
+      assert_includes ObjectSpace.dump(values), %("embedded":true), values.inspect
+    end
+  ensure
+    Lota::Graphics.scissor = nil
   end
 end

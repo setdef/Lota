@@ -100,7 +100,7 @@ bool w_isOpen() { return instance()->isOpen(); }
 
 // love.window.getDesktopDimensions: w_getDesktopDimensions (wrap_Window.cpp:360-375).
 Rice::Array w_getDesktopDimensions(std::optional<int> argument1) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   int width = 0;
   int height = 0;
   int displayindex = 0;
@@ -132,7 +132,7 @@ void w_setPosition(int x, int y, std::optional<int> argument3, bool wait_for_syn
 
 // love.window.getPosition: w_getPosition (wrap_Window.cpp:396-406).
 Rice::Array w_getPosition() {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   int x = 0;
   int y = 0;
   int displayindex = 0;
@@ -145,7 +145,7 @@ Rice::Array w_getPosition() {
 
 // love.window.getSafeArea: w_getSafeArea (wrap_Window.cpp:408-416).
 Rice::Array w_getSafeArea() {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(4));
   const Rect area = instance()->getSafeArea();
   results.push(area.x, false);
   results.push(area.y, false);
@@ -202,7 +202,7 @@ double w_getNativeDPIScale() { return instance()->getNativeDPIScale(); }
 
 // love.window.toPixels: w_toPixels (wrap_Window.cpp:512-531).
 Rice::Array w_toPixels(double wx, std::optional<double> wy) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!wy.has_value()) {
     results.push(instance()->toPixels(wx), false);
     return results;
@@ -218,7 +218,7 @@ Rice::Array w_toPixels(double wx, std::optional<double> wy) {
 
 // love.window.fromPixels: w_fromPixels (wrap_Window.cpp:533-552).
 Rice::Array w_fromPixels(double px, std::optional<double> py) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!py.has_value()) {
     results.push(instance()->fromPixels(px), false);
     return results;

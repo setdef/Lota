@@ -51,7 +51,7 @@ Filesystem *instance() {
 
 // File:open: w_File_open (wrap_File.cpp:75-94).
 Rice::Array w_File_open(File &file, const std::string &mode) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   File::Mode mode_value{};
   if (!File::getConstant(mode.c_str(), mode_value)) {
     raise_enum_error("file open mode", File::getConstants(mode_value), mode);
@@ -72,7 +72,7 @@ bool w_File_isOpen(const File &file) { return file.isOpen(); }
 
 // File:flush: w_File_flush (wrap_File.cpp:190-204).
 Rice::Array w_File_flush(File &file) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   bool success = false;
   try {
     success = file.flush();
@@ -88,7 +88,7 @@ bool w_File_isEOF(File &file) { return file.isEOF(); }
 
 // File:setBuffer: w_File_setBuffer (wrap_File.cpp:374-396).
 Rice::Array w_File_setBuffer(File &file, const std::string &bufmode, double size) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   File::BufferMode bufmode_value{};
   if (!File::getConstant(bufmode.c_str(), bufmode_value)) {
     raise_enum_error("file buffer mode", File::getConstants(bufmode_value), bufmode);
@@ -105,7 +105,7 @@ Rice::Array w_File_setBuffer(File &file, const std::string &bufmode, double size
 
 // File:getBuffer: w_File_getBuffer (wrap_File.cpp:398-411).
 Rice::Array w_File_getBuffer(const File &file) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   love::int64 size = 0;
   const File::BufferMode bufmode = file.getBuffer(size);
   const char *str = nullptr;
@@ -119,7 +119,7 @@ Rice::Array w_File_getBuffer(const File &file) {
 
 // File:getMode: w_File_getMode (wrap_File.cpp:413-425).
 Rice::Array w_File_getMode(const File &file) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   const File::Mode mode = file.getMode();
   const char *str = nullptr;
   if (!File::getConstant(mode, str)) {
@@ -226,7 +226,7 @@ bool w_unmountCommonPath(const std::string &commonpath) {
 
 // love.filesystem.openFile: w_openFile (wrap_Filesystem.cpp:230-252).
 Rice::Array w_openFile(const std::string &filename, const std::string &mode) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   File::Mode mode_value = File::MODE_CLOSED;
   if (!File::getConstant(mode.c_str(), mode_value)) {
     raise_enum_error("file open mode", File::getConstants(mode_value), mode);
@@ -243,7 +243,7 @@ Rice::Array w_openFile(const std::string &filename, const std::string &mode) {
 
 // love.filesystem.openNativeFile: w_openNativeFile (wrap_Filesystem.cpp:254-276).
 Rice::Array w_openNativeFile(const std::string &path, const std::string &mode) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   File::Mode mode_value = File::MODE_CLOSED;
   if (!File::getConstant(mode.c_str(), mode_value)) {
     raise_enum_error("file open mode", File::getConstants(mode_value), mode);
@@ -284,7 +284,7 @@ std::string w_getSourceBaseDirectory() { return instance()->getSourceBaseDirecto
 
 // love.filesystem.getRealDirectory: w_getRealDirectory (wrap_Filesystem.cpp:506-522).
 Rice::Array w_getRealDirectory(const std::string &filename) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   std::string dir{};
   try {
     dir = instance()->getRealDirectory(filename.c_str());

@@ -95,7 +95,7 @@ double w_Body_getAngle(Body &t) {
 
 // Body:getPosition: w_Body_getPosition (wrap_Body.cpp:61-71).
 Rice::Array w_Body_getPosition(Body &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -109,7 +109,7 @@ Rice::Array w_Body_getPosition(Body &t) {
 
 // Body:getTransform: w_Body_getTransform (wrap_Body.cpp:73-84).
 Rice::Array w_Body_getTransform(Body &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -124,7 +124,7 @@ Rice::Array w_Body_getTransform(Body &t) {
 
 // Body:getLinearVelocity: w_Body_getLinearVelocity (wrap_Body.cpp:86-96).
 Rice::Array w_Body_getLinearVelocity(Body &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -138,7 +138,7 @@ Rice::Array w_Body_getLinearVelocity(Body &t) {
 
 // Body:getWorldCenter: w_Body_getWorldCenter (wrap_Body.cpp:98-108).
 Rice::Array w_Body_getWorldCenter(Body &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -152,7 +152,7 @@ Rice::Array w_Body_getWorldCenter(Body &t) {
 
 // Body:getLocalCenter: w_Body_getLocalCenter (wrap_Body.cpp:110-120).
 Rice::Array w_Body_getLocalCenter(Body &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -174,7 +174,7 @@ double w_Body_getAngularVelocity(const Body &t) {
 
 // Body:getKinematicState: w_Body_getKinematicState (wrap_Body.cpp:129-142).
 Rice::Array w_Body_getKinematicState(const Body &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(6));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -394,7 +394,7 @@ void w_Body_setType(Body &t, const std::string &type) {
 
 // Body:getWorldPoint: w_Body_getWorldPoint (wrap_Body.cpp:420-432).
 Rice::Array w_Body_getWorldPoint(Body &t, double x, double y) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -408,7 +408,7 @@ Rice::Array w_Body_getWorldPoint(Body &t, double x, double y) {
 
 // Body:getWorldVector: w_Body_getWorldVector (wrap_Body.cpp:434-446).
 Rice::Array w_Body_getWorldVector(Body &t, double x, double y) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -422,7 +422,7 @@ Rice::Array w_Body_getWorldVector(Body &t, double x, double y) {
 
 // Body:getLocalPoint: w_Body_getLocalPoint (wrap_Body.cpp:455-467).
 Rice::Array w_Body_getLocalPoint(Body &t, double x, double y) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -436,7 +436,7 @@ Rice::Array w_Body_getLocalPoint(Body &t, double x, double y) {
 
 // Body:getLocalVector: w_Body_getLocalVector (wrap_Body.cpp:469-481).
 Rice::Array w_Body_getLocalVector(Body &t, double x, double y) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -451,7 +451,7 @@ Rice::Array w_Body_getLocalVector(Body &t, double x, double y) {
 // Body:getLinearVelocityFromWorldPoint: w_Body_getLinearVelocityFromWorldPoint
 // (wrap_Body.cpp:490-502).
 Rice::Array w_Body_getLinearVelocityFromWorldPoint(Body &t, double x, double y) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -466,7 +466,7 @@ Rice::Array w_Body_getLinearVelocityFromWorldPoint(Body &t, double x, double y) 
 // Body:getLinearVelocityFromLocalPoint: w_Body_getLinearVelocityFromLocalPoint
 // (wrap_Body.cpp:504-516).
 Rice::Array w_Body_getLinearVelocityFromLocalPoint(Body &t, double x, double y) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -628,7 +628,7 @@ int w_ChainShape_getVertexCount(const ChainShape &c) {
 
 // ChainShape:getPoint: w_ChainShape_getPoint (wrap_ChainShape.cpp:76-85).
 Rice::Array w_ChainShape_getPoint(const ChainShape &c, int index) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   b2Vec2 v{};
   v = c.getPoint((index - 1));
   results.push(static_cast<double>(v.x), false);
@@ -638,7 +638,7 @@ Rice::Array w_ChainShape_getPoint(const ChainShape &c, int index) {
 
 // ChainShape:getNextVertex: w_ChainShape_getNextVertex (wrap_ChainShape.cpp:87-95).
 Rice::Array w_ChainShape_getNextVertex(const ChainShape &c) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   b2Vec2 v{};
   v = c.getNextVertex();
   results.push(static_cast<double>(v.x), false);
@@ -648,7 +648,7 @@ Rice::Array w_ChainShape_getNextVertex(const ChainShape &c) {
 
 // ChainShape:getPreviousVertex: w_ChainShape_getPreviousVertex (wrap_ChainShape.cpp:97-105).
 Rice::Array w_ChainShape_getPreviousVertex(const ChainShape &c) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   b2Vec2 v{};
   v = c.getPreviousVertex();
   results.push(static_cast<double>(v.x), false);
@@ -668,7 +668,7 @@ void w_CircleShape_setRadius(CircleShape &c, double r) { c.setRadius(static_cast
 
 // CircleShape:getPoint: w_CircleShape_getPoint (wrap_CircleShape.cpp:52-60).
 Rice::Array w_CircleShape_getPoint(const CircleShape &c) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   float x{};
   float y{};
   c.getPoint(x, y);
@@ -772,7 +772,7 @@ double w_Contact_getTangentSpeed(Contact &t) {
 
 // Contact:getChildren: w_Contact_getChildren (wrap_Contact.cpp:132-140).
 Rice::Array w_Contact_getChildren(Contact &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed contact.");
   }
@@ -786,7 +786,7 @@ Rice::Array w_Contact_getChildren(Contact &t) {
 
 // Contact:getShapes: w_Contact_getShapes (wrap_Contact.cpp:142-152).
 Rice::Array w_Contact_getShapes(Contact &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed contact.");
   }
@@ -861,7 +861,7 @@ void w_EdgeShape_setPreviousVertex(EdgeShape &t, double x, double y) {
 
 // EdgeShape:getNextVertex: w_EdgeShape_getNextVertex (wrap_EdgeShape.cpp:53-61).
 Rice::Array w_EdgeShape_getNextVertex(const EdgeShape &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   b2Vec2 v{};
   v = t.getNextVertex();
   results.push(static_cast<double>(v.x), false);
@@ -871,7 +871,7 @@ Rice::Array w_EdgeShape_getNextVertex(const EdgeShape &t) {
 
 // EdgeShape:getPreviousVertex: w_EdgeShape_getPreviousVertex (wrap_EdgeShape.cpp:63-71).
 Rice::Array w_EdgeShape_getPreviousVertex(const EdgeShape &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   b2Vec2 v{};
   v = t.getPreviousVertex();
   results.push(static_cast<double>(v.x), false);
@@ -929,7 +929,7 @@ double w_GearJoint_getRatio(const GearJoint &t) {
 
 // GearJoint:getJoints: w_GearJoint_getJoints (wrap_GearJoint.cpp:54-68).
 Rice::Array w_GearJoint_getJoints(const GearJoint &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
@@ -954,7 +954,7 @@ std::string w_Joint_getType(const Joint &t) {
 
 // Joint:getBodies: w_Joint_getBodies (wrap_Joint.cpp:95-109).
 Rice::Array w_Joint_getBodies(const Joint &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
@@ -1147,7 +1147,7 @@ Body *w_newBody(World *world, double x, double y, const std::optional<std::strin
 // love.physics.newCircleBody: w_newCircleBody (wrap_Physics.cpp:85-107).
 Rice::Array w_newCircleBody(World *world, const std::string &btype, double x, double y,
                             double radius) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!world->isValid()) {
     throw love::Exception("Attempt to use destroyed world.");
   }
@@ -1167,7 +1167,7 @@ Rice::Array w_newCircleBody(World *world, const std::string &btype, double x, do
 // love.physics.newRectangleBody: w_newRectangleBody (wrap_Physics.cpp:109-133).
 Rice::Array w_newRectangleBody(World *world, const std::string &btype, double x, double y, double w,
                                double h, double angle) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!world->isValid()) {
     throw love::Exception("Attempt to use destroyed world.");
   }
@@ -1189,7 +1189,7 @@ Rice::Array w_newRectangleBody(World *world, const std::string &btype, double x,
 Rice::Array w_newEdgeBody(World *world, const std::string &btype, double x1, double y1, double x2,
                           double y2, std::optional<double> prevx, std::optional<double> prevy,
                           std::optional<double> nextx, std::optional<double> nexty) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (!world->isValid()) {
     throw love::Exception("Attempt to use destroyed world.");
   }
@@ -1321,7 +1321,7 @@ long long w_getMeter() { return static_cast<long long>(Physics::getMeter()); }
 // love.physics.computeLinearStiffness: w_computeLinearStiffness (wrap_Physics.cpp:796-815).
 Rice::Array w_computeLinearStiffness(double frequency, double damping_ratio, const Body *body1,
                                      std::optional<Body *> argument4) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1346,7 +1346,7 @@ Rice::Array w_computeLinearStiffness(double frequency, double damping_ratio, con
 // love.physics.computeLinearFrequency: w_computeLinearFrequency (wrap_Physics.cpp:817-836).
 Rice::Array w_computeLinearFrequency(double stiffness, double damping, const Body *body1,
                                      std::optional<Body *> argument4) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1371,7 +1371,7 @@ Rice::Array w_computeLinearFrequency(double stiffness, double damping, const Bod
 // love.physics.computeAngularStiffness: w_computeAngularStiffness (wrap_Physics.cpp:838-857).
 Rice::Array w_computeAngularStiffness(double frequency, double damping_ratio, const Body *body1,
                                       std::optional<Body *> argument4) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1396,7 +1396,7 @@ Rice::Array w_computeAngularStiffness(double frequency, double damping_ratio, co
 // love.physics.computeAngularFrequency: w_computeAngularFrequency (wrap_Physics.cpp:859-878).
 Rice::Array w_computeAngularFrequency(double stiffness, double damping, const Body *body1,
                                       std::optional<Body *> argument4) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(2));
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1844,7 +1844,7 @@ void w_Shape_setFilterData(Shape &t, int argument1, int argument2, int argument3
 
 // Shape:getFilterData: w_Shape_getFilterData (wrap_Shape.cpp:237-246).
 Rice::Array w_Shape_getFilterData(Shape &t) {
-  Rice::Array results;
+  Rice::Array results(rb_ary_new_capa(3));
   std::array<int, 3> v{};
   t.getFilterData(v.data());
   results.push(v.at(0), false);

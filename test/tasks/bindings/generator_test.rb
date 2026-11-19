@@ -383,10 +383,23 @@ class GeneratorTest < Minitest::Test
     port = port("SpriteBatch:getDrawRange", main_thread: "Lota::Graphics")
 
     assert_includes port.definition, "Rice::Array w_SpriteBatch_getDrawRange(const SpriteBatch &t) {\n" \
-      "require_main_thread(MODULE);\nRice::Array results;"
+      "require_main_thread(MODULE);\nRice::Array results(rb_ary_new_capa(2));"
     assert_includes port.definition, "if (!t.getDrawRange(start, count)) {\nreturn results;\n}"
     assert_includes port.definition, "results.push(start + 1, false);\nresults.push(count, false);\nreturn results;"
     assert_match(/-> Array\[Integer\]\z/, port.rbs)
+  end
+
+  # The Array of a form that returns several values is made with room for
+  # the most it returns, so Ruby holds them inside the Array's own slot.
+  # Pushed one at a time into an empty Array, a fourth value outgrows the
+  # slot and moves them all to a buffer from malloc, which Ruby 4.1 counts
+  # toward a major collection (oldmalloc), so a game that reads a color
+  # each frame ran major collections it otherwise would not.
+  def test_a_form_that_returns_several_values_makes_its_array_with_room_for_them
+    port = port("love.graphics.getColor")
+
+    assert_includes port.definition, "Rice::Array w_getColor() {\nRice::Array results(rb_ary_new_capa(4));"
+    assert_equal 4, port.definition.scan("results.push(").size
   end
 
   # Rule 4 again: w_File_tell returns luax_ioError's nil and message when
@@ -399,7 +412,7 @@ class GeneratorTest < Minitest::Test
   def test_an_io_error_returns_nil_and_its_message_in_an_array
     port = port("File:tell")
 
-    assert_includes port.definition, "Rice::Array w_File_tell(File &file) {\nRice::Array results;"
+    assert_includes port.definition, "Rice::Array w_File_tell(File &file) {\nRice::Array results(rb_ary_new_capa(2));"
     assert_includes port.definition, %(if (pos == -1) {\nreturn io_error("Invalid position.");\n})
     assert_match(/\}\nresults\.push\(pos, false\);\nreturn results;\n\}\n\z/, port.definition)
     refute_includes port.definition, "else"
@@ -425,7 +438,7 @@ class GeneratorTest < Minitest::Test
   def test_a_try_block_and_its_catch_are_ported
     port = port("File:open")
 
-    assert_includes port.definition, "Rice::Array w_File_open(File &file, const std::string &mode) {\nRice::Array results;"
+    assert_includes port.definition, "Rice::Array w_File_open(File &file, const std::string &mode) {\nRice::Array results(rb_ary_new_capa(2));"
     assert_includes port.definition, "try {\nresults.push(file.open(mode_value), false);\n}\n" \
       "catch (love::Exception &e) {\nreturn io_error(\"%s\", e.what());\n}\nreturn results;\n}"
     assert_match(/-> Array\[bool \| nil \| String\]\z/, port.rbs)
