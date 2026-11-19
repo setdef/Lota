@@ -763,4 +763,54 @@ LATER => [[43, "completed", "failure"]],
     refute git.called?(/\Arevert/)
     assert_match(/Nothing to do: run 43's own verdict saw to it/, out)
   end
+
+  # REVERT, after LATER on trunk, took back SECOND, whichever verdict
+  # made it.
+  REVERTED = "revert: feat: a change\n\nReverts: #{SECOND}\nRed-run: https://github.com/setdef/Lota/actions/runs/9\n".freeze
+
+  # A commit can get two verdicts, the tier's on it alone and the full
+  # run's on its batch, in either order, and a commit pushed after it can
+  # get a red verdict for what it brought. Whichever comes once trunk
+  # holds the revert asks for nothing more, so nothing is reverted twice.
+  def test_a_verdict_that_comes_after_its_commits_revert_asks_for_nothing
+    later = {
+/\Arev-list #{SECOND}\.\./ => "#{LATER}\n#{REVERT}\n",
+/\Arev-list #{LATER}\.\./ => "#{REVERT}\n",
+/\Alog -1 --format=%B #{REVERT}/ => REVERTED,
+}
+    verdicts = {
+FIRST => [[41, "completed", "success"]],
+SECOND => [[42, "completed", "failure"]],
+LATER => [[43, "completed", "failure"]],
+}
+    {
+      "the full run's on SECOND's batch, after the tier's revert" => [42, gh_answers],
+      "the tier's on SECOND, after the full run's revert" => [42, tier_gh(verdicts)],
+      "the tier's on LATER, after the revert of SECOND" => [43, tier_gh(verdicts)],
+    }.each do |order, (id, answers)|
+      gh = Fake.new(answers)
+      git = Fake.new(later.merge(tier_git) { |_, mine, _| mine })
+      status, out = bot_for(id, gh, git)
+
+      assert_equal 0, status, order
+      refute git.called?(/\A(?:checkout|revert|push)/), order
+      assert_match(/Nothing to do: #{REVERT[0, 7]}, later on the branch, is a revert/, out, order)
+    end
+  end
+
+  # A full run whose batch holds the tier's revert reverts nothing: a
+  # revert is never reverted, and a person sees what else is red.
+  def test_a_full_run_whose_batch_holds_the_tiers_revert_reverts_nothing
+    head = { %r{\Aapi repos/setdef/Lota/actions/runs/42\z} => run_json(sha: REVERT) }
+    git = Fake.new({
+/\Arev-list #{REVERT}\.\./ => "",
+/\Arev-list --parents --max-count=\d+ #{REVERT}/ => "#{REVERT} #{SECOND}\n#{GRAPH}",
+/\Alog -1 --format=%B #{REVERT}/ => REVERTED,
+}.merge(git_answers))
+    status, out = bot(Fake.new(head.merge(gh_answers) { |_, mine, _| mine }), git)
+
+    assert_equal 1, status
+    refute git.called?(/\A(?:checkout|revert|push)/)
+    assert_match(/reverted nothing: #{REVERT[0, 7]} is a revert, and a revert is never reverted/, out)
+  end
 end
