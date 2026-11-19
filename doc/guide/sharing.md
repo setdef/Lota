@@ -77,7 +77,27 @@ If your game has a `Gemfile`, the app ships the gems its `Gemfile.lock` locks, a
 - the lockfile locks the platform you build on. Run `bundle lock --add-platform x64-mingw-ucrt` (or your platform) in the game's folder; a gem that only `vendor/cache` holds, such as Lota, needs that platform's `.gem` file there first.
 - the lockfile locks this version of Lota, if it locks Lota at all.
 
-Gems come from where your lockfile says: RubyGems.org, Git, a folder inside the game, or the game's `vendor/cache`, whose gems for other platforms stay out of the app. Bundler only locks them; it installs none. Fledge fetches each gem the app ships and checks it against your lockfile's checksum. A shipped gem with a C extension and no build for your platform compiles once, on your computer, for the app's Ruby. A gem in a group the app leaves out never compiles, so a game whose shipped gems are all pure Ruby or precompiled fuses without a C compiler. Any other needs one: on macOS, Xcode's command line tools (`xcode-select --install`); on Linux, a C compiler and `make` (`sudo apt install build-essential` on Debian and Ubuntu); on Windows, RubyInstaller's MSYS2 tools (`ridk install`). Without one, `lota fuse` stops after the compiler's output names the gem that failed, and says what to install. An extension compiles for the computer it compiles on, which is one more reason to build each platform's app on that platform.
+Fledge then checks that your Gemfile's `ruby` line, if it has one, admits the Ruby of Fledge's runtimes. Fledge v0.13.0, the Fledge `lota fuse` builds with today, records that Ruby as plain 4.1.0, though it is the preview. So a line that asks for the preview exactly, such as `ruby file: ".ruby-version"` with a `.ruby-version` that says `4.1.0-preview1`, stops the build on every platform, on Linux and macOS with `Gemfile asks for Ruby 4.1.0.preview1, and Fledge's runtimes are Ruby 4.1.0.` On Windows `bundle exec` refuses it as well ([Making a game on Windows](windows.md#install-lota-and-run-a-game)). Ask for any Ruby 4.1 instead:
+
+```ruby
+# Gemfile
+ruby "< 4.2", ">= 4.1.0.a"
+```
+
+`4.1.0.a` sorts before every preview of 4.1.0, so the line admits the preview on macOS and Linux, the head build on Windows, Fledge's runtimes, and every release of Ruby 4.1, and it keeps working when Ruby 4.1.0 is released. An upper bound of `<= 4.1.0` would stop at 4.1.1. Keep `< 4.2` first: Bundler 4.0, which Lota's Windows Ruby carries as well as Bundler 4.1, reads a range whose first bound is a preview as asking for a development build, and Fledge v0.13.0 then refuses even Ruby 4.1.0. RubyGems picks the Bundler that `lota fuse` runs from the lockfile in the folder you run it from, so a lockfile there that names Bundler 4.0 is enough to meet this. Read this paragraph again when Lota moves to a newer Fledge.
+
+Gems come from where your lockfile says: RubyGems.org, Git, a folder inside the game, or the game's `vendor/cache`, whose gems for other platforms stay out of the app. Bundler only locks them; it installs none. Fledge fetches each gem the app ships and checks it against your lockfile's checksum.
+
+Bundler is one of those gems when the app runs a Bundler other than its runtime's own. The app runs the Bundler that the lockfile's `BUNDLED WITH` names, as `bundle exec` does, and `lota fuse` writes that line as it locks the project, naming the Bundler it runs: the one the lockfile in the folder you run it from names, if that one is installed, or else your Ruby's own. A Ruby's own Bundler writes no checksum of itself, since it has no `.gem` file to hash. So if the two differ, Fledge stops with `Gemfile.lock has no checksum for bundler (VERSION)`. Install that version of Bundler as a gem and add the checksums, in the game's folder, then fuse again:
+
+```console
+$ gem install bundler -v VERSION
+$ bundle lock --add-checksums
+```
+
+The lockfile then lists `bundler (VERSION)` in its `CHECKSUMS`, and `bundle exec` and `lota fuse` take it, on Linux and on Windows, where it was tried. On 2026-11-19, with Lota's Ruby on Linux and on Windows and Fledge v0.13.0, a game fused from its own folder needed no such line: `lota fuse` locked it with the Bundler of Fledge's runtime for that platform, even from a lockfile that a Mac or Linux had written.
+
+A shipped gem with a C extension and no build for your platform compiles once, on your computer, for the app's Ruby. A gem in a group the app leaves out never compiles, so a game whose shipped gems are all pure Ruby or precompiled fuses without a C compiler. Any other needs one: on macOS, Xcode's command line tools (`xcode-select --install`); on Linux, a C compiler and `make` (`sudo apt install build-essential` on Debian and Ubuntu); on Windows, RubyInstaller's MSYS2 tools (`ridk install`). Without one, `lota fuse` stops after the compiler's output names the gem that failed, and says what to install. An extension compiles for the computer it compiles on, which is one more reason to build each platform's app on that platform.
 
 Your other gems go into the app whole, with the license files their packages hold, whatever their licenses. What those licenses ask of you when you give the app to people is yours to honor, as with any Ruby program you ship: `bundle licenses` lists the license each gem declares, and a gem whose package leaves out its license text, which a license such as MIT asks you to keep with every copy, needs it added to the notices you ship.
 

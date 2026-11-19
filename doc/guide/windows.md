@@ -94,7 +94,7 @@ lota --version
 lota run path\to\game
 ```
 
-A game whose Ruby is all its own runs now. A game with a `Gemfile` meets one more difference.
+A game whose Ruby is all its own runs now. A game with a `Gemfile` meets two more differences. The first is its `ruby` line, if it has one. This Ruby is a head build, which calls itself 4.1.0.dev, so `bundle exec` refuses a line that names the preview exactly, such as `ruby file: ".ruby-version"` with a `.ruby-version` that says `4.1.0-preview1`: `Your Ruby version is 4.1.0.dev, but your Gemfile specified 4.1.0.preview1`. That lasts until RubyInstaller releases Ruby 4.1. `lota fuse` refuses such a line on every platform, so [Sharing a game](sharing.md#your-gems) gives the line to write instead, one that admits every Ruby 4.1. The second is the gems that compile.
 
 ## Gems that compile
 
@@ -113,6 +113,6 @@ If your game keeps its gems in `vendor/cache` and installs with `bundle install 
 
 ## Share the game
 
-`lota fuse` builds a Windows app on Windows, into a `.zip` and a `-setup.exe` that a player runs without Ruby. The app carries Fledge's own copy of the same head build of Ruby, not yours, and `lota fuse` needs this page's MSYS2 setup to run at all, and its compiler for any gem the app ships whose C extension compiles. [Sharing a game](sharing.md) has the rest: what it needs, its options, signing a Windows app, and how it ships your gems.
+`lota fuse` builds a Windows app on Windows, into a `.zip` and a `-setup.exe` that a player runs without Ruby. The app carries Fledge's own copy of the same head build of Ruby, not yours, and `lota fuse` needs this page's MSYS2 setup to run at all, and its compiler for any gem the app ships whose C extension compiles. [Sharing a game](sharing.md) has the rest: what it needs, its options, signing a Windows app, and how it ships your gems, with the Gemfile's `ruby` line it takes and what to do when Fledge asks for Bundler's checksum ([Your gems](sharing.md#your-gems)).
 
 The app opens no console, and Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it ([Sharing a game](sharing.md#restarting-and-what-is-missing)).
