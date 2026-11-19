@@ -24,11 +24,12 @@ require_relative "trunk_watch"
 # once fixed.
 #
 # The decisions are pure functions of what +gh+ and +git+ report (triage,
-# batch, screen, fixed), so the tests can ask them every case, and Bot
-# carries them out through callables a test can fake. It never reverts a
-# revert, which could loop, nor CI's own release bookkeeping; it reports
-# a run where only the release's jobs failed, which says nothing about
-# its commits; and it reverts nothing when trunk already holds a fix.
+# batch, screen, fixed, overtaken), so the tests can ask them every case,
+# and Bot carries them out through callables a test can fake. It never
+# reverts a revert, which could loop, nor CI's own release bookkeeping;
+# it reports a run where only the release's jobs failed, which says
+# nothing about its commits; it reverts nothing when trunk already holds
+# a fix; and it stops when a revert of its commits lands first.
 module AutoRevert
   # A run of a workflow: its id, attempt, status and conclusion, head
   # commit, branch, the event that started it, the workflow's file, and
@@ -206,6 +207,26 @@ module AutoRevert
     revert = later.find { |sha| revert?(messages.fetch(sha)) }
     return Plan.of(:nothing, "#{revert[0, 7]}, later on the branch, is a revert; its own run judges what is left") if revert
 
+    nil
+  end
+
+  # Whether a revert of +commits+ landed first, among +landed+, the
+  # commits that reached the branch while this revert was made, and
+  # their +messages+: a revert that names one of them, by its full or its
+  # short sha, as git's, bin/trunk-watch's, and this one's do. Two verdicts
+  # can want one commit reverted at once, a full run's and a pre-push tier
+  # run's, or bin/trunk-watch's, and the second revert would put back
+  # nothing but the first's undoing. Returns the Plan to do nothing, or
+  # nil.
+  def self.overtaken(landed, messages, commits)
+    landed.each do |sha|
+      next unless revert?(messages.fetch(sha))
+
+      named = commits.select { |commit| messages.fetch(sha).include?(commit[0, 7]) }
+      next if named.empty?
+
+      return Plan.of(:nothing, "#{sha[0, 7]}, which landed first, reverts #{named.map { |commit| commit[0, 7] }.join(', ')}")
+    end
     nil
   end
 
@@ -387,7 +408,8 @@ module AutoRevert
       end
       message = AutoRevert.message(run:, commits: authored(plan.commits), jobs:, green: plan.green, skipped: plan.skipped)
       git!(*IDENTITY, "commit", "--quiet", "-m", message)
-      failure = push(run.branch)
+      failure = push(run.branch, plan.commits)
+      return act(run, jobs, failure) if failure.is_a?(Plan)
       return report(run, jobs, plan.with(reason: failure)) if failure
 
       sha = git!("rev-parse", "HEAD").strip
@@ -396,13 +418,18 @@ module AutoRevert
       0
     end
 
-    # Pushes HEAD to +branch+, never forced, rebasing onto it when it
-    # moved; returns nil once pushed, otherwise why not.
-    private def push(branch)
+    # Pushes HEAD, the revert of +commits+, to +branch+, never forced,
+    # rebasing onto it when it moved; returns nil once pushed, the Plan to
+    # do nothing when what moved it reverts some of +commits+
+    # (AutoRevert.overtaken), otherwise why not.
+    private def push(branch, commits)
       PUSH_ATTEMPTS.times do
         return nil if @git.call("push", "--quiet", "origin", "HEAD:refs/heads/#{branch}")
 
         git!("fetch", "--quiet", "origin", "+refs/heads/#{branch}:refs/remotes/origin/#{branch}")
+        landed = git!("rev-list", "HEAD..origin/#{branch}").split
+        overtaken = AutoRevert.overtaken(landed, messages(landed), commits)
+        return overtaken if overtaken
         next if @git.call(*IDENTITY, "rebase", "--quiet", "origin/#{branch}")
 
         @git.call("rebase", "--abort")

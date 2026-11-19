@@ -482,6 +482,27 @@ class AutoRevertTest < Minitest::Test
       .merge(git_answers, /\Apush/ => -> (_) { ((pushes += 1) > 1) ? "" : nil })
   end
 
+  # Two reverts can be wanted at once: a full run's and a pre-push tier
+  # run's verdicts on one commit, or bin/trunk-watch's. The one whose
+  # push loses finds the other's revert of its commits, and stops.
+  def test_a_revert_that_loses_its_push_to_a_revert_of_its_commits_stops
+    [
+      "revert: feat: a change\n\nReverts: #{SECOND}\n",
+      "Revert \"feat: first\"\n\nThis reverts commit #{FIRST}.\n",
+      "revert: feat: first\n\nbin/trunk-watch reverted #{FIRST[0, 7]} automatically.\n",
+].each do |message|
+      gh = Fake.new(gh_answers)
+      git = Fake.new(raced_git(OTHER => message))
+      status, out = bot(gh, git)
+
+      assert_equal 0, status, out
+      assert_equal 1, git.calls.count { |args| args.first == "push" }, message
+      refute git.called?(/rebase/)
+      refute gh.called?(/\Aworkflow run/)
+      assert_match(/Nothing to do: #{OTHER[0, 7]}, which landed first, reverts/, out)
+    end
+  end
+
   # A commit that landed first and reverts nothing of this batch, or is no
   # revert, leaves this revert to go on top of it.
   def test_a_revert_that_loses_its_push_to_anything_else_rebases_and_pushes_again
