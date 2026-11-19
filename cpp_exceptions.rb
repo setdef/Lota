@@ -16,20 +16,11 @@
 # The test-only extension reads Lota::Native's objects (a RandomGenerator,
 # a Texture, a Font, a Mesh, an ImageData, a FileData) out of the other bundle, whose Rice
 # registries it cannot see, by calling the wrapper's virtual get() with
-# the object's own Ruby data type. Ruby
-# declares VALUE and RTYPEDDATA_TYPE in ruby/internal/ headers, whose
-# paths Ruby documents as implementation details that may move ("The name
-# (path) of this header file is also an implementation detail", in
-# ruby/internal/value.h and ruby/internal/core/rtypeddata.h). The public
-# header, ruby.h, does not export them, so misc-include-cleaner cannot be
-# satisfied without tying the build to a path Ruby says will not persist.
-allow "ext/lota/native_test/native_test.cpp", line: 215,
-  reason: "VALUE is declared only in ruby/internal/value.h, whose path Ruby documents as an implementation detail; " \
-    "Rice passes the raw Ruby object (Arg.setValue) because it converts no Rice::Object reference."
-allow "ext/lota/native_test/native_test.cpp", line: 233,
+# the object's own Ruby data type. RTYPEDDATA_TYPE returns that type as
+# const, and Rice's get() takes it as non-const though it only reads it.
+allow "ext/lota/native_test/native_test.cpp", line: 232,
   reason: "RTYPEDDATA_TYPE returns the type as const while Rice's WrapperBase::get takes it non-const " \
-    "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go; and the macro is " \
-    "declared only in ruby/internal/core/rtypeddata.h, whose path Ruby documents as an implementation detail."
+    "though it only reads it (rice.hpp, Wrapper.hpp), so the const_cast cannot go."
 
 # The test-only extension holds a key down for the tests and the parity
 # harness by writing the keyboard state SDL_GetKeyboardState returns, which
@@ -40,7 +31,7 @@ allow "ext/lota/native_test/native_test.cpp", line: 233,
 # Cocoa_HandleKeyEvent). The array itself is SDL's own, not const
 # (src/events/SDL_keyboard.c, SDL_Keyboard's keystate), so writing it
 # through the cast is defined; only the cast can reach it.
-allow "ext/lota/native_test/native_test.cpp", line: 412,
+allow "ext/lota/native_test/native_test.cpp", line: 411,
   reason: "SDL_GetKeyboardState returns SDL's own keystate array as const bool * and SDL has no setter; " \
     "the test-only key hold must write it, which only a const_cast can do."
 

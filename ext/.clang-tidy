@@ -17,3 +17,17 @@ Checks: >
   readability-*,
   -modernize-use-trailing-return-type,
   -readability-identifier-length
+
+# misc-include-cleaner asks for the header that declares each name a file
+# uses, which for two libraries is not the header their makers tell a
+# program to include. Microsoft's page for each Windows function names
+# the header that declares it and says to include Windows.h instead, and
+# Ruby gives its C API through ruby.h, saying of each header under
+# ruby/internal that its path is an implementation detail, not to be
+# expected to persist. So the check leaves both alone: windows.h and
+# those of the headers it includes that Lota's code takes names from,
+# and ruby.h with every header of Ruby's. A name Lota's code takes from
+# another of Windows' headers adds that header here.
+CheckOptions:
+  misc-include-cleaner.IgnoreHeaders: >-
+    [/\\](windows|minwindef|windef|winnt|basetsd|winnls|stringapiset|libloaderapi|errhandlingapi|memoryapi|processthreadsapi)\.h;[/\\]ruby-[^/\\]+[/\\](ruby\.h|ruby[/\\].*|[^/\\]+[/\\]ruby[/\\].*)

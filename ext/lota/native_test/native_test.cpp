@@ -212,7 +212,6 @@ Counted *held_counted() {
 // them, but both are compiled from the same Rice header, so its wrapper's
 // virtual get() returns the pointer here as it would there.
 template <typename T>
-// NOLINTNEXTLINE(misc-include-cleaner)
 T *foreign(VALUE value, const char *name) {
   const Rice::Object object(value);
   // +name+ may name a class inside a module of Lota::Native, such as
@@ -230,7 +229,7 @@ T *foreign(VALUE value, const char *name) {
   Rice::detail::WrapperBase *wrapper = Rice::detail::getWrapper(object.value());
   // Rice's get() takes the type it checks against as non-const, though it
   // only reads it; Ruby hands the object's own type out as const.
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast,misc-include-cleaner)
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
   auto *type = const_cast<rb_data_type_t *>(RTYPEDDATA_TYPE(object.value()));
   return static_cast<T *>(wrapper->get(type));
 }

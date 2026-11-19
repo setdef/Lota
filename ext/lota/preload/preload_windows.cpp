@@ -11,6 +11,7 @@
 #include <windows.h>
 
 #include <array>
+#include <cstddef>
 #include <string>
 
 namespace {
