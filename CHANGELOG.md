@@ -20,6 +20,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `lota fuse` builds a game with the Bundler that `bundle` runs in the game's folder, wherever you run it from. It took the Bundler that the lockfile in the folder it ran from, or in a folder above it, named, so one game could be locked by another Bundler, or refused by Fledge, depending on that folder.
 - On Ruby 4.1, reading four or more values at once (`Lota::Graphics.color`, `background_color`, `scissor`, and the like) no longer sets off major garbage collections: each such Array now holds its values inline, with no buffer from malloc, which Ruby 4.1 counts toward an `oldmalloc` major collection. A frame that read the color 1,000 times ran 17 of them in 10,000 frames, and now runs none.
 - `Lota::Graphics.color=`, `Lota::Graphics.background_color=`, and `Lota::Graphics::SpriteBatch#color=` allocate only the Array their values arrive in, as in 0.3.1; since 0.4.0 each call allocated a second.
 - A phone app built from a clone of Lota at a release's tag, by the iOS kit or by hand, has that release's `Lota::VERSION`, where it had `0.0.1.dev`: `rake phone:gem`, which lays out the folder a phone project names as its `lota` gem, stamps it in.

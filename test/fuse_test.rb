@@ -1108,3 +1108,140 @@ class FuseTest < Minitest::Test
     assert_includes Lota::CLI.usage, "fuse [path] [options]"
   end
 end
+
+# lota fuse runs the Bundler that the bundle command runs in the game's
+# folder, so a game fuses alike from any folder. RubyGems picks the
+# Bundler a program runs by the BUNDLED WITH line of the lockfile in the
+# working directory or a folder above it (Gem::BundlerVersionFinder), so
+# here a second Bundler, which notes each command it is given and hands
+# it to the Bundler these tests run, stands in for one that the lockfile
+# of another folder names. Each lota fuse runs in a process of its own,
+# outside the bundle these tests run in, as a developer runs it in a
+# terminal, and locks the project with the real Bundler. Fledge comes
+# from GitHub, which these runs may not reach, so each stops at
+# installing it, once the project is locked. Nothing here is a shell
+# script, so it runs on Windows too.
+class FuseFromAnyFolderTest < Minitest::Test
+  ROOT = File.expand_path("..", __dir__)
+
+  # The version of the Bundler that stands in, which no Ruby 4.1 carries.
+  OTHER_BUNDLER = "1.0.0"
+
+  def setup
+    super
+    @platform = Lota::Fuse.platform_name(Lota::Fuse.this_platform)
+    skip "Lota has no gem for #{Lota::Fuse.this_platform}" unless @platform
+    @root = Dir.mktmpdir("lota-fuse-folder")
+    @gems = File.join(@root, "gems")
+    @log = File.join(@root, "other-bundler.log")
+    @game = File.join(@root, "sample.game")
+    @elsewhere = File.join(@root, "elsewhere")
+    install_other_bundler
+    write_game
+    write_elsewhere
+  end
+
+  def teardown
+    FileUtils.remove_entry(@root) if @root
+    super
+  end
+
+  # Installs the Bundler that stands in, in a gem folder of its own, which
+  # each lota fuse here searches first.
+  def install_other_bundler
+    folder = File.join(@gems, "gems", "bundler-#{OTHER_BUNDLER}")
+    FileUtils.mkdir_p([File.join(folder, "exe"), File.join(@gems, "specifications")])
+    File.write(File.join(folder, "exe", "bundle"), <<~RUBY)
+      File.write(#{@log.inspect}, "bundle \#{ARGV.join(' ')}\\n", mode: "a")
+      exec(#{RbConfig.ruby.inspect}, #{Gem.bin_path('bundler', 'bundle').inspect}, *ARGV)
+    RUBY
+    spec = Gem::Specification.new do |gem|
+      gem.name = "bundler"
+      gem.version = OTHER_BUNDLER
+      gem.summary = "A Bundler that stands in for another in lota fuse's tests"
+      gem.authors = ["Lota's tests"]
+      gem.bindir = "exe"
+      gem.executables = ["bundle"]
+      gem.files = ["exe/bundle"]
+    end
+    File.write(File.join(@gems, "specifications", "bundler-#{OTHER_BUNDLER}.gemspec"), spec.to_ruby)
+  end
+
+  # Writes a game whose Gemfile asks for Lota, from its vendor/cache, and
+  # locks it with the Bundler these tests run, as its developer would.
+  # The Lota gem goes where RubyGems keeps the gems it installed, too,
+  # where lota fuse takes it from.
+  def write_game
+    FileUtils.mkdir_p(File.join(@game, "vendor", "cache"))
+    File.write(File.join(@game, "main.rb"), "def Lota.load(_arguments) = nil\n")
+    File.write(File.join(@game, "Gemfile"), %(gem "lota", "#{Lota::VERSION}"\n))
+    gem = lota_gem(File.join(@gems, "cache", "lota-#{Lota::VERSION}-#{@platform}.gem"))
+    FileUtils.cp(gem, File.join(@game, "vendor", "cache"))
+    output, status = Open3.capture2e(environment, RbConfig.ruby, Gem.bin_path("bundler", "bundle"), "lock", chdir: @game)
+
+    assert status.success?, output
+  end
+
+  # Writes a folder whose lockfile names the Bundler that stands in.
+  def write_elsewhere
+    FileUtils.mkdir_p(@elsewhere)
+    File.write(File.join(@elsewhere, "Gemfile"), "")
+    File.write(File.join(@elsewhere, "Gemfile.lock"),
+      "GEM\n  specs:\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n\nBUNDLED WITH\n   #{OTHER_BUNDLER}\n")
+  end
+
+  # A Lota gem for this platform, at +path+.
+  def lota_gem(path)
+    spec = Gem::Specification.new do |gem|
+      gem.name = "lota"
+      gem.version = Lota::VERSION
+      gem.platform = Gem::Platform.new(@platform)
+      gem.summary = "A Lota gem for lota fuse's tests"
+      gem.authors = ["Lota's tests"]
+    end
+    FileUtils.mkdir_p(File.dirname(path))
+    Dir.mktmpdir("lota-fuse-gem") { |dir| Dir.chdir(dir) { Gem::Package.build(spec, true, false, path) } }
+    path
+  end
+
+  # The environment of a terminal outside the bundle these tests run in,
+  # with the gem folder of the Bundler that stands in first in GEM_PATH,
+  # and with Git refusing to fetch from GitHub.
+  def environment
+    original = defined?(Bundler) ? Bundler.original_env : ENV.to_h
+    terminal = ENV.keys.to_h { |key| [key, nil] }.merge(original)
+    terminal = terminal.to_h { |key, value| [key, key.match?(/\ABUNDLER?_|\ARUBYOPT\z/) ? nil : value] }
+    path = [@gems, original["GEM_PATH"]].compact.join(File::PATH_SEPARATOR)
+    terminal.merge("GEM_PATH" => original["GEM_PATH"] ? path : "#{path}#{File::PATH_SEPARATOR}", "GIT_ALLOW_PROTOCOL" => "file")
+  end
+
+  # The folder that holds the lota/native extension this process loaded.
+  def native
+    extension = $LOADED_FEATURES.find { |feature| feature.end_with?("/lota/native.#{RbConfig::CONFIG['DLEXT']}") }
+    File.dirname(File.dirname(extension))
+  end
+
+  # Runs lota fuse for the game from +folder+, writing to +out+, and
+  # returns what it made of the game: its exit status, the project's
+  # lockfile, and the commands the Bundler that stands in was given.
+  def fuse_from(folder, out)
+    File.write(@log, "")
+    output, status = Open3.capture2e(environment, RbConfig.ruby, "-I#{native}", "-I#{File.join(ROOT, 'lib')}",
+      File.join(ROOT, "exe", "lota"), "fuse", @game, "--out", out, chdir: folder)
+
+    assert_includes output, "Installing Fledge failed"
+    [status.exitstatus, File.read(File.join(out, "fuse-project", "Gemfile.lock")), File.read(@log)]
+  end
+
+  def test_a_game_fuses_alike_from_its_own_folder_and_from_one_whose_lockfile_names_another_bundler
+    picked, = Open3.capture2(environment, RbConfig.ruby, "-e", 'print Gem.bin_path("bundler", "bundle")', chdir: @elsewhere)
+
+    assert_equal File.expand_path(File.join(@gems, "gems", "bundler-#{OTHER_BUNDLER}", "exe", "bundle")), picked
+
+    from_game = fuse_from(@game, File.join(@root, "from-game"))
+    from_elsewhere = fuse_from(@elsewhere, File.join(@root, "from-elsewhere"))
+
+    assert_equal [1, ""], from_game.values_at(0, 2)
+    assert_equal from_game, from_elsewhere
+  end
+end

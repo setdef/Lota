@@ -253,7 +253,8 @@ module Lota
     # [gem_file] String path of the Lota gem to ship, or +nil+ for the one
     #   RubyGems installed for this platform (Fuse.installed_gem).
     # [bundle] The command that runs Bundler, as an Array of Strings: by
-    #   default this Ruby's own, so the app gets the Ruby that runs this.
+    #   default this Ruby's, so the app gets the Ruby that runs this, with
+    #   the Bundler the +bundle+ command runs in the game's folder.
     def initialize(path, options = Fuse.options, platform: Fuse.this_platform, gem_file: nil, bundle: nil)
       @directory = File.expand_path(path)
       @options = options
@@ -551,10 +552,27 @@ module Lota
       folders.join("/")
     end
 
-    # This Ruby's own Bundler.
+    # The Ruby program that prints the path of the Bundler RubyGems picks
+    # for the Gemfile BUNDLE_GEMFILE names, as the +bundle+ command picks
+    # it (Gem.activate_and_load_bin_path, which finds it as Gem.bin_path
+    # does).
+    BUNDLER_PATH = 'print Gem.bin_path("bundler", "bundle")'
+
+    # This Ruby's Bundler, as the +bundle+ command picks it in the game's
+    # folder. RubyGems picks one of the Bundlers it has by the version
+    # that BUNDLER_VERSION names, or Bundler's +version+ setting, or the
+    # BUNDLED WITH line of the lockfile of BUNDLE_GEMFILE, or else of the
+    # first Gemfile in the working directory or a folder above it
+    # (Gem::BundlerVersionFinder and Gem::BundlerSettings.gemfile_path,
+    # at RubyGems 4.1.0.beta3), and in a program that runs in a bundle, it
+    # is that bundle's (Gem.find_spec_for_exe). So it is asked for in a
+    # Ruby of its own, in the game's folder, with the environment of the
+    # Bundler commands Fuse runs (#environment): the folder and the bundle
+    # +lota fuse+ is run from, and the variables they set, never choose it.
     private def bundler
-      [RbConfig.ruby, Gem.bin_path("bundler", "bundle")]
-    rescue Gem::LoadError
+      path = IO.popen(environment(@directory), [RbConfig.ruby, "-e", BUNDLER_PATH], chdir: @directory, err: File::NULL, &:read)
+      return [RbConfig.ruby, path] if $?&.success? && !path.empty?
+
       raise Error, "found no Bundler for #{RbConfig.ruby}; install it with gem install bundler."
     end
 
