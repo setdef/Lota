@@ -57,6 +57,7 @@ UNIT_TESTS = %w[
   test/tasks/release_engines_test.rb
   test/tasks/release_plan_test.rb
   test/tasks/test_files_test.rb
+  test/tasks/tool_stamp_test.rb
   test/tasks/trunk_watch_test.rb
   test/tasks/windows_desktop_test.rb
 ].freeze

@@ -7,7 +7,7 @@
 
 require "rake/extensiontask"
 require_relative "sanitized_build"
-require_relative "ruby_stamp"
+require_relative "tool_stamp"
 
 # rake compile builds ENGINE_BUILD (tasks/engine.rake): rake-compiler runs ext/lota/extconf.rb in
 # tmp/<platform>/lota/native/<ruby>, then make, then make install into
@@ -31,13 +31,16 @@ DEPENDENCIES = DEPENDENCIES_STAMPS
 file NATIVE_MAKEFILE => DEPENDENCIES
 
 # Both Makefiles are configured again when another Ruby runs rake, even
-# one of the same version, which rake-compiler builds in the same folder
-# (RubyStamp). The record is written as the Rakefile loads, and again by
-# its file task should tmp/ go before a build (tasks/compilers.rake).
-RUBY_STAMP = RubyStamp.new(tmp: File.expand_path("../tmp", __dir__), ruby: RbConfig.ruby)
-RUBY_STAMP.refresh
-file(RUBY_STAMP.path) { RUBY_STAMP.refresh }
-file NATIVE_MAKEFILE => RUBY_STAMP.path
+# one of the same version, which rake-compiler builds in the same folder,
+# or when the cmake or ninja on PATH is another, as when a version
+# manager moves them (ToolStamp). The record is written as the Rakefile
+# loads, and again by its file task should tmp/ go before a build
+# (tasks/compilers.rake).
+TOOL_STAMP = ToolStamp.new(tmp: File.expand_path("../tmp", __dir__),
+  tools: ToolStamp.describe(ruby: RbConfig.ruby, which: ToolStamp.method(:which)))
+TOOL_STAMP.refresh
+file(TOOL_STAMP.path) { TOOL_STAMP.refresh }
+file NATIVE_MAKEFILE => TOOL_STAMP.path
 
 # rake-compiler rebuilds the bundle only when a file it knows of changes,
 # and it knows only C files directly under ext/lota. CMake knows every
@@ -51,7 +54,7 @@ file "#{NATIVE_TMP}/#{NATIVE.binary(NATIVE.platform)}" => "compile:cmake"
 SANITIZED = SanitizedBuild.new(build: "tmp/sanitize/build")
 SANITIZED_EXT = "tmp/sanitize/ext"
 directory SANITIZED_EXT
-file "#{SANITIZED_EXT}/Makefile" => [SANITIZED_EXT, "ext/lota/extconf.rb", *DEPENDENCIES, RUBY_STAMP.path] do
+file "#{SANITIZED_EXT}/Makefile" => [SANITIZED_EXT, "ext/lota/extconf.rb", *DEPENDENCIES, TOOL_STAMP.path] do
   ruby File.expand_path("ext/lota/extconf.rb"), "--with-cmake-build-dir=#{File.expand_path('tmp/sanitize/build')}",
     "--enable-native-test", "--enable-sanitizers", chdir: SANITIZED_EXT
 end

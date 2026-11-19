@@ -337,12 +337,14 @@ class RakeTasksTest < Minitest::Test
   end
 
   # Both Makefiles are configured again when another Ruby runs rake, even
-  # one of the same version, whose build folder is the same (RubyStamp).
-  def test_the_extensions_are_configured_again_for_another_ruby
-    stamp = File.join(ROOT, "tmp", RubyStamp::FILE)
+  # one of the same version, whose build folder is the same, or another
+  # cmake or ninja (ToolStamp).
+  def test_the_extensions_are_configured_again_for_another_ruby_cmake_or_ninja
+    stamp = File.join(ROOT, "tmp", ToolStamp::FILE)
     assert_includes prerequisites(NATIVE_MAKEFILE), stamp
     assert_includes prerequisites("#{SANITIZED_EXT}/Makefile"), stamp
-    assert_equal RbConfig.ruby, File.read(stamp)
+    assert_equal ToolStamp.describe(ruby: RbConfig.ruby, which: ToolStamp.method(:which)), File.read(stamp)
+    assert_includes File.read(stamp), "\nninja #{ToolStamp.which('ninja')}\n"
   end
 
   def test_compile_always_lets_cmake_decide_what_to_rebuild
