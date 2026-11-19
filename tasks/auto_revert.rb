@@ -66,6 +66,15 @@ module AutoRevert
   # The events whose runs on trunk judge trunk.
   EVENTS = %w[push workflow_dispatch].freeze
 
+  # Workflows whose red runs on trunk are run again after an outage, on
+  # any event, and otherwise only reported: the iOS kit called as a
+  # game's CI calls it runs daily, so the batch since its last green run
+  # is a day of commits or more, too many to revert on its word, and with
+  # no revert to follow, a rerun to rule out a flaky test protects no
+  # commit. Neither PER_COMMIT nor coalescing, it never reaches the
+  # commits, so nothing waits on its verdict and it hands nothing on.
+  RERUN_ONLY = %w[ios-kit-caller.yml].freeze
+
   # A commit CI wrote to record a release in the changelog, or a release
   # commit from before releases were recorded that way.
   BOOKKEEPING = /^(?:Recorded-by|Released-by): CI run |\Achore: release \d/
@@ -80,7 +89,10 @@ module AutoRevert
   REVERT = /\A(?:Revert "|revert(?:\([^)]*\))?:)|^This reverts commit \h+|^Reverts: \h/
 
   # What a red run asks for before any commit is looked at: nothing for a
-  # run that has not failed or was not started by a push or by hand; a
+  # run that has not failed; for a run of a RERUN_ONLY workflow, a rerun
+  # after an outage while attempts remain, and otherwise a report, whatever
+  # else is given; nothing for a run that was not started by a push or by
+  # hand; a
   # report when +jobs+, the names of its failed jobs, are all
   # RELEASE_JOBS; a rerun of its failed jobs on its first attempt, to
   # rule out a flaky test, and after that while every error was an
@@ -105,6 +117,7 @@ module AutoRevert
   def self.triage(run, outage:, jobs: [], newer: nil, hang: nil, tests_only: false)
     return Plan.of(:nothing, "run #{run.id} is #{run.status}") unless run.status == "completed"
     return Plan.of(:nothing, "run #{run.id} concluded #{run.conclusion.empty? ? 'nothing' : run.conclusion}") unless run.conclusion == "failure"
+    return rerun_only(run, outage) if RERUN_ONLY.include?(run.workflow)
     return Plan.of(:nothing, "run #{run.id} was started by #{run.event}, which does not judge a branch") unless EVENTS.include?(run.event)
     return Plan.of(:report, "only CI's release jobs failed (#{jobs.join(', ')}), which says nothing about the commits") if
       !jobs.empty? && (jobs - RELEASE_JOBS).empty?
@@ -123,6 +136,17 @@ module AutoRevert
 
     nil
   end
+
+  # The plan for a red run of a RERUN_ONLY workflow: a rerun while every
+  # error was an +outage+ and attempts remain, otherwise a report.
+  def self.rerun_only(run, outage)
+    return Plan.of(:rerun, "every error of run #{run.id} was an outage") if outage && run.attempt < ATTEMPTS
+    return Plan.of(:report, "every error of run #{run.id} was an outage, through #{run.attempt} attempts") if outage
+
+    Plan.of(:report, "#{run.workflow} is never reverted, since the batch since its last green run is a day of commits or more; " \
+      "someone bisects")
+  end
+  private_class_method :rerun_only
 
   # The workflows that run once for each commit pushed to trunk, never
   # cancelled (doc/contributors/ci.md): the pre-push tier. A rerun of

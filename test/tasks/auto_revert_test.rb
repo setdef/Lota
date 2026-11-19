@@ -21,13 +21,35 @@ class AutoRevertTest < Minitest::Test
   LATER = "4" * 40
   REVERT = "5" * 40
 
-  def run_of(attempt: 2, status: "completed", conclusion: "failure", branch: "trunk", event: "push", sha: SECOND)
-    AutoRevert::Run.new(id: 42, attempt:, status:, conclusion:, sha:, branch:, event:, workflow: "ci.yml",
+  def run_of(attempt: 2, status: "completed", conclusion: "failure", branch: "trunk", event: "push", sha: SECOND, workflow: "ci.yml")
+    AutoRevert::Run.new(id: 42, attempt:, status:, conclusion:, sha:, branch:, event:, workflow:,
       url: "https://github.com/setdef/Lota/actions/runs/42")
   end
 
   def test_a_first_failed_attempt_runs_its_failed_jobs_again_to_rule_out_a_flaky_test
     assert_equal :rerun, AutoRevert.triage(run_of(attempt: 1), outage: false).action
+  end
+
+  # The scheduled iOS kit, as a game's CI calls it, is run again after an
+  # outage and otherwise reported: its batch is a day of commits or more.
+  # Neither a newer run, a hang, nor a failure only in the check of how
+  # commits were tested changes that, and nothing goes on to the commits.
+  def test_a_run_of_the_scheduled_ios_kit_is_rerun_after_an_outage_and_otherwise_only_reported
+    %w[schedule workflow_dispatch].each do |event|
+      kit = -> (attempt) { run_of(attempt:, event:, workflow: "ios-kit-caller.yml") }
+
+      assert_equal :rerun, AutoRevert.triage(kit.(1), outage: true, newer: 43).action, event
+      assert_equal :rerun, AutoRevert.triage(kit.(2), outage: true).action, event
+      assert_equal :report, AutoRevert.triage(kit.(3), outage: true).action, event
+      [1, 2].each do |attempt|
+        [{}, { newer: 43, hang: "TIMED OUT" }, { tests_only: true }].each do |also|
+          plan = AutoRevert.triage(kit.(attempt), outage: false, **also)
+
+          assert_equal :report, plan.action, "#{event} attempt #{attempt} #{also}"
+          assert_match(/a day of commits or more/, plan.reason)
+        end
+      end
+    end
   end
 
   def test_a_second_failed_attempt_goes_on_to_the_commits
@@ -393,9 +415,9 @@ class AutoRevertTest < Minitest::Test
     def called?(pattern) = @calls.any? { |args| pattern.match?(args.join(" ")) }
   end
 
-  def run_json(attempt: 2, branch: "trunk", id: 42, sha: SECOND, conclusion: "failure", workflow: "ci.yml")
+  def run_json(attempt: 2, branch: "trunk", id: 42, sha: SECOND, conclusion: "failure", workflow: "ci.yml", event: "push")
     JSON.generate(id:, run_attempt: attempt, status: "completed", conclusion:, head_sha: sha, head_branch: branch,
-      event: "push", path: ".github/workflows/#{workflow}", html_url: "https://github.com/setdef/Lota/actions/runs/#{id}")
+      event:, path: ".github/workflows/#{workflow}", html_url: "https://github.com/setdef/Lota/actions/runs/#{id}")
   end
 
   def gh_answers(attempt: 2, branch: "trunk", runs: [GREEN])
@@ -463,6 +485,43 @@ class AutoRevertTest < Minitest::Test
     assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
     refute git.called?(/\Arevert/)
     assert_match(/every error of run 42 was an outage/, out)
+  end
+
+  # The scheduled iOS kit: run 42 of ios-kit-caller.yml, started by its
+  # schedule, failed in Gate unless +conclusion+ says otherwise.
+  def kit_gh(conclusion: "failure", **answers)
+    run = run_json(attempt: 1, conclusion:, event: "schedule", workflow: "ios-kit-caller.yml")
+    Fake.new(gh_answers(attempt: 1).merge({ %r{\Aapi repos/setdef/Lota/actions/runs/42\z} => run }, answers))
+  end
+
+  # A red run of the scheduled kit is reported, and a green one asks for
+  # nothing, without a look at a commit: no wait for an earlier commit's
+  # verdict, no hand-on, no check for a fix or a revert landed since.
+  def test_the_bot_reports_a_real_failure_of_the_scheduled_ios_kit_and_touches_no_commit
+    { "failure" => 1, "success" => 0 }.each do |conclusion, expected|
+      gh = kit_gh(conclusion:)
+      git = Fake.new(git_answers)
+      status, out = bot(gh, git)
+
+      assert_equal expected, status, out
+      assert_match(/RED: ios-kit-caller\.yml run 42 .* failed in Gate; reverted nothing: .*a day of commits or more/, out) if
+        conclusion == "failure"
+      refute gh.called?(/\Arun rerun/)
+      assert_empty git.calls.reject { |args| args.first == "log" }, conclusion
+    end
+  end
+
+  def test_the_bot_reruns_the_scheduled_ios_kit_whose_job_no_runner_took
+    gh = kit_gh(
+      /\Arun view 42/ => JSON.generate(jobs: [{ databaseId: 8, name: "ios-kit / The Xcode project", conclusion: "cancelled", steps: [] }]),
+      %r{\Aapi repos/setdef/Lota/check-runs/8/annotations\z} => JSON.generate([NOT_ACQUIRED])
+    )
+    git = Fake.new(git_answers)
+    status, out = bot(gh, git)
+
+    assert_equal 0, status, out
+    assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
+    assert_empty git.calls
   end
 
   def test_the_bot_reruns_a_first_failed_attempt_and_reverts_nothing
