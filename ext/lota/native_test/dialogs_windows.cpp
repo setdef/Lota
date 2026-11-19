@@ -282,13 +282,16 @@ int dialogs_answered() { return answered().load(); }
 // foreground (SetForegroundWindow's remarks). The key goes to the window
 // in front, which is not one of this program's.
 namespace {
+// The input of +key+, going down, or up with +flags+ KEYEVENTF_KEYUP.
+INPUT key_input(WORD key, DWORD flags) {
+  return INPUT{
+      .type = INPUT_KEYBOARD,
+      .ki = {.wVk = key, .wScan = 0, .dwFlags = flags, .time = 0, .dwExtraInfo = 0},
+  };
+}
+
 void press(WORD key) {
-  std::array<INPUT, 2> inputs{};
-  for (INPUT &input : inputs) {
-    input.type = INPUT_KEYBOARD;
-    input.ki.wVk = key;
-  }
-  inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+  std::array inputs{key_input(key, 0), key_input(key, KEYEVENTF_KEYUP)};
   SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
 }
 } // namespace
