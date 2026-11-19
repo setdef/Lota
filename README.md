@@ -34,7 +34,7 @@ The name comes from the Lota Bowl, a classic Indian magic trick: the magician em
 | Windows on ARM64, with RubyInstaller's Ruby | `aarch64-mingw-ucrt` | Released |
 | iPhone, iPad, and Android | none | Experimental, built from source |
 
-- Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1. On Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on one day's head build of RubyInstaller, the copy [Fledge](https://github.com/setdef/Fledge)'s release keeps, which `.github/windows_ruby.env` names. Use that build: another day's head build can have another ABI, and need not load Lota's gem. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
+- Lota needs Ruby 4.1. Until Ruby 4.1.0 is released, around Christmas 2026, that means a preview, such as 4.1.0-preview1. On Windows, RubyInstaller publishes no 4.1 preview, so Lota's Windows gems are built and tested on one day's head build of RubyInstaller, the copy [Fledge](https://github.com/setdef/Fledge)'s release keeps, which `.github/windows_ruby.env` names. Use that build: another day's head build can have another ABI, and need not load Lota's gem. [Making a game on Windows](doc/guide/windows.md) says how to get it, and the MSYS2 it needs. Ruby 4.0 is not supported. Lota 1.0.0 waits for Ruby 4.1.0.
 - On Linux, a game needs an X11 or Wayland desktop with OpenGL, as a LÖVE game does. CI runs the Linux tests on X11.
 - On Windows, CI runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own CI does, installs the gem and runs a game from it, and runs apps that `lota fuse` built. GitHub's Windows runners have no GPU and no audio device, so CI plays sound through OpenAL Soft's null backend. On a PC, a game has been played with its window, input, and sound, and on an NVIDIA RTX 4090 Lövetest gives the same results in Lota as in LÖVE's own build, on Vulkan and on OpenGL.
 - Intel Macs and Linux with musl, such as Alpine, have no gem yet. On those, RubyGems picks Lota's source gem, which stops at install and says so.
@@ -60,7 +60,7 @@ lota --version
 
 The last line prints `Lota` and the version you installed.
 
-On Windows, download `lota-VERSION-x64-mingw-ucrt.gem` (or `lota-VERSION-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it, with RubyInstaller's Ruby.
+On Windows, set up Ruby and MSYS2 first, as [Making a game on Windows](doc/guide/windows.md) shows, then download `lota-VERSION-x64-mingw-ucrt.gem` (or `lota-VERSION-aarch64-mingw-ucrt.gem` on ARM64) from the release page and run `gem install --local` on it.
 
 If your game has a `Gemfile`, put the gem in the game's `vendor/cache` folder instead, ask for the version, and install from there. Add a gem for each platform you work on; Bundler locks every platform it finds a gem for.
 
@@ -242,6 +242,7 @@ It builds for the computer it runs on, so build each platform's app on that plat
 | [`lib/`](lib) | The same reference in the source, for reading on GitHub. Lota does not host its API docs online yet |
 | [Translating LÖVE code](doc/guide/translating.md) | Every naming rule, and how Lota differs from Lua where Ruby has no equivalent |
 | [Sharing a game](doc/guide/sharing.md) | What `lota fuse` writes for each platform, what it needs, signing and notarizing, leaving files out, and how it ships your gems |
+| [Making a game on Windows](doc/guide/windows.md) | Getting the Ruby Lota needs on Windows, pointing it at MSYS2, and the gems that compile there |
 | [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) | The experimental phone build: the iOS kit your game's CI can call, the build by hand for iOS and Android, devices, the App Store and Google Play, the notices an app carries, and what has run |
 | [LÖVE's wiki](https://love2d.org/wiki/Main_Page) | What each function does. Look up a Lota method under its LÖVE name |
 | [CHANGELOG](CHANGELOG.md) | What changed in each release |
