@@ -151,8 +151,18 @@ bool of_class(HWND window, const wchar_t *name) {
          std::wcscmp(found, name) == 0;
 }
 
-// The timer that presses Return once a dialog has taken the focus.
+// The timer that presses Return once a dialog has taken the focus, and
+// how long after the dialog is activated it does, in milliseconds.
 constexpr UINT_PTR return_timer = 0x10ca;
+constexpr UINT return_delay = 100;
+
+// What a WM_KEYDOWN and a WM_KEYUP of Return carry in their lParam
+// (WM_KEYDOWN's and WM_KEYUP's documentation): a repeat count of 1 in
+// bits 0 to 15 and Return's scan code, 0x1C, in bits 16 to 23; the key
+// going up also sets bit 30, that it was down, and bit 31, that it is
+// being let go.
+constexpr LPARAM return_down = 0x001C0001;
+constexpr LPARAM return_up = 0xC01C0001;
 
 // Presses Return on +dialog+, in the control that holds the keyboard
 // focus, as a person's Return reaches it: SDL's dialog, a task dialog or
@@ -167,10 +177,8 @@ void CALLBACK press_return(HWND dialog, UINT /*message*/, UINT_PTR timer, DWORD 
   if (target == nullptr || (target != dialog && IsChild(dialog, target) == FALSE)) {
     target = dialog;
   }
-  // The scan code of Return, 0x1C, and a repeat count of 1, in the first
-  // message; the second also says the key was down and is now up.
-  PostMessageW(target, WM_KEYDOWN, VK_RETURN, 0x001C0001);
-  PostMessageW(target, WM_KEYUP, VK_RETURN, static_cast<LPARAM>(0xC01C0001));
+  PostMessageW(target, WM_KEYDOWN, VK_RETURN, return_down);
+  PostMessageW(target, WM_KEYUP, VK_RETURN, return_up);
   ++answered();
 }
 
@@ -181,7 +189,7 @@ LRESULT CALLBACK watch_for_dialogs(int code, WPARAM wparam, LPARAM lparam) {
   if (code == HCBT_ACTIVATE) {
     HWND window = reinterpret_cast<HWND>(wparam);
     if (of_class(window, L"#32770")) {
-      SetTimer(window, return_timer, 100, press_return);
+      SetTimer(window, return_timer, return_delay, press_return);
     }
   }
   return CallNextHookEx(nullptr, code, wparam, lparam);
