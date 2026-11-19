@@ -31,19 +31,6 @@ class ToolStampTest < Minitest::Test
     assert_equal "ruby #{RUBY}\ncmake missing\nninja missing\n", ToolStamp.describe(ruby: RUBY, which: -> (_) {})
   end
 
-  def test_which_finds_a_program_on_path_and_nothing_else
-    in_tree do |dir|
-      ninja = write(dir, "bin/ninja#{RbConfig::CONFIG['EXEEXT']}")
-      File.chmod(0o755, ninja)
-      FileUtils.mkdir_p(File.join(dir, "bin/cmake"))
-      env = { "PATH" => [File.join(dir, "empty"), File.join(dir, "bin")].join(File::PATH_SEPARATOR) }
-
-      assert_equal ninja, ToolStamp.which("ninja", env)
-      assert_nil ToolStamp.which("cmake", env)
-      assert_nil ToolStamp.which("ninja", {})
-    end
-  end
-
   def test_a_tree_with_no_record_gets_one
     in_tree do |dir|
       stamp = ToolStamp.new(tmp: File.join(dir, "tmp"), tools: tools(OLD_MISE))

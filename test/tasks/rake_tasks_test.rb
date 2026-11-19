@@ -343,8 +343,8 @@ class RakeTasksTest < Minitest::Test
     stamp = File.join(ROOT, "tmp", ToolStamp::FILE)
     assert_includes prerequisites(NATIVE_MAKEFILE), stamp
     assert_includes prerequisites("#{SANITIZED_EXT}/Makefile"), stamp
-    assert_equal ToolStamp.describe(ruby: RbConfig.ruby, which: ToolStamp.method(:which)), File.read(stamp)
-    assert_includes File.read(stamp), "\nninja #{ToolStamp.which('ninja')}\n"
+    assert_equal ToolStamp.describe(ruby: RbConfig.ruby, which: Executable.method(:find)), File.read(stamp)
+    assert_includes File.read(stamp), "\nninja #{Executable.find('ninja')}\n"
   end
 
   def test_compile_always_lets_cmake_decide_what_to_rebuild

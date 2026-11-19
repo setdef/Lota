@@ -8,6 +8,7 @@
 require "fileutils"
 require "json"
 require "open3"
+require_relative "executable"
 
 # Derives the engine's source list from LÖVE's own CMakeLists.txt.
 #
@@ -140,11 +141,13 @@ class EngineSources
   # [build] A scratch directory for CMake's evaluation.
   # [cmake_args] Extra arguments to the configure step.
   # [label] Names the evaluated tree and platform in the generated header.
-  def initialize(source:, build:, cmake_args: [], label: "")
+  # [env] The environment CMake runs in, whose PATH names the ninja.
+  def initialize(source:, build:, cmake_args: [], label: "", env: ENV)
     @source = File.expand_path(source)
     @build = File.expand_path(build)
     @cmake_args = cmake_args
     @label = label
+    @env = env
   end
 
   # The generated CMake file, as a String.
@@ -239,8 +242,18 @@ class EngineSources
     query = File.join(@build, ".cmake/api/v1/query/codemodel-v2")
     FileUtils.mkdir_p(File.dirname(query))
     FileUtils.touch(query)
-    output, status = Open3.capture2e("cmake", "-S", @source, "-B", @build, *@cmake_args)
+    output, status = Open3.capture2e(@env.to_h, "cmake", "-S", @source, "-B", @build, *@cmake_args, *make_program)
     raise Failure, "cmake could not evaluate #{@source}:\n#{output}" unless status.success?
+  end
+
+  # The ninja on PATH now, for an evaluation with Ninja. The scratch tree
+  # is kept between evaluations, and CMake keeps the generator's program
+  # in its cache by its path, which find_program never searches for again
+  # while it is set (CMakeNinjaFindMake.cmake), so once a version manager
+  # moved ninja the next evaluation would fail in project().
+  private def make_program
+    ninja = Executable.find("ninja", @env) if @cmake_args.each_cons(2).include?(%w[-G Ninja])
+    ninja ? ["-DCMAKE_MAKE_PROGRAM:FILEPATH=#{ninja}"] : []
   end
 
   private def reply_dir

@@ -6,7 +6,6 @@
 #++
 
 require "fileutils"
-require "rbconfig"
 
 # The programs ext/lota/extconf.rb names to CMake, recorded so that the
 # extension's builds are configured again when one of them is another.
@@ -33,18 +32,10 @@ class ToolStamp
   FILE = ".tools"
 
   # The programs, one to a line: +ruby+, and cmake and ninja as +which+
-  # (a command name to its path, or nil) finds them.
+  # (a command name to its path, or nil, as Executable.find) finds them.
   def self.describe(ruby:, which:)
     lines = ["ruby #{ruby}", *%w[cmake ninja].map { |tool| "#{tool} #{which.call(tool) || 'missing'}" }]
     "#{lines.join("\n")}\n"
-  end
-
-  # Where +name+ is on +env+'s PATH, as extconf.rb's find_executable finds
-  # it, or nil.
-  def self.which(name, env = ENV)
-    names = [name, "#{name}#{RbConfig::CONFIG['EXEEXT']}"].uniq
-    env.fetch("PATH", "").split(File::PATH_SEPARATOR).product(names).map { |dir, file| File.join(dir, file) }
-      .find { |path| File.executable?(path) && !File.directory?(path) }
   end
 
   # [tmp] The build tree.

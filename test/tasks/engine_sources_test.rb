@@ -121,6 +121,28 @@ class EngineSourcesTest < Minitest::Test
     end
   end
 
+  # A version manager moves ninja between two evaluations of one scratch
+  # tree, which keeps the first ninja's path in its cache.
+  def test_generate_evaluates_with_the_ninja_on_path_after_ninja_moved
+    in_tree do |root|
+      love_tree(root)
+      ninja = Executable.find("ninja")
+      assert ninja, "no ninja on PATH, which mise.toml pins"
+      FileUtils.mkdir_p(File.join(root, "old"))
+      FileUtils.cp(File.realpath(ninja), File.join(root, "old"))
+      evaluate = lambda do |dir|
+        env = { "PATH" => [File.join(root, dir), ENV.fetch("PATH")].join(File::PATH_SEPARATOR) }
+        EngineSources.new(source: root, build: File.join(root, "build"), cmake_args: %w[-G Ninja -DMEGA=ON], env:)
+          .generate
+      end
+      evaluate.call("old")
+      FileUtils.mv(File.join(root, "old"), File.join(root, "new"))
+
+      assert_equal KEPT.sort, EngineSources.listed(evaluate.call("new"))
+      assert_includes File.read(File.join(root, "build/CMakeCache.txt")), "CMAKE_MAKE_PROGRAM:FILEPATH=#{root}/new/"
+    end
+  end
+
   def test_write_creates_the_file_and_problems_finds_none
     in_tree do |root|
       love_tree(root)

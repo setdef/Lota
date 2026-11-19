@@ -7,6 +7,7 @@
 
 require "rake/extensiontask"
 require_relative "sanitized_build"
+require_relative "executable"
 require_relative "tool_stamp"
 
 # rake compile builds ENGINE_BUILD (tasks/engine.rake): rake-compiler runs ext/lota/extconf.rb in
@@ -37,7 +38,7 @@ file NATIVE_MAKEFILE => DEPENDENCIES
 # loads, and again by its file task should tmp/ go before a build
 # (tasks/compilers.rake).
 TOOL_STAMP = ToolStamp.new(tmp: File.expand_path("../tmp", __dir__),
-  tools: ToolStamp.describe(ruby: RbConfig.ruby, which: ToolStamp.method(:which)))
+  tools: ToolStamp.describe(ruby: RbConfig.ruby, which: Executable.method(:find)))
 TOOL_STAMP.refresh
 file(TOOL_STAMP.path) { TOOL_STAMP.refresh }
 file NATIVE_MAKEFILE => TOOL_STAMP.path
