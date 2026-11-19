@@ -145,7 +145,7 @@ void replace(Replaced &slot, const char *name, const Pointer &refusal) {
   if (sdl == nullptr) {
     sdl = LoadLibraryW(L"SDL3.dll");
   }
-  FARPROC const found = sdl == nullptr ? nullptr : GetProcAddress(sdl, name);
+  FARPROC found = sdl == nullptr ? nullptr : GetProcAddress(sdl, name);
   if (found == nullptr) {
     return;
   }
@@ -301,12 +301,12 @@ void press(WORD key) {
 // still, as where the shell's own window, such as the Start menu, is in
 // front, it presses Escape, which closes that, and Alt, and asks again.
 void activate() {
-  HWND const window = first_window();
+  HWND window = first_window();
   if (window == nullptr) {
     return;
   }
   const DWORD self = GetCurrentThreadId();
-  HWND const front = GetForegroundWindow();
+  HWND front = GetForegroundWindow();
   const DWORD other = front == nullptr ? 0 : GetWindowThreadProcessId(front, nullptr);
   const bool shared = other != 0 && other != self && AttachThreadInput(self, other, TRUE) != FALSE;
   ShowWindow(window, SW_SHOW);
@@ -324,7 +324,7 @@ void activate() {
 }
 
 bool has_focus() {
-  HWND const window = first_window();
+  HWND window = first_window();
   return window != nullptr && GetForegroundWindow() == window && GetFocus() == window;
 }
 
@@ -336,7 +336,7 @@ void stay_in_background() {}
 // Gives the foreground to the desktop's shell window, since nothing
 // records which window had it before activate.
 void give_up_focus() {
-  HWND const shell = GetShellWindow();
+  HWND shell = GetShellWindow();
   if (shell != nullptr) {
     SetForegroundWindow(shell);
   }
@@ -351,7 +351,7 @@ void reread_occlusion() {}
 // where it is.
 std::string window_state() {
   std::string state;
-  HWND const foreground = GetForegroundWindow();
+  HWND foreground = GetForegroundWindow();
   for (HWND window : sdl_windows()) {
     RECT rect{};
     GetWindowRect(window, &rect);
