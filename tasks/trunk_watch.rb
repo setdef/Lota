@@ -55,6 +55,33 @@ class TrunkWatch
   # in a job whose log shows BROKEN_DOWNLOAD, it is that outage's.
   STEP_EXIT = /##\[error\](?:The process '.*' failed|Process completed) with exit code \d+/
 
+  # A Metal command buffer the GPU hung on, as macOS names it in what the
+  # parity harness's Metal watch prints (doc/contributors/parity.md). A
+  # macOS runner's GPU has hung under the reference love, which then drew
+  # black frames to its run's end, so a parity test compared Lota with
+  # them and failed on an innocent commit.
+  GPU_HANG = /kIOGPUCommandBufferCallbackErrorHang/
+
+  # The lines of a parity failure that head what the reference love's
+  # Metal watch reported, and what Lota printed, which follows it
+  # (Parity.mismatch_message, test/parity/parity_helper.rb).
+  REFERENCE_WATCH = "The reference love's Metal watch reported:"
+  LOTA_PRINTED = /\ALota printed/
+
+  # The lines of the gate's report (tasks/gate.rb): the heading of each
+  # check's output, the heading of its table of timings, and a check's
+  # row there that did not pass.
+  GATE_CHECK = /\A\S+ gate: \S+ \(\d+ s/
+  GATE_TIMINGS = "gate timings"
+  GATE_UNPASSED = /\A  (\S+) +\d+ s  (?:FAILED|TIMED OUT)\z/
+
+  # Minitest's heading of each failure or error, and its count of them.
+  TEST_FAILURE = /\A *\d+\) (?:Failure|Error):\z/
+  TEST_COUNT = /\A\d+ runs, \d+ assertions, (\d+) failures, (\d+) errors/
+
+  # The timestamp the logs API puts before each line.
+  STAMP = /\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z ?/
+
   # Terminal escape sequences: CSI sequences (colors, cursor moves) and the
   # two-character escapes.
   ANSI = %r{\e\[[0-?]*[ -/]*[@-~]|\e[@-Z\\-_]}
@@ -95,15 +122,60 @@ class TrunkWatch
 
   # The verdict on a failed run's +log+ at +attempt+: :rerun when every
   # error line is an outage's or noise and the attempt is below ATTEMPTS,
-  # otherwise :stop.
+  # otherwise :stop. In a job whose every failed gate check failed only
+  # on the GPU's hang (gpu_hang), those checks' error lines and the
+  # step's exit status are the hang's, and its first line is shown among
+  # the errors.
   def self.classify(log, attempt)
     lines = strip_ansi(log).lines(chomp: true)
+    hung = gpu_hang(lines.map { |line| line.sub(STAMP, "") })
     broken = lines.grep(BROKEN_DOWNLOAD)
-    errors = broken + lines.grep(ERROR_LINE)
-    real = errors.grep_v(OUTAGE).grep_v(NOISE).grep_v(BROKEN_DOWNLOAD)
-    real = real.grep_v(STEP_EXIT) unless broken.empty?
+    errors = broken + lines.values_at(*hung).grep(GPU_HANG).first(1) + lines.grep(ERROR_LINE)
+    real = broken + lines.reject.with_index { |_, index| hung.include?(index) }.grep(ERROR_LINE)
+    real = real.grep_v(OUTAGE).grep_v(NOISE).grep_v(BROKEN_DOWNLOAD)
+    real = real.grep_v(STEP_EXIT) unless broken.empty? && hung.empty?
     Verdict.new(action: (real.empty? && attempt < ATTEMPTS) ? :rerun : :stop, errors:, outage: real.empty?)
   end
+
+  # The indexes of the +lines+ (a job's log, without escapes or
+  # timestamps) of the gate checks a hung GPU explains, when it explains
+  # every check that did not pass; otherwise none. A check is explained
+  # when minitest counted as many failures and errors in its output as
+  # it shows, at least one, and the reference love's Metal watch reported
+  # a GPU_HANG in each. A commit that breaks Lota's drawing fails with
+  # the reference's GPU fine, or with only Lota's hung, and is not.
+  def self.gpu_hang(lines)
+    checks = lines.filter_map { |line| line[GATE_UNPASSED, 1] }.map { |name| gate_check(lines, name) }
+    return [] unless !checks.empty? && checks.all? { |check| check && gpu_hung?(lines[check]) }
+
+    checks.flat_map(&:to_a)
+  end
+
+  # The range of +lines+ that holds the output of the gate check +name+,
+  # from its heading to the next check's or the table of timings, or nil.
+  def self.gate_check(lines, name)
+    start = lines.index { |line| line.match?(GATE_CHECK) && line.split[2] == name }
+    return unless start
+
+    length = lines.drop(start + 1).index { |line| line.match?(GATE_CHECK) || line == GATE_TIMINGS } || (lines.size - start - 1)
+    start..(start + length)
+  end
+  private_class_method :gate_check
+
+  # Whether every failure in a check's +output+ is a parity test's whose
+  # reference love's GPU hung, and minitest counted no other.
+  def self.gpu_hung?(output)
+    failures = output.slice_before { |line| line.match?(TEST_FAILURE) }.drop(1)
+    counted = output.sum { |line| line.match(TEST_COUNT)&.captures&.sum(&:to_i) || 0 }
+    !failures.empty? && failures.size == counted && failures.all? { |failure| reference_hung?(failure) }
+  end
+
+  # Whether what the reference love's Metal watch reported in a parity
+  # test's +failure+ shows a GPU_HANG.
+  def self.reference_hung?(failure)
+    failure.drop_while { |line| line != REFERENCE_WATCH }.drop(1).take_while { |line| !line.match?(LOTA_PRINTED) }.any?(GPU_HANG)
+  end
+  private_class_method :gpu_hung?, :reference_hung?
 
   # The verdict on a failed run's jobs, from each job's log in +logs+:
   # each is classified alone, so that one job's broken download excuses

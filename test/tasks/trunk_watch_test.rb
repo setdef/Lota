@@ -6,6 +6,7 @@
 #++
 
 require_relative "tree_helper"
+require_relative "gate_logs"
 require_relative "../../tasks/trunk_watch"
 require "json"
 require "stringio"
@@ -106,6 +107,63 @@ class TrunkWatchTest < Minitest::Test
 
     assert_equal 30, watch(gh).check.id
     assert(gh.calls.none? { |call| call[1] == "rerun" })
+  end
+
+  # The runner's GPU hung under the reference love, whose frames came out
+  # black, so the parity test that compared Lota's with them failed on an
+  # innocent commit (GateLogs). The gate's error lines in that check, and
+  # the step's exit status, are the hang's.
+  def test_a_gate_whose_only_failure_is_the_reference_loves_gpu_hang_is_an_outage
+    verdict = TrunkWatch.classify(GateLogs::HUNG, 1)
+
+    assert_equal :rerun, verdict.action
+    assert verdict.outage
+    assert(verdict.errors.any? { |line| line.include?("kIOGPUCommandBufferCallbackErrorHang") }, verdict.errors)
+    assert_equal :stop, TrunkWatch.classify(GateLogs::HUNG, 3).action
+    assert TrunkWatch.classify(GateLogs::HUNG, 3).outage
+    assert TrunkWatch.classify(GateLogs::HUNG.gsub(/^\S+ /, ""), 1).outage
+  end
+
+  # A commit that breaks Lota's drawing fails the same test with the
+  # reference's GPU fine, or with only Lota's command buffers hung, and is
+  # the code's, where the reference's hang is the runner's.
+  def test_a_rendering_regression_is_the_codes_even_when_lotas_gpu_hung
+    regression = GateLogs.log(sections: [GateLogs.shard(failures: GateLogs.failure(reference: GateLogs::CLEAN, lota: GateLogs::CLEAN))])
+    lota_hung = GateLogs.log(sections: [GateLogs.shard(failures: GateLogs.failure(reference: GateLogs::CLEAN))])
+    unwatched = GateLogs.log(sections: [GateLogs.shard(failures: GateLogs.failure(reference: [], lota: GateLogs::REFERENCE_HUNG))])
+
+    assert TrunkWatch.classify(GateLogs::HUNG, 1).outage
+    [regression, lota_hung, unwatched].each do |log|
+      verdict = TrunkWatch.classify(log, 1)
+
+      assert_equal :stop, verdict.action
+      refute verdict.outage
+    end
+  end
+
+  # The hang excuses only the checks it explains: not another failure in
+  # its shard, nor another check that failed or timed out, nor a log with
+  # no gate report to tie the failure to its check, though alone it is an
+  # outage.
+  def test_a_gpu_hang_excuses_no_other_failure_in_its_job
+    beside = GateLogs.shard(failures: GateLogs.failure + GateLogs.assertion, failed: 2)
+    uncounted = GateLogs.shard(failures: GateLogs.failure, failed: 2)
+    rubocop = ["❌ gate: rubocop (31 s)", "lib/lota.rb:3:1: C: Style/Documentation: Missing top-level documentation comment."]
+    hung_lane = ["❌ gate: test:shard:native (2820 s, TIMED OUT)", "(its output so far is printed with its diagnostics above)"]
+    timed_out = GateLogs.timings("test:shard:gravity_wars" => "FAILED", "test:shard:native" => "TIMED OUT")
+    logs = [
+      GateLogs.log(sections: [beside]),
+      GateLogs.log(sections: [uncounted]),
+      GateLogs.log(sections: [GateLogs.shard, rubocop], table: GateLogs.timings("test:shard:gravity_wars" => "FAILED", "rubocop" => "FAILED")),
+      GateLogs.log(sections: [GateLogs.shard, hung_lane], table: timed_out),
+      GateLogs.log(table: []),
+      GateLogs.log(sections: [], table: GateLogs.timings),
+    ]
+
+    assert TrunkWatch.classify(GateLogs::HUNG, 1).outage
+    logs.each_with_index do |log, index|
+      refute TrunkWatch.classify(log, 1).outage, "log #{index}"
+    end
   end
 
   def test_strip_ansi_removes_color_and_cursor_codes

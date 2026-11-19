@@ -7,6 +7,7 @@
 
 require_relative "../test_helper"
 require_relative "../../tasks/auto_revert"
+require_relative "gate_logs"
 require "json"
 require "stringio"
 
@@ -133,6 +134,29 @@ class AutoRevertTest < Minitest::Test
     assert_includes out, "left to run 43, newer"
     refute gh.called?(/\Arun rerun/)
     refute git.called?(/\A(?:revert|push)/)
+  end
+
+  # Full run 43676695527 failed in its Gate job only because the runner's
+  # GPU hung under the reference love (GateLogs), with a newer run going,
+  # and the bot reverted its three innocent commits. A hung GPU is an
+  # outage: left to the newer run, and otherwise run again.
+  def test_the_bot_reverts_nothing_for_the_runners_gpu_hang
+    newer = { /\Arun list .*--json databaseId,status\z/ => JSON.generate([{ databaseId: 43, status: "in_progress" }]) }
+    hung = { %r{actions/jobs/7/logs} => GateLogs::HUNG }
+    gh = Fake.new(newer.merge(gh_answers(attempt: 1)).merge(hung))
+    git = Fake.new(git_answers)
+    status, out = bot(gh, git)
+
+    assert_equal 0, status, out
+    assert_includes out, "Nothing to do: every error of run 42 was an outage, and run 43, newer, holds the same commits"
+    refute gh.called?(/\Arun rerun/)
+    refute git.called?(/\A(?:revert|push)/)
+
+    gh = Fake.new(gh_answers(attempt: 2).merge(hung))
+    status, out = bot(gh, Fake.new(git_answers))
+
+    assert_equal 0, status, out
+    assert gh.called?(%r{\Arun rerun 42 --repo setdef/Lota --failed\z})
   end
 
   # The newest run of the branch's workflow after +id+ that has not
