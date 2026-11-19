@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Bundler
+  class Settings
+    def initialize: (?Pathname? root) -> void
+
+    def []: (:with | :without name) -> Array[Symbol]
+  end
+end

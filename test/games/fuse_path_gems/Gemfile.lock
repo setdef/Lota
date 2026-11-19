@@ -3,6 +3,11 @@ PATH
   specs:
     sample_helper (0.1.0)
 
+PATH
+  remote: gems/sample_tool
+  specs:
+    sample_tool (0.1.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -17,9 +22,11 @@ PLATFORMS
 
 DEPENDENCIES
   sample_helper!
+  sample_tool!
 
 CHECKSUMS
   sample_helper (0.1.0)
+  sample_tool (0.1.0)
 
 BUNDLED WITH
   4.0.20

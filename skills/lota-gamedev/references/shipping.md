@@ -28,16 +28,20 @@ Things a game author should know:
   `make` on Linux (`build-essential`), RubyInstaller's MSYS2 tools on
   Windows (`ridk install`). Without one, `lota fuse` fails after the
   compiler's output names the gem and says what to install. Gems in the
-  `development` and `test` groups never compile. Build each platform's app
-  on that platform: an extension compiles for the computer it compiles on.
+  `development` and `test` groups stay out of the app and never compile,
+  unless Bundler's `with` names their group for the game's folder
+  (`bundle config set --local with development`); a group Bundler's
+  `without` names stays out too. Build each platform's app on that
+  platform: an extension compiles for the computer it compiles on.
 - Each gem ships whole, with the license files its package holds; honoring
   each gem's license (`bundle licenses` lists them) is the game author's
   job, and a gem whose package leaves out its license text needs it added
   to the notices the author ships.
 - A game folder's `.git`, `.bundle`, `vendor/bundle`, and `vendor/cache` are
   left out of the app's copy of the game; the gems in `vendor/cache` go to
-  the build, not the game folder. Settings in the game's `.bundle/config`
-  (such as `build.NAME` options for an extension) do not reach the build.
+  the build, not the game folder. Of the game's Bundler settings, only
+  `with` and `without` reach the build; others in its `.bundle/config`
+  (such as `build.NAME` options for an extension) do not.
 - `--exclude PATTERN` (repeatable) leaves paths out of the app's copy of the
   game, besides those above. A pattern is a glob relative to the game's
   folder (`File.fnmatch` with `FNM_PATHNAME`, `FNM_EXTGLOB`, `FNM_DOTMATCH`):

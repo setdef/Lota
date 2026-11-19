@@ -54,6 +54,8 @@ module Lota
 
     RESERVED: Regexp
 
+    LEFT_OUT_GROUPS: Array[String]
+
     LEFT_OUT: Array[String]
 
     REQUIRED: Array[String]
@@ -139,6 +141,10 @@ module Lota
     private def executable: (String name) -> String?
 
     private def write_project: (Settings settings, String gem, Lockfile? locked) -> void
+
+    private def write_bundle_config: () -> void
+
+    private def game_bundler_settings: () -> Bundler::Settings
 
     private def copy_cache: (String cache, Lockfile locked) -> void
 

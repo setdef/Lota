@@ -35,11 +35,13 @@ require_relative "../tasks/lovetest_image"
 #   ruby .github/fuse_check.rb notices FOLDER PLATFORM
 
 # Each game in test/games the workflow fuses: its identity, and the lines
-# it prints that only its gems can print.
+# it prints that only its gems can print, or that say a gem its app leaves
+# out is not there.
 GAMES = {
   "fuse" => ["FuseCheck", []],
   "fuse_gems" => ["FuseCheckGems", ["rainbow: 3.0.0", "rainbow from the app: true", 'rainbow says: "\e[31mok\e[0m"']],
-  "fuse_path_gems" => ["FuseCheckPathGems", ["sample_helper: 0.1.0", "sample_helper from the app: true", %(sample_helper says: "OK!")]],
+  "fuse_path_gems" => ["FuseCheckPathGems", ["sample_helper: 0.1.0", "sample_helper from the app: true", %(sample_helper says: "OK!"),
+                                             "sample_tool in the app: false",]],
   "fuse_native" => ["FuseCheckNative", ["fast_blank: true false", "fast_blank from the app: true"]],
 }.freeze
 

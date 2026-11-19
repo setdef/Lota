@@ -39,7 +39,11 @@ module Lota
   # it to FLEDGE_REF. Fledge reads the project's Gemfile and lockfile
   # itself, fetches each gem the app ships, checked against the
   # lockfile's checksum, and compiles those it ships with an extension
-  # for the app's Ruby, leaving out the +development+ and +test+ groups.
+  # for the app's Ruby. The app ships the groups the project's Bundler
+  # settings set up, which Fuse writes from the game's: they leave out
+  # LEFT_OUT_GROUPS, the +development+ and +test+ groups, unless
+  # Bundler's +with+ setting for the game's folder names one, and any
+  # other group the game's +without+ names.
   # So Bundler only locks the project and installs none of the game's
   # gems: a development gem with a C extension never compiles, a game
   # whose gems are pure Ruby fuses with no C compiler, and Fledge, in no
@@ -172,11 +176,13 @@ module Lota
     # names a Windows setup program gives file associations, which the
     # project declares none of, 0.11.0 takes a gem's source build when its
     # precompiled build's required_ruby_version excludes the runtime's
-    # Ruby, as Bundler does, and 0.12.0 carries Ruby 4.1 in every runtime
+    # Ruby, as Bundler does, 0.12.0 carries Ruby 4.1 in every runtime
     # (doc/contributors/design/packaging.md): 4.1.0-preview1, and on
     # Windows one day's head build of RubyInstaller, which publishes no
-    # preview.
-    FLEDGE_REF = "v0.12.0"
+    # preview, and 0.13.0, on the same Rubies, ships the +development+
+    # and +test+ groups unless Bundler's +without+ leaves them out, as
+    # the project's Bundler settings do (LEFT_OUT_GROUPS).
+    FLEDGE_REF = "v0.13.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.
@@ -212,6 +218,12 @@ module Lota
 
     # Names Windows reserves for devices, which no folder may take.
     RESERVED = /\A(con|prn|aux|nul|com\d|lpt\d)(\..*)?\z/i
+
+    # The groups of a game's Gemfile that its app leaves out unless
+    # Bundler's +with+ setting asks for them: <tt>bundle exec</tt> sets
+    # them up for the game's developer, and a player, who plays the game
+    # and never develops or tests it, needs neither.
+    LEFT_OUT_GROUPS = %w[development test].freeze
 
     # The folders of a game that its app leaves out, as Fledge leaves them
     # out of a project it builds (its README, Usage): its Git repository
@@ -571,8 +583,38 @@ module Lota
       copy_game(@directory, File.join(project, GAME_FOLDER, folder))
       FileUtils.cp(File.join(@directory, "Gemfile.lock"), File.join(project, "Gemfile.lock")) if locked
       File.write(File.join(project, "Gemfile"), gemfile(folder, locked))
+      write_bundle_config
       File.write(File.join(project, "fledge.yml"), fledge_yml(name(settings), identity, folder))
       File.write(File.join(project, "main.rb"), entry_script(folder))
+    end
+
+    # Writes the project's Bundler settings, in its
+    # <tt>.bundle/config</tt>, the level Bundler reads before any other
+    # (Bundler::Settings#[] and #configs, at Bundler 4.0.22), from which
+    # Fledge takes the groups the app ships and writes them into the
+    # app's own <tt>.bundle/config</tt> (Fledge::Bundle#read_groups and
+    # #group_settings, at FLEDGE_REF). Its +without+ is the game's, with
+    # LEFT_OUT_GROUPS, and its +with+ the game's, each as Bundler reads
+    # it for the game's folder (#game_bundler_settings). A group in
+    # +with+ leaves +without+, since Bundler sets up a group both name
+    # (Bundler::Definition#requested_groups) and refuses a file that
+    # names one in both (Bundler::Settings::Validator).
+    private def write_bundle_config
+      settings = game_bundler_settings
+      with = settings[:with].map(&:to_s)
+      without = (LEFT_OUT_GROUPS + settings[:without].map(&:to_s)).uniq - with
+      FileUtils.mkdir_p(File.join(project, ".bundle"))
+      File.write(File.join(project, ".bundle", "config"),
+        %(---\nBUNDLE_WITHOUT: "#{without.join(':')}"\nBUNDLE_WITH: "#{with.join(':')}"\n))
+    end
+
+    # Bundler's settings for the game's folder, as Bundler reads them
+    # there: the game's own <tt>.bundle/config</tt>, or the folder
+    # BUNDLE_APP_CONFIG names (Bundler.app_config_path), then the
+    # environment, then the developer's own settings.
+    private def game_bundler_settings
+      require "bundler"
+      Bundler::Settings.new(Pathname.new(File.expand_path(ENV.fetch("BUNDLE_APP_CONFIG", ".bundle"), @directory)))
     end
 
     # Copies the game's <tt>vendor/cache</tt> to +cache+, the project's,

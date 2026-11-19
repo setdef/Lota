@@ -10,6 +10,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `lota fuse` reads Bundler's `with` and `without` settings as Bundler reads them for the game's folder (its `.bundle/config`, `BUNDLE_WITH` and `BUNDLE_WITHOUT`, then your own), where it read only your own: a group in `with`, such as `bundle config set --local with development`, ships in the app, which still leaves out the `development` and `test` groups by default.
+
+### Changed
+
+- `lota fuse` builds with Fledge 0.13.0, was 0.12.0; Fledge's changelog says what changes in an app.
+
 ### Fixed
 
 - A phone app built from a clone of Lota at a release's tag, by the iOS kit or by hand, has that release's `Lota::VERSION`, where it had `0.0.1.dev`: `rake phone:gem`, which lays out the folder a phone project names as its `lota` gem, stamps it in.

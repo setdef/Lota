@@ -118,9 +118,17 @@ class FuseTest < Minitest::Test
     fake("git", "exit 0\n")
     @path = ENV.fetch("PATH", nil)
     ENV["PATH"] = "#{@bin}#{File::PATH_SEPARATOR}#{@path}"
+    @bundler_settings = BUNDLER_SETTINGS.to_h { |name| [name, ENV.delete(name)] }
+    ENV["BUNDLE_USER_CONFIG"] = File.join(@root, "home", ".bundle", "config")
   end
 
+  # The variables that give Bundler settings for the game's folder, which
+  # lota fuse reads: none of the developer's own reach these tests, whose
+  # own settings are in a folder of their own (BUNDLE_USER_CONFIG).
+  BUNDLER_SETTINGS = %w[BUNDLE_WITH BUNDLE_WITHOUT BUNDLE_APP_CONFIG BUNDLE_CONFIG BUNDLE_USER_CONFIG BUNDLE_USER_HOME].freeze
+
   def teardown
+    @bundler_settings&.each { |name, value| ENV[name] = value }
     ENV["PATH"] = @path if @path
     FileUtils.remove_entry(@root) if @root
     super
@@ -245,6 +253,8 @@ class FuseTest < Minitest::Test
     assert_equal "not really Lota", marker(project("vendor", "cache", "lota-#{Lota::VERSION}-arm64-darwin.gem"))
     files = Dir.glob("**/*", File::FNM_DOTMATCH, base: project).reject { |name| File.basename(name) == "." }
     assert_equal %W[
+      .bundle
+      .bundle/config
       Gemfile
       NOTICES.txt
       fledge.yml
@@ -459,12 +469,12 @@ class FuseTest < Minitest::Test
     assert status.success?, output
   end
 
-  # Fledge leaves a game's development and test groups out of the app
-  # (Fledge::Bundle::WITHOUT), so compiling them gives the player nothing.
+  # The project's Bundler settings leave a game's development and test
+  # groups out of the app, so compiling them gives the player nothing.
   # Here the real Bundler locks the game, as its developer would, and
-  # locks the project, with no gem server to reach: lota fuse then builds
-  # with a development gem whose extension can only fail, and nothing ever
-  # compiles it.
+  # locks the project, with those settings and no gem server to reach:
+  # lota fuse then builds with a development gem whose extension can only
+  # fail, and nothing ever compiles it.
   def test_a_development_gem_with_an_extension_is_never_compiled
     platform = Lota::Fuse.platform_name(Lota::Fuse.this_platform)
     skip "Lota has no gem for #{Lota::Fuse.this_platform}" unless platform
@@ -491,6 +501,33 @@ class FuseTest < Minitest::Test
     assert_includes read("Gemfile.lock"), "\n    broken (1.0.0)\n"
     refute_includes File.read(@log), "bundle install with #{project('Gemfile')}"
     assert_includes File.read(@log), "bundle install with #{tools('Gemfile')}"
+  end
+
+  # Fledge ships the groups Bundler's settings for the project set up
+  # (its README, "Lock your gems"), and the project's own .bundle/config
+  # is the level Bundler reads first.
+  def test_the_project_leaves_the_development_and_test_groups_out_of_the_app
+    write_bundle
+
+    capture_io { fuse.call }
+
+    assert_equal %(---\nBUNDLE_WITHOUT: "development:test"\nBUNDLE_WITH: ""\n), read(".bundle", "config")
+  end
+
+  # The developer says which groups ship as Bundler takes it, for the
+  # game's folder: its own .bundle/config, then the environment, then
+  # the developer's own settings. A group in with ships, whatever without
+  # says.
+  def test_bundlers_with_and_without_for_the_game_choose_the_groups_the_app_ships
+    write_bundle
+    write(".bundle/config", %(---\nBUNDLE_WITH: "test"\n))
+    FileUtils.mkdir_p(File.dirname(ENV.fetch("BUNDLE_USER_CONFIG")))
+    File.write(ENV.fetch("BUNDLE_USER_CONFIG"), %(---\nBUNDLE_WITH: "development"\nBUNDLE_WITHOUT: "docs"\n))
+    ENV["BUNDLE_WITHOUT"] = "server:test"
+
+    capture_io { fuse.call }
+
+    assert_equal %(---\nBUNDLE_WITHOUT: "development:server"\nBUNDLE_WITH: "test"\n), read(".bundle", "config")
   end
 
   def test_a_lockfile_is_read_as_bundler_writes_it
