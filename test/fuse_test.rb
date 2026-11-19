@@ -1236,7 +1236,9 @@ class FuseFromAnyFolderTest < Minitest::Test
   def test_a_game_fuses_alike_from_its_own_folder_and_from_one_whose_lockfile_names_another_bundler
     picked, = Open3.capture2(environment, RbConfig.ruby, "-e", 'print Gem.bin_path("bundler", "bundle")', chdir: @elsewhere)
 
-    assert_equal File.expand_path(File.join(@gems, "gems", "bundler-#{OTHER_BUNDLER}", "exe", "bundle")), picked
+    stand_in = File.join(@gems, "gems", "bundler-#{OTHER_BUNDLER}", "exe", "bundle")
+
+    assert_equal File.realpath(stand_in), File.realpath(picked)
 
     from_game = fuse_from(@game, File.join(@root, "from-game"))
     from_elsewhere = fuse_from(@elsewhere, File.join(@root, "from-elsewhere"))
