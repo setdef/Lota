@@ -89,7 +89,7 @@ The sanitized build runs every Ruby thread 1:1 (`RUBY_MN_THREADS=-1`). Ruby runs
 
 On a desktop, as `rake bench` measured it on 2026-10-26, a call through Rice costs about 0.4 to 0.85 µs, most of it Rice rebuilding its argument map on every call. The same draw costs about 50 ns in LÖVE. So 10,000 draws a frame take about 8 ms in Lota and 0.5 ms in LÖVE. The fixture games make 100 to 150 calls a frame, under 1% of a frame, and the heaviest, flash-blip, makes 1,300 to 2,600, 7 to 13%. `rake bench` measures it.
 
-A phone pays more. Its CPU is slower, and Ruby runs there without a JIT. iOS gives an app no memory it may write code into and run. Fledge v0.12.0 builds Android's Ruby without one only because Ruby's `configure.ac` builds none by default for a cross build; Fledge's unreleased trunk enables YJIT and ZJIT there (Fledge's ADR 090). The JIT matters little: on a desktop YJIT saves only 2 to 15% of a binding call. `rake bench`'s workload, run on two phones on 2026-11-09, gave:
+A phone pays more. Its CPU is slower, and on iOS Ruby runs without a JIT: iOS gives an app no memory it may write code into and run. On Android, Fledge v0.13.0's Ruby has YJIT and ZJIT, each off until the app enables it; the measurements below were taken with Fledge v0.12.0, whose Android Ruby had neither. The JIT matters little: on a desktop YJIT saves only 2 to 15% of a binding call. `rake bench`'s workload, run on two phones on 2026-11-09, gave:
 
 | Call | iPhone 12 mini, iOS 27 | OnePlus Nord N30, Android 14 | LÖVE 11.5 on the Nord |
 |---|---|---|---|
