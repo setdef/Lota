@@ -26,6 +26,7 @@
 #include <vector>
 
 #include <SDL3/SDL_messagebox.h>
+#include <SDL3/SDL_video.h>
 #include <windows.h>
 
 namespace lota::native_test {
