@@ -8,7 +8,9 @@
 #++
 
 # Trunk's automatic revert, as .github/workflows/revert.yml runs it on a
-# red run (tasks/auto_revert.rb, doc/contributors/ci.md). On a run's first
+# red run, and on a pre-push tier run that passed, which hands on the red
+# run of the next commit that waited on it (tasks/auto_revert.rb,
+# doc/contributors/ci.md). On a run's first
 # failed attempt it runs the failed jobs again, to rule out a flaky test.
 # When they fail again, it reverts every commit since the last one whose
 # run passed, in one commit pushed to the run's branch (never forced),

@@ -3,17 +3,25 @@
 
 # Trunk's automatic revert (bin/auto-revert, tasks/auto_revert.rb,
 # doc/contributors/ci.md), the backstop for a commit the pre-push checks
-# let through. A red full run on trunk has its failed jobs run again
-# once, to rule out a flaky test, unless a newer run is already going,
+# let through. It acts on the full run, which holds every commit pushed
+# since the run before it, and on the pre-push tier, which runs each
+# commit once, so a commit the tier finds broken is reverted alone within
+# minutes. A red run has its failed jobs run again once, to rule out a
+# flaky test, unless it is a full run and a newer one is already going,
 # behind which the rerun would wait to be cancelled; when they fail
 # again, or the newer run would have cancelled the rerun, every commit
 # since the last one whose run passed is reverted in one commit, pushed
-# to trunk without force. That commit is the notice: its message names
-# the red run, the jobs that failed twice, and each reverted commit with
-# its author, and this run's summary repeats it. It opens no issue and
-# writes no comment. A revert is never reverted, nor is CI's release
-# bookkeeping; a run where only the release's jobs failed is reported,
-# not reverted; and nothing is reverted when trunk already holds a fix. A
+# to trunk without force. A red tier run waits for the verdict of the
+# commit before it that has a run of its own, and when that run passes
+# it hands the red one back to be judged, which is why this also starts
+# on the tier's passing runs. The revert commit is the notice: its
+# message names the red run, the jobs that failed twice, and each
+# reverted commit with its author, and this run's summary repeats it. It
+# opens no issue and writes no comment. A revert is never reverted, nor
+# is CI's release bookkeeping; a run where only the release's jobs
+# failed, or only the tier's check that each new test failed first, is
+# reported, not reverted; nothing is reverted when trunk already holds a
+# fix; and a revert whose push loses to a revert of its commits stops. A
 # push GitHub's token makes starts no workflow, so it starts CI and the
 # pre-push tier on the revert by hand.
 #
@@ -24,10 +32,11 @@
 name: Revert a red trunk
 
 on:
-  # Every full run on trunk that ends, whose job below goes on only for a
-  # red one. GitHub starts it from trunk's copy of this file.
+  # Every full run and tier run on trunk that ends, whose job below goes
+  # on only for a red one, or a tier run that passed. GitHub starts it
+  # from trunk's copy of this file.
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Pre-push tier]
     types: [completed]
     branches: [trunk]
   workflow_dispatch:
@@ -44,11 +53,11 @@ on:
 permissions:
   contents: read
 
-# One at a time, so two red runs never revert at once; the second finds
-# the first's revert, and its own run judges what is left.
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
+# No concurrency group: in one, a run waiting for its turn is cancelled
+# when another starts, and with a run for every tier run that ends, the
+# verdict of a red one would be lost to a green one's. Two runs can act at
+# once instead: each pushes without force, and one whose push loses to a
+# revert of its commits stops.
 
 defaults:
   run:
@@ -59,7 +68,9 @@ jobs:
     name: Revert what broke the branch
     if: >-
       github.repository == 'setdef/Lota'
-      && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure')
+      && (github.event_name == 'workflow_dispatch'
+        || github.event.workflow_run.conclusion == 'failure'
+        || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.name == 'Pre-push tier'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # To push the revert, and to run the failed jobs again and start the
