@@ -100,10 +100,21 @@ bool overwrite(unsigned char *function, const std::array<unsigned char, jump_siz
   return true;
 }
 
-// Writes what a dialog said to standard error.
-void say_refused(const char *title, const char *message) {
-  std::fprintf(stderr, "lota_dialogs: refused a message box (no one can answer it): %s: %s\n",
-               title != nullptr ? title : "", message != nullptr ? message : "");
+// What a dialog says.
+struct Said {
+  const char *title;
+  const char *message;
+};
+
+// Writes what a refused dialog +said+ to standard error, as dialogs.mm
+// does on macOS.
+void say_refused(const Said &said) {
+  std::string line = "lota_dialogs: refused a message box (no one can answer it): ";
+  line += said.title != nullptr ? said.title : "";
+  line += ": ";
+  line += said.message != nullptr ? said.message : "";
+  line += '\n';
+  std::fputs(line.c_str(), stderr);
   std::fflush(stderr);
 }
 
@@ -115,14 +126,14 @@ bool refused_message_box(const SDL_MessageBoxData *data, int *button) {
   if (button != nullptr) {
     *button = -1;
   }
-  say_refused(data->title, data->message);
+  say_refused({.title = data->title, .message = data->message});
   return false;
 }
 
 // SDL_ShowSimpleMessageBox, refused.
 bool refused_simple_message_box(SDL_MessageBoxFlags /*flags*/, const char *title,
                                 const char *message, SDL_Window * /*window*/) {
-  say_refused(title, message);
+  say_refused({.title = title, .message = message});
   return false;
 }
 
