@@ -28,12 +28,16 @@ class PushCheckTest < Minitest::Test
     assert_includes names(%w[lib/lota.rb]), "steep"
     assert_includes names(%w[sig/lota.rbs]), "steep"
     assert_includes names(%w[Steepfile]), "steep"
+    assert_includes names(%w[rbs_exceptions.rb]), "steep"
+    assert_includes names(%w[Gemfile.lock]), "steep"
     refute_includes names(%w[tasks/gate.rake]), "steep"
   end
 
-  def test_a_change_to_rubocops_settings_or_lotas_cops_lints_every_file_git_knows
+  def test_a_change_to_rubocops_settings_lotas_cops_or_the_gems_lints_every_file_git_knows
     assert_equal KNOWN, check(%w[.rubocop.yml]).steps.first.files
     assert_equal KNOWN, check(%w[lib/lota/rubocop.rb]).steps.first.files
+    assert_equal KNOWN, check(%w[lib/lota/rubocop/cop.rb]).steps.first.files
+    assert_equal KNOWN, check(%w[Gemfile.lock]).steps.first.files
   end
 
   # RuboCop given no file inspects every file under the folder, untracked
