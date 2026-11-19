@@ -20,6 +20,14 @@ constexpr std::array libraries{
 #include "libraries.inc"
 };
 
+// The most characters FormatMessageW writes into a buffer of the
+// caller's: 64K bytes of them (FormatMessageW's lpBuffer).
+constexpr DWORD message_capacity = 32 * 1024;
+
+// A character of this extension's own, whose address names its image to
+// GetModuleHandleExW, as the LPCWSTR the function takes.
+constexpr wchar_t own_character = L'\0';
+
 // +text+ in UTF-8, for Ruby's messages.
 std::string utf8(const std::wstring &text) {
   const int size = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()),
@@ -32,13 +40,13 @@ std::string utf8(const std::wstring &text) {
 
 // Windows' message for the error +code+.
 std::string message(DWORD code) {
-  wchar_t *text = nullptr;
-  const DWORD length = FormatMessageW(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-      nullptr, code, 0, reinterpret_cast<wchar_t *>(&text), 0, nullptr);
-  std::wstring result =
-      (length == 0) ? L"error " + std::to_wstring(code) : std::wstring(text, length);
-  LocalFree(text);
+  std::wstring result(message_capacity, L'\0');
+  const DWORD length = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                      nullptr, code, 0, result.data(), message_capacity, nullptr);
+  result.resize(length);
+  if (result.empty()) {
+    result = L"error " + std::to_wstring(code);
+  }
   while (!result.empty() && (result.back() == L'\n' || result.back() == L'\r')) {
     result.pop_back();
   }
@@ -51,7 +59,7 @@ std::string own_directory(std::wstring &directory) {
   HMODULE self = nullptr;
   if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                         reinterpret_cast<LPCWSTR>(&own_directory), &self) == 0) {
+                         &own_character, &self) == 0) {
     return "Lota could not find its own extension: " + message(GetLastError());
   }
   std::wstring path(MAX_PATH, L'\0');
