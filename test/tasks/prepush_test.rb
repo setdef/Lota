@@ -157,7 +157,7 @@ class PrePushTest < Minitest::Test
     tip = commit("lib/a.rb", "a\n", "second")
     seen = File.join(@tree, "seen")
     git = { "GIT_DIR" => File.join(@repo, ".git"), "GIT_INDEX_FILE" => File.join(@repo, ".git", "index") }
-    env = ENV.to_h.merge(git, "LOTA_PREPUSH_PROBE" => "kept")
+    env = ENV.to_h.except("LOTA_PREPUSH").merge(git, "LOTA_PREPUSH_PROBE" => "kept")
     local = PrePush::LocalRunner.new(@repo, env:)
     local.define_singleton_method(:command) do |_args|
       [RbConfig.ruby, "-e", "File.write(ARGV[0], ENV.keys.join(' '))", seen]
