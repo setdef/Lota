@@ -180,6 +180,21 @@ module AutoRevert
     plan.with(commits:, skipped:)
   end
 
+  # Where GitHub keeps a repository's workflows.
+  WORKFLOWS = ".github/workflows/"
+
+  # +plan+, or, when +changed+, the files its commits change, holds a
+  # workflow, the plan to tell a person: GitHub refuses, every time, a
+  # push from the token a workflow runs with that creates or changes a
+  # workflow, since that token cannot be given the workflows permission.
+  def self.pushable(plan, changed)
+    workflows = changed.select { |path| path.start_with?(WORKFLOWS) }.uniq
+    return plan if workflows.empty?
+
+    plan.with(action: :report, reason: "the revert would change #{workflows.join(', ')}, and GitHub refuses a push of a workflow " \
+                                 "from the workflow's own token, so a person reverts it")
+  end
+
   # Whether trunk already holds a fix for a red run: +later+, the commits
   # after its head, newest first, and their +messages+. A later commit
   # whose run passed is a fix; a later revert has its own run judge what
@@ -349,7 +364,10 @@ module AutoRevert
       return fixed if fixed
 
       plan = AutoRevert.batch(run.sha, git!("rev-list", "--parents", "--max-count=#{HISTORY}", run.sha), green)
-      (plan.action == :revert) ? AutoRevert.screen(plan, messages(plan.commits)) : plan
+      plan = AutoRevert.screen(plan, messages(plan.commits)) if plan.action == :revert
+      return plan unless plan.action == :revert
+
+      AutoRevert.pushable(plan, git!("show", "--format=", "--name-only", *plan.commits).lines(chomp: true))
     end
 
     private def messages(shas)

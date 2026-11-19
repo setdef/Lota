@@ -232,6 +232,20 @@ class AutoRevertTest < Minitest::Test
     end
   end
 
+  # GitHub refuses a push from the workflow's token that changes a
+  # workflow, every time (revert run 43682948361), so such a revert goes
+  # to a person instead of being refused three times.
+  def test_a_revert_that_would_change_a_workflow_goes_to_a_person
+    changed = ["tasks/prepush.rb", ".github/workflows/prepush.yml", ".github/workflows/ci.yml"]
+    held = AutoRevert.pushable(plan(SECOND, FIRST), changed)
+
+    assert_equal :report, held.action
+    assert_equal [SECOND, FIRST], held.commits
+    assert_includes held.reason, ".github/workflows/prepush.yml, .github/workflows/ci.yml"
+    assert_includes held.reason, "GitHub refuses a push of a workflow from the workflow's own token"
+    assert_equal plan(SECOND), AutoRevert.pushable(plan(SECOND), ["tasks/prepush.rb", ".github/actions/mise/action.yml"])
+  end
+
   def test_trunk_that_already_holds_a_fix_or_a_revert_asks_for_nothing
     assert_match(/passed, so the branch holds a fix/, AutoRevert.fixed([LATER], [LATER], LATER => "fix: it\n").reason)
     assert_match(/is a revert/, AutoRevert.fixed([LATER], [], LATER => "revert: feat: a change\n").reason)
@@ -328,8 +342,9 @@ class AutoRevertTest < Minitest::Test
     }
   end
 
-  def git_answers(later: "", revert: "")
+  def git_answers(later: "", revert: "", changed: "lib/lota.rb\n")
     {
+      /\Ashow --format= --name-only/ => changed,
       /\Afetch/ => "",
       /\Amerge-base --is-ancestor/ => "",
       /\Arev-list #{SECOND}\.\./ => later,
@@ -429,6 +444,18 @@ class AutoRevertTest < Minitest::Test
     assert_equal 0, status
     refute git.called?(/\Arevert/)
     assert_match(/holds a fix/, out)
+  end
+
+  def test_the_bot_reports_a_revert_that_would_change_a_workflow_and_pushes_nothing
+    gh = Fake.new(gh_answers)
+    git = Fake.new(git_answers(changed: "lib/lota.rb\n.github/workflows/prepush.yml\n"))
+    status, out = bot(gh, git)
+
+    assert_equal 1, status
+    assert git.called?(/\Ashow --format= --name-only #{SECOND} #{FIRST}\z/)
+    refute git.called?(/\A(?:checkout|revert|push)/)
+    assert_match(%r{reverted nothing: the revert would change \.github/workflows/prepush\.yml}, out)
+    assert_match(/#{FIRST[0, 7]} feat: a change, by Someone <someone@example.com>/, out)
   end
 
   def test_a_revert_that_does_not_apply_is_aborted_and_reported
