@@ -21,6 +21,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Event.push` raises TypeError for a name that is neither a Symbol nor a String before it reads the arguments, as LÖVE does, where it queued the name's `to_s`.
 - `Lota::Sensor.enabled=` raises TypeError when whether the sensor is on is not `true` or `false`, as LÖVE does, where it took any value's truthiness.
 - `Lota::Audio::Source#set_effect` raises TypeError for an on-or-off value that is not `true`, `false`, or `nil`, as LÖVE does, where it set the effect.
+- `Lota::Window.set_mode` and `update_mode` raise TypeError for an `x` or `y` that is not a number, as LÖVE does, where a String became 0 and other values raised NoMethodError.
 
 ## [0.5.5] - 2026-11-20
 

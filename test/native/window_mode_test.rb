@@ -55,6 +55,18 @@ class WindowModeTest < Minitest::Test
     assert_raises(TypeError) { Lota::Window.update_mode(400) }
   end
 
+  # readWindowSettings reads x and y with luaL_optinteger
+  # (wrap_Window.cpp:113-121), so a value that is no number raises.
+  def test_a_position_that_is_no_number_raises
+    error = assert_raises(TypeError) { Lota::Window.update_mode(x: "abc") }
+    assert_equal "wrong argument type String for x (expected Integer)", error.message
+    error = assert_raises(TypeError) { Lota::Window.update_mode(y: true) }
+    assert_equal "wrong argument type TrueClass for y (expected Integer)", error.message
+    error = assert_raises(TypeError) { Lota::Window.update_mode(x: 10, y: :top) }
+    assert_equal "wrong argument type Symbol for y (expected Integer)", error.message
+    assert_raises(TypeError) { Lota::Window.set_mode(360, 240, x: "abc") }
+  end
+
   # readWindowSettings (wrap_Window.cpp:78-108) still reads LÖVE 11's
   # forms of three settings, marking each deprecated: depth as a number,
   # display for displayindex, and highdpi, which sets whether high DPI is

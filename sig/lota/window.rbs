@@ -27,6 +27,8 @@ module Lota
 
     private def self.integer: (::Object? value, Integer default) -> Integer
 
+    private def self.coordinate: (::Object? value, String name) -> Integer
+
     private def self.vsync_of: (::Object? value, Integer default) -> Integer
 
     def self.display_count: () -> Integer

@@ -88,8 +88,8 @@ module Lota
     # LÖVE's notice (Lota::Deprecation). Returns +false+ when the system
     # refuses the mode, so the game can fall back (rule 7 of
     # doc/contributors/design/translation.md). Raises ArgumentError for an
-    # unknown +fullscreentype+, TypeError for a +display+ that is not a number
-    # or a +highdpi+ that is not +true+ or +false+, RuntimeError with LÖVE's
+    # unknown +fullscreentype+, TypeError for a +display+, +x+, or +y+ that
+    # is not a number or a +highdpi+ that is not +true+ or +false+, RuntimeError with LÖVE's
     # message while a canvas is the target, and ThreadError off the main thread.
     #
     # === Example
@@ -257,8 +257,8 @@ module Lota
       settings.vsync = vsync_of(vsync, settings.vsync)
       settings.useposition = !(x.nil? && y.nil?)
       if settings.useposition
-        settings.x = x.to_i
-        settings.y = y.to_i
+        settings.x = coordinate(x, "x")
+        settings.y = coordinate(y, "y")
       end
       settings
     end
@@ -308,6 +308,16 @@ module Lota
     # luax_intflag (src/common/runtime.cpp): the default unless a number.
     private_class_method def self.integer(value, default)
       (value.is_a?(Integer) || value.is_a?(Float)) ? value.to_i : default
+    end
+
+    # readWindowSettings' x and y (wrap_Window.cpp:113-121), read with
+    # luaL_optinteger: 0 when nil, else a number.
+    private_class_method def self.coordinate(value, name)
+      case value
+      when nil then 0
+      when Integer, Float then value.to_i
+      else raise TypeError, "wrong argument type #{value.class} for #{name} (expected Integer)"
+      end
     end
 
     # readWindowSettings' vsync: a number, or true for 1 and false for 0;
