@@ -301,13 +301,14 @@ module Lota
       # +angle+, as an Array of its top left's x and y and its bottom
       # right's, matching Shape:computeAABB.
       #
-      # [child] Integer child, counting from 1.
+      # [child] Integer child, counting from 1; 1 when +nil+ or not
+      #   given.
       #
       # === Example
       #
       #   x1, y1, x2, y2 = shape.compute_aabb(0, 0, 0)
-      def compute_aabb(x, y, angle, child = 1)
-        @native.compute_aabb(x, y, angle, child)
+      def compute_aabb(x, y, angle, child = nil)
+        @native.compute_aabb(x, y, angle, child.nil? ? 1 : child)
       end
 
       # The bounding box of the Shape where its Body is, as #compute_aabb
@@ -316,8 +317,8 @@ module Lota
       # === Example
       #
       #   x1, y1, x2, y2 = shape.bounding_box
-      def bounding_box(child = 1)
-        @native.bounding_box(child)
+      def bounding_box(child = nil)
+        @native.bounding_box(child.nil? ? 1 : child)
       end
 
       # The center of mass, the mass, and the inertia the Shape would have
@@ -754,7 +755,8 @@ module Lota
       # wrap_Physics.cpp, w_newRectangleShape), as a PolygonShape:
       # <tt>RectangleShape.new(body, width, height)</tt> centered at the
       # Body's origin, or <tt>RectangleShape.new(body, x, y, width, height,
-      # angle = 0)</tt> centered at +x+, +y+ and turned by +angle+.
+      # angle = 0)</tt> centered at +x+, +y+ and turned by +angle+, 0 when
+      # +nil+.
       #
       # Given no Body, with the numbers first, it makes a rectangle on no
       # Body, LÖVE's deprecated form, as CircleShape.new does.
@@ -776,7 +778,7 @@ module Lota
         placement = case numbers.size
         when 2 then [0, 0, *numbers, 0]
         when 4 then [*numbers, 0]
-        when 5 then numbers
+        when 5 then [*numbers.first(4), numbers.fetch(4).nil? ? 0 : numbers.fetch(4)]
         else raise "Incorrect number of parameters"
         end
         PolygonShape.__send__(:from_native, Native::Physics.new_rectangle_shape(body, placement))
@@ -818,7 +820,7 @@ module Lota
       # are such Shapes.
       #
       # [density] Float or Integer density of the copy, which sets the
-      #   Body's mass.
+      #   Body's mass; 1 when +nil+ or not given.
       #
       # Raises RuntimeError ("The given Shape must not be part of the
       # World.") for a Shape on a Body, as LÖVE does
@@ -830,10 +832,10 @@ module Lota
       # === Example
       #
       #   Lota::Physics::Fixture.new(body, Lota::Physics::CircleShape.new(20), 2)
-      def self.new(body, shape, density = 1)
+      def self.new(body, shape, density = nil)
         Deprecation.mark("Lota::Physics::Fixture.new", :function, :replaced,
           "Lota::Physics::Circle/Rectangle/Polygon/Edge/ChainShape.new", where: Deprecation.where(caller_locations(1, 1)))
-        native = Native::Physics.new_fixture(body.__send__(:native), shape.__send__(:native), density)
+        native = Native::Physics.new_fixture(body.__send__(:native), shape.__send__(:native), density.nil? ? 1 : density)
         Physics.__send__(:shape, native)
       end
     end

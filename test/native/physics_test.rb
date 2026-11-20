@@ -100,6 +100,27 @@ class PhysicsBindingsTest < Minitest::Test
       assert_raises(RuntimeError) { Physics::PolygonShape.new(@body, 0, 0, 1) }.message
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # An optional number LÖVE reads with luaL_optnumber or luaL_optinteger
+  # takes its default for an explicit nil as for none: newRectangleShape's
+  # angle (wrap_Physics.cpp:361), newFixture's density (288), and the
+  # child of Shape:computeAABB and getBoundingBox (Shape.cpp:441, 470).
+  def test_an_optional_number_given_as_nil_takes_its_default
+    rectangle = Physics::RectangleShape.new(@body, 10, 10, 4, 2, nil)
+    x1, y1, x2, y2 = rectangle.bounding_box(nil)
+
+    assert_in_delta 4, x2 - x1, 0.7
+    assert_in_delta 2, y2 - y1, 0.7
+    assert_equal rectangle.compute_aabb(0, 0, 0), rectangle.compute_aabb(0, 0, 0, nil)
+    fixture = Physics::Fixture.new(Physics::Body.new(@world, 0, 0, :dynamic), Physics::CircleShape.new(5), nil)
+
+    assert_in_delta 1, fixture.density, 0.0001
+  end
+  # SPDX-SnippetEnd
+
   # RevoluteJoint, PrismaticJoint, and the like read their second anchor
   # only when there are numbers enough for it (lua_gettop), and their
   # collideConnected after the anchors.
