@@ -489,9 +489,9 @@ module Lota
       #   Integer number of them; or nothing, or +nil+, for the default
       #   order.
       #
-      # Raises ArgumentError for an unknown index type, and RuntimeError
-      # with LÖVE's message for an index count outside the Data or an
-      # index outside the mesh.
+      # Raises TypeError for a Data with no index type, ArgumentError for
+      # an unknown index type, and RuntimeError with LÖVE's message for an
+      # index count outside the Data or an index outside the mesh.
       #
       # === Examples
       #
@@ -502,7 +502,7 @@ module Lota
         if first.nil? && rest.empty?
           @native.clear_vertex_map
         elsif first.is_a?(Lota::Data)
-          @native.set_vertex_map_data(first.native, EnumName.of(rest.fetch(0)), rest[1])
+          @native.set_vertex_map_data(first.native, Mesh.__send__(:name_of, rest[0]), rest[1])
         else
           @native.set_vertex_map((first.is_a?(Array) && rest.empty?) ? first : [first, *rest])
         end

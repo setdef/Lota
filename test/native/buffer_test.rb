@@ -255,6 +255,25 @@ class BufferTest < Minitest::Test
       assert_raises(RuntimeError) { mesh.set_vertex_map(Lota::Filesystem.new_file_data("ab", "indices").first, :uint16, 9) }.message
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_Mesh_setVertexMap given a Data reads its index type with
+  # luaL_checkstring (wrap_Mesh.cpp:443-446), which raises for none or nil.
+  def test_a_vertex_map_from_a_data_needs_its_index_type
+    mesh = Lota::Graphics::Mesh.new(4, :triangles)
+    data = Lota::Filesystem.new_file_data([2, 1, 0].pack("S3"), "indices").first
+    errors = [
+      assert_raises(TypeError) { mesh.set_vertex_map(data) },
+      assert_raises(TypeError) { mesh.set_vertex_map(data, nil, 3) },
+    ]
+
+    assert_equal ["wrong argument type NilClass (expected Symbol)"] * 2, errors.map(&:message)
+  end
+
+  # SPDX-SnippetEnd
+
   def test_an_index_buffer_replaces_the_vertex_map
     mesh = Lota::Graphics::Mesh.new(4, :triangles)
     indices = Lota::Graphics::Buffer.new(:uint16, [1, 2, 3], index: true)

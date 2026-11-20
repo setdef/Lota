@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics::Mesh#set_vertex_map` given a Data and no index type, or `nil`, raises TypeError, as LÖVE does, where it raised IndexError or an unknown-type error.
 - `Lota::Graphics.readback_texture` and `.readback_texture_async` raise TypeError for a texture that is not a `Lota::Graphics::Texture`, before checking the other arguments, as LÖVE does, where they raised NoMethodError.
 - `Lota::Graphics::TextBatch#add` and `#addf` raise TypeError for a placement value that is not a number, as LÖVE does, where they dropped it and read the numbers after it in its place.
 - `Lota::Graphics.clear(nil)` clears to transparent black, and `Lota::Graphics.scissor =` four `nil`s or an empty Array stops clipping, as LÖVE does, where they raised.
