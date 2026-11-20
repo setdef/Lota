@@ -90,7 +90,7 @@ module Lota
     end
 
     class EdgeShape < Shape[Native::EdgeShape]
-      def self.new: (Body | Float | Integer first, *Float | Integer arguments) -> EdgeShape
+      def self.new: (Body | Float | Integer first, *(Float | Integer)? arguments) -> EdgeShape
 
       def points: () -> Array[Float]
 
@@ -125,7 +125,7 @@ module Lota
 
     module RectangleShape
       def self.===: (top object) -> bool
-      def self.new: (Body | Float | Integer first, *Float | Integer arguments) -> PolygonShape
+      def self.new: (Body | Float | Integer first, *(Float | Integer)? arguments) -> PolygonShape
     end
 
     module Fixture

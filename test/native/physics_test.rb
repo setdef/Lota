@@ -121,6 +121,37 @@ class PhysicsBindingsTest < Minitest::Test
   end
   # SPDX-SnippetEnd
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # The shape factories check the Body (luax_optbodyforshape, then
+  # luax_checkbody) before they count the numbers that follow it
+  # (wrap_Physics.cpp:298-305, 307-397).
+  def test_shape_factories_check_the_body_before_their_numbers
+    gone = Physics::Body.new(@world, 0, 0, :dynamic)
+    gone.destroy
+
+    [
+      -> { Physics::CircleShape.new(gone, 1, 2) },
+      -> { Physics::RectangleShape.new(gone, 1, 2, 3) },
+      -> { Physics::EdgeShape.new(gone, 1, 2) },
+    ].each do |factory|
+      assert_equal "Attempt to use destroyed body.", assert_raises(RuntimeError, &factory).message
+    end
+  end
+
+  # newEdgeShape makes a lone edge when its fifth number is nil or none,
+  # and reads the previous and next vertex with luaL_checknumber otherwise
+  # (wrap_Physics.cpp:383-393).
+  def test_an_edge_takes_its_neighbors_only_when_the_fifth_number_is_given
+    edge = Physics::EdgeShape.new(@body, 0, 0, 30, 15, nil)
+
+    assert_equal [0.0, 0.0, 30.0, 15.0], edge.points.map { |value| value.round(4) }
+    assert_raises(TypeError) { Physics::EdgeShape.new(@body, 0, 0, 30, 15, -30) }
+  end
+  # SPDX-SnippetEnd
+
   # RevoluteJoint, PrismaticJoint, and the like read their second anchor
   # only when there are numbers enough for it (lua_gettop), and their
   # collideConnected after the anchors.

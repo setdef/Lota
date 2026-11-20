@@ -276,6 +276,19 @@ std::vector<double> numbers(const Rice::Array &array) {
   return values;
 }
 
+// The argument at +index+ of +values+, or nil past their end, as Lua
+// reads an argument it was not given.
+Rice::Object argument(const std::vector<Rice::Object> &values, std::size_t index) {
+  return (index < values.size()) ? values.at(index) : Rice::Object(Qnil);
+}
+
+// The argument at +index+ of +values+ as a float, read as
+// luaL_checknumber reads it, so nil or none is refused.
+float number_at(const std::vector<Rice::Object> &values, std::size_t index) {
+  return static_cast<float>(
+      Rice::detail::From_Ruby<double>().convert(argument(values, index).value()));
+}
+
 Rice::Array floats(std::initializer_list<float> values) {
   Rice::Array results = ruby::array_with_room(values.size());
   for (const float value : values) {
@@ -313,37 +326,63 @@ void check_optional(Body *body) {
   }
 }
 
-// w_newCircleShape (wrap_Physics.cpp:307-336), in its form with a position
-// and a radius; Lota::Physics::CircleShape.new passes 0, 0 for the form
-// with a radius alone, as LÖVE does.
-box2d::CircleShape *new_circle_shape(Body *body, double x, double y, double radius) {
+// w_newCircleShape (wrap_Physics.cpp:307-336), which checks the Body
+// before it chooses its form by how many numbers follow: a radius alone,
+// at the Body's origin, or a position and a radius.
+box2d::CircleShape *new_circle_shape(Body *body, Rice::Array arguments_given) {
+  const Rice::Array arguments = std::move(arguments_given);
   check_optional(body);
-  return physics()->newCircleShape(body, static_cast<float>(x), static_cast<float>(y),
-                                   static_cast<float>(radius));
+  const std::vector<Rice::Object> a = ruby::elements(arguments);
+  if (a.size() == 1) {
+    return physics()->newCircleShape(body, 0, 0, number_at(a, 0));
+  }
+  if (a.size() == 3) {
+    return physics()->newCircleShape(body, number_at(a, 0), number_at(a, 1), number_at(a, 2));
+  }
+  throw love::Exception("Incorrect number of parameters");
 }
 
-// w_newRectangleShape (wrap_Physics.cpp:338-370);
-// Lota::Physics::RectangleShape.new passes 0, 0, and an angle of 0 for the
-// form with a size alone, as LÖVE does.
-box2d::PolygonShape *new_rectangle_shape(Body *body, Rice::Array placement_given) {
-  const Rice::Array placement = std::move(placement_given);
+// w_newRectangleShape (wrap_Physics.cpp:338-370), which checks the Body
+// before it chooses its form by how many numbers follow: a size alone,
+// at the Body's origin, or a position and a size, and an angle that is 0
+// when nil or none (luaL_optnumber).
+box2d::PolygonShape *new_rectangle_shape(Body *body, Rice::Array arguments_given) {
+  const Rice::Array arguments = std::move(arguments_given);
   check_optional(body);
-  const std::vector<double> p = numbers(placement);
-  const auto [x, y, w, h] = take<4>(p, 0);
-  return physics()->newRectangleShape(body, x, y, w, h, static_cast<float>(p.at(4)));
+  const std::vector<Rice::Object> a = ruby::elements(arguments);
+  constexpr std::size_t with_angle = 5;
+  if (a.size() == 2) {
+    return physics()->newRectangleShape(body, 0, 0, number_at(a, 0), number_at(a, 1), 0);
+  }
+  if (a.size() == 4 || a.size() == with_angle) {
+    const float x = number_at(a, 0);
+    const float y = number_at(a, 1);
+    const float w = number_at(a, 2);
+    const float h = number_at(a, 3);
+    const float angle = ruby::is_nil(argument(a, 4)) ? 0 : number_at(a, 4);
+    return physics()->newRectangleShape(body, x, y, w, h, angle);
+  }
+  throw love::Exception("Incorrect number of parameters");
 }
 
-// w_newEdgeShape (wrap_Physics.cpp:372-397): the edge's two
-// points, and its previous and next vertex when there are eight numbers.
+// w_newEdgeShape (wrap_Physics.cpp:372-397): the edge's two points, and
+// its previous and next vertex unless the fifth number is nil or none
+// (lua_isnoneornil); LÖVE reads nothing past the eighth.
 box2d::EdgeShape *new_edge_shape(Body *body, Rice::Array coordinates_given) {
   const Rice::Array coordinates = std::move(coordinates_given);
   check_optional(body);
-  const std::vector<double> c = numbers(coordinates);
-  const auto [x1, y1, x2, y2] = take<4>(c, 0);
-  if (c.size() <= 4) {
+  const std::vector<Rice::Object> c = ruby::elements(coordinates);
+  const float x1 = number_at(c, 0);
+  const float y1 = number_at(c, 1);
+  const float x2 = number_at(c, 2);
+  const float y2 = number_at(c, 3);
+  if (ruby::is_nil(argument(c, 4))) {
     return physics()->newEdgeShape(body, x1, y1, x2, y2);
   }
-  const auto [prevx, prevy, nextx, nexty] = take<4>(c, 4);
+  const float prevx = number_at(c, 4);
+  const float prevy = number_at(c, 5);
+  const float nextx = number_at(c, 6);
+  const float nexty = number_at(c, 7);
   return physics()->newEdgeShape(body, x1, y1, x2, y2, prevx, prevy, nextx, nexty);
 }
 
@@ -1035,12 +1074,6 @@ Rice::Array shape_mass_data(const Shape &shape) {
   return floats({x, y, mass, inertia});
 }
 
-// The argument at +index+ of +values+, or nil past their end, as Lua
-// reads an argument it was not given.
-Rice::Object argument(const std::vector<Rice::Object> &values, std::size_t index) {
-  return (index < values.size()) ? values.at(index) : Rice::Object(Qnil);
-}
-
 // A child index read with luaL_optinteger, for which nil is 1.
 int optional_child(const Rice::Object &value) {
   return ruby::is_nil(value) ? 1 : Rice::detail::From_Ruby<int>().convert(value.value());
@@ -1323,9 +1356,9 @@ void define_physics(const Rice::Module &native) {
       .define_singleton_function("open", &open)
       .define_singleton_function("open?", &is_open)
       .define_singleton_function("new_circle_shape", &new_circle_shape, Rice::Arg("body"),
-                                 Rice::Arg("x"), Rice::Arg("y"), Rice::Arg("radius"), owned)
+                                 Rice::Arg("arguments"), owned)
       .define_singleton_function("new_rectangle_shape", &new_rectangle_shape, Rice::Arg("body"),
-                                 Rice::Arg("placement"), owned)
+                                 Rice::Arg("arguments"), owned)
       .define_singleton_function("new_edge_shape", &new_edge_shape, Rice::Arg("body"),
                                  Rice::Arg("coordinates"), owned)
       .define_singleton_function("new_polygon_shape", &new_polygon_shape, Rice::Arg("body"),

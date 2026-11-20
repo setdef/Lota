@@ -401,7 +401,8 @@ module Lota
       # this method.") for what only a Shape on a Body has, as its density.
       #
       # Raises RuntimeError ("Incorrect number of parameters") for any other
-      # number of arguments after the Body.
+      # number of arguments after the Body, once the Body is checked, as
+      # LÖVE checks it first ("Attempt to use destroyed body.").
       #
       # === Example
       #
@@ -414,12 +415,7 @@ module Lota
           mark_without_body("Lota::Physics::CircleShape.new", caller_locations(1, 1))
           numbers = [first, *arguments]
         end
-        native = case numbers.size
-        when 1 then Native::Physics.new_circle_shape(body, 0, 0, numbers.fetch(0))
-        when 3 then Native::Physics.new_circle_shape(body, numbers.fetch(0), numbers.fetch(1), numbers.fetch(2))
-        else raise "Incorrect number of parameters"
-        end
-        from_native(native)
+        from_native(Native::Physics.new_circle_shape(body, numbers))
       end
 
       # Sets the circle's radius, matching CircleShape:setRadius.
@@ -519,9 +515,10 @@ module Lota
       # matching love.physics.newEdgeShape
       # (src/modules/physics/box2d/wrap_Physics.cpp, w_newEdgeShape).
       #
-      # [arguments] +x1+, +y1+, +x2+, and +y2+, then nothing, or the
-      #   previous vertex's x and y and the next one's, for smooth
-      #   collisions along a run of edges.
+      # [arguments] +x1+, +y1+, +x2+, and +y2+, then nothing or +nil+, or
+      #   the previous vertex's x and y and the next one's, for smooth
+      #   collisions along a run of edges. Raises TypeError for a number
+      #   that is missing or not a number.
       #
       # Given no Body, with +x1+ first, it makes a segment on no Body,
       # LÖVE's deprecated form, as CircleShape.new does.
@@ -537,8 +534,6 @@ module Lota
           mark_without_body("Lota::Physics::EdgeShape.new", caller_locations(1, 1))
           numbers = [first, *arguments]
         end
-        raise ArgumentError, "wrong number of arguments (given #{numbers.size}, expected 4+)" if numbers.size < 4
-
         from_native(Native::Physics.new_edge_shape(body, numbers))
       end
 
@@ -762,7 +757,8 @@ module Lota
       # Body, LÖVE's deprecated form, as CircleShape.new does.
       #
       # Raises RuntimeError ("Incorrect number of parameters") for any other
-      # number of arguments after the Body.
+      # number of arguments after the Body, once the Body is checked, as
+      # LÖVE checks it first ("Attempt to use destroyed body.").
       #
       # === Example
       #
@@ -775,13 +771,7 @@ module Lota
           Shape.__send__(:mark_without_body, "Lota::Physics::RectangleShape.new", caller_locations(1, 1))
           numbers = [first, *arguments]
         end
-        placement = case numbers.size
-        when 2 then [0, 0, *numbers, 0]
-        when 4 then [*numbers, 0]
-        when 5 then [*numbers.first(4), numbers.fetch(4).nil? ? 0 : numbers.fetch(4)]
-        else raise "Incorrect number of parameters"
-        end
-        PolygonShape.__send__(:from_native, Native::Physics.new_rectangle_shape(body, placement))
+        PolygonShape.__send__(:from_native, Native::Physics.new_rectangle_shape(body, numbers))
       end
     end
 

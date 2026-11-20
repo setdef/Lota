@@ -1929,11 +1929,11 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.new_circle_shape: (Body? body, Float | Integer x, Float | Integer y, Float | Integer radius) -> CircleShape
+      def self.new_circle_shape: (Body? body, Array[Float | Integer] arguments) -> CircleShape
 
-      def self.new_rectangle_shape: (Body? body, Array[Float | Integer] placement) -> PolygonShape
+      def self.new_rectangle_shape: (Body? body, Array[Float | Integer | nil] arguments) -> PolygonShape
 
-      def self.new_edge_shape: (Body? body, Array[Float | Integer] coordinates) -> EdgeShape
+      def self.new_edge_shape: (Body? body, Array[Float | Integer | nil] coordinates) -> EdgeShape
 
       def self.new_polygon_shape: (Body? body, Array[Float | Integer] coordinates) -> PolygonShape
 
