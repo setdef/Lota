@@ -276,14 +276,17 @@ module Lota
       attr_reader :exit_procs
       private :exit_procs
 
-      # Runs the block, which runs the game in the folder +directory+ once
-      # and returns its exit status, and runs it again each time the game
-      # restarts in this process, as love.cpp's main runs runlove again
-      # (src/love.cpp, main). Between runs it runs the exit procs the game
-      # registered, takes away what the game defined (Snapshot), closes
-      # the engine (Lota::Native.close_modules), and hands the next run
-      # the value. Returns the last run's status. When IN_PROCESS asks for
-      # exec, it runs the block once. :nodoc:
+      # Runs the block, which runs a game once and returns its exit status,
+      # and runs it again each time the game restarts in this process, as
+      # love.cpp's main runs runlove again (src/love.cpp, main). Between
+      # runs it runs the exit procs the game registered, takes away what
+      # the game in the folder +directory+ returns defined (Snapshot),
+      # closes the engine (Lota::Native.close_modules), and hands the next
+      # run the value. +directory+ is asked after each run, since a run
+      # that started with no game has no folder, and the next can start
+      # the game a player dropped on it (Lota::NoGame). Returns the last
+      # run's status. When IN_PROCESS asks for exec, it runs the block
+      # once. :nodoc:
       private def in_process(directory)
         return yield unless in_process?
 
@@ -295,7 +298,7 @@ module Lota
           return status unless kept
 
           @kept = nil
-          snapshot.restore(directory)
+          snapshot.restore(directory.call)
           GC.start(full_mark: true, immediate_sweep: true)
           Lota::Native.close_modules
           @value = kept.first

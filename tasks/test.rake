@@ -129,6 +129,7 @@ PREPUSH_LEAVES_OUT = %w[
   RestartRunTest
   CloseModulesTest
   InProcessRestartTest
+  NoGameRunTest
   PhysicsBindingsTest#test_bodies_never_returns_a_wrapper_the_collector_found_dead
   JoystickEventsTest#test_joysticks_never_returns_a_wrapper_the_collector_found_dead
   NativeGemTest#test_a_warning_stops_the_build
@@ -159,6 +160,7 @@ PREPUSH_KEEPS = %w[
   LotaRunTest#test_a_game_plays_from_a_lota_as_love_plays_a_love
   RestartRunTest#test_a_restart_runs_the_game_again_in_the_same_process_and_hands_over_its_value
   InProcessRestartTest#test_each_run_finds_the_engine_and_the_games_definitions_fresh
+  NoGameRunTest#test_a_folder_dropped_on_the_screen_starts_as_the_game
   ArkanoidTest#test_1_01_theballthebricktheplatform_matches_love_frame_by_frame
 ].freeze
 
