@@ -24,6 +24,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Window.set_mode` and `update_mode` raise TypeError for an `x` or `y` that is not a number, as LÖVE does, where a String became 0 and other values raised NoMethodError.
 - `Lota::Audio::RecordingDevice#start` raises TypeError for samples given as `nil`, as LÖVE does, where it recorded with the device's last settings and dropped the rest.
 - `Lota::Audio::Source#queue` raises TypeError for something other than a SoundData, and for an offset or length given as `nil` or as anything but a number, as LÖVE does, where it raised NoMethodError or queued every sample.
+- `Lota::Data::ByteData#string=` takes a `nil` offset as 0, as LÖVE does, where it raised.
 
 ## [0.5.5] - 2026-11-20
 

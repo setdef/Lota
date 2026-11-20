@@ -78,7 +78,7 @@ module Lota
       # one Array (rule 6 of doc/contributors/design/translation.md).
       #
       # [string_and_offset] The String, or an Array of it and the Integer
-      #   byte to start at, 0 when left out.
+      #   byte to start at, 0 when left out or +nil+.
       #
       # Only as many bytes as the ByteData holds are copied. Raises
       # RuntimeError, with LÖVE's message, when they do not fit from the
@@ -90,7 +90,7 @@ module Lota
       #   data.string = "hello"
       def string=(string_and_offset)
         string, offset = string_and_offset.is_a?(Array) ? string_and_offset : [string_and_offset, 0]
-        @native.set_string(string, offset)
+        @native.set_string(string, offset.nil? ? 0 : offset)
       end
 
       # Writes 32-bit floats from a byte offset, matching

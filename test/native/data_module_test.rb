@@ -49,6 +49,15 @@ class DataModuleFunctionsTest < Minitest::Test
     assert_equal "The given string offset and size don't fit within the Data's size.", error.message
   end
 
+  # setString reads its offset with luaL_optnumber (wrap_ByteData.cpp:52),
+  # so nil is the default, 0.
+  def test_string_takes_a_nil_offset_as_zero
+    data = Lota::Data::ByteData.new("helloworld")
+    data.string = "J", nil
+
+    assert_equal "Jelloworld", data.string
+  end
+
   # w_ByteData_setT writes each value as its C type, from the arguments
   # or a table (wrap_ByteData.cpp:66-96), which Data's getters read back.
   def test_numbers_are_written_as_their_c_type
