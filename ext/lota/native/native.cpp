@@ -35,7 +35,11 @@
 #include "native/window.hpp"
 
 #include "common/Module.h"
+#include "common/config.h" // IWYU pragma: keep
 #include "common/version.h"
+#ifdef LOVE_MACOS
+#include "common/macos.h"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -53,6 +57,21 @@ namespace {
 std::size_t drain_release_queue() { return lota::native::ReleaseQueue::instance().drain(); }
 
 std::size_t queued_releases() { return lota::native::ReleaseQueue::instance().size(); }
+
+// The path of the file macOS asked the program to open as it started, as
+// an Apple event SDL turns into a drop, or "" when there is none or the
+// system is not macOS, as love.cpp's main asks for it before LÖVE boots
+// (src/love.cpp:105-120, love::macos::checkDropEvents in
+// src/common/macos.mm:57-85), so that a .love opened with LÖVE's app is
+// its game. It starts SDL's video for the asking, and stops it again.
+std::string check_drop_events() {
+  lota::native::require_main_thread("Lota::Native");
+  std::string path;
+#ifdef LOVE_MACOS
+  path = love::macos::checkDropEvents();
+#endif
+  return path;
+}
 
 // SPDX-SnippetBegin
 // SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -246,7 +265,8 @@ extern "C" __attribute__((visibility("default"))) void Init_native() {
 
   native.define_singleton_function("drain_release_queue", &drain_release_queue)
       .define_singleton_function("queued_releases", &queued_releases)
-      .define_singleton_function("close_modules", &close_modules);
+      .define_singleton_function("close_modules", &close_modules)
+      .define_singleton_function("check_drop_events", &check_drop_events);
 
   // Last, once every function is bound.
   lota::native::install_engine_calls(native);
