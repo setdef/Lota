@@ -1571,7 +1571,7 @@ module Lota
     #
     #   width, height = Lota::Graphics.dimensions # => [800, 600]
     def self.dimensions
-      [Native::Graphics.width, Native::Graphics.height]
+      Native::Graphics.dimensions
     end
 
     # How many pixels the screen has to a unit, as a Float, matching

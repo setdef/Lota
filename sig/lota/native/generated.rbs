@@ -302,6 +302,8 @@ module Lota
 
       def self.height: () -> Integer
 
+      def self.dimensions: () -> [Integer, Integer]
+
       def self.color: () -> [Float, Float, Float, Float]
 
       def self.set_line_width: (Float | Integer width) -> nil

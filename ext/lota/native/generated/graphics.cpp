@@ -194,6 +194,15 @@ int w_getWidth() { return instance()->getWidth(); }
 // love.graphics.getHeight: w_getHeight (wrap_Graphics.cpp:213-217).
 int w_getHeight() { return instance()->getHeight(); }
 
+// love.graphics.getDimensions: w_getDimensions (wrap_Graphics.cpp:219-224).
+Rice::Array w_getDimensions() {
+  constexpr long most_results = 2;
+  Rice::Array results(rb_ary_new_capa(most_results));
+  results.push(instance()->getWidth(), false);
+  results.push(instance()->getHeight(), false);
+  return results;
+}
+
 // love.graphics.getPixelWidth: w_getPixelWidth (wrap_Graphics.cpp:226-230).
 int w_getPixelWidth() { return instance()->getPixelWidth(); }
 
@@ -1914,6 +1923,7 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("background_color", &w_getBackgroundColor)
       .define_singleton_function("width", &w_getWidth)
       .define_singleton_function("height", &w_getHeight)
+      .define_singleton_function("dimensions", &w_getDimensions)
       .define_singleton_function("color", &w_getColor)
       .define_singleton_function("set_line_width", &w_setLineWidth, Rice::Arg("width"))
       .define_singleton_function("line_width", &w_getLineWidth)
