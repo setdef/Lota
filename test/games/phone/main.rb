@@ -12,7 +12,10 @@
 # saw, the system's theme and languages and each change to them among it,
 # and each time its window is hidden or shown, each line starting "phone
 # check:", which the phone's log shows; and quits with status 0 after
-# PHONE_CHECK_SECONDS of play, 20 by default.
+# PHONE_CHECK_SECONDS of play, 20 by default. Its first run plays the
+# tone, draws a frame, and restarts with its process id, so the run that
+# plays is the second, which says whether it runs in the same process, as
+# LÖVE's restart runs a game again in its own (src/love.cpp, main).
 module PhoneCheck
   # What a graphics call from another Ruby thread does: LÖVE confines
   # graphics to the main thread, and Lota raises ThreadError there.
@@ -54,6 +57,16 @@ module PhoneCheck
 end
 
 def Lota.load
+  @frames = 0
+  @time = 0.0
+  @touch = nil
+  if Lota.restart.nil?
+    @restarting = true
+    @source = PhoneCheck.tone
+    return puts "phone check: restarts in process #{Process.pid}"
+  end
+
+  puts "phone check: restarted in its process: #{Lota.restart == Process.pid}"
   puts "phone check: loaded on #{Lota::System.os}, renderer #{Lota::Graphics.renderer_info.join(' / ')}"
   puts "phone check: window #{Lota::Graphics.dimensions.join('x')}, pixels " \
     "#{Lota::Graphics.pixel_dimensions.join('x')}, dpi scale #{Lota::Graphics.dpi_scale}"
@@ -64,15 +77,18 @@ def Lota.load
   @source = PhoneCheck.tone
   PhoneCheck.decode
   @seconds = Float(ENV.fetch("PHONE_CHECK_SECONDS", "20"))
-  @frames = 0
-  @time = 0.0
-  @touch = nil
 end
 
 # Counts at most a tenth of a second a frame, so the seconds are those the
 # game played: the first frame after the app returns to the screen has the
-# whole time it was away as its dt.
+# whole time it was away as its dt. The first run restarts once it has
+# drawn a frame.
 def Lota.update(dt)
+  if @restarting
+    Lota::Event.restart(Process.pid) if @frames == 1
+    return
+  end
+
   @time += [dt, 0.1].min
   Lota::Event.quit(0) if @time > @seconds
 end
@@ -85,6 +101,11 @@ def Lota.draw
   Lota::Graphics.color = 1, 1, 1
   Lota::Graphics.print("Lota on #{Lota::System.os}, frame #{@frames}", 40, 60, 0, 2, 2)
   Lota::Graphics.rectangle(:fill, @touch[0] - 40, @touch[1] - 40, 80, 80) if @touch
+  if @restarting
+    puts "phone check: before the restart, drew frame 1" if @frames == 1
+    return
+  end
+
   puts "phone check: drew frame #{@frames}" if @frames == 1 || (@frames % 300).zero?
 end
 
@@ -110,6 +131,8 @@ def Lota.localechanged
 end
 
 def Lota.quit
+  return false if @restarting
+
   puts "phone check: quits after #{@frames} frames in #{@time.round(1)} s"
   false
 end

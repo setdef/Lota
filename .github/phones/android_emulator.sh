@@ -8,7 +8,8 @@
 # a folder of its own under OUT with its logcat and screenshots:
 #
 # 1. The game plays to its end: a tap lands on the screen, and
-#    the game must say it drew, that graphics from another thread raised
+#    the game must say that its first run's restart ran it again in the
+#    same process, that it drew, that graphics from another thread raised
 #    ThreadError, that the tap arrived as a touch, and that it quits, and
 #    the host must log that Ruby exited with status 0.
 # 2. Back, pressed while the game runs, must reach it as the key escape
@@ -130,7 +131,8 @@ sleep 2
 adb exec-out screencap -p > "$dir/tapped.png"
 wait_for "$identifier: .* exited with status" 120 || echo "::warning::Ruby did not exit within 120 s"
 stop_recording
-expect "$dir/logcat.txt" play "phone check: loaded on Android" "phone check: another thread: ThreadError" \
+expect "$dir/logcat.txt" play "phone check: restarted in its process: true" \
+  "phone check: loaded on Android" "phone check: another thread: ThreadError" \
   "phone check: audio playing true" "phone check: touchpressed Integer" "phone check: quits after" \
   "$identifier: .* exited with status 0" || status=1
 

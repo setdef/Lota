@@ -8,7 +8,8 @@
 # the game's output to the unified log under the app's identifier
 # (ext/lota/phone/host/ios/Host/main.m), and simctl passes the game
 # PHONE_CHECK_SECONDS as SIMCTL_CHILD_PHONE_CHECK_SECONDS. The game must
-# say it drew, that graphics from another thread raised ThreadError, that
+# say that its first run's restart ran it again in the same process, that
+# it drew, that graphics from another thread raised ThreadError, that
 # it decoded the AIFF and M4A sounds phones.yml gives it, which only Core
 # Audio decodes, at their own 48000 Hz (LÖVE's other decoders refuse them,
 # and ModPlug, which can take any file, gives Decoder.h:64's 44100 Hz),
@@ -50,7 +51,8 @@ for device in "$@"; do
     if grep -q "exited with status" "$dir/app.log"; then break; fi
     sleep 2
   done
-  for pattern in "phone check: loaded on iOS" "phone check: drew frame 1" "phone check: another thread: ThreadError" \
+  for pattern in "phone check: restarted in its process: true" \
+    "phone check: loaded on iOS" "phone check: drew frame 1" "phone check: another thread: ThreadError" \
     "phone check: audio playing true" "phone check: decoded ping.aiff at 48000 Hz, 2 channels" \
     "phone check: decoded ping.m4a at 48000 Hz, 2 channels" "phone check: quits after" "exited with status 0"; do
     if ! grep -q -- "$pattern" "$dir/app.log"; then

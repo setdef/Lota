@@ -100,8 +100,10 @@ jobs:
           # frozen_string_literal: true
 
           # Starts the game in game/PhoneCheck as a fused game, as lota fuse's
-          # entry script does.
+          # entry script does, restarting it in its process where exec
+          # cannot, as a phone cannot.
           RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
+          ENV["LOTA_IN_PROCESS_RESTART"] ||= "1"
           require "lota"
           exit Lota::Boot.new(File.join(__dir__, "game", "PhoneCheck"), ARGV, fused: true).call
           RUBY
