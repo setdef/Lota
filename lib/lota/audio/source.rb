@@ -617,12 +617,19 @@ module Lota
       # [<tt>set_effect(name, **filter)</tt>] through it, filtered by the
       #   settings #set_filter takes.
       #
+      # Raises TypeError for an +enabled+ that is not +true+, +false+, or
+      # +nil+, as LÖVE raises for anything there but a boolean or a table.
+      #
       # === Examples
       #
       #   source.set_effect("echo") # => true
       #   source.set_effect("echo", type: :highpass, volume: 0.3, lowgain: 0.1)
       #   source.set_effect("echo", false)
       def set_effect(name, enabled = nil, **filter)
+        unless enabled.nil? || enabled == true || enabled == false
+          raise TypeError, "wrong argument type #{enabled.class} (expected true or false)"
+        end
+
         @native.set_effect(name, enabled != false, Audio.__send__(:setting_pairs, filter))
       end
 

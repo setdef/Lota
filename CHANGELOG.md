@@ -20,6 +20,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Mouse.down?` takes its buttons as one Array, as LÖVE's `isDown` takes a table, where it raised TypeError.
 - `Lota::Event.push` raises TypeError for a name that is neither a Symbol nor a String before it reads the arguments, as LÖVE does, where it queued the name's `to_s`.
 - `Lota::Sensor.enabled=` raises TypeError when whether the sensor is on is not `true` or `false`, as LÖVE does, where it took any value's truthiness.
+- `Lota::Audio::Source#set_effect` raises TypeError for an on-or-off value that is not `true`, `false`, or `nil`, as LÖVE does, where it set the effect.
 
 ## [0.5.5] - 2026-11-20
 

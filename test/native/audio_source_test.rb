@@ -176,6 +176,20 @@ class AudioSourceTest < Minitest::Test
     Lota::Audio.distance_model = :inverseclamped
   end
 
+  # w_Source_setEffect (wrap_Source.cpp:470-492) takes a boolean at
+  # argument 3 as on or off, and anything else but nil only as a filter's
+  # table, which setFilterReadFilter checks with luaL_checktype
+  # (lines 356-361); Lota's table is keywords (rule 10).
+  def test_set_effect_takes_true_false_or_a_filters_keywords
+    mono = Source.new("resources/clickmono.ogg", :static)
+
+    [5, "on", { type: :lowpass }].each do |enabled|
+      error = assert_raises(TypeError) { mono.set_effect("echo", enabled) }
+      assert_equal "wrong argument type #{enabled.class} (expected true or false)", error.message
+    end
+    assert_empty mono.active_effects
+  end
+
   def test_orientation_needs_six_numbers
     assert_raises(TypeError) { Lota::Audio.orientation = 1, 2, 3 }
   end
