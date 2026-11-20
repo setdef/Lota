@@ -419,7 +419,7 @@ void write_elements(const std::vector<Buffer::DataMember> &members, const Values
 // The format entries Lota::Graphics passes for a buffer or a mesh: what
 // the block it passes returns when called, which it calls only once the
 // settings before the format are read, as LÖVE reads them first.
-Rice::Array format_entries(const Rice::Object &given) { return Rice::Array(given.call("call")); }
+Rice::Array format_entries(const Rice::Object &given) { return {given.call("call")}; }
 
 // luax_checkdatadeclaration's declarations (wrap_Graphics.cpp:1743-1793),
 // which Lota::Graphics::Buffer reads from the Hashes it is given into

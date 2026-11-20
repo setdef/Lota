@@ -988,8 +988,9 @@ void text_batch_set(love::graphics::TextBatch &batch, Rice::Array text) {
 // +text+ returns when called, after the alignment is read, since LÖVE
 // reads the wrap limit and the alignment before the text.
 void text_batch_setf(love::graphics::TextBatch &batch, double wraplimit, const std::string &align,
-                     Rice::Object text) {
+                     Rice::Object text_given) {
   require_main_thread(MODULE);
+  const Rice::Object text = std::move(text_given);
   const Font::AlignMode mode = text_alignment(align);
   const Rice::Array parts(text.call("call"));
   batch.set(colored_strings(parts), static_cast<float>(wraplimit), mode);
@@ -1242,8 +1243,9 @@ love::graphics::SpriteBatch *new_sprite_batch(Texture *texture, std::optional<in
 // Transform or the nine numbers, and returns its index, counting from 1 as
 // Lua does.
 int sprite_batch_add(love::graphics::SpriteBatch &batch, love::graphics::Quad *quad,
-                     Rice::Object placement) {
+                     Rice::Object placement_given) {
   require_main_thread(MODULE);
+  const Rice::Object placement = std::move(placement_given);
   const love::Matrix4 m = standard_transform(placement);
   const int index = (quad != nullptr) ? batch.add(quad, m, -1) : batch.add(m, -1);
   return index + 1;
@@ -1253,8 +1255,9 @@ int sprite_batch_add(love::graphics::SpriteBatch &batch, love::graphics::Quad *q
 // sprite at +index+, counting from 1 as Lua does, as sprite_batch_add adds
 // one.
 void sprite_batch_set(love::graphics::SpriteBatch &batch, int index, love::graphics::Quad *quad,
-                      Rice::Object placement) {
+                      Rice::Object placement_given) {
   require_main_thread(MODULE);
+  const Rice::Object placement = std::move(placement_given);
   const love::Matrix4 m = standard_transform(placement);
   if (quad != nullptr) {
     batch.add(quad, m, index - 1);
@@ -1268,8 +1271,9 @@ void sprite_batch_set(love::graphics::SpriteBatch &batch, int index, love::graph
 // whole texture or of +quad+ unless it is nil, placed by a Transform or
 // the nine numbers, and returns its index, counting from 1 as Lua does.
 int sprite_batch_add_layer(love::graphics::SpriteBatch &batch, int layer,
-                           love::graphics::Quad *quad, Rice::Object placement) {
+                           love::graphics::Quad *quad, Rice::Object placement_given) {
   require_main_thread(MODULE);
+  const Rice::Object placement = std::move(placement_given);
   const love::Matrix4 m = standard_transform(placement);
   const int index =
       (quad != nullptr) ? batch.addLayer(layer - 1, quad, m, -1) : batch.addLayer(layer - 1, m, -1);
@@ -1280,8 +1284,9 @@ int sprite_batch_add_layer(love::graphics::SpriteBatch &batch, int layer,
 // replaces the sprite at +index+, counting from 1 as Lua does, as
 // sprite_batch_add_layer adds one.
 void sprite_batch_set_layer(love::graphics::SpriteBatch &batch, int index, int layer,
-                            love::graphics::Quad *quad, Rice::Object placement) {
+                            love::graphics::Quad *quad, Rice::Object placement_given) {
   require_main_thread(MODULE);
+  const Rice::Object placement = std::move(placement_given);
   const love::Matrix4 m = standard_transform(placement);
   if (quad != nullptr) {
     batch.addLayer(layer - 1, quad, m, index - 1);

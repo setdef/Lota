@@ -772,8 +772,9 @@ Rice::Array texture_view_formats(const Texture &texture) {
 // 1; a position; whether to make the mipmaps again, which a texture with
 // mipmaps "auto" does unless told not to; and, for compressed data with
 // more than one mipmap, which of them to copy, counting from 1.
-void texture_replace_pixels(Texture &t, Rice::Object source, Rice::Array arguments) {
-  const Rice::Array moved = std::move(arguments);
+void texture_replace_pixels(Texture &t, Rice::Object source_given, Rice::Object arguments) {
+  const Rice::Object source = std::move(source_given);
+  const Rice::Array moved(std::move(arguments));
   require_main_thread(MODULE);
   const std::vector<Rice::Object> given = ruby::elements(moved);
   int slice = 0;

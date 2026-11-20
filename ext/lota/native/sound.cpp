@@ -99,7 +99,7 @@ Decoder::StreamSource stream_source(const std::optional<std::string> &type) {
 // reading, as luax_getfile does (filesystem/wrap_Filesystem.cpp:308-330).
 // Its one reference goes to the Ruby wrapper.
 Decoder *new_decoder_from_file(const std::string &filename, int buffer_size,
-                               std::optional<std::string> type) {
+                               const std::optional<std::string> &type) {
   const Decoder::StreamSource source = stream_source(type);
   const auto *filesystem =
       love::Module::getInstance<love::filesystem::Filesystem>(love::Module::M_FILESYSTEM);
@@ -115,7 +115,7 @@ Decoder *new_decoder_from_file(const std::string &filename, int buffer_size,
 // w_newDecoder with a File and the stream type (wrap_Sound.cpp:41-62).
 // Its one reference goes to the Ruby wrapper.
 Decoder *new_decoder_from_file_object(love::filesystem::File &file, int buffer_size,
-                                      std::optional<std::string> type) {
+                                      const std::optional<std::string> &type) {
   return new_decoder(file, buffer_size, stream_source(type));
 }
 

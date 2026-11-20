@@ -41,7 +41,6 @@
 #include <memory>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -431,9 +430,9 @@ void check_chain_count(const Rice::Array &coordinates) {
 // w_newChainShape (wrap_Physics.cpp:446-490), which counts the
 // coordinates before it reads loop.
 box2d::ChainShape *new_chain_shape(Body *body, Rice::Object loop_given,
-                                   Rice::Array coordinates_given) {
+                                   Rice::Object coordinates_given) {
   const Rice::Object loop_value = std::move(loop_given);
-  const Rice::Array coordinates = std::move(coordinates_given);
+  const Rice::Array coordinates(std::move(coordinates_given));
   check_optional(body);
   check_chain_count(coordinates);
   const bool loop = checked_boolean(loop_value);
@@ -479,9 +478,9 @@ Rice::Array new_polygon_body(World *world, const std::string &type, Rice::Array 
 // the vertices, with a ChainShape of them, which reads loop before it
 // counts the coordinates.
 Rice::Array new_chain_body(World *world, const std::string &type, Rice::Object loop_given,
-                           Rice::Array coordinates_given) {
+                           Rice::Object coordinates_given) {
   const Rice::Object loop_value = std::move(loop_given);
-  const Rice::Array coordinates = std::move(coordinates_given);
+  const Rice::Array coordinates(std::move(coordinates_given));
   check(world);
   const Body::Type btype = body_type(type);
   const bool loop = checked_boolean(loop_value);

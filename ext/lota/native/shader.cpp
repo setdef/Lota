@@ -767,8 +767,10 @@ void draw_from_shader_indirect_indexed(Buffer *indexbuffer, Buffer *argsbuffer,
 
 // w_drawFromShaderIndirect with a primitive type (wrap_Graphics.cpp:
 // 3393-3406): the primitive's name is read before the buffer.
-void draw_from_shader_indirect_primitive(const std::string &primitive, Rice::Object argsbuffer,
+void draw_from_shader_indirect_primitive(const std::string &primitive,
+                                         Rice::Object argsbuffer_given,
                                          std::optional<long long> argsindex, Texture *texture) {
+  const Rice::Object argsbuffer = std::move(argsbuffer_given);
   Graphics &instance = graphics();
   const love::graphics::PrimitiveType type = primitive_type(primitive);
   if (!ruby::is_kind_of(argsbuffer, Rice::Data_Type<Buffer>::klass())) {
