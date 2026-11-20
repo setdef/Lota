@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- The fuser, an app that makes a `.lota` opened with it, or given to its program after `--build`, into an app of its own, with no Ruby on the computer, through Fledge's `fledge build --from` (`Lota::Fuser`); `rake "fuser[GEM]"` builds it from a clone of Lota.
 - Each release publishes LÖVE's engine prebuilt for each iOS slice and Android ABI beside its gems, as `lota-engine-ios-arm64.tar.gz`, `lota-engine-ios-arm64-simulator.tar.gz`, `lota-engine-android-arm64-v8a.tar.gz`, and `lota-engine-android-x86_64.tar.gz`, with their checksums in its `SHA256SUMS`. A phone build fetches them without `--with-lota-source`: from the release's source gem, `lota-VERSION.gem`, which each release now also publishes and which pins that release's engines in `ext/lota/phone/engines.txt`, or from a clone of trunk, where CI pins the newest release's after each release.
 
 ### Changed
