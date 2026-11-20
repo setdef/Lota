@@ -408,13 +408,13 @@ module Lota
 
       def release: () -> bool
 
-      def add: (Quad? quad, Array[Float | Integer] placement) -> Integer
+      def add: (Quad? quad, Array[Float | Integer] | Transform placement) -> Integer
 
-      def set: (Integer index, Quad? quad, Array[Float | Integer] placement) -> nil
+      def set: (Integer index, Quad? quad, Array[Float | Integer] | Transform placement) -> nil
 
-      def add_layer: (Integer layer, Quad? quad, Array[Float | Integer] placement) -> Integer
+      def add_layer: (Integer layer, Quad? quad, Array[Float | Integer] | Transform placement) -> Integer
 
-      def set_layer: (Integer index, Integer layer, Quad? quad, Array[Float | Integer] placement) -> nil
+      def set_layer: (Integer index, Integer layer, Quad? quad, Array[Float | Integer] | Transform placement) -> nil
 
       def set_color: (Float | Integer red, Float | Integer green, Float | Integer blue, Float | Integer alpha) -> nil
 

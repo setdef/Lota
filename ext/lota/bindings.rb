@@ -410,7 +410,7 @@ bound_by_hand "love.graphics.newSpriteBatch",
     "misc-include-cleaner asks; Lota binds the same form"
 bound_by_hand "SpriteBatch:add",
   reason: "reads its placement through luax_checkstandardtransform, at a position that depends on whether a " \
-    "Quad comes first; Lota binds the Quad or nil and the nine numbers as an Array, as draw"
+    "Quad comes first; Lota binds the Quad or nil and the nine numbers as an Array or a Transform, as draw"
 bound_by_hand "SpriteBatch:set",
   reason: "reads its Quad and placement as SpriteBatch:add does"
 generate "SpriteBatch:getTexture"
@@ -813,7 +813,7 @@ bound_by_hand "love.graphics.discard",
 bound_by_hand "SpriteBatch:addLayer",
   reason: "reads its layer and then its placement through w_SpriteBatch_addLayer_or_setLayer, at positions " \
     "that depend on whether a Quad comes first, as SpriteBatch:add; Lota binds the layer, the Quad or nil, " \
-    "and the nine numbers as an Array"
+    "and the nine numbers as an Array or a Transform"
 bound_by_hand "SpriteBatch:setLayer",
   reason: "reads its layer, Quad, and placement as SpriteBatch:addLayer does"
 bound_by_hand "love.graphics.getCanvasFormats",

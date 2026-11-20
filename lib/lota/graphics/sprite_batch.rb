@@ -69,11 +69,14 @@ module Lota
       #   shows; the whole texture when left out.
       # [placement] Where the sprite goes, as Lota::Graphics.draw places a
       #   texture: its position, angle, scale, origin, and shear, each
-      #   taking its default when +nil+ or left out.
+      #   taking its default when +nil+ or left out; or a
+      #   Lota::Math::Transform in their place.
       #
       # :call-seq:
       #   add(x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
       #   add(quad, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+      #   add(transform)
+      #   add(quad, transform)
       #
       # Raises ArgumentError for more than nine numbers, TypeError for a
       # +nil+ in place of a quad with numbers after it, as LÖVE raises, or
@@ -84,8 +87,8 @@ module Lota
       #   batch.add(100, 50)
       #   batch.add(grass, 16, 0, 0, 2) # twice the size
       def add(quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
-        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
-        @native.add(quad.is_a?(Quad) ? quad.native : nil, placement)
+        native_quad, placement = quad_and_placement(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        @native.add(native_quad, placement)
       end
 
       # Replaces the sprite at +index+, counting from 1, as add made it,
@@ -99,8 +102,8 @@ module Lota
       #
       #   batch.set(id, grass, player_x, player_y)
       def set(index, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil, ky = nil)
-        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
-        @native.set(index, quad.is_a?(Quad) ? quad.native : nil, placement)
+        native_quad, placement = quad_and_placement(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        @native.set(index, native_quad, placement)
       end
 
       # Adds a sprite drawn from one layer of the batch's array texture,
@@ -119,6 +122,8 @@ module Lota
       # :call-seq:
       #   add_layer(layer, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
       #   add_layer(layer, quad, x = 0, y = 0, r = 0, sx = 1, sy = sx, ox = 0, oy = 0, kx = 0, ky = 0)
+      #   add_layer(layer, transform)
+      #   add_layer(layer, quad, transform)
       #
       # Raises what add raises, and RuntimeError with LÖVE's message for a
       # batch of a texture that is not an array texture or a layer it does
@@ -131,8 +136,8 @@ module Lota
       def add_layer(layer, quad = nil, x = nil, y = nil, r = nil, sx = nil, sy = nil, ox = nil, oy = nil, kx = nil,
         ky = nil
       )
-        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
-        @native.add_layer(layer, quad.is_a?(Quad) ? quad.native : nil, placement)
+        native_quad, placement = quad_and_placement(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        @native.add_layer(layer, native_quad, placement)
       end
 
       # Replaces the sprite at an index, counting from 1, as add_layer made
@@ -156,9 +161,31 @@ module Lota
         end
 
         index, layer, quad, x, y, r, sx, sy, ox, oy, kx, ky = values
-        placement = Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)
-        @native.set_layer(index, layer, quad.is_a?(Quad) ? quad.native : nil, placement)
+        native_quad, placement = quad_and_placement(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        @native.set_layer(index, layer, native_quad, placement)
       end
+
+      # SPDX-SnippetBegin
+      # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+      # SPDX-License-Identifier: Zlib
+
+      # The engine's quad, or +nil+, and the placement after it, as
+      # w_SpriteBatch_add_or_set and w_SpriteBatch_addLayer_or_setLayer
+      # read them (src/modules/graphics/wrap_SpriteBatch.cpp:36-83): a
+      # Quad or none, then a Lota::Math::Transform, whose engine object
+      # goes as it is, or the numbers luax_checkstandardtransform
+      # (wrap_SpriteBatch.h:32-64) reads in its place. A +nil+ in place of
+      # the quad, with anything after it, is a missing quad.
+      private def quad_and_placement(quad, x, y, r, sx, sy, ox, oy, kx, ky)
+        return [nil, quad.native] if quad.is_a?(Math::Transform)
+
+        raise TypeError, "wrong argument type nil (expected Lota::Graphics::Quad)" if quad.nil? && !x.nil?
+        return [Graphics.__send__(:transform_quad, quad).native, x.native] if x.is_a?(Math::Transform)
+
+        [quad.is_a?(Quad) ? quad.native : nil, Graphics.__send__(:placement_after, quad, x, y, r, sx, sy, ox, oy, kx, ky)]
+      end
+
+      # SPDX-SnippetEnd
 
       # Removes every sprite, matching SpriteBatch:clear
       # (src/modules/graphics/wrap_SpriteBatch.cpp, w_SpriteBatch_clear).

@@ -8,13 +8,15 @@ module Lota
 
       def self.new: (Texture texture, ?Integer? size, *(Symbol | String) usage) -> SpriteBatch
 
-      def add: (?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Integer
+      def add: (?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Integer
 
-      def set: (Integer index, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
+      def set: (Integer index, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> nil
 
-      def add_layer: (Integer layer, ?(Quad | Float | Integer)? quad, ?(Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Integer
+      def add_layer: (Integer layer, ?(Quad | Math::Transform | Float | Integer)? quad, ?(Math::Transform | Float | Integer)? x, ?(Float | Integer)? y, ?(Float | Integer)? r, ?(Float | Integer)? sx, ?(Float | Integer)? sy, ?(Float | Integer)? ox, ?(Float | Integer)? oy, ?(Float | Integer)? kx, ?(Float | Integer)? ky) -> Integer
 
-      def layer=: (Array[Quad | Float | Integer | nil] sprite) -> void
+      def layer=: (Array[Quad | Math::Transform | Float | Integer | nil] sprite) -> void
+
+      private def quad_and_placement: ((Quad | Math::Transform | Float | Integer)? quad, (Math::Transform | Float | Integer)? x, (Float | Integer)? y, (Float | Integer)? r, (Float | Integer)? sx, (Float | Integer)? sy, (Float | Integer)? ox, (Float | Integer)? oy, (Float | Integer)? kx, (Float | Integer)? ky) -> [Native::Quad?, Array[Float | Integer] | Native::Transform]
 
       def clear: () -> nil
 

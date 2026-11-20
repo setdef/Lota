@@ -182,4 +182,65 @@ class SpriteBatchTest < Minitest::Test
     assert_raises(TypeError) { batch.add_layer(1, nil, 5) }
     assert_raises(ArgumentError) { batch.layer = 1 }
   end
+
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # luax_checkstandardtransform (wrap_SpriteBatch.h:32-64) takes a
+  # Transform in place of the numbers, after the quad when there is one,
+  # in add, set, addLayer, and setLayer alike (wrap_SpriteBatch.cpp:36-83);
+  # nil in place of the quad, with a Transform after it, is a missing quad.
+  def test_a_transform_places_a_sprite_after_an_optional_quad
+    green = Lota::Graphics::Canvas.new(1, 1, 2)
+    green.render_to(1) { Lota::Graphics.clear(0, 1, 0, 1) }
+    green.render_to(2) { Lota::Graphics.clear(0, 1, 0, 1) }
+    quad = Lota::Graphics::Quad.new(0, 0, 1, 1, green)
+    at = -> (x) { Lota::Math::Transform.new(x, 0) }
+    batch = Lota::Graphics::SpriteBatch.new(green)
+    batch.add_layer(1, at.(1))
+    moved = batch.add_layer(2, quad, at.(7))
+    batch.layer = moved, 2, quad, at.(3)
+    moved = batch.add_layer(1, at.(7))
+    batch.layer = moved, 1, at.(5)
+    error = assert_raises(TypeError) { batch.add_layer(1, nil, at.(1)) }
+
+    assert_equal "wrong argument type nil (expected Lota::Graphics::Quad)", error.message
+
+    canvas = Lota::Graphics::Canvas.new(8, 1)
+    canvas.render_to do
+      Lota::Graphics.clear(0, 0, 0, 1)
+      Lota::Graphics.draw(batch)
+    end
+    pixels = Lota::Graphics.readback_texture(canvas)
+
+    assert_equal [0, 1, 0, 1, 0, 1, 0, 0], (0...8).map { |x| pixels.pixel(x, 0)[1].round }
+  end
+
+  def test_add_and_set_take_a_transform_as_draw_does
+    green = Lota::Graphics::Canvas.new(1, 1)
+    green.render_to { Lota::Graphics.clear(0, 1, 0, 1) }
+    quad = Lota::Graphics::Quad.new(0, 0, 1, 1, green)
+    at = -> (x) { Lota::Math::Transform.new(x, 0) }
+    batch = Lota::Graphics::SpriteBatch.new(green)
+    batch.add(at.(1))
+    moved = batch.add(quad, at.(7))
+    batch.set(moved, quad, at.(3))
+    moved = batch.add(at.(7))
+    batch.set(moved, at.(5))
+    error = assert_raises(TypeError) { batch.add(nil, at.(1)) }
+
+    assert_equal "wrong argument type nil (expected Lota::Graphics::Quad)", error.message
+
+    canvas = Lota::Graphics::Canvas.new(8, 1)
+    canvas.render_to do
+      Lota::Graphics.clear(0, 0, 0, 1)
+      Lota::Graphics.draw(batch)
+    end
+    pixels = Lota::Graphics.readback_texture(canvas)
+
+    assert_equal [0, 1, 0, 1, 0, 1, 0, 0], (0...8).map { |x| pixels.pixel(x, 0)[1].round }
+  end
+
+  # SPDX-SnippetEnd
 end

@@ -878,6 +878,18 @@ love::Matrix4 placement_of(const Rice::Array &numbers) {
   return std::apply([](auto... value) { return love::Matrix4(value...); }, values);
 }
 
+// luax_checkstandardtransform (wrap_SpriteBatch.h:32-64): the matrix of a
+// Transform, or the placement placement_of builds from the nine numbers
+// Lota::Graphics passes in its place.
+love::Matrix4 standard_transform(const Rice::Object &placement) {
+  if (ruby::is_kind_of(placement, Rice::Data_Type<love::math::Transform>::klass())) {
+    return Rice::detail::From_Ruby<love::math::Transform *>()
+        .convert(placement.value())
+        ->getMatrix();
+  }
+  return placement_of(Rice::Array(placement));
+}
+
 // w_print with numbers (wrap_Graphics.cpp:3410-3433): +text+ in +font+,
 // or in the current font when +font+ is nil, from the top left of its
 // first line.
@@ -1224,13 +1236,13 @@ love::graphics::SpriteBatch *new_sprite_batch(Texture *texture, std::optional<in
 }
 
 // w_SpriteBatch_add (wrap_SpriteBatch.cpp:36-56 and 85-93): adds a sprite
-// of the whole texture, or of +quad+ unless it is nil, placed by the nine
-// numbers, and returns its index, counting from 1 as Lua does.
+// of the whole texture, or of +quad+ unless it is nil, placed by a
+// Transform or the nine numbers, and returns its index, counting from 1 as
+// Lua does.
 int sprite_batch_add(love::graphics::SpriteBatch &batch, love::graphics::Quad *quad,
-                     Rice::Array placement) {
+                     Rice::Object placement) {
   require_main_thread(MODULE);
-  const Rice::Array numbers = std::move(placement);
-  const love::Matrix4 m = placement_of(numbers);
+  const love::Matrix4 m = standard_transform(placement);
   const int index = (quad != nullptr) ? batch.add(quad, m, -1) : batch.add(m, -1);
   return index + 1;
 }
@@ -1239,10 +1251,9 @@ int sprite_batch_add(love::graphics::SpriteBatch &batch, love::graphics::Quad *q
 // sprite at +index+, counting from 1 as Lua does, as sprite_batch_add adds
 // one.
 void sprite_batch_set(love::graphics::SpriteBatch &batch, int index, love::graphics::Quad *quad,
-                      Rice::Array placement) {
+                      Rice::Object placement) {
   require_main_thread(MODULE);
-  const Rice::Array numbers = std::move(placement);
-  const love::Matrix4 m = placement_of(numbers);
+  const love::Matrix4 m = standard_transform(placement);
   if (quad != nullptr) {
     batch.add(quad, m, index - 1);
   } else {
@@ -1252,13 +1263,12 @@ void sprite_batch_set(love::graphics::SpriteBatch &batch, int index, love::graph
 
 // w_SpriteBatch_addLayer (wrap_SpriteBatch.cpp:59-83 and 105-113): adds a
 // sprite on +layer+ of the batch's array texture, counting from 1, of the
-// whole texture or of +quad+ unless it is nil, placed by the nine numbers,
-// and returns its index, counting from 1 as Lua does.
+// whole texture or of +quad+ unless it is nil, placed by a Transform or
+// the nine numbers, and returns its index, counting from 1 as Lua does.
 int sprite_batch_add_layer(love::graphics::SpriteBatch &batch, int layer,
-                           love::graphics::Quad *quad, Rice::Array placement) {
+                           love::graphics::Quad *quad, Rice::Object placement) {
   require_main_thread(MODULE);
-  const Rice::Array numbers = std::move(placement);
-  const love::Matrix4 m = placement_of(numbers);
+  const love::Matrix4 m = standard_transform(placement);
   const int index =
       (quad != nullptr) ? batch.addLayer(layer - 1, quad, m, -1) : batch.addLayer(layer - 1, m, -1);
   return index + 1;
@@ -1268,10 +1278,9 @@ int sprite_batch_add_layer(love::graphics::SpriteBatch &batch, int layer,
 // replaces the sprite at +index+, counting from 1 as Lua does, as
 // sprite_batch_add_layer adds one.
 void sprite_batch_set_layer(love::graphics::SpriteBatch &batch, int index, int layer,
-                            love::graphics::Quad *quad, Rice::Array placement) {
+                            love::graphics::Quad *quad, Rice::Object placement) {
   require_main_thread(MODULE);
-  const Rice::Array numbers = std::move(placement);
-  const love::Matrix4 m = placement_of(numbers);
+  const love::Matrix4 m = standard_transform(placement);
   if (quad != nullptr) {
     batch.addLayer(layer - 1, quad, m, index - 1);
   } else {
