@@ -7,6 +7,7 @@
 
 require "minitest"
 require_relative "../engine_helper"
+require_relative "lovetest_skips"
 
 # Lövetest, LÖVE's own test suite (vendor/love/testing), translated to Ruby
 # by the rules of doc/contributors/design/translation.md. Each translated test
@@ -117,7 +118,7 @@ module Lovetest
   # when the tests run on a GitHub Actions runner, which LÖVE's own CI
   # says with --isRunner (vendor/love/.github/workflows/main.yml) and
   # GitHub says to Lota's with GITHUB_ACTIONS.
-  GITHUB_RUNNER = ENV["GITHUB_ACTIONS"] == "true"
+  GITHUB_RUNNER = LovetestSkips.github_runner?(ENV)
 
   # Whether the tests' OpenAL Soft plays through a driver that cannot
   # record: its wave file writer, as test/alsoft.conf has it play on every
@@ -128,10 +129,7 @@ module Lovetest
   # devices in CI"). Without a driver that records, LÖVE lists one
   # nameless recording device, which cannot start, and Lota lists none
   # (doc/contributors/upstream/009.md); the skip stays, as Lövetest's.
-  PLAYBACK_ONLY = begin
-    conf = ENV.fetch("ALSOFT_CONF", "")
-    File.file?(conf) && File.read(conf).match?(/^\s*drivers\s*=\s*(?:wave|null)\s*$/)
-  end
+  PLAYBACK_ONLY = LovetestSkips.playback_only?(ENV)
 
   # Lövetest's love.test.windowmode (vendor/love/testing/classes/
   # TestSuite.lua:25): whether the tests run with a window, which they
@@ -205,9 +203,42 @@ module Lovetest
     # checking anything is noticed. A test that skipped or already failed
     # keeps its own result, as a skipped test does in Lövetest (lines
     # 454-461).
+    #
+    # A test of Lövetest's (test/lovetest/tests) must also skip only where
+    # Lövetest skips it, and wherever it does (LovetestSkips.verdict): a
+    # skip Lövetest does not make fails in its place, and so does a test
+    # that ran where Lövetest skips it.
     def after_teardown
       super
+      check_lovetest_skip
       flunk("no asserts defined") if assertions.zero? && failures.empty?
+    end
+
+    # The translated tests (test/lovetest/tests).
+    TESTS = File.expand_path("tests", __dir__)
+
+    # Lövetest's name for the test this translates, as
+    # love.test.audio.RecordingDevice, found by its file, which is named
+    # for its module, and its method's name (LovetestLua::Test#method_name);
+    # nil for a test outside test/lovetest/tests.
+    def lovetest_name
+      file, = method(name).source_location
+      return unless File.dirname(File.expand_path(file)) == TESTS
+
+      module_name = File.basename(file, ".rb").then { |base| (base == "lota") ? "love" : base }
+      test = LovetestLua.tests.find { |each| each.module_name == module_name && each.method_name == name }
+      test&.to_s || "#{name}, in #{File.basename(file)}, which translates no test of Lövetest's"
+    end
+
+    private def check_lovetest_skip
+      test = lovetest_name
+      return if test.nil? || !(failures.empty? || skipped?)
+
+      problem = LovetestSkips.verdict(test, skipped? ? failure.message : nil)
+      return unless problem
+
+      failures.clear
+      flunk(problem)
     end
 
     # The types whose tests Lövetest names by the type, capitalized as it

@@ -31,10 +31,4 @@ module UnseenDesktop
   def self.on?(env: ENV, platform: RUBY_PLATFORM)
     env["LOTA_DESKTOP_UNSEEN"] == "1" && platform.include?("darwin")
   end
-
-  # The skips a run that counts +skips+ without the switch counts with it:
-  # one more where the switch is on, for Lövetest's isOccluded test.
-  def self.skips(skips, env: ENV, platform: RUBY_PLATFORM)
-    on?(env:, platform:) ? skips + 1 : skips
-  end
 end

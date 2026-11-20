@@ -40,6 +40,7 @@ UNIT_TESTS = %w[
   test/translation_examples_test.rb
   test/variant_test.rb
   test/version_test.rb
+  test/lovetest/lovetest_skips_test.rb
   test/tasks/android_build_test.rb
   test/tasks/api_diff_test.rb
   test/tasks/auto_revert_test.rb

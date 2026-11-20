@@ -6,7 +6,6 @@
 #++
 
 require_relative "tree_helper"
-require_relative "../lovetest/unseen_desktop"
 require_relative "../lovetest/lovetest_skips"
 require_relative "../../tasks/windows_desktop"
 require "rake"
@@ -367,7 +366,7 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    skips = UnseenDesktop.skips(LovetestSkips.expected)
+    skips = LovetestSkips.expected(env: ENV.to_h.merge(PackageCheck::SILENT))
     assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
     refute_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
     refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
@@ -474,7 +473,7 @@ class RakeTasksTest < Minitest::Test
   end
 
   # rake test runs the sanitized suite through this test, so every line of
-  # test:native runs in the gate. Its skips, counted from the tests
+  # test:native runs in the gate. Its skips, counted from Lövetest's Lua
   # (test/lovetest/lovetest_skips.rb), are Lövetest's discard,
   # requestAttention, showMessageBox, openURL, vibrate, pump, and wait
   # tests, which Lövetest skips everywhere (test/lovetest/tests/graphics.rb,
@@ -504,7 +503,7 @@ class RakeTasksTest < Minitest::Test
     assert_nil failure, "#{failure&.message}\n#{out}\n#{reported(err)}"
     Lota::Native::Sensor.open
     sensorless = %i[accelerometer gyroscope].none? { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
-    skips = UnseenDesktop.skips(LovetestSkips.expected + (TestHome::LINUX ? 0 : off_linux_skips) + (sensorless ? 3 : 0))
+    skips = LovetestSkips.expected + (TestHome::LINUX ? 0 : off_linux_skips) + (sensorless ? 3 : 0)
     assert_match(/^\d+ runs, \d+ assertions, 0 failures, 0 errors, #{skips} skips$/, out)
     assert_includes err, "#{SanitizedBuild::PRELOADS.fetch(ENGINE_PLATFORM)}="
   end

@@ -10,7 +10,7 @@ require_relative "../lovetest/unseen_desktop"
 require_relative "../lovetest/tests/window"
 
 # LOTA_DESKTOP_UNSEEN (test/lovetest/unseen_desktop.rb): which runs it
-# turns on, what it adds to the skips the gate counts, and that Lövetest's
+# turns on, and that Lövetest's
 # isOccluded test skips under it.
 class UnseenDesktopTest < Minitest::Test
   MACOS = "arm64-darwin27"
@@ -22,12 +22,6 @@ class UnseenDesktopTest < Minitest::Test
     refute UnseenDesktop.on?(env: { "LOTA_DESKTOP_UNSEEN" => "0" }, platform: MACOS)
     refute UnseenDesktop.on?(env: { "LOTA_DESKTOP_UNSEEN" => "yes" }, platform: MACOS)
     refute UnseenDesktop.on?(env: {}, platform: MACOS)
-  end
-
-  def test_it_adds_one_skip_only_when_on
-    assert_equal 8, UnseenDesktop.skips(7, env: { "LOTA_DESKTOP_UNSEEN" => "1" }, platform: MACOS)
-    assert_equal 14, UnseenDesktop.skips(14, env: { "LOTA_DESKTOP_UNSEEN" => "1" }, platform: LINUX)
-    assert_equal 7, UnseenDesktop.skips(7, env: {}, platform: MACOS)
   end
 
   # The test's own body skips, with the switch's reason, before it asks

@@ -13,7 +13,9 @@ Lota promises that a game behaves in Lota as the same game behaves in LÖVE. Tes
 
 The tests open a real window, as Lövetest does. SDL's offscreen driver cannot create a Metal or OpenGL context on macOS, so run them in a logged-in session. On Linux they run on a display, where LÖVE draws with OpenGL, through Mesa's software renderer on CI's Xvfb, as LÖVE's Linux CI runs Lövetest.
 
-`test/native/lota_run_test.rb` runs them all again through `lota run`, and expects as many runs as the files in `test/lovetest/tests` define test methods, so a test the game never loads is noticed.
+What the translation must hold comes from Lövetest's own Lua, never from the translation, so that dropping a test or turning one into a skip is noticed. `test/lovetest/lovetest_lua.rb` reads every test Lövetest's files define, and every `test:skipTest` with its reason and the conditions of the ifs around it. A unit test (`test/lovetest/lovetest_skips_test.rb`) holds each file in `test/lovetest/tests` to the tests of its Lua file, each named by the translation rules, and no other. After each test runs, `Lovetest::TestMethod#after_teardown` asks `LovetestSkips.verdict` whether it did as Lövetest does on this machine: a test may skip only with a reason Lövetest's Lua gives it, under a condition that holds here, and must skip where one does. `LovetestSkips::CONDITIONS` says what each of Lövetest's conditions means in Lota, and `LovetestSkips::EXCEPTIONS` is the one place that names a skip Lövetest does not have, with why Lota needs it.
+
+`test/native/lota_run_test.rb` runs them all again through `lota run`, and expects as many runs as Lövetest's Lua defines tests, so a test the game never loads is noticed, and as many skips as `LovetestSkips.expected` counts for the run's environment, with those only the machine can tell, its sensors and GLSL 4.
 
 ## The parity harness
 

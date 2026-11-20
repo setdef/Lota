@@ -7,9 +7,7 @@
 
 require_relative "native_helper"
 require_relative "../engine_helper"
-require_relative "../lovetest/unseen_desktop"
 require_relative "../lovetest/lovetest_skips"
-require_relative "../lovetest/held_foreground"
 require "json"
 require "rbconfig"
 require "tmpdir"
@@ -175,27 +173,30 @@ class LotaRunTest < Minitest::Test
     assert_equal 5, status.exitstatus
   end
 
-  # Lövetest, through lota run and the game loop: every test Lota
-  # translates from it (test/lovetest/tests), run from the update callback
-  # of a game whose conf.rb translates Lövetest's conf.lua, once each and
-  # with none failing. The runs it expects are the test methods those
-  # files define, so a file the game does not load, or a test it does not
-  # run, is noticed, and a test that runs but asserts nothing fails, as
-  # in Lövetest (Lovetest::TestMethod#after_teardown). How many assertions
-  # the tests make is left to them: many depend on the machine, and
-  # getPowerInfo's on its battery at the moment the game asks, which a
-  # laptop on a charger it out-draws can change from one second to the
-  # next (test/lovetest/tests/system.rb, test_get_power_info).
+  # Lövetest, through lota run and the game loop: every test of
+  # Lövetest's, translated (test/lovetest/tests), run from the update
+  # callback of a game whose conf.rb translates Lövetest's conf.lua, once
+  # each and with none failing. The runs it expects are the tests
+  # Lövetest's own Lua defines (LovetestLua.tests), so a file the game does
+  # not load, or a test it does not run, is noticed, and a test that runs
+  # but asserts nothing fails, as in Lövetest
+  # (Lovetest::TestMethod#after_teardown). How many assertions the tests
+  # make is left to them: many depend on the machine, and getPowerInfo's
+  # on its battery at the moment the game asks, which a laptop on a
+  # charger it out-draws can change from one second to the next
+  # (test/lovetest/tests/system.rb, test_get_power_info).
   #
-  # Lövetest skips its discard, requestAttention, showMessageBox, openURL,
-  # vibrate, pump, and wait tests everywhere, and so does Lota.
+  # Each test skips only where Lövetest skips it, or where
+  # LovetestSkips::EXCEPTIONS says why Lota must, and fails otherwise.
   def test_lovetest_passes_when_run_by_lota_run
     output, status = lota_run(File.join(ROOT, "test/lovetest/game"), preload: FOCUS_FOR_TESTS)
-    runs = Dir[File.join(ROOT, "test/lovetest/tests/*.rb")].sum { |file| File.read(file).scan(/^\s*def test_\w+/).size }
-    # Lövetest skips its window tests of fullscreen, maximizing, and
+    runs = LovetestLua.tests.size
+    # Lövetest skips its discard, requestAttention, showMessageBox,
+    # openURL, vibrate, pump, wait, getSource, and setSource tests
+    # everywhere, and its window tests of fullscreen, maximizing, and
     # minimizing on a GitHub runner on Linux, where xvfb has no window
-    # manager (test/lovetest/tests/window.rb), beside those it always
-    # skips; LovetestSkips counts both from the tests.
+    # manager; LovetestSkips.expected counts those, and the exceptions
+    # that hold here, from Lövetest's Lua.
     EngineHelper.open_window
     supported = Lota::Graphics.supported
     # Its ShaderStorageBuffer test skips where the renderer lacks GLSL 4.
@@ -203,13 +204,7 @@ class LotaRunTest < Minitest::Test
     # machine has neither an accelerometer nor a gyroscope
     # (test/lovetest/tests/sensor.rb).
     sensors = %i[accelerometer gyroscope].count { |sensor_type| Lota::Sensor.sensor?(sensor_type) }
-    # It also skips getSource, setSource, and RecordingDevice, whose OpenAL
-    # Soft cannot record (Lovetest::PLAYBACK_ONLY), as Lövetest skips them.
-    # On a desktop macOS does not draw, the isOccluded test skips
-    # (test/lovetest/unseen_desktop.rb), and on a Windows desktop whose
-    # foreground is held, the setGrabbed test (test/lovetest/held_foreground.rb).
-    skips = HeldForeground.skips(UnseenDesktop.skips(LovetestSkips.expected + (supported.glsl4 ? 0 : 1) +
-      (sensors.zero? ? 3 : 0)))
+    skips = LovetestSkips.expected + (supported.glsl4 ? 0 : 1) + (sensors.zero? ? 3 : 0)
 
     assert_predicate status, :success?, output
     assert_match(/^love\.conf$/, output)

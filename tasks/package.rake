@@ -8,7 +8,6 @@
 require "fileutils"
 require_relative "native_gem"
 require_relative "package_check"
-require_relative "../test/lovetest/unseen_desktop"
 require_relative "../test/lovetest/lovetest_skips"
 
 # What the bundle compiles against from LÖVE's dependencies but does not
@@ -72,7 +71,9 @@ PACKAGE_GAME = PackageCheck::Game.new(
 # gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0
 # only when every test passed; the output rules out a run of no tests.
-LOVETEST_SKIPS = UnseenDesktop.skips(LovetestSkips.expected)
+# Its skips are those its environment decides, with OpenAL Soft's
+# settings the game runs with (SILENT).
+LOVETEST_SKIPS = LovetestSkips.expected(env: ENV.to_h.merge(PackageCheck::SILENT))
 
 LOVETEST_GAME = PackageCheck::Game.new(
   name: "test/lovetest/game",
@@ -80,7 +81,7 @@ LOVETEST_GAME = PackageCheck::Game.new(
   files: {},
   gems: ["minitest"],
   arguments: [],
-  # Its skips, counted from the tests (test/lovetest/lovetest_skips.rb),
+  # Its skips, counted from Lövetest's Lua (test/lovetest/lovetest_skips.rb),
   # are Lövetest's discard, requestAttention, showMessageBox, openURL,
   # vibrate, pump, wait, getSource, and setSource tests, which Lövetest
   # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,

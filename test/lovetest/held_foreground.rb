@@ -30,10 +30,4 @@ module HeldForeground
   def self.on?(env: ENV, platform: RUBY_PLATFORM)
     env["LOTA_FOREGROUND_HELD"] == "1" && platform.include?("mingw")
   end
-
-  # The skips a run that counts +skips+ without the switch counts with it:
-  # one more where the switch is on, for Lövetest's setGrabbed test.
-  def self.skips(skips, env: ENV, platform: RUBY_PLATFORM)
-    on?(env:, platform:) ? skips + 1 : skips
-  end
 end

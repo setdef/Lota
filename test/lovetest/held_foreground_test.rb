@@ -9,7 +9,7 @@ require_relative "../test_helper"
 require_relative "held_foreground"
 
 # LOTA_FOREGROUND_HELD (test/lovetest/held_foreground.rb): which runs it
-# turns on, and what it adds to the skips a run counts.
+# turns on.
 class HeldForegroundTest < Minitest::Test
   WINDOWS = "aarch64-mingw-ucrt"
   MACOS = "arm64-darwin27"
@@ -19,10 +19,5 @@ class HeldForegroundTest < Minitest::Test
     refute HeldForeground.on?(env: { "LOTA_FOREGROUND_HELD" => "1" }, platform: MACOS)
     refute HeldForeground.on?(env: { "LOTA_FOREGROUND_HELD" => "0" }, platform: WINDOWS)
     refute HeldForeground.on?(env: {}, platform: WINDOWS)
-  end
-
-  def test_it_adds_one_skip_only_when_on
-    assert_equal 11, HeldForeground.skips(10, env: { "LOTA_FOREGROUND_HELD" => "1" }, platform: WINDOWS)
-    assert_equal 10, HeldForeground.skips(10, env: {}, platform: WINDOWS)
   end
 end
