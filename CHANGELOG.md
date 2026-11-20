@@ -46,6 +46,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - A `File` that cannot be read raises `RuntimeError` with LÖVE's message in `Lota::Font`'s rasterizers, where it raised `TypeError`; `ImageFont.new` checks its image before its spacing and DPI scale, as LÖVE does; and `Shader.new` passes over a source argument that is neither a `String` nor a file, as LÖVE does, where it raised.
 - `Lota::Filesystem.mount` mounts a `File` that `open_native_file` opened, by its filename, as LÖVE does, and reads an `append` that is not `true` or `false` as `false`, as LÖVE does, where it raised; `mount` and `unmount` raise `TypeError` for any other `archive` that is neither a `String` nor a `Lota::Data`, where they raised `NoMethodError`.
 
+- `Lota::Physics::Body#world_points` and `#local_points` return an odd value left over first, as it was given, then the transformed pairs, as LÖVE does; they returned it last, as a Float. Given fewer than two values, they raise LÖVE's message, "Incorrect number of arguments. Got [1], expected at least [2]".
+
 ## [0.5.5] - 2026-11-20
 
 ### Changed

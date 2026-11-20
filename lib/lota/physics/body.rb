@@ -408,8 +408,11 @@ module Lota
       # [coordinates] Floats or Integers, an x and a y for each point, at
       #   least two.
       #
-      # Each pair comes back transformed; an odd number left over comes back
-      # as it was, as LÖVE returns as many values as it was given.
+      # Each pair comes back transformed. An odd value left over comes back
+      # first, as it was, since LÖVE returns as many values as it was given
+      # and leaves that one below the pairs. Raises RuntimeError
+      # ("Incorrect number of arguments. Got [1], expected at least [2]")
+      # for fewer than two.
       #
       # === Example
       #

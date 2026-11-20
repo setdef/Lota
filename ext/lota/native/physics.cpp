@@ -579,28 +579,33 @@ Rice::Array body_mass_data(Body &body) {
 
 // w_Body_getWorldPoints and w_Body_getLocalPoints (wrap_Body.cpp:448-453
 // and 483-488), through Body::getWorldPoints and getLocalPoints: each pair
-// of numbers transformed. LÖVE asks for at least two (luax_assert_argc),
-// reads each as a float, and returns as many values as it was given, so an
-// odd one out comes back as it was.
+// of numbers transformed. LÖVE asks for at least two (luax_assert_argc,
+// runtime.cpp:379-385), reads each pair as floats, and returns as many
+// values as it was given, with an odd one out first, as it was: it stays
+// on the stack below the pairs Body.cpp:322-342 and 360-380 push, and is
+// never read as a number.
 Rice::Array points(Body &body, const Rice::Array &coordinates,
                    void (Body::*transform)(std::vector<float> &)) {
   check(body);
-  const std::vector<double> given = numbers(coordinates);
+  const std::vector<Rice::Object> given = ruby::elements(coordinates);
   if (given.size() < 2) {
-    throw love::Exception("Expected at least 2 arguments");
+    throw love::Exception("Incorrect number of arguments. Got [%d], expected at least [%d]",
+                          static_cast<int>(given.size()), 2);
   }
+  const std::size_t paired = given.size() - (given.size() % 2);
   std::vector<float> coords;
-  coords.reserve(given.size());
-  for (const double value : given) {
-    coords.push_back(static_cast<float>(value));
+  coords.reserve(paired);
+  for (std::size_t i = 0; i < paired; i++) {
+    coords.push_back(
+        static_cast<float>(Rice::detail::From_Ruby<double>().convert(given.at(i).value())));
   }
   (body.*transform)(coords);
-  Rice::Array results = ruby::array_with_room(coords.size());
-  for (std::size_t i = 0; i < coords.size(); i++) {
-    results.push((i == coords.size() - 1 && coords.size() % 2 != 0)
-                     ? given.at(i)
-                     : static_cast<double>(coords.at(i)),
-                 false);
+  Rice::Array results = ruby::array_with_room(given.size());
+  if (paired < given.size()) {
+    results.push(given.back(), false);
+  }
+  for (const float value : coords) {
+    results.push(static_cast<double>(value), false);
   }
   return results;
 }

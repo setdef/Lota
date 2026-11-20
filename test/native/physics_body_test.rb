@@ -109,6 +109,36 @@ class PhysicsBodyTest < Minitest::Test
     assert_in_delta(-1, y, 0.0001)
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # Body:getWorldPoints and getLocalPoints leave an odd value out on the
+  # stack below the pairs they push, so it comes back first and as it
+  # was, never read as a number, and refuse fewer than two values with
+  # luax_assert_argc's message (vendor/love/src/modules/physics/box2d/
+  # Body.cpp:322-342 and 360-380, src/common/runtime.cpp:379-385).
+  def test_points_return_an_odd_value_first_as_it_was
+    @body.position = 10, 20
+
+    odd, *world = @body.world_points(1, 2, 3, 4, 7)
+    other, *local = @body.local_points(1, 2, :odd)
+
+    assert_equal 7, odd
+    assert_equal [11.0, 22.0, 13.0, 24.0], world.map { |value| value.round(4) }
+    assert_equal :odd, other
+    assert_equal [-9.0, -18.0], local.map { |value| value.round(4) }
+  end
+
+  def test_points_need_two_values
+    [-> { @body.world_points }, -> { @body.local_points(1) }].each_with_index do |call, count|
+      error = assert_raises(RuntimeError, &call)
+
+      assert_equal "Incorrect number of arguments. Got [#{count}], expected at least [2]", error.message
+    end
+  end
+  # SPDX-SnippetEnd
+
   # A Body spinning at a radian a second about its center moves its point
   # ten pixels to the right at ten pixels a second, down the screen.
   def test_the_velocity_of_a_point_of_a_spinning_body
