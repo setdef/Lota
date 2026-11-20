@@ -845,7 +845,9 @@ bound_by_hand "love.graphics.getImageFormats",
     "deprecated"
 bound_by_hand "love.graphics.newCubeTexture",
   reason: "chooses among its forms by its arguments' kinds, as love.graphics.newTexture does; " \
-    "Lota::Graphics::CubeTexture.new binds every form, and CubeImage.new calls it"
+    "Lota::Graphics::CubeTexture.new binds every form, and CubeImage.new calls it. Given a list of images of " \
+    "six faces, it sets each face of mipmap i from face i, as LÖVE does, and raises where LÖVE reads past " \
+    "the six (doc/contributors/upstream/030.md)"
 bound_by_hand "love.graphics.newArrayTexture",
   reason: "chooses among its forms by its arguments' kinds, as love.graphics.newTexture does; " \
     "Lota::Graphics::ArrayTexture.new binds every form, and ArrayImage.new calls it"
