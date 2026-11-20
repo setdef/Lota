@@ -51,7 +51,7 @@ module Lota
 
     private def self.opened: (Array[Native::File | nil | String] results) -> ([File] | [nil, String])
 
-    def self.write: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])
+    def self.write: (String filename, String | Lota::Data data, ?Integer? size) -> ([true] | [nil, String])
 
     def self.lines: (String filename) -> Enumerator[String, void]
                   | (String filename) { (String line) -> void } -> nil
@@ -59,7 +59,7 @@ module Lota
     private def self.enumerate_lines: (Native::Filesystem::Lines reader) -> Enumerator[String, void]
                             | (Native::Filesystem::Lines reader) { (String line) -> void } -> nil
 
-    def self.append: (String filename, String | FileData data, ?Integer? size) -> ([true] | [nil, String])
+    def self.append: (String filename, String | Lota::Data data, ?Integer? size) -> ([true] | [nil, String])
 
     def self.directory_items: (String dir) -> Array[String]
 

@@ -250,6 +250,23 @@ class SaveDirectoryTest < Minitest::Test
     file&.close
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_write_or_append takes a string or any Data and writes the Data's
+  # bytes (src/modules/filesystem/wrap_Filesystem.cpp:668-677), so a
+  # ByteData is written as a FileData is, and anything else raises.
+  def test_write_and_append_take_any_data
+    assert_equal [true], Lota::Filesystem.write("bytes.bin", Lota::Data::ByteData.new("byte"))
+    assert_equal [true], Lota::Filesystem.append("bytes.bin", Lota::Data::ByteData.new(" data"))
+
+    assert_equal "byte data", File.binread(File.join(save_directory, "bytes.bin"))
+    assert_raises(TypeError) { Lota::Filesystem.append("bytes.bin", 42) }
+  end
+
+  # SPDX-SnippetEnd
+
   # write returns luax_ioError's nil and message when PhysicsFS cannot
   # open the file, here because a directory has its name.
   def test_write_returns_nil_and_the_engines_message_when_it_cannot_write

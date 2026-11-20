@@ -263,7 +263,8 @@ bound_by_hand "love.filesystem.load",
     "compiled instruction sequence when it is binary"
 bound_by_hand "love.filesystem.write",
   reason: "returns w_write_or_append, which reads a string or any Data by its kind (luax_istype); Lota " \
-    "binds the two forms as two functions"
+    "binds the two forms as two functions, which write no more than the string or Data holds where LÖVE " \
+    "reads past its end for a larger size, since Ruby gives no memory past a String or a Data"
 bound_by_hand "love.filesystem.lines",
   reason: "returns an iterator, a C closure over the open File (w_File_lines_i), which the generator does " \
     "not port; Lota binds the iterator as a class whose next_line Lota::Filesystem.lines enumerates"
@@ -300,7 +301,8 @@ bound_by_hand "love.filesystem.unmount",
   reason: "reads its argument as a Data or a string (luax_istype); Lota binds each form, which " \
     "Lota::Filesystem.unmount chooses between"
 bound_by_hand "love.filesystem.append",
-  reason: "returns w_write_or_append, as love.filesystem.write; Lota binds the two forms as two functions"
+  reason: "returns w_write_or_append, as love.filesystem.write; Lota binds the two forms as two functions, " \
+    "which append no more than the string or Data holds, as love.filesystem.write writes no more"
 
 # love.font
 bound_by_hand "love.font.newRasterizer",

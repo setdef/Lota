@@ -492,8 +492,8 @@ module Lota
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_write).
     #
     # [filename] String path of the file, inside the save directory.
-    # [data] String of the bytes to write, or a Lota::Filesystem::FileData,
-    #   whose bytes it writes.
+    # [data] String of the bytes to write, or any Lota::Data, such as a
+    #   Lota::Filesystem::FileData, whose bytes it writes.
     # [size] Integer number of bytes of +data+ to write; all of them when
     #   +nil+ or left out.
     #
@@ -511,8 +511,8 @@ module Lota
     def self.write(filename, data, size = nil)
       case data
       when String then Native::Filesystem.write_string(filename, data, size)
-      when FileData then Native::Filesystem.write_data(filename, data.__send__(:native), size)
-      else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Filesystem::FileData)"
+      when Lota::Data then Native::Filesystem.write_data(filename, data.__send__(:native), size)
+      else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Data)"
       end
     end
 
@@ -568,8 +568,8 @@ module Lota
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_append).
     #
     # [filename] String path of the file, inside the save directory.
-    # [data] String of the bytes to add, or a Lota::Filesystem::FileData,
-    #   whose bytes it adds.
+    # [data] String of the bytes to add, or any Lota::Data, such as a
+    #   Lota::Filesystem::FileData, whose bytes it adds.
     # [size] Integer number of bytes of +data+ to add; all of them when
     #   +nil+ or left out.
     #
@@ -584,8 +584,8 @@ module Lota
     def self.append(filename, data, size = nil)
       case data
       when String then Native::Filesystem.append_string(filename, data, size)
-      when FileData then Native::Filesystem.append_data(filename, data.__send__(:native), size)
-      else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Filesystem::FileData)"
+      when Lota::Data then Native::Filesystem.append_data(filename, data.__send__(:native), size)
+      else raise TypeError, "wrong argument type #{data.class} (expected String or Lota::Data)"
       end
     end
 
