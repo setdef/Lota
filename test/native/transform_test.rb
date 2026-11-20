@@ -83,12 +83,20 @@ class TransformTest < Minitest::Test
     assert_equal [5.0, 3.0], transform.transform_point(1, 1)
   end
 
+  # w_Transform_setMatrix checks the layout's name before luax_checkmatrix
+  # reads the elements (wrap_Transform.cpp:236-246), each with
+  # luaL_checknumber, so a missing one is a nil it refuses (lines 32-103).
   def test_a_matrix_refuses_an_unknown_layout_and_a_wrong_count
     transform = Transform.new
 
     error = assert_raises(ArgumentError) { transform.matrix = :diagonal, *COLUMNS.flatten }
     assert_match(/Invalid matrix layout 'diagonal'/, error.message)
-    assert_raises(ArgumentError) { transform.matrix = [1, 2, 3] }
+    error = assert_raises(ArgumentError) { transform.matrix = :diagonal, 1, 2, 3 }
+    assert_match(/Invalid matrix layout 'diagonal'/, error.message)
+    error = assert_raises(ArgumentError) { transform.matrix = :diagonal, *COLUMNS.flatten, 1 }
+    assert_match(/Invalid matrix layout 'diagonal'/, error.message)
+    assert_raises(TypeError) { transform.matrix = [1, 2, 3] }
+    assert_raises(ArgumentError) { transform.matrix = [*COLUMNS.flatten, 1] }
   end
 
   # The identity as the projection maps only -1 to 1 onto the canvas, so a
@@ -105,7 +113,7 @@ class TransformTest < Minitest::Test
     Graphics.canvas = nil
 
     assert_equal [0.0, 0.0, 0.0, 1.0], Graphics.readback_texture(canvas).pixel(2, 2)
-    assert_raises(ArgumentError) { Graphics.projection = :row, 1, 2 }
+    assert_raises(TypeError) { Graphics.projection = :row, 1, 2 }
   ensure
     Graphics.canvas = nil
     Graphics.reset_projection

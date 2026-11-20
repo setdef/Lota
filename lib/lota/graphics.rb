@@ -824,9 +824,9 @@ module Lota
     #
     # LÖVE projects orthographically, so that a unit is a pixel, until it
     # is set; reset_projection goes back to that. Raises ArgumentError for
-    # an unknown layout or a count of elements other than sixteen,
-    # TypeError for an element that is not a number, and ThreadError off
-    # the main thread.
+    # an unknown layout, TypeError for an element that is not a number or
+    # is missing, ArgumentError for more than sixteen, each as
+    # Transform#matrix= does, and ThreadError off the main thread.
     #
     # === Example
     #

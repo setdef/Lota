@@ -29,6 +29,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Breaking:** `Lota::Math::RandomGenerator.new(nil)` raises TypeError, as LÖVE's `newRandomGenerator(nil)` does, where it made a generator from the usual seed; leave the seed out for that.
 - **Breaking:** `Lota::Window.show_message_box` with an empty Array of buttons raises RuntimeError, as Lota raises every error LÖVE raises with `luaL_error`, where it raised ArgumentError.
 - `Lota::Filesystem.write`, `append`, and `File#write` given a negative size return `nil` and LÖVE's message, `"Invalid write size."`, as LÖVE does, where they wrote nothing and returned `true`.
+- **Breaking:** `Lota::Math::Transform#matrix=` and `Lota::Graphics.projection=` check the layout before the elements, and raise TypeError for fewer than sixteen elements, as LÖVE does, where they raised ArgumentError for the count first.
 
 ## [0.5.5] - 2026-11-20
 

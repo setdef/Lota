@@ -39,10 +39,12 @@ using love::math::Transform;
 // arguments from Rice instead of a lua_State.
 
 // luax_checkmatrix with its elements as numbers (wrap_Transform.cpp:
-// 106-122), after w_Transform_setMatrix's read of the layout (lines
+// 32-103), after w_Transform_setMatrix's read of the layout (lines
 // 236-246): LÖVE checks the layout's name first, reads each element as a
 // float, and stores them column-major, so a row-major element at row r
-// and column c goes to c * 4 + r.
+// and column c goes to c * 4 + r. An element missing is nil, which
+// luaL_checknumber refuses, as Rice refuses it for a float. LÖVE reads
+// no element past the sixteenth; Lota refuses more after reading those.
 love::Matrix4 matrix_of(const std::optional<std::string> &layout, const Rice::Array &elements) {
   Transform::MatrixLayout matrix_layout = Transform::MATRIX_ROW_MAJOR;
   if (layout.has_value() && !Transform::getConstant(layout->c_str(), matrix_layout)) {
@@ -51,13 +53,20 @@ love::Matrix4 matrix_of(const std::optional<std::string> &layout, const Rice::Ar
   constexpr std::size_t side = 4;
   std::array<float, side * side> values{};
   const bool columnmajor = matrix_layout == Transform::MATRIX_COLUMN_MAJOR;
+  const std::size_t count = elements.size();
   for (std::size_t column = 0; column < side; column++) {
     for (std::size_t row = 0; row < side; row++) {
       const std::size_t given = columnmajor ? (column * side) + row : (row * side) + column;
-      const Rice::Object element(elements.call("fetch", static_cast<long>(given)));
+      const Rice::Object element =
+          given < count ? Rice::Object(elements.call("fetch", static_cast<long>(given)))
+                        : ruby::nil();
       values.at((column * side) + row) =
           static_cast<float>(Rice::detail::From_Ruby<double>().convert(element.value()));
     }
+  }
+  if (count > values.size()) {
+    ruby::raise_argument_error("wrong number of matrix elements (given " + std::to_string(count) +
+                               ", expected 16)");
   }
   return {values.data()};
 }

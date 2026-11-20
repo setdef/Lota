@@ -264,9 +264,10 @@ module Lota
       #   sixteen elements, each a Float or an Integer, given in turn, as one
       #   Array, or as four Arrays of four, one for each row or column.
       #
-      # Raises ArgumentError for an unknown layout or a count of elements
-      # other than sixteen, and TypeError for an element that is not a
-      # number.
+      # Checks the layout, then the elements, as LÖVE does: raises
+      # ArgumentError for an unknown layout, TypeError for an element that
+      # is not a number or is missing, and ArgumentError for more than
+      # sixteen.
       #
       # === Examples
       #
@@ -329,10 +330,6 @@ module Lota
         values = matrix.is_a?(Array) ? matrix : [matrix]
         layout = values.first if values.first.is_a?(Symbol) || values.first.is_a?(String)
         elements = values.drop(layout.nil? ? 0 : 1).flatten
-        unless elements.size == 16
-          raise ArgumentError, "wrong number of matrix elements (given #{elements.size}, expected 16)"
-        end
-
         [layout && EnumName.of(layout), elements]
       end
     end
