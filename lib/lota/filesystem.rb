@@ -781,7 +781,9 @@ module Lota
     # [mountpoint] String path its files are found at.
     # [permissions] +:read+, or +:readwrite+ to write to it too; +:read+
     #   when +nil+ or left out.
-    # [append] Whether its files are found after the ones already mounted.
+    # [append] Whether its files are found after the ones already mounted
+    #   rather than before them; anything but +true+ or +false+ is +false+,
+    #   as LÖVE reads it.
     #
     # Raises ArgumentError for permissions LÖVE does not know.
     #
@@ -789,7 +791,8 @@ module Lota
     #
     #   Lota::Filesystem.mount_full_path("/Users/you/mods", "mods", :read) # => true
     def self.mount_full_path(fullpath, mountpoint, permissions = nil, append = false)
-      Native::Filesystem.mount_full_path(fullpath, mountpoint, permissions && EnumName.of(permissions), append)
+      Native::Filesystem.mount_full_path(fullpath, mountpoint, permissions && EnumName.of(permissions),
+        optboolean(append))
     end
 
     # Unmounts what mount_full_path mounted, matching
@@ -814,7 +817,9 @@ module Lota
     # [mountpoint] String path its files are found at.
     # [permissions] +:read+ or +:readwrite+; +:read+ when +nil+ or left
     #   out.
-    # [append] Whether its files are found after the ones already mounted.
+    # [append] Whether its files are found after the ones already mounted
+    #   rather than before them; anything but +true+ or +false+ is +false+,
+    #   as LÖVE reads it.
     #
     # A folder of the game's own (+:appsavedir+ and +:appdocuments+) is
     # made if it does not exist. A folder already mounted is not mounted
@@ -826,7 +831,7 @@ module Lota
     #   Lota::Filesystem.mount_common_path(:userdocuments, "documents", :read) # => true
     def self.mount_common_path(commonpath, mountpoint, permissions = nil, append = false)
       Native::Filesystem.mount_common_path(EnumName.of(commonpath), mountpoint, permissions && EnumName.of(permissions),
-        append)
+        optboolean(append))
     end
 
     # Unmounts what mount_common_path mounted, matching

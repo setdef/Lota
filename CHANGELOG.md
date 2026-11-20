@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Filesystem.mount_full_path` and `.mount_common_path` read an `append` that is not `true` or `false` as `false`, as LÖVE does, where they took its truthiness.
 - `Lota::Graphics.draw` and `.draw_layer` given `nil` in place of the quad, then a `Lota::Math::Transform`, report the missing quad, as LÖVE does, where they reported the Transform.
 - `Lota::Graphics::Buffer.new` and `Lota::Graphics::Mesh.new` with a format of its own report an unknown usage, or mesh mode, before a fault in the format, as LÖVE does.
 - `Lota::Graphics::TextBatch#setf` checks its wrap limit and alignment before its text, as LÖVE does.

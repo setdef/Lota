@@ -279,6 +279,32 @@ class SaveDirectoryTest < Minitest::Test
     Lota::Filesystem.unmount(data) if data
   end
 
+  # w_mountFullPath and w_mountCommonPath read their append with
+  # luax_optboolean too (wrap_Filesystem.cpp:166 and 189), so an append
+  # that is not a boolean is false, and what they mount comes before what
+  # was mounted at that point already, as PHYSFS_mount puts it first.
+  def test_mount_full_path_and_mount_common_path_read_an_append_that_is_not_a_boolean_as_false
+    Dir.mktmpdir do |directory|
+      first, second = %w[first second].map { |name| File.join(directory, name) }
+      [first, second].each do |folder|
+        FileUtils.mkdir_p(folder)
+        File.binwrite(File.join(folder, "which.txt"), File.basename(folder))
+      end
+      assert Lota::Filesystem.mount_full_path(first, "mounted")
+      assert Lota::Filesystem.mount_full_path(second, "mounted", nil, 1)
+
+      assert_equal ["second", 6], Lota::Filesystem.read("mounted/which.txt")
+      saved("which.txt", "save directory")
+      Lota::Filesystem.unmount_common_path(:appsavedir)
+
+      assert Lota::Filesystem.mount_common_path(:appsavedir, "mounted", nil, 1)
+      assert_equal ["save directory", 14], Lota::Filesystem.read("mounted/which.txt")
+    ensure
+      Lota::Filesystem.unmount_common_path(:appsavedir)
+      [first, second].each { |folder| Lota::Filesystem.unmount_full_path(folder) if folder }
+    end
+  end
+
   # w_mount mounts a NativeFile by its filename, as a path
   # (wrap_Filesystem.cpp:140-144), which PhysicsFS refuses outside the
   # game's folder and its save directory; anything else that is not a
