@@ -40,6 +40,20 @@ class AudioSourceTest < Minitest::Test
     assert_equal [], Lota::Audio.recording_devices
   end
 
+  # w_RecordingDevice_start (wrap_RecordingDevice.cpp:44-50) reads
+  # samples with luaL_checkinteger once it is given any argument, so an
+  # explicit nil raises where no arguments at all record as before. No
+  # machine here can record, so the device has no engine object behind it:
+  # start must refuse before it asks the engine for anything.
+  def test_recording_needs_its_samples_once_any_setting_is_given
+    device = Lota::Audio::RecordingDevice.__send__(:from_native, nil)
+
+    error = assert_raises(TypeError) { device.start(nil, 44_100) }
+    assert_equal "wrong argument type NilClass for samples (expected Integer)", error.message
+    assert_raises(TypeError) { device.start(nil) }
+    assert_raises(TypeError) { device.start("all", 44_100) }
+  end
+
   def test_a_decoder_streams_whatever_type_is_given
     decoder = Lota::Sound::Decoder.new("resources/clickmono.ogg")
 

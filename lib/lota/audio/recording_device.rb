@@ -40,14 +40,21 @@ module Lota
       # [bitdepth] Integer 8 or 16; 16 when left out.
       # [channels] Integer 1 or 2; 1 when left out.
       #
-      # Raises RuntimeError with LÖVE's message for settings the device
-      # cannot record with.
+      # Settings after +samples+ left out, or +nil+, take their defaults.
+      # Raises TypeError for a +samples+ given as +nil+ or as anything but a
+      # number, as LÖVE requires it once any setting is given, and
+      # RuntimeError with LÖVE's message for settings the device cannot
+      # record with.
       #
       # === Example
       #
       #   mic.start(32_000, 44_100) # => true
-      def start(samples = nil, samplerate = nil, bitdepth = nil, channels = nil)
-        @native.start(samples, samplerate, bitdepth, channels)
+      def start(samples = (no_settings = true) && nil, samplerate = nil, bitdepth = nil, channels = nil)
+        unless no_settings || samples.is_a?(Integer) || samples.is_a?(Float)
+          raise TypeError, "wrong argument type #{samples.class} for samples (expected Integer)"
+        end
+
+        @native.start(samples&.to_i, samplerate, bitdepth, channels)
       end
 
       # Stops recording, matching RecordingDevice:stop
