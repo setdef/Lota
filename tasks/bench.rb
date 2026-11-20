@@ -174,6 +174,19 @@ module Bench
         LOVE_SCENARIOS.map { |name| new(engine: "love", jit: "luajit", name:) }
     end
 
+    # Every scenario, or when +environment+ sets BENCH_SCENARIOS, those it
+    # names, separated by commas or spaces, in every engine and JIT that
+    # runs them. Raises Failure for a name no scenario has.
+    def self.from(environment)
+      names = environment.fetch("BENCH_SCENARIOS", "").split(/[\s,]+/).reject(&:empty?)
+      return all if names.empty?
+
+      unknown = names - LOTA_SCENARIOS - LOVE_SCENARIOS
+      raise Failure, "BENCH_SCENARIOS names no scenario #{unknown.join(', ')}" unless unknown.empty?
+
+      all.select { |scenario| names.include?(scenario.name) }
+    end
+
     # The command that runs it, with +love+ the reference love's
     # executable.
     def command(love:)
@@ -437,7 +450,7 @@ module Bench
     end
 
     def to_s
-      [header, draws, breakdown, calls, collector, *games].join("\n\n") << "\n"
+      [header, draws, breakdown, calls, collector, *games].compact.join("\n\n") << "\n"
     end
 
     # Two tables for each Game that ran (#game_table and #shares).
@@ -699,7 +712,10 @@ module Bench
       counts.sort_by { |cause, count| [-count, cause] }.map { |cause, count| "#{cause} #{count}" }.join(", ")
     end
 
+    # A table, or +nil+ when it has no +rows+, which the report leaves out.
     private def table(title, headings, rows)
+      return if rows.empty?
+
       widths = headings.each_index.map { |index| ([headings] + rows).map { |row| row[index].to_s.size }.max }
       line = -> (row) { row.each_with_index.map { |cell, index| cell.to_s.ljust(widths[index]) }.join("  ").rstrip }
       [title, line.(headings), line.(widths.map { |width| "-" * width }), *rows.map(&line)].join("\n")

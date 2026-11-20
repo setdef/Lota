@@ -54,6 +54,17 @@ class BenchTest < Minitest::Test
     assert_equal "rectangle", love.environment(Bench::Settings.from({}), "/r.json").fetch("LOTA_BENCH_SCENARIO")
   end
 
+  def test_bench_scenarios_picks_scenarios_by_name_in_every_engine_and_jit
+    picked = Bench::Scenario.from("BENCH_SCENARIOS" => "flash_blip, calls")
+
+    assert_equal Bench::Scenario.all.select { |scenario| %w[flash_blip calls].include?(scenario.name) }, picked
+    assert_equal 8, picked.size
+    assert_equal Bench::Scenario.all, Bench::Scenario.from({})
+    error = assert_raises(Bench::Failure) { Bench::Scenario.from("BENCH_SCENARIOS" => "flash_blip,blip") }
+
+    assert_includes error.message, "BENCH_SCENARIOS names no scenario blip"
+  end
+
   def test_a_game_runs_through_each_side_of_the_parity_harness
     lota = Bench::Scenario.new(engine: "lota", jit: "yjit", name: "flash_blip").command(love: "/love")
 
@@ -100,6 +111,7 @@ class BenchTest < Minitest::Test
     text = Bench::Report.new(results, settings: Bench::Settings.from({}), machine: []).to_s
 
     assert_includes text, "flash_blip, whole, 900 frames of its parity script at 60 Hz"
+    refute_includes text, "Draw loop", "a table with no rows is left out"
     assert_match(%r{^Lota +yjit +8\.000/10\.000/10\.000 +2\.00x +17\.000/20\.000/20\.000 +3333 +3 \(2/1\) +oldmalloc 1 +4\.000 +2\.000$},
       text)
     assert_match(%r{^LÖVE +luajit +4\.000/4\.000/4\.000 +1\.00x +17\.000/17\.000/17\.000 +- +- +- +- +-$}, text)
