@@ -12,6 +12,9 @@ module Lota
     private def self.render_target: (::Object? target) -> Array[::Object?]
 
     def self.clear: (*(Float | Integer | bool | Array[Float | Integer])? arguments) -> nil
+
+    private def self.raise_clear_arity: (Integer count) -> bot
+
     private def self.clear_canvases: (Array[(Float | Integer | bool | Array[Float | Integer])?] arguments) -> nil
 
     def self.discard: (?(bool | Array[bool?])? color, ?bool? depthstencil) -> nil
@@ -246,7 +249,7 @@ module Lota
 
     def self.point_size: () -> Float
 
-    def self.scissor=: (Array[Float | Integer] | nil rect) -> void
+    def self.scissor=: (Array[Float | Integer | nil] | nil rect) -> void
 
     def self.scissor: () -> Array[Float]
 

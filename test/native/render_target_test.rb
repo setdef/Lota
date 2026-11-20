@@ -111,6 +111,25 @@ class RenderTargetTest < Minitest::Test
     assert_equal "expected integer field 'layer' in table", error.message
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # A table with a depthstencil and no canvases sets that target alone
+  # (wrap_Graphics.cpp:283-360, by getFirstTarget, Graphics.h:412-415),
+  # and getCanvas returns nil whenever no canvas is set (lines 389-398).
+  def test_a_depth_stencil_target_alone_is_drawn_to_and_is_no_canvas
+    stencil = Graphics::Canvas.new(4, 4, format: :stencil8)
+    Graphics.set_canvas(depthstencil: stencil)
+
+    assert_equal [[], true], [Graphics.canvas, !Lota::Native::Graphics.canvas.last.nil?]
+    Graphics.set_canvas(depth: true)
+
+    assert_nil Lota::Native::Graphics.canvas.last
+  end
+
+  # SPDX-SnippetEnd
+
   def test_a_depth_stencil_target_takes_its_options_too
     canvas = Graphics::Canvas.new(4, 4)
     stencil = Graphics::Canvas.new(4, 4, format: :stencil8)

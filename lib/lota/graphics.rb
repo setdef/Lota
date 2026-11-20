@@ -105,7 +105,8 @@ module Lota
     #   from 1, and one texture that is not 2D by its Integer slice and
     #   optionally its mipmap. With options, the 2D textures alone, or in
     #   one Array, as in LÖVE's table form. None, or +nil+, draws to the
-    #   window again.
+    #   window again, unless options follow none: then +depthstencil+
+    #   alone is drawn to.
     # [depthstencil] A Lota::Graphics::Texture with a depth or stencil
     #   format to use as the depth and stencil buffer, or such a target
     #   with its options, or +true+ for a
@@ -140,9 +141,10 @@ module Lota
     #   set_canvas(canvases, depthstencil: nil, depth: nil, stencil: nil)
     def self.set_canvas(*canvases, depthstencil: nil, depth: nil, stencil: nil)
       first = canvases.first
-      return Native::Graphics.reset_canvas if first.nil?
+      no_options = depthstencil.nil? && depth.nil? && stencil.nil?
+      return Native::Graphics.reset_canvas if first.nil? && (no_options || !canvases.empty?)
 
-      if !first.is_a?(Array) && depthstencil.nil? && depth.nil? && stencil.nil?
+      if !first.is_a?(Array) && no_options
         return Native::Graphics.set_canvas(canvases.map { |target| native_target(target) })
       end
 
@@ -194,7 +196,7 @@ module Lota
     # [depth] Float the depth buffer is cleared to, or +false+ to leave it;
     #   1 when left out or anything else.
     #
-    # With no arguments it clears to transparent black. LÖVE reads each
+    # With no arguments, or +nil+ alone, it clears to transparent black. LÖVE reads each
     # component as a single-precision float, and so does Lota. The scissor
     # rectangle bounds what gets cleared.
     #
@@ -217,6 +219,7 @@ module Lota
     #
     # :call-seq:
     #   clear()
+    #   clear(nil)
     #   clear(red, green, blue, alpha = 1, stencil = 0, depth = 1)
     #   clear(color, stencil = 0, depth = 1)
     #   clear(components, *components, stencil = 0, depth = 1)
@@ -233,12 +236,18 @@ module Lota
       red, green, blue, alpha, stencil, depth = arguments
       case arguments.size
       when 0 then Native::Graphics.clear(0.0, 0.0, 0.0, 0.0)
+      when 1 then first.nil? ? Native::Graphics.clear(0.0, 0.0, 0.0, 0.0) : raise_clear_arity(arguments.size)
       when 3, 4 then Native::Graphics.clear(number(red), number(green), number(blue), alpha.nil? ? 1.0 : number(alpha))
       when 5, 6
         color = [number(red), number(green), number(blue), alpha.nil? ? 1.0 : number(alpha)]
         Native::Graphics.clear_buffers([color, stencil, depth])
-      else raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 0 or 3..6)"
+      else raise_clear_arity(arguments.size)
       end
+    end
+
+    # The ArgumentError for a count of arguments clear does not take.
+    private_class_method def self.raise_clear_arity(count)
+      raise ArgumentError, "wrong number of arguments (given #{count}, expected 0 or 3..6)"
     end
 
     # SPDX-SnippetBegin
@@ -2092,7 +2101,7 @@ module Lota
     # Where drawing goes, as an Array (rule 4 of
     # doc/contributors/design/translation.md), matching love.graphics.getCanvas
     # (src/modules/graphics/wrap_Graphics.cpp, w_getCanvas): empty while it goes
-    # to the window; the canvases Lota::Graphics.canvas= or set_canvas set, each
+    # to the window, or to a depth and stencil target alone; the canvases Lota::Graphics.canvas= or set_canvas set, each
     # a Lota::Graphics::Texture, in order; or, where LÖVE returns its table
     # of tables, for a depth and stencil texture, a mipmap but the first,
     # or a texture that is not 2D, one Array of the targets, each its
@@ -2117,6 +2126,7 @@ module Lota
     #   Lota::Graphics.canvas # => [[[#<Lota::Graphics::Texture ...>, {mipmap: 2}]]]
     def self.canvas
       tables, colors, depthstencil = Native::Graphics.canvas
+      return [] if colors.empty?
       return colors.map { |fields| Texture.__send__(:from_native, fields.first) } unless tables
 
       table = colors.map { |fields| target_of(fields) }
@@ -2391,7 +2401,8 @@ module Lota
     # (src/modules/graphics/wrap_Graphics.cpp, w_setScissor).
     #
     # [rect] The x and y of the rectangle's top left, its width, and its
-    #   height, as one Array or several values; or +nil+ to stop clipping.
+    #   height, as one Array or several values; or +nil+, an empty Array,
+    #   or four +nil+s to stop clipping.
     #
     # The rectangle is in the target's coordinates, which the current
     # transformation does not move. LÖVE reads each side as a single-precision float,
@@ -2407,12 +2418,12 @@ module Lota
     #   Lota::Graphics.scissor = 0, 0, 400, 300
     #   Lota::Graphics.scissor = nil
     def self.scissor=(rect)
-      if rect.nil?
+      sides = Array(rect)
+      if sides.empty? || (sides.size == 4 && sides.all?(&:nil?))
         Native::Graphics.reset_scissor
         return
       end
 
-      sides = Array(rect)
       raise ArgumentError, "wrong number of arguments (given #{sides.size}, expected 4)" unless sides.size == 4
 
       Native::Graphics.set_scissor(number(sides.fetch(0)), number(sides.fetch(1)), number(sides.fetch(2)),

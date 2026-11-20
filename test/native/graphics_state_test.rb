@@ -275,6 +275,35 @@ class GraphicsStateTest < Minitest::Test
     end
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_clear reads a nil first argument as none (wrap_Graphics.cpp:77-129),
+  # so it clears to transparent black.
+  def test_clear_given_nil_clears_to_transparent_black
+    canvas = Graphics::Canvas.new(4, 4)
+    canvas.render_to do
+      Graphics.clear(1, 0, 0, 1)
+      Graphics.clear(nil)
+    end
+
+    assert_equal [0.0, 0.0, 0.0, 0.0], Graphics.readback_texture(canvas).pixel(0, 0)
+  end
+
+  # w_setScissor (wrap_Graphics.cpp:560-569) stops clipping given no
+  # arguments or four nils.
+  def test_four_nils_or_none_stop_the_scissor
+    [[nil, nil, nil, nil], []].each do |rect|
+      Graphics.scissor = 1, 2, 3, 4
+      Graphics.scissor = rect
+
+      assert_equal [], Graphics.scissor
+    end
+  end
+
+  # SPDX-SnippetEnd
+
   def test_clear_raises_for_a_count_of_components_love_does_not_read
     assert_raises(ArgumentError) { Graphics.clear(1, 0) }
     assert_raises(ArgumentError) { Graphics.clear(1, 0, 0, 1, true, true, true) }
