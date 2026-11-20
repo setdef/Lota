@@ -438,7 +438,7 @@ module Lota
 
       def set: (Array[colored_text] text) -> nil
 
-      def setf: (Array[colored_text] text, Float | Integer wraplimit, String align) -> nil
+      def setf: (Float | Integer wraplimit, String align, ^() -> Array[colored_text] text) -> nil
 
       def add: (Array[colored_text] text, Array[Float | Integer] placement) -> Integer
 

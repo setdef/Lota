@@ -984,12 +984,14 @@ void text_batch_set(love::graphics::TextBatch &batch, Rice::Array text) {
 }
 
 // w_TextBatch_setf (wrap_TextBatch.cpp:46-67): replaces the batch's text
-// with text wrapped at +wraplimit+ and aligned within it.
-void text_batch_setf(love::graphics::TextBatch &batch, Rice::Array text, double wraplimit,
-                     const std::string &align) {
+// with text wrapped at +wraplimit+ and aligned within it. The text is what
+// +text+ returns when called, after the alignment is read, since LÖVE
+// reads the wrap limit and the alignment before the text.
+void text_batch_setf(love::graphics::TextBatch &batch, double wraplimit, const std::string &align,
+                     Rice::Object text) {
   require_main_thread(MODULE);
   const Font::AlignMode mode = text_alignment(align);
-  const Rice::Array parts = std::move(text);
+  const Rice::Array parts(text.call("call"));
   batch.set(colored_strings(parts), static_cast<float>(wraplimit), mode);
 }
 
@@ -1611,8 +1613,8 @@ void define_graphics(const Rice::Module &native) {
                      Rice::Arg("blue"), Rice::Arg("alpha"));
   define_engine_class<love::graphics::TextBatch>(native, "TextBatch")
       .define_method("set", &text_batch_set, Rice::Arg("text"))
-      .define_method("setf", &text_batch_setf, Rice::Arg("text"), Rice::Arg("wraplimit"),
-                     Rice::Arg("align"))
+      .define_method("setf", &text_batch_setf, Rice::Arg("wraplimit"), Rice::Arg("align"),
+                     Rice::Arg("text"))
       .define_method("add", &text_batch_add, Rice::Arg("text"), Rice::Arg("placement"))
       .define_method("add_with_transform", &text_batch_add_with_transform, Rice::Arg("text"),
                      Rice::Arg("transform"))

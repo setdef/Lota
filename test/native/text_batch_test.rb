@@ -121,6 +121,19 @@ class TextBatchTest < Minitest::Test
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
   # SPDX-License-Identifier: Zlib
 
+  # w_TextBatch_setf reads the wrap limit and the alignment before the
+  # text (wrap_TextBatch.cpp:50-58).
+  def test_setf_reads_its_alignment_before_its_text
+    assert_match(/Invalid align mode 'middle'/, assert_raises(ArgumentError) { batch.setf(:ab, 32, :middle) }.message)
+    assert_raises(TypeError) { batch.setf(:ab, 32, :left) }
+  end
+
+  # SPDX-SnippetEnd
+
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
   # w_TextBatch_add and w_TextBatch_addf read each number of the
   # placement with luaL_optnumber (wrap_TextBatch.cpp:81-89 and 123-131),
   # which raises for anything but a number or nil.

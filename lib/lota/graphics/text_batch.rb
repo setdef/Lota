@@ -86,7 +86,7 @@ module Lota
       #
       #   batch.setf("A long line of text", 100, :center)
       def setf(text, wraplimit, align)
-        @native.setf(Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch#setf"), wraplimit, EnumName.of(align))
+        @native.setf(wraplimit, EnumName.of(align), -> { Graphics.__send__(:colored_text, text, "Lota::Graphics::TextBatch#setf") })
       end
 
       # Adds +text+ and returns its Integer index, counting from 1, for
