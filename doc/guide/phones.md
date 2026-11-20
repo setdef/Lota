@@ -108,7 +108,7 @@ For both systems:
 
 - A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`, unless the gem pins a prebuilt engine ([Prebuilt engines](#prebuilt-engines) says when).
 - Ruby 4.1 with Bundler, Git, CMake 3.21 or newer, and Ninja, all on your `PATH`. Until Ruby 4.1.0 is released, that Ruby is a preview, such as 4.1.0-preview1.
-- Fledge v0.13.0, the Fledge `lota fuse` builds with. Your phone project's `Gemfile` names it by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
+- Fledge v0.14.0, the Fledge `lota fuse` builds with. Your phone project's `Gemfile` names it by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
 
 For iOS and iPadOS, a Mac with:
 
@@ -214,7 +214,7 @@ The `Gemfile` names Lota's folder and Fledge's tag:
 source "https://rubygems.org"
 
 gem "lota", path: "/Users/you/Lota/tmp/phone/lota"
-gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.13.0", group: :development
+gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.14.0", group: :development
 ```
 
 Fledge ships every group `bundle exec` sets up, `development` among them, so Fledge itself goes into the phone app. Leaving the group out with Bundler's `without` would leave Fledge out of `bundle exec fledge` too.
@@ -430,4 +430,4 @@ end
 - Android's opt-in to handle Back.
 - On Android, a real speaker, a real accelerometer, and the frame rate on a device.
 
-Ruby runs on an iPhone or iPad without a JIT, since iOS gives an app no memory it may write code into and run. On Android, Fledge v0.13.0's Ruby has YJIT and ZJIT, each off until the app turns it on, and the `main.rb` above turns YJIT on, as on a desktop. How fast a Lota game runs on Android with YJIT has not been measured. A game's Ruby runs slower on a phone than on a desktop with YJIT, and each call into the engine, on a slower CPU, costs several times what it costs on a desktop.
+Ruby runs on an iPhone or iPad without a JIT, since iOS gives an app no memory it may write code into and run. On Android, Fledge v0.14.0's Ruby has YJIT and ZJIT, each off until the app turns it on, and the `main.rb` above turns YJIT on, as on a desktop. How fast a Lota game runs on Android with YJIT has not been measured. A game's Ruby runs slower on a phone than on a desktop with YJIT, and each call into the engine, on a slower CPU, costs several times what it costs on a desktop.

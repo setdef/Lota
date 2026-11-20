@@ -179,10 +179,14 @@ module Lota
     # Ruby, as Bundler does, 0.12.0 carries Ruby 4.1 in every runtime
     # (doc/contributors/design/packaging.md): 4.1.0-preview1, and on
     # Windows one day's head build of RubyInstaller, which publishes no
-    # preview, and 0.13.0, on the same Rubies, ships the +development+
-    # and +test+ groups unless Bundler's +without+ leaves them out, as
-    # the project's Bundler settings do (LEFT_OUT_GROUPS).
-    FLEDGE_REF = "v0.13.0"
+    # preview, 0.13.0, on the same Rubies, ships the +development+ and
+    # +test+ groups unless Bundler's +without+ leaves them out, as the
+    # project's Bundler settings do (LEFT_OUT_GROUPS), and 0.14.0, on the
+    # same Rubies again, judges a Gemfile's +ruby+ by each runtime's Ruby
+    # as RubyGems names it, 4.1.0.preview1, or 4.1.0.dev on Windows,
+    # where it saw 4.1.0, and builds a phone app's C extension as a
+    # library of the app's own.
+    FLEDGE_REF = "v0.14.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.
@@ -545,7 +549,8 @@ module Lota
     # Where Fledge puts the gem whose full name is +name+ in the app,
     # relative to the folder that holds its +app+ folder: in the runtime's
     # gem folder for this Ruby's ABI, which on Windows is inside the
-    # runtime's +ruby+ folder (Fledge's doc/licensing.md, "Your gems").
+    # runtime's +ruby+ folder (Fledge's doc/licensing.md, "Your app's own
+    # gems").
     private def gem_folder(name)
       folders = ["lib", "ruby", "gems", RbConfig::CONFIG.fetch("ruby_version"), "gems", name]
       folders.unshift("ruby") if lota_platform.include?("mingw")
@@ -638,8 +643,8 @@ module Lota
     # Copies the game's <tt>vendor/cache</tt> to +cache+, the project's,
     # but for the builds +locked+ locks for platforms other than this one,
     # which Bundler would keep in the project's lockfile without a
-    # checksum, and which Fledge refuses (its README, "A gem that only
-    # vendor/cache holds"). A build of Lota the game holds is the one the
+    # checksum, and which Fledge refuses (its doc/gems.md, "A gem that
+    # only vendor/cache holds"). A build of Lota the game holds is the one the
     # project ships, since its lockfile may hold that build's checksum.
     private def copy_cache(cache, locked)
       from = File.join(@directory, "vendor", "cache")
