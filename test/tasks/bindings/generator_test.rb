@@ -957,14 +957,15 @@ class GeneratorTest < Minitest::Test
   # names RandomGenerator:_random and love.math._getRandomGenerator, the
   # hooks of LÖVE's Lua wrappers, which Lota::Math::RandomGenerator and
   # Lota::Math call themselves; and love.event._setDefaultModalDrawCallback
-  # and love.filesystem's init and setSource only Lota::Boot, as they
-  # serve only boot.lua; Video:_setSource and love.graphics._newVideo
+  # and love.filesystem's init, setSource, and _setAndroidSaveExternal only
+  # Lota::Boot, as they serve only boot.lua; Video:_setSource and love.graphics._newVideo
   # only Lota::Graphics::Video, whose source= and new port the Lua of
   # wrap_Video.lua and wrap_Graphics.lua that calls them.
   UNWRITTEN = %w[
     RandomGenerator:_random
     Video:_setSource
     love.event._setDefaultModalDrawCallback
+    love.filesystem._setAndroidSaveExternal
     love.filesystem.init
     love.filesystem.setSource
     love.graphics._newVideo

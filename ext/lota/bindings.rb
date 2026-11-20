@@ -237,6 +237,10 @@ bound_by_hand "love.filesystem.newFile",
 
 generate "love.filesystem.setFused"
 generate "love.filesystem.isFused"
+bound_by_hand "love.filesystem._setAndroidSaveExternal",
+  reason: "no rule names it, as its leading underscore keeps it to boot.lua, and a name no rule gives is the " \
+    "maintainer's to give; only Lota::Boot calls it, with t.externalstorage before it names the game's " \
+    "identity, as only boot.lua calls LÖVE's"
 generate "love.filesystem.setIdentity"
 generate "love.filesystem.getIdentity"
 generate "love.filesystem.getSaveDirectory"

@@ -720,6 +720,8 @@ module Lota
 
       def self.set_c_require_path: (String path) -> nil
 
+      def self.set_android_save_external: (?bool use_external) -> nil
+
       def self.mount_archive: (String archive, String mountpoint, ?bool append) -> bool
 
       def self.mount_data: (Data::Data data, String archive, String mountpoint, ?bool append) -> bool

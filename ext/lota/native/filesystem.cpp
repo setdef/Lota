@@ -356,6 +356,15 @@ void set_c_require_path(const std::string &path) {
   split_into(path, filesystem()->getCRequirePath());
 }
 
+// w_setAndroidSaveExternal (wrap_Filesystem.cpp:73-78): whether the save
+// directory goes on Android's external storage, which boot.lua passes on
+// from t.externalstorage before it names the game's identity
+// (boot.lua:441-442). Only an Android build reads it, when it next finds
+// the save directory (physfs/Filesystem.cpp:678-684).
+void set_android_save_external(bool use_external) {
+  filesystem()->setAndroidSaveExternal(use_external);
+}
+
 // w_mount with an archive's path (wrap_Filesystem.cpp:139-150): the
 // archive, in the save directory or the game's source, mounted at
 // +mountpoint+.
@@ -645,6 +654,8 @@ void define_filesystem(const Rice::Module &native) {
       .define_singleton_function("set_require_path", &set_require_path, Rice::Arg("path"))
       .define_singleton_function("c_require_path", &c_require_path)
       .define_singleton_function("set_c_require_path", &set_c_require_path, Rice::Arg("path"))
+      .define_singleton_function("set_android_save_external", &set_android_save_external,
+                                 Rice::Arg("use_external") = false)
       .define_singleton_function("mount_archive", &mount_archive, Rice::Arg("archive"),
                                  Rice::Arg("mountpoint"), Rice::Arg("append") = false)
       .define_singleton_function("mount_data", &mount_data, Rice::Arg("data"), Rice::Arg("archive"),

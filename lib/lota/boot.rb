@@ -351,8 +351,7 @@ module Lota
       # Our first timestep, because window creation can take some time
       Timer.step if Native::Timer.open?
 
-      # boot.lua also passes t.externalstorage on (line 441), which
-      # matters only on Android.
+      Native::Filesystem.set_android_save_external(@settings.externalstorage)
       Filesystem.identity = [@settings.identity || Filesystem.identity, @settings.appendidentity]
       main_file = self.main_file
       require main_file if main_file && File.exist?(main_file)

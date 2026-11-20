@@ -54,6 +54,21 @@ class SaveDirectoryTest < Minitest::Test
     assert_equal save_directory, Lota::Filesystem.save_directory
   end
 
+  # w_setAndroidSaveExternal, which boot.lua calls with t.externalstorage
+  # (wrap_Filesystem.cpp:73-78, boot.lua:441), takes false when given
+  # nothing. Only an Android build looks for the save directory on
+  # external storage (physfs/Filesystem.cpp:678-684), so everywhere else
+  # the identity names the same save directory either way;
+  # .github/phones/android_emulator.sh checks the Android one.
+  def test_external_storage_moves_the_save_directory_only_on_android
+    assert_nil Lota::Native::Filesystem.set_android_save_external(true)
+    Lota::Filesystem.identity = IDENTITY
+
+    assert_equal save_directory, Lota::Filesystem.save_directory
+  ensure
+    Lota::Native::Filesystem.set_android_save_external
+  end
+
   def test_an_identity_takes_whether_saves_come_after_the_game_folder
     Lota::Filesystem.identity = "#{IDENTITY}-appended", true
 
