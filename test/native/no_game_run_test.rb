@@ -112,6 +112,20 @@ class NoGameRunTest < Minitest::Test
     assert_equal({ "_noGameRestartInfo" => { "gamepath" => archive } }.inspect, restart)
   end
 
+  # A dropped file that is no game is reported as LÖVE reports a path it
+  # cannot load: the run it restarts into shows the error screen
+  # (boot.lua:123-127 and 453-455).
+  def test_a_dropped_file_that_is_no_game_shows_the_error_screen
+    notes = File.join(@directory, "notes.txt")
+    File.write(notes, "not a zip\n")
+    output, status = start_with_no_game("file", notes)
+
+    assert_equal 1, status.exitstatus, output
+    assert_includes output, "Cannot load game at path '#{notes}'."
+    assert output.end_with?("error screen shown\n"), output
+    assert_empty logged_loads, output
+  end
+
   def test_escape_quits_the_screen
     output, status = start_with_no_game("escape")
 

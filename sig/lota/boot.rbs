@@ -57,6 +57,8 @@ module Lota
 
     @code_directory: String?
 
+    @invalid_game_path: String?
+
     private def unpack: () -> void
 
     private def code_directory: () -> String?
