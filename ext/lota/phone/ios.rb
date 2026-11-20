@@ -9,7 +9,8 @@
 # loads when Fledge's `fledge build ios` runs it for one of the app's
 # slices: under the phone Ruby's rbconfig.rb, with mkmf's $static set, and
 # CMAKE_TOOLCHAIN_FILE in the environment naming the slice's SDK and
-# compilers (Fledge's ADRs 022 and 027). An iOS app loads no extension at
+# compilers (Fledge's doc/contributors/design/phone-projects.md, "Gems with extensions" and "CMake
+# toolchain files"). An iOS app loads no extension at
 # run time, so everything here is a static archive the app links.
 #
 # LÖVE's engine, with the libraries it links, comes prebuilt for the

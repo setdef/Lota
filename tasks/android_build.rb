@@ -16,7 +16,7 @@ require_relative "windows_build"
 
 # LÖVE's dependencies for an Android app, built from source with the NDK
 # for each of the ABIs Fledge's Android runtime has (arm64-v8a and x86_64,
-# its ADR 022), which Lota's Android extension links
+# its doc/contributors/design/phone-runtimes.md, "Targets"), which Lota's Android extension links
 # (ext/lota/engine/dependencies_android.cmake).
 #
 # LÖVE's own Android build (love2d/love-android) compiles its
@@ -35,7 +35,8 @@ require_relative "windows_build"
 # copies a shared library the extension links into the app beside the
 # extension's own library.
 #
-# Fledge ships no SDL (its ADR 025), so Lota builds LÖVE's, 3.4.10, the
+# Fledge ships no SDL (its doc/contributors/design/phone-projects.md, "A host that owns the main
+# loop"), so Lota builds LÖVE's, 3.4.10, the
 # release every other Lota build links, and its Android host carries
 # that release's Java classes (ext/lota/phone/host/android), since
 # SDLActivity refuses a libSDL3.so of another release.
@@ -44,7 +45,8 @@ require_relative "windows_build"
 #
 # Each library is built for API level 26, Fledge's minimum, with the NDK's
 # own CMake toolchain file and its static C++ runtime, as Fledge's
-# toolchain files build the extension (its ADR 027, section 2), or for the
+# toolchain files build the extension (its doc/contributors/design/phone-projects.md, "CMake
+# toolchain files"), or for the
 # two built with Autotools, with the NDK's compilers named for the ABI's
 # triple and API level.
 #
@@ -82,10 +84,12 @@ class AndroidBuild
       "5107f898313790e449e87eee2183d9a20602dee9 of the same download"
   )
 
-  # The ABIs Fledge's Android runtime is built for (its ADR 022, section 1).
+  # The ABIs Fledge's Android runtime is built for (its doc/contributors/design/phone-runtimes.md,
+  # "Targets").
   ABIS = %w[arm64-v8a x86_64].freeze
 
-  # The oldest Android Fledge's runtime runs on (its ADR 011).
+  # The oldest Android Fledge's runtime runs on (its doc/contributors/design/phone-runtimes.md,
+  # "Targets").
   API_LEVEL = 26
 
   # The libraries that build with Autotools alone, as on Linux and Windows.

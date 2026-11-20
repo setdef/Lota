@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
 // SPDX-License-Identifier: MIT-0
 //
-// The app's entry point when SDL3 owns the screen (Fledge's ADR 025), in
+// The app's entry point when SDL3 owns the screen (Fledge's
+// doc/contributors/design/phone-projects.md, "A host that owns the main loop"), in
 // place of the Host/main.m fledge build writes. SDL_RunApp starts UIKit
 // with SDL's own delegates (src/video/uikit/SDL_uikitappdelegate.m at
 // release-3.4.10, lines 43 to 64), and once the scene connects calls

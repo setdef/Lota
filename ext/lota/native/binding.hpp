@@ -156,7 +156,8 @@ inline void record_main_thread() {}
 // An Android app's main thread is its UI thread, which Java keeps and on
 // which no game may block. Fledge's Android host runs Ruby on a thread of
 // its own, which SDL's Android video takes for its main thread (Fledge's
-// ADR 025, section 4), as LÖVE's Android build runs Lua on the thread SDL
+// doc/contributors/design/phone-projects.md, "A host that owns the main
+// loop"), as LÖVE's Android build runs Lua on the thread SDL
 // starts its main function on; so the main thread here is Ruby's.
 // The library that holds the extension may be loaded on the UI thread
 // before Ruby starts, so a static initializer, as on Windows, could record

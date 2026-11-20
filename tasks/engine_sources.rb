@@ -93,7 +93,8 @@ class EngineSources
   #
   # For Android, the NDK's own toolchain file at +ndk+ aims it at
   # arm64-v8a and Fledge's API level, 26, as Fledge's toolchain files aim
-  # an extension's CMake (its ADR 027); LÖVE's CMakeLists.txt chooses no
+  # an extension's CMake (its doc/contributors/design/phone-projects.md, "CMake toolchain
+  # files"); LÖVE's CMakeLists.txt chooses no
   # source by processor, so they are x86_64's too. LÖVE's Android build is
   # megasource's, whose
   # LuaJIT is prebuilt, so LuaJIT is off, as on Linux.

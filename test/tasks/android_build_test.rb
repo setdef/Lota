@@ -39,7 +39,8 @@ class AndroidBuildTest < Minitest::Test
   end
 
   # Fledge's two ABIs, which its NDK toolchain files aim CMake at (its
-  # ADR 027), at Fledge's minimum API level, 26.
+  # doc/contributors/design/phone-projects.md, "CMake toolchain files"),
+  # at Fledge's minimum API level, 26.
   def test_each_abi_is_built_with_the_ndks_toolchain_at_api_26
     AndroidBuild::ABIS.each do |abi|
       options = android_build.cmake_options(abi)

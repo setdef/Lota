@@ -347,9 +347,9 @@ module Lota
       # Ruby's own, in Ruby's +bin+ folder, or empty because the system did
       # not name it, the game starts again as remember wrote, through Ruby
       # and the entry script; on macOS and Linux Fledge's <tt>bin/ruby</tt>
-      # hands that script to the app's launcher too (Fledge's ADR 026,
-      # section 3), and on Windows, from Fledge 0.13.0, so does its
-      # <tt>ruby.exe</tt>. :nodoc:
+      # hands that script to the app's launcher too (Fledge's
+      # doc/contributors/design/launcher.md, "bin/ruby and restarts"), and
+      # on Windows, from Fledge 0.13.0, so does its <tt>ruby.exe</tt>. :nodoc:
       private def fused_command(program)
         command = @command
         return command if program.empty? || File.identical?(File.dirname(program), RbConfig::CONFIG.fetch("bindir"))

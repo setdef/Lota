@@ -17,7 +17,8 @@ require_relative "source_archive"
 # love-apple-dependencies has every other library LÖVE's iOS build links,
 # as static archives (iOS/libraries), but its SDL3 is a dynamic framework,
 # which an app embeds. Fledge links a gem's extension and the archives it
-# names into the app's executable (its ADR 022, section 3), and embeds no
+# names into the app's executable (its doc/contributors/design/phone-projects.md, "Linking
+# extensions on iOS"), and embeds no
 # framework of a gem's, so SDL is built static here, once for each of the
 # app's slices, with SDL's own CMake build for iOS (SDL's
 # docs/README-cmake.md, "iOS/tvOS/visionOS") and the deployment target
@@ -50,11 +51,12 @@ class IosBuild
     checked: "github.com/libsdl-org/SDL/releases/tag/release-3.4.10"
   )
 
-  # Each slice of an iOS app, as Fledge names them (its ADR 022, section
-  # 1), and the SDK CMake builds it against.
+  # Each slice of an iOS app, as Fledge names them (its
+  # doc/contributors/design/phone-runtimes.md, "Targets"), and the SDK CMake builds it against.
   SLICES = { "ios-arm64" => "iphoneos", "ios-arm64-simulator" => "iphonesimulator" }.freeze
 
-  # The oldest iOS Fledge's iOS runtime runs on (its ADR 011).
+  # The oldest iOS Fledge's iOS runtime runs on (its doc/contributors/design/phone-runtimes.md,
+  # "Targets").
   DEPLOYMENT_TARGET = "15.0"
 
   # [root] Where SDL is built and installed, one folder for each slice.

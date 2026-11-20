@@ -9,7 +9,8 @@ require_relative "tree_helper"
 
 # The phone hosts in ext/lota/phone/host, which a game's Fledge project
 # names under ios: host: and android: host: in fledge.yml, and which
-# fledge build copies over the project it writes (Fledge's ADR 025). The
+# fledge build copies over the project it writes (Fledge's
+# doc/contributors/design/phone-projects.md, "Host files"). The
 # app built from them runs only on a phone or its Simulator or emulator
 # (.github/workflows/phones.yml); these tests check what can be read here:
 # that they agree with the engine Lota builds and the Fledge files they

@@ -26,7 +26,8 @@ import org.setdef.fledge.FledgeRuby;
 /**
  * A Lota game's screen on Android, in place of the MainActivity that
  * fledge build android writes, under the same name, so Fledge's manifest
- * and Gradle files find it (Fledge's ADR 025, and its
+ * and Gradle files find it (Fledge's
+ * doc/contributors/design/phone-projects.md, "Host files", and its
  * examples/sdl_phone/host/android). It is SDL's Activity: it loads
  * libSDL3.so first, whose JNI_OnLoad registers SDL's Java methods, then
  * OpenAL Soft's libopenal.so, Fledge's Ruby, and Fledge's libfledgeext.so,

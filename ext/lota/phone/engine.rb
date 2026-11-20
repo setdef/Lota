@@ -58,7 +58,7 @@ module Lota
     class Answer < ::Data.define(:status, :location, :body); end
 
     # The targets, as Fledge names an iOS app's slices and Android's ABIs
-    # (its ADR 022), each with its system.
+    # (its doc/contributors/design/phone-runtimes.md, "Targets"), each with its system.
     TARGETS = %w[ios-arm64 ios-arm64-simulator android-arm64-v8a android-x86_64].freeze
 
     # The bundles this Lota fetches, beside this file: a line
