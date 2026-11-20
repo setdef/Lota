@@ -64,8 +64,8 @@ class BenchGamesTest < Minitest::Test
 
     assert_match(/^Lota rectangle +interpreter /, report)
     assert_match(/^LÖVE rectangle +luajit /, report)
-    assert_match(%r{^Lota +interpreter +[\d.]+/[\d.]+/[\d.]+ +[\d.]+x }, report)
-    assert_match(%r{^LÖVE +luajit +[\d.]+/[\d.]+/[\d.]+ +1\.00x }, report)
+    assert_match(%r{^Lota +interpreter +[\d.]+/[\d.]+/[\d.]+ +\d+ +[\d.]+x }, report)
+    assert_match(%r{^LÖVE +luajit +[\d.]+/[\d.]+/[\d.]+ +\d+ +1\.00x }, report)
   end
 
   def test_lota_runs_under_the_jit_it_was_asked_for

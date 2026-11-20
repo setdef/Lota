@@ -112,9 +112,9 @@ class BenchTest < Minitest::Test
 
     assert_includes text, "flash_blip, whole, 900 frames of its parity script at 60 Hz"
     refute_includes text, "Draw loop", "a table with no rows is left out"
-    assert_match(%r{^Lota +yjit +8\.000/10\.000/10\.000 +2\.00x +17\.000/20\.000/20\.000 +3333 +3 \(2/1\) +oldmalloc 1 +4\.000 +2\.000$},
+    assert_match(%r{^Lota +yjit +8\.000/10\.000/10\.000 +3 +2\.00x +17\.000/20\.000/20\.000 +3333 +3 \(2/1\) +oldmalloc 1 +4\.000 +2\.000$},
       text)
-    assert_match(%r{^LÖVE +luajit +4\.000/4\.000/4\.000 +1\.00x +17\.000/17\.000/17\.000 +- +- +- +- +-$}, text)
+    assert_match(%r{^LÖVE +luajit +4\.000/4\.000/4\.000 +1 +1\.00x +17\.000/17\.000/17\.000 +- +- +- +- +-$}, text)
   end
 
   def test_lota_also_runs_each_game_timing_its_native_calls
