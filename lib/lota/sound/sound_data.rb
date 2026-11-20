@@ -41,28 +41,47 @@ module Lota
       #   channels = 2)</tt>: silence of +samples+ sample frames, as an
       #   Integer, at +sample_rate+ frames a second, with +bit_depth+ bits,
       #   8 or 16, in each sample, and +channels+ channels.
-      # - <tt>SoundData.new(file)</tt>: every sample of a sound file, as a
-      #   String path in the game's folder or its save directory, a
-      #   Lota::Filesystem::FileData, or a Lota::Sound::Decoder, which
-      #   decodes all it has left.
+      # - <tt>SoundData.new(file, buffer_size = 16384, type = nil)</tt>:
+      #   every sample of a sound file, as a String path in the game's
+      #   folder or its save directory or a Lota::Filesystem::FileData,
+      #   decoded by the Lota::Sound::Decoder that
+      #   <tt>Decoder.new(file, buffer_size, type)</tt> makes, as LÖVE hands
+      #   its arguments to newDecoder; or a Lota::Sound::Decoder, which
+      #   decodes all it has left, and ignores what follows it, as LÖVE
+      #   does.
+      #
+      # An argument left out or +nil+ takes its default, as LÖVE reads it.
       #
       # Raises RuntimeError, with LÖVE's message, for a sample count,
       # sample rate, or channel count below 1 or a bit depth but 8 or 16,
       # for a file the engine cannot open or decode, and when the sound
-      # module is not open.
+      # module is not open; and ArgumentError, with LÖVE's message, for a
+      # stream type LÖVE does not know.
       #
       # === Examples
       #
       #   Lota::Sound::SoundData.new("sounds/click.wav")
+      #   Lota::Sound::SoundData.new("sounds/click.wav", 4096, :memory)
       #   Lota::Sound::SoundData.new(1378, 44_100, 16, 1)
-      def self.new(source, sample_rate = 44_100, bit_depth = 16, channels = 2)
-        native = if source.is_a?(Numeric)
-          Native::Sound.new_sound_data(source, sample_rate, bit_depth, channels)
-        else
-          decoder = source.is_a?(Decoder) ? source : Decoder.new(source)
-          Native::Sound.new_sound_data_from_decoder(decoder.__send__(:native))
+      def self.new(source, second = nil, third = nil, channels = nil)
+        return silence(source, second, third, channels) if source.is_a?(Numeric)
+
+        # luaL_checkstring reads a number given as the stream type as its
+        # digits, which then name no stream type.
+        type = third.is_a?(Numeric) ? third.to_s : third
+        decoder = source.is_a?(Decoder) ? source : Decoder.new(source, second || Decoder::DEFAULT_BUFFER_SIZE, type)
+        from_native(Native::Sound.new_sound_data_from_decoder(decoder.__send__(:native)))
+      end
+
+      # The silence form of ::new, with LÖVE's defaults for what is left
+      # out (wrap_Sound.cpp:93-96).
+      private_class_method def self.silence(samples, sample_rate, bit_depth, channels)
+        bit_depth = case bit_depth
+        when nil then 16
+        when Numeric then bit_depth.to_i
+        else raise TypeError, "wrong argument type #{bit_depth.class} (expected Integer)"
         end
-        from_native(native)
+        from_native(Native::Sound.new_sound_data(samples, sample_rate || 44_100, bit_depth, channels || 2))
       end
 
       # Makes this SoundData, a copy of +source+ by Ruby's +clone+ or

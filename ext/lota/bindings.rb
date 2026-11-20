@@ -1525,8 +1525,8 @@ bound_by_hand "love.sound.newDecoder",
     "one C++ type for each argument; Lota binds a filename with its stream type, and Data"
 bound_by_hand "love.sound.newSoundData",
   reason: "passes the lua_State to w_newDecoder, which the parser does not read; Lota binds the form with " \
-    "numbers and the form with a Decoder, which Lota::Sound::SoundData.new makes from a filename or a FileData " \
-    "first, as LÖVE does"
+    "numbers and the form with a Decoder, which Lota::Sound::SoundData.new makes first from a filename or a " \
+    "FileData and the buffer size and stream type after it, through Lota::Sound::Decoder.new, as LÖVE does"
 bound_by_hand "Decoder:decode",
   reason: "divides by the 8 bits of a byte, which clang-tidy's readability-magic-numbers refuses; Lota names " \
     "it bits_per_byte"

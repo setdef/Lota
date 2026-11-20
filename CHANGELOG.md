@@ -34,6 +34,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Breaking:** `Lota::Image::ImageData#map_pixel` checks the rectangle's numbers before the block, and raises RuntimeError with LÖVE's message for one that is not a number, as LÖVE does, where it raised TypeError, and checked the block first.
 - `Lota::Image::ImageData.new` with a size checks the size and the format before the kind of its bytes, as LÖVE does, where bytes of the wrong kind raised first.
 - `t.externalstorage = true` puts an Android game's save directory on the app's external storage, as in LÖVE. Lota kept the setting but never passed it to the engine, so the game saved on internal storage.
+- `Lota::Sound::SoundData.new(file, buffer_size, type)` decodes the file with that buffer size and stream type, and raises `ArgumentError` for a stream type LÖVE does not know, as `love.sound.newSoundData` does; it ignored both. A sample rate, bit depth, or channel count given as `nil` takes its default, as in LÖVE, where it raised `TypeError`.
 
 ## [0.5.5] - 2026-11-20
 

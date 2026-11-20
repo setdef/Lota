@@ -152,6 +152,18 @@ class SoundDataTest < Minitest::Test
     assert_equal "Invalid stream type 'disk', expected one of: 'memory', 'file'", error.message
   end
 
+  # w_newSoundData hands a file and the arguments after it to w_newDecoder
+  # (wrap_Sound.cpp:104-108), which reads the buffer size and checks the
+  # stream type before it opens the file.
+  def test_sound_data_from_a_file_takes_the_decoders_buffer_size_and_stream_type
+    from_memory = Lota::Sound::SoundData.new("resources/click.ogg", 4096, :memory)
+    unknown = assert_raises(ArgumentError) { Lota::Sound::SoundData.new("resources/missing.ogg", 4096, :disk) }
+
+    assert_equal Lota::Sound::SoundData.new("resources/click.ogg").string.b, from_memory.string.b
+    assert_equal "Invalid stream type 'disk', expected one of: 'memory', 'file'", unknown.message
+    assert_raises(TypeError) { Lota::Sound::SoundData.new("resources/click.ogg", "large") }
+  end
+
   def test_a_file_no_decoder_reads_is_an_error
     error = assert_raises(RuntimeError) { Lota::Sound::SoundData.new(Lovetest.resource("love.png")) }
 
