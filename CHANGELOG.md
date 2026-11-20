@@ -18,6 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `Lota::Joystick.save_gamepad_mappings` with a file name raises the message of a write that fails, as LÖVE does, where it returned the mappings as if it had written them.
 - `Lota::Mouse.down?` takes its buttons as one Array, as LÖVE's `isDown` takes a table, where it raised TypeError.
+- `Lota::Event.push` raises TypeError for a name that is neither a Symbol nor a String before it reads the arguments, as LÖVE does, where it queued the name's `to_s`.
 
 ## [0.5.5] - 2026-11-20
 

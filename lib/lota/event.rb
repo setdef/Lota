@@ -111,7 +111,9 @@ module Lota
     # those; RuntimeError, with LÖVE's message, for a table that holds
     # itself; and SystemStackError for tables nested too deeply for the
     # stack. LÖVE also passes its own objects, which Lota does not pass
-    # through the queue yet. Raises RuntimeError when the event module is
+    # through the queue yet. Raises TypeError, before reading any
+    # argument, for a +name+ that is neither a Symbol nor a String, as LÖVE
+    # reads its name first. Raises RuntimeError when the event module is
     # not open.
     #
     # === Examples
@@ -121,6 +123,10 @@ module Lota
     #   Lota::Event.push(:scored, { player: 1, points: [10, 20] })
     #   Lota::Event.poll.next # => [:scored, {"player" => 1.0, "points" => [10.0, 20.0]}]
     def self.push(name, *arguments)
+      unless name.is_a?(Symbol) || name.is_a?(String)
+        raise TypeError, "wrong argument type #{name.class} for name (expected Symbol or String)"
+      end
+
       values = arguments.take_while { |argument| !argument.nil? }.each.with_index(2).map do |argument, position|
         tokens = Variant.tokens(argument) if Variant.value?(argument)
         if tokens.nil? || tokens.first == Variant::UNKNOWN

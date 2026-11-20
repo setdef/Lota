@@ -70,6 +70,18 @@ class EventPollTest < Minitest::Test
     assert_equal [[:keypressed, :space, :space, false]], Lota::Event.poll.to_a
   end
 
+  # w_push reads the name with luax_checkstring before any argument
+  # (wrap_Event.cpp:90-95), so a name that is no string raises first and
+  # queues nothing.
+  def test_a_name_that_is_neither_a_symbol_nor_a_string_raises_before_the_arguments
+    [nil, true, 1.5].each do |name|
+      error = assert_raises(TypeError) { Lota::Event.push(name, -> {}) }
+
+      assert_equal "wrong argument type #{name.class} for name (expected Symbol or String)", error.message
+    end
+    assert_empty Lota::Event.poll.to_a
+  end
+
   # w_push raises when luax_checkvariant makes a Variant of unknown type
   # (wrap_Event.cpp:101-107), as it makes of a function.
   def test_an_argument_an_event_cannot_carry_raises_loves_error
