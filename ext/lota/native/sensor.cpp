@@ -5,6 +5,7 @@
 
 #include "native/binding.hpp"
 #include "native/errors.hpp"
+#include "native/ruby.hpp"
 
 #include "common/Exception.h"
 #include "common/Module.h"
@@ -12,6 +13,7 @@
 #include "sensor/sdl/Sensor.h"
 
 #include <string>
+#include <utility>
 
 namespace lota::native {
 
@@ -67,10 +69,17 @@ bool is_enabled(const std::string &name) {
   return module().isEnabled(type);
 }
 
-// w_setEnabled (lines 58-65): turns the sensor of the type on or off.
-void set_enabled(const std::string &name, bool enabled) {
+// w_setEnabled (lines 58-65): turns the sensor of the type on or off,
+// after it reads the type, with +enabled+ only true or false
+// (luax_checkboolean), rather than any value's truthiness.
+void set_enabled(const std::string &name, Rice::Object given) {
+  const Rice::Object enabled = std::move(given);
   const Sensor::SensorType type = sensor_type(name);
-  module().setEnabled(type, enabled);
+  if (!ruby::is_boolean(enabled)) {
+    ruby::raise_type_error("wrong argument type " + ruby::class_name(enabled) +
+                           " (expected true or false)");
+  }
+  module().setEnabled(type, ruby::is_true(enabled));
 }
 
 // w_getData (lines 67-79): what the sensor of the type reads.

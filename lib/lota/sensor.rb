@@ -69,6 +69,8 @@ module Lota
     # doc/contributors/design/translation.md).
     #
     # Turning on a sensor the device does not have does nothing. Raises
+    # ArgumentError for a type LÖVE does not know, then TypeError when
+    # whether it is on is not +true+ or +false+, as LÖVE checks them, and
     # RuntimeError when SDL cannot open one it has.
     #
     # === Example

@@ -50,6 +50,18 @@ class SensorModuleTest < Minitest::Test
     assert_raises(ArgumentError) { Lota::Sensor.enabled = :compass, true }
   end
 
+  # w_setEnabled reads the sensor type, then luax_checkboolean
+  # (wrap_Sensor.cpp:58-65), which refuses anything but true or false
+  # where Ruby would take its truthiness.
+  def test_enabling_takes_only_true_or_false_after_the_sensor_type
+    [nil, 0, "no"].each do |enabled|
+      error = assert_raises(TypeError) { Lota::Sensor.enabled = :accelerometer, enabled }
+      assert_equal "wrong argument type #{enabled.class} (expected true or false)", error.message
+    end
+    refute Lota::Sensor.enabled?(:accelerometer)
+    assert_raises(ArgumentError) { Lota::Sensor.enabled = :compass, 0 }
+  end
+
   # Rule 3 names love.sensor.getName +name+, and getName requires its
   # sensor type (wrap_Sensor.cpp:81-89), so Lota::Sensor.name with none is
   # Ruby's own Module#name, and nothing keeps LÖVE's prefix.
