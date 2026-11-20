@@ -946,6 +946,17 @@ class GeneratorTest < Minitest::Test
     names.each { |name| assert entry(name), name }
   end
 
+  # The other half of the check above: every function LÖVE registers is
+  # listed, generated, bound by hand with its reason, or ported from its
+  # Lua, so a function the list forgets fails here rather than go unbound
+  # without a word.
+  def test_every_function_in_lovees_api_is_listed
+    listed = BindingsHelper.list.love_names
+    registered = survey.catalog.functions.map(&:love_name)
+
+    assert_empty registered - listed
+  end
+
   def test_every_exception_names_a_generated_function
     generated = BindingsHelper.list.generated.map(&:love_name)
 
@@ -960,11 +971,14 @@ class GeneratorTest < Minitest::Test
   # and love.filesystem's init, setSource, and _setAndroidSaveExternal only
   # Lota::Boot, as they serve only boot.lua; Video:_setSource and love.graphics._newVideo
   # only Lota::Graphics::Video, whose source= and new port the Lua of
-  # wrap_Video.lua and wrap_Graphics.lua that calls them.
+  # wrap_Video.lua and wrap_Graphics.lua that calls them. love.event.poll_i
+  # is the iterator wrap_Event.lua's poll returns, which Lota::Event.poll
+  # returns as an Enumerator instead.
   UNWRITTEN = %w[
     RandomGenerator:_random
     Video:_setSource
     love.event._setDefaultModalDrawCallback
+    love.event.poll_i
     love.filesystem._setAndroidSaveExternal
     love.filesystem.init
     love.filesystem.setSource

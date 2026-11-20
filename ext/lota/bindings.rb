@@ -204,6 +204,11 @@ generate "DataView:clone"
 # love.event
 generate "love.event.pump"
 generate "love.event.clear"
+bound_by_hand "love.event.poll_i",
+  reason: "returns a message's name and a computed number of arguments (luax_pushmessage), as love.event.wait; " \
+    "wrap_Event.lua's love.event.poll returns it as a Lua iterator, which Lota::Event.poll ports as an " \
+    "Enumerator over its binding (rule 15), so a game reaches it only through poll and it has no Lota name of " \
+    "its own"
 bound_by_hand "love.event.push",
   reason: "reads a Variant of any kind at every position after the name (luax_checkvariant), which Lota " \
     "narrows to the booleans, numbers, and strings an event carries"
@@ -386,6 +391,10 @@ generate "Texture:getDepthSampleMode"
 generate "Texture:setDepthSampleMode"
 generate "Texture:generateMipmaps"
 generate "Texture:getDebugName"
+bound_by_hand "Texture:renderTo",
+  reason: "calls a Lua function with lua_pcall between setting the texture as the render target and putting " \
+    "back the targets set before, which the generator does not port; Lota binds the slice and the block, " \
+    "which it calls with no arguments, where LÖVE passes the function the arguments that follow it"
 generate "love.graphics.setFont"
 generate "love.graphics.setDefaultFilter"
 generate "SpriteBatch:clear"
@@ -1155,6 +1164,9 @@ generate "Shape:testPoint"
 generate "Shape:getGroupIndex"
 generate "Shape:setGroupIndex"
 generate "Shape:destroy"
+bound_by_hand "Shape:getShape",
+  reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port, and returns its " \
+    "own Shape; Lota::Physics::Shape#shape marks it through Lota::Deprecation and returns self"
 generate "Joint:getType"
 generate "Joint:isDestroyed"
 generate "Joint:getReactionTorque"
@@ -1238,6 +1250,9 @@ bound_by_hand "Body:getJoints",
   reason: "passes the lua_State to Body::getJoints, as Body:getShapes"
 bound_by_hand "Body:getContacts",
   reason: "passes the lua_State to Body::getContacts, as Body:getShapes"
+bound_by_hand "Body:getFixtures",
+  reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port, and returns what " \
+    "w_Body_getShapes returns; Lota::Physics::Body#fixtures marks it through Lota::Deprecation and calls #shapes"
 bound_by_hand "Body:getMassData",
   reason: "passes the lua_State to Body::getMassData, which Lota's physics patch makes fill four floats"
 bound_by_hand "Body:getWorldPoints",
@@ -1284,6 +1299,10 @@ bound_by_hand "World:getShapesInArea",
 bound_by_hand "World:queryShapesInArea",
   reason: "passes the lua_State to World::queryShapesInArea, which calls a Lua function; Lota's physics patch " \
     "makes it call Reference.h's QueryFunction, which Lota implements for the block"
+bound_by_hand "World:queryBoundingBox",
+  reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port, and returns what " \
+    "w_World_queryShapesInArea returns; Lota::Physics::World#query_bounding_box marks it through " \
+    "Lota::Deprecation and calls #query_shapes_in_area"
 bound_by_hand "World:rayCast",
   reason: "passes the lua_State to World::rayCast, which calls a Lua function; Lota's physics patch makes it " \
     "call Reference.h's RayCastFunction, which Lota implements for the block"
@@ -1330,6 +1349,10 @@ bound_by_hand "Joint:setUserData",
 bound_by_hand "Joint:getUserData",
   reason: "passes the lua_State to Joint::getUserData, as Body:setUserData"
 generate "Contact:getShapes"
+bound_by_hand "Contact:getFixtures",
+  reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port, and returns what " \
+    "w_Contact_getShapes returns; Lota::Physics::Contact#fixtures marks it through Lota::Deprecation and calls " \
+    "#shapes"
 bound_by_hand "Contact:getNormal",
   reason: "passes the lua_State to Contact::getNormal, which Lota's physics patch makes fill two floats"
 bound_by_hand "Contact:getPositions",
@@ -1762,6 +1785,10 @@ bound_by_hand "love.graphics.newImageFont",
 bound_by_hand "love.graphics.newTextBatch",
   reason: "reads its text through luax_checkcoloredstring only when it is given; Lota binds the form with " \
     "the text as an Array and the form without it"
+bound_by_hand "love.graphics.newText",
+  reason: "marks itself deprecated with luax_markdeprecated, which the generator does not port, and returns what " \
+    "w_newTextBatch returns; Lota::Graphics::Text.new marks it through Lota::Deprecation and calls " \
+    "Lota::Graphics::TextBatch.new"
 bound_by_hand "TextBatch:set",
   reason: "reads its text through luax_checkcoloredstring, which Lota reads as an Array"
 bound_by_hand "TextBatch:setf",
