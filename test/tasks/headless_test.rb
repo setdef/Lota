@@ -52,7 +52,7 @@ class HeadlessTest < Minitest::Test
     refute wanted?({}, platform: "arm64-darwin25")
     refute wanted?({}, platform: "x64-mingw-ucrt")
     refute wanted?({}, tasks: %w[lint steep compile])
-    %w[gate prepush red_before_green[a..b] test test:shard:parity package:install].each do |task|
+    %w[gate prepush red_before_green[a..b] test test:shard:parity package:install bench].each do |task|
       assert wanted?({}, tasks: ["lint", task]), task
     end
   end
