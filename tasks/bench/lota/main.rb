@@ -143,7 +143,7 @@ end
 SCENARIO = ENV.fetch("LOTA_BENCH_SCENARIO")
 REPORT = ENV.fetch("LOTA_BENCH_REPORT")
 RECORDER = Bench::Recorder.new(warmup: Integer(ENV.fetch("LOTA_BENCH_WARMUP", "200")),
-  frames: Integer(ENV.fetch("LOTA_BENCH_FRAMES", "2000")))
+  frames: Integer(ENV.fetch("LOTA_BENCH_FRAMES", "2000")), gc_clock: -> { LotaNativeTest.gc_wall_time })
 CALL_ITERATIONS = Integer(ENV.fetch("LOTA_BENCH_CALLS", "200000"))
 unless SCENARIO == "calls" || BenchScenarios.respond_to?(SCENARIO)
   raise ArgumentError, "unknown scenario #{SCENARIO.inspect}"

@@ -85,6 +85,19 @@ class BenchTest < Minitest::Test
     assert_equal recorder.gc_times.size, recorder.to_h.fetch("frame_gc_ns").size
   end
 
+  # rake bench's game times the collector by the wall clock
+  # (LotaNativeTest.gc_wall_time), since GC.total_time advances only at
+  # Windows' clock tick there; the clock it reads is the recorder's
+  # gc_clock, read as the timed frames start, as each opens, and as each
+  # closes.
+  def test_the_recorder_reads_the_collectors_time_from_its_gc_clock
+    recorder = Bench::Recorder.new(warmup: 0, frames: 2, gc_clock: clock(5, 3, 4, 10, 2))
+    3.times { recorder.draw { nil } }
+
+    assert_equal [4.0, 2.0], recorder.gc_times
+    assert_in_delta 19.0, recorder.gc.fetch("time_ns")
+  end
+
   # GC.start's full collection is a major one Ruby says it was forced to,
   # and the minor one before it has no such cause.
   def test_the_recorder_names_what_caused_each_major_collection_in_its_frames

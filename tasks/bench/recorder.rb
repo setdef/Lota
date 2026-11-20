@@ -19,7 +19,7 @@ module Bench
   # took, from the start of its draw to the start of the next, which takes
   # in events, update, clearing, presenting, and the loop's 1 ms sleep.
   # The collector's work in each timed frame is counted from GC.stat and
-  # GC.total_time over the same span, and each major collection's cause
+  # +gc_clock+ over the same span, and each major collection's cause
   # is read from GC.latest_gc_info after the block and at the frame's end
   # (#major_causes).
   class Recorder
@@ -38,10 +38,15 @@ module Bench
     # [warmup] Frames run before timing starts.
     # [frames] Frames timed.
     # [clock] What tells the time, in seconds.
-    def initialize(warmup:, frames:, clock: CLOCK)
+    # [gc_clock] What tells the collector's time so far, in nanoseconds:
+    #   GC.total_time, or in rake bench's game the wall clock's
+    #   (LotaNativeTest.gc_wall_time), since on Windows GC.total_time
+    #   advances only at the system's clock tick.
+    def initialize(warmup:, frames:, clock: CLOCK, gc_clock: -> { GC.total_time })
       @warmup = warmup
       @frames = frames
       @clock = clock
+      @gc_clock = gc_clock
       @drawn = 0
       @open = nil
       @draw_times = []
@@ -70,7 +75,7 @@ module Bench
 
       @gc_start ||= gc_snapshot
       @majors ||= @gc_start.fetch(:major_gc_count)
-      @open = [start, GC.total_time, GC.count]
+      @open = [start, @gc_clock.call, GC.count]
       yield
       @draw_times << (@clock.call - start)
       note_majors
@@ -107,13 +112,13 @@ module Bench
 
     private def gc_snapshot
       GC.stat.slice(:count, :minor_gc_count, :major_gc_count, :total_allocated_objects)
-        .merge(time_ns: GC.total_time)
+        .merge(time_ns: @gc_clock.call)
     end
 
     private def close_frame(now)
       start, gc_time, gc_count = @open
       @frame_times << (now - start)
-      @gc_times << (GC.total_time - gc_time)
+      @gc_times << (@gc_clock.call - gc_time)
       @gc_counts << (GC.count - gc_count)
       @open = nil
       note_majors
