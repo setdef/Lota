@@ -34,7 +34,10 @@
 # it has: Xcode's command line tools on macOS, GCC on Ubuntu, and the
 # MSYS2 toolchain setup-ruby installs on Windows (UCRT64 on x64,
 # CLANGARM64 on ARM64). Its lockfile is written here, as the game's
-# developer writes one, once Lota's gem is in its vendor/cache.
+# developer writes one, once Lota's gem is in its vendor/cache. On macOS,
+# test/games/fuse's job also fuses test/games/fuse_sandbox, which opens
+# no window, and runs it under the App Sandbox, where it must restart in
+# its process (.github/sandbox_run.sh).
 #
 # On Linux and Windows the sound plays through OpenAL Soft's null backend,
 # since those runners have no audio device. A macOS runner has a virtual
@@ -333,6 +336,22 @@ jobs:
           set -e
           echo "exit status: $status"; echo "--- stdout"; cat "$RUNNER_TEMP/run.out"; echo "--- stderr"; cat "$RUNNER_TEMP/run.err"
           ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/run.out" "$GAME_NAME" "${backend[@]}"
+
+      # A Mac app sold through the App Store runs in the App Sandbox, where
+      # macOS 15 kills a process that replaces itself with exec, so there a
+      # game restarts in its process (doc/contributors/design/game.md,
+      # "Restarting"). test/games/fuse_sandbox, fused as the other games
+      # are, restarts once under the sandbox and must run again in its
+      # process (.github/sandbox_run.sh).
+      - name: Run a fused game under the App Sandbox on macOS
+        if: runner.os == 'macOS' && matrix.game == 'fuse' && !inputs.game_repository
+        run: |
+          ruby -I lib exe/lota fuse test/games/fuse_sandbox --out "$RUNNER_TEMP/sandbox-dist"
+          archive=$(ls "$RUNNER_TEMP"/sandbox-dist/*.tar.gz)
+          place="$RUNNER_TEMP/sandbox-run/My Games"
+          mkdir -p "$place"
+          tar -xzf "$archive" -C "$place"
+          bash .github/sandbox_run.sh "$(ls -d "$place"/*/*.app)" "$RUNNER_TEMP/sandbox" LOTA_IN_PROCESS_RESTART=1
 
       # test/games/fuse draws, and a runner has no GPU, and Windows' own
       # OpenGL is 1.1, which LÖVE's renderer refuses. So, as windows.yml
