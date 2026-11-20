@@ -616,8 +616,8 @@ module Bench
         GC.stat(:total_allocated_objects); the empty block is the timing loop's
         own cost, included in every other row. Each game runs whole, the
         published game in LÖVE and its translation in Lota, through the parity
-        harness's two sides with a fixed dt and the same scripted keys, its
-        own window and vertical sync, and no screenshots; every frame is timed,
+        harness's two sides with a fixed dt and the same scripted keys, in the
+        window its own settings ask for, and no screenshots; every frame is timed,
         from the first, and the best of #{@settings.runs} runs is kept (the shortest
         median update and draw).
       METHOD
