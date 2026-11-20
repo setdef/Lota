@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics.draw` and `.draw_layer` given `nil` in place of the quad, then a `Lota::Math::Transform`, report the missing quad, as LÖVE does, where they reported the Transform.
 - `Lota::Graphics::Buffer.new` and `Lota::Graphics::Mesh.new` with a format of its own report an unknown usage, or mesh mode, before a fault in the format, as LÖVE does.
 - `Lota::Graphics::TextBatch#setf` checks its wrap limit and alignment before its text, as LÖVE does.
 - `Lota::Graphics::Buffer.new` raises TypeError for a `usage` or `debugname` that is not a name or text, before reading the format, as LÖVE does, where it read them as text after the format.

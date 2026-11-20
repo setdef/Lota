@@ -1263,10 +1263,13 @@ module Lota
     end
 
     # The Quad a Transform follows, where luax_checkstandardtransform
-    # reads the Transform after a Quad; after anything else, LÖVE reads a
-    # number where the Transform is, and raises.
+    # reads the Transform after a Quad; +nil+ there is a missing quad, as
+    # w_draw and w_drawLayer report it (wrap_Graphics.cpp:3257-3260 and
+    # 3294-3296), and after anything else LÖVE reads a number where the
+    # Transform is, and raises.
     private_class_method def self.transform_quad(quad)
       return quad if quad.is_a?(Quad)
+      raise TypeError, "wrong argument type nil (expected Lota::Graphics::Quad)" if quad.nil?
 
       raise TypeError, "wrong argument type Lota::Math::Transform (expected Float or Integer)"
     end

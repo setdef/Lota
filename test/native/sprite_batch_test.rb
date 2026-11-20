@@ -217,6 +217,20 @@ class SpriteBatchTest < Minitest::Test
     assert_equal [0, 1, 0, 1, 0, 1, 0, 0], (0...8).map { |x| pixels.pixel(x, 0)[1].round }
   end
 
+  # w_draw and w_drawLayer report nil in place of the quad as a missing
+  # quad whatever follows it, a Transform too (wrap_Graphics.cpp:3257-3260
+  # and 3294-3296).
+  def test_draw_reports_nil_before_a_transform_as_a_missing_quad
+    transform = Lota::Math::Transform.new
+    layers = Lota::Graphics::Canvas.new(1, 1, 2)
+    errors = [
+      assert_raises(TypeError) { Lota::Graphics.draw(texture, nil, transform) },
+      assert_raises(TypeError) { Lota::Graphics.draw_layer(layers, 1, nil, transform) },
+    ]
+
+    assert_equal ["wrong argument type nil (expected Lota::Graphics::Quad)"] * 2, errors.map(&:message)
+  end
+
   def test_add_and_set_take_a_transform_as_draw_does
     green = Lota::Graphics::Canvas.new(1, 1)
     green.render_to { Lota::Graphics.clear(0, 1, 0, 1) }
