@@ -138,14 +138,19 @@ module Lota
     # Every gamepad mapping this program has used or set, in SDL's format,
     # one a line, matching love.joystick.saveGamepadMappings. With a file
     # name it also writes them to that file in the save directory, as
-    # Lota::Filesystem.write does, and returns them all the same.
+    # Lota::Filesystem.write does, and returns them all the same. Raises
+    # RuntimeError with the message Lota::Filesystem.write returns when the
+    # write fails, as LÖVE raises it (luax_convobj).
     #
     # === Example
     #
     #   Lota::Joystick.save_gamepad_mappings("mappings.txt")
     def self.save_gamepad_mappings(filename = nil)
       mappings = Native::Joystick.save_gamepad_mappings
-      Filesystem.write(filename, mappings) if filename
+      unless filename.nil?
+        _, message = Filesystem.write(filename, mappings)
+        raise message if message
+      end
       mappings
     end
 

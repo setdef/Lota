@@ -14,6 +14,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - `lota run` given a file that is not a `.lota` prints its usage and opens a window that shows the error, as `love` does with a file it cannot load, where it printed the error and exited before opening one.
 
+### Fixed
+
+- `Lota::Joystick.save_gamepad_mappings` with a file name raises the message of a write that fails, as LÖVE does, where it returned the mappings as if it had written them.
+
 ## [0.5.5] - 2026-11-20
 
 ### Changed

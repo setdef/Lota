@@ -235,6 +235,20 @@ class JoystickEventsTest < Minitest::Test
     assert_nil Lota::Joystick.gamepad_mapping_string("faker")
   end
 
+  # w_saveGamepadMappings (wrap_JoystickModule.cpp:156-173) writes through
+  # luax_convobj, whose luax_assert_nilerror (src/common/runtime.cpp:
+  # 402-411, 891-904) raises the message love.filesystem.write returns
+  # with its nil, here PhysicsFS's for a directory of that name.
+  def test_save_gamepad_mappings_raises_the_message_of_a_write_that_fails
+    Lota::Filesystem.create_directory("taken")
+    _, message = Lota::Filesystem.write("taken", "x")
+
+    error = assert_raises(RuntimeError) { Lota::Joystick.save_gamepad_mappings("taken") }
+    assert_equal message, error.message
+  ensure
+    Lota::Filesystem.remove("taken")
+  end
+
   def test_set_gamepad_mapping_checks_its_names_in_loves_order
     guid = "030000005e040000130b000011050000"
 
