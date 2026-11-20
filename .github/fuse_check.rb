@@ -34,7 +34,8 @@ require_relative "../tasks/lovetest_image"
 #
 #   ruby .github/fuse_check.rb notices FOLDER PLATFORM
 
-# Each game in test/games the workflow fuses: its identity, and the lines
+# Each game in test/games the workflow fuses, and test/games/fuser, which
+# the fuser app makes into an app (Lota::Fuser): its identity, and the lines
 # it prints that only its gems can print, or that say a gem its app leaves
 # out is not there.
 GAMES = {
@@ -50,6 +51,7 @@ GAMES = {
     ],
 ],
   "fuse_native" => ["FuseCheckNative", ["fast_blank: true false", "fast_blank from the app: true"]],
+  "fuser" => ["FuserCheck", ["helper from the app: true"]],
 }.freeze
 
 # The checks of the notices in the app in +folder+, built for +platform+,
