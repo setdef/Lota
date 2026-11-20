@@ -1148,7 +1148,7 @@ module Lota
 
       def self.open?: () -> bool
 
-      def self.down?: (Array[Integer] buttons) -> bool
+      def self.down?: (Array[Integer | Array[Integer]] | Array[Integer] buttons) -> bool
 
       def self.global_position: () -> [Float, Float, Integer]
 

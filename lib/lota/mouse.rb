@@ -209,6 +209,7 @@ module Lota
     #
     # [buttons] Integer buttons, as LÖVE numbers them: 1 the left, 2 the
     #   right, and 3 the middle; LÖVE passes none of a number less than 1.
+    #   Or one Array of them, as LÖVE takes a table.
     #
     # Raises RuntimeError when the mouse module is not open.
     #
@@ -216,7 +217,8 @@ module Lota
     #
     #   Lota::Mouse.down?(1, 2) # => false
     def self.down?(*buttons)
-      Native::Mouse.down?(buttons)
+      first = buttons.first
+      Native::Mouse.down?(first.is_a?(Array) ? first : buttons)
     end
 
     # Shows the pointer when +visible+ is truthy and hides it otherwise,

@@ -23,7 +23,7 @@ module Lota
 
     def self.position=: ([Float | Integer, Float | Integer] position) -> void
 
-    def self.down?: (*Integer buttons) -> bool
+    def self.down?: (*(Integer | Array[Integer]) buttons) -> bool
 
     def self.visible=: (bool visible) -> void
 

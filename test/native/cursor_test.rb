@@ -32,6 +32,16 @@ class CursorTest < Minitest::Test
     assert_equal "love::mouse::Cursor", Lota::Native::Mouse::Cursor.cpp_class
   end
 
+  # w_isDown (wrap_Mouse.cpp:203-228) reads its buttons from a table
+  # given first, each with luaL_checkinteger, as it reads them from every
+  # argument otherwise. No test can hold a mouse button down in SDL's
+  # state, so these show only that the Array is read as the buttons.
+  def test_down_takes_its_buttons_as_an_array_as_loves_table
+    refute Lota::Mouse.down?([1, 2])
+    refute Lota::Mouse.down?([])
+    assert_raises(TypeError) { Lota::Mouse.down?([1, "left"]) }
+  end
+
   def test_a_system_cursor_is_a_cursor_by_symbol_or_string
     assert_instance_of Lota::Mouse::Cursor, Lota::Mouse.system_cursor(:sizewe)
     assert_instance_of Lota::Native::Mouse::Cursor, Lota::Mouse.system_cursor("hand").__send__(:native)
