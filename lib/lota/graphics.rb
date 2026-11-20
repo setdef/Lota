@@ -346,11 +346,12 @@ module Lota
     def self.readback_texture(texture, slice = nil, mipmap = nil, x = nil, y = nil, width = nil, height = nil,
       dest = nil, destx = nil, desty = nil
     )
+      source = texture_argument(texture, "texture")
       unless dest.nil? || dest.is_a?(Lota::Image::ImageData)
         raise TypeError, "wrong argument type #{dest.class} for dest (expected Lota::Image::ImageData)"
       end
 
-      native = Native::Graphics.readback_texture(texture.__send__(:native),
+      native = Native::Graphics.readback_texture(source,
         [slice, mipmap, x, y, width, height, dest&.__send__(:native), destx, desty])
       dest || Lota::Image::ImageData.__send__(:from_native, native)
     end
@@ -376,11 +377,12 @@ module Lota
     def self.readback_texture_async(texture, slice = nil, mipmap = nil, x = nil, y = nil, width = nil, height = nil,
       dest = nil, destx = nil, desty = nil
     )
+      source = texture_argument(texture, "texture")
       unless dest.nil? || dest.is_a?(Lota::Image::ImageData)
         raise TypeError, "wrong argument type #{dest.class} for dest (expected Lota::Image::ImageData)"
       end
 
-      native = Native::Graphics.readback_texture_async(texture.__send__(:native),
+      native = Native::Graphics.readback_texture_async(source,
         [slice, mipmap, x, y, width, height, dest&.__send__(:native), destx, desty])
       GraphicsReadback.__send__(:from_native, native)
     end

@@ -310,6 +310,25 @@ class GraphicsStateTest < Minitest::Test
     assert_raises(ArgumentError) { Graphics.clear(false, true, true, true) }
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_readbackTexture and w_readbackTextureAsync read the texture with
+  # luax_checktexture before anything else (wrap_Graphics.cpp:2413 and
+  # 2453).
+  def test_a_readback_checks_its_texture_first
+    message = "wrong argument type Symbol for texture (expected Lota::Graphics::Texture)"
+    errors = [
+      assert_raises(TypeError) { Graphics.readback_texture(:canvas, nil, nil, nil, nil, nil, nil, :image) },
+      assert_raises(TypeError) { Graphics.readback_texture_async(:canvas, nil, nil, nil, nil, nil, nil, :image) },
+    ]
+
+    assert_equal [message, message], errors.map(&:message)
+  end
+
+  # SPDX-SnippetEnd
+
   # An asynchronous readback is complete once waited for, and then has
   # the pixels; it reads a rectangle into an ImageData given, as
   # readbackTexture does.
