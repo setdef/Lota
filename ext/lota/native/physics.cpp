@@ -369,16 +369,36 @@ box2d::PolygonShape *new_polygon_shape(Body *body, Rice::Array coordinates_given
   return physics()->newPolygonShape(body, coords.data(), static_cast<int>(coords.size()));
 }
 
-// w_newChainShape (wrap_Physics.cpp:446-490), which needs at least one
+// luax_checkboolean (src/common/runtime.cpp:259-263), which refuses
+// anything but true or false, with the TypeError Lota raises for it
+// elsewhere.
+bool checked_boolean(const Rice::Object &value) {
+  if (!ruby::is_boolean(value)) {
+    ruby::raise_type_error(std::string("wrong argument type ") + rb_obj_classname(value.value()) +
+                           " (expected true or false)");
+  }
+  return ruby::is_true(value);
+}
+
+// The coordinates of w_newChainShape and w_newChainBody, counted before
+// they are read (wrap_Physics.cpp:243-244 and 457-458): at least one
 // vertex.
-box2d::ChainShape *new_chain_shape(Body *body, bool loop, Rice::Array coordinates_given) {
-  const Rice::Array coordinates = std::move(coordinates_given);
-  check_optional(body);
-  const std::vector<double> c = numbers(coordinates);
-  if (c.empty()) {
+void check_chain_count(const Rice::Array &coordinates) {
+  if (coordinates.size() == 0 || coordinates.size() % 2 != 0) {
     throw love::Exception("Number of vertex components must be a multiple of two.");
   }
-  const std::vector<love::Vector2> coords = vertices(c);
+}
+
+// w_newChainShape (wrap_Physics.cpp:446-490), which counts the
+// coordinates before it reads loop.
+box2d::ChainShape *new_chain_shape(Body *body, Rice::Object loop_given,
+                                   Rice::Array coordinates_given) {
+  const Rice::Object loop_value = std::move(loop_given);
+  const Rice::Array coordinates = std::move(coordinates_given);
+  check_optional(body);
+  check_chain_count(coordinates);
+  const bool loop = checked_boolean(loop_value);
+  const std::vector<love::Vector2> coords = vertices(numbers(coordinates));
   return physics()->newChainShape(body, loop, coords.data(), static_cast<int>(coords.size()));
 }
 
@@ -417,17 +437,17 @@ Rice::Array new_polygon_body(World *world, const std::string &type, Rice::Array 
 }
 
 // w_newChainBody (wrap_Physics.cpp:226-280): a Body at the centroid of
-// the vertices, with a ChainShape of them, which needs at least one.
-Rice::Array new_chain_body(World *world, const std::string &type, bool loop,
+// the vertices, with a ChainShape of them, which reads loop before it
+// counts the coordinates.
+Rice::Array new_chain_body(World *world, const std::string &type, Rice::Object loop_given,
                            Rice::Array coordinates_given) {
+  const Rice::Object loop_value = std::move(loop_given);
   const Rice::Array coordinates = std::move(coordinates_given);
   check(world);
   const Body::Type btype = body_type(type);
-  const std::vector<double> c = numbers(coordinates);
-  if (c.empty()) {
-    throw love::Exception("Number of vertex components must be a multiple of two.");
-  }
-  const std::vector<love::Vector2> coords = vertices(c);
+  const bool loop = checked_boolean(loop_value);
+  check_chain_count(coordinates);
+  const std::vector<love::Vector2> coords = vertices(numbers(coordinates));
   box2d::ChainShape *shape = nullptr;
   Body *body = physics()->newChainBody(world, btype, loop, coords.data(),
                                        static_cast<int>(coords.size()), shape);

@@ -81,6 +81,25 @@ class PhysicsShapesTest < Minitest::Test
     assert_equal "Physics error: index out of bounds", error.message
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # newChainShape counts the vertices first, then reads loop with
+  # luax_checkboolean, which refuses anything but true or false
+  # (wrap_Physics.cpp:452-462, src/common/runtime.cpp:259-263).
+  def test_a_chain_needs_true_or_false_for_loop
+    [[nil, "NilClass"], [1, "Integer"]].each do |loop, name|
+      error = assert_raises(TypeError) { Physics::ChainShape.new(@body, loop, 0, 0, 30, 0) }
+
+      assert_equal "wrong argument type #{name} (expected true or false)", error.message
+    end
+    error = assert_raises(RuntimeError) { Physics::ChainShape.new(@body, nil, 0, 0, 30) }
+
+    assert_equal "Number of vertex components must be a multiple of two.", error.message
+  end
+  # SPDX-SnippetEnd
+
   def test_a_chain_sets_its_neighbors
     chain = Physics::ChainShape.new(@body, false, 0, 0, 30, 0, 30, 30)
     chain.next_vertex = 60, 30

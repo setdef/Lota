@@ -615,7 +615,8 @@ module Lota
       # LÖVE's deprecated form, as CircleShape.new does.
       #
       # Raises RuntimeError ("Number of vertex components must be a
-      # multiple of two.") for none or an odd number.
+      # multiple of two.") for none or an odd number, and then TypeError
+      # for a +loop+ that is not +true+ or +false+.
       #
       # === Example
       #

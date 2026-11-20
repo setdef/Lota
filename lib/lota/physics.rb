@@ -262,7 +262,8 @@ module Lota
     # World.
     #
     # [type] Symbol, as #new_circle_body takes it.
-    # [loop] Whether the last vertex joins the first.
+    # [loop] Whether the last vertex joins the first: +true+ or +false+,
+    #   or TypeError.
     # [coordinates] An x and a y Float or Integer for each vertex, in
     #   pixels, or an Array of them.
     #

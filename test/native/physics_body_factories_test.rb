@@ -132,6 +132,23 @@ class PhysicsBodyFactoriesTest < Minitest::Test
       assert_raises(RuntimeError) { Physics.new_polygon_body(@world, :static, 0, 0, 1, 1) }.message
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # newChainBody reads loop with luax_checkboolean, which refuses
+  # anything but true or false, before it counts the vertices
+  # (wrap_Physics.cpp:235-244, src/common/runtime.cpp:259-263).
+  def test_a_chain_body_needs_true_or_false_for_loop
+    [[nil, "NilClass"], [1, "Integer"]].each do |loop, name|
+      error = assert_raises(TypeError) { Physics.new_chain_body(@world, :static, loop, 0, 0, 1, 1) }
+
+      assert_equal "wrong argument type #{name} (expected true or false)", error.message
+    end
+    assert_raises(TypeError) { Physics.new_chain_body(@world, :static, nil) }
+  end
+  # SPDX-SnippetEnd
+
   # luax_checkworld refuses a destroyed World (wrap_World.cpp:30-36).
   def test_a_destroyed_world_raises_lovees_error
     @world.destroy
