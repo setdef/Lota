@@ -44,7 +44,7 @@ module Lota
       # (src/modules/math/wrap_Math.cpp:52-82).
       #
       # [low] Integer or Float seed, or with +high+ its low 32 bits; the
-      #   seed every new generator starts from when +nil+.
+      #   seed every new generator starts from when left out.
       # [high] Integer or Float high 32 bits of a 64-bit seed.
       #
       # LÖVE truncates a seed to a whole number, and so does Lota. Raises
@@ -57,11 +57,11 @@ module Lota
       #   Lota::Math::RandomGenerator.new
       #   Lota::Math::RandomGenerator.new(42)
       #   Lota::Math::RandomGenerator.new(3418323524, 20529293)
-      def self.new(low = nil, high = nil)
+      def self.new(low = (unseeded = true) && nil, high = nil)
         raise "Lota::Math is not open." unless Native::Math.open?
 
         generator = from_native(Native::RandomGenerator.new)
-        generator.seed = [low, high] unless low.nil? && high.nil?
+        generator.seed = [low, high] unless unseeded
         generator
       end
 

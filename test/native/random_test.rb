@@ -109,4 +109,15 @@ class RandomTest < Minitest::Test
     assert_raises(TypeError) { Lota::Math.random_seed = "1" }
     assert_raises(TypeError) { Lota::Math.random_seed = [] }
   end
+
+  # w_newRandomGenerator reads a seed once it is given any argument
+  # (wrap_Math.cpp:52-56), through luax_checkrandomseed
+  # (wrap_RandomGenerator.cpp:49-62), so nil raises where no argument
+  # makes a generator from the usual seed.
+  def test_a_new_generator_given_nil_for_its_seed_raises
+    error = assert_raises(TypeError) { Lota::Math::RandomGenerator.new(nil) }
+    assert_equal "wrong argument type NilClass (expected Float or Integer)", error.message
+    assert_raises(TypeError) { Lota::Math::RandomGenerator.new(nil, 5) }
+    assert_equal Lota::Math::RandomGenerator.new.seed, Lota::Math::RandomGenerator.new(0xCBBF7A44, 0x0139408D).seed
+  end
 end

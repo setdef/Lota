@@ -26,6 +26,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Audio::Source#queue` raises TypeError for something other than a SoundData, and for an offset or length given as `nil` or as anything but a number, as LÖVE does, where it raised NoMethodError or queued every sample.
 - `Lota::Data::ByteData#string=` takes a `nil` offset as 0, as LÖVE does, where it raised.
 - `Lota::Mouse::Cursor.new` takes a `nil` hot spot as 0, as LÖVE does, where it raised.
+- **Breaking:** `Lota::Math::RandomGenerator.new(nil)` raises TypeError, as LÖVE's `newRandomGenerator(nil)` does, where it made a generator from the usual seed; leave the seed out for that.
 
 ## [0.5.5] - 2026-11-20
 

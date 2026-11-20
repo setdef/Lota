@@ -6,7 +6,7 @@ module Lota
     class RandomGenerator < Object[Native::RandomGenerator]
       private def self.from_native: (Native::RandomGenerator native) -> RandomGenerator
 
-      def self.new: (?(Float | Integer)? low, ?(Float | Integer)? high) -> RandomGenerator
+      def self.new: (?(Float | Integer) low, ?(Float | Integer)? high) -> RandomGenerator
 
       def random: (?(Float | Integer)? min, ?(Float | Integer)? max) -> (Float | Integer)
 
