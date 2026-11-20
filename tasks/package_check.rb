@@ -80,13 +80,22 @@ class PackageCheck
   #   from, with what they depend on.
   # [arguments] What lota run passes the game.
   # [output] What the game prints, matched against everything but what
-  #   the run reports of the libraries it loaded.
+  #   the run reports of the libraries it loaded: a Regexp, or something
+  #   that, called with what each game before it printed, by name, returns
+  #   the Regexp, for a game whose output depends on what an earlier one
+  #   found out about the machine.
   # [status] The exit status it ends with.
   # [background] Whether its window stays in the background (BACKGROUND),
   #   as every game the check runs does unless it needs keyboard focus.
   class Game < Data.define(:name, :folder, :files, :gems, :arguments, :output, :status, :background)
     def initialize(background: true, **)
       super
+    end
+
+    # The Regexp what the game prints must match, given what each game
+    # before it +printed+, by name.
+    def expected(printed)
+      output.respond_to?(:call) ? output.call(printed) : output
     end
   end
 
@@ -436,6 +445,7 @@ class PackageCheck
     @out.puts "✅ #{gem.name} --version: #{version.strip}"
 
     guard = guard(work)
+    printed = {}
     gem.games.each do |game|
       install_dependencies(game, env, work)
       run_env = env.merge(@format.report_environment, SILENT).merge(game.background ? BACKGROUND : {})
@@ -443,7 +453,7 @@ class PackageCheck
         Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
           *game.arguments, chdir: work)
       end
-      verify_game(game, home, output, status)
+      printed[game.name] = verify_game(game, home, output, status, printed)
     end
   end
 
@@ -518,10 +528,14 @@ class PackageCheck
     end
   end
 
-  private def verify_game(game, home, output, status)
+  # Checks a game's run, given what each game before it printed, and
+  # returns what it printed.
+  private def verify_game(game, home, output, status, before)
     printed = @format.printed(output).lines.grep_v(LOADED_FROM).join
-    unless status.exitstatus == game.status && game.output.match?(printed)
-      raise Failure, "lota run #{game.name} exited #{status.inspect}, expected #{game.status}, and printed:\n#{printed}"
+    expected = game.expected(before)
+    unless status.exitstatus == game.status && expected.match?(printed)
+      raise Failure, "lota run #{game.name} exited #{status.inspect}, expected #{game.status} and output matching " \
+        "#{expected.inspect}, and printed:\n#{printed}"
     end
 
     outside = self.class.outside(output, home, format: @format)
@@ -530,6 +544,7 @@ class PackageCheck
     tests = self.class.summary(printed)&.then { |line| ", #{line}" }
     @out.puts "✅ lota run #{game.name}: exited #{status.exitstatus}#{tests}, with Lota and " \
       "#{@format.ours(output).map { |path| File.basename(path) }.join(', ')} loaded from the installed gem"
+    printed
   end
 
   # Runs each gem's smoke script in a process that sees only the packages.

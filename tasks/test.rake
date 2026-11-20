@@ -49,6 +49,7 @@ UNIT_TESTS = %w[
   test/tasks/ios_build_test.rb
   test/tasks/jobs_test.rb
   test/tasks/licensing_test.rb
+  test/tasks/lovetest_delivery_test.rb
   test/tasks/native_format_pe_test.rb
   test/tasks/package_summary_test.rb
   test/tasks/phone_engine_build_test.rb

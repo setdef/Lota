@@ -22,6 +22,20 @@ class PackageSummaryTest < Minitest::Test
     assert_nil PackageCheck.summary("window 800x600\n")
   end
 
+  def game(output)
+    PackageCheck::Game.new(name: "probe", folder: nil, files: {}, gems: [], arguments: [], output:, status: 0)
+  end
+
+  def test_a_games_output_is_its_pattern
+    assert_equal(/\Awindow\n\z/, game(/\Awindow\n\z/).expected({}))
+  end
+
+  def test_a_game_can_expect_what_an_earlier_game_found_out
+    expect = game(-> (printed) { /^#{printed.fetch('facts')[/\d+/]} runs/ })
+
+    assert_equal(/^7 runs/, expect.expected("facts" => "sensors 7\n"))
+  end
+
   def test_only_a_whole_line_is_a_summary
     assert_nil PackageCheck.summary("it said 3 runs, 4 assertions, 0 failures, 0 errors, 0 skips once\n")
   end

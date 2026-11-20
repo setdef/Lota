@@ -8,7 +8,7 @@
 require "fileutils"
 require_relative "native_gem"
 require_relative "package_check"
-require_relative "../test/lovetest/lovetest_skips"
+require_relative "lovetest_delivery"
 
 # What the bundle compiles against from LÖVE's dependencies but does not
 # carry as code of its own, on each platform (NativeGem): their headers,
@@ -46,13 +46,17 @@ end
 # accident. It opens the audio module through the gem's OpenAL Soft, which
 # plays through its null backend and asks for no real-time priority in the
 # check (PackageCheck::SILENT, tasks/alsoft.conf), so it prints nothing
-# about it.
+# about it. It also prints what Lövetest's run below skips by that only
+# the machine knows: whether its renderer has GLSL 4, and how many of an
+# accelerometer and a gyroscope it has (LovetestDelivery.facts).
 PACKAGE_GAME = PackageCheck::Game.new(
   name: "a window",
   folder: nil,
   files: { "main.rb" => <<~RUBY },
     def Lota.load
       puts "window \#{Lota::Graphics.dimensions.join('x')}"
+      puts "glsl4 \#{Lota::Graphics.supported.glsl4}"
+      puts "sensors \#{%i[accelerometer gyroscope].count { |type| Lota::Sensor.sensor?(type) }}"
     end
 
     def Lota.draw
@@ -62,37 +66,34 @@ PACKAGE_GAME = PackageCheck::Game.new(
   RUBY
   gems: [],
   arguments: [],
-  output: /\Awindow 800x600\n\z/,
+  output: /\Awindow 800x600\nglsl4 (?:true|false)\nsensors \d+\n\z/,
   status: 3
 )
 
-# The installed gem's acceptance test: Lövetest's
-# love.graphics tests, translated in test/lovetest, run by lota run as the
-# gate's test/native/lota_run_test.rb runs them, and compared with LÖVE's
+# The installed gem's acceptance test: every test Lota translates from
+# Lövetest, in test/lovetest, run by lota run as the gate's
+# test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0
-# only when every test passed; the output rules out a run of no tests.
-# Its skips are those its environment decides, with OpenAL Soft's
-# settings the game runs with (SILENT).
-LOVETEST_SKIPS = LovetestSkips.expected(env: ENV.to_h.merge(PackageCheck::SILENT))
-
+# only when every test passed, and must run every test and skip exactly
+# those this system and its machine skip (LovetestDelivery), so a run of
+# fewer tests, or a test that skips where it should not, fails. Its skips
+# are Lövetest's discard, requestAttention, showMessageBox, openURL,
+# vibrate, pump, wait, getSource, and setSource tests, which Lövetest
+# skips everywhere, its RecordingDevice test, which skips where OpenAL
+# Soft cannot record, as through the null driver here (SILENT,
+# test/lovetest/tests/audio.rb), on a GitHub runner on Linux the window
+# tests xvfb cannot pass (window.rb), and those the window game's facts
+# call for.
 LOVETEST_GAME = PackageCheck::Game.new(
   name: "test/lovetest/game",
   folder: "test/lovetest/game",
   files: {},
   gems: ["minitest"],
   arguments: [],
-  # Its skips, counted from Lövetest's Lua (test/lovetest/lovetest_skips.rb),
-  # are Lövetest's discard, requestAttention, showMessageBox, openURL,
-  # vibrate, pump, wait, getSource, and setSource tests, which Lövetest
-  # skips everywhere (test/lovetest/tests/graphics.rb, window.rb,
-  # system.rb, event.rb, and filesystem.rb), and its RecordingDevice
-  # test, which skips where OpenAL Soft cannot record, as through the null
-  # driver here (SILENT, test/lovetest/tests/audio.rb), and, on a GitHub
-  # runner on Linux, the window tests xvfb cannot pass (window.rb). Its isEnabled,
-  # getName, and getData sensor tests skip together where the machine has
-  # neither an accelerometer nor a gyroscope (test/lovetest/tests/
-  # sensor.rb), which only the game itself asks, so either count passes.
-  output: /^love\.conf$.*^[1-9]\d* runs, \d+ assertions, 0 failures, 0 errors, (?:#{LOVETEST_SKIPS}|#{LOVETEST_SKIPS + 3}) skips$/m,
+  output: lambda { |printed|
+    facts = LovetestDelivery.facts(printed.fetch(PACKAGE_GAME.name))
+    LovetestDelivery.output(runs: LovetestDelivery.runs, skips: LovetestDelivery.skips(**facts))
+  },
   status: 0,
   # Lövetest's love.mouse.setGrabbed test passes only for a window with
   # keyboard focus, for which SDL grabs the mouse (SDL 3.4.10,
