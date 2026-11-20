@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-11-20
+
 ### Changed
 
 - `lota fuse` builds with Fledge 0.14.0, was 0.13.0; Fledge's changelog says what changes in an app.
