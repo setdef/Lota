@@ -162,7 +162,12 @@ class LovetestSkipsTest < Minitest::Test
   def test_each_exception_counts_where_its_switch_is_on
     assert_equal 10, LovetestSkips.expected(env: { "LOTA_FOREGROUND_HELD" => "1" }, platform: WINDOWS)
     assert_equal 9, LovetestSkips.expected(env: { "LOTA_FOREGROUND_HELD" => "1" }, platform: MACOS)
-    assert_equal 10, LovetestSkips.expected(env: { "LOTA_DESKTOP_UNSEEN" => "1" }, platform: MACOS)
+  end
+
+  # Lövetest skips its isOccluded test nowhere, and nor may Lota.
+  def test_the_is_occluded_test_skips_nowhere
+    assert_empty LovetestSkips.allowed.select { |skip| skip.test == "love.test.window.isOccluded" }
+    assert_equal 9, LovetestSkips.expected(env: { "LOTA_DESKTOP_UNSEEN" => "1" }, platform: MACOS)
   end
 
   def test_a_skip_lovetest_makes_passes

@@ -88,9 +88,7 @@ LOVETEST_GAME = PackageCheck::Game.new(
   # system.rb, event.rb, and filesystem.rb), and its RecordingDevice
   # test, which skips where OpenAL Soft cannot record, as through the null
   # driver here (SILENT, test/lovetest/tests/audio.rb), and, on a GitHub
-  # runner on Linux, the window tests xvfb cannot pass (window.rb), and,
-  # on a desktop macOS does not draw,
-  # the isOccluded test (test/lovetest/unseen_desktop.rb). Its isEnabled,
+  # runner on Linux, the window tests xvfb cannot pass (window.rb). Its isEnabled,
   # getName, and getData sensor tests skip together where the machine has
   # neither an accelerometer nor a gyroscope (test/lovetest/tests/
   # sensor.rb), which only the game itself asks, so either count passes.

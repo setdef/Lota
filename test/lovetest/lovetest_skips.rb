@@ -7,7 +7,6 @@
 
 require_relative "lovetest_lua"
 require_relative "held_foreground"
-require_relative "unseen_desktop"
 
 # Where Lövetest's translated tests (test/lovetest/tests) may skip: where
 # Lövetest's own Lua skips them (LovetestLua.skips), under the same
@@ -96,13 +95,6 @@ module LovetestSkips
         -> (env, platform) { HeldForeground.on?(env:, platform:) }),
       why: "on GitHub's windows-11-arm runner a window of the shell's holds the foreground, and LÖVE's CI " \
         "runs Lövetest on no Windows ARM64 runner (test/lovetest/held_foreground.rb)"
-    ),
-    Allowed.new(
-      test: "love.test.window.isOccluded",
-      reason: UnseenDesktop::REASON,
-      condition: Condition.new("where LOTA_DESKTOP_UNSEEN=1 on macOS", false,
-        -> (env, platform) { UnseenDesktop.on?(env:, platform:) }),
-      why: "macOS counts every window on a desktop it does not draw as occluded (test/lovetest/unseen_desktop.rb)"
     ),
   ].freeze
 
