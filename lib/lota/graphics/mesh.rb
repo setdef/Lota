@@ -115,7 +115,7 @@ module Lota
         elsif first.is_a?(Array) && vertices?(second)
           custom(first, second, third, fourth, where)
         else
-          Native::Graphics.new_standard_mesh(first, name_of(second), (third.is_a?(Symbol) || third.is_a?(String)) ? EnumName.of(third) : nil)
+          Native::Graphics.new_standard_mesh(first, name_of(second), third.nil? ? nil : name_of(third))
         end
         GraphicsBuffer.__send__(:mark_deprecated_bindings, native, where)
         from_native(native)
@@ -169,6 +169,8 @@ module Lota
       # of declarations, or LÖVE's older arrays of an attribute's name,
       # data type, and component count.
       private_class_method def self.custom(format, vertices, mode, usage, where)
+        mode_name = name_of(mode)
+        usage_name = usage.nil? ? nil : name_of(usage)
         raise ArgumentError, "table of tables expected" if format.empty?
 
         declarations = format.map.with_index(1) do |entry, index|
@@ -178,8 +180,8 @@ module Lota
         Native::Graphics.new_custom_mesh([
           declarations,
           GraphicsBuffer.__send__(:native_content, vertices),
-          name_of(mode),
-          usage && EnumName.of(usage),
+          mode_name,
+          usage_name,
 ])
       end
 
@@ -197,7 +199,8 @@ module Lota
       # (wrap_Graphics.cpp:2078-2125), as a declaration.
       private_class_method def self.legacy_declaration(entry)
         name, type, components = entry
-        type = type.to_s
+        name = legacy_string(name)
+        type = legacy_string(type)
         count = case components
         when Integer then components
         when Float then components.to_i
@@ -208,7 +211,17 @@ module Lota
           raise ArgumentError, "Invalid vertex data type '#{type}', expected one of: 'float', 'byte', 'unorm8', 'unorm16'"
         end
 
-        [name.to_s, format, 0, nil]
+        [name, format, 0, nil]
+      end
+
+      # A name or data type of the older format, which luaL_checkstring
+      # reads: a String or Symbol as its name, or a number as the text Lua
+      # makes of it; anything else is a TypeError.
+      private_class_method def self.legacy_string(value)
+        return EnumName.of(value) if value.is_a?(Symbol) || value.is_a?(String)
+        return value.to_s if value.is_a?(Numeric)
+
+        raise TypeError, "wrong argument type #{value.class} (expected String)"
       end
 
       # The data format a type and component count name.

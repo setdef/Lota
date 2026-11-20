@@ -321,6 +321,36 @@ class BufferTest < Minitest::Test
     end.message)
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # newStandardMesh and newCustomMesh read the usage with
+  # luax_optdatausage, a string unless nil, and newCustomMesh reads the
+  # mode and usage before the format (wrap_Graphics.cpp:1716-1724, 1999,
+  # 2060-2069); an older format's name and type are luaL_checkstring
+  # (lines 2090-2091).
+  def test_a_mesh_reads_its_mode_and_usage_as_names_before_its_format
+    expected = "wrong argument type TrueClass (expected Symbol)"
+    errors = [
+      assert_raises(TypeError) { Lota::Graphics::Mesh.new(3, :fan, true) },
+      assert_raises(TypeError) { Lota::Graphics::Mesh.new([{ location: 0 }], 3, true) },
+      assert_raises(TypeError) { Lota::Graphics::Mesh.new([{ location: 0 }], 3, :fan, true) },
+      assert_raises(TypeError) { Lota::Graphics::Mesh.new([[nil, "float", 2]], 3, :fan) },
+      assert_raises(TypeError) { Lota::Graphics::Mesh.new([["a", true, 2]], 3, :fan) },
+    ]
+
+    assert_equal [
+      expected,
+      expected,
+      expected,
+      "wrong argument type NilClass (expected String)",
+      "wrong argument type TrueClass (expected String)",
+], errors.map(&:message)
+  end
+
+  # SPDX-SnippetEnd
+
   def test_older_vertex_formats_of_arrays_are_read_and_marked_deprecated
     output = Lota::Deprecation.output?
     Lota::Deprecation.output = true

@@ -38,6 +38,8 @@ module Lota
 
       private def self.legacy_declaration: (Array[::Object] entry) -> [String, String, Integer, Integer?]
 
+      private def self.legacy_string: (::Object? value) -> String
+
       private def self.legacy_format: (String type, Integer components) -> String?
 
       private def self.legacy_components: (String type, Integer components, Hash[Integer, String] formats) -> String
