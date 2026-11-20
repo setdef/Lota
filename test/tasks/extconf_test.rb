@@ -91,6 +91,57 @@ class ExtconfTest < Minitest::Test
     end
   end
 
+  # A compiler launcher that runs its command, as ccache does.
+  def launcher(dir)
+    write(dir, "ccache", "#!/bin/sh\nexec \"$@\"\n").tap { |file| File.chmod(0o755, file) }
+  end
+
+  # The names of CMake's compiler launchers, which it initializes from
+  # these environment variables on a tree's first configure and never again.
+  def launchers(path)
+    { "CMAKE_C_COMPILER_LAUNCHER" => path, "CMAKE_CXX_COMPILER_LAUNCHER" => path }
+  end
+
+  # A compiler cache moves, as mise moves ccache when its folder changes,
+  # between two configures of one tree. The tree keeps the first launcher's
+  # path in its cache, so the second configure names the one the
+  # environment holds now rather than compile through one that is gone.
+  def test_a_tree_whose_compiler_launcher_moved_configures_with_the_one_in_the_environment
+    in_tree do |root|
+      build = File.join(root, "build")
+      old = launcher(File.join(root, "old"))
+      output, status = extconf(root, "--with-cmake-build-dir=#{build}", env: launchers(old))
+      assert status.success?, output
+      assert_includes cache(build), "CMAKE_CXX_COMPILER_LAUNCHER:STRING=#{old}"
+
+      new = File.join(root, "new")
+      FileUtils.mv(File.dirname(old), new)
+      output, status = extconf(root, "--with-cmake-build-dir=#{build}", env: launchers(File.join(new, "ccache")))
+
+      assert status.success?, output
+      assert_includes cache(build), "CMAKE_C_COMPILER_LAUNCHER:STRING=#{File.join(new, 'ccache')}"
+      assert_includes cache(build), "CMAKE_CXX_COMPILER_LAUNCHER:STRING=#{File.join(new, 'ccache')}"
+    end
+  end
+
+  # A launcher the environment no longer names is not compiled through,
+  # whatever the tree remembers.
+  def test_a_tree_configured_with_a_launcher_configures_without_one_when_the_environment_has_none
+    in_tree do |root|
+      build = File.join(root, "build")
+      old = launcher(File.join(root, "old"))
+      output, status = extconf(root, "--with-cmake-build-dir=#{build}", env: launchers(old))
+      assert status.success?, output
+
+      FileUtils.rm_rf(File.dirname(old))
+      output, status = extconf(root, "--with-cmake-build-dir=#{build}", env: launchers(nil))
+
+      assert status.success?, output
+      assert_includes cache(build), "CMAKE_CXX_COMPILER_LAUNCHER:STRING="
+      refute_includes cache(build), "CMAKE_CXX_COMPILER_LAUNCHER:STRING=#{old}"
+    end
+  end
+
   # What make and make install do, as RubyGems and rake-compiler call them
   # (make -n prints the commands without running them).
   def test_the_makefile_builds_with_cmake_and_installs_the_bundle

@@ -77,6 +77,22 @@ configure = [cmake, "-S", __dir__, "-B", build]
 # compile command, so nothing is rebuilt for it.
 ninja = find_executable("ninja")
 configure += ["-G", "Ninja", "-DCMAKE_MAKE_PROGRAM:FILEPATH=#{ninja}"] if ninja
+# The compiler launchers the environment names (ccache), for the same
+# reason: CMake takes CMAKE_<language>_COMPILER_LAUNCHER from the
+# environment only when it makes a tree, so a tree configured before a
+# version manager moved ccache went on compiling through the one that is
+# gone, every compile command failing with "not found". A language the
+# environment names none for is cleared. Objective-C's are named only
+# where the environment or the tree knows them, since a tree that never
+# enabled those languages would warn of an unused variable.
+cache = File.join(build, "CMakeCache.txt")
+known = File.exist?(cache) ? File.read(cache) : ""
+%w[C CXX OBJC OBJCXX].each do |language|
+  variable = "CMAKE_#{language}_COMPILER_LAUNCHER"
+  next unless %w[C CXX].include?(language) || ENV.key?(variable) || known.include?("#{variable}:")
+
+  configure << "-D#{variable}:STRING=#{ENV.fetch(variable, '')}"
+end
 configure += [
   "-DRuby_EXECUTABLE:FILEPATH=#{RbConfig.ruby}",
   "-DRICE_DIR:PATH=#{rice}",
