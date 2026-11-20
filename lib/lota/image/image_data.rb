@@ -294,9 +294,10 @@ module Lota
       # red, green, blue, and alpha, as #pixel reads them, row by row,
       # and returns the new color as an Array of red, green, blue, and
       # alpha, which are stored as #pixel= stores them. Raises
-      # RuntimeError, with LÖVE's message, for a rectangle that is not
-      # inside the image, which it checks before rounding it down, and for
-      # a pixel format the Lua does not read.
+      # RuntimeError, with LÖVE's message, for a number of the rectangle
+      # that is not a number, then for no block, then for a rectangle that
+      # is not inside the image, which it checks before rounding it down,
+      # and for a pixel format the Lua does not read, in the Lua's order.
       #
       # === Example
       #

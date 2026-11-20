@@ -30,6 +30,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Breaking:** `Lota::Window.show_message_box` with an empty Array of buttons raises RuntimeError, as Lota raises every error LÖVE raises with `luaL_error`, where it raised ArgumentError.
 - `Lota::Filesystem.write`, `append`, and `File#write` given a negative size return `nil` and LÖVE's message, `"Invalid write size."`, as LÖVE does, where they wrote nothing and returned `true`.
 - **Breaking:** `Lota::Math::Transform#matrix=` and `Lota::Graphics.projection=` check the layout before the elements, and raise TypeError for fewer than sixteen elements, as LÖVE does, where they raised ArgumentError for the count first.
+- **Breaking:** `Lota::Image::ImageData#map_pixel` checks the rectangle's numbers before the block, and raises RuntimeError with LÖVE's message for one that is not a number, as LÖVE does, where it raised TypeError, and checked the block first.
 
 ## [0.5.5] - 2026-11-20
 

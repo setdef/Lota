@@ -646,25 +646,32 @@ Given returned(const Rice::Object &result) {
 // ImageData:mapPixel (lines 358-393): calls +block+ with each pixel's
 // position, as Integers, and components in the rectangle +rectangle+ gives,
 // its x, y, width, and height, each nil for the whole image's, row by row,
-// and stores what it returns. The rectangle is checked before its numbers
-// are rounded down, as the Lua checks it.
+// and stores what it returns. The rectangle's numbers are checked before
+// the block, and the rectangle before its numbers are rounded down, as
+// the Lua checks them.
 void map_pixels(ImageData &data, const std::vector<Rice::Object> &given,
                 const Rice::Object &block) {
-  if (ruby::is_nil(block)) {
-    throw love::Exception("bad argument #1 to ImageData:mapPixel (expected function)");
-  }
   const double idw = data.getWidth();
   const double idh = data.getHeight();
   const auto number_or = [&given](std::size_t index, double fallback) {
     const Rice::Object value = element(given, index);
-    return ruby::is_nil(value) ? fallback
-                               : Rice::detail::From_Ruby<double>().convert(value.value());
+    if (ruby::is_nil(value)) {
+      return fallback;
+    }
+    if (!ruby::is_numeric(value)) {
+      throw love::Exception("bad argument #%zu to ImageData:mapPixel (expected number)", index + 2);
+    }
+    return Rice::detail::From_Ruby<double>().convert(value.value());
   };
 
   double ix = number_or(0, 0);
   double iy = number_or(1, 0);
   double iw = number_or(2, idw);
   double ih = number_or(3, idh);
+
+  if (ruby::is_nil(block)) {
+    throw love::Exception("bad argument #1 to ImageData:mapPixel (expected function)");
+  }
 
   if (!(inside(ix, iy, idw, idh) && inside(ix + iw - 1, iy + ih - 1, idw, idh))) {
     throw love::Exception("Invalid rectangle dimensions");

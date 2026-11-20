@@ -161,6 +161,20 @@ class ImageDataTest < Minitest::Test
     assert_equal [1.0, 1.0, 1.0, 1.0], image.pixel(0, 0)
   end
 
+  # mapPixel's Lua checks that each number of the rectangle is a number,
+  # then that the function is one (wrap_ImageData.lua:367-372), each with
+  # an error of its own message, which names Lota's method (rule 23).
+  def test_map_pixel_checks_the_rectangle_before_the_block
+    image = ImageData.new(3, 2, :rgba8)
+
+    error = assert_raises(RuntimeError) { image.map_pixel(0, "0") }
+    assert_equal "bad argument #3 to Lota::Image::ImageData#map_pixel (expected number)", error.message
+    error = assert_raises(RuntimeError) { image.map_pixel(0, 0, 1, :all) { [0, 0, 0, 0] } }
+    assert_equal "bad argument #5 to Lota::Image::ImageData#map_pixel (expected number)", error.message
+    error = assert_raises(RuntimeError) { image.map_pixel(0, 0, 1, 1) }
+    assert_equal "bad argument #1 to Lota::Image::ImageData#map_pixel (expected function)", error.message
+  end
+
   # Lua's local r, g, b, a takes as many values as the function returns,
   # so an r8 image needs only red back.
   def test_map_pixel_takes_as_few_components_as_the_format_needs
