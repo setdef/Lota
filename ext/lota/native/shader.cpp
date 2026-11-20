@@ -728,29 +728,30 @@ std::optional<int> optional_count(const Rice::Array &counts, long index) {
 }
 
 // w_drawFromShader with an index Buffer (wrap_Graphics.cpp:3342-3356):
-// +counts+ holds the number of indices, the number of instances (1 by
-// default), and the first index, counting from 1 (1 by default).
+// +counts+ holds the number of indices, which it needs, the number of
+// instances (1 by default), and the first index, counting from 1 (1 by
+// default).
 void draw_from_shader_indexed(Buffer *indexbuffer, Rice::Array counts, Texture *texture) {
   constexpr long instancecount_index = 1;
   constexpr long indexstart_index = 2;
   const Rice::Array given = std::move(counts);
   Graphics &instance = graphics();
-  const int indexcount = optional_count(given, 0).value_or(0);
+  const int indexcount = Rice::detail::From_Ruby<int>().convert(ruby::entry(given, 0).value());
   const int instancecount = optional_count(given, instancecount_index).value_or(1);
   const int indexstart = optional_count(given, indexstart_index).value_or(1) - 1;
   instance.drawFromShader(indexbuffer, indexcount, instancecount, indexstart, texture);
 }
 
 // w_drawFromShader with a primitive type (wrap_Graphics.cpp:3358-3372):
-// +counts+ holds the number of vertices and the number of instances (1 by
-// default).
+// +counts+ holds the number of vertices, which it needs, and the number of
+// instances (1 by default).
 void draw_from_shader_primitive(const std::string &primitive, Rice::Array counts,
                                 Texture *texture) {
   constexpr long instancecount_index = 1;
   const Rice::Array given = std::move(counts);
   Graphics &instance = graphics();
   const love::graphics::PrimitiveType type = primitive_type(primitive);
-  const int vertexcount = optional_count(given, 0).value_or(0);
+  const int vertexcount = Rice::detail::From_Ruby<int>().convert(ruby::entry(given, 0).value());
   const int instancecount = optional_count(given, instancecount_index).value_or(1);
   instance.drawFromShader(type, vertexcount, instancecount, texture);
 }
@@ -765,13 +766,18 @@ void draw_from_shader_indirect_indexed(Buffer *indexbuffer, Buffer *argsbuffer,
 }
 
 // w_drawFromShaderIndirect with a primitive type (wrap_Graphics.cpp:
-// 3393-3406).
-void draw_from_shader_indirect_primitive(const std::string &primitive, Buffer *argsbuffer,
+// 3393-3406): the primitive's name is read before the buffer.
+void draw_from_shader_indirect_primitive(const std::string &primitive, Rice::Object argsbuffer,
                                          std::optional<long long> argsindex, Texture *texture) {
   Graphics &instance = graphics();
   const love::graphics::PrimitiveType type = primitive_type(primitive);
-  instance.drawFromShaderIndirect(type, argsbuffer, static_cast<int>(argsindex.value_or(1)) - 1,
-                                  texture);
+  if (!ruby::is_kind_of(argsbuffer, Rice::Data_Type<Buffer>::klass())) {
+    ruby::raise_type_error("wrong argument type " + ruby::class_name(argsbuffer) +
+                           " for argsbuffer (expected Lota::Graphics::GraphicsBuffer)");
+  }
+  instance.drawFromShaderIndirect(type,
+                                  Rice::detail::From_Ruby<Buffer *>().convert(argsbuffer.value()),
+                                  static_cast<int>(argsindex.value_or(1)) - 1, texture);
 }
 
 // SPDX-SnippetEnd

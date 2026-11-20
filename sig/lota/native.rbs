@@ -1324,7 +1324,7 @@ module Lota
 
       def self.draw_from_shader_indirect_indexed: (Buffer indexbuffer, Buffer argsbuffer, Integer? argsindex, ::Object? texture) -> nil
 
-      def self.draw_from_shader_indirect_primitive: (String primitive, Buffer argsbuffer, Integer? argsindex, ::Object? texture) -> nil
+      def self.draw_from_shader_indirect_primitive: (String primitive, ::Object argsbuffer, Integer? argsindex, ::Object? texture) -> nil
 
       def self.new_shader: (Array[String] stages, String debugname, Array[[String, String]] defines, bool write) -> Shader
 

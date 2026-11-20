@@ -219,6 +219,27 @@ class BufferCopyTest < Minitest::Test
     assert_raises(TypeError) { Lota::Graphics.draw_from_shader(indices, 3, 1, 1, :texture) }
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_drawFromShader reads its count with luaL_checkinteger, which raises
+  # for nil, and w_drawFromShaderIndirect given a primitive reads its name
+  # before its buffer (wrap_Graphics.cpp:3347, 3364, and 3393-3398).
+  def test_draw_from_shader_needs_a_count_and_reads_a_primitive_first
+    indices = Lota::Graphics::Buffer.new(:uint16, [0, 1, 2], index: true)
+
+    assert_raises(TypeError) { Lota::Graphics.draw_from_shader(:triangles, nil) }
+    assert_raises(TypeError) { Lota::Graphics.draw_from_shader(indices, nil) }
+    assert_match(/Invalid primitive type 'blobs'/, assert_raises(ArgumentError) do
+      Lota::Graphics.draw_from_shader_indirect(:blobs, :arguments)
+    end.message)
+    assert_equal "wrong argument type Symbol for argsbuffer (expected Lota::Graphics::GraphicsBuffer)",
+      assert_raises(TypeError) { Lota::Graphics.draw_from_shader_indirect(:triangles, :arguments) }.message
+  end
+
+  # SPDX-SnippetEnd
+
   def test_draw_from_shader_indirect_draws_what_a_buffer_says
     skip "indirect draws are not supported" unless Lota::Graphics.supported.indirectdraw
 

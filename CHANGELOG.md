@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics.draw_from_shader` raises TypeError for a `nil` count, where it drew nothing, and `.draw_from_shader_indirect` given a primitive checks its name before its buffer, as LÖVE does.
 - `Lota::Graphics::Mesh.new` raises TypeError for a usage that is not a name, where it ignored one in the standard form, checks the mode and usage before the vertex format, and raises TypeError for an older format entry whose name or type is `nil` or a boolean, as LÖVE does.
 - `Lota::Graphics::Mesh#set_vertex_map` given a Data and no index type, or `nil`, raises TypeError, as LÖVE does, where it raised IndexError or an unknown-type error.
 - `Lota::Graphics.readback_texture` and `.readback_texture_async` raise TypeError for a texture that is not a `Lota::Graphics::Texture`, before checking the other arguments, as LÖVE does, where they raised NoMethodError.

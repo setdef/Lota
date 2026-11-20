@@ -1519,11 +1519,12 @@ module Lota
     #
     #   Lota::Graphics.draw_from_shader_indirect(:triangles, arguments)
     def self.draw_from_shader_indirect(source, argsbuffer, argsindex = nil, texture = nil)
-      check_buffer(argsbuffer, "argsbuffer")
-      args = argsbuffer.__send__(:native)
       if source.is_a?(GraphicsBuffer)
-        Native::Graphics.draw_from_shader_indirect_indexed(source.__send__(:native), args, argsindex, drawn_texture(texture))
+        check_buffer(argsbuffer, "argsbuffer")
+        Native::Graphics.draw_from_shader_indirect_indexed(source.__send__(:native), argsbuffer.__send__(:native), argsindex,
+          drawn_texture(texture))
       else
+        args = argsbuffer.is_a?(GraphicsBuffer) ? argsbuffer.__send__(:native) : argsbuffer
         Native::Graphics.draw_from_shader_indirect_primitive(EnumName.of(source), args, argsindex, drawn_texture(texture))
       end
     end
