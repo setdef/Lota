@@ -658,8 +658,8 @@ void body_set_transform(Body &body, Rice::Array transform_given) {
   body.setAngle(angle);
 }
 
-// w_Body_applyForce and w_Body_applyLinearImpulse (wrap_Body.cpp:220-250
-// and 277-305): at the center of mass, waking the Body unless +rest+ is
+// w_Body_applyForce and w_Body_applyLinearImpulse (wrap_Body.cpp:248-274
+// and 202-228): at the center of mass, waking the Body unless +rest+ is
 // false, or at a point, with +rest+ the point and that flag. The count of
 // LÖVE's arguments chooses, as lua_gettop does.
 template <typename AtCenter, typename AtPoint>
