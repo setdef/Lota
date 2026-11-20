@@ -237,6 +237,25 @@ class BufferTest < Minitest::Test
       assert_raises(RuntimeError) { mesh.vertex_attribute(1, 4) }.message
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_newBuffer reads its settings, the usage as luaL_checkstring and the
+  # debug name as luax_checkstring, before its format
+  # (wrap_Graphics.cpp:1716-1741 and 1971-1974).
+  def test_a_buffer_reads_its_usage_and_debug_name_before_its_format
+    errors = [
+      assert_raises(TypeError) { Lota::Graphics::Buffer.new(:nonsense, 1, shaderstorage: true, usage: true) },
+      assert_raises(TypeError) { Lota::Graphics::Buffer.new([{}], 1, shaderstorage: true, debugname: true) },
+    ]
+
+    assert_equal ["wrong argument type TrueClass (expected Symbol)", "wrong argument type TrueClass (expected String)"],
+      errors.map(&:message)
+  end
+
+  # SPDX-SnippetEnd
+
   def test_the_vertex_map_is_a_list_of_indices_or_a_data_of_indices
     mesh = Lota::Graphics::Mesh.new(4, :triangles)
     mesh.set_vertex_map(1, 2, 3, 4)

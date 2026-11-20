@@ -120,16 +120,29 @@ module Lota
       )
         uses = { vertex:, index:, texel:, shaderstorage:, indirectarguments: }
         names = uses.select { |_name, used| used }.keys.map(&:name)
+        usage_name = usage.nil? ? nil : setting_name(usage, "Symbol")
+        debug_name = debugname.nil? ? nil : setting_name(debugname, "String")
         declarations = declarations(format, vertex ? true : false)
         native = Native::Graphics.new_buffer([
           declarations,
           native_content(content),
           names,
-          usage && EnumName.of(usage),
-          debugname&.to_s,
+          usage_name,
+          debug_name,
 ])
         mark_deprecated_bindings(native, location ? "#{location.path}:#{location.lineno}: " : "")
         from_native(native)
+      end
+
+      # A setting luax_optbuffersettings reads as a string: a Symbol or
+      # String as its name, a number as the text Lua makes of it, and a
+      # TypeError for anything else, which says it +expected+ a kind.
+      # :nodoc:
+      private_class_method def self.setting_name(value, expected)
+        return EnumName.of(value) if value.is_a?(Symbol) || value.is_a?(String)
+        return value.to_s if value.is_a?(Numeric)
+
+        raise TypeError, "wrong argument type #{value.class} (expected #{expected})"
       end
 
       # SPDX-SnippetBegin
