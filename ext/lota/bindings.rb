@@ -104,7 +104,8 @@ bound_by_hand "love.audio.getOutputSpatializationFilters",
 bound_by_hand "love.audio.getPlaybackDevices",
   reason: "fills a table in a loop, as love.audio.getOutputSpatializationFilters"
 bound_by_hand "love.audio.getRecordingDevices",
-  reason: "fills a table with the devices in a loop; Lota returns them as an Array"
+  reason: "fills a table with the devices in a loop; Lota returns them as an Array, without the nameless " \
+    "device LÖVE lists when nothing can record, which cannot start (doc/contributors/upstream/009.md)"
 bound_by_hand "love.audio.getActiveEffects",
   reason: "fills a table in a loop, as love.audio.getOutputSpatializationFilters"
 bound_by_hand "love.audio.pause",
@@ -1519,7 +1520,10 @@ bound_by_hand "Data:getString",
   reason: "pushes its bytes with lua_pushlstring from a pointer it computes with a C-style cast and pointer " \
     "arithmetic, which clang-tidy refuses; Lota reads the same bytes through a std::span"
 bound_by_hand "Data:performAtomic",
-  reason: "calls its function with lua_pcall while it holds the Data's lock; Lota calls the block"
+  reason: "calls its function with lua_pcall while it holds the Data's mutex; Lota calls the block while " \
+    "it holds a lock of its own on the Data, which keeps out every other perform_atomic, but not the " \
+    "engine's C++ that takes the mutex, since a thread that waited for that mutex would hold Ruby's GVL " \
+    "and could stop the block's thread and the collector for good (ext/lota/native/data.cpp, Holds)"
 bound_by_hand "Data:getFloat",
   reason: "returns w_Data_getT<float>, a template the parser does not follow, which pushes as many values as " \
     "it is asked for in a loop"
@@ -1687,7 +1691,8 @@ bound_by_hand "love.window.showMessageBox",
 bound_by_hand "love.window.showFileDialog",
   reason: "keeps its function in a Reference that a C++ callback calls from the event pump, and reads its " \
     "filters from a table with lua_next; Lota::Window.show_file_dialog fills a FileDialogData from its " \
-    "keywords and keeps the callable as a root of Ruby's collector until the callback calls it"
+    "keywords and keeps the callable as a root of Ruby's collector until the callback calls it, and drops " \
+    "the empty name a cancelled dialog reports on Linux (doc/contributors/upstream/027.md)"
 bound_by_hand "love.window.setMode",
   reason: "reads its settings table through readWindowSettings, which Lota::Window.set_mode ports to Ruby"
 generate "Font:getHeight"
@@ -1725,7 +1730,9 @@ bound_by_hand "File:read",
   reason: "reads its size at a position it computes (startidx), after a container type it reads only when " \
     "given; Lota reads the container type as a parameter that may be nil"
 bound_by_hand "File:write",
-  reason: "reads its argument as a string or a Data (lua_isstring, luax_istype); Lota binds each form"
+  reason: "reads its argument as a string or a Data (lua_isstring, luax_istype); Lota binds each form, " \
+    "and writes no more bytes than the string or Data holds, where LÖVE reads past its end for a larger " \
+    "size, since Ruby reads no memory past a String"
 bound_by_hand "File:lines",
   reason: "returns an iterator, a C closure over the File (w_File_lines_i), as love.filesystem.lines; " \
     "Lota binds the iterator's class, which reads from the File and restores its position"
