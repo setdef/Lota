@@ -104,6 +104,15 @@ class ShaderTest < Minitest::Test
     assert_equal "wrong argument type Array (expected String)", error.message
   end
 
+  # w_newComputeShader reads two sources through w_getShaderSource, which
+  # looks a file name up in each, and compiles the first it finds
+  # (src/modules/graphics/wrap_Graphics.cpp:1489-1530 and 1645-1651).
+  def test_a_compute_shader_reads_a_second_source_as_new_shader_does
+    error = assert_raises(RuntimeError) { Lota::Graphics::ComputeShader.new("void computemain() {}", "missing.glsl") }
+
+    assert_equal "Could not open file missing.glsl. Does not exist.", error.message
+  end
+
   # SPDX-SnippetEnd
 
   # Defines take a String, a number as Lua writes it, or a boolean as 1 or

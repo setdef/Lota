@@ -52,7 +52,7 @@ module Lota
 
       def warnings: () -> String
 
-      private def self.compute: (source first, Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
+      private def self.compute: (source first, source second, Thread::Backtrace::Location? location, ?defines: defines, ?debugname: String?, ?write: boolish) -> Shader
 
       def buffer_format: (String name) -> Array[BufferFormat]
 

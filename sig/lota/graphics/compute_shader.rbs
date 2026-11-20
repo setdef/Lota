@@ -4,7 +4,7 @@
 module Lota
   module Graphics
     module ComputeShader
-      def self.new: (Shader::source source, ?defines: Shader::defines, ?debugname: String?, ?write: boolish) -> Shader
+      def self.new: (Shader::source source, ?Shader::source second, ?defines: Shader::defines, ?debugname: String?, ?write: boolish) -> Shader
 
       def self.===: (::Object object) -> bool
     end

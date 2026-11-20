@@ -32,6 +32,9 @@ module Lota
       # [source] The GLSL source as a String, the name of a file in the
       #   game's folder that holds it, a Lota::Filesystem::File, or a
       #   Lota::Filesystem::FileData.
+      # [second] Another such source, or +nil+, read as
+      #   Lota::Graphics::Shader.new reads its second; LÖVE compiles only
+      #   the first source it finds, +source+ unless it is +nil+.
       # [defines] As Lota::Graphics::Shader.new takes them.
       # [debugname] As Lota::Graphics::Shader.new takes it.
       # [write] As Lota::Graphics::Shader.new takes it.
@@ -42,8 +45,8 @@ module Lota
       # === Example
       #
       #   Lota::Graphics::ComputeShader.new("compute.glsl", debugname: "simulate")
-      def self.new(source, defines: nil, debugname: nil, write: nil)
-        Shader.__send__(:compute, source, caller_locations(1, 1)&.first, defines:, debugname:, write:)
+      def self.new(source, second = nil, defines: nil, debugname: nil, write: nil)
+        Shader.__send__(:compute, source, second, caller_locations(1, 1)&.first, defines:, debugname:, write:)
       end
 
       # Whether +object+ is a Lota::Graphics::Shader with a compute stage.

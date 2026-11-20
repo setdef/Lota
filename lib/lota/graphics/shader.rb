@@ -114,8 +114,8 @@ module Lota
       # love.graphics.newComputeShader
       # (src/modules/graphics/wrap_Graphics.cpp, w_newComputeShader), as new
       # does a shader; +location+ is where a notice says it was made. :nodoc:
-      private_class_method def self.compute(first, location, defines: nil, debugname: nil, write: nil)
-        stages, pairs, name = source(first, nil, defines, debugname)
+      private_class_method def self.compute(first, second, location, defines: nil, debugname: nil, write: nil)
+        stages, pairs, name = source(first, second, defines, debugname)
         native = begin
           Native::Graphics.new_compute_shader(stages, name, pairs, write ? true : false)
         rescue RuntimeError => e

@@ -623,9 +623,9 @@ bound_by_hand "Shader:sendColor",
 
 # love.graphics: meshes, buffers, and particles
 bound_by_hand "love.graphics.newComputeShader",
-  reason: "reads its source and options through w_getShaderSource and rewrites a compile error through " \
+  reason: "reads its two sources and options through w_getShaderSource and rewrites a compile error through " \
     "_transformGLSLErrorMessages, as love.graphics.newShader; Lota::Graphics::ComputeShader.new ports both " \
-    "through Shader, and Lota binds the shader from the source and defines"
+    "through Shader, and Lota binds the shader from the first source and the defines"
 bound_by_hand "Mesh:getAttachedAttributes",
   reason: "builds a table of tables with lua_createtable and lua_setfield, and at the pinned commit sets each " \
     "attribute's table into itself (wrap_Mesh.cpp:412), so it returns an empty table, which Lota returns as an empty Array"
