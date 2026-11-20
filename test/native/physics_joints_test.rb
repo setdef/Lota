@@ -209,6 +209,25 @@ class PhysicsJointsTest < Minitest::Test
     refute_predicate joint, :limits_enabled?
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # newRevoluteJoint, newWeldJoint, and newPrismaticJoint read a reference
+  # angle with luaL_checknumber whenever lua_gettop reaches its place, so
+  # an explicit nil there raises rather than leave the angle out
+  # (wrap_Physics.cpp:546-548, 585-587, 689-691). newFrictionJoint has
+  # no reference angle, and reads nothing there (638-665).
+  def test_a_reference_angle_given_as_nil_raises
+    [
+      -> { Physics::RevoluteJoint.new(@ground, @body, 60, 0, 60, 0, false, nil) },
+      -> { Physics::WeldJoint.new(@ground, @body, 60, 0, 60, 0, false, nil) },
+      -> { Physics::PrismaticJoint.new(@ground, @body, 60, 0, 60, 0, 1, 0, false, nil) },
+    ].each { |factory| assert_raises(TypeError, &factory) }
+    assert_instance_of Physics::FrictionJoint, Physics::FrictionJoint.new(@ground, @body, 60, 0, 60, 0, false, nil)
+  end
+  # SPDX-SnippetEnd
+
   # A rope joint lets its Body no farther than its maximum length.
   def test_a_rope_joint_keeps_its_body_within_its_max_length
     joint = Physics::RopeJoint.new(@ground, @body, 0, 0, 60, 0, 90)

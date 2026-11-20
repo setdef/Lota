@@ -327,7 +327,7 @@ module Lota
       #
       #   Lota::Physics::RevoluteJoint.new(a, b, 10, 10, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide, angle = Joint.__send__(:anchored, arguments, 2)
+        anchors, collide, angle = Joint.__send__(:anchored, arguments, 2, reference: true)
         from_native(Native::Physics.new_revolute_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false),
           angle))
       end
@@ -579,7 +579,7 @@ module Lota
       #
       #   Lota::Physics::WeldJoint.new(a, b, 10, 10, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide, angle = Joint.__send__(:anchored, arguments, 2)
+        anchors, collide, angle = Joint.__send__(:anchored, arguments, 2, reference: true)
         from_native(Native::Physics.new_weld_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false), angle))
       end
 
@@ -644,7 +644,7 @@ module Lota
       #
       #   Lota::Physics::PrismaticJoint.new(a, b, 10, 10, 20, 20, true)
       def self.new(body1, body2, *arguments)
-        anchors, collide, angle = Joint.__send__(:anchored, arguments, 4)
+        anchors, collide, angle = Joint.__send__(:anchored, arguments, 4, reference: true)
         from_native(Native::Physics.new_prismatic_joint(body1.__send__(:native), body2.__send__(:native), anchors, flag(collide, false),
           angle))
       end
@@ -1296,12 +1296,14 @@ module Lota
       # LÖVE's choice of a joint factory's form by lua_gettop: the anchors,
       # as +short+ numbers, or two more when given, whether the Bodies
       # collide, and a reference angle, which comes only after both
-      # anchors. :nodoc:
-      private_class_method def self.anchored(arguments, short)
+      # anchors, and which LÖVE reads with luaL_checknumber wherever
+      # lua_gettop reaches it, so an explicit nil there is refused; a
+      # factory with no reference angle reads nothing there. :nodoc:
+      private_class_method def self.anchored(arguments, short, reference: false)
         long = short + 2
         count = (arguments.size >= long) ? long : short
-        angle = (count == long) ? arguments[count + 1] : nil
-        [arguments.first(count).map { |value| number(value) }, arguments[count], angle.nil? ? nil : number(angle)]
+        angle = (reference && count == long && arguments.size > count + 1) ? number(arguments[count + 1]) : nil
+        [arguments.first(count).map { |value| number(value) }, arguments[count], angle]
       end
 
       # A number a joint factory reads with luaL_checknumber. :nodoc:

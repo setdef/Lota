@@ -6,7 +6,7 @@ module Lota
     class Joint[out N < Native::Joint = Native::Joint] < Object[N]
       private def self.from_native: (Native::Joint native) -> instance
 
-      private def self.anchored: (Array[Float | Integer | bool | nil] arguments, Integer short) -> [Array[Float | Integer], (Float | Integer | bool)?, (Float | Integer)?]
+      private def self.anchored: (Array[Float | Integer | bool | nil] arguments, Integer short, ?reference: bool) -> [Array[Float | Integer], (Float | Integer | bool)?, (Float | Integer)?]
 
       private def self.number: (Float | Integer | bool | nil value) -> (Float | Integer)
 
