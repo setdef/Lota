@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Fuser
+    class Screen
+      WAITING: String
+
+      MAKING: String
+
+      QUEUED: String
+
+      MADE: String
+
+      FAILED: String
+
+      @entry: String
+
+      @command: Array[String]?
+
+      @log: String?
+
+      @pid: Integer?
+
+      @name: String?
+
+      @queue: Array[String]
+
+      @results: Array[String]
+
+      def initialize: (String entry, ?command: Array[String]?) -> void
+
+      def text: () -> String
+
+      def drop: (String path) -> void
+
+      def update: () -> void
+
+      private def idle?: () -> bool
+
+      private def start: () -> void
+
+      private def finish: (Process::Status status) -> void
+
+      private def command: () -> Array[String]
+
+      private def ruby: () -> String
+    end
+  end
+end
