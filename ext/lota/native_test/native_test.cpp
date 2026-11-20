@@ -23,7 +23,6 @@
 #include <array>
 #include <atomic>
 #include <bit>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -53,8 +52,6 @@
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_touch.h>
 #include <SDL3/SDL_video.h>
-
-#include <ruby/debug.h>
 
 #ifndef _WIN32
 #include <spawn.h>
@@ -1092,54 +1089,6 @@ void forget_a_block() {
   forgotten.store(nullptr);
 }
 
-// The collector's time by the wall clock, which rake bench reads
-// (tasks/bench/lota/main.rb, test/parity/probe.rb). GC.total_time adds up
-// the collecting thread's CPU time, or where the system has no clock for
-// it, the process's, which on Windows is GetProcessTimes' user time
-// (Ruby's gc/default/default.c, current_thread_time and
-// current_process_time). Windows advances that only at its clock's tick,
-// every 15.6 ms by default, so a collection shorter than a tick mostly
-// reads as none there. This clock adds up std::chrono::steady_clock's
-// nanoseconds from each RUBY_INTERNAL_EVENT_GC_ENTER to the GC_EXIT after
-// it, which Ruby raises around each step of a collection, marking and
-// sweeping alike (gc_enter and gc_exit). The hook runs inside the
-// collector, so it allocates nothing and calls nothing of Ruby's.
-struct GcClock {
-  std::chrono::steady_clock::time_point entered;
-  std::uint64_t nanoseconds = 0;
-  VALUE tracepoint = Qnil;
-};
-
-GcClock &gc_clock() {
-  static GcClock clock;
-  return clock;
-}
-
-void gc_clock_event(VALUE tracepoint, void * /*data*/) {
-  GcClock &clock = gc_clock();
-  const auto now = std::chrono::steady_clock::now();
-  if (rb_tracearg_event_flag(rb_tracearg_from_tracepoint(tracepoint)) ==
-      RUBY_INTERNAL_EVENT_GC_ENTER) {
-    clock.entered = now;
-    return;
-  }
-  clock.nanoseconds += static_cast<std::uint64_t>(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(now - clock.entered).count());
-}
-
-// The nanoseconds the collector has run since the clock started, which
-// the first call starts, and so answers 0.
-std::uint64_t gc_wall_time() {
-  GcClock &clock = gc_clock();
-  if (NIL_P(clock.tracepoint)) {
-    clock.tracepoint = rb_tracepoint_new(
-        Qnil, RUBY_INTERNAL_EVENT_GC_ENTER | RUBY_INTERNAL_EVENT_GC_EXIT, gc_clock_event, nullptr);
-    rb_gc_register_address(&clock.tracepoint);
-    rb_tracepoint_enable(clock.tracepoint);
-  }
-  return clock.nanoseconds;
-}
-
 constexpr bool sanitized() {
 #ifdef LOTA_SANITIZE
   return true;
@@ -1272,7 +1221,6 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
       .define_module_function("add_one", &add_one, Rice::Arg("number"))
       .define_module_function("forget_a_block", &forget_a_block)
       .define_module_function("sanitized?", &sanitized)
-      .define_module_function("gc_wall_time", &gc_wall_time)
       .define_module_function("hold", &hold, Rice::Arg("scancode"), Rice::Arg("down"))
       .define_module_function("scancode", &scancode, Rice::Arg("codepoint"))
       .define_module_function("press_mouse", &press_mouse, Rice::Arg("button"))
