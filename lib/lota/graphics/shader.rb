@@ -67,7 +67,9 @@ module Lota
       #
       # [first] The source of a pixel shader, a vertex shader, or both in
       #   one, as GLSL in a String; the name of a file in the game's
-      #   folder that holds it; or a Lota::Filesystem::FileData of it.
+      #   folder that holds it; or a Lota::Filesystem::File or
+      #   Lota::Filesystem::FileData of it. LÖVE passes over an argument of
+      #   another kind.
       # [second] Another such source, the other stage, or +nil+.
       # [defines] A Hash of names to define before the source, each with a
       #   String, number, or boolean value (true is 1, false 0), or an
@@ -85,9 +87,9 @@ module Lota
       #
       # Raises RuntimeError with LÖVE's message when the source does not
       # compile, a file cannot be read, or no window is open;
-      # ArgumentError for a malformed +defines+; TypeError for a source
-      # that is not a String or a FileData; and ThreadError off the main
-      # thread.
+      # ArgumentError for a malformed +defines+; TypeError, naming +first+,
+      # when neither source is a String or a file; and ThreadError off the
+      # main thread.
       #
       # === Examples
       #
@@ -135,19 +137,19 @@ module Lota
       private_class_method def self.source(first, second, defines, debugname)
         Native::Graphics.check_created
         stages = [first, second].filter_map { |argument| source_of(argument) }
-        raise TypeError, "wrong argument type nil (expected String)" if stages.empty?
+        raise TypeError, "wrong argument type #{first.class} (expected String)" if stages.empty?
 
         [stages, defines_of(defines), debugname_of(debugname)]
       end
 
       # One source argument (lines 1490-1530): its file's contents, when it
-      # names a file; nil when it is nil.
+      # names a file, or is a File or a FileData, which luax_getfiledata
+      # reads; nil for anything else, which LÖVE passes over.
       private_class_method def self.source_of(argument)
         case argument
-        when nil then nil
-        when Filesystem::FileData then argument.string
         when String then file_source(argument)
-        else raise TypeError, "wrong argument type #{argument.class} (expected String or Lota::Filesystem::FileData)"
+        when Filesystem::FileData then argument.string
+        when Filesystem::File then Filesystem::FileData.__send__(:from_native, Filesystem.__send__(:native_file_data, argument)).string
         end
       end
 

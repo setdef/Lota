@@ -289,4 +289,57 @@ class FontModuleFunctionsTest < Minitest::Test
     assert Lota::Graphics::ImageFont.new(image).glyphs?("AB")
     refute Lota::Graphics::ImageFont.new(image).glyphs?("C")
   end
+
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # luax_getfiledata, not asked for an I/O error, raises the engine's
+  # message when the File it reads cannot be read
+  # (src/modules/filesystem/wrap_Filesystem.cpp:353-366), here File::read's
+  # for a file that does not exist (physfs/File.cpp:107-109).
+  def test_a_file_that_cannot_be_read_raises_loves_error
+    missing, = Lota::Filesystem.open_file("resources/missing.ttf", :c)
+
+    [
+      -> { TrueTypeRasterizer.new(missing, 8) },
+      -> { Rasterizer.new(missing) },
+      -> { BMFontRasterizer.new(missing, nil) },
+    ].each do |make|
+      error = assert_raises(RuntimeError, &make)
+
+      assert_equal "Could not open file resources/missing.ttf. Does not exist.", error.message
+    end
+  end
+
+  # love.graphics.newFont converts its arguments through
+  # love.font.newRasterizer (wrap_Graphics.cpp:1388-1397), whose TrueType
+  # form takes any Data or a file name, File, or FileData, and whose
+  # one-argument form a file name, File, or FileData (wrap_Font.cpp:38-64
+  # and 122-145); a BMFont's pages may be Files (152-156).
+  def test_a_graphics_font_comes_from_a_file_or_any_data
+    expected = Lota::Graphics::Font.new(font_data, 8).height
+    bytes = Lota::Data::ByteData.new(File.binread(File.join(RESOURCES, "font.ttf")))
+    file, = Lota::Filesystem.open_file("resources/font.ttf", :c)
+    page, = Lota::Filesystem.open_file("resources/font-letters-ab.png", :c)
+
+    assert_equal expected, Lota::Graphics::Font.new(bytes, 8).height
+    assert_equal expected, Lota::Graphics::Font.new(file, 8).height
+    assert_equal Lota::Graphics::Font.new(font_data).height, Lota::Graphics::Font.new(file).height
+    assert Lota::Graphics::Font.new(bmfont_definition, page).glyphs?("A")
+  end
+
+  # love.graphics.newImageFont checks the glyphs are a string
+  # (wrap_Graphics.cpp:1417), then love.font.newImageRasterizer decodes
+  # the image, a File too, before it reads the spacing and the DPI scale
+  # (wrap_Font.cpp:152-156 and 198-207).
+  def test_an_image_font_reads_its_image_from_a_file_before_its_numbers
+    page, = Lota::Filesystem.open_file("resources/font-letters-ab.png", :c)
+
+    assert Lota::Graphics::ImageFont.new(page, "AB").glyphs?("AB")
+    error = assert_raises(TypeError) { Lota::Graphics::ImageFont.new(:image, "AB", "wide") }
+    assert_equal "wrong argument type Symbol (expected Lota::Image::ImageData)", error.message
+  end
+
+  # SPDX-SnippetEnd
 end

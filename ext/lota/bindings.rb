@@ -486,8 +486,9 @@ bound_by_hand "love.graphics.readbackTexture",
 bound_by_hand "love.graphics.newFont",
   reason: "chooses among its forms by its arguments' kinds, and makes its Rasterizer through love.font's " \
     "wrap functions (w_newRasterizer, w_newTrueTypeRasterizer), which read a settings table; Lota binds the " \
-    "default font at a size, a TrueType font in FileData at a size, a font from FileData alone, and a font " \
-    "from a Rasterizer"
+    "default font at a size, a TrueType font in any Data at a size, a font from FileData alone, a BMFont, " \
+    "and a font from a Rasterizer, and Lota::Graphics::Font.new reads a file name or a File into FileData " \
+    "as luax_getfiledata does"
 generate "love.graphics.getFont"
 generate "love.graphics.getDefaultFilter"
 bound_by_hand "love.graphics.print",
@@ -601,7 +602,8 @@ bound_by_hand "love.graphics.getTextureTypes",
 generate "love.graphics.setShader"
 generate "love.graphics.getShader"
 bound_by_hand "love.graphics.newShader",
-  reason: "reads its sources from strings, files, or FileData and its options table in w_getShaderSource, " \
+  reason: "reads its sources from strings, file names, Files, or FileData and its options table in " \
+    "w_getShaderSource, " \
     "and rewrites a compile error through _transformGLSLErrorMessages in wrap_Graphics.lua; " \
     "Lota::Graphics::Shader.new ports both to Ruby, and Lota binds the shader from the sources and defines"
 bound_by_hand "love.graphics.validateShader",

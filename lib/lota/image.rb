@@ -41,7 +41,7 @@ module Lota
     #   Lota::Image.compressed?("assets/ship.dds") # => true
     #   Lota::Image.compressed?("assets/ship.png") # => false
     def self.compressed?(file)
-      Native::Image.compressed?(data_of(file))
+      Native::Image.compressed?(Filesystem.__send__(:native_data, file))
     end
 
     # Cuts a cube map out of one image, matching love.image.newCubeFaces
@@ -67,28 +67,6 @@ module Lota
       end
 
       Native::Image.new_cube_faces(image_data.__send__(:native)).map { |native| ImageData.__send__(:from_native, native) }
-    end
-
-    # The engine's Data of +file+, as luax_getdata reads it
-    # (src/modules/filesystem/wrap_Filesystem.cpp:381-411): a String names
-    # a file in the game's folder, a Lota::Filesystem::File is read to its
-    # end, and a Lota::Data is used as it is. :nodoc:
-    private_class_method def self.data_of(file)
-      case file
-      when String then Native::Filesystem.file_data(file)
-      when Filesystem::File then read_file(file)
-      when Lota::Data then file.__send__(:native)
-      else raise TypeError, "wrong argument type #{file.class} (expected filename, File, or Data)"
-      end
-    end
-
-    # The engine's FileData of what +file+ reads to its end, or LÖVE's
-    # message, as luax_catchexcept raises it, when it reads none. :nodoc:
-    private_class_method def self.read_file(file)
-      data, message = file.read(:data)
-      raise message.to_s unless data.is_a?(Filesystem::FileData)
-
-      data.__send__(:native)
     end
   end
 end

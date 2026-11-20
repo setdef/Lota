@@ -95,7 +95,7 @@ module Lota
           else rawdata
           end
           Native::Image.new_sized_image_data(source, Integer(height), format && EnumName.of(format), bytes)
-        else Native::Image.new_image_data(Image.__send__(:data_of, source))
+        else Native::Image.new_image_data(Filesystem.__send__(:native_data, source))
         end
         freeze
       end

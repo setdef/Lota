@@ -79,6 +79,33 @@ class ShaderTest < Minitest::Test
     assert_raises(TypeError) { Lota::Graphics::Shader.new(1) }
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_getShaderSource reads a File as it reads a FileData, through
+  # luax_getfiledata, passes over an argument that is neither a string nor
+  # a file, and asks for a string at the first only when neither is one
+  # (src/modules/graphics/wrap_Graphics.cpp:1489-1504 and 1533-1538).
+  def test_a_source_can_be_a_file_object_and_another_kind_is_passed_over
+    code = "vec4 effect(vec4 c, Image t, vec2 tc, vec2 pc) { return vec4(0.0, 1.0, 0.0, 1.0); }\n"
+    in_identity("lota-shader-test") do
+      Lota::Filesystem.write("green.glsl", code)
+      file, = Lota::Filesystem.open_file("green.glsl", :c)
+
+      assert_color [0, 1, 0, 1], drawn(Lota::Graphics::Shader.new(file))
+      assert_equal [true], Lota::Graphics.validate_shader(false, file)
+    ensure
+      Lota::Filesystem.remove("green.glsl")
+    end
+
+    assert_color [0, 1, 0, 1], drawn(Lota::Graphics::Shader.new([], code))
+    error = assert_raises(TypeError) { Lota::Graphics::Shader.new([]) }
+    assert_equal "wrong argument type Array (expected String)", error.message
+  end
+
+  # SPDX-SnippetEnd
+
   # Defines take a String, a number as Lua writes it, or a boolean as 1 or
   # 0, and an Array's names define nothing (lines 1547-1582).
   def test_defines_are_set_before_the_source

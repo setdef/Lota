@@ -38,19 +38,6 @@ module Lota
   #   rasterizer = Lota::Font::Rasterizer.new("assets/pixel.ttf", 8)
   #   rasterizer.glyph_data("a").advance
   module Font
-    # The FileData of +source+, read as luax_getfiledata reads a font file
-    # (src/modules/filesystem/wrap_Filesystem.cpp:332-379): a String names
-    # a file in the game's folder, and a Lota::Filesystem::File is read
-    # whole. :nodoc:
-    private_class_method def self.file_data(source)
-      case source
-      when String then Native::Filesystem.file_data(source)
-      when Filesystem::File then read_file(source)
-      when Filesystem::FileData then source.__send__(:native)
-      else raise TypeError, "wrong argument type #{source.class} (expected filename, File, or FileData)"
-      end
-    end
-
     # The ImageData of +image+, which LÖVE converts as convimagedata does
     # (src/modules/font/wrap_Font.cpp:152-156), through
     # love.image.newImageData: a file name, a Lota::Filesystem::File, or a
@@ -59,24 +46,9 @@ module Lota
     private_class_method def self.image_data(image)
       case image
       when Image::ImageData then image.__send__(:native)
-      when String, Filesystem::FileData then Image::ImageData.new(image).__send__(:native)
-      when Filesystem::File then Image::ImageData.new(file_data_of(image)).__send__(:native)
+      when String, Filesystem::File, Filesystem::FileData then Image::ImageData.new(image).__send__(:native)
       else raise TypeError, "wrong argument type #{image.class} (expected Lota::Image::ImageData)"
       end
-    end
-
-    # The Lota::Filesystem::FileData +file+ reads whole. :nodoc:
-    private_class_method def self.file_data_of(file)
-      Filesystem::FileData.__send__(:from_native, read_file(file))
-    end
-
-    # The engine's FileData of what +file+ reads from where it is to its
-    # end, as File:read reads it into a FileData. :nodoc:
-    private_class_method def self.read_file(file)
-      data, = file.read(:data)
-      raise TypeError, "#{file.filename} read no FileData" unless data.is_a?(Filesystem::FileData)
-
-      data.__send__(:native)
     end
 
     # A number LÖVE reads with luaL_optnumber, for +name+, or +nil+ to

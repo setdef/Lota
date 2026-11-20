@@ -47,6 +47,12 @@ module Lota
 
     private def self.file_data_of: (::Object source) -> ([FileData] | [nil, String])
 
+    private def self.native_data: (::Object? source) -> Native::Data::Data
+
+    private def self.native_file_data: (::Object? source) -> Native::FileData
+
+    private def self.native_read: (File file) -> Native::FileData
+
     private def self.read_into: (String? container, String filename, Integer? size) -> ([String | FileData, Integer] | [nil, String])
 
     private def self.opened: (Array[Native::File | nil | String] results) -> ([File] | [nil, String])

@@ -16,7 +16,7 @@ module Lota
         def self.new: (name: String, format: Symbol, arraylength: Integer) -> instance
       end
 
-      type source = String | Filesystem::FileData | nil
+      type source = String | Filesystem::File | Filesystem::FileData | nil
 
       type defines = Hash[String | Symbol, String | Integer | Float | bool] | Array[String | Symbol] | nil
 
@@ -28,7 +28,7 @@ module Lota
 
       private def self.source: (source first, source second, defines defines, String? debugname) -> [Array[String], Array[[String, String]], String]
 
-      private def self.source_of: (source argument) -> String?
+      private def self.source_of: (::Object? argument) -> String?
 
       private def self.file_source: (String code) -> String
 

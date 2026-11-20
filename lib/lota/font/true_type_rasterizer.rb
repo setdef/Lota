@@ -90,7 +90,7 @@ module Lota
         hinting, dpiscale = settings(legacy, hinting, dpiscale, sdf)
         return Native::Font.new_default_truetype_rasterizer(size, hinting, dpiscale, sdf) if source.nil?
 
-        data = source.is_a?(Data) ? source.__send__(:native) : Font.__send__(:file_data, source)
+        data = source.is_a?(Data) ? source.__send__(:native) : Filesystem.__send__(:native_file_data, source)
         Native::Font.new_truetype_rasterizer(data, size, hinting, dpiscale, sdf)
       end
 

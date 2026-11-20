@@ -70,7 +70,7 @@ module Lota
         raise ArgumentError, "wrong number of arguments (given #{arguments.size}, expected 1..3)" if arguments.size > 3
 
         definition, images, dpiscale = arguments
-        data = Font.__send__(:file_data, definition)
+        data = Filesystem.__send__(:native_file_data, definition)
         dpiscale = Font.__send__(:optional_number, dpiscale, "dpiscale")
         pages = images.is_a?(Array) ? images : [images].compact
         Native::Font.new_bmfont_rasterizer(data, pages.map { |image| Font.__send__(:image_data, image) }, dpiscale)

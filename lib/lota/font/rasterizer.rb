@@ -76,7 +76,7 @@ module Lota
         @native = if arguments.empty? || first.is_a?(Numeric) || second.is_a?(Numeric)
           TrueTypeRasterizer.__send__(:native, arguments, hinting, dpiscale, sdf)
         elsif second.nil?
-          Native::Font.new_rasterizer(Font.__send__(:file_data, first))
+          Native::Font.new_rasterizer(Filesystem.__send__(:native_file_data, first))
         else
           BMFontRasterizer.__send__(:native, arguments, !hinting.nil? || !dpiscale.nil? || sdf)
         end

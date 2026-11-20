@@ -4,7 +4,7 @@
 module Lota
   module Graphics
     module TextureSettings
-      type source = String | Filesystem::FileData | Lota::Image::ImageData | Lota::Data
+      type source = String | Filesystem::File | Filesystem::FileData | Lota::Image::ImageData | Lota::Data
 
       type images = source | Array[source | Array[source]]
 

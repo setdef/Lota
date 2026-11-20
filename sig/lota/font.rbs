@@ -7,13 +7,7 @@ module Lota
 
     type image = Image::ImageData | file
 
-    private def self.file_data: (::Object? source) -> Native::FileData
-
     private def self.image_data: (::Object? image) -> Native::ImageData
-
-    private def self.file_data_of: (Filesystem::File file) -> Filesystem::FileData
-
-    private def self.read_file: (Filesystem::File file) -> Native::FileData
 
     private def self.optional_number: (::Object? value, String name) -> (Float | Integer)?
 

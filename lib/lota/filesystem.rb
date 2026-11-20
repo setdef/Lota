@@ -479,6 +479,52 @@ module Lota
       end
     end
 
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+
+    # The engine's Data of +source+, as luax_getdata reads it
+    # (src/modules/filesystem/wrap_Filesystem.cpp:381-411) for every
+    # function that takes a file or any Data, such as love.image's and
+    # love.graphics's images: a String names a file in the game's folder or
+    # its save directory, a Lota::Filesystem::File is read, and a Lota::Data
+    # is used as it is. :nodoc:
+    private_class_method def self.native_data(source)
+      case source
+      when String then Native::Filesystem.file_data(source)
+      when File then native_read(source)
+      when Lota::Data then source.__send__(:native)
+      else raise TypeError, "wrong argument type #{source.class} (expected filename, File, or Data)"
+      end
+    end
+
+    # The engine's FileData of +source+, as luax_getfiledata reads it when
+    # not asked for an I/O error (lines 332-379), for every function that
+    # takes a file, such as love.font's and love.graphics.newShader's: a
+    # String names a file, a Lota::Filesystem::File is read, and a
+    # Lota::Filesystem::FileData is used as it is. :nodoc:
+    private_class_method def self.native_file_data(source)
+      case source
+      when String then Native::Filesystem.file_data(source)
+      when File then native_read(source)
+      when FileData then source.__send__(:native)
+      else raise TypeError, "wrong argument type #{source.class} (expected filename, File, or FileData)"
+      end
+    end
+
+    # The engine's FileData of what +file+ reads from where it is to its
+    # end, as File::read reads it (src/modules/filesystem/File.cpp:39-75),
+    # or LÖVE's message, as luaL_error raises it (wrap_Filesystem.cpp:
+    # 353-366 and 402-407), when it reads none. :nodoc:
+    private_class_method def self.native_read(file)
+      data, message = file.read(:data)
+      raise message.to_s unless data.is_a?(FileData)
+
+      data.__send__(:native)
+    end
+
+    # SPDX-SnippetEnd
+
     # +results+, as Native::Filesystem.open_file and open_native_file give
     # them, as their Ruby methods return them: the Lota::Filesystem::File,
     # or +nil+ and LÖVE's message. :nodoc:

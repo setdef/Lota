@@ -30,7 +30,8 @@ module Lota
       # (src/modules/graphics/wrap_Graphics.cpp, w_newComputeShader).
       #
       # [source] The GLSL source as a String, the name of a file in the
-      #   game's folder that holds it, or a Lota::Filesystem::FileData.
+      #   game's folder that holds it, a Lota::Filesystem::File, or a
+      #   Lota::Filesystem::FileData.
       # [defines] As Lota::Graphics::Shader.new takes them.
       # [debugname] As Lota::Graphics::Shader.new takes it.
       # [write] As Lota::Graphics::Shader.new takes it.

@@ -69,12 +69,31 @@ class TextureTest < Minitest::Test
     assert_equal BLACK, image.pixel(40, 40)
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # getImageData decodes anything luax_cangetdata takes, a File too, and
+  # reads anything else with luax_checkimagedata
+  # (src/modules/graphics/wrap_Graphics.cpp:714-745;
+  # src/modules/filesystem/wrap_Filesystem.cpp:381-426), as every
+  # texture constructor does.
+  def test_a_texture_from_a_file_object_draws_the_files_pixels
+    file, = Lota::Filesystem.open_file("resources/love.png", :c)
+    image = drawn { Lota::Graphics.draw(Lota::Graphics::Texture.new(file)) }
+    layers = Lota::Graphics::ArrayTexture.new([file, file])
+
+    assert_equal logo.pixel(10, 32), image.pixel(10, 32)
+    assert_equal 2, layers.layer_count
+  end
+
   def test_a_texture_needs_an_image
     error = assert_raises(TypeError) { Lota::Graphics::Texture.new(:ship) }
 
-    assert_equal "wrong argument type Symbol (expected String, Lota::Filesystem::FileData, or " \
-      "Lota::Image::ImageData)", error.message
+    assert_equal "wrong argument type Symbol (expected Lota::Image::ImageData)", error.message
   end
+
+  # SPDX-SnippetEnd
 
   def test_a_file_that_is_not_there_raises_loves_error
     texture = assert_raises(RuntimeError) { Lota::Graphics::Texture.new("resources/missing.png") }

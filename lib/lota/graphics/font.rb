@@ -48,10 +48,11 @@ module Lota
       # (src/modules/font/wrap_Font.cpp, w_newRasterizer and
       # w_newTrueTypeRasterizer).
       #
-      # [data] String name of a font file in the game's folder, or a
-      #   Lota::Filesystem::FileData, holding a TrueType or OpenType font,
-      #   or a BMFont definition when +size+ is left out; leave it out for
-      #   LÖVE's default font.
+      # [data] String name of a font file in the game's folder, a
+      #   Lota::Filesystem::File, or a Lota::Filesystem::FileData, holding a
+      #   TrueType or OpenType font, or a BMFont definition when +size+ is
+      #   left out; with a +size+, also any Lota::Data holding a font; leave
+      #   it out for LÖVE's default font.
       # [size] Integer height in pixels: 13 by default for LÖVE's default
       #   font, and 12 for a TrueType font in +data+. LÖVE reads it with
       #   luaL_optinteger, so a Float is cut to the whole number toward 0,
@@ -76,9 +77,9 @@ module Lota
       #
       # A BMFont, a font LÖVE reads from a text definition and the images
       # of its glyphs, takes the definition in +data+ and then the images
-      # in place of the size: an ImageData, a file name, or a FileData, or
-      # an Array of them, one for each page of the font, in order, then
-      # optionally the DPI scale. A page left out is read from the
+      # in place of the size: an ImageData, a file name, a File, or a
+      # FileData, or an Array of them, one for each page of the font, in
+      # order, then optionally the DPI scale. A page left out is read from the
       # definition's folder. The images must be 32-bit RGBA. Hinting and
       # the other settings are for TrueType fonts only, and raise
       # ArgumentError with a BMFont.
@@ -108,7 +109,7 @@ module Lota
           return
         end
 
-        data = first if first.is_a?(Filesystem::FileData) || first.is_a?(String)
+        data = first unless first.nil? || first.is_a?(Numeric)
         if data && !arguments[1].nil? && !arguments[1].is_a?(Numeric)
           initialize_bmfont(data, arguments.drop(1), !hinting.nil? || !dpiscale.nil? || sdf)
           return
@@ -137,30 +138,21 @@ module Lota
         raise ArgumentError, "a BMFont takes no hinting, dpiscale:, or sdf: settings" if settings
         raise ArgumentError, "wrong number of arguments (given #{more.size + 3}, expected 2..3)" unless more.empty?
 
+        definition = Filesystem.__send__(:native_file_data, data)
         dpiscale = case dpiscale
         when Float, Integer, nil then dpiscale
         else raise TypeError, "wrong argument type #{dpiscale.class} (expected Float)"
         end
-        pages = (images.is_a?(Array) ? images : [images]).map { |image| Font.__send__(:image_data, image).native }
-        definition = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
+        pages = (images.is_a?(Array) ? images : [images]).map { |image| Lota::Font.__send__(:image_data, image) }
         @native = Native::Graphics.new_bmfont(definition, pages, dpiscale)
-      end
-
-      # The ImageData for +image+, which LÖVE reads as luax_convobj does
-      # for the image module's newImageData (src/modules/font/wrap_Font.cpp,
-      # convimagedata): a file name or a FileData is decoded. :nodoc:
-      private_class_method def self.image_data(image)
-        case image
-        when Lota::Image::ImageData then image
-        when String, Filesystem::FileData then Lota::Image::ImageData.new(image)
-        else raise TypeError, "wrong argument type #{image.class} (expected Lota::Image::ImageData)"
-        end
       end
 
       # The engine's Font, made as w_newRasterizer chooses: LÖVE's default
       # font without data, the font in +data+ at LÖVE's default size
-      # without a size, and a TrueType font otherwise. A file name is read
-      # as luax_getfiledata reads one (wrap_Filesystem.cpp:308-379).
+      # without a size, and a TrueType font otherwise. A file name or a
+      # File is read as luax_getfiledata reads it (wrap_Filesystem.cpp:
+      # 308-379), and a TrueType font takes any Data as it is
+      # (wrap_Font.cpp:131-138).
       private def native_font(data, size, hinting, dpiscale, sdf)
         size = case size
         when Integer, nil then size
@@ -177,12 +169,10 @@ module Lota
         end
         return Native::Graphics.new_default_font(size, hinting, dpiscale, sdf) if data.nil?
 
-        native = data.is_a?(String) ? Native::Filesystem.file_data(data) : data.native
-        if size.nil?
-          Native::Graphics.new_font_from_file(native)
-        else
-          Native::Graphics.new_truetype_font(native, size, hinting, dpiscale, sdf)
-        end
+        return Native::Graphics.new_font_from_file(Filesystem.__send__(:native_file_data, data)) if size.nil?
+
+        native = data.is_a?(Lota::Data) ? data.__send__(:native) : Filesystem.__send__(:native_file_data, data)
+        Native::Graphics.new_truetype_font(native, size, hinting, dpiscale, sdf)
       end
 
       # The height of a line of text, without the line height's spacing,

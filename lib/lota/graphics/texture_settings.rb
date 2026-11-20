@@ -120,9 +120,9 @@ module Lota
 
       # What Lota::Graphics passes the engine for each image getImageData
       # reads (wrap_Graphics.cpp:714-745): an ImageData's engine object as
-      # it is, and a file name, a FileData, or other Data as the engine's
-      # Data, which it decodes, with an Array, and an Array of Arrays, of
-      # them kept as Arrays.
+      # it is, and a file name, a File, a FileData, or other Data as the
+      # engine's Data, which it decodes, with an Array, and an Array of
+      # Arrays, of them kept as Arrays.
       def self.images(source)
         case source
         when Array then source.map { |item| item.is_a?(Array) ? item.map { |image| image(image) } : image(item) }
@@ -130,15 +130,15 @@ module Lota
         end
       end
 
-      # One image's engine object, as images makes it.
+      # One image's engine object, as images makes it: a file name, a
+      # Lota::Filesystem::File, or any Lota::Data, an ImageData among them, as
+      # luax_getdata reads them (src/modules/filesystem/wrap_Filesystem.cpp:
+      # 381-426), and a TypeError for anything else, as luax_checkimagedata
+      # raises.
       private_class_method def self.image(source)
         case source
-        when String then Native::Filesystem.file_data(source)
-        when Lota::Image::ImageData, Lota::Data then source.__send__(:native)
-        else
-          raise TypeError,
-            "wrong argument type #{source.class} (expected String, Lota::Filesystem::FileData, or " \
-              "Lota::Image::ImageData)"
+        when String, Filesystem::File, Lota::Data then Filesystem.__send__(:native_data, source)
+        else raise TypeError, "wrong argument type #{source.class} (expected Lota::Image::ImageData)"
         end
       end
 

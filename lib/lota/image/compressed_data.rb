@@ -48,7 +48,7 @@ module Lota
       #
       #   Lota::Image::CompressedData.new("assets/ship.dds").format # => :DXT1
       def self.new(file)
-        native = Native::Image.new_compressed_data(Image.__send__(:data_of, file))
+        native = Native::Image.new_compressed_data(Filesystem.__send__(:native_data, file))
         CompressedImageData.__send__(:from_native, native)
       end
 

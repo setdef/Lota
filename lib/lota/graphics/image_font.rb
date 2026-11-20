@@ -36,8 +36,9 @@ module Lota
       # (src/modules/font/wrap_Font.cpp, w_newImageRasterizer).
       #
       # [image] String name of an image file in the game's folder, a
-      #   Lota::Filesystem::FileData holding an image file, or a
-      #   Lota::Image::ImageData; or a Lota::Font::Rasterizer, such as
+      #   Lota::Filesystem::File or a Lota::Filesystem::FileData holding an
+      #   image file, or a Lota::Image::ImageData; or a
+      #   Lota::Font::Rasterizer, such as
       #   Lota::Font::ImageRasterizer.new makes, whose glyphs the font
       #   draws, in which case the other arguments are ignored, as LÖVE
       #   ignores them.
@@ -62,6 +63,7 @@ module Lota
 
         raise TypeError, "wrong argument type #{glyphs.class} (expected String)" unless glyphs.is_a?(String)
 
+        data = Lota::Font.__send__(:image_data, image)
         extraspacing = case extraspacing
         when Integer, nil then extraspacing
         when Float then extraspacing.truncate
@@ -71,8 +73,7 @@ module Lota
         when Float, Integer, nil then dpiscale
         else raise TypeError, "wrong argument type #{dpiscale.class} (expected Float)"
         end
-        data = Font.__send__(:image_data, image)
-        Font.__send__(:from_native, Native::Graphics.new_image_font(data.__send__(:native), glyphs, extraspacing, dpiscale))
+        Font.__send__(:from_native, Native::Graphics.new_image_font(data, glyphs, extraspacing, dpiscale))
       end
 
       # Whether +object+ is a Lota::Graphics::Font, which every font
