@@ -108,7 +108,7 @@ module Lota
         transform = placement.first
         return @native.add_with_transform(colored, transform.native) if transform.is_a?(Math::Transform)
 
-        @native.add(colored, Graphics.__send__(:standard_placement, *numbers(placement)))
+        @native.add(colored, Graphics.__send__(:standard_placement, *placement))
       end
 
       # Adds +text+ wrapped at +wraplimit+ and aligned within it, and
@@ -131,19 +131,7 @@ module Lota
         transform = placement.first
         return @native.addf_with_transform(colored, wraplimit, align, transform.native) if transform.is_a?(Math::Transform)
 
-        @native.addf(colored, wraplimit, align, Graphics.__send__(:standard_placement, *numbers(placement)))
-      end
-
-      # The numbers in +placement+, which holds a Transform only in place
-      # of all of them.
-      private def numbers(placement)
-        numbers = [] #: Array[Float | Integer | nil]
-        placement.each do |number|
-          case number
-          when Float, Integer, nil then numbers << number
-          end
-        end
-        numbers
+        @native.addf(colored, wraplimit, align, Graphics.__send__(:standard_placement, *placement))
       end
 
       # Removes all the text, matching TextBatch:clear

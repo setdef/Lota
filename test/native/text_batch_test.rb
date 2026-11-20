@@ -117,6 +117,23 @@ class TextBatchTest < Minitest::Test
     assert_raises(TypeError) { batch.setf("ab", nil, :left) }
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_TextBatch_add and w_TextBatch_addf read each number of the
+  # placement with luaL_optnumber (wrap_TextBatch.cpp:81-89 and 123-131),
+  # which raises for anything but a number or nil.
+  def test_add_and_addf_raise_for_a_placement_that_is_not_a_number
+    text = batch
+
+    assert_raises(TypeError) { text.add("ab", 1, :two) }
+    assert_raises(TypeError) { text.addf("ab", 32, :left, 1, :two) }
+    assert_equal 0, text.width
+  end
+
+  # SPDX-SnippetEnd
+
   def test_colored_text_draws_in_its_colors
     red = drawn { Lota::Graphics.draw(batch([[1, 0, 0], "love"]), 0, 3) }
     plain = drawn { Lota::Graphics.draw(batch("love"), 0, 3) }

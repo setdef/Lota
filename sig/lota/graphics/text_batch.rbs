@@ -16,8 +16,6 @@ module Lota
 
       def addf: (Graphics::text text, Float | Integer wraplimit, Symbol | String align, *(Math::Transform | Float | Integer)? placement) -> Integer
 
-      private def numbers: (Array[Math::Transform | Float | Integer | nil] placement) -> Array[Float | Integer | nil]
-
       def clear: () -> nil
 
       def font=: (Font font) -> void

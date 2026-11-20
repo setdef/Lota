@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics::TextBatch#add` and `#addf` raise TypeError for a placement value that is not a number, as LÖVE does, where they dropped it and read the numbers after it in its place.
 - `Lota::Graphics.clear(nil)` clears to transparent black, and `Lota::Graphics.scissor =` four `nil`s or an empty Array stops clipping, as LÖVE does, where they raised.
 - `Lota::Graphics.set_canvas(depthstencil: target)` with no canvases draws to that target alone, and `Lota::Graphics.canvas` is then empty, as LÖVE does, where it drew to the window again.
 - `Lota::Graphics::Texture#replace_pixels` takes a `Lota::Image::CompressedImageData`, and the mipmap of it to copy as a new last argument, as LÖVE does, where it raised TypeError.
