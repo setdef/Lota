@@ -554,6 +554,8 @@ module Lota
       # bytes, and <tt>queue(sounddata, offset, length)</tt> those from
       # +offset+, as LÖVE counts its arguments. LÖVE also queues from a
       # pointer, a light userdata Ruby has no counterpart for. Raises
+      # TypeError for a +sounddata+ that is not a SoundData, and for an
+      # +offset+ or +length+ given that is not a number, +nil+ too. Raises
       # RuntimeError (<tt>"Data region out of bounds."</tt>) for bytes
       # +sounddata+ does not hold, and with LÖVE's message for a Source
       # that is not <tt>:queue</tt> or for samples that do not match it.
@@ -562,6 +564,11 @@ module Lota
       #
       #   synth.queue(Lota::Sound::SoundData.new(1024, 44_100, 16, 1)) # => true
       def queue(sounddata, *region)
+        unless sounddata.is_a?(Sound::SoundData)
+          raise TypeError, "wrong argument type #{sounddata.class} (expected Lota::Sound::SoundData)"
+        end
+
+        region.each { |number| Source.__send__(:number, number) } if region.size <= 2
         offset, length = (region.size == 2) ? region : [0, region.first]
         @native.queue(sounddata.native, offset || 0, length)
       end

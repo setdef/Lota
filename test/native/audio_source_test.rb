@@ -204,6 +204,22 @@ class AudioSourceTest < Minitest::Test
     assert_empty mono.active_effects
   end
 
+  # w_Source_queue (wrap_Source.cpp:540-585) reads the length, or the
+  # offset and length, with luaL_checknumber when given them, so nil
+  # raises, and refuses anything but a SoundData with luax_typerror.
+  def test_queue_takes_a_sound_data_and_numbers_for_its_region
+    synth = Lota::Audio::QueueableSource.new(44_100, 16, 1)
+    data = Lota::Sound::SoundData.new(1024, 44_100, 16, 1)
+
+    error = assert_raises(TypeError) { synth.queue("samples") }
+    assert_equal "wrong argument type String (expected Lota::Sound::SoundData)", error.message
+    error = assert_raises(TypeError) { synth.queue(data, nil) }
+    assert_equal "wrong argument type NilClass (expected Float or Integer)", error.message
+    assert_raises(TypeError) { synth.queue(data, 0, nil) }
+    assert_raises(TypeError) { synth.queue(data, "0", 16) }
+    assert synth.queue(data, 16)
+  end
+
   def test_orientation_needs_six_numbers
     assert_raises(TypeError) { Lota::Audio.orientation = 1, 2, 3 }
   end
