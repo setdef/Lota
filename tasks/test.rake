@@ -33,6 +33,7 @@ TEST_SUITES = {
 UNIT_TESTS = %w[
   test/archive_test.rb
   test/cli_test.rb
+  test/fuser_test.rb
   test/notices_test.rb
   test/restart_snapshot_test.rb
   test/restart_test.rb

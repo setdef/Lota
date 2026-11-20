@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  class Fuser
+    class Error < StandardError
+    end
+
+    interface _Variables
+      def fetch: (String name, String default) -> String
+    end
+
+    BUILD: String
+
+    PROJECT: String
+
+    MKSQUASHFS: String
+
+    def self.main: (String entry, Array[String] arguments, ?out: IO | StringIO, ?err: IO | StringIO) -> Integer
+
+    def self.usage: (IO | StringIO err) -> Integer
+
+    def self.app_folder: (String entry) -> String
+
+    @archive: String
+
+    @app: String
+
+    @notices: String
+
+    @out: String
+
+    @fledge: Array[String]?
+
+    @env: _Variables
+
+    def initialize: (String archive, app: String, notices: String, out: String, ?fledge: Array[String]?, ?env: _Variables) -> void
+
+    def call: () -> Array[String]
+
+    def self.fledge_yml: (String name, String identity, linux: bool, squashfs: bool) -> String
+
+    private def unpack: (String cache) -> String
+
+    private def read_settings: (String game) -> Settings
+
+    private def write_project: (String project, String game, Settings settings) -> void
+
+    private def build: (String project) -> Array[String]
+
+    private def fledge: () -> Array[String]
+
+    private def linux?: () -> bool
+
+    private def executable: (String name) -> String?
+  end
+end
