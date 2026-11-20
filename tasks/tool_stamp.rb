@@ -6,7 +6,6 @@
 #++
 
 require "fileutils"
-require "pathname"
 
 # The programs ext/lota/extconf.rb names to CMake, recorded so that the
 # extension's builds are configured again when one of them is another.
