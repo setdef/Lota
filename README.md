@@ -244,7 +244,6 @@ It builds for the computer it runs on, so build each platform's app on that plat
 | [Sharing a game](doc/guide/sharing.md) | What `lota fuse` writes for each platform, what it needs, signing and notarizing, leaving files out, and how it ships your gems |
 | [Making a game on Windows](doc/guide/windows.md) | Getting the Ruby Lota needs on Windows, pointing it at MSYS2, and the gems that compile there |
 | [Building a game for iPhone, iPad, and Android](doc/guide/phones.md) | The experimental phone build: the iOS kit your game's CI can call, the build by hand for iOS and Android, devices, the App Store and Google Play, the notices an app carries, and what has run |
-| [Performance](doc/guide/performance.md) | What a frame of a published game costs in Lota and in LÖVE, how much of it is Ruby, what YJIT and ZJIT change, and how long the garbage collector pauses, from Lota's own benchmark |
 | [LÖVE's wiki](https://love2d.org/wiki/Main_Page) | What each function does. Look up a Lota method under its LÖVE name |
 | [CHANGELOG](CHANGELOG.md) | What changed in each release |
 | [Agent skill](skills/lota-gamedev/SKILL.md) | A skill for coding agents that write Lota games: where the API is documented, what differs on phones, and how to test and ship. It is in the installed gem (`gem contents lota \| grep SKILL.md`), and `gh skill install setdef/Lota lota-gamedev` or `npx skills add setdef/Lota` installs it from a release |

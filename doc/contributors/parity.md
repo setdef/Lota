@@ -33,8 +33,6 @@ When a frame differs, the harness reports the first one and the pixel where, and
 
 `test/parity/lua/conf.lua` is the harness's side in LÖVE. It mounts the game, wraps `love.update` to hold keys in SDL's keyboard state and pass the fixed `dt`, and wraps `love.draw` to save each frame with `love.graphics.captureScreenshot`. `test/parity/probe.rb` is the harness's side in Lota. It does what `conf.lua` does, loaded into `lota run` with `ruby -r`, and compares each frame with LÖVE's as it goes.
 
-Both sides also have a timing mode, which `rake bench` plays FLASH-BLIP in ([the performance guide](../guide/performance.md)). With `LOTA_PARITY_TIMES` naming a file, neither side takes a screenshot or compares a frame; each times every frame's `update`, `draw`, and whole frame by the real clock, and writes the times to that file after the last frame. Lota's side also counts what Ruby's collector did in each frame, and with `LOTA_PARITY_NATIVE_TIMES=1` it times every call the game's `update` and `draw` make into Lota's extension. LÖVE's side keeps LuaJIT's own `pairs` order in this mode, since sorting keys at every loop would add time the game never spends in LÖVE.
-
 ### What both sides share
 
 A frame can match only if both engines see the same inputs, so the harness fixes every input a game reads:
