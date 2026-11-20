@@ -34,6 +34,8 @@ module Lota
 
       private def self.custom: (Array[::Object] format, ::Object? vertices, ::Object? mode, ::Object? usage, String where) -> Native::Mesh
 
+      private def self.custom_declarations: (Array[::Object] format, String where) -> Array[[String, String, Integer, Integer?]]
+
       private def self.legacy_declaration?: (::Object entry) -> bool
 
       private def self.legacy_declaration: (Array[::Object] entry) -> [String, String, Integer, Integer?]

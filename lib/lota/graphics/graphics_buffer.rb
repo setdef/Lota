@@ -120,11 +120,12 @@ module Lota
       )
         uses = { vertex:, index:, texel:, shaderstorage:, indirectarguments: }
         names = uses.select { |_name, used| used }.keys.map(&:name)
+        Native::Graphics.check_created
         usage_name = usage.nil? ? nil : setting_name(usage, "Symbol")
         debug_name = debugname.nil? ? nil : setting_name(debugname, "String")
-        declarations = declarations(format, vertex ? true : false)
+        format_entries = -> { declarations(format, vertex ? true : false) } #: Proc
         native = Native::Graphics.new_buffer([
-          declarations,
+          format_entries,
           native_content(content),
           names,
           usage_name,

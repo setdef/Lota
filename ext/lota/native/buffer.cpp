@@ -416,6 +416,11 @@ void write_elements(const std::vector<Buffer::DataMember> &members, const Values
   }
 }
 
+// The format entries Lota::Graphics passes for a buffer or a mesh: what
+// the block it passes returns when called, which it calls only once the
+// settings before the format are read, as LÖVE reads them first.
+Rice::Array format_entries(const Rice::Object &given) { return Rice::Array(given.call("call")); }
+
 // luax_checkdatadeclaration's declarations (wrap_Graphics.cpp:1743-1793),
 // which Lota::Graphics::Buffer reads from the Hashes it is given into
 // Arrays of the name, the data format's name, the array length, and the
@@ -643,7 +648,6 @@ std::optional<std::string> optional_name(const Rice::Object &value) {
 Buffer *new_buffer(Rice::Array list) {
   const Rice::Array arguments = std::move(list);
   const Values given_arguments = ruby::elements(arguments);
-  const Rice::Array formats(at(given_arguments, 0).value());
   const Rice::Object given = at(given_arguments, 1);
   const Rice::Array names(at(given_arguments, 2).value());
   const std::optional<std::string> usage = optional_name(at(given_arguments, 3));
@@ -665,7 +669,8 @@ Buffer *new_buffer(Rice::Array list) {
     settings.debugName = *debugname;
   }
 
-  const std::vector<Buffer::DataDeclaration> format = declarations_of(formats);
+  const std::vector<Buffer::DataDeclaration> format =
+      declarations_of(format_entries(at(given_arguments, 0)));
   std::size_t ncomponents = 0;
   for (const Buffer::DataDeclaration &decl : format) {
     ncomponents +=
@@ -1139,7 +1144,6 @@ Mesh *new_standard_mesh(Rice::Object content, const std::string &mode,
 Mesh *new_custom_mesh(Rice::Array list) {
   const Rice::Array arguments = std::move(list);
   const Values given_arguments = ruby::elements(arguments);
-  const Rice::Array formats(at(given_arguments, 0).value());
   const Rice::Object given = at(given_arguments, 1);
   const std::string mode =
       Rice::detail::From_Ruby<std::string>().convert(at(given_arguments, 2).value());
@@ -1148,7 +1152,8 @@ Mesh *new_custom_mesh(Rice::Array list) {
   const love::graphics::PrimitiveType drawmode = mesh_draw_mode(mode);
   const love::graphics::BufferDataUsage usage =
       data_usage(usage_name, love::graphics::BUFFERDATAUSAGE_DYNAMIC);
-  const std::vector<Buffer::DataDeclaration> vertexformat = declarations_of(formats);
+  const std::vector<Buffer::DataDeclaration> vertexformat =
+      declarations_of(format_entries(at(given_arguments, 0)));
 
   Mesh *created = nullptr;
   if (ruby::is_numeric(given)) {

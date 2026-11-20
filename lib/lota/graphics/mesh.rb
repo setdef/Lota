@@ -171,18 +171,24 @@ module Lota
       private_class_method def self.custom(format, vertices, mode, usage, where)
         mode_name = name_of(mode)
         usage_name = usage.nil? ? nil : name_of(usage)
+        Native::Graphics.new_custom_mesh([
+          -> { custom_declarations(format, where) },
+          GraphicsBuffer.__send__(:native_content, vertices),
+          mode_name,
+          usage_name,
+])
+      end
+
+      # The declarations of a custom mesh's +format+, read after its mode
+      # and usage, as newCustomMesh reads them (lines 2063-2136).
+      private_class_method def self.custom_declarations(format, where)
         raise ArgumentError, "table of tables expected" if format.empty?
 
         declarations = format.map.with_index(1) do |entry, index|
           (legacy_declaration?(entry) && entry.is_a?(Array)) ? legacy_declaration(entry) : GraphicsBuffer.__send__(:declaration, entry, index, true)
         end
         mark_legacy_format(format, where)
-        Native::Graphics.new_custom_mesh([
-          declarations,
-          GraphicsBuffer.__send__(:native_content, vertices),
-          mode_name,
-          usage_name,
-])
+        declarations
       end
 
       # Whether +entry+ is LÖVE's older array of a name, a data type, and

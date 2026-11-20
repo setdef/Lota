@@ -256,6 +256,29 @@ class BufferTest < Minitest::Test
 
   # SPDX-SnippetEnd
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_newBuffer and newCustomMesh read a usage, and a mesh's mode, by name
+  # before the format (wrap_Graphics.cpp:1971-1974 and 2060-2069), so an
+  # unknown name is reported over a format with no fields.
+  def test_an_unknown_mode_or_usage_is_reported_before_the_format
+    messages = [
+      assert_raises(ArgumentError) { Lota::Graphics::Buffer.new([{}], 1, shaderstorage: true, usage: :often) },
+      assert_raises(ArgumentError) { Lota::Graphics::Mesh.new([{}], 3, :blobs) },
+      assert_raises(ArgumentError) { Lota::Graphics::Mesh.new([{}], 3, :fan, :often) },
+      assert_raises(ArgumentError) { Lota::Graphics::Mesh.new([], 3, :blobs) },
+    ].map(&:message)
+
+    assert_match(/\AInvalid usage hint 'often'/, messages[0])
+    assert_match(/\AInvalid mesh draw mode 'blobs'/, messages[1])
+    assert_match(/\AInvalid usage hint 'often'/, messages[2])
+    assert_match(/\AInvalid mesh draw mode 'blobs'/, messages[3])
+  end
+
+  # SPDX-SnippetEnd
+
   def test_the_vertex_map_is_a_list_of_indices_or_a_data_of_indices
     mesh = Lota::Graphics::Mesh.new(4, :triangles)
     mesh.set_vertex_map(1, 2, 3, 4)

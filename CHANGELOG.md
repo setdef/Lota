@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics::Buffer.new` and `Lota::Graphics::Mesh.new` with a format of its own report an unknown usage, or mesh mode, before a fault in the format, as LÖVE does.
 - `Lota::Graphics::TextBatch#setf` checks its wrap limit and alignment before its text, as LÖVE does.
 - `Lota::Graphics::Buffer.new` raises TypeError for a `usage` or `debugname` that is not a name or text, before reading the format, as LÖVE does, where it read them as text after the format.
 - `Lota::Graphics.draw_from_shader` raises TypeError for a `nil` count, where it drew nothing, and `.draw_from_shader_indirect` given a primitive checks its name before its buffer, as LÖVE does.
