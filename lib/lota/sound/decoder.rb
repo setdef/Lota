@@ -37,29 +37,36 @@ module Lota
       # (src/modules/sound/wrap_Sound.cpp, w_newDecoder).
       #
       # [file] String path of the file, found in the game's folder or its
-      #   save directory, or a Lota::Filesystem::FileData of its bytes: a
-      #   WAVE, Ogg Vorbis, MP3, FLAC, or tracker module file, which LÖVE
-      #   tells apart by what is in it, not by its name.
-      # [buffer_size] Integer bytes to decode at a time.
-      # [type] For a file name, Symbol <tt>:file</tt>, which decodes from
-      #   the open file, or <tt>:memory</tt>, which reads all of it first
-      #   (rule 9 of doc/contributors/design/translation.md); +nil+ or left out
-      #   for <tt>:file</tt>. A FileData is decoded from memory, whatever +type+
+      #   save directory, a Lota::Filesystem::File, or any Lota::Data of
+      #   its bytes, such as a Lota::Filesystem::FileData: a WAVE, Ogg
+      #   Vorbis, MP3, FLAC, or tracker module file, which LÖVE tells apart
+      #   by what is in it, not by its name.
+      # [buffer_size] Integer bytes to decode at a time; DEFAULT_BUFFER_SIZE
+      #   when +nil+ or left out.
+      # [type] For a file name or a File, Symbol <tt>:file</tt>, which
+      #   decodes from the open file, opening a File that is not open, or
+      #   <tt>:memory</tt>, which reads all of it first (rule 9 of
+      #   doc/contributors/design/translation.md); +nil+ or left out for
+      #   <tt>:file</tt>. A Data is decoded from memory, whatever +type+
       #   says.
       #
       # Raises ArgumentError, with LÖVE's message, for a +type+ LÖVE does
-      # not know, and RuntimeError for a file it cannot open or decode, and
-      # when the sound module is not open.
+      # not know, TypeError for a +file+ of another kind, and RuntimeError
+      # for a file it cannot open or decode, and when the sound module is
+      # not open.
       #
       # === Examples
       #
       #   Lota::Sound::Decoder.new("music/theme.ogg")
       #   Lota::Sound::Decoder.new("music/theme.ogg", 4096, :memory)
       def self.new(file, buffer_size = DEFAULT_BUFFER_SIZE, type = nil)
-        native = if file.is_a?(Filesystem::FileData)
-          Native::Sound.new_decoder_from_data(file.__send__(:native), buffer_size)
-        else
-          Native::Sound.new_decoder(file, buffer_size, type && EnumName.of(type))
+        buffer_size = DEFAULT_BUFFER_SIZE if buffer_size.nil?
+        native = case file
+        when String then Native::Sound.new_decoder(file, buffer_size, type && EnumName.of(type))
+        when Filesystem::File
+          Native::Sound.new_decoder_from_file_object(file.__send__(:native), buffer_size, type && EnumName.of(type))
+        when Lota::Data then Native::Sound.new_decoder_from_data(file.__send__(:native), buffer_size)
+        else raise TypeError, "wrong argument type #{file.class} (expected Stream)"
         end
         from_native(native)
       end

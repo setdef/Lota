@@ -6,7 +6,7 @@ module Lota
     class Source < Object[Native::Source]
       private def self.from_native: (Native::Source native) -> Source
 
-      def self.new: (String | Filesystem::FileData | Sound::SoundData | Sound::Decoder source, ?(Symbol | String)? type, ?(Symbol | String)? streamtype) -> Source
+      def self.new: (String | Filesystem::File | Lota::Data | Sound::Decoder source, ?(Symbol | String)? type, ?(Symbol | String)? streamtype) -> Source
 
       def initialize_copy: (Source source) -> void
 

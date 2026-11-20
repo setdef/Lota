@@ -8,7 +8,7 @@ module Lota
 
       private def self.from_native: (Native::Decoder native) -> Decoder
 
-      def self.new: (String | Filesystem::FileData file, ?Integer buffer_size, ?(Symbol | String)? type) -> Decoder
+      def self.new: (String | Filesystem::File | Lota::Data file, ?Integer? buffer_size, ?(Symbol | String)? type) -> Decoder
 
       def initialize_copy: (Decoder source) -> void
 

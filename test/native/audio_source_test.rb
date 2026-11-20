@@ -69,6 +69,22 @@ class AudioSourceTest < Minitest::Test
     assert_equal [:stream, 1], [stream.get_type, stream.channel_count]
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_newSource makes a Decoder of anything luax_cangetdata takes, a File
+  # and any Data among them (src/modules/audio/wrap_Audio.cpp:63-79).
+  def test_a_file_or_any_data_makes_a_source_of_either_type
+    file, = Lota::Filesystem.open_file("resources/clickmono.ogg", :c)
+    bytes = Lota::Data::ByteData.new(click_data.string)
+
+    assert_equal [:static, 2927.0], [Source.new(file, :static).get_type, Source.new(bytes, :static).duration(:samples)]
+    assert_equal :stream, Source.new(bytes, :stream).get_type
+  end
+
+  # SPDX-SnippetEnd
+
   def test_a_stream_reads_its_file_as_its_stream_type_says
     assert_equal :stream, Source.new("resources/clickmono.ogg", :stream, :memory).get_type
     assert_raises(ArgumentError) { Source.new("resources/clickmono.ogg", :stream, :tape) }

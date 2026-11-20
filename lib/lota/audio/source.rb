@@ -34,8 +34,9 @@ module Lota
       #
       # [source] What it plays: a String path of a sound file, found in the
       #   game's folder or its save directory (a WAVE, Ogg Vorbis, MP3,
-      #   FLAC, or tracker module file), or a Lota::Filesystem::FileData
-      #   holding one, either of which needs +type+; a
+      #   FLAC, or tracker module file), a Lota::Filesystem::File, or any
+      #   other Lota::Data holding one, such as a
+      #   Lota::Filesystem::FileData, each of which needs +type+; a
       #   Lota::Sound::SoundData, whose samples it plays as a
       #   <tt>:static</tt> Source; or a Lota::Sound::Decoder, which it
       #   streams.
@@ -75,7 +76,7 @@ module Lota
         end
 
         static = Native::Audio.source_type(EnumName.of(type)) == "static"
-        unless source.is_a?(String) || source.is_a?(Filesystem::FileData)
+        unless source.is_a?(String) || source.is_a?(Filesystem::File) || source.is_a?(Lota::Data)
           raise TypeError,
             "wrong argument type #{source.class} (expected Lota::Sound::Decoder or Lota::Sound::SoundData)"
         end

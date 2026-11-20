@@ -844,6 +844,8 @@ module Lota
 
       def self.new_decoder: (String filename, Integer buffer_size, ?String? type) -> Decoder
 
+      def self.new_decoder_from_file_object: (File file, Integer buffer_size, ?String? type) -> Decoder
+
       def self.new_decoder_from_data: (Data::Data data, Integer buffer_size) -> Decoder
 
       def self.new_sound_data: (Integer samples, Integer sample_rate, Integer bit_depth, Integer channels) -> SoundData

@@ -64,12 +64,43 @@ Sound *sound() {
 
 namespace {
 
-// w_newDecoder with a filename (vendor/love/src/modules/sound/
-// wrap_Sound.cpp:35-83): "file" decodes from the open file, and "memory"
-// reads the whole file into a DataStream first. The Stream's reference is
-// released once the Decoder holds its own.
-love::sound::Decoder *new_decoder(const std::string &filename, int buffer_size,
+// w_newDecoder with a File (vendor/love/src/modules/sound/
+// wrap_Sound.cpp:41-62): "file" opens the File to read, unless it is
+// open already, and decodes from the File itself, and "memory" reads it
+// from where it is to its end into a DataStream first. The Stream's
+// reference is released once the Decoder holds its own.
+love::sound::Decoder *new_decoder(love::filesystem::File &file, int buffer_size,
                                   Decoder::StreamSource source) {
+  love::StrongRef<love::Stream> stream;
+  if (source == Decoder::STREAM_FILE) {
+    file.open(love::filesystem::File::MODE_READ);
+    stream.set(&file);
+  } else {
+    const love::StrongRef<love::filesystem::FileData> data(file.read(), love::Acquire::NORETAIN);
+    stream.set(std::make_unique<love::data::DataStream>(data.get()).release(),
+               love::Acquire::NORETAIN);
+  }
+  return sound()->newDecoder(stream.get(), buffer_size);
+}
+
+// The stream type w_newDecoder reads for a filename or a File, as a
+// String, which names one of Decoder's StreamSource constants ("memory"
+// or "file"), or nil for "file" (wrap_Sound.cpp:42-46).
+Decoder::StreamSource stream_source(const std::optional<std::string> &type) {
+  Decoder::StreamSource source = Decoder::STREAM_FILE;
+  if (type.has_value() && !Decoder::getConstant(type->c_str(), source)) {
+    raise_enum_error("stream type", Decoder::getConstants(source), *type);
+  }
+  return source;
+}
+
+// w_newDecoder with a filename and the stream type (wrap_Sound.cpp:
+// 41-62), which opens the file by its path without opening it for
+// reading, as luax_getfile does (filesystem/wrap_Filesystem.cpp:308-330).
+// Its one reference goes to the Ruby wrapper.
+Decoder *new_decoder_from_file(const std::string &filename, int buffer_size,
+                               std::optional<std::string> type) {
+  const Decoder::StreamSource source = stream_source(type);
   const auto *filesystem =
       love::Module::getInstance<love::filesystem::Filesystem>(love::Module::M_FILESYSTEM);
   if (filesystem == nullptr) {
@@ -78,29 +109,14 @@ love::sound::Decoder *new_decoder(const std::string &filename, int buffer_size,
   const love::StrongRef<love::filesystem::File> file(
       filesystem->openFile(filename.c_str(), love::filesystem::File::MODE_CLOSED),
       love::Acquire::NORETAIN);
-  love::StrongRef<love::Stream> stream;
-  if (source == Decoder::STREAM_FILE) {
-    file->open(love::filesystem::File::MODE_READ);
-    stream.set(file.get());
-  } else {
-    const love::StrongRef<love::filesystem::FileData> data(file->read(), love::Acquire::NORETAIN);
-    stream.set(std::make_unique<love::data::DataStream>(data.get()).release(),
-               love::Acquire::NORETAIN);
-  }
-  return sound()->newDecoder(stream.get(), buffer_size);
+  return new_decoder(*file, buffer_size, source);
 }
 
-// w_newDecoder with a filename and the stream type as a String, which
-// names one of Decoder's StreamSource constants ("memory" or "file"), or
-// nil for "file" (wrap_Sound.cpp:42-46). Its one reference goes to the Ruby
-// wrapper.
-Decoder *new_decoder_from_file(const std::string &filename, int buffer_size,
-                               std::optional<std::string> type) {
-  Decoder::StreamSource source = Decoder::STREAM_FILE;
-  if (type.has_value() && !Decoder::getConstant(type->c_str(), source)) {
-    raise_enum_error("stream type", Decoder::getConstants(source), *type);
-  }
-  return new_decoder(filename, buffer_size, source);
+// w_newDecoder with a File and the stream type (wrap_Sound.cpp:41-62).
+// Its one reference goes to the Ruby wrapper.
+Decoder *new_decoder_from_file_object(love::filesystem::File &file, int buffer_size,
+                                      std::optional<std::string> type) {
+  return new_decoder(file, buffer_size, stream_source(type));
 }
 
 // w_newDecoder with Data (wrap_Sound.cpp:64-68): decodes from a
@@ -292,6 +308,10 @@ void define_sound(const Rice::Module &native) {
       .define_singleton_function(
           "new_decoder", &new_decoder_from_file, Rice::Arg("filename"), Rice::Arg("buffer_size"),
           Rice::Arg("type") = std::optional<std::string>(), Rice::Return().takeOwnership())
+      .define_singleton_function("new_decoder_from_file_object", &new_decoder_from_file_object,
+                                 Rice::Arg("file"), Rice::Arg("buffer_size"),
+                                 Rice::Arg("type") = std::optional<std::string>(),
+                                 Rice::Return().takeOwnership())
       .define_singleton_function("new_decoder_from_data", &new_decoder_from_data, Rice::Arg("data"),
                                  Rice::Arg("buffer_size"), Rice::Return().takeOwnership())
       .define_singleton_function("new_sound_data", &new_sound_data, Rice::Arg("samples"),

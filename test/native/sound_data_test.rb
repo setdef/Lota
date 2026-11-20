@@ -114,6 +114,31 @@ class SoundDataTest < Minitest::Test
     assert_nil from_file.decode
   end
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # w_newDecoder takes a File as it takes a filename, decoding from the
+  # File itself or, with "memory", from what it reads; any Data, a
+  # ByteData too, from memory; and a nil buffer size as none
+  # (src/modules/sound/wrap_Sound.cpp:37-68).
+  def test_a_decoder_takes_a_file_or_any_data
+    expected = Lota::Sound::SoundData.new("resources/click.ogg").string.b
+    file = -> { Lota::Filesystem.open_file("resources/click.ogg", :c).first }
+    bytes = Lota::Data::ByteData.new(Lovetest.resource("click.ogg").string)
+    decoders = [
+      Lota::Sound::Decoder.new(file.call),
+      Lota::Sound::Decoder.new(file.call, nil, :memory),
+      Lota::Sound::Decoder.new(bytes, nil),
+    ]
+
+    decoders.each { |decoder| assert_equal expected, Lota::Sound::SoundData.new(decoder).string.b }
+    assert_raises(ArgumentError) { Lota::Sound::Decoder.new(file.call, nil, :disk) }
+    assert_raises(TypeError) { Lota::Sound::Decoder.new(:click) }
+  end
+
+  # SPDX-SnippetEnd
+
   # w_newSoundData with a Decoder decodes what it has left.
   def test_sound_data_from_a_decoder_takes_what_is_left
     decoder = Lota::Sound::Decoder.new("resources/tone.ogg", 4096)

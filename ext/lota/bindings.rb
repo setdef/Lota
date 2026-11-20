@@ -25,7 +25,8 @@
 # love.audio
 generate "love.audio.getActiveSourceCount"
 bound_by_hand "love.audio.newSource",
-  reason: "converts a filename or Data into a Decoder, and a Decoder into SoundData, through love.sound's wrap " \
+  reason: "converts a filename, a File, or Data into a Decoder, and a Decoder into SoundData, through " \
+    "love.sound's wrap " \
     "functions (luax_convobj); Lota::Audio::Source.new calls Lota::Sound's, and Lota binds the source type " \
     "check and the forms with a SoundData and a Decoder"
 bound_by_hand "love.audio.play",
@@ -1527,7 +1528,8 @@ bound_by_hand "love.sensor.getName",
 # love.sound
 bound_by_hand "love.sound.newDecoder",
   reason: "chooses among its forms by its argument's kind (luax_cangetfile, luax_istype), where Rice passes " \
-    "one C++ type for each argument; Lota binds a filename with its stream type, and Data"
+    "one C++ type for each argument; Lota binds a filename and a File, each with its stream type, and Data, " \
+    "but not another Stream, which no Lota class but File is"
 bound_by_hand "love.sound.newSoundData",
   reason: "passes the lua_State to w_newDecoder, which the parser does not read; Lota binds the form with " \
     "numbers and the form with a Decoder, which Lota::Sound::SoundData.new makes first from a filename or a " \
