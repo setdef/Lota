@@ -201,7 +201,7 @@ int show_message_box_with_buttons(const std::string &title, const std::string &m
     data.buttons.push_back(Rice::detail::From_Ruby<std::string>().convert(item.value()));
   }
   if (data.buttons.empty()) {
-    raise_argument_error("Must have at least one messagebox button.");
+    throw love::Exception("Must have at least one messagebox button.");
   }
   data.enterButtonIndex = enterbutton.has_value() ? enterbutton.value() - 1 : 0;
   data.escapeButtonIndex = escapebutton.has_value() ? escapebutton.value() - 1

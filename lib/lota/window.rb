@@ -856,9 +856,9 @@ module Lota
     # LÖVE tells the forms apart by whether its third argument is a table,
     # which also holds the +enterbutton+ and +escapebutton+ settings, so
     # Lota tells them by whether it is an Array, and reads those two as
-    # keywords (rule 10). Raises ArgumentError for an empty Array, an
-    # unknown +type+, or +enterbutton+ or +escapebutton+ without buttons,
-    # and ThreadError off the main thread.
+    # keywords (rule 10). Raises RuntimeError with LÖVE's message for an
+    # empty Array, ArgumentError for an unknown +type+, or +enterbutton+ or
+    # +escapebutton+ without buttons, and ThreadError off the main thread.
     #
     # === Examples
     #

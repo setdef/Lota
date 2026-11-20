@@ -178,9 +178,10 @@ class WindowQueriesTest < Minitest::Test
   end
 
   # w_showMessageBox (wrap_Window.cpp:590-653) checks its arguments
-  # before it shows anything.
+  # before it shows anything. An empty list of buttons is a luaL_error
+  # (line 604), which Lota raises as RuntimeError.
   def test_a_message_box_checks_its_arguments_before_it_shows
-    error = assert_raises(ArgumentError) { Lota::Window.show_message_box("Title", "Message", []) }
+    error = assert_raises(RuntimeError) { Lota::Window.show_message_box("Title", "Message", []) }
     assert_equal "Must have at least one messagebox button.", error.message
 
     error = assert_raises(ArgumentError) { Lota::Window.show_message_box("Title", "Message", :fatal) }

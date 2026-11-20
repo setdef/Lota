@@ -27,6 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Data::ByteData#string=` takes a `nil` offset as 0, as LÖVE does, where it raised.
 - `Lota::Mouse::Cursor.new` takes a `nil` hot spot as 0, as LÖVE does, where it raised.
 - **Breaking:** `Lota::Math::RandomGenerator.new(nil)` raises TypeError, as LÖVE's `newRandomGenerator(nil)` does, where it made a generator from the usual seed; leave the seed out for that.
+- **Breaking:** `Lota::Window.show_message_box` with an empty Array of buttons raises RuntimeError, as Lota raises every error LÖVE raises with `luaL_error`, where it raised ArgumentError.
 
 ## [0.5.5] - 2026-11-20
 
