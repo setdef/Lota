@@ -99,6 +99,15 @@ namespace :release do
       puts "✅ Assembled #{gems.join(', ')}, and #{Release::CHECKSUMS}"
     end
   end
+
+  desc "Add the phone engines in FROM (phone-engine.yml's phone-engines artifact) to the release assembled in DIR, " \
+    "checking each against FROM's SHA256SUMS, and list them in DIR's"
+  task :engines, [:dir, :from] do |_task, args|
+    release_task do |release|
+      engines = release.add_engines(args.fetch(:dir), args.fetch(:from))
+      puts "✅ Added #{engines.join(', ')} to #{File.join(args.fetch(:dir), Release::CHECKSUMS)}"
+    end
+  end
 end
 
 namespace :changelog do

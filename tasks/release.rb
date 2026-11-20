@@ -59,6 +59,9 @@ class Release
   # Where the gem pins the phone engines it fetches (Lota::PhoneEngine::PIN).
   ENGINES = "ext/lota/phone/engines.txt"
 
+  # How a phone engine's asset name begins (Lota::PhoneEngine.asset).
+  ENGINE_ASSET = "lota-engine-"
+
   # [root] The repository.
   def initialize(root:)
     @root = root
@@ -86,19 +89,82 @@ class Release
     binwrite(VERSION_FILE, binread(VERSION_FILE).sub(ASSIGNMENT) { "#{Regexp.last_match(1)}#{number}#{Regexp.last_match(3)}" })
   end
 
-  # Pins the phone engines that the release +tag+ publishes, whose
-  # checksums +sums+ gives in sha256sum's format, in ENGINES of the
-  # working tree, as a release's gems are built, and commits nothing. A
-  # phone build of those gems fetches each engine from that release by its
-  # checksum (Lota::PhoneEngine). Refuses sums that are not one for each
-  # of Lota::PhoneEngine::TARGETS.
+  # Pins the phone engines that the release +tag+ published in ENGINES of
+  # the working tree, and commits nothing. +sums+ is a SHA256SUMS in
+  # sha256sum's format, such as the release's own, of which only the
+  # engines' lines count. A phone build from the tree then fetches each
+  # engine from that release by its checksum (Lota::PhoneEngine). Refuses
+  # sums whose engines are not one for each of Lota::PhoneEngine::TARGETS.
   def pin_engines(tag, sums)
     raise Refusal, "#{tag} is not a release tag, which is v and MAJOR.MINOR.PATCH" unless tag.match?(TAG)
 
-    text = Lota::PhoneEngine.pin_text(tag, sums)
-    check_engines(Lota::PhoneEngine.pin(text).sums.keys)
+    engines = engine_sums(sums)
+    check_engines(engines.keys)
+    text = Lota::PhoneEngine.pin_text(tag, engines.map { |name, sha256| "#{sha256}  #{name}\n" }.join)
     FileUtils.mkdir_p(File.dirname(File.join(@root, ENGINES)))
     binwrite(ENGINES, text)
+  rescue Lota::PhoneEngine::Failure => e
+    raise Refusal, e.message
+  end
+
+  # Pins the phone engines that the release +tag+ published, as its
+  # SHA256SUMS +sums+ lists them, as CI's bookkeeping does on trunk after
+  # a release, unless ENGINES names that release already or the release
+  # published no engines. Returns whether it pinned them.
+  def pin_published_engines(tag, sums)
+    return false if pinned_release == tag || engine_sums(sums).empty?
+
+    pin_engines(tag, sums)
+    true
+  rescue Lota::PhoneEngine::Failure => e
+    raise Refusal, e.message
+  end
+
+  # The release ENGINES names in the working tree, or nil when there is no
+  # ENGINES or it names none.
+  def pinned_release
+    path = File.join(@root, ENGINES)
+    File.file?(path) ? Lota::PhoneEngine.pin(File.read(path)).release : nil
+  rescue Lota::PhoneEngine::Failure => e
+    raise Refusal, e.message
+  end
+
+  # Checks that +from+, the folder of phone-engine.yml's phone-engines
+  # artifact, holds one engine for each of Lota::PhoneEngine::TARGETS and
+  # the SHA256SUMS that workflow wrote for them, then puts them in +dir+,
+  # a release #assemble made, as #add_bundles does. Returns their names.
+  def add_engines(dir, from)
+    add_bundles(dir, from, Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) })
+  end
+
+  # Checks that +from+ holds exactly the files +names+ and a SHA256SUMS
+  # that lists each of them alone, each file the bytes its line names,
+  # then copies them into +dir+, a release #assemble made, and adds their
+  # lines to its SHA256SUMS, so the release's one SHA256SUMS lists every
+  # file it publishes. Refuses before it changes anything. Returns +names+.
+  def add_bundles(dir, from, names)
+    present = Dir.children(from).sort
+    wanted = (names + [CHECKSUMS]).sort
+    raise Refusal, "#{from} is not #{names.join(', ')} and #{CHECKSUMS}:#{difference(present, wanted)}" unless
+      present == wanted
+
+    sums = Lota::PhoneEngine.sums(File.read(File.join(from, CHECKSUMS)))
+    unless sums.keys.sort == names.sort
+      raise Refusal, "#{from}/#{CHECKSUMS} does not list #{names.join(', ')} alone:#{difference(sums.keys, names)}"
+    end
+
+    names.each do |name|
+      actual = sha256(from, name)
+      raise Refusal, "#{name} has SHA-256 #{actual}, not the #{sums.fetch(name)} #{from}/#{CHECKSUMS} names" unless
+        actual == sums.fetch(name)
+    end
+    published = Lota::PhoneEngine.sums(File.read(File.join(dir, CHECKSUMS)))
+    clash = names & (Dir.children(dir) + published.keys)
+    raise Refusal, "#{dir} already holds #{clash.join(', ')}" unless clash.empty?
+
+    names.each { |name| FileUtils.cp(File.join(from, name), File.join(dir, name)) }
+    File.write(File.join(dir, CHECKSUMS), published.merge(sums).sort.map { |name, sha256| "#{sha256}  #{name}\n" }.join)
+    names
   rescue Lota::PhoneEngine::Failure => e
     raise Refusal, e.message
   end
@@ -252,11 +318,20 @@ class Release
     wanted = expected.flat_map { |gem| [gem, "#{gem}.sha256"] }.sort
     return if present == wanted
 
+    raise Refusal, "#{dir} is not one verified gem for each platform:#{difference(present, wanted)}"
+  end
+
+  # The lines of the SHA256SUMS +text+ that name a phone engine, by name.
+  private def engine_sums(text)
+    Lota::PhoneEngine.sums(text).select { |name, _| name.start_with?(ENGINE_ASSET) }
+  end
+
+  # What is missing from +present+, and what it has beyond +wanted+.
+  private def difference(present, wanted)
     missing = wanted - present
     extra = present - wanted
-    raise Refusal, "#{dir} is not one verified gem for each platform:" \
-      "#{" missing #{missing.join(', ')};" unless missing.empty?}" \
-      "#{" unexpected #{extra.join(', ')};" unless extra.empty?}".chomp(";")
+    "#{" missing #{missing.join(', ')};" unless missing.empty?}#{" unexpected #{extra.join(', ')};" unless extra.empty?}"
+      .chomp(";")
   end
 
   private def check_engines(pinned)
