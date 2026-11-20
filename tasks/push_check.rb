@@ -8,23 +8,28 @@
 require "open3"
 
 # The checks the pre-push hook runs over the commits it pushes (rake
-# push_check[RANGE]): those that take seconds, build nothing, and do the
-# same on Linux, macOS, and Windows, so a push is checked alike wherever
-# its hook runs. They show the commits broke nothing they reach; CI's
+# push_check[RANGE]): those that take seconds and build nothing, the same
+# on Linux, macOS, and Windows, so a push is checked alike wherever its
+# hook runs, and, for a push that changes C++, the gate's C++ checks over
+# what it changes. They show the commits broke nothing they reach; CI's
 # pre-push tier (rake prepush) and the gate check the rest after the push.
 #
 # In order: each commit's Provenance: trailer (tasks/provenance.rb),
 # RuboCop over the files the commits change (or over every file git
 # knows, when they change RuboCop's settings or its gems), the unit
 # tests, the licensing of every file git knows, Steep when they change
-# typed code or its signatures, and red_before_green over the unit tests
-# they add or change. The provenance, the unit tests, and the licensing
-# always run, so a push is never let through having checked nothing.
+# typed code or its signatures, red_before_green over the unit tests they
+# add or change, and last, when they change Lota's C++ or what writes or
+# checks it, rake cpp:changed, which configures the build clang-tidy
+# reads where clang-tidy can run (tasks/cpp.rake). The provenance, the
+# unit tests, and the licensing always run, so a push is never let
+# through having checked nothing.
 class PushCheck
   # One check: the rake task, or RuboCop, by +name+, with the +files+
-  # RuboCop inspects.
-  class Step < Data.define(:name, :files)
-    def self.new(name:, files: []) = super
+  # RuboCop inspects and the +tools+ of mise.toml's it needs beyond the
+  # hook's own.
+  class Step < Data.define(:name, :files, :tools)
+    def self.new(name:, files: [], tools: []) = super
   end
 
   # A change that can change what Steep finds.
@@ -33,6 +38,33 @@ class PushCheck
   # A change that can change what RuboCop finds in a file that did not
   # change: its settings, Lota's own cops, or its gems.
   LINT_SETTINGS = %r{\A(?:\.rubocop\.yml\z|lib/lota/rubocop(?:/|\.rb\z)|Gemfile\.lock\z)}
+
+  # A change that can change what the gate finds in Lota's C++: the C++
+  # itself under ext/, written or generated, the generator that writes the
+  # bindings, clang-format's and clang-tidy's settings, the approved NOLINT
+  # comments, and the tasks that run those checks.
+  CPP = %r{\A(?:ext/.+\.(?:c|cc|cpp|cxx|m|mm|h|hh|hpp|hxx)\z|ext/\.clang-(?:format|tidy)\z|tasks/bindings/|
+    tasks/(?:cpp_gates\.rb|cpp\.rake|lint\.rb)\z|cpp_exceptions\.rb\z)}x
+
+  # The tools mise.toml pins that the C++ checks run: clang-format,
+  # clang-tidy, and CMake and Ninja, which configure the build whose
+  # compilation database clang-tidy reads.
+  CPP_TOOLS = %w[cmake ninja pipx:clang-format pipx:clang-tidy].freeze
+
+  # How the hook runs +step+ when it needs tools of its own: the
+  # environment and the command for Kernel#system, or nil to run it in
+  # this process. The hook runs under mise x with only the tools its
+  # other checks use (.githooks/pre-push), so a step with +tools+ runs
+  # under a mise x that has them too, which installs those missing; a
+  # push that changes no C++ waits for none of them.
+  def self.command(step, env)
+    return if step.tools.empty? || !env["LOTA_UNDER_MISE"]
+
+    [
+      { "MISE_ENABLE_TOOLS" => [env["MISE_ENABLE_TOOLS"], *step.tools].compact.join(",") },
+      ["mise", "x", "--", "bundle", "exec", "rake", step.name],
+]
+  end
 
   # The paths the commits of +range+ change, and leave in place, in the
   # checkout at +root+.
@@ -70,6 +102,7 @@ class PushCheck
       Step.new(name: "reuse:lint"),
       *(Step.new(name: "steep") if @changed.any? { |path| path.match?(TYPED) }),
       Step.new(name: "red_before_green:unit[#{@range}]"),
+      *(Step.new(name: "cpp:changed[#{@range}]", tools: CPP_TOOLS) if @changed.any? { |path| path.match?(CPP) }),
     ]
   end
 

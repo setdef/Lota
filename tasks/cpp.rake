@@ -9,6 +9,7 @@ require "rbconfig"
 require_relative "cpp_gates"
 require_relative "engine_sources"
 require_relative "lint"
+require_relative "push_check"
 
 # clang-tidy checks the sources the host's build compiles.
 CPP_FILES = CppGates::Files.new(root: ".", platform: EngineSources.platform(RbConfig::CONFIG["host_os"]))
@@ -75,6 +76,42 @@ namespace :cpp do
       glob: CppGates::NOLINT_GLOB, pattern: CppGates::NOLINT, covers: CppGates.method(:covered),
       violation_name: "NOLINT in C++ files"
     )
+  end
+end
+
+# The submodule the engine's configure reads LÖVE's prebuilt or buildable
+# libraries from, on the platforms clang-tidy reads a build on; the
+# pre-push hook fetches only vendor/love.
+CPP_DEPENDENCY_SUBMODULES = {
+"macos" => "vendor/love-apple-dependencies",
+"linux" => "vendor/love-appimage-source",
+}.freeze
+
+namespace :cpp do
+  # What the pre-push hook runs for a push that changes Lota's C++ or
+  # what writes or checks it (PushCheck::CPP): the gate's NOLINT and
+  # clang-format checks, then clang-tidy over the sources the commits of
+  # RANGE reach (CppGates.tidied), with the engine configured first for
+  # its compilation database. clang-tidy reads a Linux or macOS build, as
+  # the gate does, so on Windows it says what it leaves to CI's gate.
+  desc "Run the gate's C++ checks over what the commits of RANGE (default: the unpushed ones) change"
+  task :changed, [:range] do |_task, args|
+    range = args[:range] || red_before_green_range
+    Rake::Task["cpp:no_nolint"].invoke
+    Rake::Task["cpp:format"].invoke
+    sources = CppGates.tidied(changed: PushCheck.changes(Dir.pwd, range), sources: CPP_FILES.sources, root: Dir.pwd)
+    next puts("✅ cpp:changed: no source for clang-tidy to read") if sources.empty?
+
+    submodule = CPP_DEPENDENCY_SUBMODULES[ENGINE_PLATFORM]
+    unless submodule
+      next puts("⚠️ cpp:changed: clang-tidy reads a Linux or macOS build, as the gate does; " \
+        "#{sources.size} sources are left to CI's gate")
+    end
+
+    sh "git", "submodule", "update", "--init", submodule unless File.exist?(File.join(submodule, ".git"))
+    Rake::Task["sources:fetch"].invoke
+    Rake::Task["engine:configure"].invoke
+    cpp_gate!("cpp:tidy (#{sources.size} sources)", cpp_tidy(sources:).check)
   end
 end
 

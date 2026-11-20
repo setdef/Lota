@@ -431,3 +431,43 @@ class CppNoNolintTest < Minitest::Test
     end
   end
 end
+
+# What clang-tidy reads for a push (rake cpp:changed): the sources it
+# changes, every source when it changes what each of them reads or how
+# clang-tidy checks them, and every generated source when it changes the
+# generator that writes them.
+class CppTidiedTest < Minitest::Test
+  ROOT = File.expand_path("/r")
+  GENERATED = "#{ROOT}/ext/lota/native/generated/audio.cpp"
+  SOURCES = [GENERATED, "#{ROOT}/ext/lota/native/audio.cpp", "#{ROOT}/ext/lota/native_test/native_test.cpp"].freeze
+
+  def tidied(*changed) = CppGates.tidied(changed:, sources: SOURCES, root: ROOT)
+
+  def test_a_changed_source_is_tidied_alone
+    assert_equal ["#{ROOT}/ext/lota/native/audio.cpp"], tidied("ext/lota/native/audio.cpp", "lib/lota.rb")
+  end
+
+  def test_a_source_this_platform_does_not_compile_is_left_to_its_own
+    assert_empty tidied("ext/lota/native_test/offline.mm")
+  end
+
+  def test_a_changed_header_settings_or_gate_tidies_every_source
+    %w[
+      ext/lota/native/binding.hpp
+      ext/lota/native/generated/bindings.hpp
+      ext/.clang-tidy
+      tasks/cpp_gates.rb
+      tasks/cpp.rake
+].each { |path| assert_equal SOURCES, tidied(path), path }
+  end
+
+  def test_a_changed_generator_tidies_every_generated_source
+    assert_equal [GENERATED], tidied("tasks/bindings/generator.rb")
+    assert_equal [GENERATED, "#{ROOT}/ext/lota/native/audio.cpp"],
+      tidied("tasks/bindings/rules.rb", "ext/lota/native/audio.cpp")
+  end
+
+  def test_what_only_layout_or_nolint_reads_tidies_nothing
+    assert_empty tidied("ext/.clang-format", "cpp_exceptions.rb", "tasks/lint.rb")
+  end
+end

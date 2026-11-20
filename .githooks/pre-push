@@ -20,9 +20,10 @@
 # Of mise.toml's tools it asks only for those the checks run: Ruby, with
 # the Rust mise compiles it with and, on macOS, the libyaml source its
 # psych builds from (bin/with-libyaml), and the REUSE tool, with the
-# Python and uv mise installs it with. The rest, which build and lint the
-# C++, stay bin/setup's to install, so a first push from a new checkout
-# does not wait for a C++ toolchain.
+# Python and uv mise installs it with. A push that changes C++ asks for
+# the tools that lint it and configure its build too, under a mise x of
+# its own (PushCheck.command in tasks/push_check.rb), so a push that
+# changes none does not wait for a C++ toolchain.
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
 if [ -z "${LOTA_UNDER_MISE:-}" ] && command -v mise > /dev/null 2>&1; then

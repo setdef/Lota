@@ -15,9 +15,10 @@ require "open3"
 # check fails or changes a tracked file, which it then puts back.
 #
 # The checks run here, in the clone that pushes, and are the same on
-# Linux, macOS, and Windows: they build nothing and take seconds, and
-# CI's pre-push tier (rake prepush) and the gate check the rest after the
-# push.
+# Linux, macOS, and Windows: they build nothing and take seconds, but for
+# a push that changes C++, whose clang-tidy configures the build first
+# where it can (rake cpp:changed), and CI's pre-push tier (rake prepush)
+# and the gate check the rest after the push.
 # Pushing a tag, deleting a ref, and LOTA_PREPUSH=skip run nothing; the
 # last is for emergencies. git push --no-verify skips the hook itself, as
 # git always allows.

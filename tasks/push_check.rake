@@ -16,12 +16,16 @@ task :provenance, [:range] do |_task, args|
   abort "provenance: #{refusal}"
 end
 
-# Runs +step+ of PushCheck in this process, and answers whether it passed.
-# RuboCop runs as its rake task does, through its CLI, which takes every
+# Runs +step+ of PushCheck in this process, or, when it needs tools the
+# hook's mise leaves out, in a rake of its own under a mise that has them
+# (PushCheck.command), and answers whether it passed. RuboCop runs as its rake task does, through its CLI, which takes every
 # file it is given whatever their number, and which its rake task loads
 # only when it runs; a rake task that fails aborts or raises, and that is
 # its failure.
 def push_check_step(step)
+  env, command = PushCheck.command(step, ENV)
+  return system(env, *command) == true if command
+
   if step.name == "rubocop"
     require "rubocop"
     return RuboCop::CLI.new.run(["--force-exclusion", *step.files]).zero?

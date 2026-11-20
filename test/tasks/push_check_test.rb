@@ -65,4 +65,51 @@ class PushCheckTest < Minitest::Test
     assert_includes out.string, "push_check: rubocop (1 files)\npush_check: rubocop passed in 1.5s\n"
     assert_includes out.string, "push_check: test:unit failed in 1.5s"
   end
+
+  CPP = "cpp:changed[#{RANGE}]"
+
+  # The gate's clang-format, NOLINT, and clang-tidy checks refuse what
+  # the push brings to Lota's C++, written or generated, before it lands:
+  # on 2026-11-19 a generator change made clang-tidy fail on the
+  # generated bindings, and an edit to native_test.cpp failed
+  # clang-format, both after the push.
+  def test_a_change_to_lotas_cpp_or_what_writes_or_checks_it_and_nothing_else_gets_the_cpp_checks_last
+    %w[
+      ext/lota/native/generated/audio.cpp
+      ext/lota/native/generated/bindings.hpp
+      ext/lota/native_test/native_test.cpp
+      ext/lota/native/binding.hpp
+      ext/lota/native_test/offline.mm
+      tasks/bindings/generator.rb
+      ext/.clang-tidy
+      ext/.clang-format
+      cpp_exceptions.rb
+      tasks/cpp_gates.rb
+      tasks/cpp.rake
+      tasks/lint.rb
+    ].each do |path|
+      assert_equal CPP, names([path]).last, path
+    end
+    refute_includes names(%w[lib/lota.rb tasks/gate.rake ext/lota/extconf.rb README.md]), CPP
+  end
+
+  # The hook asks mise for the C++ tools only when a push needs them, so
+  # a push that changes no C++ waits for no C++ toolchain.
+  def test_only_the_cpp_checks_ask_for_the_cpp_tools
+    steps = check(%w[ext/lota/native/audio.cpp lib/lota.rb]).steps
+    assert_equal %w[cmake ninja pipx:clang-format pipx:clang-tidy], steps.last.tools
+    assert(steps[0...-1].all? { |step| step.tools.empty? })
+  end
+
+  def test_under_the_hooks_mise_a_step_with_tools_runs_in_a_mise_that_has_them
+    step = check(%w[ext/lota/native/audio.cpp]).steps.last
+    env = { "LOTA_UNDER_MISE" => "1", "MISE_ENABLE_TOOLS" => "ruby,uv" }
+
+    assert_equal [
+      { "MISE_ENABLE_TOOLS" => "ruby,uv,cmake,ninja,pipx:clang-format,pipx:clang-tidy" },
+      ["mise", "x", "--", "bundle", "exec", "rake", CPP],
+], PushCheck.command(step, env)
+    assert_nil PushCheck.command(step, {})
+    assert_nil PushCheck.command(check([]).steps.first, env)
+  end
 end

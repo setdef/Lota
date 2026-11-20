@@ -56,8 +56,8 @@ if ($preview) {
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 }
 
-# mise.toml gives Windows only Python, uv, the REUSE tool, and on x64
-# clang-tidy: its other tools carry an os option that leaves Windows out.
+# mise.toml gives Windows only Python, uv, the REUSE tool, clang-format,
+# and on x64 clang-tidy: its other tools carry an os option that leaves Windows out.
 mise install
 mise x -- reuse --version
 

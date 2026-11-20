@@ -39,6 +39,30 @@ module CppGates
     end
   end
 
+  # A change that can change what clang-tidy finds in every source: a
+  # header under ext/, which any source may include, clang-tidy's
+  # settings, or the gate that runs it.
+  TIDY_EVERY = %r{\A(?:ext/.+\.(?:h|hh|hpp|hxx)\z|ext/\.clang-tidy\z|tasks/cpp_gates\.rb\z|tasks/cpp\.rake\z)}
+
+  # The generator, and the folder of the sources it writes.
+  GENERATOR = %r{\Atasks/bindings/}
+  GENERATED = "ext/lota/native/generated/"
+
+  # The +sources+ (absolute paths, under +root+) that clang-tidy reads
+  # for a change to the repository's paths +changed+ (relative to
+  # +root+), in the order of +sources+: every one when +changed+ holds a
+  # path TIDY_EVERY matches; else those +changed+ holds, with every
+  # generated source when it changes the generator. A changed source not
+  # among +sources+, which this platform does not compile, is left to
+  # the platform that does, as cpp:tidy leaves it.
+  def self.tidied(changed:, sources:, root:)
+    return sources if changed.any? { |path| path.match?(TIDY_EVERY) }
+
+    generator = changed.any? { |path| path.match?(GENERATOR) }
+    wanted = changed.map { |path| File.expand_path(path, root) }
+    sources.select { |path| wanted.include?(path) || (generator && path.start_with?(File.join(root, GENERATED))) }
+  end
+
   # A gate's outcome: what it checked, and what it found.
   class Result < Data.define(:checked, :problems)
     # Whether the gate passes.
