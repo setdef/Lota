@@ -27,6 +27,18 @@ module CppGates
   NOLINT = /NOLINT/
   NOLINT_GLOB = "ext/**/*{#{(SOURCES + HEADERS).join(',')}}".freeze
 
+  # The index, among +lines+, of the line the NOLINT comment at +index+
+  # covers, by which cpp_exceptions.rb names it (Lint): the next line for
+  # NOLINTNEXTLINE, the first line of the region for NOLINTBEGIN, the last
+  # for NOLINTEND, and the comment's own line for NOLINT.
+  def self.covered(lines, index)
+    case lines[index]
+    when /NOLINT(?:NEXTLINE|BEGIN)/ then index + 1
+    when /NOLINTEND/ then [index - 1, 0].max
+    else index
+    end
+  end
+
   # A gate's outcome: what it checked, and what it found.
   class Result < Data.define(:checked, :problems)
     # Whether the gate passes.

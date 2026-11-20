@@ -72,7 +72,8 @@ namespace :cpp do
   desc "Forbid NOLINT in Lota's own C++ except approved exceptions"
   task :no_nolint do
     Lint.load(File.expand_path("../cpp_exceptions.rb", __dir__)).enforce!(
-      glob: CppGates::NOLINT_GLOB, pattern: CppGates::NOLINT, violation_name: "NOLINT in C++ files"
+      glob: CppGates::NOLINT_GLOB, pattern: CppGates::NOLINT, covers: CppGates.method(:covered),
+      violation_name: "NOLINT in C++ files"
     )
   end
 end

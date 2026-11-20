@@ -311,8 +311,29 @@ end
 
 # cpp:no_nolint reads paths relative to the repository, so these tests
 # change directory and run one at a time.
+#
+# An approval names its comment by the comment's line and the line of
+# code it covers, never by line number, so an edit elsewhere in the file
+# leaves it standing, while an edit to either line, a second copy of the
+# comment, or the comment's removal fails the check.
 class CppNoNolintTest < Minitest::Test
   include TreeHelper
+
+  NEXTLINE = "// NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)"
+
+  # What cpp:no_nolint reports for the tree at +root+, with +approvals+
+  # as cpp_exceptions.rb.
+  def found(root, approvals)
+    exceptions = write(root, "cpp_exceptions.rb", approvals)
+    Dir.chdir(root) do
+      Lint.load(exceptions).violations(glob: CppGates::NOLINT_GLOB, pattern: CppGates::NOLINT,
+        covers: CppGates.method(:covered))
+    end
+  end
+
+  def approve(at, covers: nil)
+    "allow 'ext/lota/a.cpp', at: #{at.inspect}, #{"covers: #{covers.inspect}, " if covers}reason: 'test'\n"
+  end
 
   def test_no_nolint_finds_nolint_outside_exceptions
     in_tree do |root|
@@ -320,24 +341,93 @@ class CppNoNolintTest < Minitest::Test
       write(root, "ext/lota/b.hpp", "// NOLINTNEXTLINE(readability-magic-numbers)\nint b = 7;\n")
       write(root, "ext/lota/c.txt", "NOLINT\n")
       write(root, "vendor/d.cpp", "// NOLINT\n")
-      exceptions = write(root, "cpp_exceptions.rb", "")
 
-      found = Dir.chdir(root) { Lint.load(exceptions).violations(glob: CppGates::NOLINT_GLOB, pattern: CppGates::NOLINT) }
       expected = [
         "  ext/lota/a.cpp:1: int a = 0; // NOLINT",
         "  ext/lota/b.hpp:1: // NOLINTNEXTLINE(readability-magic-numbers)",
       ]
-      assert_equal expected, found.sort
+      assert_equal expected, found(root, "").sort
     end
   end
 
   def test_no_nolint_allows_an_approved_exception
     in_tree do |root|
       write(root, "ext/lota/a.cpp", "int a = 0; // NOLINT\n")
-      exceptions = write(root, "cpp_exceptions.rb", "allow 'ext/lota/a.cpp', line: 1, reason: 'test'\n")
 
-      found = Dir.chdir(root) { Lint.load(exceptions).violations(glob: CppGates::NOLINT_GLOB, pattern: CppGates::NOLINT) }
-      assert_empty found
+      assert_empty found(root, approve("int a = 0; // NOLINT"))
+    end
+  end
+
+  def test_an_approval_stands_when_lines_are_added_above_its_comment
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", "#{"// a line\n" * 5}  #{NEXTLINE}\n  auto *p = const_cast<int *>(q);\n")
+
+      assert_empty found(root, approve(NEXTLINE, covers: "auto *p = const_cast<int *>(q);"))
+    end
+  end
+
+  def test_an_approval_by_line_number_is_refused
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", "int a = 0; // NOLINT\n")
+
+      assert_raises(ArgumentError) { found(root, "allow 'ext/lota/a.cpp', line: 1, reason: 'test'\n") }
+    end
+  end
+
+  def test_an_approval_whose_comment_is_gone_fails
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", "int a = 0;\n")
+
+      assert_equal ["  ext/lota/a.cpp: approved, but no such line: int a = 0; // NOLINT"],
+        found(root, approve("int a = 0; // NOLINT"))
+    end
+  end
+
+  def test_an_approval_whose_code_changed_fails
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", "#{NEXTLINE}\nauto *p = const_cast<long *>(q);\n")
+
+      expected = [
+        "  ext/lota/a.cpp:1: #{NEXTLINE}",
+        "  ext/lota/a.cpp: approved, but no such line: #{NEXTLINE} (over auto *p = const_cast<int *>(q);)",
+      ]
+      assert_equal expected, found(root, approve(NEXTLINE, covers: "auto *p = const_cast<int *>(q);"))
+    end
+  end
+
+  def test_a_second_copy_of_an_approved_comment_over_other_code_is_not_approved
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", "#{NEXTLINE}\nauto *p = const_cast<int *>(q);\n#{NEXTLINE}\nauto *r = const_cast<int *>(s);\n")
+
+      assert_equal ["  ext/lota/a.cpp:3: #{NEXTLINE}"],
+        found(root, approve(NEXTLINE, covers: "auto *p = const_cast<int *>(q);"))
+    end
+  end
+
+  def test_each_approval_covers_one_comment_even_over_the_same_code
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", "#{NEXTLINE}\nauto *p = const_cast<int *>(q);\n" * 2)
+      once = approve(NEXTLINE, covers: "auto *p = const_cast<int *>(q);")
+
+      assert_equal ["  ext/lota/a.cpp:3: #{NEXTLINE}"], found(root, once)
+      assert_empty found(root, once * 2)
+    end
+  end
+
+  def test_a_region_begins_over_its_first_line_and_ends_under_its_last
+    in_tree do |root|
+      write(root, "ext/lota/a.cpp", <<~CPP)
+        // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
+        switch (value.type) {
+        case 1: return value.data.i;
+        }
+        // NOLINTEND(cppcoreguidelines-pro-type-union-access)
+        return 0;
+      CPP
+
+      approvals = approve("// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)", covers: "switch (value.type) {") +
+        approve("// NOLINTEND(cppcoreguidelines-pro-type-union-access)", covers: "}")
+      assert_empty found(root, approvals)
     end
   end
 end
