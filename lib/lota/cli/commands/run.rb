@@ -80,7 +80,7 @@ module Lota
         # 453-455). LÖVE reports it after opening its window, on its error
         # screen; Lota reports a path that is nothing before opening
         # anything, as a usage error, and a file that is no archive as
-        # Lota::Boot finds it is not, before opening a window.
+        # LÖVE does, on the error screen (Lota::Boot).
         def self.run_game(path, arguments) # :nodoc:
           directory = File.expand_path(path || ".")
           unless File.exist?(directory)

@@ -290,14 +290,16 @@ module Lota
     # the filesystem and the system module, which LÖVE opens before
     # conf.lua whatever the settings say (boot.lua:44-49), unpacks a game
     # in one file, and puts the game's folder on <tt>$LOAD_PATH</tt>. With
-    # no game it prints how to give one and shows the no-game screen, as
-    # boot.lua prints LÖVE's usage and runs nogame.lua (lines 156-170).
+    # no game, or a path the filesystem could not load, it prints how to
+    # give one and shows the no-game screen, as boot.lua prints LÖVE's
+    # usage and runs nogame.lua (lines 156-170), and init_game then
+    # reports the path.
     private def boot
       open_filesystem
       Native::System.open
       unpack
       add_to_load_path
-      return if @directory
+      return if @directory && !@invalid_game_path
 
       require_relative "cli"
       puts CLI.usage
@@ -308,16 +310,21 @@ module Lota
     # source, as love.filesystem.setSource mounts a .love (boot.lua:123),
     # unpacks it with Lota::Archive into the cache, whose folder then holds
     # the game's Ruby for <tt>require</tt>
-    # (doc/contributors/design/packaging.md). A file the filesystem could
-    # not mount is reported with the message love.init gives a path it
-    # could not load (boot.lua:453-455), before any window opens.
+    # (doc/contributors/design/packaging.md). A path that is no folder and
+    # that the filesystem could not mount, such as a file that is no
+    # archive, is no game, as boot.lua finds when setSource fails (lines
+    # 123-127): it is kept as the invalid game path, which init_game
+    # reports once the window is open.
     private def unpack
+      @invalid_game_path = nil
       directory = @directory
-      return unless directory && File.file?(directory)
+      return unless directory && !File.directory?(directory)
 
       if Filesystem.source.empty?
-        raise "Cannot load game at path '#{directory}'.\nMake sure a folder exists at the specified path."
+        @invalid_game_path = directory
+        return
       end
+      return unless File.file?(directory)
 
       cache = Archive.cache_directory(Native::System.os, ENV, Filesystem.user_directory)
       @code_directory = Archive.new(directory).unpack(cache)
@@ -349,11 +356,14 @@ module Lota
       Filesystem.identity = [@settings.identity || Filesystem.identity, @settings.appendidentity]
       main_file = self.main_file
       require main_file if main_file && File.exist?(main_file)
-      return unless no_game_code?
 
-      gamestr = @path.nil? ? "" : " at #{@path}"
-      raise "No code to run#{gamestr}\nYour game might be packaged incorrectly.\n" \
-        "Make sure main.rb is at the top level of the zip or folder."
+      if no_game_code?
+        gamestr = @path.nil? ? "" : " at #{@path}"
+        raise "No code to run#{gamestr}\nYour game might be packaged incorrectly.\n" \
+          "Make sure main.rb is at the top level of the zip or folder."
+      elsif (invalid_game_path = @invalid_game_path)
+        raise "Cannot load game at path '#{invalid_game_path}'.\nMake sure a folder exists at the specified path."
+      end
     end
 
     # The first frame boot.lua's root function runs (earlyinit, lines
@@ -700,8 +710,11 @@ module Lota
     # SPDX-SnippetEnd
 
     # The folder the game's Ruby is in: the game's own, or, for a game in
-    # one file, the folder unpack put it in, or +nil+ with no game.
+    # one file, the folder unpack put it in, or +nil+ with no game or a
+    # path that holds none.
     private def code_directory
+      return if @invalid_game_path
+
       @code_directory || @directory
     end
 

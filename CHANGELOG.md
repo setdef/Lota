@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- `lota run` given a file that is not a `.lota` prints its usage and opens a window that shows the error, as `love` does with a file it cannot load, where it printed the error and exited before opening one.
+
 ## [0.5.5] - 2026-11-20
 
 ### Changed
