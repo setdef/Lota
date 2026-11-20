@@ -439,11 +439,13 @@ class RakeTasksTest < Minitest::Test
   # NativeHelper#capture2e: under rake test:native, a forked child can die
   # before it runs the command (LotaNativeTest.spawn). On Windows, where
   # Ruby never forks, Process.spawn starts it, in windows_support.rb,
-  # which only Windows loads.
+  # which only Windows loads. A unit test among the suite's files starts
+  # no process at all, which test/unit_guard.rb holds it to, so its text
+  # is not searched: the words of LÖVE's it quotes may say "system".
   def test_no_native_suite_file_forks
     forks = %r{\bOpen3\b|\bIO\.popen\b|\bProcess\.spawn\b|(?<![./\w])(?:spawn|system|fork)\b|`|%x}
     Dir.chdir(ROOT) do
-      files = Dir[*TEST_SUITES.fetch(:native), "test/native/native_helper.rb"]
+      files = Dir[*TEST_SUITES.fetch(:native), "test/native/native_helper.rb"] - UNIT_TESTS
       forking = files.select { |path| File.readlines(path).grep_v(/\A\s*#/).join.match?(forks) }
 
       refute_empty files
