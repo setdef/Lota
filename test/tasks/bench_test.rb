@@ -54,6 +54,85 @@ class BenchTest < Minitest::Test
     assert_equal "rectangle", love.environment(Bench::Settings.from({}), "/r.json").fetch("LOTA_BENCH_SCENARIO")
   end
 
+  def test_a_game_runs_through_each_side_of_the_parity_harness
+    lota = Bench::Scenario.new(engine: "lota", jit: "yjit", name: "flash_blip").command(love: "/love")
+
+    assert_equal [RbConfig.ruby, "--yjit"], lota.first(2)
+    assert_includes lota, "-r#{Bench::ROOT}/test/parity/probe.rb"
+    assert_equal ["exe/lota", "run", "test/games/flash_blip"], lota.last(3).map { |path| path.delete_prefix("#{Bench::ROOT}/") }
+    love = Bench::Scenario.new(engine: "love", jit: "luajit", name: "flash_blip")
+
+    assert_equal ["/love", "#{Bench::ROOT}/test/parity/lua"], love.command(love: "/love")
+  end
+
+  def test_a_game_runs_its_parity_script_in_the_timing_mode_with_the_harness_libraries
+    in_tree do |dir|
+      report = File.join(dir, "flash_blip.json")
+      game = Bench::GAMES.fetch("flash_blip")
+      linux = game.environment(report, Bench::Settings.from({}), linux: true)
+
+      assert_equal %w[900 60 1600000000], linux.values_at("LOTA_PARITY_FRAMES", "LOTA_PARITY_FPS", "LOTA_PARITY_CLOCK")
+      assert_equal "40:300-300,44:400-400,44:440-440", linux.fetch("LOTA_PARITY_PRESS").split(",").first(3).join(",")
+      assert_equal 11, linux.fetch("LOTA_PARITY_PRESS").split(",").size
+      assert_equal report, linux.fetch("LOTA_PARITY_TIMES")
+      assert_equal "#{Bench::ROOT}/test/fixtures/flash_blip/game", linux.fetch("LOTA_PARITY_GAME")
+      assert_equal %w[liblota_loopback.so liblota_offline.so liblota_dialogs.so],
+        linux.fetch("LD_PRELOAD").split.map { |path| File.basename(path) }
+      assert_path_exists linux.fetch("HOME")
+      assert_equal File.join(linux.fetch("HOME"), ".local/share"), linux.fetch("XDG_DATA_HOME")
+      macos = game.environment(report, Bench::Settings.from("BENCH_GAME_FRAMES" => "30"), linux: false)
+
+      assert_equal "30", macos.fetch("LOTA_PARITY_FRAMES")
+      assert_equal %w[liblota_loopback.dylib liblota_offline.dylib],
+        macos.fetch("DYLD_INSERT_LIBRARIES").split(":").map { |path| File.basename(path) }
+      assert_equal macos.fetch("HOME"), macos.fetch("CFFIXED_USER_HOME")
+    end
+  end
+
+  def test_the_report_compares_a_games_frames_in_lota_with_loves
+    game = frames(0.0, 0.0, [0, 2_000_000]).merge("update" => [0.002, 0.003, 0.004], "draw" => [0.004, 0.005, 0.006],
+      "frame" => [0.016, 0.017, 0.020])
+    results = [
+      result("lota", "yjit", "flash_blip", game),
+      result("love", "luajit", "flash_blip", "update" => [0.001] * 3, "draw" => [0.003] * 3, "frame" => [0.017] * 3,
+        "lua" => "LuaJIT 2.1", "renderer" => "Vulkan"),
+    ]
+    text = Bench::Report.new(results, settings: Bench::Settings.from({}), machine: []).to_s
+
+    assert_includes text, "flash_blip, whole, 900 frames of its parity script at 60 Hz"
+    assert_match(%r{^Lota +yjit +8\.000/10\.000/10\.000 +2\.00x +17\.000/20\.000/20\.000 +3333 +3 \(2/1\) +oldmalloc 1 +4\.000 +2\.000$},
+      text)
+    assert_match(%r{^LÖVE +luajit +4\.000/4\.000/4\.000 +1\.00x +17\.000/17\.000/17\.000 +- +- +- +- +-$}, text)
+  end
+
+  def test_lota_also_runs_each_game_timing_its_native_calls
+    plain = Bench::Scenario.new(engine: "lota", jit: "yjit", name: "flash_blip")
+    wrapped = Bench::Scenario.new(engine: "lota", jit: "yjit", name: "flash_blip_native_calls")
+
+    assert_includes Bench::LOTA_SCENARIOS, wrapped.name
+    refute_includes Bench::LOVE_SCENARIOS, wrapped.name
+    assert_equal plain.command(love: "/love"), wrapped.command(love: "/love")
+    in_tree do |dir|
+      settings = Bench::Settings.from({})
+
+      assert_equal "1", wrapped.environment(settings, File.join(dir, "w.json")).fetch("LOTA_PARITY_NATIVE_TIMES")
+      refute plain.environment(settings, File.join(dir, "p.json")).key?("LOTA_PARITY_NATIVE_TIMES")
+    end
+  end
+
+  def test_the_report_splits_a_games_update_and_draw_into_native_calls_and_ruby
+    timed = { "update" => [0.002] * 3, "draw" => [0.006] * 3, "frame" => [0.020] * 3 }
+    results = [
+      result("lota", "yjit", "flash_blip", frames(0.0, 0.0).merge(timed)),
+      result("lota", "yjit", "flash_blip_native_calls",
+        frames(0.0, 0.0).merge(timed, "native" => [0.003, 0.002, 0.004], "native_calls" => [2600, 2600, 2610])),
+    ]
+    text = Bench::Report.new(results, settings: Bench::Settings.from({}), machine: []).to_s
+
+    assert_includes text, "Where flash_blip's update and draw spend their time in Lota"
+    assert_match(/^yjit +2600 +8\.000 +3\.000 +5\.000 +62\.5% +25\.0% +20\.000$/, text)
+  end
+
   def test_quantile_takes_the_nearest_rank
     assert_equal 3, Bench.quantile([5, 1, 3, 2, 4], 0.5)
     assert_equal 100, Bench.quantile((1..100).to_a, 0.99) + 1
