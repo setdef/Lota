@@ -33,8 +33,8 @@ file NATIVE_MAKEFILE => DEPENDENCIES
 
 # Both Makefiles are configured again when another Ruby runs rake, even
 # one of the same version, which rake-compiler builds in the same folder,
-# or when the cmake or ninja on PATH is another, as when a version
-# manager moves them (ToolStamp). The record is written as the Rakefile
+# or when the cmake, ninja, or compiler launcher on PATH is another, as
+# when a version manager moves them (ToolStamp). The record is written as the Rakefile
 # loads, and again by its file task should tmp/ go before a build
 # (tasks/compilers.rake).
 TOOL_STAMP = ToolStamp.new(tmp: File.expand_path("../tmp", __dir__),

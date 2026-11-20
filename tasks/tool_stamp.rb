@@ -6,6 +6,7 @@
 #++
 
 require "fileutils"
+require "pathname"
 
 # The programs ext/lota/extconf.rb names to CMake, recorded so that the
 # extension's builds are configured again when one of them is another.
@@ -23,6 +24,13 @@ require "fileutils"
 # longer is. FILE records all three, rewritten only when one of them is
 # another, and the extension's Makefiles depend on it.
 #
+# So does a compiler launcher, such as ccache, which CMake initializes
+# from the environment (CMAKE_<language>_COMPILER_LAUNCHER) only when it
+# makes a tree, and keeps by path after: a ccache that moved was run from
+# where it no longer is, by every compile command. FILE records each
+# launcher the environment names, and extconf.rb names them to CMake on
+# every configure.
+#
 # None of them changes what a compile command holds but the Ruby's
 # headers, which CMake tracks, so configuring again in place is enough.
 # A changed compiler is another matter: on Linux it builds tmp/ afresh
@@ -31,12 +39,28 @@ class ToolStamp
   # The record, in tmp/.
   FILE = ".tools"
 
-  # The programs, one to a line: +ruby+, and cmake and ninja as +which+
-  # (a command name to its path, or nil, as Executable.find) finds them.
-  def self.describe(ruby:, which:)
+  # The languages whose compiler launcher, CMAKE_<language>_COMPILER_LAUNCHER
+  # in the environment, extconf.rb names to CMake.
+  LAUNCHER_LANGUAGES = %w[C CXX OBJC OBJCXX].freeze
+
+  # The programs, one to a line: +ruby+; cmake and ninja as +which+ (a
+  # command name to its path, or nil, as Executable.find) finds them; and
+  # each compiler launcher +env+ names, as a path (a name as +which+ finds
+  # it, or as it stands when nothing is there), or +none+.
+  def self.describe(ruby:, which:, env: ENV)
     lines = ["ruby #{ruby}", *%w[cmake ninja].map { |tool| "#{tool} #{which.call(tool) || 'missing'}" }]
+    LAUNCHER_LANGUAGES.each do |language|
+      variable = "CMAKE_#{language}_COMPILER_LAUNCHER"
+      given = env.fetch(variable, "")
+      lines << "#{variable} #{given.empty? ? 'none' : launcher_path(given, which)}"
+    end
     "#{lines.join("\n")}\n"
   end
+
+  def self.launcher_path(given, which)
+    Pathname.new(given).absolute? ? given : which.call(given) || given
+  end
+  private_class_method :launcher_path
 
   # [tmp] The build tree.
   # [tools] The description of the programs there are now.
