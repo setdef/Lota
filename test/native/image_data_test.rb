@@ -185,8 +185,14 @@ class ImageDataTest < Minitest::Test
     assert_raises(TypeError) { one(:rgba8).map_pixel { [1] } }
   end
 
+  # w_newImageData checks the size, then the format, then the bytes'
+  # kind (wrap_Image.cpp:40-66).
   def test_a_sized_image_data_checks_its_size_format_and_bytes
     assert_equal "Invalid image size.", assert_raises(RuntimeError) { ImageData.new(0, 1) }.message
+    assert_equal "Invalid image size.", assert_raises(RuntimeError) { ImageData.new(0, 1, :rgba7, 42) }.message
+    assert_raises(ArgumentError) { ImageData.new(1, 1, :rgba7, 42) }
+    error = assert_raises(TypeError) { ImageData.new(1, 1, :rgba8, 42) }
+    assert_equal "wrong argument type Integer (expected String or Lota::Data)", error.message
     assert_match(/\AInvalid pixel format: rgba7/, assert_raises(ArgumentError) { ImageData.new(1, 1, :rgba7) }.message)
     error = assert_raises(RuntimeError) { ImageData.new(1, 1, :rgba8, "\x00".b) }
 

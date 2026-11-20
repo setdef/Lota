@@ -31,6 +31,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Filesystem.write`, `append`, and `File#write` given a negative size return `nil` and LÖVE's message, `"Invalid write size."`, as LÖVE does, where they wrote nothing and returned `true`.
 - **Breaking:** `Lota::Math::Transform#matrix=` and `Lota::Graphics.projection=` check the layout before the elements, and raise TypeError for fewer than sixteen elements, as LÖVE does, where they raised ArgumentError for the count first.
 - **Breaking:** `Lota::Image::ImageData#map_pixel` checks the rectangle's numbers before the block, and raises RuntimeError with LÖVE's message for one that is not a number, as LÖVE does, where it raised TypeError, and checked the block first.
+- `Lota::Image::ImageData.new` with a size checks the size and the format before the kind of its bytes, as LÖVE does, where bytes of the wrong kind raised first.
 
 ## [0.5.5] - 2026-11-20
 

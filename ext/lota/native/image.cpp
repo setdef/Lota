@@ -86,11 +86,13 @@ Rice::Array new_cube_faces(ImageData *id) {
 }
 
 // w_newImageData with a width and a height (wrap_Image.cpp:35-82): blank
-// pixels of +format+, rgba8 when it is nil, or a copy of +bytes+, which
-// must be as many as the pixels take. Its one reference goes to the Ruby
-// wrapper.
-ImageData *new_sized_image_data(int w, int h, std::optional<std::string> fstr,
-                                std::optional<std::string> bytes) {
+// pixels of +format+, rgba8 when it is nil, or a copy of +given+, a
+// String of bytes or nil, which must be as many as the pixels take. LÖVE
+// checks the size, then the format, then the bytes' kind, so the bytes
+// come as they are given and are read here. Its one reference goes to
+// the Ruby wrapper.
+ImageData *new_sized_image_data(int w, int h, std::optional<std::string> fstr, Rice::Object given) {
+  const Rice::Object bytes_given = std::move(given);
   if (w <= 0 || h <= 0) {
     throw love::Exception("Invalid image size.");
   }
@@ -99,6 +101,14 @@ ImageData *new_sized_image_data(int w, int h, std::optional<std::string> fstr,
 
   if (fstr.has_value() && !love::getConstant(fstr->c_str(), format)) {
     raise_enum_error("pixel format", *fstr);
+  }
+
+  std::optional<std::string> bytes;
+  if (ruby::is_string(bytes_given)) {
+    bytes = Rice::detail::From_Ruby<std::string>().convert(bytes_given.value());
+  } else if (!ruby::is_nil(bytes_given)) {
+    ruby::raise_type_error("wrong argument type " + ruby::class_name(bytes_given) +
+                           " (expected String or Lota::Data)");
   }
 
   ImageData *t = image()->newImageData(w, h, format);
@@ -735,7 +745,7 @@ void define_image(const Rice::Module &native) {
       .define_singleton_function("new_cube_faces", &new_cube_faces, Rice::Arg("id"))
       .define_singleton_function("new_sized_image_data", &new_sized_image_data, Rice::Arg("w"),
                                  Rice::Arg("h"), Rice::Arg("fstr") = std::optional<std::string>(),
-                                 Rice::Arg("bytes") = std::optional<std::string>(),
+                                 Rice::Arg("bytes") = Rice::Object(),
                                  Rice::Return().takeOwnership())
       .define_singleton_function("new_compressed_data", &new_compressed_data, Rice::Arg("data"),
                                  Rice::Return().takeOwnership())
