@@ -71,6 +71,15 @@ class CursorTest < Minitest::Test
     assert_equal :image, Lota::Mouse::Cursor.new(logo).get_type
   end
 
+  # w_newCursor reads the hot spot with luaL_optinteger
+  # (wrap_Mouse.cpp:81-82), so nil is the default, 0.
+  def test_a_cursors_hot_spot_left_nil_is_zero
+    skip("cursors not supported here") unless Lota::Mouse.cursor_supported?
+
+    assert_equal :image, Lota::Mouse::Cursor.new("resources/love.png", nil, nil).get_type
+    assert_equal :image, Lota::Mouse::Cursor.new("resources/love.png", 3, nil).get_type
+  end
+
   # getCursor returns the cursor setCursor last showed, and nothing after
   # setCursor with nothing (w_getCursor).
   def test_the_cursor_shown_is_the_one_last_set

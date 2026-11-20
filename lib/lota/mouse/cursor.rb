@@ -41,8 +41,8 @@ module Lota
       #   or a Lota::Filesystem::FileData; or an Array of them, the same
       #   picture at each of the screen's scales.
       # [hotx] Integer pixel of the picture, from its left, that points;
-      #   0 when left out.
-      # [hoty] Integer pixel, from its top; 0 when left out.
+      #   0 when left out or +nil+.
+      # [hoty] Integer pixel, from its top; 0 when left out or +nil+.
       #
       # Raises RuntimeError with LÖVE's message where the system cannot
       # make cursors (Lota::Mouse.cursor_supported?), or for a picture it
@@ -55,7 +55,7 @@ module Lota
         images = (image.is_a?(Array) ? image : [image]).map do |each|
           (each.is_a?(Image::ImageData) ? each : Image::ImageData.new(each)).__send__(:native)
         end
-        from_native(Native::Mouse.new_cursor(images, hotx, hoty))
+        from_native(Native::Mouse.new_cursor(images, hotx.nil? ? 0 : hotx, hoty.nil? ? 0 : hoty))
       end
 
       # What kind of Cursor this is, as a Symbol, matching Cursor:getType
