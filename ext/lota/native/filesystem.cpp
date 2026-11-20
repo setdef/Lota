@@ -15,6 +15,7 @@
 #include "filesystem/File.h"
 #include "filesystem/FileData.h"
 #include "filesystem/Filesystem.h"
+#include "filesystem/NativeFile.h"
 #include "filesystem/physfs/Filesystem.h"
 
 #include <algorithm>
@@ -372,6 +373,18 @@ bool mount_archive(const std::string &archive, const std::string &mountpoint, bo
   return filesystem()->mount(archive.c_str(), mountpoint.c_str(), append);
 }
 
+// The filename w_mount mounts a NativeFile by, as a path
+// (wrap_Filesystem.cpp:140-144), or nil for any other File, whose type
+// w_mount refuses as luaL_checkstring does (146). Lota binds every File
+// as File, so only the engine object tells a NativeFile apart.
+Rice::Object native_file_name(File &file) {
+  const auto *native = dynamic_cast<const love::filesystem::NativeFile *>(&file);
+  if (native == nullptr) {
+    return {};
+  }
+  return Rice::String(native->getFilename());
+}
+
 // w_mount with a Data (wrap_Filesystem.cpp:115-137): its bytes, an
 // archive named +archive+, mounted at +mountpoint+. The filesystem keeps
 // its own reference to the Data while it is mounted.
@@ -658,6 +671,7 @@ void define_filesystem(const Rice::Module &native) {
                                  Rice::Arg("use_external") = false)
       .define_singleton_function("mount_archive", &mount_archive, Rice::Arg("archive"),
                                  Rice::Arg("mountpoint"), Rice::Arg("append") = false)
+      .define_singleton_function("native_file_name", &native_file_name, Rice::Arg("file"))
       .define_singleton_function("mount_data", &mount_data, Rice::Arg("data"), Rice::Arg("archive"),
                                  Rice::Arg("mountpoint"), Rice::Arg("append") = false)
       .define_singleton_function("unmount_archive", &unmount_archive, Rice::Arg("archive"))

@@ -652,13 +652,19 @@ module Lota
     #   name +archivename+, which unmount takes.
     # [<tt>mount(file_data, mountpoint, append = false)</tt>] a
     #   Lota::Filesystem::FileData, mounted under its own filename.
+    # [<tt>mount(native_file, mountpoint, append = false)</tt>] a
+    #   Lota::Filesystem::File that Lota::Filesystem.open_native_file
+    #   opened, mounted by its filename as a path is, which PhysicsFS
+    #   mounts only in the save directory or the game's folder.
     #
     # [append] Whether its files are found after the ones already mounted
-    #   rather than before them.
+    #   rather than before them; anything but +true+ or +false+ is +false+,
+    #   as LÖVE reads it.
     #
     # Mounts last until unmount, so they take no block
-    # (doc/contributors/design/translation.md). LÖVE also mounts a NativeFile,
-    # which Lota does not bind yet.
+    # (doc/contributors/design/translation.md). Raises TypeError for an
+    # +archive+ of another kind, as LÖVE raises for one that is not a
+    # string.
     #
     # === Examples
     #
@@ -666,18 +672,25 @@ module Lota
     #   Lota::Filesystem.mount(data, "dlc.zip", "dlc")
     def self.mount(archive, *rest)
       case archive
-      when String then Native::Filesystem.mount_archive(archive, string!(rest[0]), boolean!(rest[1]))
       when FileData
         return mount_data(archive, archive.filename, rest[0], rest[1]) unless rest[1].is_a?(String)
 
         mount_data(archive, string!(rest[0]), rest[1], rest[2])
-      else mount_data(archive, string!(rest[0]), rest[1], rest[2])
+      when Lota::Data then mount_data(archive, string!(rest[0]), rest[1], rest[2])
+      else mount_archive(archive, rest[0], rest[1])
       end
+    end
+
+    # Mounts the archive named by +archive+, a String or a NativeFile's
+    # filename, at +mountpoint+. :nodoc:
+    private_class_method def self.mount_archive(archive, mountpoint, append)
+      path = (Native::Filesystem.native_file_name(archive.__send__(:native)) if archive.is_a?(File)) || string!(archive)
+      Native::Filesystem.mount_archive(path, string!(mountpoint), optboolean(append))
     end
 
     # Mounts +data+ as the archive +archivename+ at +mountpoint+. :nodoc:
     private_class_method def self.mount_data(data, archivename, mountpoint, append)
-      Native::Filesystem.mount_data(data.__send__(:native), archivename, string!(mountpoint), boolean!(append))
+      Native::Filesystem.mount_data(data.__send__(:native), archivename, string!(mountpoint), optboolean(append))
     end
 
     # +value+, a String, or a TypeError, as luaL_checkstring raises for
@@ -688,14 +701,11 @@ module Lota
       raise TypeError, "wrong argument type #{value.class} (expected String)"
     end
 
-    # +value+, or +false+ for +nil+, as luax_optboolean reads a boolean
-    # left out, or a TypeError for anything else. :nodoc:
-    private_class_method def self.boolean!(value)
-      case value
-      when true, false then value
-      when nil then false
-      else raise TypeError, "wrong argument type #{value.class} (expected true or false)"
-      end
+    # +value+ when it is true or false, and +false+ for anything else, as
+    # luax_optboolean (src/common/runtime.cpp:270-275) reads it with a
+    # default of false. :nodoc:
+    private_class_method def self.optboolean(value)
+      value == true
     end
 
     # Unmounts what mount mounted, matching love.filesystem.unmount
@@ -711,7 +721,8 @@ module Lota
     def self.unmount(archive)
       case archive
       when String then Native::Filesystem.unmount_archive(archive)
-      else Native::Filesystem.unmount_data(archive.__send__(:native))
+      when Lota::Data then Native::Filesystem.unmount_data(archive.__send__(:native))
+      else Native::Filesystem.unmount_archive(string!(archive))
       end
     end
 

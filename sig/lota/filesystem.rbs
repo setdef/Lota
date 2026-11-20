@@ -67,13 +67,15 @@ module Lota
 
     def self.exists: (String path) -> bool
 
-    def self.mount: (String | Lota::Data archive, *(String | bool) rest) -> bool
+    def self.mount: (String | Lota::Data | File archive, *(String | bool) rest) -> bool
+
+    private def self.mount_archive: (String | File archive, (String | bool)? mountpoint, (String | bool)? append) -> bool
 
     private def self.mount_data: (Lota::Data data, String archivename, (String | bool)? mountpoint, (String | bool)? append) -> bool
 
-    private def self.string!: ((String | bool)? value) -> String
+    private def self.string!: (::Object? value) -> String
 
-    private def self.boolean!: ((String | bool)? value) -> bool
+    private def self.optboolean: (::Object? value) -> bool
 
     def self.unmount: (String | Lota::Data archive) -> bool
 

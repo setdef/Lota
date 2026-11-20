@@ -8,6 +8,7 @@
 require_relative "native_helper"
 require_relative "../engine_helper"
 require "fileutils"
+require "tmpdir"
 
 # Lota::Filesystem's save directory and the files in it, through LÖVE's
 # PhysicsFS filesystem. The tests run in a home of their own
@@ -263,6 +264,38 @@ class SaveDirectoryTest < Minitest::Test
 
     assert_equal "byte data", File.binread(File.join(save_directory, "bytes.bin"))
     assert_raises(TypeError) { Lota::Filesystem.append("bytes.bin", 42) }
+  end
+
+  # w_mount reads its append with luax_optboolean (wrap_Filesystem.cpp:147;
+  # src/common/runtime.cpp:270-275), which takes anything but a boolean
+  # for its default, false, so Lövetest's zip mounts.
+  def test_mount_reads_an_append_that_is_not_a_boolean_as_false
+    zip = File.binread(File.expand_path("../../vendor/love/testing/resources/test.zip", __dir__))
+    data, = Lota::Filesystem.new_file_data(zip, "test.zip")
+
+    assert Lota::Filesystem.mount(data, "mounted", 1)
+    assert_equal :file, Lota::Filesystem.info("mounted/test.txt").type
+  ensure
+    Lota::Filesystem.unmount(data) if data
+  end
+
+  # w_mount mounts a NativeFile by its filename, as a path
+  # (wrap_Filesystem.cpp:140-144), which PhysicsFS refuses outside the
+  # game's folder and its save directory; anything else that is not a
+  # Data must be a string (146), as for w_unmount (205).
+  def test_mount_takes_a_native_file_by_its_name_and_raises_for_another_non_string
+    Dir.mktmpdir do |directory|
+      file, = Lota::Filesystem.open_native_file(File.join(directory, "dlc.zip"), :w)
+
+      refute Lota::Filesystem.mount(file, "dlc")
+      file.close
+    end
+    saved("notes.txt", "x")
+    game_file, = Lota::Filesystem.open_file("notes.txt", :c)
+
+    assert_raises(TypeError) { Lota::Filesystem.mount(game_file, "dlc") }
+    assert_raises(TypeError) { Lota::Filesystem.mount(42, "dlc") }
+    assert_raises(TypeError) { Lota::Filesystem.unmount(42) }
   end
 
   # SPDX-SnippetEnd

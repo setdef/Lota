@@ -296,7 +296,8 @@ bound_by_hand "love.filesystem.getDirectoryItems",
   reason: "fills a table in a loop, which the generator does not port; Lota returns the names as an Array"
 bound_by_hand "love.filesystem.mount",
   reason: "reads its arguments at positions it computes (startidx), as a Data, a FileData, a NativeFile, or " \
-    "a path; Lota binds the path and Data forms, which Lota::Filesystem.mount chooses between"
+    "a path; Lota binds the path and Data forms, which Lota::Filesystem.mount chooses between, and mounts a " \
+    "NativeFile by its filename through the path form, as LÖVE does"
 bound_by_hand "love.filesystem.unmount",
   reason: "reads its argument as a Data or a string (luax_istype); Lota binds each form, which " \
     "Lota::Filesystem.unmount chooses between"

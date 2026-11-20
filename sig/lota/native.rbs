@@ -726,6 +726,8 @@ module Lota
 
       def self.mount_data: (Data::Data data, String archive, String mountpoint, ?bool append) -> bool
 
+      def self.native_file_name: (File file) -> String?
+
       def self.unmount_archive: (String archive) -> bool
 
       def self.unmount_data: (Data::Data data) -> bool
