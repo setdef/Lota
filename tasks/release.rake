@@ -108,6 +108,15 @@ namespace :release do
       puts "✅ Added #{engines.join(', ')} to #{File.join(args.fetch(:dir), Release::CHECKSUMS)}"
     end
   end
+
+  desc "Build the source gem of a VERSION stamped in, pinning the phone engines DIR's SHA256SUMS lists for its " \
+    "release, into the release assembled in DIR, check it, and list it in DIR's SHA256SUMS"
+  task :source, [:dir, :version] do |_task, args|
+    release_task do |release|
+      gem = release.add_source_gem(args.fetch(:dir), args.fetch(:version))
+      puts "✅ Built #{gem}, pinning the phone engines of v#{args.fetch(:version)}, into #{args.fetch(:dir)}"
+    end
+  end
 end
 
 namespace :changelog do

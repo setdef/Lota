@@ -9,7 +9,9 @@ require "date"
 require "digest"
 require "fileutils"
 require "open3"
+require "rbconfig"
 require "rubygems/package"
+require "tmpdir"
 require_relative "changelog"
 require_relative "../ext/lota/phone/engine"
 
@@ -61,6 +63,13 @@ class Release
 
   # How a phone engine's asset name begins (Lota::PhoneEngine.asset).
   ENGINE_ASSET = "lota-engine-"
+
+  # The specification Lota's gems are built from.
+  GEMSPEC = "lota.gemspec"
+
+  # What installing the source gem on a desktop prints as it stops
+  # (ext/lota/extconf.rb), as rake package:check expects it too.
+  SOURCE_REFUSAL = "Install Lota's precompiled gem instead"
 
   # [root] The repository.
   def initialize(root:)
@@ -135,6 +144,38 @@ class Release
   # a release #assemble made, as #add_bundles does. Returns their names.
   def add_engines(dir, from)
     add_bundles(dir, from, Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) })
+  end
+
+  # Builds Lota's source gem from the working tree, which #stamp has set
+  # to the version +number+, into +dir+, a release #add_engines made, with
+  # the phone engines dir's SHA256SUMS lists pinned in it for the release
+  # v+number+ (#pin_engines), so a phone build from the gem alone fetches
+  # the engines that release publishes. The pin is written into the
+  # working tree, as the version is, and committed nowhere; the gem
+  # carries it whether git tracks it or not. Checks that the gem holds
+  # that version and pin, and that installing it on this computer stops,
+  # as the source gem's install does on every desktop (ext/lota/extconf.rb),
+  # then adds its line to the SHA256SUMS. Returns its name.
+  def add_source_gem(dir, number)
+    raise Refusal, "#{VERSION_FILE} is #{version}, not #{number}; stamp the version first" unless version == number
+
+    name = "lota-#{number}.gem"
+    gem = File.join(dir, name)
+    raise Refusal, "#{dir} already holds #{name}" if File.exist?(gem)
+
+    checksums = File.join(dir, CHECKSUMS)
+    published = Lota::PhoneEngine.sums(File.read(checksums))
+    pin_engines("v#{number}", File.read(checksums))
+    Dir.mktmpdir("lota-source-gem") do |work|
+      built = File.join(work, name)
+      build_source_gem(built)
+      check_source_gem(built, number, read(ENGINES), work)
+      FileUtils.mv(built, gem)
+    end
+    File.write(checksums, published.merge(name => sha256(dir, name)).sort.map { |file, sha| "#{sha}  #{file}\n" }.join)
+    name
+  rescue Lota::PhoneEngine::Failure => e
+    raise Refusal, e.message
   end
 
   # Checks that +from+ holds exactly the files +names+ and a SHA256SUMS
@@ -319,6 +360,48 @@ class Release
     return if present == wanted
 
     raise Refusal, "#{dir} is not one verified gem for each platform:#{difference(present, wanted)}"
+  end
+
+  # Builds the gem GEMSPEC describes at +path+, with ENGINES among its
+  # files, in a Ruby of its own outside any bundle, as gem build runs.
+  private def build_source_gem(path)
+    script = 'spec = Gem::Specification.load(ARGV[0]); spec.files |= [ARGV[1]]; require "rubygems/package"; ' \
+      "Gem::Package.build(spec, false, false, ARGV[2])"
+    output, status = unbundled do
+      Open3.capture2e(RbConfig.ruby, "-e", script, GEMSPEC, ENGINES, path, chdir: @root)
+    end
+    raise Refusal, "building #{File.basename(path)} failed:\n#{output}" unless status.success? && File.file?(path)
+  end
+
+  # Checks the source gem at +path+ is lota +number+ for every platform,
+  # carries ENGINES as +pin+, and stops when it is installed here, as it
+  # does on every desktop, with the message that names the precompiled
+  # gems. +work+ is a folder to unpack and install it in.
+  private def check_source_gem(path, number, pin, work)
+    package = Gem::Package.new(path)
+    spec = package.spec
+    found = [spec.name, spec.version.to_s, spec.platform.to_s]
+    raise Refusal, "#{File.basename(path)} holds #{found.join(' ')}, not lota #{number} ruby" unless
+      found == ["lota", number, "ruby"]
+
+    package.extract_files(File.join(work, "unpacked"))
+    packed = File.join(work, "unpacked", ENGINES)
+    raise Refusal, "#{File.basename(path)} does not carry the pin #{ENGINES} wrote" unless
+      File.file?(packed) && File.read(packed) == pin
+
+    home = File.join(work, "gems")
+    output, status = unbundled do
+      Open3.capture2e({ "GEM_HOME" => home, "GEM_PATH" => home }, RbConfig.ruby, "-S", "gem", "install", "--norc",
+        "--local", "--no-document", "--install-dir", home, path, chdir: work)
+    end
+    raise Refusal, "#{File.basename(path)} installed here; a source gem must stop and name the precompiled gems" if
+      status.success?
+    raise Refusal, "#{File.basename(path)} did not stop with its message:\n#{output}" unless
+      output.include?(SOURCE_REFUSAL)
+  end
+
+  private def unbundled(&)
+    defined?(Bundler) ? Bundler.with_unbundled_env(&) : yield
   end
 
   # The lines of the SHA256SUMS +text+ that name a phone engine, by name.
