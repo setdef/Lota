@@ -366,11 +366,16 @@ class RakeTasksTest < Minitest::Test
 
     assert_equal ["minitest"], lovetest.gems
     assert_equal 0, lovetest.status
-    skips = LovetestSkips.expected(env: ENV.to_h.merge(PackageCheck::SILENT))
-    assert_match lovetest.output, "love.conf\n.......S\n8 runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
-    refute_match lovetest.output, "love.conf\n........\n8 runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
-    refute_match lovetest.output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
-    refute_match lovetest.output, "love.conf\n1 runs, 3 assertions, 1 failures, 0 errors, 0 skips\n"
+    # What the window game, run first, printed of a machine with GLSL 4
+    # and no sensor, from which Lövetest's expected output is made.
+    output = lovetest.expected("a window" => "window 800x600\nglsl4 true\nsensors 0\n")
+    runs = LovetestLua.tests.size
+    skips = LovetestSkips.expected(env: ENV.to_h.merge(PackageCheck::SILENT)) + 3
+    assert_match output, "love.conf\n.......S\n#{runs} runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
+    refute_match output, "love.conf\n........\n#{runs} runs, 2065 assertions, 0 failures, 0 errors, 0 skips\n"
+    refute_match output, "love.conf\n0 runs, 0 assertions, 0 failures, 0 errors, 0 skips\n"
+    refute_match output, "love.conf\n1 runs, 3 assertions, 1 failures, 0 errors, 0 skips\n"
+    refute_match output, "love.conf\n#{runs - 1} runs, 2065 assertions, 0 failures, 0 errors, #{skips} skips\n"
   end
 
   def test_the_lint_gate_checks_the_workflows
