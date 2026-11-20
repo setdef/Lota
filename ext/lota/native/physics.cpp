@@ -1035,31 +1035,43 @@ Rice::Array shape_mass_data(const Shape &shape) {
   return floats({x, y, mass, inertia});
 }
 
+// The argument at +index+ of +values+, or nil past their end, as Lua
+// reads an argument it was not given.
+Rice::Object argument(const std::vector<Rice::Object> &values, std::size_t index) {
+  return (index < values.size()) ? values.at(index) : Rice::Object(Qnil);
+}
+
+// A child index read with luaL_optinteger, for which nil is 1.
+int optional_child(const Rice::Object &value) {
+  return ruby::is_nil(value) ? 1 : Rice::detail::From_Ruby<int>().convert(value.value());
+}
+
 // w_Shape_rayCast (wrap_Shape.cpp:199-206), through Shape::rayCast: the
 // ray's two points and how far along it to look, then a child (from 1),
 // or the Shape's position and angle and then a child, as LÖVE chooses by
-// whether its seventh argument is given. The hit's normal and fraction, or
-// none, as an empty Array.
+// whether its seventh argument is given and not nil (Shape.cpp:408). The
+// hit's normal and fraction, or none, as an empty Array.
 Rice::Array shape_ray_cast(const Shape &shape, Rice::Array ray_given, Rice::Array rest_given) {
   const Rice::Array ray = std::move(ray_given);
   const Rice::Array rest = std::move(rest_given);
   const std::vector<double> r = numbers(ray);
-  const std::vector<double> more = numbers(rest);
+  const std::vector<Rice::Object> more = ruby::elements(rest);
   const auto [p1x, p1y, p2x, p2y] = take<4>(r, 0);
   const auto max_fraction = static_cast<float>(r.at(4));
   float xn = 0;
   float yn = 0;
   float fraction = 0;
   bool hit = false;
-  if (more.size() < 2) {
-    const int child = more.empty() ? 1 : static_cast<int>(more.at(0));
+  if (ruby::is_nil(argument(more, 1))) {
+    const int child = optional_child(argument(more, 0));
     hit = shape.rayCast(p1x, p1y, p2x, p2y, max_fraction, nullptr, child, xn, yn, fraction);
   } else {
-    if (more.size() < 3) {
-      throw std::invalid_argument("Missing argument. Name: r.");
+    std::array<float, 3> transform{};
+    for (std::size_t i = 0; i < transform.size(); i++) {
+      transform.at(i) =
+          static_cast<float>(Rice::detail::From_Ruby<double>().convert(argument(more, i).value()));
     }
-    const std::array<float, 3> transform = take<3>(more, 0);
-    const int child = (more.size() > 3) ? static_cast<int>(more.at(3)) : 1;
+    const int child = optional_child(argument(more, 3));
     hit =
         shape.rayCast(p1x, p1y, p2x, p2y, max_fraction, transform.data(), child, xn, yn, fraction);
   }

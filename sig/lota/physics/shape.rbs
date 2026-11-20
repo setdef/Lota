@@ -52,7 +52,7 @@ module Lota
 
       def test_point: (Float | Integer x, Float | Integer y, ?(Float | Integer)? angle, ?(Float | Integer)? px, ?(Float | Integer)? py) -> bool
 
-      def ray_cast: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_fraction, *Float | Integer arguments) -> Array[Float]
+      def ray_cast: (Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_fraction, *(Float | Integer)? arguments) -> Array[Float]
 
       def compute_aabb: (Float | Integer x, Float | Integer y, Float | Integer angle, ?Integer? child) -> Array[Float]
 

@@ -1647,7 +1647,7 @@ module Lota
 
       def mass_data: () -> Array[Float]
 
-      def ray_cast: (Array[Float | Integer] ray, Array[Float | Integer] rest) -> Array[Float]
+      def ray_cast: (Array[Float | Integer] ray, Array[Float | Integer | nil] rest) -> Array[Float]
 
       def set_user_data: (::Object? value) -> nil
 

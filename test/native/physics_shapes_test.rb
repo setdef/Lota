@@ -100,6 +100,26 @@ class PhysicsShapesTest < Minitest::Test
   end
   # SPDX-SnippetEnd
 
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+  #
+  # Shape:rayCast casts where the Body is unless its seventh argument is
+  # given and not nil, and reads the child in either form with
+  # luaL_optinteger, for which nil is 1 (Shape.cpp:408-421).
+  def test_a_ray_cast_takes_nil_as_lovee_does
+    circle = Physics::CircleShape.new(@body, 10)
+    where_the_body_is = circle.ray_cast(-20, 0, 20, 0, 1).map { |value| value.round(4) }
+
+    assert_equal [-1.0, 0.0, 0.25], where_the_body_is
+    [[nil], [1, nil], [nil, nil, 7]].each do |rest|
+      assert_equal where_the_body_is, circle.ray_cast(-20, 0, 20, 0, 1, *rest).map { |value| value.round(4) }
+    end
+    assert_equal [-1.0, 0.0, 0.375], circle.ray_cast(-20, 0, 20, 0, 1, 5, 0, 0, nil).map { |value| value.round(4) }
+    assert_raises(TypeError) { circle.ray_cast(-20, 0, 20, 0, 1, 5, 0) }
+  end
+  # SPDX-SnippetEnd
+
   def test_a_chain_sets_its_neighbors
     chain = Physics::ChainShape.new(@body, false, 0, 0, 30, 0, 30, 30)
     chain.next_vertex = 60, 30
