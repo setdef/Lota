@@ -72,7 +72,7 @@ module Lota
 
     private def self.exit_procs: () -> Array[Proc]?
 
-    private def self.in_process: (String directory) { () -> Integer } -> Integer
+    private def self.in_process: (^() -> String? directory) { () -> Integer } -> Integer
 
     private def self.catching_exit_procs: [T] () { () -> T } -> T
 

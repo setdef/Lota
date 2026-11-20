@@ -53,6 +53,26 @@ class RestartSnapshotTest < Minitest::Test
     snapshot.restore(@directory)
   end
 
+  # A run with no game, the no-game screen's (Lota::NoGame), has no
+  # folder: the callbacks it set on Lota go, and no file is taken for
+  # the game's.
+  def test_with_no_folder_only_what_was_set_on_lota_goes
+    snapshot = Lota::Restart::Snapshot.new
+    load_game(<<~RUBY)
+      class SnapshotTestScreen; end
+      def Lota.snapshot_test_screen_draw = :screen
+    RUBY
+
+    snapshot.restore(nil)
+
+    refute_respond_to Lota, :snapshot_test_screen_draw
+    assert Object.const_defined?(:SnapshotTestScreen), "no file was the game's"
+    refute require("game_file"), "the file stays loaded"
+  ensure
+    Object.__send__(:remove_const, :SnapshotTestScreen) if Object.const_defined?(:SnapshotTestScreen)
+    $LOADED_FEATURES.delete(File.realpath(File.join(@directory, "game_file.rb")))
+  end
+
   def test_the_callbacks_and_instance_variables_the_game_set_on_lota_go_back
     Lota.define_singleton_method(:snapshot_test_kept) { :lota }
     snapshot = Lota::Restart::Snapshot.new

@@ -18,7 +18,7 @@ module Lota
 
       def initialize: () -> void
 
-      def restore: (String directory) -> nil
+      def restore: (String? directory) -> nil
 
       private def top_level_methods: () -> Array[Symbol]
 
