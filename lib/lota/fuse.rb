@@ -674,20 +674,43 @@ module Lota
     # The game's identity: its <tt>t.identity</tt>, or the name
     # <tt>lota run</tt> gives a game that sets none (Boot.folder_identity).
     private def identity(settings)
-      identity = settings.identity
-      identity = identity.to_s if identity.is_a?(Symbol)
-      return identity if identity.is_a?(String) && !identity.strip.empty?
-
-      Boot.folder_identity(@directory)
+      Fuse.identity(settings, @directory)
     end
 
     # The app's name: the window's title, or the game's, or, when conf.rb
     # leaves the title LÖVE's default, the game folder's name.
     private def name(settings)
+      Fuse.app_name(settings, File.basename(@directory))
+    end
+
+    # The identity of a game at +path+, a folder or a game in one file,
+    # whose conf.rb leaves +settings+: its <tt>t.identity</tt>, or else the
+    # name <tt>lota run</tt> gives a game at +path+ that sets none
+    # (Boot.folder_identity).
+    #
+    # === Example
+    #
+    #   Lota::Fuse.identity(Lota::Settings.new, "games/Sample Game.lota") # => "Sample Game"
+    def self.identity(settings, path)
+      identity = settings.identity
+      identity = identity.to_s if identity.is_a?(Symbol)
+      return identity if identity.is_a?(String) && !identity.strip.empty?
+
+      Boot.folder_identity(path)
+    end
+
+    # The name of the app of a game whose conf.rb leaves +settings+: the
+    # window's title, or the game's, or +fallback+ when conf.rb leaves the
+    # title LÖVE's default.
+    #
+    # === Example
+    #
+    #   Lota::Fuse.app_name(Lota::Settings.new, "sample_game") # => "sample_game"
+    def self.app_name(settings, fallback)
       window = settings.window
       title = window.title if window.is_a?(Settings::Window)
       title = (title || settings.title).to_s.strip
-      (title.empty? || title == UNTITLED) ? File.basename(@directory) : title
+      (title.empty? || title == UNTITLED) ? fallback : title
     end
 
     # Copies the game's files, but not the folders of LEFT_OUT, the paths
@@ -750,19 +773,40 @@ module Lota
     end
 
     private def fledge_yml(name, identity, folder)
+      "# Written by lota fuse, which writes it again on every build.\n#{YAML.dump(fledge_config(name, identity, folder))}"
+    end
+
+    # The settings of the project's <tt>fledge.yml</tt>, for the app named
+    # +name+ of the game whose identity is +identity+, which is copied into
+    # the folder +folder+ of GAME_FOLDER.
+    private def fledge_config(name, identity, folder)
       config = {
         "name" => name,
         "kind" => "windowed",
         "identifier" => @options.identifier || Fuse.placeholder_identifier(identity),
-      }
+      } #: Hash[String, ::Object]
       version = @options.app_version
       config["version"] = version if version
       icon = @options.icon
       config["icon"] = File.join(GAME_FOLDER, folder, icon) if icon
-      "# Written by lota fuse, which writes it again on every build.\n#{YAML.dump(config)}"
+      config
     end
 
+    # The project's entry script, for the game in the folder +folder+ of
+    # GAME_FOLDER (Fuse.entry_script).
     private def entry_script(folder)
+      Fuse.entry_script(folder)
+    end
+
+    # The entry script of a project whose game is in the folder +folder+
+    # of GAME_FOLDER: it turns YJIT on where the runtime has it and starts
+    # the game fused, again each time it restarts.
+    #
+    # === Example
+    #
+    #   Lota::Fuse.entry_script("Sample Game").lines.last
+    #   # => "exit Lota::Boot.new(File.join(__dir__, \"game\", \"Sample Game\"), ARGV, fused: true).call\n"
+    def self.entry_script(folder)
       <<~RUBY
         # frozen_string_literal: true
 

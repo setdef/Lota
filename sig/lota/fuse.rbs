@@ -156,6 +156,10 @@ module Lota
 
     private def name: (Settings settings) -> String
 
+    def self.identity: (Settings settings, String path) -> String
+
+    def self.app_name: (Settings settings, String fallback) -> String
+
     private def copy_game: (String from, String to) -> void
 
     private def gemfile: (String folder, Lockfile? locked) -> String
@@ -164,7 +168,11 @@ module Lota
 
     private def fledge_yml: (String name, String identity, String folder) -> String
 
+    private def fledge_config: (String name, String identity, String folder) -> Hash[String, ::Object]
+
     private def entry_script: (String folder) -> String
+
+    def self.entry_script: (String folder) -> String
 
     private def run: (Array[String] bundle, *String arguments, folder: String, step: String, why: String) -> void
 
