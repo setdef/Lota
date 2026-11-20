@@ -222,6 +222,19 @@ class SaveDirectoryTest < Minitest::Test
     assert_raises(TypeError) { Lota::Filesystem.write("hello.txt", 42) }
   end
 
+  # LÖVE passes a negative size on to File::write, which throws "Invalid
+  # write size." (physfs/File.cpp:205-206), and love.filesystem.write and
+  # File:write return it as luax_ioError's nil and message
+  # (wrap_Filesystem.cpp:680-693, wrap_File.cpp:159-166).
+  def test_a_negative_size_is_refused_with_the_engines_message
+    assert_equal [nil, "Invalid write size."], Lota::Filesystem.write("negative.txt", "abc", -1)
+
+    file, = Lota::Filesystem.open_file("negative.txt", :w)
+    assert_equal [nil, "Invalid write size."], file.write("abc", -1)
+  ensure
+    file&.close
+  end
+
   # write returns luax_ioError's nil and message when PhysicsFS cannot
   # open the file, here because a directory has its name.
   def test_write_returns_nil_and_the_engines_message_when_it_cannot_write

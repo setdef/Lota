@@ -173,7 +173,8 @@ module Lota
       #   out.
       #
       # Returns an Array (rule 4) of whether it wrote them all, or of +nil+
-      # and LÖVE's message, as for a file not open to write. LÖVE writes
+      # and LÖVE's message, as for a file not open to write or a negative
+      # +size+. LÖVE writes
       # +size+ bytes even past the end of +data+; Lota writes no more than
       # +data+ holds. Raises TypeError for +data+ that is neither.
       #

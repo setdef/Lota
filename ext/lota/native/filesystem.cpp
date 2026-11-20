@@ -249,10 +249,12 @@ Rice::Array load(const std::string &filename, const std::optional<std::string> &
 // The number of bytes to write of an input that holds +length+: +size+,
 // or all of it when +size+ is not given. LÖVE writes +size+ bytes
 // whatever +length+ is, reading past the input for a larger size; Lota
-// writes at most +length+, since Ruby reads no memory past a String.
+// writes at most +length+, since Ruby reads no memory past a String. A
+// negative size stays negative, so File::write refuses it with "Invalid
+// write size." (physfs/File.cpp:205-206), as it does in LÖVE.
 love::int64 write_length(std::size_t length, std::optional<long long> size) {
-  return static_cast<love::int64>(std::clamp<long long>(
-      size.value_or(static_cast<long long>(length)), 0, static_cast<long long>(length)));
+  const auto most = static_cast<long long>(length);
+  return static_cast<love::int64>(std::min(size.value_or(most), most));
 }
 
 // w_write_or_append (wrap_Filesystem.cpp:661-701): writes, or with
