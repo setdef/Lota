@@ -11,8 +11,12 @@
 # but a Mac need not have Homebrew. So on macOS this installs the libyaml
 # source mise.toml pins and names it in RUBY_CONFIGURE_OPTS with psych's
 # own option, --with-libyaml-source-dir: Ruby's build then builds that
-# libyaml in psych's build folder and links it into psych, and the source
-# folder is left as mise unpacked it. Elsewhere it runs CMD as it is:
+# libyaml in psych's build folder and links it into psych. mise unpacks
+# the source with the time it unpacked each file, in the archive's order,
+# not the times the archive records, so a Makefile.am comes out newer than
+# the Makefile.in automake made from it, and make would run automake,
+# which macOS does not ship; so every file of the source is given one
+# time, and none is newer than another. Elsewhere it runs CMD as it is:
 # Ubuntu's libyaml-dev is among the packages bin/setup asks for
 # (tasks/apt/build.txt), and on Windows the Ruby carries its own libyaml.
 # bin/setup and the pre-push hook (.githooks/pre-push) both install Ruby
@@ -21,6 +25,7 @@ set -e
 if [ "$(uname -s)" = Darwin ]; then
   mise install http:libyaml
   source=$(mise where http:libyaml)
+  find "$source" -type f -exec touch -t 202006010000 {} +
   RUBY_CONFIGURE_OPTS="--with-libyaml-source-dir=$source${RUBY_CONFIGURE_OPTS:+ $RUBY_CONFIGURE_OPTS}"
   export RUBY_CONFIGURE_OPTS
 fi
