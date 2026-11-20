@@ -370,7 +370,25 @@ module Parity
       @major_causes = Hash.new(0)
       @started = nil
 
+      # How often, in frames, the timing mode writes the last frame done to
+      # PROGRESS, which rake bench reads when it stops a run that ran too
+      # long; every frame would add the write to the frames it times.
+      PROGRESS_EVERY = 30
+
       class << self
+        # Turns the timing mode's diagnostics on: what the game prints goes
+        # out at once, so a run killed for running too long loses none of
+        # it, and SIGUSR1, which rake bench sends such a run before it kills
+        # it, prints the frame under way and every thread's backtrace.
+        def diagnose
+          $stdout.sync = true
+          $stderr.sync = true
+          Signal.trap(:USR1) do
+            warn "Parity probe: stopped in frame #{Probe.frame}; its threads:"
+            ::Thread.list.each { |thread| warn "#{thread.inspect}\n  #{Array(thread.backtrace).join("\n  ")}" }
+          end
+        end
+
         # Runs the block, and in timing mode adds the seconds it took to
         # the times of +part+, :update or :draw.
         def time(part)
@@ -392,6 +410,8 @@ module Parity
             note_majors
           end
           NativeCalls.next_frame if NativeCalls.on?
+          done = Probe.frame - 1
+          File.write(PROGRESS, done.to_s) if (done % PROGRESS_EVERY).zero?
           @first ||= gc_snapshot
           @majors ||= GC.stat(:major_gc_count)
           @started = now
@@ -616,4 +636,5 @@ Lota::Timer.singleton_class.prepend(Parity::Probe::Delta)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
 Lota::Boot.prepend(Parity::Probe::SeedBeforeMain)
 Lota::Thread::Thread.prepend(Parity::Probe::Threads)
+Parity::Probe::Timing.diagnose if Parity::Probe::TIMES
 at_exit { Parity::Probe.report }

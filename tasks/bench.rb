@@ -315,7 +315,9 @@ module Bench
   # calls in all, and for a Game, the shortest median update and draw),
   # since anything else running on the machine only ever adds time.
   class Runner
-    def initialize(settings:, love:, directory:, out: $stdout)
+    # [timeout] Seconds a run may take before it is stopped and fails.
+    def initialize(settings:, love:, directory:, out: $stdout, timeout: TIMEOUT)
+      @timeout = timeout
       @settings = settings
       @love = love
       @directory = directory
@@ -335,7 +337,9 @@ module Bench
       @out.puts "Running #{scenario}, run #{index} of #{@settings.runs}"
       report = File.join(@directory, "#{scenario.engine}-#{scenario.jit}-#{scenario.name}-#{index}.json")
       FileUtils.rm_f(report)
-      output, status = Bench.spawn(scenario.environment(@settings, report), scenario.command(love: @love))
+      environment = scenario.environment(@settings, report)
+      output, status = Bench.spawn(environment, scenario.command(love: @love), timeout: @timeout)
+      raise Failure, "#{scenario} #{stopped(environment)}; it printed:\n#{output}" unless status
       unless status&.success? && File.exist?(report)
         raise Failure, "#{scenario} failed (#{status.inspect}):\n#{output}"
       end
@@ -350,17 +354,36 @@ module Bench
 
       Result.new(scenario, data)
     end
+
+    # How a run with +environment+ that ran too long was stopped, and for
+    # a Game, after which frame, by the progress file the parity harness's
+    # sides write.
+    private def stopped(environment)
+      progress = environment["LOTA_PARITY_PROGRESS"]
+      frame = (progress && File.exist?(progress)) ? File.read(progress).strip : nil
+      "ran past #{@timeout} s and was stopped#{frame ? " after frame #{frame}" : ''}"
+    end
   end
+
+  # How long a run that ran too long has, once asked where it is, to say.
+  WHERE = 5
 
   # Runs +command+ with +environment+ added to this process's, and returns
   # its output and status, or a +nil+ status if it ran past +timeout+
-  # seconds and was killed, with every process it started.
+  # seconds and was killed, with every process it started. Before it is
+  # killed, a run is sent SIGUSR1 and given WHERE seconds, so one that
+  # says where it is when asked, as the parity probe's timing mode does,
+  # says so in its output.
   def self.spawn(environment, command, timeout: TIMEOUT)
     Open3.popen2e(environment, *command, pgroup: true) do |stdin, output, wait|
       stdin.close
       reader = Thread.new { output.read }
       finished = wait.join(timeout)
-      stop(wait.pid) unless finished
+      unless finished
+        ask_where(wait.pid)
+        wait.join(WHERE)
+        stop(wait.pid)
+      end
       [reader.value, finished && wait.value]
     rescue Interrupt
       # A run in its own process group hears no Control-C, so it is stopped
@@ -368,6 +391,13 @@ module Bench
       stop(wait.pid)
       raise
     end
+  end
+
+  # Sends SIGUSR1 to the process +pid+, unless it is already gone.
+  def self.ask_where(pid)
+    Process.kill(:USR1, pid)
+  rescue Errno::ESRCH, Errno::EPERM
+    nil
   end
 
   # Kills the process group +pid+ leads, unless it is already gone (or,
