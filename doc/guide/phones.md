@@ -249,6 +249,8 @@ For Android, name Android's libraries instead:
 bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-android-deps=$HOME/Lota/tmp/android/deps --with-rice-dir=$rice"
 ```
 
+If `bundle lock` stops with `Revision v0.14.0 does not exist in the repository`, Bundler is reading a copy of Fledge's repository that it fetched before that tag was published, for this project or another, and `bundle lock` does not fetch it again. `bundle install` does, so run `bundle install`, then the two commands again.
+
 ### iPhone and iPad
 
 `fledge build ios` writes the Xcode project, `dist/MyGame-ios`, with Ruby and Lota for both the device and the Simulator:
@@ -359,7 +361,7 @@ Android's Back reaches the game as `Lota.keypressed(:escape, :acback)`, and then
 <meta-data android:name="SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON" android:value="1" />
 ```
 
-On a desktop, `Lota::Event.restart` starts a fused game again by replacing its process with a new run of the app. Neither phone can do that: iOS lets no app run a program, and on Android a process that replaces itself with `exec` is no longer run as the app (Fledge ADR 082). So on a phone `Lota::Event.restart` ends the game as a quit does.
+On a desktop, `Lota::Event.restart` starts a fused game again by replacing its process with a new run of the app. Neither phone can do that: iOS lets no app run a program, and on Android a process that replaces itself with `exec` is no longer run as the app (Fledge's `doc/contributors/design/phone-runtimes.md`, "The ruby program on Android"). So on a phone `Lota::Event.restart` ends the game as a quit does.
 
 ## Sound files
 
