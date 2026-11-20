@@ -563,22 +563,26 @@ module Lota
       # [y] Integer top edge to replace from.
       # [reloadmipmaps] Whether a texture with mipmaps +:auto+ makes them
       #   again, which it does unless told +false+ with a position.
+      # [srcmipmap] For a Lota::Image::CompressedImageData with more than
+      #   one mipmap, the Integer mipmap of it to copy, counting from 1.
       #
-      # LÖVE also replaces pixels with a mipmap of a
-      # Lota::Image::CompressedImageData, which Lota does not bind yet.
-      # Returns +nil+. Raises RuntimeError with LÖVE's message when the
-      # pixels do not fit, or their format is not the texture's, and
-      # ThreadError off the main thread.
+      # The pixels may also be a Lota::Image::CompressedImageData in the
+      # texture's format. Returns +nil+. Raises TypeError for pixels that
+      # are neither, or a missing +srcmipmap+ where one is needed,
+      # RuntimeError with LÖVE's message when the pixels do not fit, their
+      # format is not the texture's, or the source mipmap is not one the
+      # data has, and ThreadError off the main thread.
       #
-      # === Example
+      # === Examples
       #
       #   icon.replace_pixels(Lota::Image::ImageData.new("assets/icon-lit.png"))
-      def replace_pixels(imagedata, slice = nil, mipmap = nil, x = nil, y = nil, reloadmipmaps = nil)
-        unless imagedata.is_a?(Lota::Image::ImageData)
+      #   sky.replace_pixels(Lota::Image::CompressedData.new("assets/sky.dds"), nil, 2, 0, 0, nil, 2)
+      def replace_pixels(imagedata, slice = nil, mipmap = nil, x = nil, y = nil, reloadmipmaps = nil, srcmipmap = nil)
+        unless imagedata.is_a?(Lota::Image::ImageData) || imagedata.is_a?(Lota::Image::CompressedImageData)
           raise TypeError, "wrong argument type #{imagedata.class} (expected Lota::Image::ImageData)"
         end
 
-        @native.replace_pixels(imagedata.native, [slice, mipmap, x, y, reloadmipmaps])
+        @native.replace_pixels(imagedata.native, [slice, mipmap, x, y, reloadmipmaps, srcmipmap])
         nil
       end
 

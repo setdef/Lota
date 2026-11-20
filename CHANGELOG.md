@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Graphics::Texture#replace_pixels` takes a `Lota::Image::CompressedImageData`, and the mipmap of it to copy as a new last argument, as LÖVE does, where it raised TypeError.
 - `Lota::Graphics::SpriteBatch#add`, `#set`, `#add_layer`, and `#layer=` take a `Lota::Math::Transform` in place of the numbers, after the quad when there is one, as LÖVE does, where they raised TypeError.
 - `Lota::Joystick.save_gamepad_mappings` with a file name raises the message of a write that fails, as LÖVE does, where it returned the mappings as if it had written them.
 - `Lota::Mouse.down?` takes its buttons as one Array, as LÖVE's `isDown` takes a table, where it raised TypeError.

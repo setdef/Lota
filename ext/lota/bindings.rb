@@ -447,7 +447,7 @@ bound_by_hand "Texture:getPixelDimensions",
     "calls the bound pixel_width and pixel_height"
 bound_by_hand "Texture:replacePixels",
   reason: "reads an ImageData or a CompressedImageData by its type (luax_istype), and its slice only for a " \
-    "texture that is not 2D; Lota binds the ImageData, and the arguments after it as an Array"
+    "texture that is not 2D; Lota binds the ImageData or CompressedImageData, and the arguments after it as an Array"
 bound_by_hand "love.graphics.setColor",
   reason: "LÖVE assigns each component in a statement of its own, so the port's four numbers fail clang-tidy's " \
     "bugprone-easily-swappable-parameters; Lota binds the form with separate numbers in one constructor call"

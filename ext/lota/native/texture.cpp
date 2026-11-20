@@ -765,13 +765,14 @@ Rice::Array texture_view_formats(const Texture &texture) {
   return names;
 }
 
-// Texture:replacePixels with an ImageData (wrap_Texture.cpp:375-428), and
-// the arguments after it, as Lota::Graphics::Texture#replace_pixels
-// passes them: the slice, counting from 1, which a texture that is not 2D
-// needs; the mipmap, counting from 1; a position; and whether to make the
-// mipmaps again, which a texture with mipmaps "auto" does unless told not
-// to.
-void texture_replace_pixels(Texture &t, ImageData *id, Rice::Array arguments) {
+// Texture:replacePixels with an ImageData or a CompressedImageData
+// (wrap_Texture.cpp:375-428), and the arguments after it, as
+// Lota::Graphics::Texture#replace_pixels passes them: the slice, counting
+// from 1, which a texture that is not 2D needs; the mipmap, counting from
+// 1; a position; whether to make the mipmaps again, which a texture with
+// mipmaps "auto" does unless told not to; and, for compressed data with
+// more than one mipmap, which of them to copy, counting from 1.
+void texture_replace_pixels(Texture &t, Rice::Object source, Rice::Array arguments) {
   const Rice::Array moved = std::move(arguments);
   require_main_thread(MODULE);
   const std::vector<Rice::Object> given = ruby::elements(moved);
@@ -797,7 +798,23 @@ void texture_replace_pixels(Texture &t, ImageData *id, Rice::Array arguments) {
     }
   }
 
-  t.replacePixels(id, slice, dstmip, x, y, reloadmipmaps);
+  if (ruby::is_kind_of(source, Rice::Data_Type<CompressedImageData>::klass())) {
+    CompressedImageData *cid =
+        Rice::detail::From_Ruby<CompressedImageData *>().convert(source.value());
+    constexpr std::size_t srcmip_index = 5;
+    int srcmip = 0;
+    if (cid->getMipmapCount() > 1) {
+      srcmip = integer_at(given, srcmip_index) - 1;
+    }
+    if (srcmip < 0 || srcmip >= cid->getMipmapCount()) {
+      throw love::Exception("Invalid source mipmap level.");
+    }
+    t.replacePixels(cid->getSlice(0, srcmip), slice, dstmip, x, y, reloadmipmaps);
+    return;
+  }
+
+  t.replacePixels(Rice::detail::From_Ruby<ImageData *>().convert(source.value()), slice, dstmip, x,
+                  y, reloadmipmaps);
 }
 
 // --- Drawing into textures.

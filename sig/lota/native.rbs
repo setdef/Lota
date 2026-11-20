@@ -352,7 +352,7 @@ module Lota
 
       def pixel_height: (?Integer? mipmap) -> Integer
 
-      def replace_pixels: (ImageData imagedata, Array[(Float | Integer | bool)?] arguments) -> nil
+      def replace_pixels: (ImageData | CompressedImageData imagedata, Array[(Float | Integer | bool)?] arguments) -> nil
 
       def view_formats: () -> Array[String]
 

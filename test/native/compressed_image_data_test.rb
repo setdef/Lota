@@ -135,4 +135,30 @@ class CompressedImageDataTest < Minitest::Test
     assert_predicate texture, :compressed?
     assert_equal :DXT1, texture.format
   end
+
+  # SPDX-SnippetBegin
+  # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+  # SPDX-License-Identifier: Zlib
+
+  # Texture:replacePixels (src/modules/graphics/wrap_Texture.cpp:379-422)
+  # takes a CompressedImageData too, and of one with more than one mipmap
+  # reads which to copy, counting from 1, after the other arguments.
+  def test_replace_pixels_copies_a_mipmap_of_a_compressed_image_data
+    texture = Lota::Graphics::Image.new(compressed)
+    data = compressed
+
+    assert_nil texture.replace_pixels(data, nil, 1, 32, 32, nil, 2)
+    errors = [
+      assert_raises(RuntimeError) { texture.replace_pixels(data, nil, 1, 32, 32, nil, 1) },
+      assert_raises(RuntimeError) { texture.replace_pixels(data, nil, 1, 0, 0, nil, 8) },
+    ].map(&:message)
+
+    assert_equal [
+      "Invalid rectangle dimensions (x=32, y=32, w=64, h=64) for 64x64 Texture.",
+      "Invalid source mipmap level.",
+    ], errors
+    assert_raises(TypeError) { texture.replace_pixels(data) }
+  end
+
+  # SPDX-SnippetEnd
 end

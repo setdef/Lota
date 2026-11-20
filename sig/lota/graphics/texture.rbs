@@ -70,7 +70,7 @@ module Lota
 
       def generate_mipmaps: () -> nil
 
-      def replace_pixels: (::Object imagedata, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?bool? reloadmipmaps) -> nil
+      def replace_pixels: (::Object imagedata, ?Integer? slice, ?Integer? mipmap, ?Integer? x, ?Integer? y, ?bool? reloadmipmaps, ?Integer? srcmipmap) -> nil
 
       def render_to: (?Integer? slice) { () -> void } -> nil
     end
