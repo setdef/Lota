@@ -9,9 +9,9 @@ require_relative "bench"
 
 # Not part of the default task: it opens a window for each of dozens of
 # runs and takes minutes. BENCH_RUNS, BENCH_FRAMES, BENCH_WARMUP,
-# BENCH_DRAWS, and BENCH_CALLS change how much it measures
+# BENCH_DRAWS, BENCH_CALLS, and BENCH_GAME_FRAMES change how much it measures
 # (Bench::Settings).
-desc "Benchmark 10,000 draw calls a frame, rules 4 and 6's Arrays, and a game's frame, in Lota and LÖVE " \
+desc "Benchmark 10,000 draw calls a frame, rules 4 and 6's Arrays, a game's frame, and a published game, in Lota and LÖVE " \
   "(writes tmp/bench)"
 task bench: %w[compile reference:love] do
   settings = Bench::Settings.from(ENV)

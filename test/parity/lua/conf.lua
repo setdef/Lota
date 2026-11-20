@@ -560,6 +560,74 @@ local function wait_for_threads()
   end
 end
 
+-- The harness's timing mode, which rake bench runs a game in
+-- (tasks/bench.rb), as test/parity/probe.rb runs its translation. With
+-- LOTA_PARITY_TIMES naming a file, love.draw takes no screenshot, which
+-- would add LÖVE's copy of every frame to the time it took, and the
+-- harness times each frame by the real clock instead: the game's
+-- love.update and love.draw, each alone, and the whole frame, from the
+-- start of one love.update to the start of the next, which takes in the
+-- events, clearing, presenting, and love.run's sleep. After the last frame
+-- it writes them to that file, as JSON, with the JIT and the renderer
+-- that ran, and quits. pairs keeps LuaJIT's own order in this mode, since
+-- sorting a table's keys at every loop would add time the game does not
+-- spend in LÖVE; no frame is compared, so the order changes nothing that
+-- is checked.
+local TIMES = os.getenv("LOTA_PARITY_TIMES")
+local timings = { update = {}, draw = {}, frame = {} }
+local real_get_time
+
+-- Calls +callback+, if there is one, with the arguments after it, and in
+-- timing mode adds the seconds it took to +list+.
+local function timed(list, callback, ...)
+  if not TIMES then
+    if callback then
+      callback(...)
+    end
+    return
+  end
+  local start = real_get_time()
+  if callback then
+    callback(...)
+  end
+  table.insert(list, real_get_time() - start)
+end
+
+-- +value+ as JSON: a number, a string, a list of either, or a table of
+-- them by string keys.
+local function encode(value)
+  local kind = type(value)
+  if kind == "number" then
+    return string.format("%.17g", value)
+  elseif kind == "string" then
+    return string.format("%q", value)
+  elseif kind == "table" and value[1] ~= nil then
+    local items = {}
+    for _, item in ipairs(value) do
+      table.insert(items, encode(item))
+    end
+    return "[" .. table.concat(items, ",") .. "]"
+  elseif kind == "table" then
+    local items = {}
+    for key, item in next, value do
+      table.insert(items, string.format("%q", key) .. ":" .. encode(item))
+    end
+    return "{" .. table.concat(items, ",") .. "}"
+  end
+  error("cannot encode a " .. kind)
+end
+
+local function write_times()
+  local name, version, vendor, device = love.graphics.getRendererInfo()
+  timings.engine = "love"
+  timings.jit = jit.status() and "luajit" or "luajit, JIT off"
+  timings.lua = jit.version
+  timings.renderer = table.concat({ name, version, vendor, device }, ", ")
+  local file = assert(io.open(TIMES, "w"))
+  file:write(encode(timings))
+  file:close()
+end
+
 local real_require = require
 _G.require = function(name, ...)
   if name == "love.window" then
@@ -574,12 +642,18 @@ _G.require = function(name, ...)
   if love.math then
     love.math.setRandomSeed(CLOCK)
   end
-  _G.pairs = sorted_pairs
+  if not TIMES then
+    _G.pairs = sorted_pairs
+  end
   local main = real_require(name, ...)
 
   local frame = 0
+  local frame_started
   local update, draw, load = love.update, love.draw, love.load
 
+  if TIMES then
+    real_get_time = assert(love.timer, "the timing mode needs love.timer").getTime
+  end
   if love.timer then
     love.timer.getDelta = function()
       return DT
@@ -614,21 +688,33 @@ _G.require = function(name, ...)
       love.event.quit(1)
       return
     end
-    hold_keys(frame)
-    if update then
-      update(DT)
+    if TIMES then
+      local started = real_get_time()
+      if frame_started then
+        table.insert(timings.frame, started - frame_started)
+      end
+      frame_started = started
     end
+    hold_keys(frame)
+    timed(timings.update, update, DT)
     mix_audio()
     press_keys(frame + 1)
     use_mouse(frame + 1)
   end
 
   love.draw = function()
-    if draw then
-      draw()
-    end
+    timed(timings.draw, draw)
     local number = frame
     if number > FRAMES then
+      return
+    end
+    if TIMES then
+      if number == FRAMES then
+        write_times()
+        if not game_quits then
+          love.event.quit()
+        end
+      end
       return
     end
     love.graphics.captureScreenshot(function(imagedata)
