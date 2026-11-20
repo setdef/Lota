@@ -5,7 +5,7 @@
 
 # Releasing Lota
 
-A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own ([packaging.md](design/packaging.md)). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag on a commit CI has proven. CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release.
+A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own ([packaging.md](design/packaging.md)). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag on a commit CI has proven. CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release, with LÖVE's engine prebuilt for each phone target beside them.
 
 A release that waits for someone to remember it waits too long, and one that waits for trunk to stand still never comes, since agents push to trunk all day. So CI releases on its own, and a release is a pick, not a build-up: when a full run passes on trunk, its commit is released, however far trunk has moved on since, and nothing is written to trunk first. The bookkeeping, the dated section in CHANGELOG.md, follows on top of trunk afterward, and nothing waits for it.
 
@@ -44,6 +44,8 @@ CI releases nothing at 1.0.0 or later on its own; those versions are tagged by h
 
 **The version** is stamped into the gems as CI builds them, never committed. In the repository, `Lota::VERSION` is `0.0.1.dev`, and so is any gem built from a clone, which sorts before every release, so `gem build`, `rake package:native`, `lota fuse`, and `bundle exec` all work in a clone with no tags fetched. In CI, the version job decides the commit's version before anything is built, and each job that builds a gem, or fuses with one, writes that version into lib/lota/version.rb and Gemfile.lock first (`.github/actions/version`, `rake "release:stamp[0.4.0]"`). The gems a release publishes are then the gems that run built and verified, and `Lota::VERSION` in them is the release's. A phone app has no published gem to install, so it is built from a clone, and the clone's tag is what knows its version: `rake phone:gem`, which lays out the gem a phone project names, stamps the version of a release tag on the clone's commit the same way, and puts the clone's files back afterward (doc/guide/phones.md).
 
+**The phone engines** are LÖVE's engine and its libraries, built for each iOS slice and Android ABI by `.github/workflows/phone-engine.yml` from the commit being released, with its version, so a phone build can fetch them instead of compiling LÖVE ([the phone guide](../guide/phones.md), "Prebuilt engines"). A phone build fetches only the bytes `ext/lota/phone/engines.txt` pins, by release and checksum, and those checksums exist only once the engines are built, after the commit is picked. So the release never pins its own engines in its commit or its precompiled gems, which would mean writing to trunk first, or holding every gem's build until the engines are built. Two things carry the pin instead. **The source gem**, `lota-0.4.0.gem`, is built by the release job itself, once the engines exist, with the version stamped in and `ext/lota/phone/engines.txt` written into the working tree for this release, uncommitted, as the version is (`rake "release:source[DIR,0.4.0]"`). On a desktop its install stops and names the precompiled gems, as it always has; a phone build, which takes a gem's plain `ruby` build, fetches this release's engines from it, with no clone of Lota. And the bookkeeping pins them on trunk afterward (below), so a clone of trunk fetches the newest release's engines.
+
 ## The automatic release
 
 Every full CI run ([ci.md](ci.md)) starts with the version job, which asks `rake release:version` what the run's commit releases as:
@@ -59,7 +61,11 @@ Runs on trunk coalesce: while one runs, a newer push supersedes any that waits (
 
 ## The changelog afterward
 
-After every full run on trunk, the changelog job writes, on top of trunk as it is then, a dated section in CHANGELOG.md for each release tag that has none: `## [0.4.0] - 2026-11-12`, dated the day of the tag, listing exactly the entries that release's commit added, moved out of `[Unreleased]`. Entries added since the tagged commit stay in `[Unreleased]`. It pushes an ordinary commit, `chore: record v0.4.0 in the changelog`, with the trailers `Release`, `Recorded-by` (the run), `Red-before-green: none (release bookkeeping)`, and `Provenance: requested`. If trunk moves first, it rebases and tries again, three times in all; if it still cannot push, the run stays green, and the next run's changelog job writes the section then. It reads only the tags and their `[Unreleased]` sections, so it writes the same sections however often it runs (`Release#record`, and `rake changelog:record` locally).
+After every full run on trunk, the changelog job writes, on top of trunk as it is then, a dated section in CHANGELOG.md for each release tag that has none: `## [0.4.0] - 2026-11-12`, dated the day of the tag, listing exactly the entries that release's commit added, moved out of `[Unreleased]`. Entries added since the tagged commit stay in `[Unreleased]`. It reads only the tags and their `[Unreleased]` sections, so it writes the same sections however often it runs (`Release#record`, and `rake changelog:record` locally).
+
+The same job pins the phone engines. When the newest release tag's release published them and `ext/lota/phone/engines.txt` names another release, or none, it reads that release's SHA256SUMS and pins its engines by their checksums there (`Release#pin_published_engines`), as `rake "phone:engine:pin[SHA256SUMS,v0.4.0]"` does by hand. A release from before the engines were published pins nothing. A release's own tag therefore pins an earlier release's engines, which a phone build at that tag fetches only if they were built from the same engine files, and otherwise asks for a build from source.
+
+It pushes what it wrote as one ordinary commit, `chore: record v0.4.0 in the changelog`, or with `and pin v0.4.0's phone engines` when it pins them too, or `chore: pin the phone engines v0.4.0 published` when it only pins, with the trailers `Release`, `Recorded-by` (the run), `Red-before-green: none (release bookkeeping)`, and `Provenance: requested`. If trunk moves first, it rebases and tries again, three times in all; if it still cannot push, the run stays green, and the next run's changelog job writes the section and the pin then.
 
 So `[Unreleased]` lists what has changed since the last release's tagged commit, and CI writes every released section; nobody writes or edits one by hand. A released entry is fixed by a new entry, never by editing it, since the notes compare entries word for word. `rake changelog:check` checks the file against the tags: each release has its section, CI's list exactly what their release added, and those from before CI recorded releases match their own tag's section word for word.
 
@@ -84,16 +90,18 @@ Each platform's gate builds a gem and records its SHA-256, and its delivery job 
 
 Windows works the same way with less. Its build job builds the engine with MinGW, runs the Windows checks, builds the gem, and then runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest, but it does not run the gate. Its delivery job installs the gem on a runner without MSYS2 and runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. So CI proves that a Windows gem installs, loads only its own DLLs and Windows', runs a game, and draws as LÖVE does on a software renderer. Only a Windows PC proves that it draws on a GPU, takes real input, and plays through a real audio device.
 
-The same run checks the phone route, the iOS kit, both as Lota's CI and as a game's CI call it, and `lota fuse` on every platform, with the gems the run built. The release job then runs only if every one of those jobs passed. It refuses, before tagging or publishing anything, when:
+The same run checks the phone route, the iOS kit, both as Lota's CI and as a game's CI call it, and `lota fuse` on every platform, with the gems the run built, and builds the four phone engines and their SHA256SUMS (the job **Phone engines**). The phone route builds its engine from source, so nothing in the run builds a phone app from the engines it publishes; `phone-engine.yml` run by hand, with `compare_with_source`, builds them again on other runners, checks they are the same bytes, and checks that a phone build from them matches one from source. The release job then runs only if every one of those jobs passed. It refuses, before tagging or publishing anything, when:
 
 - the commit is not on trunk,
 - the tag `v` and the version already points at another commit,
 - GitHub has a release of the version without its tag,
-- there is not exactly one verified gem of the version for each platform, or a gem's name, specification, or SHA-256 disagrees with the one its delivery job verified.
+- there is not exactly one verified gem of the version for each platform, or a gem's name, specification, or SHA-256 disagrees with the one its delivery job verified,
+- the phone engines are not one for each target with the SHA256SUMS their job wrote, or one is not the bytes that SHA256SUMS names (`rake "release:engines[DIR,FROM]"`),
+- the source gem it builds is not lota of the version for every platform, does not carry the pin of this release's engines, or installs on the release job's runner instead of stopping with the message that names the precompiled gems.
 
 `rake release:plan` decides what the release still needs, so running the job again is safe. With no tag, it tags the commit and publishes. With the tag on the commit and no release, it publishes. With both, it does nothing.
 
-It then creates the GitHub release for the tag, titled "Lota 0.4.0", with the notes, one gem for each platform, and SHA256SUMS:
+It then creates the GitHub release for the tag, titled "Lota 0.4.0", with the notes, one gem for each platform, the phone engines, the source gem, and one SHA256SUMS for them all:
 
 ```
 lota-0.4.0-arm64-darwin.gem
@@ -101,8 +109,15 @@ lota-0.4.0-x86_64-linux-gnu.gem
 lota-0.4.0-aarch64-linux-gnu.gem
 lota-0.4.0-x64-mingw-ucrt.gem
 lota-0.4.0-aarch64-mingw-ucrt.gem
+lota-0.4.0.gem
+lota-engine-ios-arm64.tar.gz
+lota-engine-ios-arm64-simulator.tar.gz
+lota-engine-android-arm64-v8a.tar.gz
+lota-engine-android-x86_64.tar.gz
 SHA256SUMS
 ```
+
+Releases up to 0.6.0 carry the gems alone.
 
 Only two jobs' tokens may write, and only the repository's contents: the release job's, for a tag and a release, and the changelog job's, to push its commit. No other job's token may write. The release job reads, tags, and publishes with the repository's `RELEASE_TOKEN` secret when there is one, in place of its own token, and gives it only to the steps that call GitHub; no other job uses a secret. A commit the changelog job pushes starts no run of its own, since GitHub's own token starts none, and no tag starts a run, whichever token makes it, since CI runs on pushes to branches alone. So nothing publishes twice, and a release costs no second full run.
 
@@ -112,7 +127,7 @@ If a platform fails, nothing is tagged or published. Rerun the failed jobs if th
 
 ## Rehearsing a release
 
-Run CI by hand on a branch other than trunk (Actions, CI, "Run workflow", or `gh workflow run ci.yml --ref <branch>`). The run decides its commit's version and stamps its gems as on trunk, and its release job does everything but publish: it decides what it would do, says so, with the branch's tip beside the commit it picked, assembles the gems, and keeps them, SHA256SUMS, and the notes as the artifact `release-dry-run-v<version>`. It tags nothing, publishes nothing, and pushes nothing. Push to the branch while the run goes on, with `[skip ci]` in the message so no run of its own supersedes this one, and the rehearsal shows a pick of a commit that is no longer the tip.
+Run CI by hand on a branch other than trunk (Actions, CI, "Run workflow", or `gh workflow run ci.yml --ref <branch>`). The run decides its commit's version and stamps its gems as on trunk, and its release job does everything but publish: it decides what it would do, says so, with the branch's tip beside the commit it picked, assembles the gems and the phone engines, builds the source gem, and keeps them, SHA256SUMS, and the notes as the artifact `release-dry-run-v<version>`. It tags nothing, publishes nothing, and pushes nothing. Push to the branch while the run goes on, with `[skip ci]` in the message so no run of its own supersedes this one, and the rehearsal shows a pick of a commit that is no longer the tip.
 
 The input `ignore_gate_failures` lets a dry run go on past a failing gate, to try the release job while a platform is red. It is for testing only, and is refused wherever the run would publish.
 

@@ -920,6 +920,27 @@ jobs:
       contents: read
       actions: read
 
+  # LÖVE's engine prebuilt for each iOS slice and Android ABI
+  # (phone-engine.yml), built from this commit with the version it
+  # releases as: the four bundles and their SHA256SUMS, as the artifact
+  # phone-engines, which the release job publishes beside the gems and CI's
+  # bookkeeping then pins on trunk (doc/contributors/releasing.md). It runs
+  # on the runs that can release or rehearse a release, as the iOS kit
+  # called as a game's CI calls it does, and on no other, since nothing
+  # else uses the bundles. Every phone build in this run builds its engine
+  # from source, so the bundles' own check against a build from source
+  # (compare_with_source) is left to a run of that workflow by hand.
+  phone-engines:
+    name: Phone engines
+    needs: version
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && needs.version.outputs.version != ''
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    uses: ./.github/workflows/phone-engine.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
   # lota fuse on each of the five platforms (fuse.yml), with the gems this
   # run's gate and build jobs built, so it fuses with this commit's gems,
   # never a release's.
@@ -951,17 +972,24 @@ jobs:
   # or the release there already and leaves it (rake release:plan). A new
   # platform joins with a job that builds its gem and a delivery job that
   # uploads it verified, as verified-lota-<platform>, both in needs, and
-  # the platform in PLATFORMS.
+  # the platform in PLATFORMS. The phone engines join the gems, each
+  # checked against the SHA256SUMS the engine workflow wrote, and then the
+  # source gem, the one gem built here, since it pins those engines'
+  # checksums, which exist only once they are built; the release's one
+  # SHA256SUMS lists them all. Another kind of prebuilt
+  # bundle joins the same way, with a job in needs that uploads its
+  # bundles and their SHA256SUMS, and a call of Release#add_bundles.
   release:
     name: Release
     needs: [version, gate, delivery, linux-gate, linux-delivery, windows-build, windows-delivery, phones, ios-kit, ios-kit-call,
-      fuse]
+      phone-engines, fuse]
     if: >-
       github.repository == 'setdef/Lota' && needs.version.outputs.version != ''
       && ((github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    # Room for the uploads: the gems and the phone engines are some 200 MB.
+    timeout-minutes: 30
     # One release at a time.
     concurrency:
       group: >-
@@ -1082,13 +1110,34 @@ jobs:
           merge-multiple: true
           path: ${{ runner.temp }}/release
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        with:
+          name: phone-engines
+          path: ${{ runner.temp }}/engines
+
+      # The source gem below carries the release's version, as its
+      # precompiled gems do.
+      - uses: ./.github/actions/version
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        with:
+          version: ${{ needs.version.outputs.version }}
+
       # Exactly one gem of the version for each platform, each the one its
-      # delivery job verified, and SHA256SUMS for them all.
+      # delivery job verified, then the four phone engines, each the bytes
+      # the engine workflow's SHA256SUMS names, then the source gem, built
+      # here once the engines exist, with their checksums pinned in it for
+      # this release, so a phone build from it alone fetches them; and one
+      # SHA256SUMS for them all. The source gem is built from this commit
+      # as the gate's package check builds it, which proves its install
+      # stops on a desktop, and its build here checks that again.
       - name: Assemble the release
         if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
         run: |
           read -r -a platforms <<< "$PLATFORMS"
           bundle exec rake "release:assemble[$RUNNER_TEMP/release,$VERSION$(printf ',%s' "${platforms[@]}")]"
+          bundle exec rake "release:engines[$RUNNER_TEMP/release,$RUNNER_TEMP/engines]"
+          bundle exec rake "release:source[$RUNNER_TEMP/release,$VERSION]"
           cat "$RUNNER_TEMP/release/SHA256SUMS"
 
       # An annotated tag, made through the API in two calls, the tag object
@@ -1109,12 +1158,29 @@ jobs:
           fi
           echo "Tagged $GITHUB_SHA v$VERSION"
 
+      # gh uploads the assets to a draft and publishes it only once every
+      # one has arrived, and deletes the draft when an upload fails, so a
+      # release is never published without its assets. The tag is made by
+      # then, and a tag is never undone, so a failed publish is tried
+      # again here before the job leaves the tag without its release.
       - name: Publish the release
         if: steps.mode.outputs.publish == 'true' && (steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish')
         env: *release-token
         run: |
-          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "Lota $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/release/*
+          for attempt in 1 2 3; do
+            if gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "Lota $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/release/*; then
+              exit 0
+            fi
+            if [ "$(gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2> /dev/null)" = false ]; then
+              echo "::error::gh failed, but v$VERSION's release is published; check that it carries every file in SHA256SUMS"
+              exit 1
+            fi
+            echo "::warning::Publishing v$VERSION failed (attempt $attempt of 3); its tag stands, so trying again"
+            sleep $((attempt * 30))
+          done
+          echo "::error::v$VERSION is tagged and not released; rerun this job, which publishes the tag's release (rake release:plan)"
+          exit 1
 
       # Which commit the release picked, and where the branch is now: a
       # release never waits for the branch to stand still.
@@ -1153,8 +1219,11 @@ jobs:
   # (doc/contributors/releasing.md): on top of trunk as it is now, a dated
   # section in CHANGELOG.md for each release tag it has none for, moving
   # exactly the entries that release's commit added out of [Unreleased],
-  # and leaving entries added since (rake changelog:record, Release#record).
-  # It reads only the tags, so it runs after every full run on trunk, not
+  # and leaving entries added since (rake changelog:record, Release#record);
+  # and the newest release's phone engines pinned in
+  # ext/lota/phone/engines.txt, when that release published them and the
+  # pin names another (Release#pin_published_engines). It reads only the
+  # tags and their releases, so it runs after every full run on trunk, not
   # only one that released, and puts back any section a failed push left
   # out. It pushes an ordinary commit without force, rebasing and trying
   # again when trunk moves first. A push GitHub's token makes starts no
@@ -1192,47 +1261,98 @@ jobs:
       # Plain Ruby: Release#record needs no bundle.
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
 
-      - name: Record each release without a section, and push it
+      # Then the phone engines: when the newest release published them and
+      # ext/lota/phone/engines.txt names another release, it pins that
+      # release's, by the checksums in its SHA256SUMS, as rake
+      # phone:engine:pin does (Release#pin_published_engines), so a phone
+      # build from trunk fetches them. Both go in one commit.
+      - name: Record each release without a section, pin the newest release's phone engines, and push it
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           record='text, recorded = Release.new(root: Dir.pwd).record; File.write("CHANGELOG.md", text); print recorded.join(" ")'
+          newest='print Release.new(root: Dir.pwd).tags.last.to_s'
+          pin='print(Release.new(root: Dir.pwd).pin_published_engines(ARGV[0], File.read(ARGV[1])) ? ARGV[0] : "")'
           for attempt in 1 2 3; do
             git fetch --quiet --tags "$remote" "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
             git checkout --quiet --force --detach "origin/$DEFAULT_BRANCH"
             recorded=$(ruby -r ./tasks/release -e "$record")
-            if [ -z "$recorded" ]; then
-              echo "CHANGELOG.md has a section for every release tag"
+            pinned=""
+            newest_tag=$(ruby -r ./tasks/release -e "$newest")
+            if [ -n "$newest_tag" ]; then
+              sums="$RUNNER_TEMP/sums-$newest_tag"
+              if gh release download "$newest_tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$sums" --clobber; then
+                # A release whose engines are not one for each target is
+                # refused before anything is written, and the changelog's
+                # record goes on without the pin.
+                if ! pinned=$(ruby -r ./tasks/release -e "$pin" "$newest_tag" "$sums/SHA256SUMS"); then
+                  echo "::warning::$newest_tag's phone engines could not be pinned (above); the changelog is recorded without them"
+                  pinned=""
+                fi
+              else
+                echo "::warning::Could not read the SHA256SUMS of $newest_tag's release, so its phone engines are not pinned; the next full run on $DEFAULT_BRANCH tries again"
+              fi
+            fi
+            if [ -z "$recorded" ] && [ -z "$pinned" ]; then
+              echo "CHANGELOG.md has a section for every release tag, and ext/lota/phone/engines.txt pins the newest release's phone engines, if it published any"
               exit 0
             fi
-            git --no-pager diff
-            read -r -a versions <<< "$recorded"
-            tags=$(printf 'v%s ' "${versions[@]}")
-            cat > "$RUNNER_TEMP/message" <<EOF
-          chore: record ${tags% } in the changelog
-
-          CI released ${tags% } from a commit a green full run proved,
-          wherever trunk had moved, and wrote nothing to trunk to do it. This
-          catches CHANGELOG.md up: the entries each release's commit added
-          move out of [Unreleased] under its dated section, and the entries
-          added since stay where they are.
-
-          Release: ${tags% }
-          Recorded-by: CI run $GITHUB_RUN_ID, job changelog
-          Red-before-green: none (release bookkeeping)
-          Provenance: requested
-          EOF
+            git add --all -- CHANGELOG.md ext/lota/phone
+            git --no-pager diff --cached
+            tags=""
+            if [ -n "$recorded" ]; then
+              read -r -a versions <<< "$recorded"
+              tags=$(printf 'v%s ' "${versions[@]}")
+              tags=${tags% }
+            fi
+            released=$tags
+            if [ -n "$pinned" ]; then
+              case " $tags " in
+                *" $pinned "*) ;;
+                *) released="${released:+$released }$pinned" ;;
+              esac
+            fi
+            if [ -n "$tags" ] && [ -n "$pinned" ]; then
+              subject="chore: record $tags in the changelog and pin $pinned's phone engines"
+            elif [ -n "$tags" ]; then
+              subject="chore: record $tags in the changelog"
+            else
+              subject="chore: pin the phone engines $pinned published"
+            fi
+            {
+              printf '%s\n\n' "$subject"
+              if [ -n "$tags" ]; then
+                printf '%s\n' \
+                  "CI released $tags from a commit a green full run proved," \
+                  "wherever trunk had moved, and wrote nothing to trunk to do it. This" \
+                  "catches CHANGELOG.md up: the entries each release's commit added" \
+                  "move out of [Unreleased] under its dated section, and the entries" \
+                  "added since stay where they are." ""
+              fi
+              if [ -n "$pinned" ]; then
+                printf '%s\n' \
+                  "$pinned published LÖVE's engine prebuilt for each iOS slice and" \
+                  "Android ABI. This pins them in ext/lota/phone/engines.txt, by the" \
+                  "checksums in the release's SHA256SUMS, so a phone build from trunk" \
+                  "fetches them from that release (rake phone:engine:pin)." ""
+              fi
+              printf '%s\n' \
+                "Release: $released" \
+                "Recorded-by: CI run $GITHUB_RUN_ID, job changelog" \
+                "Red-before-green: none (release bookkeeping)" \
+                "Provenance: requested"
+            } > "$RUNNER_TEMP/message"
             git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit --quiet --all --file "$RUNNER_TEMP/message"
+              commit --quiet --file "$RUNNER_TEMP/message"
             if git push --quiet "$remote" "HEAD:refs/heads/$DEFAULT_BRANCH"; then
-              echo "::notice::Recorded ${tags% } in CHANGELOG.md on $DEFAULT_BRANCH as $(git rev-parse HEAD)"
+              echo "::notice::$subject, on $DEFAULT_BRANCH as $(git rev-parse HEAD)"
               exit 0
             fi
             echo "$DEFAULT_BRANCH moved on before the push (attempt $attempt); trying again on top of it"
             sleep $((attempt * 10))
           done
-          echo "::warning::Could not push the changelog's record of ${tags% }; the next full run on $DEFAULT_BRANCH tries again"
+          echo "::warning::Could not push the release bookkeeping ($subject); the next full run on $DEFAULT_BRANCH tries again"
 
       # The sections this run left, checked against the tags: a section
       # CI wrote lists what its release added, and one from before CI

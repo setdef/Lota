@@ -138,7 +138,7 @@ Gradle installs Android's platform 36 and its `build-tools` the first time it bu
 
 ### Build Lota's parts once
 
-No release of Lota publishes prebuilt phone engines yet, so you build them. Clone Lota, here into `~/Lota`, and install its bundle:
+These steps build Lota's engine from source, so they build LÖVE's libraries for the phone first; [Prebuilt engines](#prebuilt-engines) says when you can skip that. Clone Lota, here into `~/Lota`, and install its bundle:
 
 ```sh
 git clone --recurse-submodules https://github.com/setdef/Lota.git ~/Lota
@@ -170,9 +170,11 @@ Run these again after you pull a new version of Lota. Built from source, Lota's 
 
 ### Prebuilt engines
 
-LÖVE's engine and its libraries do not depend on Ruby, so Lota's CI builds them once for each iOS slice and Android ABI, and a release can publish them beside its gems. The gem's `ext/lota/phone/engines.txt` pins them: it names the release that published them and each one's checksum, so a clone between releases fetches the same engines as the release it names. When the gem pins them, its phone build fetches the engine for each slice or ABI from that release, checks its SHA-256, and keeps it in `~/.cache/lota/phone-engine` (or under `XDG_CACHE_HOME`), so `fledge build` compiles only Lota's extension, and needs none of LÖVE's sources, SDL3, or the libraries `rake android:deps` builds. Each prebuilt engine carries the same `NOTICES.txt` that `rake ios:notices` and `rake android:notices` write, and the Android ones carry OpenAL Soft's source.
+LÖVE's engine and its libraries do not depend on Ruby, so Lota's CI builds them once for each iOS slice and Android ABI. Every release after 0.6.0 publishes them beside its gems, as `lota-engine-ios-arm64.tar.gz`, `lota-engine-ios-arm64-simulator.tar.gz`, `lota-engine-android-arm64-v8a.tar.gz`, and `lota-engine-android-x86_64.tar.gz`, with their checksums in the release's `SHA256SUMS`.
 
-`--with-lota-source=DIR` in `bundle config build.lota` asks for the engine built from source instead, as the steps here do, and is needed while the gem pins none; without it, a gem that pins none stops and says so. Two more options shape the fetch: `--with-lota-engine-url=URL` names a mirror of the release's assets, a web address or a `file://` folder, and `--with-lota-engine-cache=DIR` another folder to keep them in. Lota's extension is built against Ruby's ABI, so it still compiles in every phone build.
+The gem's `ext/lota/phone/engines.txt` pins them: it names the release that published them and each one's checksum. After each release that publishes engines, CI pins that release's on trunk, so a clone of trunk fetches the newest release's engines. A release's own tag pins an earlier release's, since its own exist only once it is released, but the release's source gem, `lota-VERSION.gem` among its assets, pins that release's own. When the gem pins them, its phone build fetches the engine for each slice or ABI from that release, checks its SHA-256, and keeps it in `~/.cache/lota/phone-engine` (or under `XDG_CACHE_HOME`), so `fledge build` compiles only Lota's extension, and needs none of LÖVE's sources, SDL3, or the libraries `rake android:deps` builds. It uses an engine only if it was built from the clone's own engine files; one built from others stops the build and says to build from source. Each prebuilt engine carries the same `NOTICES.txt` that `rake ios:notices` and `rake android:notices` write, and the Android ones carry OpenAL Soft's source.
+
+`--with-lota-source=DIR` in `bundle config build.lota` asks for the engine built from source instead, as the steps here do, and is needed while the gem pins none; without it, a gem that pins none stops and says so. To build with the pinned engines, leave out `--with-lota-source` and `--with-lota-sdl3` or `--with-lota-android-deps`, and keep `--with-rice-dir`. Two more options shape the fetch: `--with-lota-engine-url=URL` names a mirror of the release's assets, a web address or a `file://` folder, and `--with-lota-engine-cache=DIR` another folder to keep them in. Lota's extension is built against Ruby's ABI, so it still compiles in every phone build.
 
 ### Lay out the phone project
 

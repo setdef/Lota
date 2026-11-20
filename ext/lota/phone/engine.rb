@@ -40,10 +40,11 @@ module Lota
   #                         them, and, on Android, OpenAL Soft's source.
   #
   # The gem pins, in PIN, the release that published the bundles and each
-  # bundle's SHA-256, which a release writes, and #fetch takes from that
-  # release only the bytes PIN names. The release is named rather than
-  # derived from Lota::VERSION, so a clone between releases, whose version
-  # names no release, fetches what its pin names.
+  # bundle's SHA-256, and #fetch takes from that release only the bytes
+  # PIN names. A release writes PIN for its own bundles into its source
+  # gem, and CI pins them on trunk afterward. The release is named rather
+  # than derived from Lota::VERSION, so a clone between releases, whose
+  # version names no release, fetches what its pin names.
   #
   # === Example
   #

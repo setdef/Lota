@@ -44,7 +44,8 @@ SPDX-FileCopyrightText = "1997-2026 Sam Lantinga <slouken@libsdl.org>"
 SPDX-License-Identifier = "Zlib"
 
 # The release whose phone engines the gem fetches, and their checksums,
-# which a release writes into the gem (rake phone:engine:pin).
+# which a release writes into its source gem and CI then pins on trunk
+# (rake phone:engine:pin).
 [[annotations]]
 path = "ext/lota/phone/engines.txt"
 SPDX-FileCopyrightText = "2026 setdef <kerrick@setdef.com>"

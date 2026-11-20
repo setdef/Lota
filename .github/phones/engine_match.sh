@@ -100,12 +100,16 @@ build source "--with-lota-source=$repo $source_options"
 # and their checksums pinned in the gem as a release commits them: in its
 # folder and among its gemspec's files, which are all Fledge copies of a
 # gem named by its path. The release the pin names is a stand-in, since
-# the engines come from the server here (--with-lota-engine-url).
+# the engines come from the server here (--with-lota-engine-url). It
+# takes the place of any pin the checkout has, which is put back after.
 server=
 gemspec=$repo/tmp/phone/lota/lota.gemspec
 pin=tmp/phone/lota/ext/lota/phone/engines.txt
 cp "$gemspec" "$work/lota.gemspec.unpinned"
-trap 'cp "$work/lota.gemspec.unpinned" "$gemspec"; rm -f "$repo/$pin"; [ -z "$server" ] || kill "$server" 2> /dev/null || true' EXIT
+if [ -f "$pin" ]; then
+  cp "$pin" "$work/engines.txt.kept"
+fi
+trap 'cp "$work/lota.gemspec.unpinned" "$gemspec"; if [ -f "$work/engines.txt.kept" ]; then cp "$work/engines.txt.kept" "$repo/$pin"; else rm -f "$repo/$pin"; fi; [ -z "$server" ] || kill "$server" 2> /dev/null || true' EXIT
 ruby -r ./ext/lota/phone/engine -e 'print Lota::PhoneEngine.pin_text("v0.0.0", File.read(ARGV[0]))' \
   "$engines/SHA256SUMS" > "$pin"
 ruby -e 'spec = Gem::Specification.load(ARGV[0]); spec.files |= ["ext/lota/phone/engines.txt"]; File.write(ARGV[0], spec.to_ruby)' "$gemspec"
@@ -129,8 +133,10 @@ if [ ! -s "$work/dist.diff" ]; then
 fi
 while IFS= read -r line; do
   case "$line" in
-    # The pin itself, which only the fetched build's gem carries.
+    # The pin itself, which only the fetched build's gem carries, or which
+    # stands in there for the one the checkout pins.
     "Only in $work/dist-fetched/"*"/vendor/cache/lota/ext/lota/phone: engines.txt" | \
+      "Files $work/dist-source/"*"/vendor/cache/lota/ext/lota/phone/engines.txt and "*" differ" | \
       "Files $work/dist-source/"*"/vendor/cache/lota/lota.gemspec and "*" differ")
       echo "expected, the pin: $line" ;;
     "Files "*" and "*" differ")
