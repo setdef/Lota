@@ -199,6 +199,16 @@ class PackageCheck
     output.lines.grep(WARNING).map(&:chomp)
   end
 
+  # How Minitest ends its report: how many tests ran, asserted, failed,
+  # raised, and skipped.
+  SUMMARY = /^\d+ runs, \d+ assertions, \d+ failures, \d+ errors, \d+ skips$/
+
+  # The summary of the tests a game ran, from what it +printed+, or nil
+  # for a game that ran none.
+  def self.summary(printed)
+    printed[SUMMARY]
+  end
+
   # Packaged paths that fall outside +allowed+.
   def self.unexpected_files(allowed, contents)
     contents.reject do |path|
@@ -517,7 +527,8 @@ class PackageCheck
     outside = self.class.outside(output, home, format: @format)
     raise Failure, "lota run #{game.name} loaded from outside the installed gem:\n#{list(outside)}" if outside.any?
 
-    @out.puts "✅ lota run #{game.name}: exited #{status.exitstatus}, with Lota and " \
+    tests = self.class.summary(printed)&.then { |line| ", #{line}" }
+    @out.puts "✅ lota run #{game.name}: exited #{status.exitstatus}#{tests}, with Lota and " \
       "#{@format.ours(output).map { |path| File.basename(path) }.join(', ')} loaded from the installed gem"
   end
 
