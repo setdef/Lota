@@ -36,8 +36,61 @@ class BootTest < Minitest::Test
   end
 
   def test_the_directory_is_the_absolute_path_of_the_folder
-    assert_equal File.expand_path("."), Lota::Boot.new(nil).directory
     assert_equal File.expand_path("games/pong"), Lota::Boot.new("games/pong").directory
+  end
+
+  # love.boot takes the game from the program's arguments (boot.lua:74-128):
+  # the first that is none of LÖVE's options, with the options taken out
+  # of the rest, which are the game's. Given none, it looks in no folder,
+  # not even the one it runs in.
+  def test_given_no_folder_the_game_is_the_one_the_arguments_name
+    boot = Lota::Boot.new(nil, ["--renderers", "opengl", "games/pong", "level2", "--fused"])
+
+    assert_equal File.expand_path("games/pong"), boot.directory
+    assert_equal ["games/pong", %w[level2]], [boot.instance_variable_get(:@path), boot.instance_variable_get(:@arguments)]
+    assert_equal %w[--renderers opengl games/pong level2 --fused], boot.instance_variable_get(:@raw_arguments)
+    assert boot.instance_variable_get(:@fused)
+    assert_nil Lota::Boot.new(nil).directory
+    assert_nil Lota::Boot.new(nil, ["--fused"]).directory
+  end
+
+  # A folder given is the game, as a fused game's is, so the arguments
+  # name none, and --game is the game's own (boot.lua:74-81).
+  def test_given_a_folder_the_arguments_are_read_for_options_only
+    boot = Lota::Boot.new("games/pong", ["--game", "games/chess", "--console", "level2"])
+
+    assert_equal File.expand_path("games/pong"), boot.directory
+    assert_equal %w[--game games/chess level2], boot.instance_variable_get(:@arguments)
+    assert_equal %w[games/pong --game games/chess --console level2], boot.instance_variable_get(:@raw_arguments)
+    refute boot.instance_variable_get(:@fused)
+  end
+
+  # A .lua file runs in the place of main.lua, from the folder it is in
+  # (boot.lua:108-114), and conf.lua beside it still loads; so does a .rb
+  # file in Lota.
+  def test_a_ruby_file_runs_in_the_place_of_main_rb
+    write("menu.rb", "puts 'menu'\n")
+    write("conf.rb", "def Lota.conf(t)\n  t.window.width = 640\nend\n")
+    boot = Lota::Boot.new(nil, [File.join(@directory, "menu.rb"), "level2"])
+
+    assert_equal File.realpath(@directory), File.realpath(boot.directory)
+    assert_equal "menu.rb", File.basename(boot.__send__(:main_file))
+    assert_equal %w[level2], boot.instance_variable_get(:@arguments)
+    assert_nil boot.configure
+    assert_equal 640, boot.settings.window.width
+    refute boot.__send__(:no_game_code?)
+
+    File.delete(File.join(@directory, "menu.rb"))
+
+    assert boot.__send__(:no_game_code?), "conf.rb alone is no code to run for a game named by its Ruby file"
+  end
+
+  # boot.lua decodes a game given as a file:// URI (lines 103-105 and
+  # 32-36), and leaves a content:// one as it is, for Android.
+  def test_a_file_uri_names_the_path_it_encodes
+    assert_equal File.expand_path("/games/my pong"), Lota::Boot.new(nil, ["file:///games/my%20pong"]).directory
+    assert_equal "content://a/b%20c", Lota::Boot.new(nil, ["content://a/b%20c"]).directory
+    assert_equal "caf\u00e9", Lota::Boot.uridecode("caf%C3%A9")
   end
 
   # LÖVE given no game looks in no folder for one (boot.lua:156-170), not
@@ -209,6 +262,16 @@ class BootTest < Minitest::Test
     boot.settings.graphics.renderers = [:metal]
 
     assert_equal [:metal], renderers
+  end
+
+  # LÖVE's --renderers and --excluderenderers, each names with commas
+  # between them, win over the settings (boot.lua:290-325).
+  def test_the_arguments_renderers_win_over_the_settings
+    @boot = Lota::Boot.new(@directory, ["--renderers", "opengl,,metal,vulkan", "--excluderenderers", "metal"])
+    boot.settings.graphics.renderers = [:vulkan]
+    boot.settings.graphics.excluderenderers = [:vulkan]
+
+    assert_equal %i[opengl vulkan], renderers
   end
 
   def test_excluded_renderers_remove_their_last_occurrence

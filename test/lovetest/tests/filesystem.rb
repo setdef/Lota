@@ -11,7 +11,7 @@ require_relative "../lovetest_helper"
 # filesystem.lua), translated to Ruby by the rules of
 # doc/contributors/design/translation.md. Like the graphics tests, they
 # run in the test suite's own process (test/lovetest/filesystem_test.rb)
-# and under lota run (test/lovetest/game). The tests that write files
+# and under the lota program (test/lovetest/game). The tests that write files
 # write them to the runner's save directory, in the test's own home
 # (test/test_helper.rb).
 class FilesystemTest < Lovetest::TestMethod
@@ -381,7 +381,7 @@ class FilesystemTest < Lovetest::TestMethod
   # getSource becomes source (rule 3), and the mount permissions symbols
   # (rule 9). Lövetest mounts its own tests folder and reads its
   # audio.lua through the mount; this suite's tests are Ruby, so it reads
-  # their translation, tests/audio.rb, which the runner under lota run
+  # their translation, tests/audio.rb, which the runner under the lota program
   # finds through test/lovetest/game/tests, as it finds resources/.
   def test_mount_full_path
     # mount something in the working directory

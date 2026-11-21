@@ -7,7 +7,7 @@
 
 # Runs Lövetest's love.keyboard tests, translated in tests/keyboard.rb, in
 # the test suite's own process. test/native/lota_run_test.rb runs them
-# again through lota run.
+# again through the lota program.
 require_relative "../test_helper"
 require_relative "tests/keyboard"
 

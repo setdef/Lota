@@ -32,6 +32,7 @@ TEST_SUITES = {
 # process of its own, or the machine.
 UNIT_TESTS = %w[
   test/archive_test.rb
+  test/arg_test.rb
   test/cli_test.rb
   test/fuser_test.rb
   test/notices_test.rb

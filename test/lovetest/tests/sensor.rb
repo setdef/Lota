@@ -12,7 +12,7 @@ require_relative "../lovetest_helper"
 # four. Three of them skip where the machine has neither an accelerometer nor a
 # gyroscope, as Lövetest skips them, which on a desktop computer is usual. Like
 # the graphics tests, they run in the test suite's own process
-# (test/lovetest/sensor_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/sensor_test.rb) and under the lota program (test/lovetest/game).
 class SensorTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

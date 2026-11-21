@@ -9,7 +9,7 @@ require_relative "test_helper"
 require "lota/archive"
 
 # Which entries of a .lota Lota refuses to unpack, and where it unpacks
-# one (doc/contributors/design/packaging.md). That lota run unpacks an
+# one (doc/contributors/design/packaging.md). That the lota program unpacks an
 # archive through the engine's filesystem and plays it is
 # test/native/lota_run_test.rb's to prove, in a process of its own.
 class ArchiveTest < Minitest::Test

@@ -201,7 +201,6 @@ module Bench
         "-I#{File.join(ROOT, 'tmp/engine/build/lib')}",
         *(game ? ["-r#{File.join(ROOT, 'test/parity/probe.rb')}"] : []),
         File.join(ROOT, "exe/lota"),
-        "run",
         File.join(ROOT, game ? game.translation : "tasks/bench/lota"),
 ]
     end
@@ -739,7 +738,7 @@ module Bench
     private def method
       <<~METHOD.chomp
         Method: each scenario runs in its own process, in an 800 by 600 window
-        without vertical sync, under lota run (tasks/bench/lota) or the reference
+        without vertical sync, under the lota program (tasks/bench/lota) or the reference
         love (tasks/bench/love). Its draw callback makes #{@settings.draws} calls a frame.
         The first #{@settings.warmup} frames are untimed, so the JITs have compiled the loop
         (each compiles a method after 30 calls); the next #{@settings.frames} are timed: the

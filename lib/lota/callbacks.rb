@@ -15,16 +15,17 @@ module Lota
   # parameter beyond LÖVE's receives +nil+, as in Lua, and an optional one keeps
   # its default.
   module Callbacks
-    # The arguments after the game's folder on the command line, which
-    # Lota's loop passes to the load callback first. :nodoc:
+    # The game's arguments on the command line, without the game's path
+    # and LÖVE's options (Lota::Arg), which Lota's loop passes to the load
+    # callback first. :nodoc:
     #
     # LÖVE's Lua tables keep the program's own name at negative indices;
     # a Ruby Array has none, so these hold the game's arguments alone.
     @parsed_game_arguments = [] #: Array[String]
     @parsed_game_arguments.freeze
 
-    # Every argument <tt>lota run</tt> received, the game's folder first,
-    # which Lota's loop passes to the load callback second. :nodoc:
+    # Every argument the +lota+ program received, which Lota's loop
+    # passes to the load callback second. :nodoc:
     @raw_game_arguments = [] #: Array[String]
     @raw_game_arguments.freeze
 
@@ -417,8 +418,8 @@ module Lota
     #   visible(visible)                 mousefocus(focused)
     #
     # and the rest of LÖVE's, under LÖVE's names. +load+ receives the
-    # arguments after the game's folder on the command line, then every
-    # argument <tt>lota run</tt> received.
+    # game's arguments on the command line, without its path and LÖVE's
+    # options, then every argument the +lota+ program received.
     #
     # Define <tt>Lota.run</tt> yourself to replace the loop, as a LÖVE game
     # can replace love.run.

@@ -97,7 +97,7 @@ module WindowsDesktop
     Group.new(
       file: "test/native/lota_run_test.rb",
       tests: %w[LotaRunTest#test_lovetest_passes_when_run_by_lota_run],
-      reason: "it runs all of Lövetest under lota run, the tests above among them"
+      reason: "it runs all of Lövetest under the lota program, the tests above among them"
     ),
     Group.new(
       file: "test/native/window_state_test.rb",

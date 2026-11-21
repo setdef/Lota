@@ -32,7 +32,7 @@ module Lota
   #
   # Fuser turns the archive into that project, as Fledge leaves it to the
   # app it builds from: it unpacks the archive with Lota::Archive, through
-  # the engine's filesystem, as <tt>lota run</tt> unpacks one, and refuses
+  # the engine's filesystem, as the +lota+ program unpacks one, and refuses
   # what Lota::Archive refuses; reads the game's conf.rb without opening a
   # window (Lota::Boot#read_settings); and writes the project as
   # <tt>lota fuse</tt> writes one for a game without a Gemfile: the game
@@ -168,7 +168,7 @@ module Lota
     end
 
     # Opens the engine's filesystem with the archive as its source, as
-    # <tt>lota run</tt> opens it (Lota::Boot), and unpacks the archive into
+    # the +lota+ program opens it (Lota::Boot), and unpacks the archive into
     # the folder +cache+ (Lota::Archive#unpack). Returns the folder of the
     # game.
     private def unpack(cache)

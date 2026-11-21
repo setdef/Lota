@@ -35,7 +35,7 @@ require_relative "native_format"
 # takes a precompiled gem already built, by rake package:native here or by
 # CI's gate job on another runner, installs it into an empty GEM_HOME that
 # sees no other installed gem, then runs the lota executable RubyGems
-# wrote: lota --version, and lota run on each of the target's games, with
+# wrote: lota --version, and lota on each of the target's games, with
 # Lota loaded only from the installed gem.
 #
 # gem build and Gem::Package.build still build a gemspec they warn about,
@@ -56,7 +56,7 @@ class PackageCheck
   # [refusal] Text the source gem's gem install stops with.
   # [smoke] Ruby source that exercises the gem. ARGV[0] is the gem's
   #   directory.
-  # [games] The Games that delivery runs with lota run.
+  # [games] The Games that delivery runs with the lota program.
   class Target < Data.define(:name, :dir, :packaged, :native_packaged, :extension, :native, :refusal, :smoke, :games)
     # The gemspec file name.
     def gemspec
@@ -69,7 +69,7 @@ class PackageCheck
     end
   end
 
-  # A game for lota run.
+  # A game for the lota program.
   #
   # [name] What the check calls it.
   # [folder] The game's folder, relative to the repository, or nil for one
@@ -78,7 +78,7 @@ class PackageCheck
   # [gems] The gems the game requires besides Lota, which the check
   #   installs beside it from the .gem files this machine installed them
   #   from, with what they depend on.
-  # [arguments] What lota run passes the game.
+  # [arguments] What the lota program passes the game.
   # [output] What the game prints, matched against everything but what
   #   the run reports of the libraries it loaded: a Regexp, or something
   #   that, called with what each game before it printed, by name, returns
@@ -124,7 +124,7 @@ class PackageCheck
   # How RubyGems starts each warning it prints (Gem::StreamUI#alert_warning).
   WARNING = /^WARNING: /
 
-  # How lota run's guard (#guard) reports where Lota loaded from.
+  # How the lota program's guard (#guard) reports where Lota loaded from.
   LOADED_FROM = /^lota-package-check: lota loaded from (.+)$/
 
   # Unsets what Bundler and the repository put in a child's environment.
@@ -230,7 +230,7 @@ class PackageCheck
     working_tree - contents
   end
 
-  # A script lota run loads first (ruby -r), which, as the game exits,
+  # A script the lota program loads first (ruby -r), which, as the game exits,
   # prints where lota.rb loaded from, and what +format+ reports of the
   # libraries the run loaded, and fails the run if anything loaded from
   # +root+'s lib/, where rake compile also puts the bundle. A game in the
@@ -244,12 +244,12 @@ class PackageCheck
         puts "lota-package-check: lota loaded from \#{lota || "nowhere"}"
         #{format.report_libraries.gsub("\n", "\n  ").rstrip}
         leaked = $LOADED_FEATURES.select { |feature| feature.start_with?(*#{libs.inspect}) }
-        abort "lota run loaded files from the repository's lib/: \#{leaked.join(", ")}" if leaked.any?
+        abort "lota loaded files from the repository's lib/: \#{leaked.join(", ")}" if leaked.any?
       end
     RUBY
   end
 
-  # What lota run's +output+ shows loaded from outside the GEM_HOME
+  # What the lota program's +output+ shows loaded from outside the GEM_HOME
   # +home+: Lota itself, as the guard reports it, and each library the run
   # loaded that is not the system's own, the bundle among them, as
   # +format+ reads the run's report of them. A run that loaded no such
@@ -437,7 +437,7 @@ class PackageCheck
   end
 
   # Runs the installed executable as a player's shell would: lota
-  # --version, then lota run on each of the target's games, reporting the
+  # --version, then lota on each of the target's games, reporting the
   # libraries it loads.
   private def run_executable(gem, home, env, work)
     lota = File.join(home, "bin", gem.name)
@@ -450,7 +450,7 @@ class PackageCheck
       install_dependencies(game, env, work)
       run_env = env.merge(@format.report_environment, SILENT).merge(game.background ? BACKGROUND : {})
       output, status = with_focus(game) do
-        Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, "run", game_folder(game, work),
+        Open3.capture2e(run_env, Gem.ruby, "-r", guard, lota, game_folder(game, work),
           *game.arguments, chdir: work)
       end
       printed[game.name] = verify_game(game, home, output, status, printed)
@@ -534,15 +534,15 @@ class PackageCheck
     printed = @format.printed(output).lines.grep_v(LOADED_FROM).join
     expected = game.expected(before)
     unless status.exitstatus == game.status && expected.match?(printed)
-      raise Failure, "lota run #{game.name} exited #{status.inspect}, expected #{game.status} and output matching " \
+      raise Failure, "lota #{game.name} exited #{status.inspect}, expected #{game.status} and output matching " \
         "#{expected.inspect}, and printed:\n#{printed}"
     end
 
     outside = self.class.outside(output, home, format: @format)
-    raise Failure, "lota run #{game.name} loaded from outside the installed gem:\n#{list(outside)}" if outside.any?
+    raise Failure, "lota #{game.name} loaded from outside the installed gem:\n#{list(outside)}" if outside.any?
 
     tests = self.class.summary(printed)&.then { |line| ", #{line}" }
-    @out.puts "✅ lota run #{game.name}: exited #{status.exitstatus}#{tests}, with Lota and " \
+    @out.puts "✅ lota #{game.name}: exited #{status.exitstatus}#{tests}, with Lota and " \
       "#{@format.ours(output).map { |path| File.basename(path) }.join(', ')} loaded from the installed gem"
     printed
   end

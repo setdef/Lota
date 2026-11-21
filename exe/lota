@@ -6,9 +6,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# Runs Lota's command-line interface: lota run [PATH] [ARGUMENTS...]
-# runs the game in the folder PATH, or in the current directory, as
-# love path/to/game runs a LÖVE game, and lota fuse [PATH] builds it into
-# an app that runs without Ruby. See Lota::CLI.
+# Runs the lota program: lota path/to/game [ARGUMENTS...] runs the game
+# in a folder, a .lota, or a Ruby file, as love path/to/game runs a LÖVE
+# game, and exits with the status it quits with. See Lota::CLI.
 require "lota/cli"
-Lota::CLI.call(ARGV)
+exit Lota::CLI.call(ARGV)

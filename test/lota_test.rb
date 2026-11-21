@@ -50,9 +50,11 @@ class LotaTest < Minitest::Test
   end
 
   # Every module Lota translates from LÖVE has an accessor; its native
-  # extension, its callbacks, its command line, the methods every engine
-  # object has, what every record answers, its record of deprecated
-  # names, the enum names it passes the engine, the translator of the
+  # extension, its callbacks, its command line, the reader of the
+  # program's arguments, which boot.lua's own Lua calls and no game does,
+  # the methods every engine object has, what every record answers, its
+  # record of deprecated names, the enum names it passes the engine, the
+  # translator of the
   # engine's error messages, the restart that crosses exec, the maker of
   # its raw pointers, and the screen it shows when it is given no game,
   # which in LÖVE is a Lua file and no module
@@ -66,6 +68,7 @@ class LotaTest < Minitest::Test
       Lota::Callbacks
       Lota::DefaultCallbacks
       Lota::CLI
+      Lota::Arg
       Lota::Object
       Lota::Record
       Lota::Deprecation

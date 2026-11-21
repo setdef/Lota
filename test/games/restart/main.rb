@@ -11,7 +11,7 @@
 # "never" quits at once, and "extra" restarts with several values, of
 # which only the first crosses. A first argument of "chain" restarts once
 # for each argument after it, the Nth run with the value the Nth names,
-# and the run after the last quits with status 3, so one lota run carries
+# and the run after the last quits with status 3, so one run of the lota program carries
 # every value across a restart of its own. With LOTA_RESTART_WINDOW set
 # it also logs whether the window is open and when Lota closes it. A run
 # given no arguments takes its first from LOTA_RESTART_ARGUMENT, so that a

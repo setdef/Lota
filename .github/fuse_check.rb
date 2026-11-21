@@ -62,7 +62,7 @@ GAMES = {
 
 # The kinds of GAMES that Lota's app plays, as LÖVE's app plays a .love:
 # unfused, from the folder Lota::Archive unpacks it into, saving under
-# Lota's own folder, as lota run saves (doc/contributors/design/game.md,
+# Lota's own folder, as the lota program saves (doc/contributors/design/game.md,
 # "Where a game saves").
 PLAYED = %w[played].freeze
 

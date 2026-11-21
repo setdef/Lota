@@ -10,7 +10,7 @@ require_relative "../lovetest_helper"
 # Lövetest's love.keyboard tests (vendor/love/testing/tests/keyboard.lua),
 # translated to Ruby by the rules of doc/contributors/design/translation.md, all
 # ten. Like the graphics tests, they run in the test suite's own process
-# (test/lovetest/keyboard_test.rb) and under lota run (test/lovetest/game). The
+# (test/lovetest/keyboard_test.rb) and under the lota program (test/lovetest/game). The
 # tests of key repeat and text input change settings Lövetest leaves changed;
 # these put them back, so that a test that follows finds what Lota's loop starts
 # a game with.

@@ -1,6 +1,6 @@
 ---
 name: lota-gamedev
-description: Write, test, and ship a 2D game in Ruby with Lota (a Ruby binding of LÖVE's engine; gem "lota", API under Lota::Graphics, Lota::Window, Lota::Audio, and so on). Use when creating or changing a game folder with conf.rb and main.rb, translating LÖVE or love2d Lua code or tutorials to Ruby, handling touch, gamepad, DPI, safe area, or audio on desktop and phones, running `lota run`, packaging with `lota fuse`, or debugging a NoMethodError, a black window, or a crash in a Lota game.
+description: Write, test, and ship a 2D game in Ruby with Lota (a Ruby binding of LÖVE's engine; gem "lota", API under Lota::Graphics, Lota::Window, Lota::Audio, and so on). Use when creating or changing a game folder with conf.rb and main.rb, translating LÖVE or love2d Lua code or tutorials to Ruby, handling touch, gamepad, DPI, safe area, or audio on desktop and phones, running `lota path/to/game`, packaging with `lota fuse`, or debugging a NoMethodError, a black window, or a crash in a Lota game.
 license: CC-BY-SA-4.0
 compatibility: Needs Ruby 4.1 (a preview, such as 4.1.0-preview1, until 4.1.0 is released; not 4.0) and a Lota gem from github.com/setdef/Lota/releases (not on RubyGems). A window needs a display; macOS, Linux, and Windows have gems.
 metadata:
@@ -48,7 +48,7 @@ def Lota.draw            = Lota::Graphics.rectangle(:fill, @x, 10, 20, 20)
 def Lota.keypressed(key) = Lota::Event.quit if key == :escape
 ```
 
-Run it with `lota run` (from the folder) or `lota run path/to/game`. A callback
+Run it with `lota path/to/game` (`lota .` from the folder). A callback
 receives only as many of LÖVE's arguments as it declares. `lota` is a private
 alias of `Lota` (`lota.graphics`), as `love` is in LÖVE. The game's folder is
 on `$LOAD_PATH`, and files are read relative to it.
@@ -67,7 +67,7 @@ RBS rather than reasoning from the rule.
 1. Find the LÖVE function and its Lota name in the RBS before writing a call.
 2. Keep game logic in plain Ruby objects that do not touch Lota, so Minitest
    can test them without a window: [references/testing.md](references/testing.md).
-3. Run the real game with `lota run`; for a scripted run, add a smoke mode
+3. Run the real game with `lota .`; for a scripted run, add a smoke mode
    (an environment variable that quits after N seconds and prints a line).
 4. For phones, touch, gamepads, DPI, safe areas, audio, and sensors, read
    [references/gotchas.md](references/gotchas.md) before designing the input

@@ -7,78 +7,79 @@
 
 require_relative "version"
 require_relative "restart"
-require_relative "cli/commands/run"
 require_relative "cli/commands/fuse"
 
 module Lota
-  # Entry point for the Lota command-line interface.
+  # The +lota+ program, which runs a game as the +love+ program runs one
+  # (doc/contributors/design/packaging.md, "The command line, and
+  # fusing").
   #
-  # A LÖVE game runs with one command, <tt>love path/to/game</tt>.
-  # Without one, you would write a script for every game to load Lota,
-  # find the game's files, and start its loop.
-  #
-  # This module dispatches to subcommands. It routes <tt>run</tt> to
-  # Commands::Run, which starts a game from its folder
-  # (doc/contributors/design/packaging.md; doc/contributors/design/game.md), and
-  # <tt>fuse</tt> to Commands::Fuse, which builds a game into an app that runs
-  # without Ruby (doc/contributors/design/packaging.md).
+  # <tt>lota path/to/game</tt> runs the game in a folder,
+  # <tt>lota game.lota</tt> a game in one file, and <tt>lota file.rb</tt>
+  # a game in one Ruby file, each with Lota::Boot, which reads LÖVE's
+  # options among the arguments, such as <tt>--fused</tt> and
+  # <tt>--renderers opengl</tt>, and gives the rest to the game. Given no
+  # game, it prints how to give one and shows the no-game screen, which
+  # starts a game dropped on it. <tt>lota --version</tt> and
+  # <tt>lota --help</tt> print and quit.
   #
   # Use it via the +lota+ executable.
   #
   # === Example
   #
   #   # From a terminal:
-  #   lota run path/to/game
-  #   cd path/to/game
-  #   lota run
-  #   lota fuse path/to/game
+  #   lota path/to/game
+  #   lota path/to/game --level 2
+  #   lota "Sample Game.lota"
   #
-  #   # Programmatic access:
-  #   Lota::CLI.call(["run", "path/to/game"])
+  #   # Programmatic access, which returns the exit status:
+  #   Lota::CLI.call(["path/to/game"])
   module CLI
-    # Maps command names to handler modules.
-    COMMANDS = { # :nodoc:
-      "run" => Commands::Run,
-      "fuse" => Commands::Fuse,
-    }.freeze
-
-    # Entry point for the CLI.
+    # Runs the program with the arguments +argv+, and returns its exit
+    # status. As love.cpp's runlove (src/love.cpp, lines 168-187), it
+    # prints the version for <tt>--version</tt> and the usage for
+    # <tt>--help</tt>, each only as the first argument, and otherwise runs
+    # the game the arguments name, until it quits.
     #
-    # [argv] Command-line arguments array.
+    # <tt>lota fuse</tt> still builds a game into an app, until a game is
+    # made into one only from an app Lota publishes (Commands::Fuse).
     def self.call(argv)
-      command_name = argv.shift
-
-      case command_name
-      when "--version", "-v"
+      case argv.first
+      when "--version"
         puts "Lota #{Lota::VERSION}"
-      when "--help", "-h", nil
-        puts usage
+        0
+      when "--help"
+        print usage
+        0
+      when "fuse"
+        Commands::Fuse.call(argv.drop(1))
+        0
       else
-        command = COMMANDS[command_name]
-        if command
-          Restart.__send__(:remember, [command_name, *argv])
-          command.call(argv)
-        else
-          warn "Unknown command: #{command_name}"
-          warn usage
-          exit(1)
-        end
+        Restart.__send__(:remember, argv)
+        require "lota"
+        Lota::Boot.new(nil, argv).call
       end
     end
 
-    # Returns the main usage message.
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+    #
+    # The usage LÖVE prints for --help and with no game (src/love.cpp,
+    # lines 153-166; boot.lua, lines 157-166), with Lota's names.
     def self.usage
       <<~USAGE
-        Usage: lota <command> [options]
+        Lota is an *awesome* framework you can use to make 2D games in Ruby
+        https://github.com/setdef/lota
 
-        Commands:
-          run [path] [arguments]  Run the game in path, or in the current directory
-          fuse [path] [options]   Build the game into an app that runs without Ruby
-
-        Options:
-          --version, -v  Show version
-          --help, -h     Show this help
+        usage:
+            lota --version                  prints Lota version and quits
+            lota --help                     prints this message and quits
+            lota path/to/gamedir            runs the game from the given directory which contains a main.rb file
+            lota path/to/packagedgame.lota  runs the packaged game from the provided .lota file
+            lota path/to/file.rb            runs the game from the given .rb file
       USAGE
     end
+    # SPDX-SnippetEnd
   end
 end

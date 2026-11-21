@@ -6,7 +6,7 @@
 #++
 
 # Runs Lövetest's love.system tests, translated in tests/system.rb, in the test suite's own process.
-# test/native/lota_run_test.rb runs them again through lota run.
+# test/native/lota_run_test.rb runs them again through the lota program.
 require_relative "../test_helper"
 require_relative "tests/system"
 require_relative "../native/native_helper"

@@ -47,7 +47,7 @@ module Lota
     # Whether the game is fused into an application of its own, as a
     # shipped game is, matching love.filesystem.isFused
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_isFused). A game
-    # <tt>lota run</tt> runs is not.
+    # the +lota+ program runs is not, unless given <tt>--fused</tt>.
     #
     # === Example
     #
@@ -63,8 +63,8 @@ module Lota
     #
     # Only the first call counts, as in LÖVE, and Lota::Boot makes it
     # before the game's code runs, so a game cannot change it: it is how
-    # the program that starts a game says what it is. <tt>lota run</tt>
-    # marks the game not fused; the entry script <tt>lota fuse</tt> writes,
+    # the program that starts a game says what it is. The +lota+ program
+    # marks the game not fused, unless given <tt>--fused</tt>; the entry script <tt>lota fuse</tt> writes,
     # which ships a game, marks it fused (Lota::Boot.new's +fused+).
     #
     # === Example
@@ -928,7 +928,7 @@ module Lota
     # The full path of the program running the game, matching
     # love.filesystem.getExecutablePath
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_getExecutablePath):
-    # under <tt>lota run</tt>, Ruby's.
+    # under the +lota+ program, Ruby's.
     #
     # === Example
     #

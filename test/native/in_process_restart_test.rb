@@ -42,10 +42,10 @@ class InProcessRestartTest < Minitest::Test
     super
   end
 
-  # Runs <tt>lota run</tt> on +game+ with +arguments+ and returns its
+  # Runs the +lota+ program on +game+ with +arguments+ and returns its
   # output and Process::Status.
   def lota_run(game, *, environment: {})
-    capture2e(variables.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run", game, *)
+    capture2e(variables.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), game, *)
   end
 
   # The environment every run here starts with: the load path, in

@@ -13,12 +13,12 @@ module Lota
   # read its settings, open the modules it wants, and open its window, in the
   # order LÖVE does them, or a game that works in LÖVE breaks in Lota.
   #
-  # Boot does that. <tt>lota run</tt> makes one for the folder you name
+  # Boot does that. The +lota+ program makes one for the game you name
   # and calls it: it builds the settings, loads conf.rb and calls
   # <tt>Lota.conf</tt>, opens the modules, opens the window, loads main.rb,
   # and runs <tt>Lota.run</tt>'s loop until the game quits.
   #
-  # Use it through <tt>lota run</tt>. Tests that draw use init alone, to
+  # Use it through the +lota+ program. Tests that draw use init alone, to
   # open a window from a conf.rb.
   #
   # An error in the game shows LÖVE's error screen in the game's window,
@@ -28,8 +28,8 @@ module Lota
   #
   # === Examples
   #
-  #   # What lota run path/to/game level2 does.
-  #   exit Lota::Boot.new("path/to/game", ["level2"]).call
+  #   # What lota path/to/game level2 does.
+  #   exit Lota::Boot.new(nil, ["path/to/game", "level2"]).call
   #
   #   # Open the window a game's conf.rb asks for, without running it.
   #   Lota::Boot.new("path/to/game").init
@@ -71,16 +71,23 @@ module Lota
     # did not restart, or restarted with nothing.
     attr_reader :restart_value
 
-    # Prepares to start the game in the folder +path+.
+    # Prepares to start the game in the folder +path+, or the game the
+    # program's +arguments+ name.
     #
-    # [path] String path of the game's folder, as given on the command
-    #   line, or +nil+ for the current directory.
-    # [arguments] Array of String arguments for the game, which its load
-    #   callback receives.
+    # [path] String path of the game's folder, or +nil+ to take the game
+    #   from +arguments+, as the +lota+ program does.
+    # [arguments] Array of String arguments, read as love.boot reads the
+    #   program's (Lota::Arg): LÖVE's options, such as <tt>--fused</tt>
+    #   and <tt>--renderers opengl</tt>, wherever they are, then, when
+    #   +path+ is +nil+, the game's path, a folder, a <tt>.lota</tt>, or
+    #   a Ruby file to run in the game's place of main.rb
+    #   (boot.lua:98-128). What is left the game's load callback
+    #   receives.
     # [fused] Whether the game is fused into an application of its own, as
     #   a shipped game is, which LÖVE's boot.lua decides from where it
     #   found the game (boot.lua:76-96) and Lota from who starts it:
-    #   <tt>lota run</tt> leaves it +false+, and the entry script
+    #   the +lota+ program leaves it +false+, unless the arguments hold
+    #   <tt>--fused</tt>, and the entry script
     #   <tt>lota fuse</tt> writes, which ships a game, passes +true+. A
     #   fused game saves in the system's application data folder under its
     #   identity alone, where LÖVE's fused games save; one that is not
@@ -92,12 +99,13 @@ module Lota
     #
     #   Lota::Boot.new("games/pong", ["--two-players"])
     #   Lota::Boot.new("Pong.app/Contents/Resources/game", fused: true)
+    #   Lota::Boot.new(nil, ["games/pong", "--two-players"])
     def initialize(path, arguments = [], fused: false)
-      @path = path
-      @directory = File.expand_path(path || ".")
-      @arguments = arguments
       @fused = fused
       @settings = Settings.new
+      @start = [arguments, path]
+      @no_game = false
+      take_command_line(arguments, path, false)
     end
 
     # A Boot given no game, with +arguments+ for the game a player drops
@@ -107,11 +115,64 @@ module Lota
       new(nil, arguments).__send__(:without_game)
     end
 
-    # Forgets the folder, which is then no game's. :nodoc:
+    # Takes no game from the arguments, which are then all the game's
+    # that a player drops. :nodoc:
     private def without_game
-      @directory = nil
+      @no_game = true
+      arguments, given = @start
+      take_command_line(arguments, given, true)
       self
     end
+
+    # Reads the program's +arguments+ as love.boot does (boot.lua:74-87
+    # and 98-128; Lota::Arg): the game is the folder +given+, or, unless
+    # +game_set+, the one the arguments name, and the rest, without
+    # LÖVE's options, are the game's. A game named by the arguments may
+    # be a <tt>file://</tt> URI, and a Ruby file, which runs in the place
+    # of main.rb, as a <tt>.lua</tt> file does in LÖVE, from the folder it
+    # is in.
+    private def take_command_line(arguments, given, game_set)
+      line = Arg.parse(arguments, game_set: !given.nil? || game_set)
+      @fused ||= line.set?("fused")
+      @line = line
+      @raw_arguments = given ? [given, *arguments] : arguments
+      @arguments = line.game_arguments
+      @path = given || line.game
+      @main_name = nil
+      game = line.game
+      @directory = given ? File.expand_path(given) : game && game_source(game)
+    end
+
+    # SPDX-SnippetBegin
+    # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
+    # SPDX-License-Identifier: Zlib
+    #
+    # The game's source, for the path +nouri+ the arguments name
+    # (boot.lua:100-117): a "content://" URI as it is, as Android opens it
+    # (Lota reads none yet), and otherwise its full path, decoded first
+    # from a "file://" URI. For a Ruby file it is the folder the file is
+    # in, and the file is the game's main file.
+    private def game_source(nouri)
+      # Ignore "content://" uri as it's used to open a file-descriptor
+      # directly for Android.
+      return nouri if nouri.start_with?("content://")
+
+      nouri = Boot.uridecode(nouri.delete_prefix("file://")) if nouri.start_with?("file://")
+
+      full_source = File.expand_path(nouri)
+      source_leaf = File.basename(full_source)
+      return full_source unless source_leaf.end_with?(".rb")
+
+      @main_name = source_leaf
+      File.dirname(full_source)
+    end
+
+    # +s+ with each <tt>%</tt> and two hex digits made the byte they
+    # name, as boot.lua's uridecode makes them (lines 32-36). :nodoc:
+    def self.uridecode(s)
+      s.b.gsub(/%\h\h/n) { |str| str[1, 2].to_s.hex.chr }.force_encoding(s.encoding)
+    end
+    # SPDX-SnippetEnd
 
     # SPDX-SnippetBegin
     # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team
@@ -145,7 +206,7 @@ module Lota
     #
     # When Lota::Restart::IN_PROCESS asks for exec, a restart instead ends
     # the game with status 0 and makes #restart? true, and the process
-    # starts the game again once it exits: the command <tt>lota run</tt>
+    # starts the game again once it exits: the command the +lota+ program
     # remembered, or, for a fused game, the program it runs, which call
     # remembers as it starts, with the game's arguments.
     #
@@ -168,9 +229,9 @@ module Lota
     def call
       Restart.__send__(:take)
       Restart.__send__(:remember, @arguments, fused: true) if @fused
-      start = [@path, @arguments, @directory]
+      arguments, given = @start
       Restart.__send__(:in_process, -> { code_directory }) do
-        @path, @arguments, @directory = start
+        take_command_line(arguments, given, @no_game)
         @code_directory = nil
         start_dropped_game(Lota.restart)
         play
@@ -197,9 +258,7 @@ module Lota
       gamepath = was_no_game["gamepath"]
       return unless gamepath.is_a?(String)
 
-      @arguments = [@path, *@arguments].compact
-      @path = gamepath
-      @directory = File.expand_path(gamepath)
+      take_command_line([gamepath, *@raw_arguments], nil, false)
     end
 
     # Runs the game once, as boot.lua's root function does, and returns
@@ -207,7 +266,7 @@ module Lota
     private def play
       @restart = false
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
-      Callbacks.raw_game_arguments = [@path, *@arguments].compact.freeze
+      Callbacks.raw_game_arguments = @raw_arguments.dup.freeze
       @inerror = false
       @set_modal_draw_func = false
       @func = method(:earlyinit)
@@ -308,7 +367,7 @@ module Lota
       return if @directory && !@invalid_game_path
 
       require_relative "cli"
-      puts CLI.usage
+      print CLI.usage, "\n"
       NoGame.call
     end
 
@@ -523,20 +582,25 @@ module Lota
     # or t.renderers, or t.graphics.renderers, without t.excluderenderers
     # or t.graphics.excluderenderers. Each excluded name removes its last
     # occurrence, as boot.lua's loop does. Names may be Symbols, as rule 9
-    # makes them, or Strings. LÖVE also takes --renderers and
-    # --excluderenderers on its command line; lota run does not yet.
+    # makes them, or Strings. The arguments' <tt>--renderers</tt> and
+    # <tt>--excluderenderers</tt>, each a list of names with commas between
+    # them, win over the settings, as on LÖVE's command line.
     private def renderers(graphics)
       renderers = Native::Graphics.default_renderers.map(&:to_sym)
       deprecated = @settings.renderers
       renderers = deprecated.map(&:to_sym) if deprecated.is_a?(Array)
       chosen = graphics&.renderers
       renderers = chosen.map(&:to_sym) if chosen.is_a?(Array)
+      renderersstr = @line.value("renderers")
+      renderers = renderersstr.split(",").reject(&:empty?).map(&:to_sym) if renderersstr
 
       excluderenderers = nil
       deprecated = @settings.excluderenderers
       excluderenderers = deprecated if deprecated.is_a?(Array)
       excluded = graphics&.excluderenderers
       excluderenderers = excluded if excluded.is_a?(Array)
+      excludestr = @line.value("excluderenderers")
+      excluderenderers = excludestr.split(",").reject(&:empty?) if excludestr
 
       excluderenderers&.each do |v|
         index = renderers.rindex(v.to_sym)
@@ -603,7 +667,8 @@ module Lota
     # without leading dots or its last extension, with every other dot an
     # underscore, or <tt>"lotagame"</tt> when that leaves nothing.
     # <tt>lota fuse</tt> names the folder it copies such a game into after
-    # it, so the fused game saves under the name <tt>lota run</tt> gave it.
+    # it, so the fused game saves under the name the +lota+ program gave
+    # it.
     #
     # === Example
     #
@@ -704,12 +769,14 @@ module Lota
       raise "Could not set window mode" unless mode
     end
 
-    # Whether the folder holds neither main.rb nor conf.rb (boot.lua:152-154).
-    # With no game there is no folder, and no code is missing from it.
+    # Whether the folder holds neither main.rb nor conf.rb, or, for a game
+    # named by its Ruby file, whether that file is missing
+    # (boot.lua:152-154). With no game there is no folder, and no code is
+    # missing from it.
     private def no_game_code?
       main_file = self.main_file or return false
       conf_file = self.conf_file or return false
-      !(File.exist?(main_file) || File.exist?(conf_file))
+      !(File.exist?(main_file) || (!@main_name && File.exist?(conf_file)))
     end
 
     # SPDX-SnippetEnd
@@ -728,9 +795,10 @@ module Lota
       directory && File.join(directory, "conf.rb")
     end
 
+    # main.rb in the game's folder, or the Ruby file the arguments named.
     private def main_file
       directory = code_directory
-      directory && File.join(directory, "main.rb")
+      directory && File.join(directory, @main_name || "main.rb")
     end
 
     # Runs the block and returns what it raised, or +nil+, as Lua's pcall

@@ -11,7 +11,7 @@ require_relative "../lovetest_helper"
 # translated to Ruby by the rules of doc/contributors/design/translation.md. Two
 # runners load them: test/lovetest/graphics_test.rb, in the test suite's own
 # process, and test/lovetest/game, a game folder that runs them from its update
-# callback under lota run, as Lövetest runs them from love.update.
+# callback under the lota program, as Lövetest runs them from love.update.
 class GraphicsTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.graphics.Quad).
   TYPES = %w[Buffer Canvas Font Image Mesh ParticleSystem Quad Shader ShaderStorageBuffer SpriteBatch Text Video].freeze

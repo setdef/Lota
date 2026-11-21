@@ -45,6 +45,22 @@ module Lota
 
     private def without_game: () -> self
 
+    @start: [Array[String], String?]
+
+    @no_game: bool
+
+    @line: Arg::Line
+
+    @raw_arguments: Array[String]
+
+    @main_name: String?
+
+    private def take_command_line: (Array[String] arguments, String? given, bool game_set) -> void
+
+    private def game_source: (String nouri) -> String
+
+    def self.uridecode: (String s) -> String
+
     def call: () -> Integer
 
     private def start_dropped_game: (Restart::value restart) -> void

@@ -404,7 +404,7 @@ jobs:
   # check the gem and the games they run; Lota comes only from the gem.
   # rake package:deliver installs the gem with gem install --local into an
   # empty GEM_HOME, and runs every child process with no Bundler, no
-  # RUBYLIB, and no other gem. lota run then runs two games: one that opens
+  # RUBYLIB, and no other gem. lota then runs two games: one that opens
   # a window, clears it, and quits with status 3, and test/lovetest/game,
   # Lövetest's love.test.graphics.clear translated, compared with LÖVE's
   # expected image by Lövetest's rule. A guard

@@ -10,7 +10,7 @@ require_relative "../lovetest_helper"
 # Lövetest's love.data tests (vendor/love/testing/tests/data.lua),
 # translated to Ruby by the rules of doc/contributors/design/translation.md.
 # They run in the test suite's own process (test/lovetest/data_test.rb) and
-# under lota run (test/lovetest/game). love.data's container types, formats, and
+# under the lota program (test/lovetest/game). love.data's container types, formats, and
 # hash functions are Symbols (rule 9). The class is DataModuleTest, as Lota's
 # is LotaModuleTest, since DataTest is test/native/data_test.rb's.
 class DataModuleTest < Lovetest::TestMethod

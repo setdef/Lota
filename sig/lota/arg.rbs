@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 setdef <kerrick@setdef.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+module Lota
+  module Arg
+    OPTIONS: Hash[String, Integer]
+
+    class Line < ::Data
+      attr_reader options: Hash[String, Array[String]]
+
+      attr_reader game_arguments: Array[String]
+
+      def self.new: (Hash[String, Array[String]] options, Array[String] game_arguments) -> Line
+
+      def set?: (String name) -> bool
+
+      def value: (String name) -> String?
+
+      def game: () -> String?
+    end
+
+    def self.parse: (Array[String] arguments, ?game_set: bool) -> Line
+
+    private def self.take: (Array[String] arguments, Integer first, Integer count, Hash[Integer, true] indices) -> Array[String]
+  end
+end

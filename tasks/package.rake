@@ -71,7 +71,7 @@ PACKAGE_GAME = PackageCheck::Game.new(
 )
 
 # The installed gem's acceptance test: every test Lota translates from
-# Lövetest, in test/lovetest, run by lota run as the gate's
+# Lövetest, in test/lovetest, run by the lota program as the gate's
 # test/native/lota_run_test.rb runs them, and compared with LÖVE's
 # expected images in vendor/love/testing/output/expected. It quits with 0
 # only when every test passed, and must run every test and skip exactly

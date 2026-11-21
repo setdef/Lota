@@ -10,7 +10,7 @@ require_relative "../lovetest_helper"
 # Lövetest's love.physics tests (vendor/love/testing/tests/physics.lua),
 # translated to Ruby by the rules of doc/contributors/design/translation.md,
 # every one of their checks among them. They run in the test suite's own process
-# (test/lovetest/physics_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/physics_test.rb) and under the lota program (test/lovetest/game).
 #
 # getType and setType on a Body, Shape, or Joint keep their prefixes, as
 # get_type and set_type (rule 34), and a World's contact callbacks are

@@ -13,6 +13,8 @@ require "lota/fuse"
 
 module Lota
   module CLI
+    # The command the +lota+ program still has, until a game is made into
+    # an app only from an app Lota publishes.
     module Commands
       # Builds the game in a folder into an app a player runs without Ruby,
       # as a LÖVE game is fused into an executable of its own

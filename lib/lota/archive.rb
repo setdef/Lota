@@ -9,7 +9,7 @@ require "digest"
 require "fileutils"
 
 module Lota
-  # A game in one file: its folder, zipped, which <tt>lota run</tt> plays
+  # A game in one file: its folder, zipped, which the +lota+ program plays
   # as <tt>love game.love</tt> plays a LÖVE game
   # (doc/contributors/design/packaging.md).
   #

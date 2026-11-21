@@ -16,11 +16,12 @@ require "lota/fuse"
 # script starts the game whose path its program is given, as a file
 # manager gives the path of a file opened with it on Windows and Linux, or
 # the file macOS opened it with, which arrives as an Apple event, and with
-# none it starts the no-game screen (Lota::Boot.no_game). Like LÖVE's app,
-# it plays a game unfused, so the game saves where <tt>lota run</tt> saves
-# it, and restarts as <tt>lota run</tt> restarts; and as LÖVE's app
-# carries LÖVE's version (platform/xcode/love.xcodeproj, MARKETING_VERSION),
-# Lota's carries the version of the Lota it ships.
+# none it starts the no-game screen, as the +lota+ program does
+# (Lota::Boot). Like LÖVE's app, it plays a game unfused, so the game
+# saves where the +lota+ program saves it, and restarts as it restarts;
+# and as LÖVE's app carries LÖVE's version
+# (platform/xcode/love.xcodeproj, MARKETING_VERSION), Lota's carries the
+# version of the Lota it ships.
 #
 # LÖVE's app is named for the engine and known by the identifier
 # org.love2d.love, so Lota's is named Lota and known by org.setdef.lota,
@@ -109,11 +110,11 @@ class PlayerApp < Lota::Fuse
       # frozen_string_literal: true
 
       # Written by PlayerApp (tasks/player_app.rb), which writes it again on
-      # every build. Plays the game at the path this program is given, a
-      # .lota or a folder, with the arguments after it, or shows the no-game
-      # screen, which starts a game dropped on it, when it is given none.
-      # The game is not fused, as LÖVE's app plays a .love unfused, and it
-      # restarts as lota run restarts it (Lota::Restart).
+      # every build. Plays the game the arguments this program is given
+      # name, a .lota or a folder, as the lota program does, or shows the
+      # no-game screen, which starts a game dropped on it, when they name
+      # none. The game is not fused, as LÖVE's app plays a .love unfused,
+      # and it restarts as the lota program restarts it (Lota::Restart).
       #
       # On macOS a file opened with the app arrives as an Apple event, not
       # as an argument, so unless the program runs in a terminal it asks
@@ -128,8 +129,7 @@ class PlayerApp < Lota::Fuse
         argv.unshift(dropped) unless dropped.empty?
       end
       Lota::Restart.__send__(:remember, argv)
-      path, *arguments = argv
-      exit((path ? Lota::Boot.new(path, arguments) : Lota::Boot.no_game).call)
+      exit Lota::Boot.new(nil, argv).call
     RUBY
   end
 end

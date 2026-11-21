@@ -83,7 +83,7 @@ class PlayerAppTest < Minitest::Test
 
     assert_includes script, "Lota::Restart.__send__(:remember, argv)"
     assert_includes script, "dropped = Lota::Native.check_drop_events"
-    assert_includes script, "exit((path ? Lota::Boot.new(path, arguments) : Lota::Boot.no_game).call)"
+    assert_includes script, "exit Lota::Boot.new(nil, argv).call"
     refute_includes script, "fused: true"
   end
 end

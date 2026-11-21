@@ -7,6 +7,6 @@
 
 # Runs Lövetest's love.event tests, translated in tests/event.rb, in the
 # test suite's own process. test/native/lota_run_test.rb runs them again
-# through lota run.
+# through the lota program.
 require_relative "../test_helper"
 require_relative "tests/event"

@@ -45,8 +45,8 @@ class BenchTest < Minitest::Test
     command = zjit.command(love: "/love")
 
     assert_equal [RbConfig.ruby, "--zjit"], command.first(2)
-    assert_equal ["exe/lota", "run", "tasks/bench/lota"],
-      command.last(3).map { |path| path.delete_prefix("#{Bench::ROOT}/") }
+    assert_equal ["exe/lota", "tasks/bench/lota"],
+      command.last(2).map { |path| path.delete_prefix("#{Bench::ROOT}/") }
     assert_includes command, "-I#{Bench::ROOT}/tmp/engine/build/lib"
     love = Bench::Scenario.new(engine: "love", jit: "luajit", name: "rectangle")
 
@@ -70,7 +70,7 @@ class BenchTest < Minitest::Test
 
     assert_equal [RbConfig.ruby, "--yjit"], lota.first(2)
     assert_includes lota, "-r#{Bench::ROOT}/test/parity/probe.rb"
-    assert_equal ["exe/lota", "run", "test/games/flash_blip"], lota.last(3).map { |path| path.delete_prefix("#{Bench::ROOT}/") }
+    assert_equal ["exe/lota", "test/games/flash_blip"], lota.last(2).map { |path| path.delete_prefix("#{Bench::ROOT}/") }
     love = Bench::Scenario.new(engine: "love", jit: "luajit", name: "flash_blip")
 
     assert_equal ["/love", "#{Bench::ROOT}/test/parity/lua"], love.command(love: "/love")

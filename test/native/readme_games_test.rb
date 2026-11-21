@@ -11,7 +11,7 @@ require "rbconfig"
 require "tmpdir"
 require "zlib"
 
-# The games the README shows, run as a reader runs them: with lota run, in a
+# The games the README shows, run as a reader runs them: with the lota program, in a
 # window, from the files the README gives. A fenced Ruby block whose first
 # line names a file (# main.rb) is that file of the game its section shows;
 # a section with a main.rb is a game. If a snippet stops working, or the
@@ -117,13 +117,13 @@ class ReadmeGamesTest < Minitest::Test
       "data".b + [samples.bytesize].pack("V") + samples
   end
 
-  # Runs <tt>lota run</tt> on +folder+ and returns its output and
+  # Runs the +lota+ program on +folder+ and returns its output and
   # Process::Status, as test/native/lota_run_test.rb does.
   def self.lota_run(folder)
     native = File.dirname(File.dirname(loaded("lota/native")))
     native_test = File.dirname(loaded("lota_native_test"))
     load_path = [native, File.join(ROOT, "lib"), native_test].uniq.join(File::PATH_SEPARATOR)
-    capture2e({}, RbConfig.ruby, "-w", "-I#{load_path}", "-r#{QUIT_ON_ERROR}", File.join(ROOT, "exe/lota"), "run", folder)
+    capture2e({}, RbConfig.ruby, "-w", "-I#{load_path}", "-r#{QUIT_ON_ERROR}", File.join(ROOT, "exe/lota"), folder)
   end
 
   def test_the_readme_shows_a_first_game_and_a_larger_one

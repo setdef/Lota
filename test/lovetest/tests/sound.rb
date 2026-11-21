@@ -10,7 +10,7 @@ require_relative "../lovetest_helper"
 # Lövetest's love.sound tests (vendor/love/testing/tests/sound.lua),
 # translated to Ruby by the rules of doc/contributors/design/translation.md.
 # They run in the test suite's own process (test/lovetest/sound_test.rb) and
-# under lota run (test/lovetest/game), also from the installed precompiled gem.
+# under the lota program (test/lovetest/game), also from the installed precompiled gem.
 class SoundTest < Lovetest::TestMethod
   TYPES = %w[Decoder SoundData].freeze
 

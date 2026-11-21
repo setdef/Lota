@@ -13,7 +13,7 @@ require_relative "../lovetest_helper"
 # hardware, so they check only that its functions are there;
 # test/native/touch_test.rb checks what they do with fingers pushed through
 # SDL's queue. Like the graphics tests, they run in the test suite's own process
-# (test/lovetest/touch_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/touch_test.rb) and under the lota program (test/lovetest/game).
 class TouchTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

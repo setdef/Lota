@@ -12,7 +12,7 @@ require_relative "png"
 
 module Parity
   # The parity harness's Ruby side, which test/parity/lua/conf.lua mirrors
-  # for LÖVE: measurement code, loaded into <tt>lota run</tt> with
+  # for LÖVE: measurement code, loaded into the +lota+ program with
   # <tt>ruby -r</tt> before the game. It runs a translated game unchanged,
   # with the same fixed dt and scripted keys as the Lua side, and compares
   # every frame the game shows with the one LÖVE showed.

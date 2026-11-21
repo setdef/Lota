@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# Loaded with ruby -r into lota run by test/native/lota_run_test.rb: presses
+# Loaded with ruby -r into the lota program by test/native/lota_run_test.rb: presses
 # Return on every dialog the game shows, as the parity harness does
 # (LotaNativeTest.press_return_on_dialogs), and at exit prints how many
 # dialogs it pressed Return on.

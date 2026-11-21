@@ -44,7 +44,7 @@ module TestHome
 
   # The folder LÖVE adds under the application data folder for a game run
   # by the love program, not fused (src/modules/filesystem/Filesystem.h:36-54),
-  # and Lota's for a game run by lota run (doc/contributors/design/game.md):
+  # and Lota's for a game run by the lota program (doc/contributors/design/game.md):
   # each program's name, as LÖVE writes its own on each system.
   LOVE_FOLDER = LINUX ? "love" : "LOVE"
   LOTA_FOLDER = LINUX ? "lota" : "Lota"

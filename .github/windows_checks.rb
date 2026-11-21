@@ -29,10 +29,10 @@
 #   nothing loads from DECOY or MSYS2. MODE bare requires "lota/native"
 #   without the preloader, with only DECOY added, and exits 3 when a decoy
 #   answered, as a control.
-# [opengl [EXPECT]] Runs <tt>lota run</tt> on test/games/opengl, and
+# [opengl [EXPECT]] Runs the +lota+ program on test/games/opengl, and
 #   passes only if SDL made an OpenGL context for its window, which the
 #   engine used or refused for its version, and its output holds EXPECT.
-# [restart] Runs <tt>lota run</tt> on test/games/restart, which restarts
+# [restart] Runs the +lota+ program on test/games/restart, which restarts
 #   twice and then quits with status 3, and passes only if each run read
 #   the value the run before it chose, and every run was the first
 #   process, since a game restarts in its process, as LÖVE's does
@@ -312,7 +312,7 @@ module WindowsChecks
     end
   end
 
-  # Runs <tt>lota run</tt> on test/games/opengl, which opens a window with
+  # Runs the +lota+ program on test/games/opengl, which opens a window with
   # OpenGL alone, and passes only if SDL made an OpenGL context: the game
   # reports an OpenGL renderer, or the engine refuses the context for its
   # version ("Detected OpenGL version", vendor/love/src/modules/window/sdl/
@@ -321,12 +321,12 @@ module WindowsChecks
   # printed.
   def opengl(expect = nil)
     output, status = Open3.capture2e({ "RUBYOPT" => "-I#{File.join(ROOT, 'lib')}" }, RbConfig.ruby, "-w",
-      File.join(ROOT, "exe/lota"), "run", File.join(ROOT, "test/games/opengl"))
+      File.join(ROOT, "exe/lota"), File.join(ROOT, "test/games/opengl"))
     puts output
     opened = status.success? && output.include?("renderer: OpenGL")
     refused = status.exitstatus == 1 && output.include?("Detected OpenGL version")
-    abort "lota run exited #{status.exitstatus} with no OpenGL context" unless opened || refused
-    abort "lota run did not print #{expect.inspect}" if expect && !output.include?(expect)
+    abort "lota exited #{status.exitstatus} with no OpenGL context" unless opened || refused
+    abort "lota did not print #{expect.inspect}" if expect && !output.include?(expect)
 
     puts opened ? "The window opened with OpenGL" : "SDL made an OpenGL context, which the engine refused"
   end
@@ -334,10 +334,10 @@ module WindowsChecks
   def restart
     log = File.join(Dir.mktmpdir("lota-restart-"), "log")
     environment = { "RUBYOPT" => "-I#{File.join(ROOT, 'lib')}", "LOTA_RESTART_LOG" => log }
-    output, status = Open3.capture2e(environment, RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run",
+    output, status = Open3.capture2e(environment, RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"),
       File.join(ROOT, "test/games/restart"), "chain", "string", "table")
     puts output
-    abort "lota run exited #{status.exitstatus}, not 3" unless status.exitstatus == 3
+    abort "lota exited #{status.exitstatus}, not 3" unless status.exitstatus == 3
 
     loads = File.readlines(log, chomp: true).grep(/\Aload /)
     puts loads

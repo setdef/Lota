@@ -22,7 +22,7 @@ require_relative "../lovetest/held_foreground"
 # at the computer, and these two take it for the moment each runs.
 # test/lovetest/mouse_test.rb, window_test.rb, and system_test.rb prepend
 # it to MouseTest, WindowTest, and SystemTest, and
-# test/native/lota_run_test.rb loads it with ruby -r into the lota run of
+# test/native/lota_run_test.rb loads it with ruby -r into the run of the lota program
 # test/lovetest/game, where it prepends itself once each is defined.
 #
 # It waits for the focus before the test starts, and on macOS for the

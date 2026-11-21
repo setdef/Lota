@@ -16,7 +16,7 @@ require_relative "../../tasks/package_check"
 require_relative "../../tasks/lovetest_image"
 require_relative "../zip_writer"
 
-# lota run, end to end: each test runs the lota executable on a game
+# The lota program, end to end: each test runs the lota executable on a game
 # folder in a Ruby of its own, which opens a real window, as a player's
 # would. Under rake test:native that Ruby loads the sanitized extension,
 # as this one did, and inherits the sanitizers (strip_env=0,
@@ -43,7 +43,7 @@ class LotaRunTest < Minitest::Test
       "It may not be compatible with the running version (#{Lota::Native::VERSION}).\n"
   end
 
-  # Runs <tt>lota run</tt> with +arguments+ and returns its output and
+  # Runs the +lota+ program with +arguments+ and returns its output and
   # Process::Status. -w makes any warning part of the output. +preload+
   # names a file Ruby loads first, as ruby -r does, which may require
   # lota_native_test, last on the load path. +environment+ changes the
@@ -54,7 +54,7 @@ class LotaRunTest < Minitest::Test
     # Bundler up first.
     setup = (preload && ENV["BUNDLER_SETUP"]) ? ["-r#{ENV['BUNDLER_SETUP']}"] : []
     capture2e(environment, RbConfig.ruby, "-w", "-I#{run_load_path}", *setup, *(preload && "-r#{preload}"),
-      File.join(ROOT, "exe/lota"), "run", *)
+      File.join(ROOT, "exe/lota"), *)
   end
 
   # The load path of a run: the extension this process loaded, Lota's
@@ -119,7 +119,7 @@ class LotaRunTest < Minitest::Test
   # travels in RUBYOPT, which the restarted process inherits.
   def test_the_fuse_game_saves_the_screenshot_lovetest_expects
     load_path = run_load_path.split(File::PATH_SEPARATOR).map { |path| "-I#{path}" }.join(" ")
-    output, status = capture2e({ "RUBYOPT" => load_path }, RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run",
+    output, status = capture2e({ "RUBYOPT" => load_path }, RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"),
       game("fuse"))
 
     assert_equal 3, status.exitstatus, output
@@ -139,6 +139,7 @@ class LotaRunTest < Minitest::Test
     assert output.end_with?("quit 2\n"), output
   end
 
+  # love . runs the game in the folder it is started in.
   def test_a_game_runs_from_the_current_directory
     reader, writer = IO.pipe
     native = File.dirname(File.dirname(loaded("lota/native")))
@@ -148,15 +149,15 @@ class LotaRunTest < Minitest::Test
         "-w",
         "-I#{native}#{File::PATH_SEPARATOR}#{File.join(ROOT, 'lib')}",
         File.join(ROOT, "exe/lota"),
-        "run",
-], writer, ENV.map { |name, value| "#{name}=#{value}" })
+        ".",
+      ], writer, ENV.map { |name, value| "#{name}=#{value}" })
     end
     writer.close
     output = reader.read
     status = Process.wait2(pid).last
 
     assert_predicate status, :success?, output
-    assert_includes output, "load [] []"
+    assert_includes output, %(load [] ["."])
     scale = reported_scale(output)
 
     assert_includes output, "window #{(320 / scale).round}x#{(200 / scale).round} Order"
@@ -174,7 +175,7 @@ class LotaRunTest < Minitest::Test
     assert_equal 5, status.exitstatus
   end
 
-  # Lövetest, through lota run and the game loop: every test of
+  # Lövetest, through the lota program and the game loop: every test of
   # Lövetest's, translated (test/lovetest/tests), run from the update
   # callback of a game whose conf.rb translates Lövetest's conf.lua, once
   # each and with none failing. The runs it expects are the tests
@@ -607,7 +608,7 @@ class LotaRunTest < Minitest::Test
   end
 
   # boot.lua opens love.mouse and love.math (boot.lua:347-372), and so
-  # does lota run, unless the settings turn them off.
+  # does the lota program, unless the settings turn them off.
   def test_the_mouse_and_math_modules_are_open_unless_turned_off
     in_game("main.rb" => "def Lota.load = (p [lota.mouse, lota.math]; Lota::Event.quit)\n") do |directory|
       output, status = lota_run(directory)
@@ -626,7 +627,7 @@ class LotaRunTest < Minitest::Test
 
   # boot.lua makes the game's folder the source LÖVE's filesystem reads
   # (boot.lua:123), so a file the game names is found in its folder,
-  # wherever lota run was started, and the mouse and math modules are open,
+  # wherever the lota program was started, and the mouse and math modules are open,
   # as boot.lua opens love.mouse and love.math (boot.lua:347-372).
   def test_a_game_reads_the_files_it_names_from_its_folder
     logo = File.binread(File.join(ROOT, "vendor/love/testing/resources/love.png"))
@@ -789,6 +790,36 @@ class LotaRunTest < Minitest::Test
 
       assert_predicate status, :success?, output
       assert_equal "#{[self.class.save_directory('kleleatoms', fused: true), true].inspect}\n", output
+    end
+  end
+
+  # love --fused path/to/game runs the game as if it were fused (arg.lua's
+  # options, boot.lua:87-92), wherever the option is, and the game's
+  # arguments leave it out.
+  def test_the_fused_option_runs_a_game_as_a_fused_one
+    in_game("conf.rb" => "def Lota.conf(t) = (t.identity = 'kleleatoms')\n",
+      "main.rb" => "def Lota.load(arguments, raw) = (p [Lota::Filesystem.save_directory, Lota::Filesystem.fused?, " \
+        "arguments, raw]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(directory, "level2", "--fused")
+
+      assert_predicate status, :success?, output
+      expected = [self.class.save_directory("kleleatoms", fused: true), true, ["level2"], [directory, "level2", "--fused"]]
+
+      assert_equal "#{expected.inspect}\n", output
+    end
+  end
+
+  # love path/to/file.lua runs that file in the place of main.lua, from
+  # its folder, with conf.lua beside it (boot.lua:108-114); lota
+  # path/to/file.rb does the same with a Ruby file.
+  def test_a_game_named_by_its_ruby_file_runs_that_file_from_its_folder
+    in_game("conf.rb" => "def Lota.conf(t) = (puts('conf'); t.window = false)\n",
+      "main.rb" => "puts 'main'\n",
+      "menu.rb" => "def Lota.load(arguments) = (p [File.basename(__FILE__), arguments]; Lota::Event.quit)\n") do |directory|
+      output, status = lota_run(File.join(directory, "menu.rb"), "level2")
+
+      assert_predicate status, :success?, output
+      assert_equal "conf\n#{['menu.rb', ['level2']].inspect}\n", output
     end
   end
 
@@ -1123,6 +1154,21 @@ class LotaRunTest < Minitest::Test
     end
   end
 
+  # A path that is nothing is no game either: LÖVE prints its usage,
+  # with a blank line after it, and shows the path on its error screen
+  # (boot.lua:123-127, 156-168, and 453-455).
+  def test_a_path_that_is_nothing_is_no_game
+    in_game({}) do |directory|
+      missing = File.join(directory, "no such game")
+      output, status = lota_run(missing, preload: QUIT_ON_ERROR)
+
+      assert_equal 1, status.exitstatus, output
+      assert output.start_with?("#{Lota::CLI.usage}\n"), output
+      assert_includes output, "Cannot load game at path '#{missing}'."
+      assert output.end_with?("error screen shown\n"), output
+    end
+  end
+
   # Whether a path longer than MAX_PATH can be made, as everywhere but on
   # Windows without long paths enabled.
   private def long_paths?
@@ -1137,7 +1183,7 @@ class LotaRunTest < Minitest::Test
   end
 
   # Writes the archive +name+ of +entries+ (ZipWriter.write) in a folder
-  # of its own, and yields its path, the environment that gives lota run a
+  # of its own, and yields its path, the environment that gives the lota program a
   # cache of its own there, and the folder of that cache.
   private def in_archive(name, entries)
     Dir.mktmpdir("lota-run-archive") do |folder|

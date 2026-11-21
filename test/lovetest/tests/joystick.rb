@@ -13,7 +13,7 @@ require_relative "../lovetest_helper"
 # hardware, and LÖVE's CI runs them with none attached;
 # test/native/joystick_test.rb plugs in joysticks SDL makes in software. Like
 # the graphics tests, they run in the test suite's own process
-# (test/lovetest/joystick_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/joystick_test.rb) and under the lota program (test/lovetest/game).
 class JoystickTest < Lovetest::TestMethod
   # SPDX-SnippetBegin
   # SPDX-SnippetCopyrightText: 2006-2026 LOVE Development Team

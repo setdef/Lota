@@ -44,12 +44,12 @@ class RestartRunTest < Minitest::Test
     super
   end
 
-  # Runs <tt>lota run</tt> on the game with +arguments+ and returns its
+  # Runs the +lota+ program on the game with +arguments+ and returns its
   # output and Process::Status. The load path travels in RUBYOPT, which a
   # restarted process inherits, as Ruby's own flags are not repeated but
   # for -w.
   def lota_run(*, environment: {})
-    capture2e(run_environment.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run", GAME, *)
+    capture2e(run_environment.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), GAME, *)
   end
 
   # The environment every run here starts with: the load path, in
@@ -101,7 +101,7 @@ class RestartRunTest < Minitest::Test
     end
   end
 
-  # One lota run restarts once for each kind, each restart with the next
+  # One run of the lota program restarts once for each kind, each restart with the next
   # kind's value, so each crosses an exec of its own.
   def test_every_kind_of_value_arrives_as_the_event_queue_carries_it
     expected = {
@@ -180,7 +180,7 @@ class RestartRunTest < Minitest::Test
     File.write("#{wrapper}.bat", "@\"ruby.exe\" \"%~dpn0\" %*\r\n")
     bundle = Gem.bin_path("bundler", "bundle")
     output, status = capture2e(run_environment.merge("BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile")),
-      RbConfig.ruby, bundle, "exec", wrapper, "run", GAME, "string")
+      RbConfig.ruby, bundle, "exec", wrapper, GAME, "string")
 
     assert_equal 3, status.exitstatus, output
     assert_equal %w[load at_exit load at_exit], log.map(&:first), output

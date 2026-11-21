@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# Loaded with ruby -r into lota run by test/native/lota_run_test.rb, for a
+# Loaded with ruby -r into the lota program by test/native/lota_run_test.rb, for a
 # game that raises: wraps Lota's error handler, as a game may with prepend
 # (doc/contributors/design/game.md), so that once the error screen is up a quit
 # waits in the event queue, and the screen's first frame ends the program, as a

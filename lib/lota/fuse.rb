@@ -678,7 +678,7 @@ module Lota
     end
 
     # The game's identity: its <tt>t.identity</tt>, or the name
-    # <tt>lota run</tt> gives a game that sets none (Boot.folder_identity).
+    # the +lota+ program gives a game that sets none (Boot.folder_identity).
     private def identity(settings)
       Fuse.identity(settings, @directory)
     end
@@ -691,7 +691,7 @@ module Lota
 
     # The identity of a game at +path+, a folder or a game in one file,
     # whose conf.rb leaves +settings+: its <tt>t.identity</tt>, or else the
-    # name <tt>lota run</tt> gives a game at +path+ that sets none
+    # name the +lota+ program gives a game at +path+ that sets none
     # (Boot.folder_identity).
     #
     # === Example

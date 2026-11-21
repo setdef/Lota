@@ -12,7 +12,7 @@ require_relative "../lovetest_helper"
 # all five. Each thread runs in a Ractor, and a process that has made one
 # stops ObjectSpace finding the objects other tests count
 # (test/native/physics_callbacks_test.rb), so they run in a Ruby of their
-# own (test/lovetest/thread_test.rb), and under lota run
+# own (test/lovetest/thread_test.rb), and under the lota program
 # (test/lovetest/game). The thread code each test runs is Lua in Lövetest
 # and Ruby here, translated by the same rules.
 class ThreadTest < Lovetest::TestMethod

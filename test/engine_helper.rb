@@ -8,7 +8,7 @@
 require "lota"
 require "stringio"
 
-# Brings the engine up for tests that draw, as lota run brings it up for
+# Brings the engine up for tests that draw, as the lota program brings it up for
 # a game: with Lota::Boot, from the conf.rb that translates Lövetest's own
 # (test/lovetest/conf.rb).
 module EngineHelper
@@ -17,7 +17,7 @@ module EngineHelper
   CONF = File.expand_path("lovetest", __dir__)
 
   # Opens the modules and the window Lövetest's conf.lua asks for, once
-  # per process, unless lota run already opened them, as it does for
+  # per process, unless the lota program already opened them, as it does for
   # test/lovetest/game. Call it from the main thread.
   def self.open_window
     @open_window ||= booted? || boot

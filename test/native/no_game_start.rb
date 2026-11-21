@@ -5,10 +5,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-# Starts Lota with no game, for test/native/no_game_run_test.rb, as LÖVE
-# starts when it is given none: Lota shows its no-game screen
-# (Lota::NoGame), and remembers how it started, as lota run does, so
-# that it can restart.
+# Starts the lota program with no game, for
+# test/native/no_game_run_test.rb, as LÖVE starts when it is given none:
+# it prints its usage and shows its no-game screen (Lota::NoGame), and
+# remembers how it started, so that it can restart.
 #
 # Once the screen has drawn its first frame, what LOTA_NO_GAME_DROP names
 # happens to it: "directory" drops the folder LOTA_NO_GAME_GAME names
@@ -38,5 +38,5 @@ module DropOnTheScreen
 end
 
 Lota.singleton_class.prepend(DropOnTheScreen)
-Lota::Restart.__send__(:remember, ARGV)
-exit Lota::Boot.no_game(ARGV).call
+require "lota/cli"
+exit Lota::CLI.call(ARGV)

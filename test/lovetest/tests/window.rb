@@ -10,13 +10,13 @@ require_relative "../lovetest_helper"
 # Lövetest's love.window tests (vendor/love/testing/tests/window.lua),
 # translated to Ruby by the rules of doc/contributors/design/translation.md.
 # Like the graphics tests, they run in the test suite's own process
-# (test/lovetest/window_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/window_test.rb) and under the lota program (test/lovetest/game).
 #
 # The tests that fill the screen, or maximize, minimize, raise, or move
 # the window, change what the person at the computer sees, so each runs
 # holding the desktop input lock (the desktop_input_lock gem) and, with it,
 # asks them to step away: test/native/focus_for_tests.rb does so around
-# the tests in the suite's process and under lota run, and package:install
+# the tests in the suite's process and under the lota program, and package:install
 # does around its whole run. None of them moves the pointer or types.
 class WindowTest < Lovetest::TestMethod
   # getIcon checks that no icon is set until setIcon sets one, and LÖVE

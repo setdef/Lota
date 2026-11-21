@@ -10,7 +10,7 @@ require_relative "../lovetest_helper"
 # Lövetest's love.video tests (vendor/love/testing/tests/video.lua), translated
 # to Ruby by the rules of doc/contributors/design/translation.md, both of them.
 # Like the graphics tests, they run in the test suite's own process
-# (test/lovetest/video_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/video_test.rb) and under the lota program (test/lovetest/game).
 class VideoTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.video.VideoStream).
   TYPES = %w[VideoStream].freeze

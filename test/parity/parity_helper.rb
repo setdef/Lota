@@ -412,7 +412,7 @@ module Parity
         "LOTA_PARITY_PROGRESS" => progress, **Parity.loopback(@audio)))
       native_test = LIB
       @output = Parity.run(environment, RbConfig.ruby, "-w", "-I#{File.join(ROOT, 'lib')}", "-I#{native_test}",
-        "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), "run", game, side: "Lota") do
+        "-r#{File.join(ROOT, 'test/parity/probe.rb')}", File.join(ROOT, "exe/lota"), game, side: "Lota") do
         File.exist?(progress) ? File.read(progress).to_i : 0
       end
       @report = File.exist?(report) ? JSON.parse(File.read(report)) : {}

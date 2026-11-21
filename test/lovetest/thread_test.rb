@@ -9,7 +9,7 @@ require_relative "../native/native_helper"
 
 # Runs Lövetest's love.thread tests, translated in tests/thread.rb, in a
 # Ruby of their own, since their threads are Ractors (tests/thread.rb).
-# test/native/lota_run_test.rb runs them again through lota run.
+# test/native/lota_run_test.rb runs them again through the lota program.
 class ThreadLovetestTest < Minitest::Test
   include NativeHelper
 

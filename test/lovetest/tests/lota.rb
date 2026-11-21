@@ -11,7 +11,7 @@ require_relative "../lovetest_helper"
 # testing/tests/love.lua), translated to Ruby by the rules of
 # doc/contributors/design/translation.md, all six. That table is Lota (rule 1).
 # Like the graphics tests, they run in the test suite's own process
-# (test/lovetest/lota_test.rb) and under lota run (test/lovetest/game).
+# (test/lovetest/lota_test.rb) and under the lota program (test/lovetest/game).
 class LotaModuleTest < Lovetest::TestMethod
   def hide_deprecation_notices? = false
 

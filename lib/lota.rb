@@ -77,6 +77,7 @@ require_relative "lota/callbacks"
 require_relative "lota/info"
 require_relative "lota/archive"
 require_relative "lota/no_game"
+require_relative "lota/arg"
 require_relative "lota/boot"
 
 # The lowercase spelling of each module, so that a LÖVE tutorial's
@@ -92,14 +93,14 @@ require_relative "lota/boot"
 # asks. The constant stays defined, as LÖVE keeps the module's code: only
 # the accessor tells whether the module was loaded. love.filesystem and
 # love.system are always loaded (boot.lua:44-49), and so are
-# Lota.filesystem and, once lota run boots, Lota.system.
+# Lota.filesystem and, once the lota program boots, Lota.system.
 module Lota
   # The value the game was restarted with, or +nil+ on a normal start,
   # translated from love.restart (vendor/love/src/love.cpp, runlove,
   # lines 247-250).
   #
-  # A game asks to start again with Lota::Event.restart. <tt>lota run</tt>
-  # ends it, and starts it again with the first argument that followed
+  # A game asks to start again with Lota::Event.restart. The +lota+
+  # program ends it, and starts it again with the first argument that followed
   # <tt>"restart"</tt>, which this returns: +nil+, +true+, +false+, a
   # Float, a String, or a table, an Array or a Hash. A Symbol arrives as
   # the String of its name, an Integer as a Float, and a table as
@@ -289,7 +290,7 @@ module Lota
 
   # Lota::System, as love.system, or +nil+ when the module is not open.
   # boot.lua opens love.system before conf.lua runs, whatever the settings
-  # say, and so does lota run.
+  # say, and so does the lota program.
   #
   # === Example
   #

@@ -126,10 +126,13 @@ class NoGameRunTest < Minitest::Test
     assert_empty logged_loads, output
   end
 
+  # Given no game, the lota program prints how to give one, as LÖVE's
+  # boot.lua prints its usage (lines 156-168), then shows the screen.
   def test_escape_quits_the_screen
     output, status = start_with_no_game("escape")
 
     assert_equal 0, status.exitstatus, output
+    assert_includes output, "#{Lota::CLI.usage}\n", output
     assert_empty logged_loads, output
   end
 

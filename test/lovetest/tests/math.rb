@@ -10,7 +10,7 @@ require_relative "../lovetest_helper"
 # Lövetest's love.math tests (vendor/love/testing/tests/math.lua),
 # translated to Ruby by the rules of doc/contributors/design/translation.md,
 # every one of them. Like the graphics tests, they run in the test suite's own
-# process (test/lovetest/math_test.rb) and under lota run (test/lovetest/game).
+# process (test/lovetest/math_test.rb) and under the lota program (test/lovetest/game).
 class MathTest < Lovetest::TestMethod
   # The types whose tests Lövetest names by the type (love.test.math.Transform).
   TYPES = %w[BezierCurve RandomGenerator Transform].freeze
