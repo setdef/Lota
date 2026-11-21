@@ -62,6 +62,7 @@ UNIT_TESTS = %w[
   test/tasks/provenance_test.rb
   test/tasks/push_check_test.rb
   test/tasks/rbs_parity_test.rb
+  test/tasks/release_apps_test.rb
   test/tasks/release_engines_test.rb
   test/tasks/release_plan_test.rb
   test/tasks/test_files_test.rb

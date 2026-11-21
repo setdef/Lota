@@ -978,7 +978,8 @@ jobs:
   # checked against the SHA256SUMS the engine workflow wrote, and then the
   # source gem, the one gem built here, since it pins those engines'
   # checksums, which exist only once they are built; the release's one
-  # SHA256SUMS lists them all. Another kind of prebuilt
+  # SHA256SUMS lists them all, with Lota's app and the fuser for each
+  # desktop, which fuse.yml built from this run's gems. Another kind of prebuilt
   # bundle joins the same way, with a job in needs that uploads its
   # bundles and their SHA256SUMS, and a call of Release#add_bundles.
   release:
@@ -990,7 +991,9 @@ jobs:
       && ((github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-22.04
-    # Room for the uploads: the gems and the phone engines are some 200 MB.
+    # Room for the uploads: the gems and the phone bundles are some 200
+    # MB, which v0.7.1's release uploaded in seven seconds, and the twenty
+    # files of the apps about a gigabyte more.
     timeout-minutes: 30
     # One release at a time.
     concurrency:
@@ -1124,6 +1127,20 @@ jobs:
           name: phone-extensions
           path: ${{ runner.temp }}/extensions
 
+      # Lota's app and the fuser, as the fuse jobs built and ran them, one
+      # folder for each artifact, player-PLATFORM and fuser-PLATFORM.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        with:
+          pattern: player-*
+          path: ${{ runner.temp }}/apps
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        with:
+          pattern: fuser-*
+          path: ${{ runner.temp }}/apps
+
       # The source gem below carries the release's version, as its
       # precompiled gems do.
       - uses: ./.github/actions/version
@@ -1136,7 +1153,9 @@ jobs:
       # phone extensions, each the bytes the engine workflow's SHA256SUMS
       # names, then the source gem, built here once they exist, with their
       # checksums pinned in it for this release, so a phone build from it
-      # alone fetches them; and one SHA256SUMS for them all. The source gem is built from this commit
+      # alone fetches them; then each desktop's Lota app and fuser, the
+      # archive and the installer of each, as the fuse jobs built them from
+      # this commit's gems; and one SHA256SUMS for them all. The source gem is built from this commit
       # as the gate's package check builds it, which proves its install
       # stops on a desktop, and its build here checks that again.
       - name: Assemble the release
@@ -1147,7 +1166,9 @@ jobs:
           bundle exec rake "release:engines[$RUNNER_TEMP/release,$RUNNER_TEMP/engines]"
           bundle exec rake "release:extensions[$RUNNER_TEMP/release,$RUNNER_TEMP/extensions]"
           bundle exec rake "release:source[$RUNNER_TEMP/release,$VERSION]"
+          bundle exec rake "release:apps[$RUNNER_TEMP/release,$RUNNER_TEMP/apps$(printf ',%s' "${platforms[@]}")]"
           cat "$RUNNER_TEMP/release/SHA256SUMS"
+          du -ch "$RUNNER_TEMP"/release/* | tail -1
 
       # An annotated tag, made through the API in two calls, the tag object
       # and then its ref, which refuses a tag that exists rather than move
@@ -1169,7 +1190,10 @@ jobs:
 
       # gh uploads the assets to a draft and publishes it only once every
       # one has arrived, and deletes the draft when an upload fails, so a
-      # release is never published without its assets. The tag is made by
+      # release is never published without its assets; a job stopped
+      # mid-upload, by its timeout, leaves its draft, which only the
+      # repository's writers see, and a rerun publishes a release beside
+      # it (cli/cli, pkg/cmd/release/create). The tag is made by
       # then, and a tag is never undone, so a failed publish is tried
       # again here before the job leaves the tag without its release.
       - name: Publish the release

@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - The fuser, an app that makes a `.lota` opened with it, or given to its program after `--build`, into an app of its own, with no Ruby on the computer, through Fledge's `fledge build --from` (`Lota::Fuser`); `rake "fuser[GEM]"` builds it from a clone of Lota.
 - Each release also publishes Lota's extension prebuilt for each iOS slice and Android ABI beside the engines, as `lota-extension-ios-arm64.tar.gz` and the like, built against them and the phone Ruby of the Fledge `lota fuse` builds with, and pinned beside them. A phone build from the release's source gem links it and compiles only its three-line entry point, so it needs neither Rice nor CMake. A gem whose files differ from the extension's compiles the extension, and a phone Ruby of another ABI stops the build, saying to name the Fledge the extension was built with or to pass `--with-rice-dir`, with which the build compiles the extension for that Ruby.
+- Each release also publishes, for each desktop, Lota's app, which plays a `.lota` opened with it or dropped on its "no game" screen as LÖVE's app plays a `.love`, and the fuser, which makes a `.lota` into an app of its own; each as an archive and an installer, such as `Lota-arm64-darwin.dmg` and `Lota.Fuser-x64-mingw-ucrt-setup.exe`, carrying the release's version and listed in its `SHA256SUMS`, so neither a player nor a developer needs a clone of Lota to have them
 
 ### Changed
 

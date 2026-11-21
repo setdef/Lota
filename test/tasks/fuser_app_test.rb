@@ -7,6 +7,7 @@
 
 require_relative "../test_helper"
 require_relative "../../tasks/fuser_app"
+require_relative "../../tasks/release"
 require "open3"
 require "rbconfig"
 require "tmpdir"
@@ -29,6 +30,7 @@ class FuserAppTest < Minitest::Test
     config = fuser_app.__send__(:fledge_config, FuserApp::NAME, FuserApp::IDENTITY, FuserApp::IDENTITY)
 
     assert_equal "Lota Fuser", config["name"]
+    assert_equal Release::APPS.fetch("fuser"), FuserApp::NAME, "a release publishes the fuser by its name"
     assert_equal "com.setdef.lota.Fuser", config["identifier"]
     assert_equal Lota::VERSION, config["version"], "the fuser carries the version of the Lota it ships"
     assert config["build_tools"]

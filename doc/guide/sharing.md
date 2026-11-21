@@ -123,7 +123,7 @@ Someone without Ruby plays a `.lota` with Lota's app, as someone without a termi
 $ "Lota-x86_64-linux/Lota" "Sample Game.lota"
 ```
 
-A game's folder opens the same way. Started with nothing, the app shows its "no game" screen; drop a `.lota` or a game's folder on its window, and the game starts in its place, as on LÖVE's. On Windows, dropping a game on the window has not been tried yet. The app plays a game as `lota run` does, from the same cache folder, unfused, and saving where `lota run` saves it, and it holds Lota, Ruby, and Ruby's standard library, and no other gems. No release carries the app yet; from a clone of Lota, `bundle exec rake player` builds it into `dist/player`, as `lota fuse` builds a game, shipping the Lota gem RubyGems installed for your platform: `Lota.app` on macOS, `Lota.exe` on Windows, and `Lota` on Linux, in their archives and installers.
+A game's folder opens the same way. Started with nothing, the app shows its "no game" screen; drop a `.lota` or a game's folder on its window, and the game starts in its place, as on LÖVE's. On Windows, dropping a game on the window has not been tried yet. The app plays a game as `lota run` does, from the same cache folder, unfused, and saving where `lota run` saves it, and it holds Lota, Ruby, and Ruby's standard library, and no other gems. It is `Lota.app` on macOS, `Lota.exe` on Windows, and `Lota` on Linux, in their archives and installers, as `lota fuse` writes a game's, and it carries the version of the Lota it holds. Each release of Lota after 0.7.1 carries the app for each desktop, as `Lota-arm64-darwin.dmg`, `Lota-x64-mingw-ucrt-setup.exe`, and the like, each with its line in the release's `SHA256SUMS`; no release carries it yet. Until one does, build it from a clone of Lota: `bundle exec rake player` builds it into `dist/player`, as `lota fuse` builds a game, shipping the Lota gem RubyGems installed for your platform.
 
 ## Making an app with no terminal
 
@@ -134,7 +134,7 @@ It copies itself through Fledge's `fledge build --from`, so the app it makes:
 - is as large as the fuser, and runs only on the system it was made on;
 - is named and saves as `lota fuse` would name it and save it, and has the placeholder identifier `com.example.<identity>`, with no version and no icon of its own. For an app you sign, give your own identifier, or give an icon, use `lota fuse`.
 
-No release carries the fuser yet. To build it, from a clone of Lota, with the gem for your platform from Lota's release:
+Each release of Lota after 0.7.1 carries the fuser for each desktop beside Lota's app, its files named with a period for the space, as `Lota.Fuser-arm64-darwin.dmg`, since GitHub renames a file whose name has a space; unpacked, it is `Lota Fuser`. No release carries it yet. Until one does, build it from a clone of Lota, with the gem for your platform from Lota's release:
 
 ```console
 $ bundle exec rake "fuser[path/to/lota-VERSION-PLATFORM.gem]"

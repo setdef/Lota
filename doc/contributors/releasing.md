@@ -5,7 +5,7 @@
 
 # Releasing Lota
 
-A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own ([packaging.md](design/packaging.md)). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag on a commit CI has proven. CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release, with LÖVE's engine and Lota's extension prebuilt for each phone target beside them.
+A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own ([packaging.md](design/packaging.md)). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag on a commit CI has proven. CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release, with LÖVE's engine and Lota's extension prebuilt for each phone target beside them, and Lota's app and the fuser for each desktop.
 
 A release that waits for someone to remember it waits too long, and one that waits for trunk to stand still never comes, since agents push to trunk all day. So CI releases on its own, and a release is a pick, not a build-up: when a full run passes on trunk, its commit is released, however far trunk has moved on since, and nothing is written to trunk first. The bookkeeping, the dated section in CHANGELOG.md, follows on top of trunk afterward, and nothing waits for it.
 
@@ -47,6 +47,8 @@ CI releases nothing at 1.0.0 or later on its own; those versions are tagged by h
 **The phone engines** are LÖVE's engine and its libraries, built for each iOS slice and Android ABI by `.github/workflows/phone-engine.yml` from the commit being released, with its version, so a phone build can fetch them instead of compiling LÖVE ([the phone guide](../guide/phones.md), "Prebuilt engines"). A phone build fetches only the bytes `ext/lota/phone/engines.txt` pins, by release and checksum, and those checksums exist only once the engines are built, after the commit is picked. So the release never pins its own engines in its commit or its precompiled gems, which would mean writing to trunk first, or holding every gem's build until the engines are built. Two things carry the pin instead. **The source gem**, `lota-0.4.0.gem`, is built by the release job itself, once the engines exist, with the version stamped in and `ext/lota/phone/engines.txt` written into the working tree for this release, uncommitted, as the version is (`rake "release:source[DIR,0.4.0]"`). On a desktop its install stops and names the precompiled gems, as it always has; a phone build, which takes a gem's plain `ruby` build, fetches this release's engines from it, with no clone of Lota. And the bookkeeping pins them on trunk afterward (below), so a clone of trunk fetches the newest release's engines.
 
 **The phone extensions** are Lota's extension, built by the same workflow for each iOS slice and Android ABI against those engines, inside a real `fledge build` on the phone Ruby of the Fledge Lota pins (`.github/phones/extension_build.sh`), so a phone build fetches it too and compiles only its three-line entry point. They are pinned beside the engines, in the same file and in the same two places. Each records the files it was built from and the Ruby it was built for, so a gem whose own files differ, as a clone of trunk does between releases, compiles its extension against the prebuilt engine instead, and a phone Ruby of another ABI is refused ([the phone guide](../guide/phones.md), "Prebuilt engines").
+
+**The apps** are Lota's app, which plays a `.lota` as LÖVE's app plays a `.love`, and the fuser, which makes a `.lota` into an app of its own ([packaging.md](design/packaging.md), "A game in one file"), for each desktop, as a LÖVE release publishes LÖVE's app. Each comes as the archive a person unpacks and the installer Fledge writes beside it: a disk image on macOS, an AppImage on Linux, and a setup program on Windows. The fuse workflow builds them in the same run as `rake player` and `rake fuser` do, from the gems that run built, and runs each before the release job takes them (`rake "release:apps[DIR,FROM,PLATFORM...]"`). Each carries the release's version as its own, as LÖVE's app carries LÖVE's. GitHub stores an asset whose name has a space under another name, so the fuser's files are published with a period for the space, as `Lota.Fuser-arm64-darwin.dmg`, the name SHA256SUMS lists.
 
 ## The automatic release
 
@@ -99,11 +101,12 @@ The same run checks the phone route, the iOS kit, both as Lota's CI and as a gam
 - GitHub has a release of the version without its tag,
 - there is not exactly one verified gem of the version for each platform, or a gem's name, specification, or SHA-256 disagrees with the one its delivery job verified,
 - the phone engines are not one for each target with the SHA256SUMS their job wrote, or one is not the bytes that SHA256SUMS names (`rake "release:engines[DIR,FROM]"`), and the same for the phone extensions (`rake "release:extensions[DIR,FROM]"`),
-- the source gem it builds is not lota of the version for every platform, does not carry the pin of this release's engines and extensions, or installs on the release job's runner instead of stopping with the message that names the precompiled gems.
+- the source gem it builds is not lota of the version for every platform, does not carry the pin of this release's engines and extensions, or installs on the release job's runner instead of stopping with the message that names the precompiled gems,
+- a platform has no artifact of Lota's app or of the fuser, or one holds anything but the archive and the installer Fledge writes for it and the lockfile it was built from, or the release already holds one of their files (`rake "release:apps[DIR,FROM,PLATFORM...]"`).
 
 `rake release:plan` decides what the release still needs, so running the job again is safe. With no tag, it tags the commit and publishes. With the tag on the commit and no release, it publishes. With both, it does nothing.
 
-It then creates the GitHub release for the tag, titled "Lota 0.4.0", with the notes, one gem for each platform, the phone engines and extensions, the source gem, and one SHA256SUMS for them all:
+It then creates the GitHub release for the tag, titled "Lota 0.4.0", with the notes, one gem for each platform, the phone engines and extensions, the source gem, Lota's app and the fuser for each desktop, and one SHA256SUMS for them all:
 
 ```
 lota-0.4.0-arm64-darwin.gem
@@ -120,10 +123,24 @@ lota-extension-ios-arm64.tar.gz
 lota-extension-ios-arm64-simulator.tar.gz
 lota-extension-android-arm64-v8a.tar.gz
 lota-extension-android-x86_64.tar.gz
+Lota-arm64-darwin.tar.gz
+Lota-arm64-darwin.dmg
+Lota-x86_64-linux.tar.gz
+Lota-x86_64-linux.AppImage
+Lota-aarch64-linux.tar.gz
+Lota-aarch64-linux.AppImage
+Lota-x64-mingw-ucrt.zip
+Lota-x64-mingw-ucrt-setup.exe
+Lota-aarch64-mingw-ucrt.zip
+Lota-aarch64-mingw-ucrt-setup.exe
+Lota.Fuser-arm64-darwin.tar.gz
+Lota.Fuser-arm64-darwin.dmg
+...
+Lota.Fuser-aarch64-mingw-ucrt-setup.exe
 SHA256SUMS
 ```
 
-Releases up to 0.6.0 carry the gems alone.
+The fuser's files follow the app's, platform by platform. Each app's archive is about as large as a fused game's, some 58 MB on Linux, so the apps add about a gigabyte to the gems and phone bundles, which came to some 200 MB in 0.7.1 and uploaded in seven seconds. Releases up to 0.7.0 carry the gems alone, and 0.7.1 adds the phone engines and the source gem; the phone extensions and the apps come with the releases after it.
 
 Only two jobs' tokens may write, and only the repository's contents: the release job's, for a tag and a release, and the changelog job's, to push its commit. No other job's token may write. The release job reads, tags, and publishes with the repository's `RELEASE_TOKEN` secret when there is one, in place of its own token, and gives it only to the steps that call GitHub; no other job uses a secret. A commit the changelog job pushes starts no run of its own, since GitHub's own token starts none, and no tag starts a run, whichever token makes it, since CI runs on pushes to branches alone. So nothing publishes twice, and a release costs no second full run.
 

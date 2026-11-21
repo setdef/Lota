@@ -118,6 +118,15 @@ namespace :release do
     end
   end
 
+  desc "Add Lota's app and the fuser for each platform given, from FROM's player-PLATFORM and fuser-PLATFORM " \
+    "folders (fuse.yml's artifacts), to the release assembled in DIR, and list them in DIR's SHA256SUMS"
+  task :apps, [:dir, :from] do |_task, args|
+    release_task do |release|
+      apps = release.add_apps(args.fetch(:dir), args.fetch(:from), args.extras)
+      puts "✅ Added #{apps.join(', ')} to #{File.join(args.fetch(:dir), Release::CHECKSUMS)}"
+    end
+  end
+
   desc "Build the source gem of a VERSION stamped in, pinning the phone engines and extensions DIR's SHA256SUMS lists for its " \
     "release, into the release assembled in DIR, check it, and list it in DIR's SHA256SUMS"
   task :source, [:dir, :version] do |_task, args|

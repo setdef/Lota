@@ -67,6 +67,32 @@ class Release
   # How a phone extension's asset name begins (Lota::PhoneExtension.asset).
   EXTENSION_ASSET = "lota-extension-"
 
+  # The desktop apps a release carries, by the name of the artifacts
+  # fuse.yml keeps each platform's in, KIND-PLATFORM: Lota's app, which
+  # plays a .lota as LÖVE's app plays a .love (PlayerApp::NAME), and the
+  # fuser (FuserApp::NAME).
+  APPS = { "player" => "Lota", "fuser" => "Lota Fuser" }.freeze
+
+  # What Fledge writes for an app named NAME, by platform, after NAME: the
+  # archive a person unpacks and the installer beside it (Fledge's
+  # lib/fledge/installers.rb, at Lota::Fuse::FLEDGE_REF). Fledge names a
+  # Linux platform without its -gnu.
+  APP_FILES = {
+    "arm64-darwin" => ["-arm64-darwin.tar.gz", "-arm64-darwin.dmg"],
+    "x86_64-linux-gnu" => ["-x86_64-linux.tar.gz", "-x86_64-linux.AppImage"],
+    "aarch64-linux-gnu" => ["-aarch64-linux.tar.gz", "-aarch64-linux.AppImage"],
+    "x64-mingw-ucrt" => ["-x64-mingw-ucrt.zip", "-x64-mingw-ucrt-setup.exe"],
+    "aarch64-mingw-ucrt" => ["-aarch64-mingw-ucrt.zip", "-aarch64-mingw-ucrt-setup.exe"],
+  }.freeze
+
+  # What else an app's artifact holds, which no release carries: the
+  # lockfile of the project the app was built from, kept to show what it
+  # shipped.
+  APP_EXTRAS = ["fuse-project/Gemfile.lock"].freeze
+
+  # A name GitHub stores an asset under unchanged.
+  ASSET_NAME = /\A[A-Za-z0-9._-]+\z/
+
   # The specification Lota's gems are built from.
   GEMSPEC = "lota.gemspec"
 
@@ -161,6 +187,37 @@ class Release
   # names.
   def add_extensions(dir, from)
     add_bundles(dir, from, Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneExtension.asset(target) })
+  end
+
+  # Checks that +from+, the folder the release job downloads fuse.yml's
+  # app artifacts into, one folder each, holds an artifact of each of
+  # APPS for each of +platforms+, each holding exactly the archive and the
+  # installer Fledge writes for that app there (APP_FILES), beside
+  # APP_EXTRAS, then copies those files into +dir+, a release #assemble
+  # made, and adds their lines to its SHA256SUMS, as a LÖVE release
+  # carries LÖVE's app. GitHub stores an asset whose name has a space
+  # under another name, so each file is named with a period for each
+  # space, the fuser's <tt>Lota.Fuser-arm64-darwin.dmg</tt>, and the
+  # SHA256SUMS lists the name a person downloads. Refuses before it
+  # changes anything. Returns the names.
+  def add_apps(dir, from, platforms)
+    unknown = platforms - APP_FILES.keys
+    raise Refusal, "Lota builds no app for #{unknown.join(', ')}" unless unknown.empty?
+
+    files = APPS.flat_map { |kind, name| platforms.flat_map { |platform| app_files(from, kind, name, platform) } }.to_h
+    bad = files.keys.grep_v(ASSET_NAME)
+    raise Refusal, "#{bad.join(', ')} is not a name GitHub keeps" unless bad.empty?
+
+    published = Lota::PhoneEngine.sums(File.read(File.join(dir, CHECKSUMS)))
+    clash = files.keys & (Dir.children(dir) + published.keys)
+    raise Refusal, "#{dir} already holds #{clash.join(', ')}" unless clash.empty?
+
+    sums = files.to_h { |name, path| [name, Digest::SHA256.file(path).hexdigest] }
+    files.each { |name, path| FileUtils.cp(path, File.join(dir, name)) }
+    File.write(File.join(dir, CHECKSUMS), published.merge(sums).sort.map { |name, sha256| "#{sha256}  #{name}\n" }.join)
+    files.keys
+  rescue Lota::PhoneEngine::Failure => e
+    raise Refusal, e.message
   end
 
   # Builds Lota's source gem from the working tree, which #stamp has set
@@ -425,6 +482,25 @@ class Release
   # ENGINE_ASSET or EXTENSION_ASSET, by name.
   private def bundle_sums(text, prefix)
     Lota::PhoneEngine.sums(text).select { |name, _| name.start_with?(prefix) }
+  end
+
+  # The files of the artifact KIND-PLATFORM in +from+ that a release
+  # carries, the app +name+'s for +platform+, as pairs of the name each is
+  # published under and its path. Refuses an artifact that is missing, or
+  # that is not those files and APP_EXTRAS.
+  private def app_files(from, kind, name, platform)
+    artifact = "#{kind}-#{platform}"
+    folder = File.join(from, artifact)
+    raise Refusal, "#{from} has no artifact #{artifact}" unless File.directory?(folder)
+
+    wanted = APP_FILES.fetch(platform).map { |suffix| "#{name}#{suffix}" }
+    present = Dir.glob("**/*", base: folder).select { |path| File.file?(File.join(folder, path)) }.sort
+    unless present == (wanted + APP_EXTRAS).sort
+      raise Refusal, "#{artifact} is not #{wanted.join(', ')} and #{APP_EXTRAS.join(', ')}:" \
+        "#{difference(present, wanted + APP_EXTRAS)}"
+    end
+
+    wanted.map { |file| [file.tr(" ", "."), File.join(folder, file)] }
   end
 
   # What is missing from +present+, and what it has beyond +wanted+.

@@ -46,7 +46,7 @@
 # that game into an app through fledge build --from. That app is checked
 # and run as a fused game is, and on macOS both apps' seals are checked.
 # What the fuser itself is, the archive a person downloads, is kept as an
-# artifact, fuser-PLATFORM.
+# artifact, fuser-PLATFORM, which a release publishes.
 #
 # Lota's own app, which plays a .lota as LÖVE's app plays a .love, is the
 # sixth, player: it is built as rake player builds it, from the installed
