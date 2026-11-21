@@ -27,7 +27,8 @@ require_relative "../lib/lota/version"
 # same options and a toolchain file of the same text as Fledge's (its
 # lib/fledge/mobile_extensions/cmake.rb, read as a reference: CMake's iOS
 # variables for the slice's SDK and Xcode's clang, or the NDK's
-# android.toolchain.cmake for the ABI at API level 26), but with
+# android.toolchain.cmake for the ABI at API level 26 with the NDK's
+# shared C++ runtime unless ANDROID_STL is set already), but with
 # LOTA_EXTENSION off, so it builds the engine alone, which needs no Ruby.
 # So the engine is the one a from-source phone build compiles. Lota's
 # extension is built against Ruby's ABI, so it stays in the app's build.
@@ -310,6 +311,9 @@ class PhoneEngineBuild
     <<~CMAKE
       set(ANDROID_ABI #{name})
       set(ANDROID_PLATFORM android-#{API_LEVEL})
+      if(NOT DEFINED ANDROID_STL)
+        set(ANDROID_STL c++_shared)
+      endif()
       include(#{quote(File.join(@ndk, 'build', 'cmake', 'android.toolchain.cmake'))})
     CMAKE
   end

@@ -49,6 +49,9 @@ class PhoneEngineBuildTest < Minitest::Test
     assert_includes build("android-arm64-v8a").toolchain, <<~CMAKE
       set(ANDROID_ABI arm64-v8a)
       set(ANDROID_PLATFORM android-26)
+      if(NOT DEFINED ANDROID_STL)
+        set(ANDROID_STL c++_shared)
+      endif()
       include("#{NDK}/build/cmake/android.toolchain.cmake")
     CMAKE
   end
