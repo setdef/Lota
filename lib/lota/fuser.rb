@@ -34,7 +34,11 @@ module Lota
   # app it builds from: it unpacks the archive with Lota::Archive, through
   # the engine's filesystem, as the +lota+ program unpacks one, and refuses
   # what Lota::Archive refuses; reads the game's conf.rb without opening a
-  # window (Lota::Boot#read_settings); and writes the project as
+  # window (Lota::Boot#read_settings), or, when it raises, leaves the
+  # settings LÖVE's defaults, as LÖVE starts a game whose conf.lua raised
+  # with the name and identity it gave the game before (boot.lua:394-396
+  # and 440-442), so the app is made, as fusing a LÖVE game runs none of
+  # its code, and shows the error when it starts; and writes the project as
   # <tt>lota fuse</tt> writes one for a game without a Gemfile: the game
   # in a folder named for its identity (Fuse.folder_name), so it saves
   # where LÖVE's fused game saves (doc/contributors/design/game.md),
@@ -91,6 +95,8 @@ module Lota
 
       fuser = new(archive, app: app_folder(entry), notices: File.join(entry, Notices::FILE), out: folder || File.dirname(archive))
       fuser.call.each { |path| out.puts path }
+      warning = fuser.warning
+      err.puts "lota fuser: #{warning}" if warning
       0
     rescue Error => e
       err.puts "lota fuser: #{e.message}"
@@ -139,8 +145,8 @@ module Lota
     end
 
     # Makes the app, and returns the paths Fledge reports, the archive
-    # first. Raises Error when the archive, its conf.rb, or the build stands
-    # in the way, saying which.
+    # first. Raises Error when the archive or the build stands in the way,
+    # saying which.
     def call
       raise Error, "found no game at #{@archive}." unless File.file?(@archive)
       raise Error, "found no notices at #{@notices} to put in the app." unless File.file?(@notices)
@@ -191,12 +197,27 @@ module Lota
       raise Error, e.message
     end
 
+    # What the game's conf.rb raised as call read it, or +nil+.
+    attr_reader :conf_error
+
+    # What to tell the person once call has made the app, or +nil+: that
+    # the game's conf.rb raised, and the app shows that when it starts.
+    def warning
+      error = conf_error or return
+
+      "the game's conf.rb raised #{error.class}: #{error.message}. " \
+        "The app shows that error when it starts, as a fused LÖVE game shows an error in its conf.lua."
+    end
+
     # The game's settings, as its conf.rb leaves them, read without opening
-    # a window.
+    # a window, or LÖVE's defaults when it raises, which conf_error then
+    # holds.
     private def read_settings(game)
+      @conf_error = nil
       Boot.new(game).read_settings
     rescue StandardError, ScriptError => e
-      raise Error, "the game's conf.rb raised #{e.class}: #{e.message}"
+      @conf_error = e
+      Settings.new
     end
 
     # Writes the project in the folder +project+, with the game unpacked

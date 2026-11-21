@@ -42,6 +42,12 @@ module Lota
 
     private def unpack: (String cache) -> String
 
+    attr_reader conf_error: (StandardError | ScriptError)?
+
+    @conf_error: (StandardError | ScriptError)?
+
+    def warning: () -> String?
+
     private def read_settings: (String game) -> Settings
 
     private def write_project: (String project, String game, Settings settings) -> void

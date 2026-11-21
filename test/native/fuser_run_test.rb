@@ -78,6 +78,7 @@ class FuserRunTest < Minitest::Test
           fledge: [RbConfig.ruby, #{fake.dump}])
         begin
           puts fuser.call
+          puts "lota fuser: \#{fuser.warning}" if fuser.warning
         rescue Lota::Fuser::Error => e
           puts "Error: \#{e.message}"
         end
@@ -160,10 +161,39 @@ class FuserRunTest < Minitest::Test
     end
   end
 
-  def test_a_conf_that_raises_makes_no_app
-    fuse(GAME.merge("conf.rb" => "raise ArgumentError, \"no such setting\"\n")) do |output, _status, record, _folder|
-      assert_nil record
-      assert_includes output, "Error: the game's conf.rb raised ArgumentError: no such setting"
+  # Fusing a LÖVE game runs none of its code, and a conf.lua that raises
+  # shows its error when the game starts, before love.init names the save
+  # folder from t.identity (boot.lua:244-247, 394-396, and 440-442). So a
+  # conf.rb that raises, such as one that requires a gem the fuser does not
+  # ship, makes the app all the same, named for its archive, which then
+  # shows that error, and the fuser says so.
+  def test_a_conf_that_raises_makes_the_app_named_for_its_archive_and_says_what_it_raised
+    conf = "def Lota.conf(t)\n  t.identity = \"SampleGame\"\n  require \"no_such_gem\"\nend\n"
+    fuse(GAME.merge("conf.rb" => conf)) do |output, status, record, _folder|
+      assert_predicate status, :success?, output
+      refute_nil record, output
+      files = record.fetch("files")
+
+      assert_equal conf, files["game/Sample Game/conf.rb"]
+      config = YAML.safe_load(files["fledge.yml"])
+
+      assert_equal "Sample Game", config["name"]
+      assert_equal "com.example.Sample-Game", config["identifier"]
+      assert_includes output, "lota fuser: the game's conf.rb raised LoadError: cannot load such file -- no_such_gem. " \
+        "The app shows that error when it starts, as a fused LÖVE game shows an error in its conf.lua.\n"
+    end
+  end
+
+  # LÖVE's require finds a file of the game's own from conf.lua, so the
+  # fuser reads a conf.rb that requires one.
+  def test_a_conf_that_requires_a_file_of_its_game_names_the_app
+    conf = "require \"lib/settings\"\ndef Lota.conf(t) = (t.identity = IDENTITY)\n"
+    fuse(GAME.merge("conf.rb" => conf, "lib/settings.rb" => "IDENTITY = \"Settled\"\n")) do |output, _status, record, _folder|
+      refute_nil record, output
+      config = YAML.safe_load(record.fetch("files")["fledge.yml"])
+
+      assert_equal "com.example.Settled", config["identifier"]
+      refute_includes output, "raised"
     end
   end
 
