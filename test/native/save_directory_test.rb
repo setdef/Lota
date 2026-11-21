@@ -164,6 +164,15 @@ class SaveDirectoryTest < Minitest::Test
     assert_equal ["helloworld"], lines
   end
 
+  # w_lines takes only a filename, and raises luaL_argerror with "expected
+  # filename." for anything else (wrap_Filesystem.cpp:728-738).
+  def test_lines_name_what_they_expected_for_anything_but_a_filename
+    error = assert_raises(TypeError) { Lota::Filesystem.lines(nil) }
+
+    assert_equal "wrong argument type NilClass (expected filename.)", error.message
+    assert_raises(TypeError) { Lota::Filesystem.lines([]) }
+  end
+
   # Rule 10: getInfo's table becomes a frozen Info with LÖVE's fields,
   # each as w_getInfo sets it (wrap_Filesystem.cpp:544-602): the type a
   # symbol, and the size and time Integers, as LÖVE's C++ holds them.

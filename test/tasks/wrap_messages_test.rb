@@ -51,8 +51,6 @@ class WrapMessagesTest < Minitest::Test
   # why each is still open. The check fails for a message named here
   # that Lota has since gained, so the list shrinks as each is settled.
   OPEN = {
-    ["love.filesystem.lines", "expected filename."] =>
-      "Lota raises Rice's TypeError for a filename that is not a String",
     ["Texture:newImageData", "Cannot find Graphics module."] =>
       "Lota raises its own message, that Lota::Graphics is not open, and before it reads the arguments",
     ["Source:queue", "SoundData or lightuserdata"] =>

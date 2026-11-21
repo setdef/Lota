@@ -578,8 +578,9 @@ module Lota
     # A line ends
     # at "\n", and a "\r" before it is taken off too; text after the last
     # "\n" is a last line of its own. With a block, it returns +nil+.
-    # Raises RuntimeError with the engine's message when the file cannot
-    # be opened.
+    # Raises TypeError, with LÖVE's words, "expected filename.", for a
+    # +filename+ that is not a String, and RuntimeError with the engine's
+    # message when the file cannot be opened.
     #
     # === Examples
     #
@@ -589,6 +590,8 @@ module Lota
     #     @rows << row
     #   end
     def self.lines(filename, &block)
+      raise TypeError, "wrong argument type #{filename.class} (expected filename.)" unless filename.is_a?(String)
+
       reader = Native::Filesystem::Lines.new(filename)
       return enumerate_lines(reader) unless block
 
