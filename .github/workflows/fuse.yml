@@ -436,6 +436,29 @@ jobs:
           BUNDLE_GEMFILE="$RUNNER_TEMP/player/fuse-tools/Gemfile" bundle exec fledge build --from "$root" --out "$RUNNER_TEMP/dist" "$project"
           ls -la "$RUNNER_TEMP/dist"
 
+      # A developer signs the app they make from Lota's app with their own
+      # identity, through fledge build --from (doc/guide/sharing.md). Here
+      # the identity is one Fledge's own script makes for the run and
+      # trusts, as Fledge's CI makes one, and on macOS Apple's notary is
+      # Fledge's stand-in (.github/signed_check.rb), so no account of
+      # anyone's is needed.
+      - name: Make a signing identity for the run
+        if: matrix.game == 'player' && runner.os != 'Linux'
+        run: |
+          fledge=$(BUNDLE_GEMFILE="$RUNNER_TEMP/player/fuse-tools/Gemfile" bundle exec ruby -e 'print Gem.loaded_specs.fetch("fledge").full_gem_path')
+          if [ "$RUNNER_OS" = macOS ]; then
+            sh "$fledge/.github/scripts/make-test-identity.sh" "$RUNNER_TEMP/test-signing.pem"
+          else
+            pwsh -NoProfile -File "$fledge/.github/scripts/make-test-identity.ps1" -Certificate "$RUNNER_TEMP/test-signing.cer"
+          fi
+
+      - name: Sign an app made from Lota's app with that identity, and check its signatures
+        if: matrix.game == 'player' && runner.os != 'Linux'
+        run: |
+          root=$(ls -d "$RUNNER_TEMP/run/My Apps"/*-"${PLATFORM%-gnu}")
+          BUNDLE_GEMFILE="$RUNNER_TEMP/player/fuse-tools/Gemfile" ruby .github/signed_check.rb "$root" "$RUNNER_TEMP/from-project" \
+            "$RUNNER_TEMP/signed" "$FLEDGE_TEST_SIGN_IDENTITY"
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: matrix.game == 'player'
         with:
