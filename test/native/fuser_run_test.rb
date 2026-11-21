@@ -51,7 +51,11 @@ class FuserRunTest < Minitest::Test
 
   # Runs Lota::Fuser on an archive of +entries+, named +name+, in a Ruby of
   # its own, with the fake fledge, and returns what that Ruby printed, its
-  # status, what the fake recorded (or nil), and the folders it used.
+  # status, what the fake recorded (or nil), and the folders it used. The
+  # fuser runs Fledge in its app's bundle, so that Ruby has a bundle of its
+  # own, of no gems: one that sets up on a computer that has not installed
+  # this repository's, as when these tests run without Bundler. It names
+  # its lockfile too, since Bundler hands a child this repository's.
   def fuse(entries, name: "Sample Game.lota", environment: {})
     Dir.mktmpdir("lota-fuser-run") do |folder|
       archive = File.join(folder, name)
@@ -63,6 +67,8 @@ class FuserRunTest < Minitest::Test
       File.write(fake, FAKE_FLEDGE)
       record = File.join(folder, "record.json")
       out = File.join(folder, "out")
+      gemfile = File.join(folder, "Gemfile")
+      File.write(gemfile, "")
       script = <<~RUBY
         require "lota"
         require "lota/fuser"
@@ -76,7 +82,8 @@ class FuserRunTest < Minitest::Test
       RUBY
       # A person's RUBYLIB and RUBYOPT, which must not reach Fledge.
       person = { "RUBYLIB" => "elsewhere", "RUBYOPT" => "#{ENV.fetch('RUBYOPT', '')} -rset".strip }
-      output, status = ruby_of_its_own("-e", script, environment: { "FUSER_RECORD" => record, **person, **environment })
+      bundle = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_LOCKFILE" => "#{gemfile}.lock" }
+      output, status = ruby_of_its_own("-e", script, environment: { "FUSER_RECORD" => record, **person, **bundle, **environment })
       yield output, status, File.file?(record) ? JSON.parse(File.read(record)) : nil, folder
     end
   end
@@ -84,6 +91,7 @@ class FuserRunTest < Minitest::Test
   def test_the_project_holds_the_game_named_for_its_identity_and_what_starts_it
     fuse(GAME) do |output, status, record, folder|
       assert_predicate status, :success?, output
+      refute_nil record, output
       files = record.fetch("files")
 
       game = %w[conf.rb lib/helper.rb main.rb].map { |path| "game/SampleGame/#{path}" }
@@ -104,6 +112,7 @@ class FuserRunTest < Minitest::Test
 
   def test_fledge_builds_from_the_fuser_into_the_out_folder_as_its_guide_asks_a_framework_to_run_it
     fuse(GAME) do |output, _status, record, folder|
+      refute_nil record, output
       arguments = record.fetch("arguments")
 
       assert_equal ["build", "--from", File.join(folder, "Fuser-x86_64-linux"), "--out", File.join(folder, "out")], arguments[0, 5]
@@ -122,6 +131,7 @@ class FuserRunTest < Minitest::Test
 
   def test_a_game_that_names_nothing_is_named_for_its_archive
     fuse({ "main.rb" => "\n" }) do |output, _status, record, _folder|
+      refute_nil record, output
       files = record.fetch("files")
 
       assert_equal ["NOTICES.txt", "fledge.yml", "game/Sample Game/main.rb", "main.rb"], files.keys, output
@@ -157,6 +167,7 @@ class FuserRunTest < Minitest::Test
 
   def test_a_failed_build_says_so_after_what_fledge_said
     fuse(GAME, environment: { "FUSER_FAIL" => "3" }) do |output, _status, _record, _folder|
+      assert_includes output, "fledge build: what Fledge says"
       assert_operator output.index("fledge build: what Fledge says"), :<, output.index("Error: fledge build --from failed (exit status 3)")
     end
   end
