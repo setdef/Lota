@@ -218,7 +218,8 @@ module Lota
 
       # Sets whether the Body takes part in the World, matching
       # Body:setActive, which calls the engine's Body::setEnabled. An
-      # inactive Body neither moves nor collides.
+      # inactive Body neither moves nor collides. Raises TypeError unless
+      # +active+ is +true+ or +false+.
       #
       # === Example
       #
@@ -228,6 +229,7 @@ module Lota
       end
 
       # Wakes the Body, or puts it to sleep, matching Body:setAwake.
+      # Raises TypeError unless +awake+ is +true+ or +false+.
       #
       # === Example
       #
@@ -247,6 +249,7 @@ module Lota
       end
 
       # Sets whether the Body is a bullet, matching Body:setBullet.
+      # Raises TypeError unless +bullet+ is +true+ or +false+.
       #
       # === Example
       #
@@ -265,6 +268,7 @@ module Lota
       end
 
       # Sets whether the Body never turns, matching Body:setFixedRotation.
+      # Raises TypeError unless +fixed+ is +true+ or +false+.
       #
       # === Example
       #
@@ -283,6 +287,7 @@ module Lota
       end
 
       # Sets whether the Body may sleep, matching Body:setSleepingAllowed.
+      # Raises TypeError unless +allowed+ is +true+ or +false+.
       #
       # === Example
       #

@@ -379,7 +379,7 @@ module Lota
     # doc/contributors/design/translation.md): only iOS and Android can, so on
     # the desktop it returns +false+. Lota::Boot calls it with
     # <tt>t.audio.mixwithsystem</tt> before the audio module opens, as LÖVE's
-    # boot does.
+    # boot does. Raises TypeError unless +mix+ is +true+ or +false+.
     #
     # === Example
     #
@@ -440,9 +440,11 @@ module Lota
     # returns whether it could (rule 7 of
     # doc/contributors/design/translation.md).
     #
-    # [enable] Whether to.
+    # [enable] Whether to: +true+ or +false+.
     # [filter] String name of one of output_spatialization_filters, or
     #   the system's choice when +nil+ or left out.
+    #
+    # Raises TypeError unless +enable+ is +true+ or +false+.
     #
     # === Example
     #

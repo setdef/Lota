@@ -2150,8 +2150,8 @@ module Lota
     # A channel that is masked keeps what the target already holds there.
     # Every channel is written to start with.
     #
-    # Raises ArgumentError for two or three values, and ThreadError off the
-    # main thread.
+    # Raises ArgumentError for two or three values, TypeError for a value
+    # that is not +true+ or +false+, and ThreadError off the main thread.
     #
     # === Examples
     #
@@ -2187,8 +2187,9 @@ module Lota
     # It starts as +:always+ without writing. Drawing tests and writes
     # depth only on a target with a depth buffer.
     #
-    # Raises ArgumentError for an unknown compare mode or one without
-    # whether to write, and ThreadError off the main thread.
+    # Raises TypeError when whether to write is not +true+ or +false+,
+    # ArgumentError for an unknown compare mode or one without whether to
+    # write, and ThreadError off the main thread.
     #
     # === Examples
     #
@@ -2699,7 +2700,8 @@ module Lota
     #
     # OpenGL ES has no wireframes, and LÖVE leaves it unchanged there.
     #
-    # Raises ThreadError off the main thread.
+    # Raises TypeError unless +enable+ is +true+ or +false+, and
+    # ThreadError off the main thread.
     #
     # === Example
     #

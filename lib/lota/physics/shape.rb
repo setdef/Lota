@@ -104,6 +104,7 @@ module Lota
       end
 
       # Sets whether the Shape only senses, matching Shape:setSensor.
+      # Raises TypeError unless +sensor+ is +true+ or +false+.
       #
       # === Example
       #

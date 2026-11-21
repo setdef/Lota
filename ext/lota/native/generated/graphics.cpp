@@ -382,19 +382,19 @@ Font *w_getFont() {
 }
 
 // love.graphics.setColorMask: w_setColorMask (wrap_Graphics.cpp:2591-2615).
-void w_setColorMask(std::optional<bool> r, std::optional<bool> g, std::optional<bool> b,
-                    std::optional<bool> a) {
+void w_setColorMask(std::optional<BooleanArgument> r, std::optional<BooleanArgument> g,
+                    std::optional<BooleanArgument> b, std::optional<BooleanArgument> a) {
   ColorChannelMask mask{};
   if (!r.has_value()) {
     mask.r = mask.g = mask.b = mask.a = true;
   } else {
     if (!g.has_value()) {
-      mask.r = mask.g = mask.b = mask.a = required(r, "r");
+      mask.r = mask.g = mask.b = mask.a = check_boolean(required(r, "r"));
     } else {
-      mask.r = required(r, "r");
-      mask.g = required(g, "g");
-      mask.b = required(b, "b");
-      mask.a = required(a, "a");
+      mask.r = check_boolean(required(r, "r"));
+      mask.g = check_boolean(required(g, "g"));
+      mask.b = check_boolean(required(b, "b"));
+      mask.a = check_boolean(required(a, "a"));
     }
   }
   instance()->setColorMask(mask);
@@ -561,13 +561,14 @@ void w_setPointSize(double size) { instance()->setPointSize(static_cast<float>(s
 double w_getPointSize() { return static_cast<double>(instance()->getPointSize()); }
 
 // love.graphics.setDepthMode: w_setDepthMode (wrap_Graphics.cpp:2884-2901).
-void w_setDepthMode(const std::optional<std::string> &compare, std::optional<bool> write) {
+void w_setDepthMode(const std::optional<std::string> &compare,
+                    std::optional<BooleanArgument> write) {
   if (!compare.has_value() && !write.has_value()) {
     instance()->setDepthMode();
   } else {
     CompareMode compare_value = COMPARE_ALWAYS;
     const char *const str_value = required(compare, "compare").c_str();
-    const bool write_value = required(write, "write");
+    const bool write_value = check_boolean(required(write, "write"));
     if (!getConstant(str_value, compare_value)) {
       raise_enum_error("compare mode", getConstants(compare_value), str_value);
     }
@@ -630,7 +631,7 @@ std::string w_getFrontFaceWinding() {
 }
 
 // love.graphics.setWireframe: w_setWireframe (wrap_Graphics.cpp:2962-2966).
-void w_setWireframe(bool enable) { instance()->setWireframe(enable); }
+void w_setWireframe(BooleanArgument enable) { instance()->setWireframe(check_boolean(enable)); }
 
 // love.graphics.isWireframe: w_isWireframe (wrap_Graphics.cpp:2968-2972).
 bool w_isWireframe() { return instance()->isWireframe(); }
@@ -1019,7 +1020,7 @@ void w_ParticleSystem_setEmissionArea(ParticleSystem &t,
                                       const std::optional<std::string> &argument1,
                                       std::optional<double> argument2,
                                       std::optional<double> argument3, double argument4,
-                                      bool argument5) {
+                                      BooleanArgument argument5) {
   require_main_thread(MODULE);
   ParticleSystem::AreaSpreadDistribution distribution = ParticleSystem::DISTRIBUTION_NONE;
   float x = 0.F;
@@ -1037,7 +1038,7 @@ void w_ParticleSystem_setEmissionArea(ParticleSystem &t,
       throw love::Exception("Invalid area spread parameters (must be >= 0)");
     }
     angle = static_cast<float>(argument4);
-    directionRelativeToCenter = argument5;
+    directionRelativeToCenter = opt_boolean(argument5, false);
   }
   t.setEmissionArea(distribution, x, y, angle, directionRelativeToCenter);
 }
@@ -1290,9 +1291,9 @@ Rice::Array w_ParticleSystem_getOffset(const ParticleSystem &t) {
 
 // ParticleSystem:setRelativeRotation: w_ParticleSystem_setRelativeRotation
 // (wrap_ParticleSystem.cpp:620-625).
-void w_ParticleSystem_setRelativeRotation(ParticleSystem &t, bool enable) {
+void w_ParticleSystem_setRelativeRotation(ParticleSystem &t, BooleanArgument enable) {
   require_main_thread(MODULE);
-  t.setRelativeRotation(enable);
+  t.setRelativeRotation(check_boolean(enable));
 }
 
 // ParticleSystem:hasRelativeRotation: w_ParticleSystem_hasRelativeRotation
@@ -1948,14 +1949,15 @@ void define_generated_graphics(const Rice::Module &native) {
       .define_singleton_function("set_blend_mode", &w_setBlendMode, Rice::Arg("mode"),
                                  Rice::Arg("alphamode") = std::optional<std::string>())
       .define_singleton_function("blend_mode", &w_getBlendMode)
-      .define_singleton_function(
-          "set_color_mask", &w_setColorMask, Rice::Arg("r") = std::optional<bool>(),
-          Rice::Arg("g") = std::optional<bool>(), Rice::Arg("b") = std::optional<bool>(),
-          Rice::Arg("a") = std::optional<bool>())
+      .define_singleton_function("set_color_mask", &w_setColorMask,
+                                 Rice::Arg("r") = std::optional<BooleanArgument>(),
+                                 Rice::Arg("g") = std::optional<BooleanArgument>(),
+                                 Rice::Arg("b") = std::optional<BooleanArgument>(),
+                                 Rice::Arg("a") = std::optional<BooleanArgument>())
       .define_singleton_function("color_mask", &w_getColorMask)
       .define_singleton_function("set_depth_mode", &w_setDepthMode,
                                  Rice::Arg("compare") = std::optional<std::string>(),
-                                 Rice::Arg("write") = std::optional<bool>())
+                                 Rice::Arg("write") = std::optional<BooleanArgument>())
       .define_singleton_function("depth_mode", &w_getDepthMode)
       .define_singleton_function("set_front_face_winding", &w_setFrontFaceWinding,
                                  Rice::Arg("winding"))
@@ -2070,7 +2072,7 @@ void define_generated_graphics(const Rice::Module &native) {
                      Rice::Arg("argument1") = std::optional<std::string>(),
                      Rice::Arg("argument2") = std::optional<double>(),
                      Rice::Arg("argument3") = std::optional<double>(), Rice::Arg("argument4") = 0.0,
-                     Rice::Arg("argument5") = false)
+                     Rice::Arg("argument5") = BooleanArgument())
       .define_method("emission_area", &w_ParticleSystem_getEmissionArea)
       .define_method("set_direction", &w_ParticleSystem_setDirection, Rice::Arg("arg1"))
       .define_method("direction", &w_ParticleSystem_getDirection)

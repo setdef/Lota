@@ -193,6 +193,39 @@ template <typename T> const T &required(const std::optional<T> &argument, const 
   return *argument;
 }
 
+// An argument LÖVE reads with luax_checkboolean or luax_optboolean
+// (vendor/love/src/common/runtime.cpp:259-275), as the Ruby value given.
+// Those readers take only true and false as booleans: the check raises for
+// anything else, nil included, and the optional read takes its default
+// instead. A bool parameter would not do: Rice fills one by Ruby's truth
+// (rice/detail/from_ruby.ipp:270-273, rice/detail/RubyType.ipp:3-12),
+// which is lua_toboolean's. So the binding generator gives such a
+// parameter this type (tasks/bindings/port.rb, boolean_value) and reads
+// it where LÖVE reads it, with check_boolean or opt_boolean. It holds the
+// VALUE Ruby passed, which the call's arguments keep alive, and nil when
+// it is left out.
+struct BooleanArgument {
+  VALUE value = Qnil;
+};
+
+// luax_checkboolean: true or false, and for anything else the TypeError
+// Lota raises where luaL_checktype raises LÖVE's error.
+inline bool check_boolean(BooleanArgument argument) {
+  if (argument.value != Qtrue && argument.value != Qfalse) {
+    throw Rice::Exception(rb_eTypeError, "wrong argument type %s (expected true or false)",
+                          rb_obj_classname(argument.value));
+  }
+  return argument.value == Qtrue;
+}
+
+// luax_optboolean: true or false, and +fallback+ for anything else.
+inline bool opt_boolean(BooleanArgument argument, bool fallback) {
+  if (argument.value != Qtrue && argument.value != Qfalse) {
+    return fallback;
+  }
+  return argument.value == Qtrue;
+}
+
 // What luax_ioError returns (vendor/love/src/modules/filesystem/
 // wrap_File.cpp:34-46): nil and the message +format+ makes of +arguments+,
 // which LÖVE formats with lua_pushvfstring and Lota with love::Exception's
@@ -1127,6 +1160,35 @@ public:
   explicit To_Ruby(Arg * /*arg*/) {}
 
   template <typename U> VALUE convert(U &data) { return wrap_engine_object(&data, false); }
+};
+
+// A BooleanArgument takes any Ruby value as it is, for the binding to
+// read, as Rice's own Object conversion does (rice/cpp_api/Object.ipp:
+// 267-293). Unlike that one, which matches only a T_OBJECT when Rice
+// picks among overloads, it matches every value exactly, so a value the
+// binding then refuses raises LÖVE's error rather than Rice's for a call
+// no overload matched.
+template <> struct Type<lota::native::BooleanArgument> {
+  static bool verify() { return true; }
+  static VALUE rubyKlass() { return rb_cObject; }
+};
+
+template <> class From_Ruby<lota::native::BooleanArgument> {
+public:
+  From_Ruby() = default;
+  explicit From_Ruby(Arg * /*arg*/) {}
+
+  static double is_convertible(VALUE /*value*/) { return Convertible::Exact; }
+  static lota::native::BooleanArgument convert(VALUE value) { return {value}; }
+};
+
+// The default Rice shows for a BooleanArgument left out: the nil it holds.
+template <> class To_Ruby<lota::native::BooleanArgument> {
+public:
+  To_Ruby() = default;
+  explicit To_Ruby(Arg * /*arg*/) {}
+
+  static VALUE convert(const lota::native::BooleanArgument &argument) { return argument.value; }
 };
 
 } // namespace Rice::detail

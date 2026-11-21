@@ -262,6 +262,33 @@ class GeneratorTest < Minitest::Test
     assert_includes port.rbs, "(bool fused) -> nil"
   end
 
+  # w_setVisible reads its flag with luax_checkboolean, which raises for
+  # anything but true or false, nil included (src/common/runtime.cpp:
+  # 259-263), where Rice would fill a bool by Ruby's truth. So the port
+  # takes the value as given and checks it where LÖVE reads it.
+  def test_a_checked_boolean_is_checked_where_lovee_reads_it
+    port = port("love.mouse.setVisible")
+
+    assert_includes port.definition, "void w_setVisible(BooleanArgument b) {\nconst bool b_value = check_boolean(b);\n" \
+      "instance()->setVisible(b_value);"
+    assert_includes port.registration, %(Rice::Arg("b"))
+    assert_includes port.rbs, "(bool b) -> nil"
+  end
+
+  # w_newWorld reads whether bodies may sleep with luax_optboolean(L, 3,
+  # true), which takes true for anything but true or false, nil and a
+  # left-out argument included (src/common/runtime.cpp:270-275). So Rice
+  # passes the value as given, nil when left out, and the port takes
+  # LÖVE's default where LÖVE does.
+  def test_an_optional_boolean_takes_its_default_for_anything_but_true_or_false
+    port = port("love.physics.newWorld")
+
+    assert_includes port.definition, "w_newWorld(double gx, double gy, BooleanArgument sleep)"
+    assert_includes port.definition, "opt_boolean(sleep, true)"
+    assert_includes port.registration, %(Rice::Arg("sleep") = BooleanArgument())
+    assert_match(/\?bool\? sleep\) -> World\z/, port.rbs)
+  end
+
   # w_setClipboardText reads a const char *, which the port's std::string
   # parameter stands for; System::setClipboardText takes a std::string, so
   # the parameter passes as it is, while a method that takes a const char *
@@ -292,7 +319,7 @@ class GeneratorTest < Minitest::Test
 
     assert_equal 4, reads.compact.size, code
     assert_equal reads.sort, reads
-    assert_operator reads.last, :<, code.index("instance()->setTextInput(enable, x_value, y_value, w_value, h_value);")
+    assert_operator reads.last, :<, code.index("instance()->setTextInput(enable_value, x_value, y_value, w_value, h_value);")
   end
 
   # w_SpriteBatch_setDrawRange reads its start, which Lua counts from 1,
@@ -570,13 +597,13 @@ class GeneratorTest < Minitest::Test
   end
 
   # w_setDepthMode reads the compare mode's name and the write flag
-  # before it checks the name, so a missing flag is reported before an
-  # unknown name, as in LÖVE, which inlining the flag into the call after
-  # the check would reverse.
+  # before it checks the name, so a missing flag, or one that is not true
+  # or false, is reported before an unknown name, as in LÖVE, which
+  # inlining the flag into the call after the check would reverse.
   def test_a_checked_read_comes_before_the_statements_lovee_puts_after_it
     code = port("love.graphics.setDepthMode").definition
     order = [
-      %(const bool write_value = required(write, "write");),
+      %(const bool write_value = check_boolean(required(write, "write"));),
       "if (!getConstant(str_value, compare_value))",
       "instance()->setDepthMode(compare_value, write_value);",
 ].map { |line| code.index(line) }

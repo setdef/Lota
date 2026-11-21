@@ -130,19 +130,28 @@ void w_setY(double argument1) {
 void w_setPosition(double x, double y) { instance()->setPosition(x, y); }
 
 // love.mouse.setVisible: w_setVisible (wrap_Mouse.cpp:230-235).
-void w_setVisible(bool b) { instance()->setVisible(b); }
+void w_setVisible(BooleanArgument b) {
+  const bool b_value = check_boolean(b);
+  instance()->setVisible(b_value);
+}
 
 // love.mouse.isVisible: w_isVisible (wrap_Mouse.cpp:237-241).
 bool w_isVisible() { return instance()->isVisible(); }
 
 // love.mouse.setGrabbed: w_setGrabbed (wrap_Mouse.cpp:243-248).
-void w_setGrabbed(bool b) { instance()->setGrabbed(b); }
+void w_setGrabbed(BooleanArgument b) {
+  const bool b_value = check_boolean(b);
+  instance()->setGrabbed(b_value);
+}
 
 // love.mouse.isGrabbed: w_isGrabbed (wrap_Mouse.cpp:250-254).
 bool w_isGrabbed() { return instance()->isGrabbed(); }
 
 // love.mouse.setRelativeMode: w_setRelativeMode (wrap_Mouse.cpp:256-261).
-bool w_setRelativeMode(bool relative) { return instance()->setRelativeMode(relative); }
+bool w_setRelativeMode(BooleanArgument relative) {
+  const bool relative_value = check_boolean(relative);
+  return instance()->setRelativeMode(relative_value);
+}
 
 // love.mouse.getRelativeMode: w_getRelativeMode (wrap_Mouse.cpp:263-267).
 bool w_getRelativeMode() { return instance()->getRelativeMode(); }

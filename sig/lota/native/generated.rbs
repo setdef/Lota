@@ -166,7 +166,7 @@ module Lota
 
       def self.fused?: () -> bool
 
-      def self.set_identity: (String arg, ?bool append) -> nil
+      def self.set_identity: (String arg, ?bool? append) -> nil
 
       def self.identity: () -> String
 
@@ -178,9 +178,9 @@ module Lota
 
       def self.source: () -> String
 
-      def self.mount_full_path: (String fullpath, String mountpoint, ?String? permissions, ?bool append) -> bool
+      def self.mount_full_path: (String fullpath, String mountpoint, ?String? permissions, ?bool? append) -> bool
 
-      def self.mount_common_path: (String commonpath, String mountpoint, ?String? permissions, ?bool append) -> bool
+      def self.mount_common_path: (String commonpath, String mountpoint, ?String? permissions, ?bool? append) -> bool
 
       def self.unmount_full_path: (String fullpath) -> bool
 
@@ -504,7 +504,7 @@ module Lota
 
       def move_to: (Float | Integer arg1, Float | Integer arg2) -> nil
 
-      def set_emission_area: (?String? argument1, ?(Float | Integer)? argument2, ?(Float | Integer)? argument3, ?(Float | Integer) argument4, ?bool argument5) -> nil
+      def set_emission_area: (?String? argument1, ?(Float | Integer)? argument2, ?(Float | Integer)? argument3, ?(Float | Integer) argument4, ?bool? argument5) -> nil
 
       def emission_area: () -> [String, Float, Float, Float, bool]
 
@@ -916,7 +916,7 @@ module Lota
     module Physics
       def self.set_meter: (Float | Integer arg1) -> nil
 
-      def self.new_world: (?(Float | Integer) gx, ?(Float | Integer) gy, ?bool sleep) -> World
+      def self.new_world: (?(Float | Integer) gx, ?(Float | Integer) gy, ?bool? sleep) -> World
 
       def self.new_body: (World world, ?(Float | Integer) x, ?(Float | Integer) y, ?String? argument4) -> Body
 
@@ -926,17 +926,17 @@ module Lota
 
       def self.new_edge_body: (World world, String btype, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer)? prevx, ?(Float | Integer)? prevy, ?(Float | Integer)? nextx, ?(Float | Integer)? nexty) -> [Body, EdgeShape]
 
-      def self.new_distance_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool collide_connected) -> DistanceJoint
+      def self.new_distance_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?bool? collide_connected) -> DistanceJoint
 
-      def self.new_gear_joint: (Joint joint1, Joint joint2, ?(Float | Integer) ratio, ?bool collide_connected) -> GearJoint
+      def self.new_gear_joint: (Joint joint1, Joint joint2, ?(Float | Integer) ratio, ?bool? collide_connected) -> GearJoint
 
-      def self.new_motor_joint: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool collide_connected) -> MotorJoint
+      def self.new_motor_joint: (Body body1, Body body2, ?(Float | Integer)? correction_factor, ?bool? collide_connected) -> MotorJoint
 
       def self.new_mouse_joint: (Body body, Float | Integer x, Float | Integer y) -> MouseJoint
 
-      def self.new_pulley_joint: (Body body1, Body body2, Float | Integer gx1, Float | Integer gy1, Float | Integer gx2, Float | Integer gy2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer) ratio, ?bool collide_connected) -> PulleyJoint
+      def self.new_pulley_joint: (Body body1, Body body2, Float | Integer gx1, Float | Integer gy1, Float | Integer gx2, Float | Integer gy2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, ?(Float | Integer) ratio, ?bool? collide_connected) -> PulleyJoint
 
-      def self.new_rope_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_length, ?bool collide_connected) -> RopeJoint
+      def self.new_rope_joint: (Body body1, Body body2, Float | Integer x1, Float | Integer y1, Float | Integer x2, Float | Integer y2, Float | Integer max_length, ?bool? collide_connected) -> RopeJoint
 
       def self.meter: () -> Integer
 
@@ -1026,9 +1026,9 @@ module Lota
 
       def custom_mass_data?: () -> bool
 
-      def apply_angular_impulse: (Float | Integer i, ?bool awake) -> nil
+      def apply_angular_impulse: (Float | Integer i, ?bool? awake) -> nil
 
-      def apply_torque: (Float | Integer arg, ?bool awake) -> nil
+      def apply_torque: (Float | Integer arg, ?bool? awake) -> nil
 
       def destroyed?: () -> bool
 
@@ -1508,7 +1508,7 @@ module Lota
 
       def self.set_fullscreen: (bool fullscreen, ?String? argument2) -> bool
 
-      def self.set_position: (Integer x, Integer y, ?Integer? argument3, ?bool wait_for_sync) -> nil
+      def self.set_position: (Integer x, Integer y, ?Integer? argument3, ?bool? wait_for_sync) -> nil
 
       def self.position: () -> [Integer, Integer, Integer]
 
@@ -1550,7 +1550,7 @@ module Lota
 
       def self.minimized?: () -> bool
 
-      def self.request_attention: (?bool continuous) -> nil
+      def self.request_attention: (?bool? continuous) -> nil
 
       def self.system_theme: () -> String
     end

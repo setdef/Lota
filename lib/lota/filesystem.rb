@@ -960,6 +960,8 @@ module Lota
     # love.filesystem.setSymlinksEnabled
     # (src/modules/filesystem/wrap_Filesystem.cpp, w_setSymlinksEnabled).
     #
+    # Raises TypeError unless +enable+ is +true+ or +false+.
+    #
     # === Example
     #
     #   Lota::Filesystem.symlinks_enabled = false

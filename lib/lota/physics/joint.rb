@@ -362,7 +362,8 @@ module Lota
       end
 
       # Starts or stops the joint's motor, matching
-      # RevoluteJoint:setMotorEnabled.
+      # RevoluteJoint:setMotorEnabled. Raises TypeError unless +enabled+ is
+      # +true+ or +false+.
       #
       # === Example
       #
@@ -433,7 +434,8 @@ module Lota
       end
 
       # Turns the joint's limits on or off, matching
-      # RevoluteJoint:setLimitsEnabled.
+      # RevoluteJoint:setLimitsEnabled. Raises TypeError unless +enabled+ is
+      # +true+ or +false+.
       #
       # === Example
       #
@@ -680,7 +682,8 @@ module Lota
       end
 
       # Starts or stops the joint's motor, matching
-      # PrismaticJoint:setMotorEnabled.
+      # PrismaticJoint:setMotorEnabled. Raises TypeError unless +enabled+ is
+      # +true+ or +false+.
       #
       # === Example
       #
@@ -751,7 +754,8 @@ module Lota
       end
 
       # Turns the joint's limits on or off, matching
-      # PrismaticJoint:setLimitsEnabled.
+      # PrismaticJoint:setLimitsEnabled. Raises TypeError unless +enabled+ is
+      # +true+ or +false+.
       #
       # === Example
       #
@@ -887,7 +891,8 @@ module Lota
       end
 
       # Starts or stops the joint's motor, matching
-      # WheelJoint:setMotorEnabled.
+      # WheelJoint:setMotorEnabled. Raises TypeError unless +enabled+ is
+      # +true+ or +false+.
       #
       # === Example
       #

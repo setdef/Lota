@@ -84,7 +84,8 @@ touch_id: "Integer",
 object:,
 }.fetch(kind) { raise Unsupported, "no Ruby type for a #{kind} argument" }
         type = "(#{type})" if type.include?("|") && (optional || default)
-        return "?#{type}? #{name}" if optional
+        # luax_optboolean takes nil, as it takes anything, for its default.
+        return "?#{type}? #{name}" if optional || (kind == :boolean && default)
         return "?#{type} #{name}" if default
 
         "#{type} #{name}"
@@ -129,6 +130,9 @@ object:,
 }.freeze
     # A C++ null pointer, as an optional read's default.
     NULL_POINTER = /\A(?:nullptr|NULL|0)\z/
+    # The reads of a port that can raise: of a missing argument (required),
+    # or of a boolean that is not true or false (check_boolean).
+    RAISING_READ = /\b(?:required|check_boolean)\(/
 
     attr_reader :function, :native_name, :parameters, :self_parameter
 
@@ -454,7 +458,7 @@ object:,
       @reads.select { |read| read[:variable] }.each do |read|
         value = read_value(read[:call], read[:cast] || cast_of(read[:declared], read[:call]))
         value = "(#{value} #{read[:rest]})" unless read[:rest].empty?
-        next @aliases[read[:variable]] = value unless value.include?("required(")
+        next @aliases[read[:variable]] = value unless value.match?(RAISING_READ)
 
         local = "#{Rules.snake_case(read[:variable])}_value"
         @hoisted[read[:text]] = hoisted(read, local, value)
@@ -464,10 +468,11 @@ object:,
 
     # The declaration that reads a variable LÖVE reads with a check into
     # a local of its own, where LÖVE reads it. Every other read is used
-    # where LÖVE uses its variable, but a missing argument raises from
-    # this one, and C++ leaves the order of a call's arguments unspecified
-    # (GCC evaluates them right to left on x86_64), so inlining it would
-    # name another missing argument than LÖVE's first.
+    # where LÖVE uses its variable, but a missing argument or a boolean
+    # that is not one raises from this one, and C++ leaves the order of a
+    # call's arguments unspecified (GCC evaluates them right to left on
+    # x86_64), so inlining it would raise for another argument than LÖVE's
+    # first.
     private def hoisted(read, local, value)
       declared = read[:declared].gsub(/\blua_Number\b/, "double")
       type = declared.end_with?("*") ? "#{read[:constant] ? 'const ' : ''}#{declared}const" : "const #{declared}"
@@ -535,7 +540,12 @@ line: node.line,
       name = parameter_name(index, read)
       cpp = cpp_type(kind, read)
       optional = @optional.include?(index)
-      default = (!optional && call.base_name.match?(/opt/)) ? literal_default(call.arguments.last, cpp) : nil
+      # luax_optboolean's default is taken where LÖVE takes it
+      # (boolean_value), so Rice passes a boolean left out as nil.
+      default = if optional || !call.base_name.match?(/opt/) then nil
+      elsif kind == :boolean then "BooleanArgument()"
+      else literal_default(call.arguments.last, cpp)
+      end
       optional ||= call.base_name.match?(/opt/) && default.nil?
       Parameter.new(index:, name:, kind:, cpp:, object: (kind == :object) ? helper_type(call) : nil, optional:, default:,
         checked: false)
@@ -550,7 +560,8 @@ line: node.line,
       when :number then "double"
       when :integer then integral(read[:cast]) || integral(read[:declared]) || "long long"
       when :string then "const std::string &"
-      when :boolean, :truthy then "bool"
+      when :boolean then "BooleanArgument"
+      when :truthy then "bool"
       # A touch's id, which LÖVE reads from a light userdata and Lota's
       # event module gives Ruby as the Integer its pointer holds.
       when :touch_id then "std::uintptr_t"
@@ -1030,6 +1041,8 @@ line: node.line,
       return cast_to(rewrite(call.arguments.last), cast) if index > @arity
 
       parameter = parameters.find { |candidate| candidate.index == index }
+      return boolean_value(call, parameter) if Analysis::READERS[call.base_name] == :boolean
+
       value = if parameter.checked || (parameter.optional && call.base_name.match?(/check/))
         %(required(#{parameter.name}, "#{parameter.name}"))
       elsif parameter.optional && STRING_READERS[call.base_name] == :c_str && NULL_POINTER.match?(call.arguments.last.strip)
@@ -1054,6 +1067,23 @@ line: node.line,
       cast ||= "float" if FLOAT_READERS.include?(call.base_name) && parameter.cpp == "double"
       cast = LUA_INTEGER if cast == "lua_Integer"
       cast_to(value, (cast == parameter.cpp) ? nil : cast)
+    end
+
+    # The C++ expression a read with luax_checkboolean or luax_optboolean
+    # becomes. They take only true and false as booleans
+    # (src/common/runtime.cpp:259-275): the check raises for anything
+    # else, nil included, and the optional read takes its default. Rice
+    # would fill a bool by Ruby's truth, which is lua_toboolean's, so the
+    # parameter is the BooleanArgument Ruby passed, read here as LÖVE reads
+    # it (native/binding.hpp).
+    private def boolean_value(call, parameter)
+      if call.base_name == "luax_checkboolean"
+        given = parameter.optional ? %(required(#{parameter.name}, "#{parameter.name}")) : parameter.name
+        return "check_boolean(#{given})"
+      end
+      raise Unsupported, "#{function.love_name} tests whether its boolean #{parameter.name} is given" if parameter.optional
+
+      "opt_boolean(#{parameter.name}, #{rewrite(call.arguments.last)})"
     end
 
     # The position of the argument whose presence a count of the

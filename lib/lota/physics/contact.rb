@@ -89,7 +89,8 @@ module Lota
       end
 
       # Sets whether the Contact takes part in the step, matching
-      # Contact:setEnabled.
+      # Contact:setEnabled. Raises TypeError unless +enabled+ is +true+ or
+      # +false+.
       #
       # === Example
       #

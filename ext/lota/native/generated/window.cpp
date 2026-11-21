@@ -80,7 +80,8 @@ std::string w_getDisplayOrientation(std::optional<int> argument1) {
 }
 
 // love.window.setFullscreen: w_setFullscreen (wrap_Window.cpp:311-330).
-bool w_setFullscreen(bool fullscreen, const std::optional<std::string> &argument2) {
+bool w_setFullscreen(BooleanArgument fullscreen, const std::optional<std::string> &argument2) {
+  const bool fullscreen_value = check_boolean(fullscreen);
   Window::FullscreenType fstype = Window::FULLSCREEN_MAX_ENUM;
   const char *typestr = !argument2.has_value() ? nullptr : required(argument2, "argument2").c_str();
   if (typestr != nullptr && !Window::getConstant(typestr, fstype)) {
@@ -88,9 +89,9 @@ bool w_setFullscreen(bool fullscreen, const std::optional<std::string> &argument
   }
   bool success = false;
   if (fstype == Window::FULLSCREEN_MAX_ENUM) {
-    success = instance()->setFullscreen(fullscreen);
+    success = instance()->setFullscreen(fullscreen_value);
   } else {
-    success = instance()->setFullscreen(fullscreen, fstype);
+    success = instance()->setFullscreen(fullscreen_value, fstype);
   }
   return success;
 }
@@ -119,7 +120,7 @@ Rice::Array w_getDesktopDimensions(std::optional<int> argument1) {
 }
 
 // love.window.setPosition: w_setPosition (wrap_Window.cpp:377-394).
-void w_setPosition(int x, int y, std::optional<int> argument3, bool wait_for_sync) {
+void w_setPosition(int x, int y, std::optional<int> argument3, BooleanArgument wait_for_sync) {
   int displayindex = 0;
   if (argument3.has_value()) {
     displayindex = required(argument3, "argument3") - 1;
@@ -128,7 +129,7 @@ void w_setPosition(int x, int y, std::optional<int> argument3, bool wait_for_syn
     int y_unused{};
     instance()->getPosition(x_unused, y_unused, displayindex);
   }
-  instance()->setPosition(x, y, displayindex, wait_for_sync);
+  instance()->setPosition(x, y, displayindex, opt_boolean(wait_for_sync, true));
 }
 
 // love.window.getPosition: w_getPosition (wrap_Window.cpp:396-406).
@@ -174,7 +175,9 @@ image::ImageData *w_getIcon() {
 int w_getVSync() { return instance()->getVSync(); }
 
 // love.window.setDisplaySleepEnabled: w_setDisplaySleepEnabled (wrap_Window.cpp:451-455).
-void w_setDisplaySleepEnabled(bool enable) { instance()->setDisplaySleepEnabled(enable); }
+void w_setDisplaySleepEnabled(BooleanArgument enable) {
+  instance()->setDisplaySleepEnabled(check_boolean(enable));
+}
 
 // love.window.isDisplaySleepEnabled: w_isDisplaySleepEnabled (wrap_Window.cpp:457-461).
 bool w_isDisplaySleepEnabled() { return instance()->isDisplaySleepEnabled(); }
@@ -256,7 +259,9 @@ bool w_isMaximized() { return instance()->isMaximized(); }
 bool w_isMinimized() { return instance()->isMinimized(); }
 
 // love.window.requestAttention: w_requestAttention (wrap_Window.cpp:759-764).
-void w_requestAttention(bool continuous) { instance()->requestAttention(continuous); }
+void w_requestAttention(BooleanArgument continuous) {
+  instance()->requestAttention(opt_boolean(continuous, false));
+}
 
 // love.window.getSystemTheme: w_getSystemTheme (wrap_Window.cpp:772-779).
 std::string w_getSystemTheme() {
@@ -287,7 +292,7 @@ void define_generated_window(const Rice::Module &native) {
                                  Rice::Arg("argument2") = std::optional<std::string>())
       .define_singleton_function("set_position", &w_setPosition, Rice::Arg("x"), Rice::Arg("y"),
                                  Rice::Arg("argument3") = std::optional<int>(),
-                                 Rice::Arg("wait_for_sync") = true)
+                                 Rice::Arg("wait_for_sync") = BooleanArgument())
       .define_singleton_function("position", &w_getPosition)
       .define_singleton_function("set_icon", &w_setIcon, Rice::Arg("i"))
       .define_singleton_function("icon", &w_getIcon)
@@ -312,7 +317,7 @@ void define_generated_window(const Rice::Module &native) {
       .define_singleton_function("maximized?", &w_isMaximized)
       .define_singleton_function("minimized?", &w_isMinimized)
       .define_singleton_function("request_attention", &w_requestAttention,
-                                 Rice::Arg("continuous") = false)
+                                 Rice::Arg("continuous") = BooleanArgument())
       .define_singleton_function("system_theme", &w_getSystemTheme);
 }
 

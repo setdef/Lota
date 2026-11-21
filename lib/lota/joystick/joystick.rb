@@ -396,7 +396,8 @@ module Lota
       # [setting] The sensor's type and whether it is on, as an Array
       #   (rule 6 of doc/contributors/design/translation.md).
       #
-      # Raises RuntimeError when the gamepad has no such sensor.
+      # Raises TypeError unless whether it is on is +true+ or +false+, and
+      # RuntimeError when the gamepad has no such sensor.
       #
       # === Example
       #

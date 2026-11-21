@@ -429,8 +429,9 @@ module Lota
     #   the window already has when +nil+ or left out.
     #
     # Returns +false+ when the system refuses (rule 7 of
-    # doc/contributors/design/translation.md). Raises ArgumentError for an
-    # unknown +fullscreentype+, and ThreadError off the main thread.
+    # doc/contributors/design/translation.md). Raises TypeError unless
+    # +fullscreen+ is +true+ or +false+, ArgumentError for an unknown
+    # +fullscreentype+, and ThreadError off the main thread.
     #
     # === Example
     #
@@ -578,10 +579,10 @@ module Lota
     # input, or not, matching love.window.setDisplaySleepEnabled
     # (src/modules/window/wrap_Window.cpp, w_setDisplaySleepEnabled).
     #
-    # [enable] +true+ to let it, +false+ to keep it on; any other value
-    #   counts as its truthiness.
+    # [enable] +true+ to let it, +false+ to keep it on.
     #
-    # Raises ThreadError off the main thread.
+    # Raises TypeError for any other value, and ThreadError off the main
+    # thread.
     #
     # === Example
     #

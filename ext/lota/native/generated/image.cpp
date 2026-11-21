@@ -92,7 +92,9 @@ std::string w_CompressedImageData_getFormat(const CompressedImageData &t) {
 
 // CompressedImageData:setLinear: w_CompressedImageData_setLinear
 // (wrap_CompressedImageData.cpp:106-111).
-void w_CompressedImageData_setLinear(CompressedImageData &t, bool linear) { t.setLinear(linear); }
+void w_CompressedImageData_setLinear(CompressedImageData &t, BooleanArgument linear) {
+  t.setLinear(check_boolean(linear));
+}
 
 // CompressedImageData:isLinear: w_CompressedImageData_isLinear
 // (wrap_CompressedImageData.cpp:113-118).
@@ -106,7 +108,9 @@ ImageData *w_ImageData_clone(const ImageData &t) {
 }
 
 // ImageData:setLinear: w_ImageData_setLinear (wrap_ImageData.cpp:69-74).
-void w_ImageData_setLinear(ImageData &t, bool linear) { t.setLinear(linear); }
+void w_ImageData_setLinear(ImageData &t, BooleanArgument linear) {
+  t.setLinear(check_boolean(linear));
+}
 
 // ImageData:isLinear: w_ImageData_isLinear (wrap_ImageData.cpp:76-81).
 bool w_ImageData_isLinear(const ImageData &t) { return t.isLinear(); }

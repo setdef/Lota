@@ -47,7 +47,7 @@ Keyboard *instance() {
 // stack made a parameter and each push the result.
 
 // love.keyboard.setKeyRepeat: w_setKeyRepeat (wrap_Keyboard.cpp:34-38).
-void w_setKeyRepeat(bool enable) { instance()->setKeyRepeat(enable); }
+void w_setKeyRepeat(BooleanArgument enable) { instance()->setKeyRepeat(check_boolean(enable)); }
 
 // love.keyboard.hasKeyRepeat: w_hasKeyRepeat (wrap_Keyboard.cpp:40-44).
 bool w_hasKeyRepeat() { return instance()->hasKeyRepeat(); }
@@ -81,16 +81,17 @@ std::string w_getKeyFromScancode(const std::string &scancode) {
 }
 
 // love.keyboard.setTextInput: w_setTextInput (wrap_Keyboard.cpp:160-176).
-void w_setTextInput(bool enable, std::optional<double> x, std::optional<double> y,
+void w_setTextInput(BooleanArgument enable, std::optional<double> x, std::optional<double> y,
                     std::optional<double> w, std::optional<double> h) {
+  const bool enable_value = check_boolean(enable);
   if (!x.has_value()) {
-    instance()->setTextInput(enable);
+    instance()->setTextInput(enable_value);
   } else {
     const double x_value = required(x, "x");
     const double y_value = required(y, "y");
     const double w_value = required(w, "w");
     const double h_value = required(h, "h");
-    instance()->setTextInput(enable, x_value, y_value, w_value, h_value);
+    instance()->setTextInput(enable_value, x_value, y_value, w_value, h_value);
   }
 }
 

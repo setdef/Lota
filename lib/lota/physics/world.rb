@@ -44,7 +44,8 @@ module Lota
       # [gx] Float or Integer gravity along x, in pixels a second a second.
       # [gy] Float or Integer gravity along y.
       # [sleep] Whether Bodies at rest may sleep, which saves their
-      #   simulation until something wakes them.
+      #   simulation until something wakes them; anything but +true+ or
+      #   +false+, +nil+ included, is +true+, as LÖVE reads it.
       #
       # Raises RuntimeError when the physics module is not open.
       #
@@ -269,7 +270,8 @@ module Lota
       end
 
       # Sets whether Bodies at rest may sleep, matching
-      # World:setSleepingAllowed.
+      # World:setSleepingAllowed. Raises TypeError unless +allowed+ is
+      # +true+ or +false+.
       #
       # === Example
       #

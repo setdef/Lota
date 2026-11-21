@@ -87,7 +87,8 @@ module Lota
     # [enable] +true+ to send +keypressed+ again for a key the player holds
     #   down, +false+ (the default) to send it once.
     #
-    # Raises RuntimeError when the keyboard module is not open.
+    # Raises TypeError unless +enable+ is +true+ or +false+, and
+    # RuntimeError when the keyboard module is not open.
     #
     # === Example
     #
@@ -128,9 +129,9 @@ module Lota
     # written for LÖVE 11 that never asks receives no text, though
     # +keypressed+ still arrives. Turning it on may show an on-screen
     # keyboard or an input method. It changes nothing while no window is
-    # open. Raises ArgumentError for a
-    # rectangle of fewer than four numbers, and RuntimeError when the
-    # keyboard module is not open.
+    # open. Raises TypeError unless +enable+ is +true+ or +false+,
+    # ArgumentError for a rectangle of fewer than four numbers, and
+    # RuntimeError when the keyboard module is not open.
     #
     # === Examples
     #

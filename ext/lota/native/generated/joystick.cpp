@@ -181,13 +181,14 @@ bool w_Joystick_isSensorEnabled(const Joystick &j, const std::string &type) {
 }
 
 // Joystick:setSensorEnabled: w_Joystick_setSensorEnabled (wrap_Joystick.cpp:412-427).
-void w_Joystick_setSensorEnabled(Joystick &j, const std::string &type, bool enabled) {
+void w_Joystick_setSensorEnabled(Joystick &j, const std::string &type, BooleanArgument enabled) {
   using namespace love::sensor;
   Sensor::SensorType type_value{};
   if (!Sensor::getConstant(type.c_str(), type_value)) {
     raise_enum_error("sensor type", Sensor::getConstants(type_value), type);
   }
-  j.setSensorEnabled(type_value, enabled);
+  const bool enabled_value = check_boolean(enabled);
+  j.setSensorEnabled(type_value, enabled_value);
 }
 
 // Joystick:getDevicePowerInfo: w_Joystick_getDevicePowerInfo (wrap_Joystick.cpp:450-469).
@@ -230,7 +231,9 @@ std::optional<int> w_getIndex(const Joystick &j) {
 int w_getJoystickCount() { return instance()->getJoystickCount(); }
 
 // love.joystick.setBackgroundEvents: w_setBackgroundEvents (wrap_JoystickModule.cpp:68-72).
-void w_setBackgroundEvents(bool enable) { instance()->setBackgroundEvents(enable); }
+void w_setBackgroundEvents(BooleanArgument enable) {
+  instance()->setBackgroundEvents(check_boolean(enable));
+}
 
 // love.joystick.hasBackgroundEvents: w_hasBackgroundEvents (wrap_JoystickModule.cpp:74-78).
 bool w_hasBackgroundEvents() { return instance()->hasBackgroundEvents(); }

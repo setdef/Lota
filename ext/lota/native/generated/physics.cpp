@@ -257,19 +257,19 @@ std::string w_Body_getType(const Body &t) {
 }
 
 // Body:applyAngularImpulse: w_Body_applyAngularImpulse (wrap_Body.cpp:230-237).
-void w_Body_applyAngularImpulse(Body &t, double i, bool awake) {
+void w_Body_applyAngularImpulse(Body &t, double i, BooleanArgument awake) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.applyAngularImpulse(static_cast<float>(i), awake);
+  t.applyAngularImpulse(static_cast<float>(i), opt_boolean(awake, true));
 }
 
 // Body:applyTorque: w_Body_applyTorque (wrap_Body.cpp:239-246).
-void w_Body_applyTorque(Body &t, double arg, bool awake) {
+void w_Body_applyTorque(Body &t, double arg, BooleanArgument awake) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.applyTorque(static_cast<float>(arg), awake);
+  t.applyTorque(static_cast<float>(arg), opt_boolean(awake, true));
 }
 
 // Body:setX: w_Body_setX (wrap_Body.cpp:276-282).
@@ -499,11 +499,12 @@ bool w_Body_isBullet(const Body &t) {
 }
 
 // Body:setBullet: w_Body_setBullet (wrap_Body.cpp:525-531).
-void w_Body_setBullet(Body &t, bool b) {
+void w_Body_setBullet(Body &t, BooleanArgument b) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.setBullet(b);
+  const bool b_value = check_boolean(b);
+  t.setBullet(b_value);
 }
 
 // Body:isActive: w_Body_isActive (wrap_Body.cpp:533-538).
@@ -523,11 +524,12 @@ bool w_Body_isAwake(const Body &t) {
 }
 
 // Body:setSleepingAllowed: w_Body_setSleepingAllowed (wrap_Body.cpp:547-553).
-void w_Body_setSleepingAllowed(Body &t, bool b) {
+void w_Body_setSleepingAllowed(Body &t, BooleanArgument b) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.setSleepingAllowed(b);
+  const bool b_value = check_boolean(b);
+  t.setSleepingAllowed(b_value);
 }
 
 // Body:isSleepingAllowed: w_Body_isSleepingAllowed (wrap_Body.cpp:555-560).
@@ -539,27 +541,30 @@ bool w_Body_isSleepingAllowed(const Body &t) {
 }
 
 // Body:setActive: w_Body_setActive (wrap_Body.cpp:562-568).
-void w_Body_setActive(Body &t, bool b) {
+void w_Body_setActive(Body &t, BooleanArgument b) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.setEnabled(b);
+  const bool b_value = check_boolean(b);
+  t.setEnabled(b_value);
 }
 
 // Body:setAwake: w_Body_setAwake (wrap_Body.cpp:570-576).
-void w_Body_setAwake(Body &t, bool b) {
+void w_Body_setAwake(Body &t, BooleanArgument b) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.setAwake(b);
+  const bool b_value = check_boolean(b);
+  t.setAwake(b_value);
 }
 
 // Body:setFixedRotation: w_Body_setFixedRotation (wrap_Body.cpp:578-584).
-void w_Body_setFixedRotation(Body &t, bool b) {
+void w_Body_setFixedRotation(Body &t, BooleanArgument b) {
   if (t.body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
-  t.setFixedRotation(b);
+  const bool b_value = check_boolean(b);
+  t.setFixedRotation(b_value);
 }
 
 // Body:isFixedRotation: w_Body_isFixedRotation (wrap_Body.cpp:586-592).
@@ -747,11 +752,12 @@ void w_Contact_setRestitution(Contact &t, double r) {
 }
 
 // Contact:setEnabled: w_Contact_setEnabled (wrap_Contact.cpp:95-101).
-void w_Contact_setEnabled(Contact &t, bool e) {
+void w_Contact_setEnabled(Contact &t, BooleanArgument e) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed contact.");
   }
-  t.setEnabled(e);
+  const bool e_value = check_boolean(e);
+  t.setEnabled(e_value);
 }
 
 // Contact:resetFriction: w_Contact_resetFriction (wrap_Contact.cpp:103-108).
@@ -1145,9 +1151,10 @@ double w_MouseJoint_getDamping(const MouseJoint &t) {
 }
 
 // love.physics.newWorld: w_newWorld (wrap_Physics.cpp:53-65).
-World *w_newWorld(double gx, double gy, bool sleep) {
+World *w_newWorld(double gx, double gy, BooleanArgument sleep) {
   World *w = nullptr;
-  w = instance()->newWorld(static_cast<float>(gx), static_cast<float>(gy), sleep);
+  w = instance()->newWorld(static_cast<float>(gx), static_cast<float>(gy),
+                           opt_boolean(sleep, true));
   return w;
 }
 
@@ -1244,7 +1251,7 @@ Rice::Array w_newEdgeBody(World *world, const std::string &btype, double x1, dou
 
 // love.physics.newDistanceJoint: w_newDistanceJoint (wrap_Physics.cpp:494-510).
 DistanceJoint *w_newDistanceJoint(Body *body1, Body *body2, double x1, double y1, double x2,
-                                  double y2, bool collide_connected) {
+                                  double y2, BooleanArgument collide_connected) {
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1254,7 +1261,7 @@ DistanceJoint *w_newDistanceJoint(Body *body1, Body *body2, double x1, double y1
   DistanceJoint *j = nullptr;
   j = instance()->newDistanceJoint(body1, body2, static_cast<float>(x1), static_cast<float>(y1),
                                    static_cast<float>(x2), static_cast<float>(y2),
-                                   collide_connected);
+                                   opt_boolean(collide_connected, false));
   return j;
 }
 
@@ -1271,7 +1278,7 @@ MouseJoint *w_newMouseJoint(Body *body, double x, double y) {
 // love.physics.newPulleyJoint: w_newPulleyJoint (wrap_Physics.cpp:598-620).
 PulleyJoint *w_newPulleyJoint(Body *body1, Body *body2, double gx1, double gy1, double gx2,
                               double gy2, double x1, double y1, double x2, double y2, double ratio,
-                              bool collide_connected) {
+                              BooleanArgument collide_connected) {
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1284,12 +1291,13 @@ PulleyJoint *w_newPulleyJoint(Body *body1, Body *body2, double gx1, double gy1, 
                                  b2Vec2(static_cast<float>(gx2), static_cast<float>(gy2)),
                                  b2Vec2(static_cast<float>(x1), static_cast<float>(y1)),
                                  b2Vec2(static_cast<float>(x2), static_cast<float>(y2)),
-                                 static_cast<float>(ratio), collide_connected);
+                                 static_cast<float>(ratio), opt_boolean(collide_connected, true));
   return j;
 }
 
 // love.physics.newGearJoint: w_newGearJoint (wrap_Physics.cpp:622-636).
-GearJoint *w_newGearJoint(Joint *joint1, Joint *joint2, double ratio, bool collide_connected) {
+GearJoint *w_newGearJoint(Joint *joint1, Joint *joint2, double ratio,
+                          BooleanArgument collide_connected) {
   if (!joint1->isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
@@ -1297,13 +1305,14 @@ GearJoint *w_newGearJoint(Joint *joint1, Joint *joint2, double ratio, bool colli
     throw love::Exception("Attempt to use destroyed joint.");
   }
   GearJoint *j = nullptr;
-  j = instance()->newGearJoint(joint1, joint2, static_cast<float>(ratio), collide_connected);
+  j = instance()->newGearJoint(joint1, joint2, static_cast<float>(ratio),
+                               opt_boolean(collide_connected, false));
   return j;
 }
 
 // love.physics.newRopeJoint: w_newRopeJoint (wrap_Physics.cpp:736-753).
 RopeJoint *w_newRopeJoint(Body *body1, Body *body2, double x1, double y1, double x2, double y2,
-                          double max_length, bool collide_connected) {
+                          double max_length, BooleanArgument collide_connected) {
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1313,13 +1322,14 @@ RopeJoint *w_newRopeJoint(Body *body1, Body *body2, double x1, double y1, double
   RopeJoint *j = nullptr;
   j = instance()->newRopeJoint(body1, body2, static_cast<float>(x1), static_cast<float>(y1),
                                static_cast<float>(x2), static_cast<float>(y2),
-                               static_cast<float>(max_length), collide_connected);
+                               static_cast<float>(max_length),
+                               opt_boolean(collide_connected, false));
   return j;
 }
 
 // love.physics.newMotorJoint: w_newMotorJoint (wrap_Physics.cpp:755-775).
 MotorJoint *w_newMotorJoint(Body *body1, Body *body2, std::optional<double> correction_factor,
-                            bool collide_connected) {
+                            BooleanArgument collide_connected) {
   if (body1->body == nullptr) {
     throw love::Exception("Attempt to use destroyed body.");
   }
@@ -1330,7 +1340,8 @@ MotorJoint *w_newMotorJoint(Body *body1, Body *body2, std::optional<double> corr
   if (correction_factor.has_value()) {
     const float correction_factor_value =
         static_cast<float>(required(correction_factor, "correction_factor"));
-    j = instance()->newMotorJoint(body1, body2, correction_factor_value, collide_connected);
+    j = instance()->newMotorJoint(body1, body2, correction_factor_value,
+                                  opt_boolean(collide_connected, false));
   } else {
     j = instance()->newMotorJoint(body1, body2);
   }
@@ -1472,11 +1483,12 @@ double w_PrismaticJoint_getJointSpeed(const PrismaticJoint &t) {
 }
 
 // PrismaticJoint:setMotorEnabled: w_PrismaticJoint_setMotorEnabled (wrap_PrismaticJoint.cpp:53-59).
-void w_PrismaticJoint_setMotorEnabled(PrismaticJoint &t, bool arg1) {
+void w_PrismaticJoint_setMotorEnabled(PrismaticJoint &t, BooleanArgument arg1) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
-  t.setMotorEnabled(arg1);
+  const bool arg1_value = check_boolean(arg1);
+  t.setMotorEnabled(arg1_value);
 }
 
 // PrismaticJoint:isMotorEnabled: w_PrismaticJoint_isMotorEnabled (wrap_PrismaticJoint.cpp:61-66).
@@ -1531,11 +1543,12 @@ double w_PrismaticJoint_getMaxMotorForce(const PrismaticJoint &t) {
 
 // PrismaticJoint:setLimitsEnabled: w_PrismaticJoint_setLimitsEnabled
 // (wrap_PrismaticJoint.cpp:106-112).
-void w_PrismaticJoint_setLimitsEnabled(PrismaticJoint &t, bool arg1) {
+void w_PrismaticJoint_setLimitsEnabled(PrismaticJoint &t, BooleanArgument arg1) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
-  t.setLimitsEnabled(arg1);
+  const bool arg1_value = check_boolean(arg1);
+  t.setLimitsEnabled(arg1_value);
 }
 
 // PrismaticJoint:areLimitsEnabled: w_PrismaticJoint_areLimitsEnabled
@@ -1637,11 +1650,12 @@ double w_RevoluteJoint_getJointSpeed(const RevoluteJoint &t) {
 }
 
 // RevoluteJoint:setMotorEnabled: w_RevoluteJoint_setMotorEnabled (wrap_RevoluteJoint.cpp:53-59).
-void w_RevoluteJoint_setMotorEnabled(RevoluteJoint &t, bool arg1) {
+void w_RevoluteJoint_setMotorEnabled(RevoluteJoint &t, BooleanArgument arg1) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
-  t.setMotorEnabled(arg1);
+  const bool arg1_value = check_boolean(arg1);
+  t.setMotorEnabled(arg1_value);
 }
 
 // RevoluteJoint:isMotorEnabled: w_RevoluteJoint_isMotorEnabled (wrap_RevoluteJoint.cpp:61-66).
@@ -1696,11 +1710,12 @@ double w_RevoluteJoint_getMaxMotorTorque(const RevoluteJoint &t) {
 
 // RevoluteJoint:setLimitsEnabled: w_RevoluteJoint_setLimitsEnabled
 // (wrap_RevoluteJoint.cpp:106-112).
-void w_RevoluteJoint_setLimitsEnabled(RevoluteJoint &t, bool arg1) {
+void w_RevoluteJoint_setLimitsEnabled(RevoluteJoint &t, BooleanArgument arg1) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
-  t.setLimitsEnabled(arg1);
+  const bool arg1_value = check_boolean(arg1);
+  t.setLimitsEnabled(arg1_value);
 }
 
 // RevoluteJoint:areLimitsEnabled: w_RevoluteJoint_areLimitsEnabled
@@ -1808,7 +1823,10 @@ void w_Shape_setRestitution(Shape &t, double arg1) { t.setRestitution(static_cas
 void w_Shape_setDensity(Shape &t, double arg1) { t.setDensity(static_cast<float>(arg1)); }
 
 // Shape:setSensor: w_Shape_setSensor (wrap_Shape.cpp:116-122).
-void w_Shape_setSensor(Shape &t, bool arg1) { t.setSensor(arg1); }
+void w_Shape_setSensor(Shape &t, BooleanArgument arg1) {
+  const bool arg1_value = check_boolean(arg1);
+  t.setSensor(arg1_value);
+}
 
 // Shape:getFriction: w_Shape_getFriction (wrap_Shape.cpp:124-131).
 double w_Shape_getFriction(const Shape &t) {
@@ -1956,11 +1974,12 @@ double w_WheelJoint_getJointSpeed(const WheelJoint &t) {
 }
 
 // WheelJoint:setMotorEnabled: w_WheelJoint_setMotorEnabled (wrap_WheelJoint.cpp:52-58).
-void w_WheelJoint_setMotorEnabled(WheelJoint &t, bool arg1) {
+void w_WheelJoint_setMotorEnabled(WheelJoint &t, BooleanArgument arg1) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed joint.");
   }
-  t.setMotorEnabled(arg1);
+  const bool arg1_value = check_boolean(arg1);
+  t.setMotorEnabled(arg1_value);
 }
 
 // WheelJoint:isMotorEnabled: w_WheelJoint_isMotorEnabled (wrap_WheelJoint.cpp:60-65).
@@ -2060,11 +2079,12 @@ void w_World_translateOrigin(World &t, double arg1, double arg2) {
 }
 
 // World:setSleepingAllowed: w_World_setSleepingAllowed (wrap_World.cpp:111-117).
-void w_World_setSleepingAllowed(World &t, bool b) {
+void w_World_setSleepingAllowed(World &t, BooleanArgument b) {
   if (!t.isValid()) {
     throw love::Exception("Attempt to use destroyed world.");
   }
-  t.setSleepingAllowed(b);
+  const bool b_value = check_boolean(b);
+  t.setSleepingAllowed(b_value);
 }
 
 // World:isSleepingAllowed: w_World_isSleepingAllowed (wrap_World.cpp:119-124).
@@ -2126,7 +2146,7 @@ void define_generated_physics(const Rice::Module &native) {
   Rice::define_module_under(native, "Physics")
       .define_singleton_function("set_meter", &w_setMeter, Rice::Arg("arg1"))
       .define_singleton_function("new_world", &w_newWorld, Rice::Arg("gx") = 0.0,
-                                 Rice::Arg("gy") = 0.0, Rice::Arg("sleep") = true,
+                                 Rice::Arg("gy") = 0.0, Rice::Arg("sleep") = BooleanArgument(),
                                  Rice::Return().takeOwnership())
       .define_singleton_function(
           "new_body", &w_newBody, Rice::Arg("world"), Rice::Arg("x") = 0.0, Rice::Arg("y") = 0.0,
@@ -2148,26 +2168,26 @@ void define_generated_physics(const Rice::Module &native) {
       .define_singleton_function(
           "new_distance_joint", &w_newDistanceJoint, Rice::Arg("body1"), Rice::Arg("body2"),
           Rice::Arg("x1"), Rice::Arg("y1"), Rice::Arg("x2"), Rice::Arg("y2"),
-          Rice::Arg("collide_connected") = false, Rice::Return().takeOwnership())
+          Rice::Arg("collide_connected") = BooleanArgument(), Rice::Return().takeOwnership())
       .define_singleton_function("new_gear_joint", &w_newGearJoint, Rice::Arg("joint1"),
                                  Rice::Arg("joint2"), Rice::Arg("ratio") = 1.0,
-                                 Rice::Arg("collide_connected") = false,
+                                 Rice::Arg("collide_connected") = BooleanArgument(),
                                  Rice::Return().takeOwnership())
       .define_singleton_function(
           "new_motor_joint", &w_newMotorJoint, Rice::Arg("body1"), Rice::Arg("body2"),
           Rice::Arg("correction_factor") = std::optional<double>(),
-          Rice::Arg("collide_connected") = false, Rice::Return().takeOwnership())
+          Rice::Arg("collide_connected") = BooleanArgument(), Rice::Return().takeOwnership())
       .define_singleton_function("new_mouse_joint", &w_newMouseJoint, Rice::Arg("body"),
                                  Rice::Arg("x"), Rice::Arg("y"), Rice::Return().takeOwnership())
       .define_singleton_function(
           "new_pulley_joint", &w_newPulleyJoint, Rice::Arg("body1"), Rice::Arg("body2"),
           Rice::Arg("gx1"), Rice::Arg("gy1"), Rice::Arg("gx2"), Rice::Arg("gy2"), Rice::Arg("x1"),
           Rice::Arg("y1"), Rice::Arg("x2"), Rice::Arg("y2"), Rice::Arg("ratio") = 1.0,
-          Rice::Arg("collide_connected") = true, Rice::Return().takeOwnership())
+          Rice::Arg("collide_connected") = BooleanArgument(), Rice::Return().takeOwnership())
       .define_singleton_function("new_rope_joint", &w_newRopeJoint, Rice::Arg("body1"),
                                  Rice::Arg("body2"), Rice::Arg("x1"), Rice::Arg("y1"),
                                  Rice::Arg("x2"), Rice::Arg("y2"), Rice::Arg("max_length"),
-                                 Rice::Arg("collide_connected") = false,
+                                 Rice::Arg("collide_connected") = BooleanArgument(),
                                  Rice::Return().takeOwnership())
       .define_singleton_function("meter", &w_getMeter)
       .define_singleton_function("compute_linear_stiffness", &w_computeLinearStiffness,
@@ -2226,9 +2246,9 @@ void define_generated_physics(const Rice::Module &native) {
       .define_method("reset_mass_data", &w_Body_resetMassData)
       .define_method("custom_mass_data?", &w_Body_hasCustomMassData)
       .define_method("apply_angular_impulse", &w_Body_applyAngularImpulse, Rice::Arg("i"),
-                     Rice::Arg("awake") = true)
+                     Rice::Arg("awake") = BooleanArgument())
       .define_method("apply_torque", &w_Body_applyTorque, Rice::Arg("arg"),
-                     Rice::Arg("awake") = true)
+                     Rice::Arg("awake") = BooleanArgument())
       .define_method("destroyed?", &w_Body_isDestroyed)
       .define_method("destroy", &w_Body_destroy)
       .define_method("world", &w_Body_getWorld)

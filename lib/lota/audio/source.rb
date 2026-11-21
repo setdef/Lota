@@ -216,6 +216,8 @@ module Lota
       #
       # [looping] +true+ or +false+.
       #
+      # Raises TypeError for anything else.
+      #
       # === Example
       #
       #   music.looping = true
@@ -356,7 +358,8 @@ module Lota
       # (src/modules/audio/wrap_Source.cpp, w_Source_setRelative).
       #
       # A relative Source at (0, 0, 0) plays where the listener is,
-      # wherever the listener moves. A stereo Source raises RuntimeError.
+      # wherever the listener moves. A stereo Source raises RuntimeError,
+      # and +enable+ that is not +true+ or +false+ TypeError.
       #
       # === Example
       #

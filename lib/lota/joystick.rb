@@ -67,7 +67,7 @@ module Lota
 
     # Whether controllers send events while the window does not have
     # focus, matching love.joystick.setBackgroundEvents; +false+ by
-    # default.
+    # default. Raises TypeError unless +enable+ is +true+ or +false+.
     #
     # === Example
     #

@@ -163,8 +163,8 @@ void w_setFused(bool fused) { instance()->setFused(fused); }
 bool w_isFused() { return instance()->isFused(); }
 
 // love.filesystem.setIdentity: w_setIdentity (wrap_Filesystem.cpp:80-89).
-void w_setIdentity(const std::string &arg, bool append) {
-  if (!instance()->setIdentity(arg.c_str(), append)) {
+void w_setIdentity(const std::string &arg, BooleanArgument append) {
+  if (!instance()->setIdentity(arg.c_str(), opt_boolean(append, false))) {
     throw love::Exception("Could not set write directory.");
   }
 }
@@ -184,7 +184,7 @@ std::string w_getSource() { return instance()->getSource(); }
 
 // love.filesystem.mountFullPath: w_mountFullPath (wrap_Filesystem.cpp:155-172).
 bool w_mountFullPath(const std::string &fullpath, const std::string &mountpoint,
-                     const std::optional<std::string> &permissions, bool append) {
+                     const std::optional<std::string> &permissions, BooleanArgument append) {
   auto permissions_value = Filesystem::MOUNT_PERMISSIONS_READ;
   if (permissions.has_value()) {
     const char *const permissionstr_value = required(permissions, "permissions").c_str();
@@ -193,12 +193,13 @@ bool w_mountFullPath(const std::string &fullpath, const std::string &mountpoint,
                        permissionstr_value);
     }
   }
-  return instance()->mountFullPath(fullpath.c_str(), mountpoint.c_str(), permissions_value, append);
+  return instance()->mountFullPath(fullpath.c_str(), mountpoint.c_str(), permissions_value,
+                                   opt_boolean(append, false));
 }
 
 // love.filesystem.mountCommonPath: w_mountCommonPath (wrap_Filesystem.cpp:174-195).
 bool w_mountCommonPath(const std::string &commonpath, const std::string &mountpoint,
-                       const std::optional<std::string> &permissions, bool append) {
+                       const std::optional<std::string> &permissions, BooleanArgument append) {
   Filesystem::CommonPath commonpath_value{};
   if (!Filesystem::getConstant(commonpath.c_str(), commonpath_value)) {
     raise_enum_error("common path", Filesystem::getConstants(commonpath_value), commonpath);
@@ -212,7 +213,7 @@ bool w_mountCommonPath(const std::string &commonpath, const std::string &mountpo
     }
   }
   return instance()->mountCommonPath(commonpath_value, mountpoint.c_str(), permissions_value,
-                                     append);
+                                     opt_boolean(append, false));
 }
 
 // love.filesystem.unmountFullPath: w_unmountFullPath (wrap_Filesystem.cpp:212-217).
@@ -321,7 +322,9 @@ bool w_createDirectory(const std::string &arg) { return instance()->createDirect
 bool w_remove(const std::string &arg) { return instance()->remove(arg.c_str()); }
 
 // love.filesystem.setSymlinksEnabled: w_setSymlinksEnabled (wrap_Filesystem.cpp:803-807).
-void w_setSymlinksEnabled(bool enable) { instance()->setSymlinksEnabled(enable); }
+void w_setSymlinksEnabled(BooleanArgument enable) {
+  instance()->setSymlinksEnabled(check_boolean(enable));
+}
 
 // love.filesystem.areSymlinksEnabled: w_areSymlinksEnabled (wrap_Filesystem.cpp:809-813).
 bool w_areSymlinksEnabled() { return instance()->areSymlinksEnabled(); }
@@ -337,18 +340,20 @@ void define_generated_filesystem(const Rice::Module &native) {
       .define_singleton_function("set_fused", &w_setFused, Rice::Arg("fused"))
       .define_singleton_function("fused?", &w_isFused)
       .define_singleton_function("set_identity", &w_setIdentity, Rice::Arg("arg"),
-                                 Rice::Arg("append") = false)
+                                 Rice::Arg("append") = BooleanArgument())
       .define_singleton_function("identity", &w_getIdentity)
       .define_singleton_function("save_directory", &w_getSaveDirectory)
       .define_singleton_function("create_directory", &w_createDirectory, Rice::Arg("arg"))
       .define_singleton_function("remove", &w_remove, Rice::Arg("arg"))
       .define_singleton_function("source", &w_getSource)
-      .define_singleton_function(
-          "mount_full_path", &w_mountFullPath, Rice::Arg("fullpath"), Rice::Arg("mountpoint"),
-          Rice::Arg("permissions") = std::optional<std::string>(), Rice::Arg("append") = false)
-      .define_singleton_function(
-          "mount_common_path", &w_mountCommonPath, Rice::Arg("commonpath"), Rice::Arg("mountpoint"),
-          Rice::Arg("permissions") = std::optional<std::string>(), Rice::Arg("append") = false)
+      .define_singleton_function("mount_full_path", &w_mountFullPath, Rice::Arg("fullpath"),
+                                 Rice::Arg("mountpoint"),
+                                 Rice::Arg("permissions") = std::optional<std::string>(),
+                                 Rice::Arg("append") = BooleanArgument())
+      .define_singleton_function("mount_common_path", &w_mountCommonPath, Rice::Arg("commonpath"),
+                                 Rice::Arg("mountpoint"),
+                                 Rice::Arg("permissions") = std::optional<std::string>(),
+                                 Rice::Arg("append") = BooleanArgument())
       .define_singleton_function("unmount_full_path", &w_unmountFullPath, Rice::Arg("fullpath"))
       .define_singleton_function("unmount_common_path", &w_unmountCommonPath,
                                  Rice::Arg("commonpath"))

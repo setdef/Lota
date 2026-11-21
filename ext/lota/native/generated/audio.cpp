@@ -134,9 +134,10 @@ int w_getMaxSourceEffects() { return instance()->getMaxSourceEffects(); }
 bool w_isEffectsSupported() { return instance()->isEFXsupported(); }
 
 // love.audio.setOutputSpatialization: w_setOutputSpatialization (wrap_Audio.cpp:543-550).
-bool w_setOutputSpatialization(bool enable, const std::optional<std::string> &filter) {
-  const bool success =
-      instance()->setOutputSpatialization(enable, filter.has_value() ? filter->c_str() : nullptr);
+bool w_setOutputSpatialization(BooleanArgument enable, const std::optional<std::string> &filter) {
+  const bool enable_value = check_boolean(enable);
+  const bool success = instance()->setOutputSpatialization(
+      enable_value, filter.has_value() ? filter->c_str() : nullptr);
   return success;
 }
 
@@ -156,7 +157,9 @@ Rice::Array w_getOutputSpatialization() {
 }
 
 // love.audio.setMixWithSystem: w_setMixWithSystem (wrap_Audio.cpp:578-582).
-bool w_setMixWithSystem(bool argument1) { return Audio::setMixWithSystem(argument1); }
+bool w_setMixWithSystem(BooleanArgument argument1) {
+  return Audio::setMixWithSystem(check_boolean(argument1));
+}
 
 // love.audio.getPlaybackDevice: w_getPlaybackDevice (wrap_Audio.cpp:584-591).
 std::string w_getPlaybackDevice() {
@@ -346,13 +349,17 @@ Rice::Array w_Source_getCone(const Source &t) {
 }
 
 // Source:setRelative: w_Source_setRelative (wrap_Source.cpp:236-241).
-void w_Source_setRelative(Source &t, bool enable) { t.setRelative(enable); }
+void w_Source_setRelative(Source &t, BooleanArgument enable) {
+  t.setRelative(check_boolean(enable));
+}
 
 // Source:isRelative: w_Source_isRelative (wrap_Source.cpp:243-248).
 bool w_Source_isRelative(const Source &t) { return t.isRelative(); }
 
 // Source:setLooping: w_Source_setLooping (wrap_Source.cpp:250-255).
-void w_Source_setLooping(Source &t, bool looping) { t.setLooping(looping); }
+void w_Source_setLooping(Source &t, BooleanArgument looping) {
+  t.setLooping(check_boolean(looping));
+}
 
 // Source:isLooping: w_Source_isLooping (wrap_Source.cpp:257-262).
 bool w_Source_isLooping(const Source &t) { return t.isLooping(); }
