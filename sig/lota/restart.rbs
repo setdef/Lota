@@ -5,21 +5,7 @@ module Lota
   module Restart
     type value = Variant::value
 
-    interface _Environment
-      def delete: (String name) -> String?
-    end
-
-    interface _Variables
-      def []: (String name) -> String?
-    end
-
-    VARIABLE: String
-
-    MAXIMUM_LENGTH: Integer
-
     MAXIMUM_DEPTH: Integer
-
-    IN_PROCESS: String
 
     class Unsupported < TypeError
     end
@@ -30,39 +16,13 @@ module Lota
 
     self.@value: value
 
-    self.@taken: bool
-
-    self.@command: Array[String]?
-
-    self.@directory: String?
-
-    self.@pending: String?
-
-    self.@installed: bool?
-
-    self.@arguments: Array[String]
-
-    self.@fused: bool
-
     self.@kept: [value]?
 
     self.@exit_procs: Array[Proc]?
 
     private def self.value: () -> value
 
-    private def self.encode: (Variant::carried value) -> String
-
-    private def self.decode: (String text) -> value
-
     private def self.parse: (String text) -> value
-
-    private def self.take: (?_Environment environment) -> void
-
-    private def self.remember: (Array[String] arguments, ?fused: bool) -> void
-
-    private def self.ask: (Variant::carried value, phone: bool) -> void
-
-    private def self.in_process?: (?_Variables environment) -> bool
 
     private def self.keep: (Variant::carried value) -> [value]
 
@@ -71,14 +31,6 @@ module Lota
     private def self.in_process: (^() -> String? directory) { () -> Integer } -> Integer
 
     private def self.catching_exit_procs: [T] () { () -> T } -> T
-
-    private def self.restartable?: () -> bool
-
-    private def self.request: (Variant::carried value) -> String
-
-    private def self.fused_command: (String program) -> Array[String]?
-
-    private def self.exec_pending: () -> void
 
     private def self.written: (Variant::carried value, Array[Array[Variant::carried] | Hash[Variant::carried, Variant::carried]] outer) -> String
 
@@ -89,13 +41,5 @@ module Lota
     private def self.pairs: (StringScanner scanner, Integer depth, Array[Variant::token] tokens) -> void
 
     private def self.expect: (StringScanner scanner, Regexp delimiter) -> void
-
-    private def self.install: () -> void
-
   end
-end
-
-module Kernel
-  def self?.exec: (Hash[string, string?] env, [String, String] command, *String args, ?chdir: String) -> bot
-                | ...
 end

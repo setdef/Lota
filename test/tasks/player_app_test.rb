@@ -76,12 +76,13 @@ class PlayerAppTest < Minitest::Test
   end
 
   # The entry script starts the game it is given, unfused, or the no-game
-  # screen, and remembers how it started so that it can restart.
+  # screen, which restart in the process as every game does, with nothing
+  # to remember of how they started.
   def test_the_entry_script_starts_the_game_it_is_given_or_the_no_game_screen
     script = app.__send__(:entry_script, PlayerApp::IDENTITY)
     RubyVM::InstructionSequence.compile(script)
 
-    assert_includes script, "Lota::Restart.__send__(:remember, argv)"
+    refute_includes script, ":remember"
     assert_includes script, "dropped = Lota::Native.check_drop_events"
     assert_includes script, "exit Lota::Boot.new(nil, argv).call"
     refute_includes script, "fused: true"

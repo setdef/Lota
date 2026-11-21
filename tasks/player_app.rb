@@ -128,7 +128,6 @@ class PlayerApp < Lota::Fuse
         dropped = Lota::Native.check_drop_events
         argv.unshift(dropped) unless dropped.empty?
       end
-      Lota::Restart.__send__(:remember, argv)
       exit Lota::Boot.new(nil, argv).call
     RUBY
   end

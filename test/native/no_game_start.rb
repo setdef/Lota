@@ -7,8 +7,7 @@
 
 # Starts the lota program with no game, for
 # test/native/no_game_run_test.rb, as LÖVE starts when it is given none:
-# it prints its usage and shows its no-game screen (Lota::NoGame), and
-# remembers how it started, so that it can restart.
+# it prints its usage and shows its no-game screen (Lota::NoGame).
 #
 # Once the screen has drawn its first frame, what LOTA_NO_GAME_DROP names
 # happens to it: "directory" drops the folder LOTA_NO_GAME_GAME names

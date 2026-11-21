@@ -399,7 +399,7 @@ Android's Back reaches the game as `Lota.keypressed(:escape, :acback)`, and then
 <meta-data android:name="SDL_ENV.SDL_ANDROID_TRAP_BACK_BUTTON" android:value="1" />
 ```
 
-`Lota::Event.restart` runs the game again in the app's process, as on a desktop and as LÖVE does, with `Lota.restart` holding the value. Leave `LOTA_IN_PROCESS_RESTART` unset on a phone: set to `0`, it asks for a restart that replaces the process, which neither phone allows (iOS lets no app run a program, and on Android a process that replaces itself with `exec` is no longer run as the app, as Fledge's `doc/contributors/design/phone-runtimes.md` says in "The ruby program on Android"), so the game would end as a quit ends it.
+`Lota::Event.restart` runs the game again in the app's process, as on a desktop and as LÖVE does, with `Lota.restart` holding the value.
 
 ## Sound files
 

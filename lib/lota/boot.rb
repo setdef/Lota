@@ -65,12 +65,6 @@ module Lota
     # The Lota::Settings conf.rb changed, once configure has run.
     attr_reader :settings
 
-    # The value the game asked to restart with, once call has returned
-    # because it restarted: the first argument after <tt>"restart"</tt>,
-    # which the new run reads as Lota.restart. It is +nil+ when the game
-    # did not restart, or restarted with nothing.
-    attr_reader :restart_value
-
     # Prepares to start the game in the folder +path+, or the game the
     # program's +arguments+ name.
     #
@@ -204,12 +198,6 @@ module Lota
     # love.cpp's main runs it again (Lota::Restart). Raises TypeError,
     # before anything ends, for a restart value that cannot cross.
     #
-    # When Lota::Restart::IN_PROCESS asks for exec, a restart instead ends
-    # the game with status 0 and makes #restart? true, and the process
-    # starts the game again once it exits: the command the +lota+ program
-    # remembered, or, for a fused game, the program it runs, which call
-    # remembers as it starts, with the game's arguments.
-    #
     # Once Lota.run has returned its frame, each new frame, the error
     # handler's too, goes to the event module before it first runs, as
     # boot.lua hands it to love.event._setDefaultModalDrawCallback (lines
@@ -227,8 +215,6 @@ module Lota
     #
     #   status = Lota::Boot.new("games/pong").call
     def call
-      Restart.__send__(:take)
-      Restart.__send__(:remember, @arguments, fused: true) if @fused
       arguments, given = @start
       Restart.__send__(:in_process, -> { code_directory }) do
         take_command_line(arguments, given, @no_game)
@@ -264,7 +250,6 @@ module Lota
     # Runs the game once, as boot.lua's root function does, and returns
     # its exit status.
     private def play
-      @restart = false
       Callbacks.parsed_game_arguments = @arguments.dup.freeze
       Callbacks.raw_game_arguments = @raw_arguments.dup.freeze
       @inerror = false
@@ -296,38 +281,19 @@ module Lota
       Native::Event.set_default_modal_draw_callback(frame && -> { Variant.results(frame.call) })
     end
 
-    # Whether the game ended by asking to restart, once call has returned,
-    # which it does only when Lota::Restart::IN_PROCESS asks for exec. A
-    # restart ends the game as a quit does, with status 0.
-    def restart?
-      @restart
-    end
-
     # The program's exit status for what the last frame returned
     # (love.cpp, runlove, lines 275-290): LÖVE restarts when the frame's
     # first result is the string <tt>"restart"</tt>, with the second as the
     # value for the new run, which Lota keeps for the run call starts
-    # next, or, when Lota::Restart::IN_PROCESS asks for exec, asks the
-    # process to start again with once it exits, when it knows how to
-    # start it; and otherwise exits with the first when it is a number, or
-    # 0.
+    # next; and otherwise exits with the first when it is a number, or 0.
     private def finish(retval)
       first, value = retval.is_a?(Array) ? retval : [retval]
       if first == "restart"
-        Restart.__send__(:ask, value, phone: phone?)
-        @restart = true
-        @restart_value = value
+        Restart.__send__(:keep, value)
         return 0
       end
 
       (first.is_a?(Integer) || first.is_a?(Float)) ? first.to_i : 0
-    end
-
-    # Whether the game runs on a phone, which cannot replace its process,
-    # so a game there that restarts by exec ends instead, as a quit ends
-    # it: whether love.system.getOS names iOS or Android.
-    private def phone?
-      Native::System.open? && %w[iOS Android].include?(Native::System.os)
     end
 
     # Brings the game up to the point where its loop starts, as love.boot

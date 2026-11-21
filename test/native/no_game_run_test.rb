@@ -47,9 +47,7 @@ class NoGameRunTest < Minitest::Test
 
   # Runs test/native/no_game_start.rb with LOTA_NO_GAME_DROP set to
   # +drop+ and LOTA_NO_GAME_GAME to +game+, and returns its output and
-  # Process::Status. The screen restarts as Lota restarts by default, so
-  # LOTA_IN_PROCESS_RESTART is unset: how a restart is made is
-  # restart_run_test.rb's subject, not this file's.
+  # Process::Status.
   def start_with_no_game(drop, game = GAME, environment = {})
     native = File.dirname(File.dirname(loaded("lota/native")))
     load_path = [native, File.join(ROOT, "lib")].uniq.map { |path| "-I#{path}" }.join(" ")
@@ -59,7 +57,6 @@ class NoGameRunTest < Minitest::Test
       "LOTA_RESTART_ARGUMENT" => "never",
       "LOTA_NO_GAME_GAME" => game,
       "LOTA_NO_GAME_DROP" => drop,
-      "LOTA_IN_PROCESS_RESTART" => nil,
     }.merge(environment)
     variables = ENV.to_h.merge(environment).compact.map { |name, value| "#{name}=#{value}" }
     command = [RbConfig.ruby, "-w", START]
@@ -78,7 +75,7 @@ class NoGameRunTest < Minitest::Test
   # restart].
   def logged_loads
     lines = File.exist?(@log) ? File.readlines(@log, chomp: true).grep(/\Aload /) : []
-    lines.map { |line| line.match(/pid=(\d+) arguments=(.*) restart=(.*) variable=/).captures }
+    lines.map { |line| line.match(/pid=(\d+) arguments=(.*) restart=(.*) verbose=/).captures }
   end
 
   def test_a_folder_dropped_on_the_screen_starts_as_the_game

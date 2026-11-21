@@ -6,7 +6,6 @@
 #++
 
 require_relative "version"
-require_relative "restart"
 require_relative "cli/commands/fuse"
 
 module Lota
@@ -55,7 +54,6 @@ module Lota
         Commands::Fuse.call(argv.drop(1))
         0
       else
-        Restart.__send__(:remember, argv)
         require "lota"
         Lota::Boot.new(nil, argv).call
       end

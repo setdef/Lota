@@ -341,7 +341,7 @@ module WindowsChecks
 
     loads = File.readlines(log, chomp: true).grep(/\Aload /)
     puts loads
-    values = loads.map { |line| line[/ restart=(.*) variable=/, 1] }
+    values = loads.map { |line| line[/ restart=(.*) verbose=/, 1] }
     expected = ["nil", '"café\nline"', '[1.0, {"name" => "ada"}]']
     abort "the runs read #{values.inspect}, not #{expected.inspect}" unless values == expected
 

@@ -29,15 +29,7 @@ module Lota
 
     attr_reader settings: Settings
 
-    attr_reader restart_value: Restart::value
-
-    @restart: bool
-
-    def restart?: () -> bool
-
     private def finish: (::Object? retval) -> Integer
-
-    private def phone?: () -> bool
 
     def initialize: (String? path, ?Array[String] arguments, ?fused: bool) -> void
 

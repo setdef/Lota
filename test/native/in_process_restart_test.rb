@@ -11,9 +11,9 @@ require "rbconfig"
 require "tmpdir"
 
 # A game that restarts in the same process, as LÖVE's does (src/love.cpp,
-# main), as a game does unless Lota::Restart::IN_PROCESS asks for exec:
-# each test runs the lota executable on a game in a Ruby of its own, with
-# nothing set, under rake test:native under the sanitizers, and reads the
+# main), as every game does: each test runs the lota executable on a game
+# in a Ruby of its own, under rake test:native under the sanitizers, and
+# reads the
 # log the game's runs append to. Each run must find the engine and the
 # game's own definitions fresh, as LÖVE's runs find a fresh Lua state.
 class InProcessRestartTest < Minitest::Test
@@ -51,13 +51,12 @@ class InProcessRestartTest < Minitest::Test
   # The environment every run here starts with: the load path, in
   # RUBYOPT, with RestartMarker loaded first, so each run logs how many
   # runs its Ruby has seen, which tells a run in the same Ruby from one in
-  # a Ruby of its own, as exec starts, though both keep the process id on
-  # Linux and macOS; and the log. The restart flag is left out, so that
-  # its being set where the tests run changes nothing.
+  # a Ruby of its own, as exec would start, though both would keep the
+  # process id on Linux and macOS; and the log.
   def variables
     native = File.dirname(File.dirname(loaded("lota/native")))
     load_path = [native, File.join(ROOT, "lib")].uniq.map { |path| "-I#{path}" }.push("-r#{@marker}").join(" ")
-    { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log, "LOTA_IN_PROCESS_RESTART" => nil }
+    { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log }
   end
 
   # The lines of the log: [kind, fields] for each, with the fields as a
@@ -80,6 +79,19 @@ class InProcessRestartTest < Minitest::Test
     assert_equal %w[1 2], [first["ruby_runs"], second["ruby_runs"]], "the same Ruby"
     assert_equal ["nil", "\"café\\nline\""], [first["restart"], second["restart"]]
     assert_equal [%(["string"])] * 2, [first["arguments"], second["arguments"]], "the same arguments"
+  end
+
+  # LÖVE never restarts by exec, and neither does Lota, whatever the
+  # environment holds: the variable that once asked for it changes
+  # nothing.
+  def test_no_variable_makes_a_restart_start_a_new_ruby
+    output, status = lota_run(RESTART, "string", environment: { "LOTA_IN_PROCESS_RESTART" => "0" })
+
+    assert_equal 3, status.exitstatus, output
+    first, _, second, = log.map(&:last)
+
+    assert_equal %w[1 2], [first["ruby_runs"], second["ruby_runs"]], "the same Ruby"
+    assert_equal "\"café\\nline\"", second["restart"]
   end
 
   def test_a_game_that_quits_does_not_start_again

@@ -71,9 +71,8 @@ fi
 cat > "$project/main.rb" <<RUBY
 # frozen_string_literal: true
 
-# As phones.yml's: a phone restarts a game in its process.
+# Boots the game as the entry script lota fuse writes does.
 RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
-ENV["LOTA_IN_PROCESS_RESTART"] ||= "1"
 require "lota"
 exit Lota::Boot.new(File.join(__dir__, "game", "$app"), ARGV, fused: true).call
 RUBY
