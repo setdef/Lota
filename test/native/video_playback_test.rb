@@ -58,7 +58,8 @@ class VideoPlaybackTest < Minitest::Test
     source.seek(0)
     assert_in_delta 0.5, stream.tell, 0.05
     refute_predicate stream, :playing?
-    assert_equal "wrong argument type Integer (expected Lota::Audio::Source, Lota::Video::VideoStream, or nil)",
+    # LÖVE words it "Source or VideoStream or nil" (wrap_VideoStream.cpp:57).
+    assert_equal "wrong argument type Integer (expected Lota::Audio::Source or Lota::Video::VideoStream or nil)",
       assert_raises(TypeError) { stream.sync = 3 }.message
   end
 

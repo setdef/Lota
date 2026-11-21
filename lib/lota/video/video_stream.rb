@@ -93,7 +93,7 @@ module Lota
       # The message for a +sync+ that sync= cannot keep time by, as
       # luax_typerror words what LÖVE expected.
       private def not_a_sync(sync)
-        "wrong argument type #{sync.class} (expected Lota::Audio::Source, Lota::Video::VideoStream, or nil)"
+        "wrong argument type #{sync.class} (expected Lota::Audio::Source or Lota::Video::VideoStream or nil)"
       end
 
       # The path the stream was made from, as a String, matching

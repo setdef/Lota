@@ -61,6 +61,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `Lota::Physics::World.new` lets Bodies sleep when given `nil` for `sleep`, as LÖVE does, where it took `nil` as `false`.
 - `Lota::Filesystem.identity=` and `t.appendidentity` read an `append` that is not `true` or `false` as `false`, as LÖVE does, where they took its truthiness.
 - `Lota::Physics::Body#apply_torque` and `#apply_angular_impulse` take whether to wake the Body after the amount, as LÖVE's `applyTorque` and `applyAngularImpulse` do, where they raised ArgumentError for it.
+- `Lota::Video::VideoStream#sync=` given something it cannot keep time by says what it expected in LÖVE's words, "Source or VideoStream or nil", where it listed them with commas.
 
 ## [0.5.5] - 2026-11-20
 

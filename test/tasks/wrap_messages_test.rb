@@ -55,8 +55,6 @@ class WrapMessagesTest < Minitest::Test
       "Lota raises Rice's TypeError for a filename that is not a String",
     ["Texture:newImageData", "Cannot find Graphics module."] =>
       "Lota raises its own message, that Lota::Graphics is not open, and before it reads the arguments",
-    ["VideoStream:setSync", "Source or VideoStream or nil"] =>
-      "Lota's TypeError lists the classes with a comma, not as LÖVE's words do",
     ["Source:queue", "SoundData or lightuserdata"] =>
       "Lota binds the SoundData form only; the translation rules do not say what Ruby passes for a light userdata",
   }.freeze
