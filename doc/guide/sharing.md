@@ -117,6 +117,14 @@ The game sees the archive as LÖVE's game sees a `.love`: `Lota::Filesystem` rea
 
 Lota refuses an archive it cannot unpack the same way everywhere, before it writes anything, and names the entry at fault: one that would land outside the folder, such as `../main.rb`; two names that differ only by case, which Windows and macOS cannot tell apart; a name Windows forbids, with `< > : " | ? * \` or a control character in it, ending in a dot or a space, or one of Windows' device names, such as `CON` or `aux.txt`; native code, a `.so`, `.bundle`, `.dll`, or `.dylib`, which LÖVE cannot load from a `.love` either; and a symbolic link. On Windows, where long paths are not enabled, it also refuses an entry whose path in the cache would be longer than 259 characters.
 
+Someone without Ruby plays a `.lota` with Lota's app, as someone without a terminal plays a `.love` with LÖVE's. Open the `.lota` with the app: on macOS, `open -a path/to/Lota.app "Sample Game.lota"` opens it as Finder's Open With does, through Launch Services; on Linux and Windows a desktop hands the path of a file opened with the app to its program, so give the path to the program:
+
+```console
+$ "Lota-x86_64-linux/Lota" "Sample Game.lota"
+```
+
+A game's folder opens the same way. Started with nothing, the app shows its "no game" screen; drop a `.lota` or a game's folder on its window, and the game starts in its place, as on LÖVE's. On Windows, dropping a game on the window has not been tried yet. The app plays a game as `lota run` does, from the same cache folder, unfused, and saving where `lota run` saves it, and it holds Lota, Ruby, and Ruby's standard library, and no other gems. No release carries the app yet; from a clone of Lota, `bundle exec rake player` builds it into `dist/player`, as `lota fuse` builds a game, shipping the Lota gem RubyGems installed for your platform: `Lota.app` on macOS, `Lota.exe` on Windows, and `Lota` on Linux, in their archives and installers.
+
 ## Making an app with no terminal
 
 The fuser is an app that makes a `.lota` into an app of its own, with no Ruby, Git, compiler, or network on the computer. Open the `.lota` with the fuser: on macOS choose Lota Fuser in Finder's Open With, or run `open -a "Lota Fuser" "Sample Game.lota"`; on Windows and Linux, open it with the fuser as the desktop opens a file with an app, or on Windows drop it on `Lota Fuser.exe`, either of which hands the file to the fuser's program. Or drop the `.lota` on the fuser's window. The window shows what the fuser made: the app goes beside the `.lota`, as the files `lota fuse` writes in `dist` for that platform (see [What a player gets](#what-a-player-gets)), but on Linux with an AppImage only where `mksquashfs` is installed. Games dropped while one is made wait their turn. The fuser refuses what `lota run` refuses in a `.lota`, before it writes anything, and says why.
