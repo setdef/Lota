@@ -19,9 +19,17 @@
 # LotaNativeTest.noop_rectangle (ext/lota/native_test) takes the same
 # arguments as Lota::Native::Graphics.rectangle, converted by Rice the same
 # way, and does nothing, so it times the crossing from Ruby into C++ alone.
+#
+# A phone's app carries no test-only extension, so with
+# LOTA_BENCH_NATIVE_TEST=0 the game runs without it: the scenario +noop+
+# and the single call it times are not run, and the collector's time is
+# GC.total_time's rather than the wall clock's. A LOTA_BENCH_REPORT that
+# is not an absolute path names a file in the game's save directory,
+# where a phone's game may write.
 
 require_relative "../recorder"
-require "lota_native_test"
+NATIVE_TEST = ENV.fetch("LOTA_BENCH_NATIVE_TEST", "1") != "0"
+require "lota_native_test" if NATIVE_TEST
 
 # The scenarios, one method each, so that both JITs compile each loop as
 # one method once the warm-up frames have called it often enough.
@@ -44,6 +52,8 @@ module BenchScenarios
 
   # The loop, crossing into C++ through Rice and doing nothing there.
   def self.noop
+    raise ArgumentError, "the scenario noop needs lota_native_test" unless NATIVE_TEST
+
     i = 0
     while i < DRAWS
       LotaNativeTest.noop_rectangle("fill", (i % 100) * 8, (i / 100) * 6, 4, 4)
@@ -126,7 +136,7 @@ module BenchScenarios
     green = 0.5
     blue = 0.75
     alpha = 1.0
-    {
+    calls = {
       "empty block" => -> {},
       "Lota::Graphics.width" => -> { Lota::Graphics.width },
       "Lota::Graphics.color" => -> { Lota::Graphics.color },
@@ -137,13 +147,15 @@ module BenchScenarios
       "Lota::Native::Graphics.rectangle" => -> { Lota::Native::Graphics.rectangle("fill", 8, 6, 4, 4) },
       "Lota::Graphics.rectangle" => -> { Lota::Graphics.rectangle(:fill, 8, 6, 4, 4) },
     }
+    NATIVE_TEST ? calls : calls.except("LotaNativeTest.noop_rectangle")
   end
 end
 
 SCENARIO = ENV.fetch("LOTA_BENCH_SCENARIO")
 REPORT = ENV.fetch("LOTA_BENCH_REPORT")
 RECORDER = Bench::Recorder.new(warmup: Integer(ENV.fetch("LOTA_BENCH_WARMUP", "200")),
-  frames: Integer(ENV.fetch("LOTA_BENCH_FRAMES", "2000")), gc_clock: -> { LotaNativeTest.gc_wall_time })
+  frames: Integer(ENV.fetch("LOTA_BENCH_FRAMES", "2000")),
+  gc_clock: NATIVE_TEST ? -> { LotaNativeTest.gc_wall_time } : -> { GC.total_time })
 CALL_ITERATIONS = Integer(ENV.fetch("LOTA_BENCH_CALLS", "200000"))
 unless SCENARIO == "calls" || BenchScenarios.respond_to?(SCENARIO)
   raise ArgumentError, "unknown scenario #{SCENARIO.inspect}"
@@ -174,9 +186,14 @@ module BenchReport
       "jit" => jit,
       "ruby" => RUBY_DESCRIPTION,
       "draws" => BenchScenarios::DRAWS,
+      "gc_clock" => NATIVE_TEST ? "wall" : "GC.total_time",
       **results,
     }
-    File.write(REPORT, JSON.generate(report))
+    if File.absolute_path?(REPORT)
+      File.write(REPORT, JSON.generate(report))
+    else
+      Lota::Filesystem.write(REPORT, JSON.generate(report))
+    end
     Lota::Event.quit
   end
 end

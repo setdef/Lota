@@ -338,7 +338,7 @@ module Bench
       report = File.join(@directory, "#{scenario.engine}-#{scenario.jit}-#{scenario.name}-#{index}.json")
       FileUtils.rm_f(report)
       environment = scenario.environment(@settings, report)
-      output, status = Bench.spawn(environment, scenario.command(love: @love), timeout: @timeout)
+      output, status = execute(scenario, environment, report)
       raise Failure, "#{scenario} #{stopped(environment)}; it printed:\n#{output}" unless status
       unless status&.success? && File.exist?(report)
         raise Failure, "#{scenario} failed (#{status.inspect}):\n#{output}"
@@ -350,9 +350,22 @@ module Bench
       # run that reports another JIT fails rather than being labeled with
       # the one it was asked for.
       ran = data.fetch("jit")
-      raise Failure, "#{scenario} ran under #{ran}, not #{scenario.jit}:\n#{output}" unless ran == scenario.jit
+      expected = expected_jit(scenario)
+      raise Failure, "#{scenario} ran under #{ran}, not #{expected}:\n#{output}" unless ran == expected
 
       Result.new(scenario, data)
+    end
+
+    # The JIT a run of +scenario+ must report: the one it is named for.
+    private def expected_jit(scenario)
+      scenario.jit
+    end
+
+    # Runs +scenario+'s process with +environment+, which leaves its
+    # report at +report+, and returns its output and status, as
+    # Bench.spawn does.
+    private def execute(scenario, environment, _report)
+      Bench.spawn(environment, scenario.command(love: @love), timeout: @timeout)
     end
 
     # How a run with +environment+ that ran too long was stopped, and for
@@ -362,6 +375,129 @@ module Bench
       progress = environment["LOTA_PARITY_PROGRESS"]
       frame = (progress && File.exist?(progress)) ? File.read(progress).strip : nil
       "ran past #{@timeout} s and was stopped#{frame ? " after frame #{frame}" : ''}"
+    end
+  end
+
+  # Runs the scenarios on an iPhone or iPad instead, through Xcode's
+  # devicectl, each engine's in an app of its own: tasks/bench/lota, and
+  # tasks/bench/love fused into LÖVE's own iOS app, each built for the
+  # device, signed, and installed as doc/guide/performance.md says. Each
+  # run launches the engine's app with the scenario's environment, waits
+  # until the game has written its report in its save directory, copies
+  # it to the run's report, and ends the app, which stays on the screen
+  # after its game quits. iOS lets no app compile code as it runs, so Ruby
+  # runs under its interpreter and LuaJIT with its JIT off, and a phone's
+  # app carries no test-only extension, so only the scenarios that need
+  # none run there (PHONE_SCENARIOS).
+  class Device < Runner
+    # An installed app: its bundle identifier, and its game's save
+    # directory relative to the app's data container.
+    class App < Data.define(:identifier, :save); end
+
+    # The scenarios a phone runs, by engine.
+    PHONE_SCENARIOS = {
+      "lota" => %w[ruby_noop native rectangle set_color color_writer color_reader frame calls],
+      "love" => %w[rectangle set_color color_reader calls],
+    }.freeze
+
+    # The JIT each engine reports on a phone, by the JIT its scenarios
+    # are named for.
+    PHONE_JITS = { "interpreter" => "interpreter", "luajit" => "luajit, JIT off" }.freeze
+
+    # How often a run looks for its report, in seconds.
+    POLL = 2
+
+    # [device] devicectl's name for the device: its name or identifier.
+    # [apps] The App of each engine that runs, by engine.
+    # [devicectl] The command that runs devicectl.
+    def initialize(device:, apps:, devicectl: %w[xcrun devicectl], poll: POLL, **)
+      super(love: nil, **)
+      @device = device
+      @apps = apps
+      @devicectl = devicectl
+      @poll = poll
+    end
+
+    # Lines naming the device, its system, and how its runs differ from a
+    # computer's, for Report, with +commits+, the line Machine#lines ends
+    # with. +directory+ keeps devicectl's answer.
+    def lines(commits)
+      details = File.join(@directory, "device.json")
+      FileUtils.mkdir_p(@directory)
+      output, status = devicectl("device", "info", "details", ["--json-output", details])
+      raise Failure, "devicectl could not describe #{@device}:\n#{output}" unless status&.success?
+
+      result = JSON.parse(File.read(details)).fetch("result")
+      hardware = result.fetch("hardwareProperties")
+      system = result.fetch("deviceProperties")
+      [
+        "Device: #{hardware.fetch('marketingName')} (#{hardware.fetch('productType')})",
+        "System: iOS #{system.fetch('osVersionNumber')} (#{system.fetch('osBuildUpdate')})",
+        "On the device: each app's window fills the screen, which shows each frame at its own rate, " \
+          "and neither Ruby nor LuaJIT may compile code as it runs",
+        commits,
+      ]
+    end
+
+    # The scenarios of +scenarios+ a phone runs, of the engines in +engines+.
+    def self.select(scenarios, engines)
+      scenarios.select do |scenario|
+        engines.include?(scenario.engine) && PHONE_JITS.key?(scenario.jit) &&
+          PHONE_SCENARIOS.fetch(scenario.engine).include?(scenario.name)
+      end
+    end
+
+    private def expected_jit(scenario)
+      PHONE_JITS.fetch(scenario.jit)
+    end
+
+    private def execute(scenario, environment, report)
+      app = @apps.fetch(scenario.engine)
+      name = File.basename(report)
+      environment = environment.merge("LOTA_BENCH_REPORT" => name, "LOTA_BENCH_NATIVE_TEST" => "0")
+      launched = "#{report}.launch.json"
+      options = ["--terminate-existing", "--json-output", launched, "-e", JSON.generate(environment), app.identifier]
+      output, status = devicectl("device", "process", "launch", options)
+      return [output, status] unless status&.success?
+
+      fetch(app, name, report, output)
+    ensure
+      terminate(launched) if launched
+    end
+
+    # Copies the report +name+ from +app+'s save directory to +report+
+    # once it is there, trying until the run's time is up; returns the
+    # output and status of the last try, or a +nil+ status when the time
+    # ran out.
+    private def fetch(app, name, report, launch_output)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @timeout
+      container = ["--domain-type", "appDataContainer", "--domain-identifier", app.identifier]
+      options = [*container, "--source", File.join(app.save, name), "--destination", report]
+      loop do
+        output, status = devicectl("device", "copy", "from", options)
+        return [launch_output + output, status] if status&.success? && File.exist?(report)
+        return [launch_output + output, nil] if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+        sleep @poll
+      end
+    end
+
+    # Ends the process the launch whose JSON is at +launched+ started.
+    private def terminate(launched)
+      return unless File.exist?(launched)
+
+      pid = JSON.parse(File.read(launched)).dig("result", "process", "processIdentifier")
+      devicectl("device", "process", "terminate", ["--pid", pid.to_s]) if pid
+    rescue JSON::ParserError
+      nil
+    end
+
+    # Runs devicectl's command +words+ (three, such as "device copy from")
+    # on the device with +options+. The device is named before the
+    # options, since a launch takes what follows the app as the app's
+    # arguments.
+    private def devicectl(*words, options)
+      Bench.spawn({}, [*@devicectl, *words, "--device", @device, *options], timeout: @timeout)
     end
   end
 

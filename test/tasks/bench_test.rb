@@ -290,6 +290,130 @@ class BenchTest < Minitest::Test
     end
   end
 
+  # A stand-in for devicectl, in +dir+, with each app's data container in
+  # +dir+/containers/IDENTIFIER: launching an app logs its arguments, and,
+  # unless +writes+ is false, writes the scenario's report where the game
+  # would, in its save directory, save/, named by LOTA_BENCH_REPORT, with
+  # the JIT an engine reports on a phone, and says the process it started
+  # is 42, as devicectl's --json-output does; describing the device writes
+  # what devicectl says of an iPhone; copying from a container copies the
+  # file there, failing while it is missing; and ending a process logs it.
+  def stand_in_devicectl(dir, writes: true)
+    write(dir, "devicectl.rb", <<~RUBY)
+      require "json"
+      require "fileutils"
+      args = ARGV
+      File.open(#{File.join(dir, 'log').dump}, "a") { |log| log.puts(args.join(" ")) }
+      value = ->(name) { args[args.index(name) + 1] }
+      containers = #{File.join(dir, 'containers').dump}
+      case args[0..2]
+      in ["device", "process", "launch"]
+        File.write(value["--json-output"], JSON.generate("result" => { "process" => { "processIdentifier" => 42 } }))
+        env = JSON.parse(value["-e"])
+        if #{writes}
+          identifier = args[args.index("-e") + 2]
+          report = File.join(containers, identifier, "save", env.fetch("LOTA_BENCH_REPORT"))
+          FileUtils.mkdir_p(File.dirname(report))
+          jit = identifier.end_with?("Love") ? "luajit, JIT off" : "interpreter"
+          File.write(report, JSON.generate("scenario" => env.fetch("LOTA_BENCH_SCENARIO"), "jit" => jit,
+            "draws" => 10, "draw" => [identifier.end_with?("Love") ? 0.1 : 0.2], "frame" => [0.5]))
+        end
+      in ["device", "info", "details"]
+        File.write(value["--json-output"], JSON.generate("result" => {
+          "hardwareProperties" => { "marketingName" => "iPhone 12 mini", "productType" => "iPhone13,1" },
+          "deviceProperties" => { "osVersionNumber" => "27.0", "osBuildUpdate" => "24A437" },
+        }))
+      in ["device", "copy", "from"]
+        source = File.join(containers, value["--domain-identifier"], value["--source"])
+        abort "no such file" unless File.exist?(source)
+        FileUtils.cp(source, value["--destination"])
+      else
+        nil
+      end
+    RUBY
+    [RbConfig.ruby, File.join(dir, "devicectl.rb")]
+  end
+
+  # Lota's and LÖVE's apps, as the stand-in devicectl keeps them.
+  def apps
+    {
+      "lota" => Bench::Device::App.new(identifier: "com.example.Bench", save: "save"),
+      "love" => Bench::Device::App.new(identifier: "com.example.BenchLove", save: "save"),
+    }
+  end
+
+  def device_runner(dir, devicectl, timeout: 30)
+    Bench::Device.new(device: "phone", apps:, devicectl:, poll: 0.1, timeout:,
+      settings: Bench::Settings.from("BENCH_RUNS" => "1"), directory: File.join(dir, "runs"), out: StringIO.new)
+  end
+
+  def test_a_phone_runs_each_scenario_in_its_engines_app_and_copies_the_report_from_its_save_directory
+    in_tree do |dir|
+      lota = Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "rectangle")
+      love = Bench::Scenario.new(engine: "love", jit: "luajit", name: "rectangle")
+      results = device_runner(dir, stand_in_devicectl(dir)).call([lota, love])
+      launch, copy, terminate, love_launch = File.readlines(File.join(dir, "log"), chomp: true)
+      environment = JSON.parse(launch[/-e (\{.*\}) /, 1])
+
+      assert_equal [0.2, 0.1], results.map(&:draw)
+      assert_match(/\Adevice process launch --device phone --terminate-existing --json-output \S+ -e .* com.example.Bench\z/,
+        launch)
+      assert_match(/ com.example.BenchLove\z/, love_launch)
+      assert_equal "lota-interpreter-rectangle-1.json", environment.fetch("LOTA_BENCH_REPORT")
+      assert_equal "0", environment.fetch("LOTA_BENCH_NATIVE_TEST")
+      assert_equal "rectangle", environment.fetch("LOTA_BENCH_SCENARIO")
+      assert_match(%r{\Adevice copy from --device phone --domain-type appDataContainer --domain-identifier com.example.Bench --source save/lota-interpreter-rectangle-1.json --destination \S+\z},
+        copy)
+      assert_equal "device process terminate --device phone --pid 42", terminate
+    end
+  end
+
+  # LuaJIT runs with its JIT off on iOS, so on a phone LÖVE's runs report
+  # that; anything else, LuaJIT's JIT on among them, still fails the run.
+  def test_a_phone_run_fails_when_it_reports_another_jit_than_a_phone_has
+    in_tree do |dir|
+      apps = { "lota" => Bench::Device::App.new(identifier: "com.example.BenchLove", save: "save") }
+      runner = Bench::Device.new(device: "phone", apps:, devicectl: stand_in_devicectl(dir), poll: 0.1, timeout: 30,
+        settings: Bench::Settings.from("BENCH_RUNS" => "1"), directory: File.join(dir, "runs"), out: StringIO.new)
+      scenario = Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "rectangle")
+      error = assert_raises(Bench::Failure) { runner.call([scenario]) }
+
+      assert_includes error.message, "ran under luajit, JIT off, not interpreter"
+    end
+  end
+
+  def test_a_phone_run_whose_report_never_comes_fails_once_its_time_is_up_and_ends_the_app
+    in_tree do |dir|
+      scenario = Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "rectangle")
+      runner = device_runner(dir, stand_in_devicectl(dir, writes: false), timeout: 1)
+      error = assert_raises(Bench::Failure) { runner.call([scenario]) }
+
+      assert_includes error.message, "ran past 1 s"
+      assert_equal "device process terminate --device phone --pid 42", File.readlines(File.join(dir, "log"), chomp: true).last
+    end
+  end
+
+  def test_a_phone_is_named_by_its_model_and_system_as_devicectl_describes_it
+    in_tree do |dir|
+      lines = device_runner(dir, stand_in_devicectl(dir)).lines("Lota: abc; LÖVE: def")
+
+      assert_equal ["Device: iPhone 12 mini (iPhone13,1)", "System: iOS 27.0 (24A437)"], lines.first(2)
+      assert_equal "Lota: abc; LÖVE: def", lines.last
+      assert_equal "device info details --device phone --json-output #{File.join(dir, 'runs', 'device.json')}",
+        File.read(File.join(dir, "log")).chomp
+    end
+  end
+
+  def test_a_phone_runs_the_interpreters_and_luajits_scenarios_that_need_no_test_extension
+    lota = Bench::Device.select(Bench::Scenario.all, %w[lota]).map(&:to_s)
+    both = Bench::Device.select(Bench::Scenario.all, %w[lota love]).map(&:to_s)
+
+    assert_equal %w[ruby_noop native rectangle set_color color_writer color_reader frame calls].map { |name|
+      "lota #{name} (interpreter)"
+    }, lota
+    assert_equal lota + %w[rectangle set_color color_reader calls].map { |name| "love #{name} (luajit)" }, both
+  end
+
   # The run has ten seconds, not a fraction of one, to print before it is
   # killed, so a busy machine that is slow to start sh does not kill it
   # before it has printed anything; its sleep outlasts any machine.

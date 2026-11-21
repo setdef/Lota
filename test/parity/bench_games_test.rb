@@ -68,6 +68,45 @@ class BenchGamesTest < Minitest::Test
     assert_match(%r{^LÖVE +luajit +[\d.]+/[\d.]+/[\d.]+ +\d+ +1\.00x }, report)
   end
 
+  # Runs +scenario+ once, as a phone runs it: with +environment+ added and
+  # its report named by a relative path, under a home of its own. Returns
+  # the report, found under that home, its output, and its status.
+  def run_in_save_directory(scenario, environment = {})
+    love = ENV.fetch("LOTA_REFERENCE_LOVE", "love")
+    Dir.mktmpdir("lota-bench-home") do |home|
+      env = scenario.environment(SETTINGS, "report.json").merge(environment).merge(
+        "HOME" => home, "XDG_DATA_HOME" => File.join(home, "share"), "CFFIXED_USER_HOME" => home,
+      )
+      output, status = Bench.spawn(env, scenario.command(love:), timeout: 120)
+      reports = Dir.glob("**/report.json", base: home)
+      [(reports.size == 1) ? JSON.parse(File.read(File.join(home, reports.first))) : reports, output, status]
+    end
+  end
+
+  def test_each_game_writes_a_relative_report_in_its_save_directory
+    %w[lota love].each do |engine|
+      jit = (engine == "lota") ? "interpreter" : "luajit"
+      report, output, status = run_in_save_directory(Bench::Scenario.new(engine:, jit:, name: "rectangle"))
+
+      assert status&.success?, "#{engine}: #{output}"
+      assert_equal [3, 3], [report.fetch("draw").size, report.fetch("frame").size], engine
+    end
+  end
+
+  def test_lota_runs_without_its_test_extension_as_a_phone_does
+    phone = { "LOTA_BENCH_NATIVE_TEST" => "0" }
+    calls, = run_in_save_directory(Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "calls"), phone)
+    frames, = run_in_save_directory(Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "frame"), phone)
+    _, output, status = run_in_save_directory(Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "noop"), phone)
+
+    refute_includes calls.fetch("calls").keys, "LotaNativeTest.noop_rectangle"
+    assert_includes calls.fetch("calls").keys, "Lota::Graphics.rectangle"
+    assert_equal "GC.total_time", frames.fetch("gc_clock")
+    assert_equal 3, frames.fetch("frame_gc_ns").size
+    refute status&.success?
+    assert_match(/the scenario noop needs lota_native_test/, output)
+  end
+
   def test_lota_runs_under_the_jit_it_was_asked_for
     results = run_scenarios(%w[yjit zjit].map { |jit| Bench::Scenario.new(engine: "lota", jit:, name: "rectangle") })
 

@@ -4,7 +4,9 @@
 -- rake bench's game for the reference love (tasks/bench.rb), measurement
 -- code written for the benchmark, as tasks/bench/lota/main.rb is Lota's.
 -- It runs one scenario, named by LOTA_BENCH_SCENARIO, and writes what it
--- measured to LOTA_BENCH_REPORT as JSON, then quits.
+-- measured to LOTA_BENCH_REPORT as JSON, then quits. A LOTA_BENCH_REPORT
+-- that is not an absolute path names a file in the game's save
+-- directory, where a phone's game may write.
 --
 -- Each frame scenario makes LOTA_BENCH_DRAWS calls from love.draw, in the
 -- same loop as the Ruby game, so the two engines draw the same
@@ -99,9 +101,13 @@ local function write(results)
   results.lua = jit and jit.version or _VERSION
   results.renderer = table.concat({ name, version, vendor, device }, ", ")
   results.draws = DRAWS
-  local file = assert(io.open(REPORT, "w"))
-  file:write(encode(results))
-  file:close()
+  if REPORT:sub(1, 1) == "/" then
+    local file = assert(io.open(REPORT, "w"))
+    file:write(encode(results))
+    file:close()
+  else
+    assert(love.filesystem.write(REPORT, encode(results)))
+  end
   love.event.quit()
 end
 
