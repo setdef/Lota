@@ -18,7 +18,7 @@ module Lota
 
     def self.main: (String entry, Array[String] arguments, ?out: IO | StringIO, ?err: IO | StringIO) -> Integer
 
-    def self.usage: (IO | StringIO err) -> Integer
+    private def self.usage: (IO | StringIO err) -> Integer
 
     def self.app_folder: (String entry) -> String
 

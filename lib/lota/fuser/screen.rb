@@ -7,7 +7,12 @@
 
 require "rbconfig"
 require "tmpdir"
-require_relative "../fuser"
+
+# Not require_relative "../fuser": RubyGems 4.1's gem build joins a
+# relative path without resolving "..", finds no such file in the gem,
+# and warns that it loads a compiled extension
+# (Gem::SpecificationPolicy#validate_extension_require_relative).
+require "lota/fuser"
 
 module Lota
   class Fuser
