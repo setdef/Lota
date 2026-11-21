@@ -431,6 +431,13 @@ jobs:
           project="$RUNNER_TEMP/from-project"
           mkdir -p "$project/game"
           cp -R test/games/fuser "$project/game/FuserCheck"
+          # The app made carries the notices of the app it is made from,
+          # as a file of its project, which is how the fuser passes them on.
+          case "$RUNNER_OS" in
+            macOS) notices="$root/$name.app/Contents/Resources/app/NOTICES.txt" ;;
+            *) notices="$root/app/NOTICES.txt" ;;
+          esac
+          cp "$notices" "$project/NOTICES.txt"
           ruby -I lib -r lota -r lota/fuse -e 'print Lota::Fuse.entry_script("FuserCheck")' > "$project/main.rb"
           printf 'name: Sample Game\nkind: windowed\nidentifier: com.example.SampleGame\n' > "$project/fledge.yml"
           BUNDLE_GEMFILE="$RUNNER_TEMP/player/fuse-tools/Gemfile" bundle exec fledge build --from "$root" --out "$RUNNER_TEMP/dist" "$project"
