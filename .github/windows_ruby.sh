@@ -20,7 +20,7 @@
 #
 # The caller puts the bin folder first on PATH, and names the MSYS2
 # MINGW bin folder in RUBY_DLL_PATH: RubyInstaller's head build carries
-# no zlib1.dll, which its zlib extension needs, and its runtime searches
+# no libz-1.dll, which its zlib extension imports, and its runtime searches
 # that variable's folders first.
 set -euo pipefail
 arch=${1:?usage: windows_ruby.sh ARCH CACHE}

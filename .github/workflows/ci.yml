@@ -838,7 +838,7 @@ jobs:
           persist-credentials: false
 
       # setup-ruby's MSYS2 toolchain, whose MINGW bin folder holds the
-      # zlib1.dll RubyInstaller's head build does not carry, and then the
+      # libz-1.dll RubyInstaller's head build does not carry, and then the
       # Ruby windows_ruby.env pins, first on the PATH (doc/contributors/windows.md).
       - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:

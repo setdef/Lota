@@ -9,7 +9,7 @@ Lota ships gems for Windows on x64 and ARM64, for RubyInstaller's Ruby. That Rub
 
 RubyInstaller publishes no Ruby 4.1 preview, so until it releases Ruby 4.1, Lota's Windows Ruby is its head build, which it rebuilds from Ruby's master every day under one URL ([packaging.md](design/packaging.md), "Platform gems"). Two days' builds can differ in ABI (`RbConfig::CONFIG["ruby_version"]`, such as `4.1.0+6`), and a gem built on one need not load in the other, so Lota pins the copy of the head build that Fledge's release keeps, the one its Windows runtime is made from. `.github/windows_ruby.env` names that copy's URL, SHA-256, and `ruby_version` for each architecture, and `.github/windows_ruby.sh` downloads it, checks both, and unpacks it. Every Windows job takes its Ruby from there (`.github/actions/windows-ruby`), and so does the pre-push script below, so CI, a push from your own computer, and a fused app run the same Ruby. Move the pin with `Lota::Fuse::FLEDGE_REF`.
 
-The head build carries no `zlib1.dll`, which its zlib extension loads, so a Windows job sets MSYS2 up before Ruby runs and names MSYS2's MINGW `bin` folder in `RUBY_DLL_PATH`, which RubyInstaller's runtime adds before any other to where Windows looks for DLLs.
+The head build carries no `libz-1.dll`, which its zlib extension loads (it carries a `zlib1.dll`, but beside the extension, where nothing imports it), so a Windows job sets MSYS2 up before Ruby runs and names MSYS2's MINGW `bin` folder in `RUBY_DLL_PATH`, which RubyInstaller's runtime adds before any other to where Windows looks for DLLs.
 
 ## Windows has checks of its own, outside the gate
 

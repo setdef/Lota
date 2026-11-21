@@ -13,7 +13,7 @@ Once RubyInstaller releases Ruby 4.1, a Windows game takes a released RubyInstal
 
 ## Install MSYS2
 
-RubyInstaller's Ruby is built with MinGW, from [MSYS2](https://www.msys2.org/)'s toolchains. MSYS2 compiles any gem with a C extension. The head build also loads `zlib1.dll` from it: the build does not carry that library, and without it `require "zlib"` fails, and so does every `gem install`, since a `.gem` file is compressed.
+RubyInstaller's Ruby is built with MinGW, from [MSYS2](https://www.msys2.org/)'s toolchains. MSYS2 compiles any gem with a C extension. The head build also loads `libz-1.dll` from it: its zlib extension needs that library and the build does not carry it, and without it `require "zlib"` fails, and so does every `gem install`, since a `.gem` file is compressed.
 
 Install MSYS2 with the installer from msys2.org, in its default folder, `C:\msys64`. Install it on its own rather than through RubyInstaller's `ridk install` with option 1, which puts MSYS2 inside the Ruby's own folder, which a new pin of Ruby replaces. You install MSYS2's compiler once Ruby is in place ([below](#point-ruby-at-msys2)).
 
@@ -74,13 +74,13 @@ On ARM64 Windows, RubyInstaller's Ruby uses MSYS2's CLANGARM64 environment, so n
 ridk install 2 3
 ```
 
-Step 2 updates MSYS2, and step 3 installs its MinGW toolchain, `zlib1.dll` among it. Then check that Ruby loads zlib:
+Step 2 updates MSYS2, and step 3 installs its MinGW toolchain, `libz-1.dll` among it. Then check that Ruby loads zlib:
 
 ```powershell
 ruby -rzlib -e 'puts Zlib.zlib_version'
 ```
 
-It prints zlib's version. Without MSYS2, it stops with `126: The specified module could not be found` and names `zlib.so`: Windows found Ruby's zlib extension, but not the `zlib1.dll` it needs.
+It prints zlib's version. Without MSYS2, it stops with `126: The specified module could not be found` and names `zlib.so`: Windows found Ruby's zlib extension, but not the `libz-1.dll` it needs.
 
 Either variable alone fixes `require "zlib"`. `MSYS2_PATH` also matters when a gem compiles: without it, a Ruby that cannot find your MSYS2 puts no compiler on the `PATH`, and a gem's build fails unless you compile from a shell of MSYS2's own, whose `PATH` already has one.
 
