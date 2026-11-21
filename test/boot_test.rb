@@ -40,52 +40,6 @@ class BootTest < Minitest::Test
     assert_equal File.expand_path("games/pong"), Lota::Boot.new("games/pong").directory
   end
 
-  # LÖVE given no game looks in no folder for one (boot.lua:156-170), not
-  # even the one it runs in.
-  def test_with_no_game_there_is_no_folder_and_conf_rb_beside_it_is_not_loaded
-    write("conf.rb", "raise 'conf.rb was loaded'\n")
-    no_game = Lota::Boot.no_game
-
-    assert_nil no_game.directory
-    Dir.chdir(@directory) { assert_nil no_game.configure }
-    refute no_game.__send__(:no_game_code?)
-  end
-
-  # boot.lua:51-60: the path nogame.lua restarts with goes first in arg,
-  # ahead of whatever was there, so it is the game's.
-  def test_a_game_dropped_on_the_no_game_screen_is_the_game_it_restarts_into
-    dropped = { "_noGameRestartInfo" => { "gamepath" => "games/pong" } }
-    no_game = Lota::Boot.no_game(["level2"])
-    no_game.__send__(:start_dropped_game, dropped)
-
-    assert_equal File.expand_path("games/pong"), no_game.directory
-    assert_equal ["games/pong", ["level2"]], [no_game.instance_variable_get(:@path), no_game.instance_variable_get(:@arguments)]
-
-    with_game = Lota::Boot.new("games/chess", ["level2"])
-    with_game.__send__(:start_dropped_game, dropped)
-
-    assert_equal File.expand_path("games/pong"), with_game.directory
-    assert_equal %w[games/chess level2], with_game.instance_variable_get(:@arguments)
-  end
-
-  # Any other value, such as one a dropped game restarts with itself,
-  # starts with no game again, as each of LÖVE's runs starts from the
-  # program's own arguments (src/love.cpp, main).
-  def test_any_other_restart_value_leaves_the_game_alone
-    [
-      nil,
-      "games/pong",
-      { "gamepath" => "games/pong" },
-      { "_noGameRestartInfo" => "games/pong" },
-      { "_noGameRestartInfo" => { "gamepath" => 1.0 } },
-    ].each do |value|
-      no_game = Lota::Boot.no_game
-      no_game.__send__(:start_dropped_game, value)
-
-      assert_nil no_game.directory, value.inspect
-    end
-  end
-
   def test_without_conf_the_settings_are_loves_defaults
     assert_nil boot.configure
 

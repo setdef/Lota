@@ -10,10 +10,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-### Changed
-
-- `lota run` given a file that is not a `.lota` prints its usage and opens a window that shows the error, as `love` does with a file it cannot load, where it printed the error and exited before opening one.
-
 ### Fixed
 
 - `Lota::Graphics.draw` and `.draw_layer` given `nil` in place of the quad, then a `Lota::Math::Transform`, report the missing quad, as LÖVE does, where they reported the Transform.

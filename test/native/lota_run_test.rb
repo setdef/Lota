@@ -9,7 +9,6 @@ require_relative "native_helper"
 require_relative "../engine_helper"
 require_relative "../lovetest/lovetest_skips"
 require "json"
-require "lota/cli"
 require "rbconfig"
 require "tmpdir"
 require_relative "../../tasks/package_check"
@@ -1105,21 +1104,16 @@ class LotaRunTest < Minitest::Test
     end
   end
 
-  # A file that PhysFS cannot mount is no game: as boot.lua does with a
-  # path it cannot load, Lota prints its usage, starts the no-game
-  # screen's settings, and raises the path's error once the window is
-  # open, which the error screen shows (boot.lua:123-127, 156-170, and
-  # 453-455).
+  # A file that PhysFS cannot mount is no game, and is reported with the
+  # message boot.lua gives a path it cannot load (boot.lua:453-455).
   def test_a_file_that_is_not_a_lota_archive_is_no_game
     in_game("notes.txt" => "not a zip\n") do |directory|
       file = File.join(directory, "notes.txt")
-      output, status = lota_run(file, preload: QUIT_ON_ERROR)
+      output, status = lota_run(file)
 
       assert_equal 1, status.exitstatus, output
-      assert output.start_with?(Lota::CLI.usage), output
       assert_includes output, "Cannot load game at path '#{file}'."
       assert_includes output, "\nMake sure a folder exists at the specified path.\n"
-      assert output.end_with?("error screen shown\n"), output
     end
   end
 

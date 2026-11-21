@@ -32,19 +32,15 @@ module Lota
 
       # Takes away what the game in the folder +directory+ added since the
       # snapshot, and puts back what it changed of Lota's. A file's place is
-      # its real path, as +require+ records it. With no folder, as when
-      # Lota ran with no game (Lota::NoGame), no file was the game's, and
-      # only what it set on Lota and its globals go.
+      # its real path, as +require+ records it.
       def restore(directory)
+        prefix = File.join(File.realpath(directory), "")
         restore_callbacks
         restore_variables
         remove_module_variables
-        clear_globals
-        return unless directory
-
-        prefix = File.join(File.realpath(directory), "")
         @constants.each { |namespace, names| remove_constants(namespace, names, prefix) }
         remove_methods(prefix)
+        clear_globals
         $LOADED_FEATURES.reject! { |feature| feature.start_with?(prefix) }
         nil
       end
