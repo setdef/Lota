@@ -136,6 +136,7 @@ PREPUSH_LEAVES_OUT = %w[
   NativeGemTest#test_a_bundled_library_the_record_lacks_stops_the_build
   LicensingBundleTest
   BenchTest#test_spawn_kills_a_run_that_takes_too_long
+  HungProcessTest
   GeneratorTest#test_the_drift_gate_reports_edited_missing_and_stale_files
   GeneratorTest#test_the_committed_bindings_match_the_generator
   ArkanoidTest

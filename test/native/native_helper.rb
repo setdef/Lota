@@ -7,6 +7,7 @@
 
 require_relative "../test_helper"
 require "io/nonblock"
+require_relative "hung_process"
 
 # The test-only extension (ext/lota/native_test) is never copied into lib;
 # it stays in the build tree that compiled it. It goes last on the load
@@ -95,14 +96,17 @@ module NativeHelper
     reader&.close
   end
 
-  # What +reader+ reads until the process +pid+ closes it, which kills the
-  # process once +timeout+ seconds pass first, as a deadlocked one would
-  # never end; the output says so.
+  # What +reader+ reads until the process +pid+ closes it. Once +timeout+
+  # seconds pass first, as a deadlocked process would never end, it says
+  # where the process hung, then kills it and every process under it
+  # (HungProcess); the output says so.
   def read_with_timeout(reader, pid, timeout)
     output = Thread.new { reader.read }
     unless output.join(timeout)
-      Process.kill(:KILL, pid)
-      return "#{output.value}\n(killed after #{timeout} seconds)\n"
+      hung = HungProcess.new(pid)
+      report = hung.to_s
+      hung.kill
+      return "#{output.value}\n#{report}\n(killed after #{timeout} seconds)\n"
     end
     output.value.gsub(ASAN_NO_RETURN_NOTICE, "")
   end
