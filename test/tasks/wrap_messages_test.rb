@@ -51,8 +51,6 @@ class WrapMessagesTest < Minitest::Test
   # why each is still open. The check fails for a message named here
   # that Lota has since gained, so the list shrinks as each is settled.
   OPEN = {
-    ["Texture:newImageData", "Cannot find Graphics module."] =>
-      "Lota raises its own message, that Lota::Graphics is not open, and before it reads the arguments",
     ["Source:queue", "SoundData or lightuserdata"] =>
       "Lota binds the SoundData form only; the translation rules do not say what Ruby passes for a light userdata",
   }.freeze

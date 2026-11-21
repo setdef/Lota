@@ -876,7 +876,12 @@ bound_by_hand "love.graphics.newTextureView",
 bound_by_hand "Texture:newImageData",
   reason: "reads its slice only for a texture that is not 2D, and its rectangle only when given, as " \
     "love.graphics.readbackTexture; Lota binds the arguments after the texture as an Array, and " \
-    "Lota::Graphics::Texture#new_image_data marks it deprecated"
+    "Lota::Graphics::Texture#new_image_data marks it deprecated",
+  unraised: {
+    "Cannot find Graphics module." => "raised when no graphics module is open (wrap_Texture.cpp:447-449); only an " \
+      "open Lota::Graphics makes a Texture, and Lota::Native.close_modules releases every object before it closes " \
+      "a module, so no Texture is left to call it on then",
+  }
 bound_by_hand "love.graphics.setNewFont",
   reason: "returns what w_newFont, bound by hand, returns, then sets the font it pushed; " \
     "Lota::Graphics.set_new_font makes the font with Lota::Graphics::Font.new, sets it, returns it, and marks " \
