@@ -10,7 +10,8 @@
 #
 # One difference is forgiven, and said: the name of the temporary folder
 # fledge build compiles a gem's extension in (Dir.mktmpdir's
-# ".fledge-build-DATE-PID-RANDOM"), which a compiler's debug information
+# "fledge-buildDATE-PID-RANDOM" in Fledge v0.14.0, and
+# ".fledge-build-DATE-PID-RANDOM" before it), which a compiler's debug information
 # records and which no two builds share. A member that differs in
 # anything else fails.
 #
@@ -20,7 +21,7 @@
 # Usage: ruby same_members.rb ONE.a TWO.a
 
 # Fledge's temporary build folder's name, which differs in every build.
-FLEDGE_WORK = /\.fledge-build-\d{8}-\d+-[a-z0-9]+/n
+FLEDGE_WORK = /\.?fledge-build-?\d{8}-\d+-[a-z0-9]+/n
 
 def members(path)
   data = File.binread(path)
