@@ -197,6 +197,7 @@ module Lota
       when Array then sources(Variant.ruby(argument))
       when Native::Joystick::Joystick then Joystick::Joystick.__send__(:from_native, argument)
       when Native::Thread::Thread then Thread::Thread.__send__(:from_native, argument)
+      when Native::File then Filesystem::File.__send__(:from_native, argument)
       else
         argument
       end

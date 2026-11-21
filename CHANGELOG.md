@@ -19,6 +19,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **Breaking:** `Lota::Event.restart` runs the game again in its process on every platform, as LÖVE's restart does, where it replaced the process with `exec`: a game on iPhone, iPad, or Android restarts where it ended, a game in the macOS App Sandbox restarts where macOS 15 killed it, `Lota::Boot#call` runs the game again where it returned, and on Windows the process keeps its id. What a game changed outside its own files, such as a built-in class or a gem it loaded, stays from one run to the next; `LOTA_IN_PROCESS_RESTART=0` restarts by `exec` as before.
 
+### Fixed
+
+- `Lota.filedropped` receives the file dropped on the window, or opened with a fused app on macOS, as a `Lota::Filesystem::File`, as LÖVE's `love.filedropped` does, where handling the event raised RuntimeError.
+
 ## [0.7.0] - 2026-11-21
 
 ### Fixed

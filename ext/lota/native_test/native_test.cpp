@@ -601,6 +601,25 @@ void push_mouse_click(bool down, Rice::Array position) {
   push(button);
 }
 
+// SDL's event for the file or folder at +path+ dropped on the window at
+// (10.5, 20.25), as SDL's Cocoa delegate sends a file opened with the app
+// (SDL 3.4.10, src/video/cocoa/SDL_cocoaevents.m, application:openFile:).
+// SDL frees only the strings it made itself, so the path is kept until
+// the next drop.
+void push_drop(const std::string &path) {
+  constexpr float drop_x = 10.5F;
+  constexpr float drop_y = 20.25F;
+  static std::string dropped;
+  dropped = path;
+  SDL_Event drop{};
+  drop.drop.type = SDL_EVENT_DROP_FILE;
+  drop.drop.windowID = first_window_id();
+  drop.drop.x = drop_x;
+  drop.drop.y = drop_y;
+  drop.drop.data = dropped.c_str();
+  push(drop);
+}
+
 // The ids of the touch devices SDL knows. SDL adds SDL_MOUSE_TOUCHID among
 // them exactly while it turns mouse events into touches
 // (SDL_HINT_MOUSE_TOUCH_EVENTS, SDL 3.4.10, src/events/SDL_mouse.c,
@@ -1283,6 +1302,7 @@ extern "C" __attribute__((visibility("default"))) void Init_lota_native_test() {
                               Rice::Arg("position"))
       .define_module_function("push_mouse_click", &push_mouse_click, Rice::Arg("down"),
                               Rice::Arg("position"))
+      .define_module_function("push_drop", &push_drop, Rice::Arg("path"))
       .define_module_function("touch_devices", &touch_devices)
       .define_module_function("attach_virtual_joystick", &attach_virtual_joystick,
                               Rice::Arg("gamepad"), Rice::Arg("name"))

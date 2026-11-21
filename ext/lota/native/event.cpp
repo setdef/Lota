@@ -13,6 +13,7 @@
 #include "common/Variant.h"
 #include "event/Event.h"
 #include "event/sdl/Event.h"
+#include "filesystem/File.h"
 #include "joystick/Joystick.h"
 
 #include <SDL3/SDL_begin_code.h>
@@ -168,9 +169,11 @@ bool is_open() { return love::Module::getInstance<Event>(love::Module::M_EVENT) 
 // a modal draw callback make of a function, becomes nil, as
 // luax_pushvariant's default pushes. An engine object becomes its one
 // Ruby wrapper (WrapperIdentities, native/binding.hpp), as luax_pushtype
-// pushes the one userdata Lua keeps for it. LÖVE's engine puts three
+// pushes the one userdata Lua keeps for it. LÖVE's engine puts four
 // kinds in a message: joysticks, which its event module does
-// (event/sdl/Event.cpp:618-757), the Sources that stopped when the audio
+// (event/sdl/Event.cpp:618-757), the File of a filedropped message, which
+// it opens closed on the dropped path (event/sdl/Event.cpp:536-565), the
+// Sources that stopped when the audio
 // device went away, in the table of an audiodisconnected message
 // (audio/openal/Pool.cpp:33-41 and 126-133), and a thread that ended
 // with an error, in a threaderror message (LuaThread::onError, which
@@ -208,6 +211,9 @@ const Variant::SharedTable *push_value(Rice::Array &result, const Variant &varia
       result.push(dynamic_cast<love::audio::Source *>(data.objectproxy.object), false);
     } else if (data.objectproxy.type != nullptr && data.objectproxy.type->isa(Thread::type)) {
       result.push(dynamic_cast<Thread *>(data.objectproxy.object), false);
+    } else if (data.objectproxy.type != nullptr &&
+               data.objectproxy.type->isa(love::filesystem::File::type)) {
+      result.push(dynamic_cast<love::filesystem::File *>(data.objectproxy.object), false);
     } else {
       throw love::Exception("Lota cannot pass this event's arguments to Ruby yet.");
     }
