@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-21
+
 ### Added
 
 - `lota path/to/file.rb` runs that Ruby file in the place of `main.rb`, from its folder, as `love path/to/file.lua` does, and `lota` takes a game given as a `file://` URI.

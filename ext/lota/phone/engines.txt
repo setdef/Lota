@@ -1,5 +1,9 @@
-release v0.7.1
-4ede036f7ad422f44e8ddec3e30b5be5f7aa4e04277b00908342b53a9ab2c0cf  lota-engine-android-arm64-v8a.tar.gz
-a0830d03ac9ea59ec15368dcdc39cb8810b522fc3f523a23640519c83c2b6c84  lota-engine-android-x86_64.tar.gz
-5dbc9d74b98ff8f6d5a1bafcd150dbac186206660b70fcd23fe3f950b4ec8b74  lota-engine-ios-arm64-simulator.tar.gz
-6c53a3d5bcbde93ec5ee36b89f0c16b96ebd41a1f5171ed688a2a5a589e294da  lota-engine-ios-arm64.tar.gz
+release v0.8.0
+4f9e3a9d39651462bd28c66acb67e5fd815b8739b3e37f4b54cc8e9c8aa924b3  lota-engine-android-arm64-v8a.tar.gz
+ac87a7d8db3a01c4424c6c87dc86aaf482428888be0e13f66d55a338d19d83f4  lota-engine-android-x86_64.tar.gz
+b6adcae268f2736b7211eb7a2e1fa86a56407202901c69f0f2d841c47ac2c580  lota-engine-ios-arm64-simulator.tar.gz
+94228057964a1b214b1e8c9028bf3f88861f45e7c5d04820452e9d15a5fa319c  lota-engine-ios-arm64.tar.gz
+372d396cc0170aa35c06f0c25d2d07e8fbb0703f817ab8ff82910f1be6f1e3e4  lota-extension-android-arm64-v8a.tar.gz
+20ad24244a5eebb8dbf19b2369faaf0a88a96d7871721ab5f636a456ef23aa22  lota-extension-android-x86_64.tar.gz
+9299eaab4b3a54c88898490bda4cd5ab861e0bf0fab7caa7476a158b2c0e9deb  lota-extension-ios-arm64-simulator.tar.gz
+8581ea2300563bcab8635bce44568a279564922ce257195737412ba1ea0fb062  lota-extension-ios-arm64.tar.gz
