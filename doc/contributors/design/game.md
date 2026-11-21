@@ -104,23 +104,11 @@ LÖVE keeps a game's saved files in the system's application data folder, under 
 
 ## Restarting
 
-`Lota::Event.restart` queues LÖVE's quit message with `"restart"` first. LÖVE then runs the game again in the same program, with the same arguments, and passes the value on as `love.restart` (`src/love.cpp`, `runlove` and `main`). Ruby cannot close the world a game defined, as `lua_close` closes a Lua state: its classes, constants, and threads stay. Lota restarts in every case LÖVE does, fused games included, as the maintainer settled on 2026-11-07. It restarts by `exec`, and in the same process where a flag says so.
-
-### By `exec`
-
-`exec` gives the whole fresh start LÖVE gives, without tracking what a game changed.
-
-- The game ends as a quit ends it, with the window closed and the exit procs run.
-- `lota run` replaces its process with itself, with the same arguments. It remembers `$0`, so a restart under `bundle exec` runs Lota again rather than `bundle`.
-- A fused game runs the program the process runs, with the same arguments. That program is Fledge's launcher, found as LÖVE's `getExecutablePath` finds it, so the app sets itself up as it did the first time. Only when the program is Ruby's own, as when someone runs the entry script with `ruby`, does the game start again through Ruby and the script. Running Ruby instead, as `exec RbConfig.ruby, $0, *ARGV` would, starts the console Ruby on Windows, with the player's own settings, rather than the app.
-- On Windows, Ruby's `exec` starts a new process and waits for it. Each run has its own process id, and the process that restarted stays, with any audio device it opened, until the new run ends.
-- The new process reads the value as `Lota.restart`. It crosses in an environment variable, `Lota::Restart::VARIABLE`, that holds `nil`, `true`, `false`, a number, a String, or an Array or Hash of them, and nothing in it is evaluated.
-- On a phone `exec` cannot restart an app (iOS lets no app run a program, and Android stops running as the app a process that replaces itself), and a game started any other way, such as by `Lota::Boot` in your own program, ends when it restarts, as a quit ends it.
-- Under the App Sandbox on macOS 15, the new image dies with `SIGTRAP` as it asks for a sandbox the process already has. On macOS 26 it restarts.
+`Lota::Event.restart` queues LÖVE's quit message with `"restart"` first. LÖVE then runs the game again in the same program, with the same arguments, and passes the value on as `love.restart` (`src/love.cpp`, `runlove` and `main`). Ruby cannot close the world a game defined, as `lua_close` closes a Lua state: its classes, constants, and threads stay. Lota restarts in every case LÖVE does, fused games included, as the maintainer settled on 2026-11-07. It restarts in the same process, as LÖVE does, on every platform, and by `exec` where a flag says so.
 
 ### In the same process
 
-`LOTA_IN_PROCESS_RESTART` is a feature flag, unset by default. Set to `1`, it restarts a game in its process where `exec` cannot: on a phone, and in a sandboxed process on macOS before 26, which Lota tells by `APP_SANDBOX_CONTAINER_ID`, a variable not yet confirmed there. Set to `always`, it does so on every restart. `Lota::Boot#call` then runs the game again, as `love.cpp`'s `main` runs `runlove` again, and the process keeps its id on every system. Between two runs:
+`Lota::Boot#call` runs the game again, as `love.cpp`'s `main` runs `runlove` again, and the process keeps its id on every system. Between two runs:
 
 1. The exit procs the game registered run, the last one first. Ruby runs exit procs only as a process ends, so while a game runs, a module prepended to `Kernel` catches the main Ractor's `at_exit`.
 2. What the game defined is taken away. Before the first run Lota records the constants of `Object` and `Lota`, the top-level methods, `Lota`'s own methods and instance variables, the instance variables of Lota's other modules, and the global variables. After a run it puts `Lota`'s methods and instance variables back as they were. It removes each new constant and top-level method that a file in the game's folder defined, and each instance variable the game added to another of Lota's modules. It sets each new global variable to `nil`, and forgets the game's files, so `require` loads them again.
@@ -141,4 +129,16 @@ LÖVE's next run finds a fresh Lua state. Lota's finds what the game changed out
 - the name of a global variable, though its value is `nil`;
 - an exit proc a Lota thread registered, which runs when the process ends.
 
-A restart in the same process is meant to become the default on every platform, as LÖVE restarts, once it has restarted a game on a phone and in a sandboxed app on macOS 15. It has done neither yet.
+A restart in the process is also the only one that works everywhere. A phone cannot restart a game by `exec`: iOS lets no app run a program, and Android stops running as the app a process that replaces itself. Under the App Sandbox on macOS 15, the new image dies with `SIGTRAP` as it asks for a sandbox the process already has. CI's phone check restarts a game in its process on the Android emulator and the iOS Simulator, and its Fuse workflow checks that a sandboxed app does so on macOS 15.
+
+### By `exec`
+
+`LOTA_IN_PROCESS_RESTART` is a feature flag. Set to `0`, it restarts a game by `exec`, which gives the whole fresh start LÖVE gives, without tracking what a game changed. Any other value restarts in the process, as no value does.
+
+- The game ends as a quit ends it, with the window closed and the exit procs run.
+- `lota run` replaces its process with itself, with the same arguments. It remembers `$0`, so a restart under `bundle exec` runs Lota again rather than `bundle`.
+- A fused game runs the program the process runs, with the same arguments. That program is Fledge's launcher, found as LÖVE's `getExecutablePath` finds it, so the app sets itself up as it did the first time. Only when the program is Ruby's own, as when someone runs the entry script with `ruby`, does the game start again through Ruby and the script. Running Ruby instead, as `exec RbConfig.ruby, $0, *ARGV` would, starts the console Ruby on Windows, with the player's own settings, rather than the app.
+- On Windows, Ruby's `exec` starts a new process and waits for it. Each run has its own process id, and the process that restarted stays, with any audio device it opened, until the new run ends.
+- The new process reads the value as `Lota.restart`. It crosses in an environment variable, `Lota::Restart::VARIABLE`, that holds `nil`, `true`, `false`, a number, a String, or an Array or Hash of them, and nothing in it is evaluated.
+- On a phone, and when it was started any other way, such as by `Lota::Boot` in your own program, the game ends when it restarts, as a quit ends it.
+- Under the App Sandbox on macOS 15 the restart dies, as above. On macOS 26 it restarts.
