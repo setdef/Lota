@@ -129,6 +129,6 @@ On Windows the app opens no console, so what the game prints goes nowhere.
 
 ## Restarting, and what is missing
 
-A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app's program starts it again with the same arguments, with `Lota.restart` holding the value, as `lota run` and `bundle exec lota run` do.
+A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app runs it again in the same process, with `Lota.restart` holding the value, as `lota run` and `bundle exec lota run` do. What the game's own files defined is gone in the new run, but what it changed outside them stays, such as a method it added to a built-in class or a gem it loaded.
 
 What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](phones.md) builds one with Fledge directly, or with the iOS kit from your game's CI. Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.
