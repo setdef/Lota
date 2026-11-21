@@ -17,6 +17,24 @@ module Bindings
   # aside. CppSource blanks both with spaces, so every offset still points
   # at the same line and column of the file.
   class CppSource
+    # One token for blank_comments: a comment, a raw string literal, or a
+    # string or character literal, each to its end (a literal ends at its
+    # line's end if no quote closes it, and a comment or raw string that
+    # never closes runs to the file's end); else a run of text that can
+    # start none of those, or one character. One pass of one expression
+    # reads a file in milliseconds, where a loop that indexed it character
+    # by character took up to seconds on a file with non-ASCII text, which
+    # Ruby indexes by counting from the start.
+    TOKEN = %r{
+      //[^\n]* |
+      /\*(?:.*?\*/|.*\z) |
+      R"\((?:.*?\)"|.*\z) |
+      "(?:[^"\\\n]|\\.)*(?:"|(?=\n)|\z) |
+      '(?:[^'\\\n]|\\.)*(?:'|(?=\n)|\z) |
+      [^/"'R]+ |
+      .
+    }mx
+
     attr_reader :path, :text, :raw
 
     # [path] The file's path, as reports name it.
@@ -42,15 +60,7 @@ module Bindings
     # +source+ with every comment turned to spaces, newlines kept, and
     # string and character literals left whole.
     def self.blank_comments(source)
-      out = +""
-      index = 0
-      while index < source.length
-        finish = token_end(source, index)
-        piece = source[index...finish]
-        out << (piece.start_with?("//", "/*") ? blank(piece) : piece)
-        index = finish
-      end
-      out
+      source.gsub(TOKEN) { |piece| piece.start_with?("//", "/*") ? blank(piece) : piece }
     end
 
     # +source+ with every preprocessor directive, continuation lines
@@ -62,37 +72,6 @@ module Bindings
         continued = directive && line.chomp.end_with?("\\")
         directive ? blank(line) : line
       end.join
-    end
-
-    # The end of the comment, literal, or single character at +start+.
-    private_class_method def self.token_end(source, start)
-      case source[start, 2]
-      when "//" then source.index("\n", start) || source.length
-      when "/*" then (source.index("*/", start + 2) || (source.length - 2)) + 2
-      else
-        return raw_string_end(source, start) if source[start, 3] == 'R"('
-        return literal_end(source, start) if ['"', "'"].include?(source[start])
-
-        start + 1
-      end
-    end
-
-    # The end of the raw string literal R"(...)" at +start+.
-    private_class_method def self.raw_string_end(source, start)
-      (source.index(')"', start + 3) || (source.length - 2)) + 2
-    end
-
-    # The end of the string or character literal at +start+.
-    private_class_method def self.literal_end(source, start)
-      quote = source[start]
-      index = start + 1
-      while index < source.length
-        return index + 1 if source[index] == quote
-        return index if source[index] == "\n"
-
-        index += (source[index] == "\\") ? 2 : 1
-      end
-      index
     end
 
     # +text+ with everything but newlines turned to spaces.
