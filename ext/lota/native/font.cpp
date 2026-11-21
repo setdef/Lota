@@ -103,6 +103,14 @@ Rasterizer *new_truetype_rasterizer(love::Data *data, std::optional<int> size,
   return instance()->newTrueTypeRasterizer(data, size.value_or(default_size), settings);
 }
 
+// luax_checktruetypesettings' check of a hinting mode (wrap_Font.cpp:73-75
+// and 88-90), which w_newTrueTypeRasterizer makes before it reads the DPI
+// scale and the font (124-138). Lota::Font asks it first, and reads the
+// rest from Ruby's arguments after it, in LÖVE's order.
+void check_truetype_hinting(const std::string &hinting) {
+  truetype_settings(hinting, std::nullopt, false);
+}
+
 // w_newBMFontRasterizer (wrap_Font.cpp:158-196): the BMFont definition in
 // +definition+ and the pages it names, in order, from +images+, at
 // +dpiscale+, 1 unless told otherwise. A page left out is loaded from the
@@ -191,6 +199,8 @@ void define_font(const Rice::Module &native) {
                                  &new_default_truetype_rasterizer, Rice::Arg("size"),
                                  Rice::Arg("hinting"), Rice::Arg("dpiscale"), Rice::Arg("sdf"),
                                  Rice::Return().takeOwnership())
+      .define_singleton_function("check_truetype_hinting", &check_truetype_hinting,
+                                 Rice::Arg("hinting"))
       .define_singleton_function("new_truetype_rasterizer", &new_truetype_rasterizer,
                                  Rice::Arg("data"), Rice::Arg("size"), Rice::Arg("hinting"),
                                  Rice::Arg("dpiscale"), Rice::Arg("sdf"),

@@ -926,6 +926,8 @@ module Lota
 
       def self.new_default_truetype_rasterizer: (Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Rasterizer
 
+      def self.check_truetype_hinting: (String hinting) -> nil
+
       def self.new_truetype_rasterizer: (Data::Data data, Integer? size, String? hinting, (Float | Integer)? dpiscale, bool sdf) -> Rasterizer
 
       def self.new_bmfont_rasterizer: (FileData definition, Array[ImageData] images, (Float | Integer)? dpiscale) -> Rasterizer

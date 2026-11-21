@@ -152,27 +152,40 @@ module Lota
       # without a size, and a TrueType font otherwise. A file name or a
       # File is read as luax_getfiledata reads it (wrap_Filesystem.cpp:
       # 308-379), and a TrueType font takes any Data as it is
-      # (wrap_Font.cpp:131-138).
+      # (wrap_Font.cpp:131-138). Given a size, it reads the size, then the
+      # settings, then the font, as w_newTrueTypeRasterizer does
+      # (wrap_Font.cpp:124-138).
       private def native_font(data, size, hinting, dpiscale, sdf)
         size = case size
         when Integer, nil then size
         when Float then size.truncate
         else raise TypeError, "wrong argument type #{size.class} for size (expected Integer)"
         end
-        hinting = case hinting
-        when Symbol, String, nil then hinting&.to_s
-        else raise TypeError, "wrong argument type #{hinting.class} for hinting (expected Symbol)"
+        if data.nil?
+          hinting, dpiscale = truetype_settings(hinting, dpiscale)
+          return Native::Graphics.new_default_font(size, hinting, dpiscale, sdf)
         end
-        dpiscale = case dpiscale
-        when Float, Integer, nil then dpiscale
-        else raise TypeError, "wrong argument type #{dpiscale.class} for dpiscale (expected Float)"
-        end
-        return Native::Graphics.new_default_font(size, hinting, dpiscale, sdf) if data.nil?
-
         return Native::Graphics.new_font_from_file(Filesystem.__send__(:native_file_data, data)) if size.nil?
 
+        hinting, dpiscale = truetype_settings(hinting, dpiscale)
         native = data.is_a?(Lota::Data) ? data.__send__(:native) : Filesystem.__send__(:native_file_data, data)
         Native::Graphics.new_truetype_font(native, size, hinting, dpiscale, sdf)
+      end
+
+      # The hinting mode's name and the DPI scale, read as
+      # luax_checktruetypesettings reads them (wrap_Font.cpp:67-104): the
+      # hinting mode first, which raises at once when LÖVE does not know
+      # it, then the DPI scale.
+      private def truetype_settings(hinting, dpiscale)
+        name = case hinting
+        when Symbol, String then hinting.to_s.tap { |mode| Native::Font.check_truetype_hinting(mode) }
+        when nil then nil
+        else raise TypeError, "wrong argument type #{hinting.class} for hinting (expected Symbol)"
+        end
+        case dpiscale
+        when Float, Integer, nil then [name, dpiscale]
+        else raise TypeError, "wrong argument type #{dpiscale.class} for dpiscale (expected Float)"
+        end
       end
 
       # The height of a line of text, without the line height's spacing,

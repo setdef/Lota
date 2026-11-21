@@ -124,4 +124,24 @@ class FontTest < Minitest::Test
     assert_equal 3.0, Font.new(12, :normal, 3).dpi_scale
     assert_equal 3.0, Font.new(12, nil, 3, dpiscale: 3).dpi_scale
   end
+
+  # w_newFont makes its glyphs with love.font.newRasterizer
+  # (wrap_Graphics.cpp:1388-1396), which, given a size, reads it, then the
+  # settings, then the font (wrap_Font.cpp:124-138), checking the hinting
+  # mode before the DPI scale (73-78 and 85-96). Given a font and no
+  # size, it reads the font alone and ignores the rest (45-59).
+  def test_an_unknown_hinting_mode_is_checked_before_the_dpi_scale_and_the_font
+    message = "Invalid TrueType font hinting mode 'sharp', expected one of: 'normal', 'light', 'mono', 'none'"
+    [
+      -> { Font.new("missing.ttf", 12, :sharp) },
+      -> { Font.new("missing.ttf", 12, hinting: :sharp) },
+      -> { Font.new(12, :sharp, "2") },
+      -> { Font.new(12, hinting: :sharp, dpiscale: "2") },
+    ].each do |call|
+      assert_equal message, assert_raises(ArgumentError, &call).message
+    end
+    data = Lota::Filesystem.new_file_data(File.binread(FONT), "font.ttf").first
+
+    assert_equal small_font.dpi_scale, Font.new(data, nil, :normal, "2").dpi_scale
+  end
 end

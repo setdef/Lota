@@ -130,6 +130,25 @@ class FontModuleFunctionsTest < Minitest::Test
     assert_equal "Invalid TrueType font size: 0", error.message
   end
 
+  # w_newTrueTypeRasterizer reads the size, then the settings, then the
+  # font (wrap_Font.cpp:124-138), and luax_checktruetypesettings checks
+  # the hinting mode before it reads the DPI scale, after the size or in
+  # the table (wrap_Font.cpp:73-78 and 85-96), so an unknown hinting mode
+  # is the error, whatever is wrong after it.
+  def test_an_unknown_hinting_mode_is_checked_before_the_dpi_scale_and_the_font
+    message = "Invalid TrueType font hinting mode 'sharp', expected one of: 'normal', 'light', 'mono', 'none'"
+    [
+      -> { TrueTypeRasterizer.new("resources/missing.ttf", 12, :sharp) },
+      -> { TrueTypeRasterizer.new("resources/missing.ttf", 12, hinting: :sharp) },
+      -> { TrueTypeRasterizer.new(:font, 12, :sharp) },
+      -> { TrueTypeRasterizer.new(12, :sharp, "2") },
+      -> { TrueTypeRasterizer.new(12, hinting: :sharp, dpiscale: "2") },
+      -> { Rasterizer.new("resources/missing.ttf", 12, :sharp) },
+    ].each do |call|
+      assert_equal message, assert_raises(ArgumentError, &call).message
+    end
+  end
+
   # w_newBMFontRasterizer reads the definition, then its images, one or a
   # table of them, each an ImageData or what love.image.newImageData
   # decodes, then the DPI scale (wrap_Font.cpp:158-196). Lota decodes

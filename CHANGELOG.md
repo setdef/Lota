@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `Lota::Font::TrueTypeRasterizer.new`, `Lota::Font::Rasterizer.new`, and `Lota::Graphics::Font.new` check the hinting mode before the DPI scale and the font, as LÖVE does, where a font file that could not be read, or a DPI scale of the wrong kind, raised first; `Lota::Graphics::Font.new` given a font and no size ignores the settings, as LÖVE does, where it raised TypeError for one of the wrong kind.
 - `Lota::Filesystem.mount_full_path` and `.mount_common_path` read an `append` that is not `true` or `false` as `false`, as LÖVE does, where they took its truthiness.
 - `Lota::Graphics.draw` and `.draw_layer` given `nil` in place of the quad, then a `Lota::Math::Transform`, report the missing quad, as LÖVE does, where they reported the Transform.
 - `Lota::Graphics::Buffer.new` and `Lota::Graphics::Mesh.new` with a format of its own report an unknown usage, or mesh mode, before a fault in the format, as LÖVE does.

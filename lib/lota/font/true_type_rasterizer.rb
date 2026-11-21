@@ -108,18 +108,23 @@ module Lota
             raise ArgumentError, "give the hinting and DPI scale after the size or as keywords, not both"
           end
 
-          [EnumName.of(legacy_hinting), Font.__send__(:optional_number, legacy_dpiscale, "dpiscale")]
+          [name_of(legacy_hinting), Font.__send__(:optional_number, legacy_dpiscale, "dpiscale")]
         else raise TypeError, "wrong argument type #{legacy_hinting.class} for hinting (expected Symbol)"
         end
       end
 
-      # The hinting mode's name, or +nil+ for LÖVE's default.
+      # The hinting mode's name, or +nil+ for LÖVE's default. An unknown
+      # mode raises here, as luax_checktruetypesettings raises before it
+      # reads the DPI scale (src/modules/font/wrap_Font.cpp:73-78 and
+      # 85-96), and so before the font is read.
       private_class_method def self.name_of(hinting)
-        case hinting
+        name = case hinting
         when Symbol, String then EnumName.of(hinting)
-        when nil then nil
+        when nil then return nil
         else raise TypeError, "wrong argument type #{hinting.class} for hinting (expected Symbol)"
         end
+        Native::Font.check_truetype_hinting(name)
+        name
       end
 
       # SPDX-SnippetEnd

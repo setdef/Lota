@@ -17,6 +17,8 @@ module Lota
 
       private def native_font: (::Object? data, argument? size, argument? hinting, argument? dpiscale, bool sdf) -> Native::Graphics::Font
 
+      private def truetype_settings: (argument? hinting, argument? dpiscale) -> [String?, (Float | Integer)?]
+
       def height: () -> Float
 
       def width: (String | Integer | Float text) -> Float
