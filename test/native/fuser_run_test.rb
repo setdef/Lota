@@ -55,7 +55,9 @@ class FuserRunTest < Minitest::Test
   # fuser runs Fledge in its app's bundle, so that Ruby has a bundle of its
   # own, of no gems: one that sets up on a computer that has not installed
   # this repository's, as when these tests run without Bundler. It names
-  # its lockfile too, since Bundler hands a child this repository's.
+  # its lockfile too, since Bundler hands a child this repository's, and
+  # its settings: a run that froze this repository's bundle, as CI's does,
+  # would refuse to lock an empty one.
   def fuse(entries, name: "Sample Game.lota", environment: {})
     Dir.mktmpdir("lota-fuser-run") do |folder|
       archive = File.join(folder, name)
@@ -82,7 +84,7 @@ class FuserRunTest < Minitest::Test
       RUBY
       # A person's RUBYLIB and RUBYOPT, which must not reach Fledge.
       person = { "RUBYLIB" => "elsewhere", "RUBYOPT" => "#{ENV.fetch('RUBYOPT', '')} -rset".strip }
-      bundle = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_LOCKFILE" => "#{gemfile}.lock" }
+      bundle = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_LOCKFILE" => "#{gemfile}.lock", "BUNDLE_APP_CONFIG" => folder, "BUNDLE_FROZEN" => "false" }
       output, status = ruby_of_its_own("-e", script, environment: { "FUSER_RECORD" => record, **person, **bundle, **environment })
       yield output, status, File.file?(record) ? JSON.parse(File.read(record)) : nil, folder
     end
