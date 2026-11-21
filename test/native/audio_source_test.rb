@@ -178,6 +178,21 @@ class AudioSourceTest < Minitest::Test
     assert_raises(RuntimeError) { stereo.relative = true }
   end
 
+  # w_Source_setRelative reads its flag with luax_checkboolean
+  # (wrap_Source.cpp:236-241, src/common/runtime.cpp:259-263), which
+  # raises for anything but true or false, nil included.
+  def test_relative_takes_only_true_or_false
+    mono = Source.new("resources/clickmono.ogg", :static)
+    mono.relative = true
+
+    [nil, 0, "no"].each do |enable|
+      error = assert_raises(TypeError) { mono.relative = enable }
+
+      assert_equal "wrong argument type #{enable.class} (expected true or false)", error.message
+    end
+    assert_predicate mono, :relative?
+  end
+
   def test_a_position_left_without_z_is_at_zero
     mono = Source.new("resources/clickmono.ogg", :static)
     mono.position = 4, 5

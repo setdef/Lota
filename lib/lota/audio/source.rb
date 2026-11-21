@@ -365,7 +365,7 @@ module Lota
       #
       #   footsteps.relative = true
       def relative=(enable)
-        @native.set_relative(!!enable)
+        @native.set_relative(enable)
       end
 
       # Whether the Source is relative to the listener, matching

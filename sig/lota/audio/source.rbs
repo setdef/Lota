@@ -50,7 +50,7 @@ module Lota
 
       def cone: () -> [Float, Float, Float, Float]
 
-      def relative=: (::Object? enable) -> void
+      def relative=: (bool enable) -> void
 
       def relative?: () -> bool
 
