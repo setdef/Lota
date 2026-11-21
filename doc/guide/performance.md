@@ -5,7 +5,7 @@
 
 # Performance
 
-A game at 60 frames a second has 16.7 ms for each frame. Lota runs LÖVE's own engine, so drawing, shaders, sound, and physics cost what they cost in LÖVE. What differs is the code around them: your game runs as Ruby rather than as LuaJIT, and each call it makes into the engine crosses from Ruby into C++. This page shows what that comes to in a real game, next to the same game in LÖVE, as Lota's own benchmark, `rake bench`, measured it on one Linux computer.
+A game at 60 frames a second has 16.7 ms for each frame. Lota runs LÖVE's own engine, so drawing, shaders, sound, and physics cost what they cost in LÖVE. What differs is the code around them: your game runs as Ruby rather than as LuaJIT, and each call it makes into the engine crosses from Ruby into C++. This page shows what that comes to in a real game, next to the same game in LÖVE, as Lota's own benchmark, `rake bench`, measured it on one Linux computer, and what a draw call costs on an iPhone, next to the same call in LÖVE's iOS app.
 
 ## The game, the computer, and the command
 
@@ -81,6 +81,81 @@ That is little over the whole run, but one frame under the interpreter paused fo
 
 `rake bench` times each collection by the wall clock, from the moment Ruby's collector starts a step to the moment it ends it. It does not use `GC.total_time`, which adds up the collecting thread's CPU time, or on Windows the process's, which Windows advances only at its clock's tick, every 15.6 ms by default, so a collection shorter than a tick mostly reads as none there (Ruby's `gc/default/default.c`, `current_thread_time` and `current_process_time`). If you time your own game's collections on Windows, time them by the wall clock too.
 
+## Draw calls on an iPhone
+
+`rake bench:ios` runs `rake bench`'s draw-call scenarios on an iPhone or iPad connected to a Mac. A phone runs no `lota` program, so the task drives two apps that you build, sign, and install first, and launches them through Xcode's `devicectl`.
+
+The first is Lota's bench game, as a phone project laid out and built as [the phone guide](phones.md) says, with the bench game in place of yours and `main.rb` booting it:
+
+```sh
+mkdir -p LotaBench-phone/game/bench
+cp -R ~/Lota/tasks/bench/lota LotaBench-phone/game/bench/lota
+cp ~/Lota/tasks/bench/recorder.rb LotaBench-phone/game/bench/recorder.rb
+```
+
+```ruby
+# frozen_string_literal: true
+
+require "lota"
+exit Lota::Boot.new(File.join(__dir__, "game", "bench", "lota"), ARGV, fused: true).call
+```
+
+The second, for the comparison, is LÖVE's own iOS app, built from the LÖVE Lota pins with LÖVE's bench game in it. LÖVE's readme says to put `love-apple-dependencies`' libraries inside LÖVE's source, so build from a copy rather than change `vendor/love`. Xcode 27 builds for iOS 15 and later, and LÖVE's project asks for iOS 13, so name 15:
+
+```sh
+rsync -a --exclude .git vendor/love/ tmp/love-ios/
+ln -s "$PWD/vendor/love-apple-dependencies/iOS/libraries" tmp/love-ios/platform/xcode/ios/libraries
+ln -s "$PWD/vendor/love-apple-dependencies/shared" tmp/love-ios/platform/xcode/shared
+xcodebuild -project tmp/love-ios/platform/xcode/love.xcodeproj -scheme love-ios -configuration Release \
+  -destination generic/platform=iOS -derivedDataPath tmp/love-ios/build DEVELOPMENT_TEAM=YOURTEAMID \
+  PRODUCT_BUNDLE_IDENTIFIER=com.example.LoveBench IPHONEOS_DEPLOYMENT_TARGET=15.0 -allowProvisioningUpdates build
+```
+
+LÖVE's iOS app plays the `.love` file in its own bundle as a fused game (`src/common/ios.mm`, `getLoveInResources`). Put the bench game there, sign the app again with the entitlements it was built with, and install it:
+
+```sh
+app=tmp/love-ios/build/Build/Products/Release-iphoneos/love.app
+codesign -d --entitlements tmp/love-ios/entitlements.plist --xml "$app"
+(cd tasks/bench/love && zip -X "$OLDPWD/$app/bench.love" main.lua conf.lua)
+codesign -f -s "Apple Development" --entitlements tmp/love-ios/entitlements.plist "$app"
+xcrun devicectl device install app --device DEVICE "$app"
+```
+
+Then run the task with the device's name or identifier, as `xcrun devicectl list devices` shows it, and the two apps' identifiers. Leave out `BENCH_IOS_LOVE_APP` to measure Lota alone:
+
+```sh
+BENCH_IOS_DEVICE=DEVICE BENCH_IOS_APP=com.example.LotaBench BENCH_IOS_LOVE_APP=com.example.LoveBench \
+  bundle exec rake bench:ios
+```
+
+For each run of each scenario it launches the engine's app with the scenario's settings, waits until the game has written its report into its save directory, copies the report back from the app's container, and ends the app. The save directories are named for the game folder `lota` and the file `bench.love`; `BENCH_IOS_SAVE` and `BENCH_IOS_LOVE_SAVE` name others. It prints its tables and writes them to `tmp/bench/ios/report.txt`. Every scenario, three times, took 36 minutes, with the phone unlocked and its screen on throughout.
+
+A phone measures less than a computer. iOS gives an app no memory it may write code into and run, so Ruby runs under its interpreter and LuaJIT with its JIT off. The app carries none of Lota's test-only extension, so the scenario that crosses into C++ and does nothing there does not run, and the collector's time is `GC.total_time`'s, the collecting thread's processor time, rather than the wall clock's. FLASH-BLIP does not run either: the parity harness's libraries that keep its sounds out of the speakers and the game off the network load only into a desktop process.
+
+These numbers come from one run, on 2026-11-21, on an iPhone 12 mini with Apple's A14, iOS 27.0 (24A437), on its charger. Lota's app was built at Lota's commit `b68dbbc1`, with Fledge v0.14.0 and the prebuilt engine Lota 0.7.1 published, and the bench game as commit `532fd931` has it; LÖVE's app was built in Release from the commit Lota pins, `b7daef0f7`, with LuaJIT 2.1. Medians, of 2,000 frames of 10,000 calls each:
+
+| Each frame's 10,000 calls | Draw loop, ms | ns a call |
+| --- | --- | --- |
+| A Ruby method that does nothing | 4.684 | 468 |
+| `Lota::Native::Graphics.rectangle`, the binding itself | 10.009 | 1,001 |
+| `Lota::Graphics.rectangle`, as a game calls it | 14.803 | 1,480 |
+| LÖVE's `love.graphics.rectangle` | 6.478 | 648 |
+
+So a rectangle takes Lota 2.29 times what it takes LÖVE on this phone. A shorter run an hour later, of 300 frames, measured 13.546 ms for Lota's rectangles and 6.417 ms for LÖVE's, so read these as a phone's rough costs, not to the tenth of a millisecond. Of Lota's 1,480 ns, Ruby's loop and method call take 468 ns, the crossing into C++ and LÖVE's own drawing 533 ns more, and Lota's Ruby layer over the binding 479 ns.
+
+Each whole frame of these took 16.7 ms, the screen's 60 Hz, in both engines: on iOS every frame waited for the screen, though the bench games ask for no vertical sync. Where the draw loop took longer, so did the frame. Setting a color before each rectangle took Lota 22.197 ms a frame through `Lota::Native::Graphics.set_color`, and 27.200 ms through `Lota::Graphics.color=`, whose whole frames took 23.442 and 28.460 ms; it took LÖVE 5.782 ms.
+
+One call at a time, the best of five runs of 200,000 calls, in nanoseconds:
+
+| Call | Lota | LÖVE |
+| --- | --- | --- |
+| `width`, `love.graphics.getWidth` | 242 | 30 |
+| `color`, `love.graphics.getColor` | 1,211 | 35 |
+| `color = r, g, b, a`, `love.graphics.setColor` | 1,588 | 31 |
+| `rectangle`, `love.graphics.rectangle` | 2,135 | 63 |
+
+Reading or writing a color through `Lota::Graphics` makes an Array each call, so those scenarios made 10,007 objects a frame. Over 2,000 frames Ruby's collector ran 580 times, every time a minor collection, for 291 to 297 ms of the collecting thread's time in all and at most 0.921 ms in one frame.
+
 ## What this page does not cover
 
-These numbers are this game's, from one Linux computer with an AMD GPU. `rake bench` has not measured macOS, Windows, or a phone. On a Mac the command is written to run as it is, building LÖVE's `love` with Xcode, but no Mac has run it whole yet. On Windows `rake bench` does not run. A phone's processor is slower than a desktop's, and on an iPhone or iPad Ruby runs with no JIT at all, since iOS gives an app no memory it may write code into and run.
+These numbers are FLASH-BLIP's, from one Linux computer with an AMD GPU, and draw calls', from one iPhone. `rake bench` has not measured macOS, Windows, or an Android phone, and no phone has played FLASH-BLIP. On a Mac the command is written to run as it is, building LÖVE's `love` with Xcode, but no Mac has run it whole yet. On Windows `rake bench` does not run. On Android, Ruby may run under YJIT, and how fast a game runs there has not been measured; `rake bench:ios` drives only iPhones and iPads.
