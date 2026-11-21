@@ -24,7 +24,7 @@ Fledge (github.com/setdef/Fledge) publishes a runtime for each platform: Ruby wi
 
 Lota publishes its native extension as a precompiled gem for each platform, with LÖVE's engine libraries beside it. A native gem has to match the Ruby it loads into, so each Lota gem names the Ruby versions it was built for, and a new Fledge Ruby needs a matching Lota gem first. Lota's continuous integration builds and publishes a gem for every supported platform, so precompiled gems are part of the product. The source gem refuses to build and points to them.
 
-Lota runs on Ruby 4.1, its previews included. `lota.gemspec` asks for `>= 4.1.0.a`, which RubyGems reads as accepting 4.1's previews and refusing 4.0, and each precompiled gem also stops below 4.2 (`tasks/native_gem.rb`). The maintainer chose 4.1 from its previews on 2026-11-09. A player never meets that Ruby, since the app carries Fledge's, and Lota had no outside users to strand. Lota's threads need it: Ruby 4.0 keeps one list for `rb_gc_register_address` that every Ractor changes with no lock, and Rice registers every object it holds there ([engine.md](engine.md), "Threads and Ractors"). So a developer runs `lota run` and `lota fuse` on a 4.1 preview, and each preview, the release candidate, and 4.1.0 need every platform's gem built again. Lota 1.0.0 ships only on Ruby 4.1.0 ([releasing.md](../releasing.md)).
+Lota runs on Ruby 4.1, its previews included. `lota.gemspec` asks for `>= 4.1.0.a`, which RubyGems reads as accepting 4.1's previews and refusing 4.0, and each precompiled gem also stops below 4.2 (`tasks/native_gem.rb`). The maintainer chose 4.1 from its previews on 2026-11-09. A player never meets that Ruby, since the app carries Fledge's, and Lota had no outside users to strand. Lota's threads need it: Ruby 4.0 keeps one list for `rb_gc_register_address` that every Ractor changes with no lock, and Rice registers every object it holds there ([engine.md](engine.md), "Threads and Ractors"). So a developer runs `lota` and `lota fuse` on a 4.1 preview, and each preview, the release candidate, and 4.1.0 need every platform's gem built again. Lota 1.0.0 ships only on Ruby 4.1.0 ([releasing.md](../releasing.md)).
 
 The platforms are:
 
@@ -46,9 +46,9 @@ Lota builds LÖVE's engine and its libraries with MinGW, against the UCRT. A nat
 - Ruby's MinGW import library exports some of Windows' own functions, such as `Sleep`, under Ruby's DLL. So each extension links kernel32 first, and the gem build refuses a binary that takes a kernel32 function from Ruby, or imports a DLL that is neither the gem's, Ruby's, nor one of Windows' own (`NativeFormat::PE`).
 - A build that differs from LÖVE's own can behave differently. [windows.md](../windows.md) says how CI and a Windows PC check it.
 
-## `lota run` and `lota fuse`
+## `lota` and `lota fuse`
 
-During development, `lota run` runs a game on the developer's own Ruby, as `love path/to/game` does ([game.md](game.md)). For release, `lota fuse` turns a game folder into a Fledge project and builds it. It:
+During development, `lota path/to/game` runs a game on the developer's own Ruby, as `love path/to/game` does ([game.md](game.md)). For release, `lota fuse` turns a game folder into a Fledge project and builds it. It:
 
 - reads the game's name and `t.identity` from `conf.rb`, without opening a window;
 - writes a Gemfile that pins `lota` to the running version and Fledge to a release tag (`Lota::Fuse::FLEDGE_REF`); Fledge is not on RubyGems.org, so the Gemfile names it by Git tag, and `lota fuse` needs the network and Git;
@@ -67,7 +67,7 @@ A fused game carries a Ruby interpreter, the standard library, and LÖVE's engin
 
 A LÖVE game can also be handed out as a `.love`, its folder zipped, which LÖVE's own app plays when it is opened with it or dropped on its "no game" screen (`vendor/love/src/modules/love/boot.lua`, lines 52–60). A Lota game is handed out the same way, as a `.lota`, as the maintainer decided on 2026-11-13. [sharing.md](../../guide/sharing.md) says how to make one and what Lota refuses in one.
 
-`lota run game.lota` plays one (`Lota::Archive`). The engine reads the archive through PhysFS, as LÖVE's does, and Lota unpacks it whole into a cache folder and runs the game's Ruby from there. Ruby's `require` loads code only from real files, and Fledge runs no program through a virtual filesystem, so the game's `require`, `require_relative`, `__dir__`, `File`, and error messages behave as they do from its folder. A hook on `require` that read the zip in place would have to rewrite `require_relative`, would give `__dir__` a path `File` cannot open, and would lose the highlighted line in error messages.
+`lota game.lota` plays one (`Lota::Archive`). The engine reads the archive through PhysFS, as LÖVE's does, and Lota unpacks it whole into a cache folder and runs the game's Ruby from there. Ruby's `require` loads code only from real files, and Fledge runs no program through a virtual filesystem, so the game's `require`, `require_relative`, `__dir__`, `File`, and error messages behave as they do from its folder. A hook on `require` that read the zip in place would have to rewrite `require_relative`, would give `__dir__` a path `File` cannot open, and would lose the highlighted line in error messages.
 
 A `.lota` holds Ruby files and assets and no native code, as LÖVE cannot load a native module from a `.love` either (`vendor/love/src/modules/filesystem/wrap_Filesystem.cpp`, line 1011). Its code may require Lota, Ruby's standard library, and the gems the player app ships. Its extension is not `.love` because LÖVE's app cannot run Ruby, and an app Fledge builds is offered for a file type without becoming its default, so a shared extension would open LÖVE's app.
 

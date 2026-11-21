@@ -12,7 +12,7 @@ A Lota game is laid out the same way, in Ruby, as the maintainer decided in Octo
 
 ## A game is a folder
 
-A game is a folder holding `main.rb` and, optionally, `conf.rb`. `lota run` runs the game in the current folder, or in the folder given (`lota run path/to/game`), as `love path/to/game` does. It runs in the order `boot.lua` does:
+A game is a folder holding `main.rb` and, optionally, `conf.rb`. `lota path/to/game` runs the game in the folder given, as `love path/to/game` does, and `lota .` the one in the current folder. It runs in the order `boot.lua` does:
 
 1. Load `conf.rb`, if present.
 2. Call `Lota.conf` with the settings.
@@ -88,7 +88,7 @@ A module the settings turn off is `nil` through its accessor (`lota.timer` with 
 
 ## `require` looks in the game folder
 
-`lota run` puts the game folder on `$LOAD_PATH`, as LÖVE's `require` searches the game's own folder. It leaves the working directory alone, as LÖVE does.
+The `lota` program puts the game folder on `$LOAD_PATH`, as LÖVE's `require` searches the game's own folder. It leaves the working directory alone, as LÖVE does.
 
 ## Errors show LÖVE's error screen
 
@@ -99,7 +99,7 @@ When game code raises, Lota does what LÖVE's `love.errorhandler` does (`boot.lu
 LÖVE keeps a game's saved files in the system's application data folder, under the game's identity (`t.identity`). When the game runs through the `love` program rather than fused into an app of its own, LÖVE adds a folder named after itself (`Filesystem.cpp:608-611`, `Filesystem.h:40`).
 
 - A fused game saves exactly where LÖVE's fused game does, so a player finds the same folder for either. `lota fuse` puts the game in a folder named for its identity, so a game without `t.identity` does not save under Fledge's `app` folder name ([packaging.md](packaging.md)).
-- Under `lota run`, Lota's counterpart of the `love` program, the added folder is `Lota`, and `lota` on Linux, lowercase as LÖVE's `love` is there. Naming it after LÖVE would put LÖVE's name in Lota's own product (AGENTS.md, Trademarks). `ext/lota/engine/appdata_folder.h` sets it without changing LÖVE's files.
+- Under the `lota` program, Lota's counterpart of the `love` program, the added folder is `Lota`, and `lota` on Linux, lowercase as LÖVE's `love` is there. Naming it after LÖVE would put LÖVE's name in Lota's own product (AGENTS.md, Trademarks). `ext/lota/engine/appdata_folder.h` sets it without changing LÖVE's files.
 - Under the macOS App Sandbox a game saves in its container, `~/Library/Containers/IDENTIFIER/Data/Library/Application Support/<identity>`, as a sandboxed LÖVE game does.
 
 ## Restarting
@@ -136,7 +136,7 @@ A restart in the process is also the only one that works everywhere. A phone can
 `LOTA_IN_PROCESS_RESTART` is a feature flag. Set to `0`, it restarts a game by `exec`, which gives the whole fresh start LÖVE gives, without tracking what a game changed. Any other value restarts in the process, as no value does.
 
 - The game ends as a quit ends it, with the window closed and the exit procs run.
-- `lota run` replaces its process with itself, with the same arguments. It remembers `$0`, so a restart under `bundle exec` runs Lota again rather than `bundle`.
+- The `lota` program replaces its process with itself, with the same arguments. It remembers `$0`, so a restart under `bundle exec` runs Lota again rather than `bundle`.
 - A fused game runs the program the process runs, with the same arguments. That program is Fledge's launcher, found as LÖVE's `getExecutablePath` finds it, so the app sets itself up as it did the first time. Only when the program is Ruby's own, as when someone runs the entry script with `ruby`, does the game start again through Ruby and the script. Running Ruby instead, as `exec RbConfig.ruby, $0, *ARGV` would, starts the console Ruby on Windows, with the player's own settings, rather than the app.
 - On Windows, Ruby's `exec` starts a new process and waits for it. Each run has its own process id, and the process that restarted stays, with any audio device it opened, until the new run ends.
 - The new process reads the value as `Lota.restart`. It crosses in an environment variable, `Lota::Restart::VARIABLE`, that holds `nil`, `true`, `false`, a number, a String, or an Array or Hash of them, and nothing in it is evaluated.
