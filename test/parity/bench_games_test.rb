@@ -10,12 +10,14 @@ require_relative "../../tasks/bench"
 require "stringio"
 
 # rake bench's two games (tasks/bench/lota and tasks/bench/love), each
-# scenario run for a few frames of a few draws, so the gate knows they
-# still run and report what the benchmark reads, without running the
-# benchmark itself. It lives with the parity harness because the LÖVE
-# side needs the reference love, which only test:parity builds.
+# scenario run for a few frames of a few draws, and each published game
+# it runs whole (Bench::GAMES) for its first frames, through the parity
+# harness's timing mode, so the gate knows they still run and report what
+# the benchmark reads, without running the benchmark itself. It lives
+# with the parity harness because the LÖVE side needs the reference love,
+# which only test:parity builds.
 class BenchGamesTest < Minitest::Test
-  SETTINGS = Bench::Settings.new(draws: 20, warmup: 2, frames: 3, calls: 2_000, runs: 1)
+  SETTINGS = Bench::Settings.new(draws: 20, warmup: 2, frames: 3, calls: 2_000, runs: 1, game_frames: 30)
 
   def run_scenarios(scenarios)
     love = ENV.fetch("LOTA_REFERENCE_LOVE") do
@@ -34,6 +36,16 @@ class BenchGamesTest < Minitest::Test
       if result.scenario.name == "calls"
         assert_operator result.calls.size, :>=, 6, result.scenario.to_s
         assert(result.calls.values.all? { |call| call.fetch("seconds").positive? }, result.scenario.to_s)
+      elsif result.scenario.game
+        # Every frame's update and draw are timed, and every whole frame
+        # but the last, which ends as the game quits.
+        assert_equal [30, 30, 29], %w[update draw frame].map { |part| result.data.fetch(part).size },
+          result.scenario.to_s
+        assert(result.work.all?(&:positive?), result.scenario.to_s)
+        if result.scenario.engine == "lota"
+          assert_equal 29, result.data.fetch("frame_gc_ns").size, result.scenario.to_s
+          assert_operator result.gc.fetch("total_allocated_objects"), :>, 0, result.scenario.to_s
+        end
       else
         assert_equal [3, 3], [result.data.fetch("draw").size, result.data.fetch("frame").size], result.scenario.to_s
         assert_operator result.frame, :>=, result.draw, result.scenario.to_s
@@ -52,6 +64,8 @@ class BenchGamesTest < Minitest::Test
 
     assert_match(/^Lota rectangle +interpreter /, report)
     assert_match(/^LÖVE rectangle +luajit /, report)
+    assert_match(%r{^Lota +interpreter +[\d.]+/[\d.]+/[\d.]+ +\d+ +[\d.]+x }, report)
+    assert_match(%r{^LÖVE +luajit +[\d.]+/[\d.]+/[\d.]+ +\d+ +1\.00x }, report)
   end
 
   def test_lota_runs_under_the_jit_it_was_asked_for

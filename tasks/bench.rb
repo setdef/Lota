@@ -12,24 +12,124 @@ require "rbconfig"
 
 # rake bench: what a draw call costs in Lota, under the interpreter, YJIT,
 # and ZJIT, and what the same call costs a LÖVE game in the reference love
-# (doc/contributors/design/engine.md).
+# (doc/contributors/design/engine.md), and what a frame of a published
+# LÖVE game costs in each (GAMES).
 #
 # Two games do the measuring from inside a real window, one for each
 # engine: tasks/bench/lota (with Bench::Recorder, tasks/bench/recorder.rb)
-# and tasks/bench/love. Each process runs one Scenario and writes a JSON
-# report; this module starts the processes, keeps each scenario's best
-# run, and turns the reports into a Report.
+# and tasks/bench/love. The published games are timed by the parity
+# harness's two sides instead (Game). Each process runs one Scenario and
+# writes a JSON report; this module starts the processes, keeps each
+# scenario's best run, and turns the reports into a Report.
 module Bench
   ROOT = File.expand_path("..", __dir__)
 
   # How Ruby runs Lota: its flags for each JIT.
   JITS = { "interpreter" => [], "yjit" => ["--yjit"], "zjit" => ["--zjit"] }.freeze
 
+  # A published LÖVE game, a parity fixture (doc/contributors/parity.md),
+  # that both engines run whole: the game in +fixture+ in LÖVE, unchanged,
+  # and its Ruby translation in +translation+ in Lota, each through its
+  # side of the parity harness (test/parity/lua/conf.lua and
+  # test/parity/probe.rb) in the harness's timing mode, which times every
+  # frame and takes no screenshot. Both get the same +frames+ at a fixed
+  # +fps+, the same clock, and the same key +presses+, each an SDL scancode
+  # and the frames it is down in, so both do the same work.
+  class Game < Data.define(:fixture, :translation, :frames, :fps, :presses)
+    # The build tree the harness's libraries are in.
+    LIB = File.join(ROOT, "tmp/engine/build/lib")
+
+    # The clock both engines stand at, as the parity harness's (Parity::CLOCK).
+    CLOCK = 1_600_000_000
+
+    # The environment the harness's two sides read, for a run that writes
+    # its times to +report+ and keeps what else it writes, its home among
+    # them, beside it. It loads the harness's libraries as the parity
+    # harness does (Parity.loopback): its audio device, mixed on the game's
+    # time, which keeps the game's sounds out of the machine's speakers;
+    # the library that keeps the game off the network; and on Linux the
+    # one that answers dialogs, such as LÖVE's warning that a game was made
+    # for another version, which on macOS the two sides answer themselves.
+    def environment(report, settings, linux: RbConfig::CONFIG["host_os"].include?("linux"))
+      base = report.delete_suffix(".json")
+      home = "#{base}-home"
+      FileUtils.mkdir_p([home, "#{base}-frames"])
+      {
+**script(frames_under(settings)),
+**libraries(linux),
+"LOTA_LOOPBACK_FILE" => "#{base}.f32",
+"LOTA_PARITY_GAME" => File.join(ROOT, fixture),
+"LOTA_PARITY_TIMES" => report,
+"LOTA_PARITY_FRAMES_DIR" => "#{base}-frames",
+"LOTA_PARITY_REPORT" => "#{base}-parity.json",
+"LOTA_PARITY_MISMATCH_DIR" => "#{base}-mismatch",
+"LOTA_PARITY_PROGRESS" => "#{base}-progress",
+"HOME" => home,
+(linux ? "XDG_DATA_HOME" : "CFFIXED_USER_HOME") => (linux ? File.join(home, ".local/share") : home),
+"ALSOFT_CONF" => File.join(ROOT, "test/alsoft.conf"),
+"SDL_MAC_BACKGROUND_APP" => "1",
+"SDL_WINDOW_ACTIVATE_WHEN_SHOWN" => "0",
+"SDL_WINDOW_ACTIVATE_WHEN_RAISED" => "0",
+      }
+    end
+
+    # The frames a run under +settings+ plays: the script's, unless
+    # +settings+ asks for fewer.
+    def frames_under(settings)
+      settings.game_frames.positive? ? settings.game_frames : frames
+    end
+
+    private def script(frames)
+      {
+        "LOTA_PARITY_FRAMES" => frames.to_s,
+        "LOTA_PARITY_FPS" => fps.to_s,
+        "LOTA_PARITY_CLOCK" => CLOCK.to_s,
+        "LOTA_PARITY_HOLD" => "",
+        "LOTA_PARITY_MOVE" => "",
+        "LOTA_PARITY_CLICK" => "",
+        "LOTA_PARITY_SOUNDS" => "",
+        "LOTA_PARITY_PRESS" => presses.map { |scancode, range| "#{scancode}:#{range.first}-#{range.last}" }.join(","),
+      }
+    end
+
+    private def libraries(linux)
+      extension = linux ? "so" : "dylib"
+      names = %w[loopback offline] + (linux ? %w[dialogs] : [])
+      paths = names.map { |name| File.join(LIB, "liblota_#{name}.#{extension}") }
+      linux ? { "LD_PRELOAD" => paths.join(" ") } : { "DYLD_INSERT_LIBRARIES" => paths.join(":") }
+    end
+  end
+
+  # SDL's scancodes for Return and the space bar (SDL_scancode.h).
+  RETURN = 40
+  SPACE = 44
+
+  # The games, by scenario name. FLASH-BLIP, the heaviest of the parity
+  # fixtures, draws every frame through four shaders and its text a
+  # rectangle a pixel; it runs here under its parity test's script
+  # (test/parity/flash_blip_test.rb): it plays itself under its menu
+  # until Return, in frame 300, starts a game, in which the space bar
+  # blips every 40 frames from frame 400 until an obstacle ends it.
+  GAMES = {
+    "flash_blip" => Game.new(fixture: "test/fixtures/flash_blip/game", translation: "test/games/flash_blip",
+      frames: 900, fps: 60, presses: [
+        [RETURN, 300..300],
+        *Array.new(10) { |press| [SPACE, (400 + (40 * press))..(400 + (40 * press))] },
+      ]),
+  }.freeze
+
+  # What a Game's scenario name ends with when its run times the game's
+  # calls into Lota's extension (Parity::Probe::NativeCalls), which only
+  # Lota runs.
+  NATIVE = "_native_calls"
+
   # The frame scenarios each engine runs (tasks/bench/lota/main.rb and
-  # tasks/bench/love/main.lua say what each does), and +calls+, which
-  # times single calls.
-  LOTA_SCENARIOS = %w[ruby_noop noop native rectangle set_color color_writer color_reader frame calls].freeze
-  LOVE_SCENARIOS = %w[rectangle set_color color_reader calls].freeze
+  # tasks/bench/love/main.lua say what each does), +calls+, which times
+  # single calls, and the GAMES, which Lota also runs timing its native
+  # calls.
+  LOTA_SCENARIOS = (%w[ruby_noop noop native rectangle set_color color_writer color_reader frame calls] +
+    GAMES.keys + GAMES.keys.map { |name| name + NATIVE }).freeze
+  LOVE_SCENARIOS = (%w[rectangle set_color color_reader calls] + GAMES.keys).freeze
 
   # The budgets a frame's share is reported against: 60 and 120 Hz.
   BUDGETS = [1 / 60.0, 1 / 120.0].freeze
@@ -41,9 +141,10 @@ module Bench
   class Failure < StandardError; end
 
   # How much each run measures: rectangles a frame, untimed frames, timed
-  # frames, iterations of each single call, and runs of each scenario.
-  class Settings < Data.define(:draws, :warmup, :frames, :calls, :runs)
-    DEFAULTS = { draws: 10_000, warmup: 200, frames: 2_000, calls: 200_000, runs: 3 }.freeze
+  # frames, iterations of each single call, and runs of each scenario, and
+  # the frames of each Game, where 0 runs its whole script.
+  class Settings < Data.define(:draws, :warmup, :frames, :calls, :runs, :game_frames)
+    DEFAULTS = { draws: 10_000, warmup: 200, frames: 2_000, calls: 200_000, runs: 3, game_frames: 0 }.freeze
 
     # The defaults, each overridden by BENCH_DRAWS, BENCH_WARMUP, and so
     # on, when set in +environment+.
@@ -73,25 +174,56 @@ module Bench
         LOVE_SCENARIOS.map { |name| new(engine: "love", jit: "luajit", name:) }
     end
 
+    # Every scenario, or when +environment+ sets BENCH_SCENARIOS, those it
+    # names, separated by commas or spaces, in every engine and JIT that
+    # runs them. Raises Failure for a name no scenario has.
+    def self.from(environment)
+      names = environment.fetch("BENCH_SCENARIOS", "").split(/[\s,]+/).reject(&:empty?)
+      return all if names.empty?
+
+      unknown = names - LOTA_SCENARIOS - LOVE_SCENARIOS
+      raise Failure, "BENCH_SCENARIOS names no scenario #{unknown.join(', ')}" unless unknown.empty?
+
+      all.select { |scenario| names.include?(scenario.name) }
+    end
+
     # The command that runs it, with +love+ the reference love's
     # executable.
     def command(love:)
-      return [love, File.join(ROOT, "tasks/bench/love")] if engine == "love"
+      if engine == "love"
+        return [love, File.join(ROOT, game ? "test/parity/lua" : "tasks/bench/love")]
+      end
 
       [
         RbConfig.ruby,
         *JITS.fetch(jit),
         "-I#{File.join(ROOT, 'lib')}",
         "-I#{File.join(ROOT, 'tmp/engine/build/lib')}",
+        *(game ? ["-r#{File.join(ROOT, 'test/parity/probe.rb')}"] : []),
         File.join(ROOT, "exe/lota"),
         "run",
-        File.join(ROOT, "tasks/bench/lota"),
+        File.join(ROOT, game ? game.translation : "tasks/bench/lota"),
 ]
     end
 
     # The environment it runs with, writing its report to +report+.
     def environment(settings, report)
+      if game
+        environment = game.environment(report, settings)
+        return native_calls? ? environment.merge("LOTA_PARITY_NATIVE_TIMES" => "1") : environment
+      end
+
       settings.environment.merge("LOTA_BENCH_SCENARIO" => name, "LOTA_BENCH_REPORT" => report)
+    end
+
+    # The Game it runs, or +nil+ for a scenario of rake bench's own games.
+    def game
+      GAMES[name.delete_suffix(NATIVE)]
+    end
+
+    # Whether it runs a Game timing the game's native calls.
+    def native_calls?
+      !game.nil? && name.end_with?(NATIVE)
     end
 
     def to_s
@@ -163,18 +295,29 @@ module Bench
       data.fetch("calls")
     end
 
+    # For a Game, the seconds each frame's update and draw took together,
+    # the game's own work, frame by frame.
+    def work
+      data.fetch("update").zip(data.fetch("draw")).map(&:sum)
+    end
+
     # What the run should be ranked by: lower is better.
     def rank
-      (scenario.name == "calls") ? calls.values.sum { |call| call.fetch("seconds") } : draw
+      return calls.values.sum { |call| call.fetch("seconds") } if scenario.name == "calls"
+      return Bench.quantile(work, 0.5) if scenario.game
+
+      draw
     end
   end
 
   # Runs each scenario +settings.runs+ times and keeps its best Result,
   # the one with the shortest median draw loop (for +calls+, the shortest
-  # calls in all), since anything else running on the machine only ever
-  # adds time.
+  # calls in all, and for a Game, the shortest median update and draw),
+  # since anything else running on the machine only ever adds time.
   class Runner
-    def initialize(settings:, love:, directory:, out: $stdout)
+    # [timeout] Seconds a run may take before it is stopped and fails.
+    def initialize(settings:, love:, directory:, out: $stdout, timeout: TIMEOUT)
+      @timeout = timeout
       @settings = settings
       @love = love
       @directory = directory
@@ -194,7 +337,9 @@ module Bench
       @out.puts "Running #{scenario}, run #{index} of #{@settings.runs}"
       report = File.join(@directory, "#{scenario.engine}-#{scenario.jit}-#{scenario.name}-#{index}.json")
       FileUtils.rm_f(report)
-      output, status = Bench.spawn(scenario.environment(@settings, report), scenario.command(love: @love))
+      environment = scenario.environment(@settings, report)
+      output, status = Bench.spawn(environment, scenario.command(love: @love), timeout: @timeout)
+      raise Failure, "#{scenario} #{stopped(environment)}; it printed:\n#{output}" unless status
       unless status&.success? && File.exist?(report)
         raise Failure, "#{scenario} failed (#{status.inspect}):\n#{output}"
       end
@@ -209,17 +354,36 @@ module Bench
 
       Result.new(scenario, data)
     end
+
+    # How a run with +environment+ that ran too long was stopped, and for
+    # a Game, after which frame, by the progress file the parity harness's
+    # sides write.
+    private def stopped(environment)
+      progress = environment["LOTA_PARITY_PROGRESS"]
+      frame = (progress && File.exist?(progress)) ? File.read(progress).strip : nil
+      "ran past #{@timeout} s and was stopped#{frame ? " after frame #{frame}" : ''}"
+    end
   end
+
+  # How long a run that ran too long has, once asked where it is, to say.
+  WHERE = 5
 
   # Runs +command+ with +environment+ added to this process's, and returns
   # its output and status, or a +nil+ status if it ran past +timeout+
-  # seconds and was killed, with every process it started.
+  # seconds and was killed, with every process it started. Before it is
+  # killed, a run is sent SIGUSR1 and given WHERE seconds, so one that
+  # says where it is when asked, as the parity probe's timing mode does,
+  # says so in its output.
   def self.spawn(environment, command, timeout: TIMEOUT)
     Open3.popen2e(environment, *command, pgroup: true) do |stdin, output, wait|
       stdin.close
       reader = Thread.new { output.read }
       finished = wait.join(timeout)
-      stop(wait.pid) unless finished
+      unless finished
+        ask_where(wait.pid)
+        wait.join(WHERE)
+        stop(wait.pid)
+      end
       [reader.value, finished && wait.value]
     rescue Interrupt
       # A run in its own process group hears no Control-C, so it is stopped
@@ -227,6 +391,13 @@ module Bench
       stop(wait.pid)
       raise
     end
+  end
+
+  # Sends SIGUSR1 to the process +pid+, unless it is already gone.
+  def self.ask_where(pid)
+    Process.kill(:USR1, pid)
+  rescue Errno::ESRCH, Errno::EPERM
+    nil
   end
 
   # Kills the process group +pid+ leads, unless it is already gone (or,
@@ -309,7 +480,108 @@ module Bench
     end
 
     def to_s
-      [header, draws, breakdown, calls, collector].join("\n\n") << "\n"
+      [header, draws, breakdown, calls, collector, *games].compact.join("\n\n") << "\n"
+    end
+
+    # Two tables for each Game that ran (#game_table and #shares).
+    private def games
+      GAMES.flat_map { |name, game| [game_table(name, game), shares(name)].compact }
+    end
+
+    # The game's update and draw, together, and the whole frame, the
+    # median, 99th percentile, and longest, in Lota under each JIT and in
+    # LÖVE, how many times LÖVE's median Lota's is, and what Ruby's
+    # collector did over the frames.
+    private def game_table(name, game)
+      rows = [*lota_jits.map { |jit| find("lota", jit, name) }, find("love", "luajit", name)].compact
+      return if rows.empty?
+
+      love = find("love", "luajit", name)
+      table("#{name}, whole, #{game.frames_under(@settings)} frames of its parity script at #{game.fps} Hz",
+        [
+          "engine",
+          "JIT",
+          "update+draw ms p50/p99/max",
+          "max in frame",
+          "of LÖVE's",
+          "frame ms p50/p99/max",
+          "objects/frame",
+          "GCs (minor/major)",
+          "major causes",
+          "GC ms total",
+          "GC ms max/frame",
+],
+        rows.map { |result| game_row(result, love) })
+    end
+
+    # Where the game's update and draw spend their time in Lota, under
+    # each JIT that ran both runs: medians of the run without wrappers, for
+    # the update and draw and the frame, and of the run that timed its
+    # native calls, for those; Ruby's is the difference.
+    private def shares(name)
+      rows = lota_jits.filter_map do |jit|
+        plain, wrapped = [name, name + NATIVE].map { |scenario| find("lota", jit, scenario) }
+        next unless plain && wrapped
+
+        work = Bench.quantile(plain.work, 0.5)
+        native = Bench.quantile(wrapped.data.fetch("native"), 0.5)
+        ruby = work - native
+        frame = Bench.quantile(plain.data.fetch("frame"), 0.5)
+        [
+          jit,
+          Bench.quantile(wrapped.data.fetch("native_calls"), 0.5).to_s,
+          ms(work),
+          ms(native),
+          ms(ruby),
+          percent(ruby / work),
+          percent(ruby / frame),
+          ms(frame),
+]
+      end
+      return if rows.empty?
+
+      table("Where #{name}'s update and draw spend their time in Lota (medians; ms)",
+        [
+          "JIT",
+          "native calls/frame",
+          "update+draw",
+          "in native calls",
+          "in Ruby",
+          "Ruby of update+draw",
+          "Ruby of frame",
+          "frame",
+],
+        rows)
+    end
+
+    private def game_row(result, love)
+      gc = result.gc
+      collected = if gc.empty?
+        ["-"] * 5
+      else
+        [
+          (gc.fetch("total_allocated_objects") / result.work.size).to_s,
+          "#{gc.fetch('count')} (#{gc.fetch('minor_gc_count')}/#{gc.fetch('major_gc_count')})",
+          causes(result.major_causes),
+          ms(gc.fetch("time_ns") / 1e9),
+          ms(result.gc_max),
+]
+      end
+      median = Bench.quantile(result.work, 0.5)
+      [
+        (result.scenario.engine == "love") ? "LÖVE" : "Lota",
+        result.scenario.jit,
+        spread(result.work),
+        (result.work.index(result.work.max) + 1).to_s,
+        love ? format("%.2fx", median / Bench.quantile(love.work, 0.5)) : "-",
+        spread(result.data.fetch("frame")),
+        *collected,
+]
+    end
+
+    # The median, 99th percentile, and longest of +seconds+, in ms.
+    private def spread(seconds)
+      [Bench.quantile(seconds, 0.5), Bench.quantile(seconds, 0.99), seconds.max].map { |value| ms(value) }.join("/")
     end
 
     private def find(engine, jit, name)
@@ -321,7 +593,7 @@ module Bench
     end
 
     private def header
-      rubies = lota_jits.filter_map { |jit| find("lota", jit, "rectangle")&.data&.fetch("ruby") }.uniq
+      rubies = @results.filter_map { |result| result.data["ruby"] if result.scenario.engine == "lota" }.uniq
       love = @results.find { |result| result.scenario.engine == "love" }&.data
       lines = @machine + rubies.map { |ruby| "Ruby: #{ruby}" }
       lines += ["LÖVE: #{love.fetch('lua')}, renderer #{love.fetch('renderer')}"] if love
@@ -342,7 +614,12 @@ module Bench
         love.graphics.rectangle("fill", x, y, 4, 4). Single calls are timed
         #{@settings.calls} times over, the best of 5, with allocations counted from
         GC.stat(:total_allocated_objects); the empty block is the timing loop's
-        own cost, included in every other row.
+        own cost, included in every other row. Each game runs whole, the
+        published game in LÖVE and its translation in Lota, through the parity
+        harness's two sides with a fixed dt and the same scripted keys, in the
+        window its own settings ask for, and no screenshots; every frame is timed,
+        from the first, and the best of #{@settings.runs} runs is kept (the shortest
+        median update and draw).
       METHOD
     end
 
@@ -467,7 +744,10 @@ module Bench
       counts.sort_by { |cause, count| [-count, cause] }.map { |cause, count| "#{cause} #{count}" }.join(", ")
     end
 
+    # A table, or +nil+ when it has no +rows+, which the report leaves out.
     private def table(title, headings, rows)
+      return if rows.empty?
+
       widths = headings.each_index.map { |index| ([headings] + rows).map { |row| row[index].to_s.size }.max }
       line = -> (row) { row.each_with_index.map { |cell, index| cell.to_s.ljust(widths[index]) }.join("  ").rstrip }
       [title, line.(headings), line.(widths.map { |width| "-" * width }), *rows.map(&line)].join("\n")

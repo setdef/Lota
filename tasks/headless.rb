@@ -61,7 +61,7 @@ class Headless
   GPU_MODES = %w[off opengl vulkan].freeze
 
   # The tasks that open windows, besides test and its namespace.
-  TASKS = %w[default gate prepush red_before_green package:install package:deliver].freeze
+  TASKS = %w[default gate prepush red_before_green package:install package:deliver bench].freeze
 
   # The tests of test's namespace that open none: the unit tests
   # (UNIT_TESTS in tasks/test.rake).

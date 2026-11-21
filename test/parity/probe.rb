@@ -259,6 +259,7 @@ module Parity
     # the game's declares.
     module Callbacks
       def load(*arguments)
+        NativeCalls.install if NativeCalls.on?
         Probe.decode_sounds
         Lota::Math.random_seed = CLOCK if Lota.math
         Probe.hold_pointer(1) if Lota.mouse
@@ -274,17 +275,19 @@ module Parity
           return Lota::Event.quit(1)
         end
 
+        Timing.start_frame if TIMES
         game = method(:update).super_method
-        super(*Probe.declared(game, [DT])) if game
+        Timing.time(:update) { super(*Probe.declared(game, [DT])) if game }
         LotaNativeTest.render_loopback(LOOPBACK_FILE, DT) if Lota.audio
         Probe.press_keys
         Probe.use_mouse
       end
 
       def draw
-        super if method(:draw).super_method
+        Timing.time(:draw) { super if method(:draw).super_method }
         number = Probe.frame
         return if number > FRAMES
+        return Timing.finish(number) if TIMES
 
         Lota::Native::Graphics.capture_screenshot(lambda do |native|
           Probe.compare(number, native)
@@ -339,6 +342,289 @@ module Parity
         (arguments.empty? && options.empty?) ? at(CLOCK) : super
       end
     end
+
+    # The file the timing mode writes to, or +nil+ outside it (Timing).
+    TIMES = ENV.fetch("LOTA_PARITY_TIMES", nil)
+
+    # The harness's timing mode, which rake bench runs a translated game
+    # in (tasks/bench.rb), as test/parity/lua/conf.lua runs LÖVE's. With
+    # LOTA_PARITY_TIMES naming a file, Lota.draw takes no screenshot and
+    # compares no frame, and the probe times each frame by the real clock
+    # instead: the game's update and draw, each alone, and the whole frame,
+    # from the start of one update to the start of the next, which takes in
+    # the events, clearing, presenting, and the loop's sleep. It counts the
+    # collector's work in each whole frame too, and each major collection's
+    # cause, as Bench::Recorder does in rake bench's own game. After the
+    # last frame it writes them to that file as JSON, with the JIT that
+    # ran, and quits.
+    module Timing
+      # Monotonic seconds, as a Float.
+      MONOTONIC = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
+
+      # The GC.stat counts kept for the frames as a whole.
+      GC_KEYS = %i[count minor_gc_count major_gc_count total_allocated_objects].freeze
+
+      @times = { update: [], draw: [], frame: [] }
+      @frame_gc_ns = []
+      @frame_gc_count = []
+      @major_causes = Hash.new(0)
+      @started = nil
+
+      # How often, in frames, the timing mode writes the last frame done to
+      # PROGRESS, which rake bench reads when it stops a run that ran too
+      # long; every frame would add the write to the frames it times.
+      PROGRESS_EVERY = 30
+
+      class << self
+        # Turns the timing mode's diagnostics on: what the game prints goes
+        # out at once, so a run killed for running too long loses none of
+        # it, and SIGUSR1, which rake bench sends such a run before it kills
+        # it, prints the frame under way and every thread's backtrace.
+        def diagnose
+          $stdout.sync = true
+          $stderr.sync = true
+          Signal.trap(:USR1) do
+            warn "Parity probe: stopped in frame #{Probe.frame}; its threads:"
+            ::Thread.list.each { |thread| warn "#{thread.inspect}\n  #{Array(thread.backtrace).join("\n  ")}" }
+          end
+        end
+
+        # Runs the block, and in timing mode adds the seconds it took to
+        # the times of +part+, :update or :draw.
+        def time(part)
+          return yield unless TIMES
+
+          start = MONOTONIC.call
+          NativeCalls.counting { yield }
+        ensure
+          @times.fetch(part) << (MONOTONIC.call - start) if TIMES && start
+        end
+
+        # Ends the frame before, if there was one, and starts the next.
+        def start_frame
+          now = MONOTONIC.call
+          if @started
+            @times.fetch(:frame) << (now - @started)
+            @frame_gc_ns << (LotaNativeTest.gc_wall_time - @gc_time)
+            @frame_gc_count << (GC.count - @gc_count)
+            note_majors
+          end
+          NativeCalls.next_frame if NativeCalls.on?
+          done = Probe.frame - 1
+          File.write(PROGRESS, done.to_s) if (done % PROGRESS_EVERY).zero?
+          @first ||= gc_snapshot
+          @majors ||= GC.stat(:major_gc_count)
+          @started = now
+          @gc_time = LotaNativeTest.gc_wall_time
+          @gc_count = GC.count
+        end
+
+        # After frame +number+'s draw: writes the times once it is the
+        # last frame, and quits, unless the script leaves quitting to the
+        # game.
+        def finish(number)
+          return unless number == FRAMES
+
+          write
+          Lota::Event.quit unless GAME_QUITS
+        end
+
+        private def write
+          note_majors
+          last = gc_snapshot
+          File.write(TIMES, JSON.generate(
+            "engine" => "lota", "jit" => jit, "ruby" => RUBY_DESCRIPTION,
+            **@times.transform_keys(&:to_s),
+            "frame_gc_ns" => @frame_gc_ns, "frame_gc_count" => @frame_gc_count,
+            "gc" => last.to_h { |key, value| [key.to_s, value - @first.fetch(key)] },
+            "gc_major_by" => @major_causes,
+            **NativeCalls.to_h,
+          ))
+        end
+
+        private def gc_snapshot
+          GC.stat.slice(*GC_KEYS).merge(time_ns: LotaNativeTest.gc_wall_time)
+        end
+
+        # Counts the major collections since the last look by their cause,
+        # as Bench::Recorder#note_majors does.
+        private def note_majors
+          majors = GC.stat(:major_gc_count)
+          return if majors == @majors
+
+          cause = GC.latest_gc_info(:major_by)
+          @major_causes[cause.to_s] += 1 if cause
+          unseen = majors - @majors - (cause ? 1 : 0)
+          @major_causes["unseen"] += unseen if unseen.positive?
+          @majors = majors
+        end
+
+        private def jit
+          if defined?(RubyVM::ZJIT) && RubyVM::ZJIT.enabled? then "zjit"
+          elsif defined?(RubyVM::YJIT) && RubyVM::YJIT.enabled? then "yjit"
+          else "interpreter"
+          end
+        end
+      end
+    end
+
+    # In the timing mode, with LOTA_PARITY_NATIVE_TIMES=1 as well, how
+    # long the game's update and draw spend in Lota's extension each frame,
+    # so the rest of their time is Ruby's: the game's own code and Lota's
+    # Ruby. Every method of Lota::Native's modules and classes that the
+    # extension defines in C++ is wrapped, as the game loads, and each call
+    # the game's update or draw makes into it is timed, less what the
+    # wrapper itself adds to that time (#calibrate). A call the extension
+    # makes back into Ruby is counted as the extension's. The wrappers add
+    # time of their own outside what they time, so a run with them is
+    # slower than one without, and rake bench takes the frame's other times
+    # from a run without them.
+    module NativeCalls
+      @counting = false
+      @seconds = 0.0
+      @calls = 0
+      @frame_seconds = []
+      @frame_calls = []
+      @started = false
+      @overhead = 0.0
+
+      class << self
+        # Whether the native calls are timed.
+        def on?
+          TIMES && ENV.fetch("LOTA_PARITY_NATIVE_TIMES", nil) == "1"
+        end
+
+        # Runs the block, timing the native calls it makes while on.
+        def counting
+          return yield unless on?
+
+          @counting = true
+          yield
+        ensure
+          @counting = false
+        end
+
+        # Wraps each of the extension's methods, once Lota::Native is loaded.
+        def install
+          calibrate
+          modules(Lota::Native).each do |mod|
+            wrap(mod.singleton_class)
+            wrap(mod) if mod.is_a?(Class)
+          end
+        end
+
+        # Adds +seconds+ of one call, from a wrapper, to the frame's.
+        def add(seconds)
+          @seconds += seconds
+          @calls += 1
+        end
+
+        # Whether a wrapper should time its call: inside the game's update
+        # or draw, and not inside another timed call.
+        def timing?
+          @counting && !@inside
+        end
+
+        # Ends a frame's count, if one was under way, and starts the next.
+        def next_frame
+          close_frame if @started
+          @started = true
+        end
+
+        # What the timing mode's report adds: each frame's seconds in native
+        # calls, the wrapper's own time taken out, and its calls.
+        def to_h
+          return {} unless on?
+
+          close_frame if @started
+          { "native" => @frame_seconds, "native_calls" => @frame_calls, "native_overhead" => @overhead }
+        end
+
+        private def close_frame
+          @frame_seconds << [@seconds - (@calls * @overhead), 0.0].max
+          @frame_calls << @calls
+          @seconds = 0.0
+          @calls = 0
+        end
+
+        # Lota::Native and every module and class inside it.
+        private def modules(root, seen = {})
+          return [] if seen[root]
+
+          seen[root] = true
+          nested = root.constants(false).filter_map { |name| root.const_get(name, false) }.grep(Module)
+          [root, *nested.flat_map { |mod| modules(mod, seen) }]
+        end
+
+        # Prepends to +target+ a wrapper for each method +target+ itself
+        # defines that has no Ruby source, or for +names+ when given.
+        #
+        # Each wrapper is a method written with def, not define_method,
+        # and times nothing outside the main Ractor: the game's threads
+        # are Ractors of their own (Lota::Thread), which call the
+        # extension too, and Ruby refuses another Ractor a method whose
+        # body is a Proc it cannot share, and any of this module's state.
+        # A thread that met that refusal would die, and a game that waits
+        # for what it makes, as FLASH-BLIP waits for its music, would
+        # wait for good.
+        private def wrap(target, names = nil)
+          names ||= (target.instance_methods(false) + target.private_instance_methods(false))
+            .select { |name| target.instance_method(name).source_location.nil? }
+          names = names.select { |name| name.match?(WRAPPABLE) }
+          return if names.empty?
+
+          private_names = names & target.private_instance_methods(false)
+          wrapper = Module.new
+          names.each do |name|
+            wrapper.module_eval(<<~RUBY, __FILE__, __LINE__ + 1)
+              def #{name}(...)
+                return super unless Ractor.main? && Parity::Probe::NativeCalls.timing?
+
+                Parity::Probe::NativeCalls.time { super }
+              end
+            RUBY
+          end
+          wrapper.__send__(:private, *private_names) unless private_names.empty?
+          target.prepend(wrapper)
+        end
+
+        # The names a method written with def can take, an operator's
+        # among them; the extension's methods have no others.
+        WRAPPABLE = %r{\A(?:[A-Za-z_]\w*[?!=]?|\[\]=?|[-+*/%<>]|<=|>=|==|<=>|!=)\z}
+
+        # Times one call into the extension, the block, as a wrapper
+        # makes it.
+        def time
+          @inside = true
+          start = Timing::MONOTONIC.call
+          begin
+            yield
+          ensure
+            add(Timing::MONOTONIC.call - start)
+            @inside = false
+          end
+        end
+
+        # The time a wrapper adds to what it times, per call: a Ruby method
+        # that does nothing, wrapped and called while counting, reports
+        # only the wrapper's own time.
+        private def calibrate
+          probe = Module.new { def self.nothing = nil }
+          wrap(probe.singleton_class, [:nothing])
+          @counting = true
+          3.times do
+            @seconds = 0.0
+            @calls = 0
+            100_000.times { probe.nothing }
+          end
+          @overhead = @seconds / @calls
+        ensure
+          @counting = false
+          @seconds = 0.0
+          @calls = 0
+        end
+      end
+    end
   end
 end
 
@@ -350,4 +636,5 @@ Lota::Timer.singleton_class.prepend(Parity::Probe::Delta)
 Lota.singleton_class.prepend(Parity::Probe::Callbacks)
 Lota::Boot.prepend(Parity::Probe::SeedBeforeMain)
 Lota::Thread::Thread.prepend(Parity::Probe::Threads)
+Parity::Probe::Timing.diagnose if Parity::Probe::TIMES
 at_exit { Parity::Probe.report }
