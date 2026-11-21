@@ -108,7 +108,7 @@ For both systems:
 
 - A clone of Lota's repository with its submodules. Lota's gem does not carry LÖVE's sources, so the phone build compiles LÖVE's engine from the clone's `vendor/love`, unless the gem pins a prebuilt engine ([Prebuilt engines](#prebuilt-engines) says when).
 - Ruby 4.1 with Bundler, Git, CMake 3.21 or newer, and Ninja, all on your `PATH`. Until Ruby 4.1.0 is released, that Ruby is a preview, such as 4.1.0-preview1.
-- Fledge v0.14.0, the Fledge `lota fuse` builds with. Your phone project's `Gemfile` names it by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
+- Fledge v0.16.0, the Fledge `lota fuse` builds with. Your phone project's `Gemfile` names it by its Git tag. Fledge downloads its Ruby for each phone the first time it builds.
 
 For iOS and iPadOS, a Mac with:
 
@@ -220,10 +220,10 @@ The `Gemfile` names Lota's folder and Fledge's tag:
 source "https://rubygems.org"
 
 gem "lota", path: "/Users/you/Lota/tmp/phone/lota"
-gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.14.0", group: :development
+gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.16.0", group: :development
 ```
 
-Fledge ships every group `bundle exec` sets up, `development` among them, so Fledge itself goes into the phone app. Leaving the group out with Bundler's `without` would leave Fledge out of `bundle exec fledge` too.
+Fledge ships every group `bundle exec` sets up, `development` among them, so Fledge itself goes into the phone app, about 8 MB of files by Fledge's README. Leaving the group out with Bundler's `without` would leave Fledge out of `bundle exec fledge` too. [Fledge from a Gemfile of its own](#fledge-from-a-gemfile-of-its-own) keeps it out.
 
 `fledge.yml` names the app, its identifier, its version, and the hosts:
 
@@ -255,7 +255,29 @@ For Android, name Android's libraries instead:
 bundle config set --local build.lota "--with-lota-source=$HOME/Lota --with-lota-android-deps=$HOME/Lota/tmp/android/deps --with-rice-dir=$rice"
 ```
 
-If `bundle lock` stops with `Revision v0.14.0 does not exist in the repository`, Bundler is reading a copy of Fledge's repository that it fetched before that tag was published, for this project or another, and `bundle lock` does not fetch it again. `bundle install` does, so run `bundle install`, then the two commands again.
+If `bundle lock` stops with `Revision v0.16.0 does not exist in the repository`, Bundler is reading a copy of Fledge's repository that it fetched before that tag was published, for this project or another, and `bundle lock` does not fetch it again. `bundle install` does, so run `bundle install`, then the two commands again.
+
+### Fledge from a Gemfile of its own
+
+To build an app that carries none of Fledge's files, as `lota fuse` builds a desktop app, leave the `fledge` line out of the phone project's `Gemfile` and put it in a `Gemfile` of its own, in a folder outside the project, here `~/fledge-tools`:
+
+```ruby
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gem "fledge", git: "https://github.com/setdef/Fledge", tag: "v0.16.0"
+```
+
+Set `build.lota` and lock the phone project as above, in the project's folder. Then install Fledge in its own folder, and build the project from there by its path, naming where the built project goes, since Fledge otherwise writes `dist` in the folder you run it from:
+
+```sh
+cd ~/fledge-tools
+bundle install
+bundle exec fledge build android --out ~/MyGame-phone/dist ~/MyGame-phone
+```
+
+Fledge still reads the project's own `Gemfile`, lockfile, and `.bundle/config`, `build.lota` among them. Where the sections below run `bundle exec fledge build ios` or `android` in the project's folder, run it this way from `~/fledge-tools` instead; the built project is in `~/MyGame-phone/dist` either way. On 2026-11-21 Lota's phone check, built this way for Android with Fledge v0.16.0, held none of Fledge's files in its app, and ran and quit with status 0 on `x86_64` emulators of Android 16 with 4 KB and with 16 KB pages.
 
 ### iPhone and iPad
 
@@ -339,6 +361,8 @@ apksigner sign --ks release.jks --out MyGame.apk MyGame-aligned.apk
 
 `zipalign` and `apksigner` are in the SDK's `build-tools`. Upload the `.aab` to Google Play, which signs what it delivers with its own key once you enroll in Play App Signing; keep `release.jks` as your upload key. Or name the key in a `signingConfigs` block of `build.gradle`.
 
+To keep such a change across builds, copy `dist/MyGame-android/build.gradle` into `host/android`, since Fledge writes the project afresh each time and copies the host over it. Keep `useLegacyPackaging = true` in its `packaging { jniLibs { } }` block, as Fledge's file sets it: Lota's extension is one of the app's native libraries, which Ruby loads only once the package installer has unpacked it. `fledge build android` refuses a copy that sets it to `false`, as Fledge's own file did before Fledge 0.13.0, and warns of one that sets nothing. When you move to a newer Fledge, compare your copy with the file Fledge writes and take what changed.
+
 ## The hosts
 
 SDL owns a phone's screen and its main loop, so a Lota app starts through SDL's startup files rather than Fledge's own. Lota's gem carries a host for each system in `ext/lota/phone/host`, and Fledge copies it over the project it writes. Once you copy a host into your project it is yours to change, but keep the parts this section marks.
@@ -348,7 +372,7 @@ SDL owns a phone's screen and its main loop, so a Lota app starts through SDL's 
 - SDL shows the accelerometer as a joystick on iOS, and the host turns that off (`SDL_ACCELEROMETER_AS_JOYSTICK=0`). Read the accelerometer through `Lota::Sensor`. A paired controller is still a joystick.
 - On iOS 27, SDL gives a game launched in landscape a portrait window, cut off and black on one side, in LÖVE's own iOS app as well, because it reads the orientation from a place iOS 27 no longer fills (`doc/contributors/upstream/019.md`). The host's `LotaApplication`, named as `NSPrincipalClass` in `Info.plist`, answers with the window scene's orientation instead. Keep both.
 
-**Android** (`host/android`). `MainActivity.java` is SDL's Activity. It loads SDL, OpenAL Soft, and Fledge's Ruby, runs the game's Ruby on a thread with a 64 MB stack, and has the methods LÖVE's engine calls on it. Lota's engine and extension are a library of their own, `libfledgeext.lota.native.so`, which Ruby loads on its own thread when the game requires Lota; if you change the libraries the activity loads, leave that one out. `AndroidManifest.xml` asks for OpenGL ES 3.0, vibration, and a full screen. The host departs from LÖVE's Android app twice:
+**Android** (`host/android`). `MainActivity.java` is SDL's Activity. It loads SDL, OpenAL Soft, and Fledge's Ruby, runs the game's Ruby on a thread with a 64 MB stack, and has the methods LÖVE's engine calls on it. Lota's engine and extension are a library of their own, `libfledgeext.lota.native.so`, which Ruby loads on its own thread when the game requires Lota; if you change the libraries the activity loads, leave that one out. Being C++, it links the NDK's shared C++ runtime, `libc++_shared.so`, which Fledge puts beside it in each ABI, and which Android loads with it. `AndroidManifest.xml` asks for OpenGL ES 3.0, vibration, and a full screen. The host departs from LÖVE's Android app twice:
 
 - Android restarts an activity for any change of configuration its manifest does not list, and SDL then closes the app. LÖVE's app lists only a turn of the screen and a keyboard coming or going, so a change to dark mode, the font, the language, or the display size ends a LÖVE game (`doc/contributors/upstream/014.md`). Lota's manifest also lists `uiMode`, `fontScale`, `fontWeightAdjustment`, `locale`, `layoutDirection`, `assetsPaths`, and `density` in `android:configChanges`, so the game keeps running, and hears dark mode as `Lota.themechanged` and the language as `Lota.localechanged`. Keep them when you change the manifest.
 - When the game leaves the screen, SDL lets go of its window at once, and LÖVE's Vulkan renderer, still drawing a frame, then crashes, in LÖVE's own Android app as well (`doc/contributors/upstream/017.md`). The host waits, up to 2 seconds and usually a few milliseconds, until the game has paused. Keep `gamePaused` and `createSDLSurface` when you change the activity.
@@ -387,7 +411,7 @@ That list comes from reading the source of LÖVE, SDL, and Lota's host, and Lota
 
 ## Licences and notices
 
-An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`. Lota's gem goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app. Fledge is MIT-licensed, so its runtime adds no source for you to offer.
+An app carries the notices of everything in it. Fledge writes its own runtime's in the app's `notices/`, and in an Android app the licence of the NDK's C++ runtime beside them, as `notices/libc++_shared.txt`. Lota's gem goes into the app whole, with Lota's licence, the AGPL-3.0-or-later, so whoever you give the app to is owed its source and Lota's, as with a desktop app. Fledge is MIT-licensed, so its runtime adds no source for you to offer.
 
 Lota writes the rest, the notices of LÖVE's engine and the libraries a phone build links, into the phone project's `NOTICES.txt`, which goes into the app's `app/` folder, as `lota fuse` writes a desktop app's. Run it in the clone before `fledge build`, and again after you pull a new version of Lota:
 
@@ -438,4 +462,4 @@ end
 - Android's opt-in to handle Back.
 - On Android, a real speaker, a real accelerometer, and the frame rate on a device.
 
-Ruby runs on an iPhone or iPad without a JIT, since iOS gives an app no memory it may write code into and run. On Android, Fledge v0.14.0's Ruby has YJIT and ZJIT, each off until the app turns it on, and the `main.rb` above turns YJIT on, as on a desktop. How fast a Lota game runs on Android with YJIT has not been measured. A game's Ruby runs slower on a phone than on a desktop with YJIT, and each call into the engine, on a slower CPU, costs several times what it costs on a desktop.
+Ruby runs on an iPhone or iPad without a JIT, since iOS gives an app no memory it may write code into and run. On Android, Fledge v0.16.0's Ruby has YJIT and ZJIT, each off until the app turns it on, and the `main.rb` above turns YJIT on, as on a desktop. How fast a Lota game runs on Android with YJIT has not been measured. A game's Ruby runs slower on a phone than on a desktop with YJIT, and each call into the engine, on a slower CPU, costs several times what it costs on a desktop.
