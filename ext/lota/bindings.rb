@@ -298,7 +298,8 @@ bound_by_hand "love.filesystem.getDirectoryItems",
 bound_by_hand "love.filesystem.mount",
   reason: "reads its arguments at positions it computes (startidx), as a Data, a FileData, a NativeFile, or " \
     "a path; Lota binds the path and Data forms, which Lota::Filesystem.mount chooses between, and mounts a " \
-    "NativeFile by its filename through the path form, as LÖVE does"
+    "NativeFile by its filename through the path form, as LÖVE's branch for one means to, though LÖVE pushes " \
+    "every NativeFile as a File and so never takes the branch (doc/contributors/upstream/031.md)"
 bound_by_hand "love.filesystem.unmount",
   reason: "reads its argument as a Data or a string (luax_istype); Lota binds each form, which " \
     "Lota::Filesystem.unmount chooses between"

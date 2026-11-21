@@ -700,8 +700,12 @@ module Lota
     #   Lota::Filesystem::FileData, mounted under its own filename.
     # [<tt>mount(native_file, mountpoint, append = false)</tt>] a
     #   Lota::Filesystem::File that Lota::Filesystem.open_native_file
-    #   opened, mounted by its filename as a path is, which PhysicsFS
-    #   mounts only in the save directory or the game's folder.
+    #   opened, or that Lota.filedropped received, mounted by its filename
+    #   as a path is, which LÖVE mounts only in the save directory, the
+    #   game's folder, or where it was dropped on the window. LÖVE's own
+    #   mount means to take such a File so, but refuses it as it refuses
+    #   any other File, and Lota does what LÖVE means
+    #   (doc/contributors/upstream/031.md).
     #
     # [append] Whether its files are found after the ones already mounted
     #   rather than before them; anything but +true+ or +false+ is +false+,
