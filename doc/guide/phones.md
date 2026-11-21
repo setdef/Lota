@@ -311,6 +311,14 @@ xcrun devicectl device install app --device DEVICE build/Build/Products/Debug-ip
 xcrun devicectl device process launch --device DEVICE com.example.MyGame
 ```
 
+The game's output goes to the device's unified log, which Console.app shows once you select the device there. To read it in the terminal instead, launch with `--console` and `OS_ACTIVITY_DT_MODE` set, which leaves the output on the app's own streams for `devicectl` to show; `-e` takes the game's environment as JSON:
+
+```sh
+xcrun devicectl device process launch --device DEVICE --console -e '{"OS_ACTIVITY_DT_MODE":"1"}' com.example.MyGame
+```
+
+When the game quits, the app stays on the screen with its last frame, and `devicectl` goes on waiting. End the app with `xcrun devicectl device process terminate --device DEVICE --pid PID`, where `xcrun devicectl device info processes --device DEVICE` lists its PID. On iOS 27 with Xcode 27.2, `devicectl` still went on waiting after that, and ignored the signal that ends a command, until it was killed.
+
 If the device refuses, check these first:
 
 - **Developer Mode is off.** Turn it on in Settings, Privacy & Security, Developer Mode, and let the device restart.
@@ -437,7 +445,7 @@ On every push, Lota's CI takes this page's steps on a sample game:
 On real devices, outside CI:
 
 - A game's builds, with a lightly customised copy of Lota's iOS host, ran on an iPad Pro 12.9-inch (6th generation) with iPadOS 26, an iPhone 13 mini with iOS 18, and an iPhone 12 mini with iOS 27: fullscreen with no status bar, in portrait and both landscapes, with taps under the finger, sound that the silent switch mutes, the accelerometer, and, on the iPad, a Bluetooth game controller. On the iPhone 12 mini it went to the background and back, and Metal survived.
-- Lota's own iOS host, unmodified, ran the phone check on an iPhone 12 mini with iOS 27: Metal on the A14 drew about 1,200 frames, and the check saved a file, played its tone, found graphics from another thread refused, and quit with status 0. The host's sample identifier has no provisioning profile, so the build was signed under the identifier of an existing team's app.
+- Lota's own iOS host, unmodified, ran the phone check on an iPhone 12 mini with iOS 27: Metal on the A14 drew about 1,200 frames, and the check saved a file, played its tone, found graphics from another thread refused, and quit with status 0. Later, on iOS 27.0 at Lota's commit `b68dbbc1`, built as this page says with Fledge v0.14.0 and the engine the gem pins, the check restarted once in its process, drew 1,199 frames in its 20 seconds at the screen's 2338 by 1080 pixels, which is 60 frames a second, decoded the AIFF and M4A sounds through Core Audio, saved a file, found graphics from another thread refused, and quit with status 0; that run left the tone unplayed, so the phone made no sound. The host's sample identifier has no provisioning profile, so each build was signed with a free Personal Team under the identifier of an existing app of that team.
 - An `arm64-v8a` build with Lota's own Android host ran on a OnePlus Nord N30 5G with Android 14 and an Adreno 619 GPU, on Vulkan, which LÖVE's engine chose there. It survived Home, the recent apps, a share sheet, and the screen turning off, each time in the same process and drawing again, and drew with vsync off.
 
 ### Known problems
