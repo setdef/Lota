@@ -227,24 +227,16 @@ class RestartTest < Minitest::Test
   end
 
   # Whether a restart starts the game again in this process, for
-  # LOTA_IN_PROCESS_RESTART's value, on a phone or not, on macOS 15 (Darwin
-  # 24) or 26 (Darwin 25), in the App Sandbox or not.
-  def in_process?(flag, phone: false, sandbox: false, platform: "arm64-darwin24", release: "24.6.0")
-    environment = { "LOTA_IN_PROCESS_RESTART" => flag }
-    environment["APP_SANDBOX_CONTAINER_ID"] = "com.example.sample" if sandbox
-    Lota::Restart.__send__(:in_process?, phone:, environment:, platform:, release:)
+  # LOTA_IN_PROCESS_RESTART's value. Where the game runs does not matter:
+  # a phone, a sandboxed Mac app, and a desktop restart alike.
+  def in_process?(flag)
+    Lota::Restart.__send__(:in_process?, { "LOTA_IN_PROCESS_RESTART" => flag })
   end
 
-  def test_flagged_a_restart_stays_in_the_process_only_where_exec_cannot_start_the_game
-    refute in_process?(nil, phone: true, sandbox: true), "unflagged, never"
-    assert in_process?("1", phone: true), "a phone cannot replace its process"
-    assert in_process?("1", sandbox: true), "macOS 15's sandbox kills a process that does"
-    refute in_process?("1", sandbox: true, release: "25.0.0"), "macOS 26's lets it"
-    refute in_process?("1", sandbox: true, platform: "x86_64-linux"), "only macOS has the App Sandbox"
-    refute in_process?("1"), "elsewhere exec starts it again"
-  end
-
-  def test_always_a_restart_stays_in_the_process
+  def test_a_restart_stays_in_the_process_as_loves_does_unless_the_flag_asks_for_exec
+    assert in_process?(nil), "by default"
+    assert in_process?("1")
     assert in_process?("always")
+    refute in_process?("0"), "0 asks for exec"
   end
 end

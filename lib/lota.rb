@@ -38,8 +38,8 @@ require_relative "lota/error_message"
 require "lota/preload" if RUBY_PLATFORM.include?("mingw")
 require "lota/native"
 
-# A restart replaces the process (Lota::Restart), so its exit proc is
-# registered first, to run after every other.
+# A restart by exec replaces the process (Lota::Restart), so its exit
+# proc is registered first, to run after every other.
 Lota::Restart.__send__(:install)
 
 # Ruby runs exit procs on the main thread, after the game and before it

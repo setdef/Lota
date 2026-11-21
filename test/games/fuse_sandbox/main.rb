@@ -11,8 +11,7 @@
 # Ruby has loaded Shellwords, which the first run loads and nothing else
 # does: a run in the same Ruby finds it, and one exec started does not.
 # The second run also prints the App Sandbox container the system named
-# in APP_SANDBOX_CONTAINER_ID, which Lota reads to restart in the process
-# where exec cannot (Lota::Restart).
+# in APP_SANDBOX_CONTAINER_ID, which shows it ran in the sandbox.
 def Lota.load(_arguments)
   puts "run: #{Process.pid} #{Lota.restart.inspect} #{!defined?(Shellwords).nil?}"
   if Lota.restart.nil?

@@ -812,8 +812,8 @@ module Lota
 
         # Written by lota fuse, which writes it again on every build. Starts
         # the game in #{GAME_FOLDER}/#{folder} as a fused game, as a shipped game starts,
-        # which starts again when it restarts, by running this app's program
-        # again with the same arguments (Lota::Boot#call).
+        # which starts again in this process when it restarts
+        # (Lota::Boot#call).
         RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
         require "lota"
         exit Lota::Boot.new(File.join(__dir__, #{GAME_FOLDER.inspect}, #{folder.inspect}), ARGV, fused: true).call

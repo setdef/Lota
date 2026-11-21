@@ -125,13 +125,16 @@ module Lota
     # with 0, as LÖVE's love.cpp treats a value that is not a number. A frame
     # that returns <tt>"restart"</tt>, alone or first in an Array with the
     # value the game restarts with, as love.run returns them after
-    # Lota::Event.restart (callbacks.lua:177-187), ends the game with
-    # status 0 and makes #restart? true, and the process starts the game
-    # again once it exits (Lota::Restart): the command <tt>lota run</tt>
+    # Lota::Event.restart (callbacks.lua:177-187), ends the game as a quit
+    # ends it, and call runs it again in this process with that value, as
+    # love.cpp's main runs it again (Lota::Restart). Raises TypeError,
+    # before anything ends, for a restart value that cannot cross.
+    #
+    # When Lota::Restart::IN_PROCESS asks for exec, a restart instead ends
+    # the game with status 0 and makes #restart? true, and the process
+    # starts the game again once it exits: the command <tt>lota run</tt>
     # remembered, or, for a fused game, the program it runs, which call
-    # remembers as it starts, with the game's arguments. Raises TypeError,
-    # before anything ends, for a restart value that cannot cross into the
-    # new process.
+    # remembers as it starts, with the game's arguments.
     #
     # Once Lota.run has returned its frame, each new frame, the error
     # handler's too, goes to the event module before it first runs, as
@@ -190,8 +193,9 @@ module Lota
       Native::Event.set_default_modal_draw_callback(frame && -> { Variant.results(frame.call) })
     end
 
-    # Whether the game ended by asking to restart, once call has returned.
-    # A restart ends the game as a quit does, with status 0.
+    # Whether the game ended by asking to restart, once call has returned,
+    # which it does only when Lota::Restart::IN_PROCESS asks for exec. A
+    # restart ends the game as a quit does, with status 0.
     def restart?
       @restart
     end
@@ -199,9 +203,11 @@ module Lota
     # The program's exit status for what the last frame returned
     # (love.cpp, runlove, lines 275-290): LÖVE restarts when the frame's
     # first result is the string <tt>"restart"</tt>, with the second as the
-    # value for the new run, which Lota asks the process to start again
-    # with once it exits, when it knows how to start it; and otherwise
-    # exits with the first when it is a number, or 0.
+    # value for the new run, which Lota keeps for the run call starts
+    # next, or, when Lota::Restart::IN_PROCESS asks for exec, asks the
+    # process to start again with once it exits, when it knows how to
+    # start it; and otherwise exits with the first when it is a number, or
+    # 0.
     private def finish(retval)
       first, value = retval.is_a?(Array) ? retval : [retval]
       if first == "restart"
@@ -215,8 +221,8 @@ module Lota
     end
 
     # Whether the game runs on a phone, which cannot replace its process,
-    # so a game there ends when it restarts, as a quit ends it: whether
-    # love.system.getOS names iOS or Android.
+    # so a game there that restarts by exec ends instead, as a quit ends
+    # it: whether love.system.getOS names iOS or Android.
     private def phone?
       Native::System.open? && %w[iOS Android].include?(Native::System.os)
     end

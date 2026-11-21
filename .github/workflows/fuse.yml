@@ -11,8 +11,8 @@
 # under its identity alone, where LÖVE's fused game saves
 # (doc/contributors/design/game.md). test/games/fuse first restarts once, as
 # LÖVE's fused game restarts, and the check reads that the value crossed and
-# that the run after it was the same process on macOS and Linux and a new one
-# on Windows. It then opens a window, draws the screen Lövetest's
+# that the run after it was the same process, as it restarts in its process
+# on every system. It then opens a window, draws the screen Lövetest's
 # captureScreenshot test captures, and saves a screenshot, which the check
 # compares with Lövetest's expected image by Lövetest's rule. A runner has no
 # GPU, so it draws with Metal on macOS and on Mesa's llvmpipe elsewhere; the
@@ -338,8 +338,8 @@ jobs:
           ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/run.out" "$GAME_NAME" "${backend[@]}"
 
       # A Mac app sold through the App Store runs in the App Sandbox, where
-      # macOS 15 kills a process that replaces itself with exec, so there a
-      # game restarts in its process (doc/contributors/design/game.md,
+      # macOS 15 kills a process that replaces itself with exec, and a game
+      # restarts in its process (doc/contributors/design/game.md,
       # "Restarting"). test/games/fuse_sandbox, fused as the other games
       # are, restarts once under the sandbox and must run again in its
       # process (.github/sandbox_run.sh).
@@ -351,7 +351,7 @@ jobs:
           place="$RUNNER_TEMP/sandbox-run/My Games"
           mkdir -p "$place"
           tar -xzf "$archive" -C "$place"
-          bash .github/sandbox_run.sh "$(ls -d "$place"/*/*.app)" "$RUNNER_TEMP/sandbox" LOTA_IN_PROCESS_RESTART=1
+          bash .github/sandbox_run.sh "$(ls -d "$place"/*/*.app)" "$RUNNER_TEMP/sandbox"
 
       # test/games/fuse draws, and a runner has no GPU, and Windows' own
       # OpenGL is 1.1, which LÖVE's renderer refuses. So, as windows.yml

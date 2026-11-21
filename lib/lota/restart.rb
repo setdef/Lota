@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #++
 
-require "etc"
 require "rbconfig"
 require "strscan"
 require_relative "variant"
@@ -19,12 +18,25 @@ module Lota
   # passing the new one a value the old one chose: <tt>love.event.restart</tt>
   # queues a quit message that says +restart+, love.run returns it, and
   # love.cpp's loop runs the game again with that value as
-  # <tt>love.restart</tt> (src/love.cpp, main and runlove). Ruby cannot
-  # close the world a game defined, so Lota does what a fresh start is: it
-  # ends the game as a quit does, with the window closed and the exit
-  # procs run, and then replaces the process with <tt>lota run</tt> again
-  # (<tt>Process.exec</tt>), with the command and arguments it was started
-  # with. The process keeps its id.
+  # <tt>love.restart</tt> (src/love.cpp, main and runlove).
+  #
+  # Lota does the same: Lota::Boot#call runs the game again in the same
+  # process, on every system, once the game has ended as a quit ends it.
+  # Ruby cannot close the world a game defined, as <tt>lua_close</tt>
+  # closes a Lua state, so between two runs Lota runs the exit procs the
+  # game registered, takes away what the game's own files defined
+  # (Snapshot), and closes the engine (Lota::Native.close_modules). What
+  # the game changed outside its own files stays: a change to a built-in
+  # class, or to a class it did not define, and a gem it loaded, which
+  # +require+ does not load again (doc/contributors/design/game.md,
+  # "Restarting").
+  #
+  # Set to +0+, the feature flag IN_PROCESS asks for a fresh start
+  # instead: Lota ends the game as a quit does, with the window closed and
+  # the exit procs run, and then replaces the process with <tt>lota
+  # run</tt> again (<tt>Process.exec</tt>), with the command and arguments
+  # it was started with. The process keeps its id. The rest of this
+  # describes that restart.
   #
   # Windows cannot replace a process, so there Ruby's exec starts the
   # command as a new process, waits for it, and exits with its status
@@ -54,10 +66,10 @@ module Lota
   #
   # A fused game, which Lota::Boot#call starts and remembers as it starts
   # when the game is fused, as the entry script <tt>lota fuse</tt> writes
-  # boots it (Lota::Fuse), starts again as LÖVE's fused game does, by running the
-  # program the process runs, with the same arguments: the app's own
-  # launcher, which Fledge builds and which runs Ruby inside its own
-  # process, found as LÖVE's love.filesystem.getExecutablePath finds it
+  # boots it (Lota::Fuse), starts again by running the program the
+  # process runs, with the same arguments: the app's own launcher, which
+  # Fledge builds and which runs Ruby inside its own process, found as
+  # LÖVE's love.filesystem.getExecutablePath finds it
   # (Lota::Filesystem.executable_path). It sets the app up as it did the
   # first time, and on macOS keeps the app's bundle. Only when that
   # program is Ruby's own, as when someone runs the entry script with
@@ -69,12 +81,14 @@ module Lota
   # +-w+ and +-W0+; the ones that matter to a game belong in +RUBYOPT+,
   # which the new process inherits with the rest of the environment.
   #
-  # The restart value crosses in an environment variable, Restart::VARIABLE,
-  # which the new process reads once and removes. It holds a type, a colon,
-  # and the value (<tt>nil:</tt>, <tt>boolean:true</tt>, <tt>number:</tt>
-  # and <tt>string:</tt> followed by hexadecimal digits, or
-  # <tt>table:</tt> followed by its keys and values in parentheses), and
-  # nothing in it is evaluated: +nil+, +true+, +false+, a number, a String,
+  # A restart in the process hands the next run its value in memory, but
+  # by the rules it crosses exec with, so a game reads the same value
+  # either way. Across exec it crosses in an environment variable,
+  # Restart::VARIABLE, which the new process reads once and removes. It
+  # holds a type, a colon, and the value (<tt>nil:</tt>,
+  # <tt>boolean:true</tt>, <tt>number:</tt> and <tt>string:</tt> followed
+  # by hexadecimal digits, or <tt>table:</tt> followed by its keys and
+  # values in parentheses), and nothing in it is evaluated: +nil+, +true+, +false+, a number, a String,
   # or a table of them, an Array or a Hash, which are what the event queue
   # carries. A table arrives as the queue gives one back, so a Hash whose
   # keys are 1 to n arrives as an Array (Lota::Event.poll). Anything else
@@ -110,11 +124,11 @@ module Lota
     # deep, so that reading it cannot exhaust the stack. :nodoc:
     MAXIMUM_DEPTH = 100
 
-    # The feature flag that starts the game again in the same process, as
-    # LÖVE does, rather than by exec: unset, never; +1+, where exec cannot
-    # start it again, on a phone, which forbids replacing a process, and in
-    # the App Sandbox on macOS before 26, which kills a process that does;
-    # +always+, on every restart. :nodoc:
+    # The feature flag that says how a game starts again: +0+ asks for
+    # exec, which a phone forbids, so that a game there ends when it
+    # restarts, and which the App Sandbox on macOS 15 kills; anything
+    # else, or nothing, starts it again in the same process, as LÖVE does.
+    # :nodoc:
     IN_PROCESS = "LOTA_IN_PROCESS_RESTART"
 
     # Rejects what the event queue cannot carry. :nodoc:
@@ -228,13 +242,13 @@ module Lota
       end
 
       # Starts the game again with +value+ once it has ended: in this
-      # process, when IN_PROCESS says so (keep); otherwise by exec when the
-      # command was remembered and the game is not on a phone, which
+      # process (keep), unless IN_PROCESS asks for exec; then by exec when
+      # the command was remembered and the game is not on a phone, which
       # cannot replace its process (request); and otherwise not at all,
       # though +value+ is checked all the same. Raises TypeError, before
       # the game ends, for a value that cannot cross. :nodoc:
       private def ask(value, phone:)
-        if in_process?(phone:)
+        if in_process?
           keep(value)
         elsif restartable? && !phone
           request(value)
@@ -243,30 +257,10 @@ module Lota
         end
       end
 
-      # Whether IN_PROCESS lets a game start again in this process.
-      # :nodoc:
-      private def in_process_allowed?(environment = ENV)
-        %w[1 always].include?(environment[IN_PROCESS])
-      end
-
-      # Whether a restart starts the game again in this process, as
-      # IN_PROCESS says, on a +phone+ or not, under the system +release+
-      # (Etc.uname's) of the platform +platform+ names. :nodoc:
-      private def in_process?(phone: false, environment: ENV, platform: RUBY_PLATFORM, release: Etc.uname[:release])
-        case environment[IN_PROCESS]
-        when "always" then true
-        when "1" then phone || sandboxed_before_macos26?(environment, platform, release)
-        else false
-        end
-      end
-
-      # Whether the process runs in the App Sandbox, as the system tells a
-      # sandboxed app with APP_SANDBOX_CONTAINER_ID, on macOS before 26,
-      # whose Darwin release is 25. There exec gives the new image a
-      # sandbox the process already has, and the system kills it with
-      # SIGTRAP; on macOS 26 it starts. :nodoc:
-      private def sandboxed_before_macos26?(environment, platform, release)
-        platform.include?("darwin") && !environment["APP_SANDBOX_CONTAINER_ID"].nil? && release.to_i < 25
+      # Whether a restart starts the game again in this process: unless
+      # IN_PROCESS, in +environment+, is +0+, which asks for exec. :nodoc:
+      private def in_process?(environment = ENV)
+        environment[IN_PROCESS] != "0"
       end
 
       # Keeps +value+ for the run that starts next in this process, as
@@ -288,10 +282,10 @@ module Lota
       # (src/love.cpp, main). Between runs it runs the exit procs the game
       # registered, takes away what the game defined (Snapshot), closes
       # the engine (Lota::Native.close_modules), and hands the next run
-      # the value. Returns the last run's status. Unless IN_PROCESS says
-      # so, it runs the block once. :nodoc:
+      # the value. Returns the last run's status. When IN_PROCESS asks for
+      # exec, it runs the block once. :nodoc:
       private def in_process(directory)
-        return yield unless in_process_allowed?
+        return yield unless in_process?
 
         snapshot = Snapshot.new
         Kernel.prepend(ExitProcs) unless Kernel.ancestors.include?(ExitProcs)

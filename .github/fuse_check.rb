@@ -130,14 +130,12 @@ checks = {
 lines.each { |line| checks["it printed #{line}"] = output.lines.include?("#{line}\n") }
 if ARGV.fetch(2) == "fuse"
   # Its first run restarts with its process id, and its second says that
-  # value and its own: the same process on macOS and Linux, where exec
-  # replaces it, and a new one on Windows, where Ruby's exec starts the
-  # program as a process of its own and waits for it (Lota::Restart).
+  # value and its own, which is the same on every system, since the game
+  # restarts in its process, as LÖVE's does (Lota::Restart).
   runs = output.scan(/^run: (\d+) (.*)$/)
   checks["it restarted once, with the value it chose"] = runs.size == 2 && runs[0][1] == "nil" &&
     runs[1][1] == "#{runs[0][0]}.0"
-  checks["each run was #{Gem.win_platform? ? 'a process of its own' : 'the same process'}"] = runs.size == 2 &&
-    (runs[0][0] == runs[1][0]) != Gem.win_platform?
+  checks["each run was the same process"] = runs.size == 2 && runs[0][0] == runs[1][0]
   checks["its screenshot is the image Lövetest's captureScreenshot test expects"] = screenshot_matches?(output)
 end
 if ARGV.length > 3

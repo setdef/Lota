@@ -312,8 +312,7 @@ jobs:
           rm -rf tmp/decoy "${decoys[@]}"
           [ "$status" = 3 ] || { echo "the control exited $status, not 3"; exit 1; }
 
-      # A restart replaces the process with lota run again; on Windows,
-      # Ruby's exec starts it as a new process (windows_checks.rb).
+      # A restart runs the game again in its process (windows_checks.rb).
       - name: Restart a game
         timeout-minutes: 4
         run: |

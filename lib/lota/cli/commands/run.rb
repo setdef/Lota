@@ -29,9 +29,8 @@ module Lota
       # where you ran the command, as it does for LÖVE.
       #
       # A game that restarts (Lota::Event.restart) ends as a quit does, and
-      # this command then runs itself again with <tt>exec</tt>, with the
-      # same arguments, under <tt>bundle exec</tt> too, so the game starts
-      # anew with Lota.restart set (Lota::Restart).
+      # runs again in the same process with Lota.restart set, as LÖVE's
+      # does (Lota::Restart).
       #
       # Use it from your game's folder while you work on it.
       #

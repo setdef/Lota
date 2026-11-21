@@ -12,13 +12,15 @@ require "rbconfig"
 require "shellwords"
 require "tmpdir"
 
-# A game that restarts, end to end (Lota::Restart): each test runs the lota
-# executable on test/games/restart in a Ruby of its own, which opens a real
-# window or not, and reads the log the game's runs append to. LÖVE restarts
-# in the same process (src/love.cpp, main); Lota replaces the process with
-# itself, so the pid stays the same and a new Ruby, with a new Lota, runs.
-# On Windows, where Ruby's exec starts a new process instead
-# (Lota::Restart), each run has a pid of its own.
+# A game that restarts by exec, end to end (Lota::Restart): each test runs
+# the lota executable on test/games/restart in a Ruby of its own, with
+# Lota::Restart::IN_PROCESS set to 0, which asks for exec where a game
+# otherwise restarts in its process, as LÖVE's does
+# (test/native/in_process_restart_test.rb), and reads the log the game's
+# runs append to. Lota replaces the process with itself, so the pid stays
+# the same and a new Ruby, with a new Lota, runs. On Windows, where Ruby's
+# exec starts a new process instead (Lota::Restart), each run has a pid of
+# its own.
 # The game opens no window unless a test says so, as nothing a restart
 # carries depends on one, and a process that opened a window can make
 # each restart wait seconds on a busy Mac (Lota::Restart). Those tests
@@ -51,12 +53,12 @@ class RestartRunTest < Minitest::Test
   end
 
   # The environment every run here starts with: the load path, in
-  # RUBYOPT, and the log.
+  # RUBYOPT, the log, and the flag that asks for exec.
   def run_environment
     native = File.dirname(File.dirname(loaded("lota/native")))
     native_test = File.dirname(loaded("lota_native_test"))
     load_path = [native, File.join(ROOT, "lib"), native_test].uniq.map { |path| "-I#{path}" }.join(" ")
-    { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log }
+    { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log, "LOTA_IN_PROCESS_RESTART" => "0" }
   end
 
   # The lines of the log: [kind, fields] for each, with the fields as a

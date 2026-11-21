@@ -11,11 +11,11 @@ require "rbconfig"
 require "tmpdir"
 
 # A game that restarts in the same process, as LÖVE's does (src/love.cpp,
-# main), with Lota::Restart::IN_PROCESS set: each test runs the lota
-# executable on a game in a Ruby of its own, under rake test:native under
-# the sanitizers, and reads the log the game's runs append to. Each run
-# must find the engine and the game's own definitions fresh, as LÖVE's
-# runs find a fresh Lua state.
+# main), as a game does unless Lota::Restart::IN_PROCESS asks for exec:
+# each test runs the lota executable on a game in a Ruby of its own, with
+# nothing set, under rake test:native under the sanitizers, and reads the
+# log the game's runs append to. Each run must find the engine and the
+# game's own definitions fresh, as LÖVE's runs find a fresh Lua state.
 class InProcessRestartTest < Minitest::Test
   include NativeHelper
 
@@ -42,16 +42,22 @@ class InProcessRestartTest < Minitest::Test
     super
   end
 
-  # Runs <tt>lota run</tt> on +game+ with +arguments+, restarting in the
-  # same process, and returns its output and Process::Status. Ruby loads
-  # RestartMarker first, so each run logs how many runs its Ruby has seen,
-  # which tells a run in the same Ruby from one in a Ruby of its own, as
-  # exec starts, though both keep the process id on Linux and macOS.
+  # Runs <tt>lota run</tt> on +game+ with +arguments+ and returns its
+  # output and Process::Status.
   def lota_run(game, *, environment: {})
+    capture2e(variables.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run", game, *)
+  end
+
+  # The environment every run here starts with: the load path, in
+  # RUBYOPT, with RestartMarker loaded first, so each run logs how many
+  # runs its Ruby has seen, which tells a run in the same Ruby from one in
+  # a Ruby of its own, as exec starts, though both keep the process id on
+  # Linux and macOS; and the log. The restart flag is left out, so that
+  # its being set where the tests run changes nothing.
+  def variables
     native = File.dirname(File.dirname(loaded("lota/native")))
     load_path = [native, File.join(ROOT, "lib")].uniq.map { |path| "-I#{path}" }.push("-r#{@marker}").join(" ")
-    variables = { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log, "LOTA_IN_PROCESS_RESTART" => "always" }
-    capture2e(variables.merge(environment), RbConfig.ruby, "-w", File.join(ROOT, "exe/lota"), "run", game, *)
+    { "RUBYOPT" => load_path, "LOTA_RESTART_LOG" => @log, "LOTA_IN_PROCESS_RESTART" => nil }
   end
 
   # The lines of the log: [kind, fields] for each, with the fields as a
@@ -102,9 +108,8 @@ class InProcessRestartTest < Minitest::Test
   end
 
   # The entry script lota fuse writes, as a phone's kit writes one too,
-  # boots the game with Lota::Boot#call, which restarts it in the process
-  # where the flag says so: always, here, so on Windows too the process
-  # stays.
+  # boots the game with Lota::Boot#call, which restarts it in the process,
+  # so on Windows too the process stays.
   def test_a_fused_games_entry_script_restarts_the_game_in_its_process
     FileUtils.mkdir_p(File.join(@directory, "game"))
     FileUtils.cp_r(RESTART, File.join(@directory, "game", "restart"))
@@ -113,16 +118,14 @@ class InProcessRestartTest < Minitest::Test
       require "lota"
       exit Lota::Boot.new(File.join(__dir__, "game", "restart"), ARGV, fused: true).call
     RUBY
-    native = File.dirname(File.dirname(loaded("lota/native")))
-    variables = { "LOTA_RESTART_LOG" => @log, "LOTA_IN_PROCESS_RESTART" => "always" }
-    output, status = capture2e(variables, RbConfig.ruby, "-w", "-I#{native}", "-I#{File.join(ROOT, 'lib')}", entry,
-      "string")
+    output, status = capture2e(variables, RbConfig.ruby, "-w", entry, "string")
 
     assert_equal 3, status.exitstatus, output
     assert_equal %w[load at_exit load at_exit], log.map(&:first), output
     first, _, second, = log.map(&:last)
 
     assert_equal first["pid"], second["pid"]
+    assert_equal %w[1 2], [first["ruby_runs"], second["ruby_runs"]], "the same Ruby"
     assert_equal "\"café\\nline\"", second["restart"]
   end
 

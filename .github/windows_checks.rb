@@ -34,11 +34,9 @@
 #   engine used or refused for its version, and its output holds EXPECT.
 # [restart] Runs <tt>lota run</tt> on test/games/restart, which restarts
 #   twice and then quits with status 3, and passes only if each run read
-#   the value the run before it chose and the last run's status is the
-#   first process's. Ruby's exec on Windows starts the command as a new
-#   process, waits for it, and exits with its status (win32/win32.c,
-#   child_result, with P_OVERLAY), so each run has a process id of its
-#   own, which it reports.
+#   the value the run before it chose, and every run was the first
+#   process, since a game restarts in its process, as LÖVE's does
+#   (Lota::Restart). It reports the process id.
 # [package] Builds the precompiled gem into pkg/, as rake package:native
 #   does, from the extension, the preloader, and the DLLs the job built,
 #   after downloading the source archives the gem carries.
@@ -348,8 +346,8 @@ module WindowsChecks
     abort "the runs read #{values.inspect}, not #{expected.inspect}" unless values == expected
 
     pids = loads.map { |line| line[/ pid=(\d+)/, 1] }
-    abort "the runs shared a process id: #{pids.join(', ')}" unless pids.uniq.size == pids.size
-    puts "Each restart crossed, each run in a process of its own: #{pids.join(', ')}"
+    abort "the runs had process ids of their own: #{pids.join(', ')}" unless pids.uniq.size == 1
+    puts "Each restart crossed, every run in the first process: #{pids.first}"
   end
 
   # Builds the precompiled gem into pkg/, as rake package:native does, from

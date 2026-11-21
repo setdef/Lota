@@ -14,6 +14,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Each release publishes LÖVE's engine prebuilt for each iOS slice and Android ABI beside its gems, as `lota-engine-ios-arm64.tar.gz`, `lota-engine-ios-arm64-simulator.tar.gz`, `lota-engine-android-arm64-v8a.tar.gz`, and `lota-engine-android-x86_64.tar.gz`, with their checksums in its `SHA256SUMS`. A phone build fetches them without `--with-lota-source`: from the release's source gem, `lota-VERSION.gem`, which each release now also publishes and which pins that release's engines in `ext/lota/phone/engines.txt`, or from a clone of trunk, where CI pins the newest release's after each release.
 
+### Changed
+
+- **Breaking:** `Lota::Event.restart` runs the game again in its process on every platform, as LÖVE's restart does, where it replaced the process with `exec`: a game on iPhone, iPad, or Android restarts where it ended, a game in the macOS App Sandbox restarts where macOS 15 killed it, `Lota::Boot#call` runs the game again where it returned, and on Windows the process keeps its id. What a game changed outside its own files, such as a built-in class or a gem it loaded, stays from one run to the next; `LOTA_IN_PROCESS_RESTART=0` restarts by `exec` as before.
+
 ## [0.7.0] - 2026-11-21
 
 ### Fixed

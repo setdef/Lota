@@ -213,13 +213,13 @@ module Lota
     #
     # The game ends as one that quits with status 0 does, after the +quit+
     # callback has had its say, with the window closed and the exit procs
-    # run. Then <tt>lota run</tt> replaces the process with itself, with
-    # the command and arguments it started with (Lota::Restart), and the
-    # new run reads the first of +arguments+ as Lota.restart, in LÖVE
-    # <tt>love.restart</tt> (src/love.cpp, runlove). It carries that one
-    # alone: LÖVE too passes only the value after <tt>"restart"</tt> on.
-    # A game that restarts every time it starts never ends, as in LÖVE.
-    # A game started any other way than <tt>lota run</tt> ends instead.
+    # run. Then the game runs again in the same process, as LÖVE's does,
+    # with what its own files defined taken away and the engine opened
+    # afresh (Lota::Restart), and the new run reads the first of
+    # +arguments+ as Lota.restart, in LÖVE <tt>love.restart</tt>
+    # (src/love.cpp, runlove). It carries that one alone: LÖVE too passes
+    # only the value after <tt>"restart"</tt> on. A game that restarts
+    # every time it starts never ends, as in LÖVE.
     # Returns +true+. LÖVE also carries its own objects, which Lota does
     # not put in a message yet: raises TypeError for a Lota::Object, or any
     # other value, in a table or not. Raises RuntimeError, with LÖVE's
