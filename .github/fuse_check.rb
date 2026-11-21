@@ -16,7 +16,9 @@ require_relative "../tasks/lovetest_image"
 # Lövetest's captureScreenshot test expects (tasks/lovetest_image.rb), ran
 # fused, saved a file under its identity alone, where LÖVE's
 # fused game saves (doc/contributors/design/game.md), played its sound, and
-# printed the lines that say its gems reached the app. Given the file of what
+# printed the lines that say its gems reached the app. A game of a kind
+# PLAYED names, which Lota's app played as LÖVE's app plays a .love, ran
+# unfused instead, and saves under Lota's folder. Given the file of what
 # the app printed to stderr and the name of an OpenAL Soft backend, it also
 # checks that OpenAL Soft (run with ALSOFT_LOGLEVEL=3) chose that backend
 # and opened a device through it.
@@ -35,7 +37,9 @@ require_relative "../tasks/lovetest_image"
 #   ruby .github/fuse_check.rb notices FOLDER PLATFORM
 
 # Each game in test/games the workflow fuses, and test/games/fuser, which
-# the fuser app makes into an app (Lota::Fuser): its identity, and the lines
+# the fuser app makes into an app (Lota::Fuser), as player for the app
+# fledge build --from makes of it from a copy of Lota's app, and as played
+# for Lota's app playing it: its identity, and the lines
 # it prints that only its gems can print, or that say a gem its app leaves
 # out is not there.
 GAMES = {
@@ -52,7 +56,15 @@ GAMES = {
 ],
   "fuse_native" => ["FuseCheckNative", ["fast_blank: true false", "fast_blank from the app: true"]],
   "fuser" => ["FuserCheck", ["helper from the app: true"]],
+  "player" => ["FuserCheck", ["helper from the app: true"]],
+  "played" => ["FuserCheck", ["helper from the app: false"]],
 }.freeze
+
+# The kinds of GAMES that Lota's app plays, as LÖVE's app plays a .love:
+# unfused, from the folder Lota::Archive unpacks it into, saving under
+# Lota's own folder, as lota run saves (doc/contributors/design/game.md,
+# "Where a game saves").
+PLAYED = %w[played].freeze
 
 # The checks of the notices in the app in +folder+, built for +platform+,
 # each to whether it passed.
@@ -119,16 +131,21 @@ end
 status = Integer(ARGV.fetch(0))
 output = File.read(ARGV.fetch(1))
 identity, lines = GAMES.fetch(ARGV.fetch(2))
+fused = !PLAYED.include?(ARGV.fetch(2))
 directory = output[/^save directory: (.*)$/, 1].to_s
+folders = directory.split(%r{[/\\]})
 checks = {
   "it quit with 3" => status == 3,
-  "it ran fused" => output.include?("fused: true\n"),
+  "it ran #{fused ? 'fused' : 'unfused'}" => output.include?("fused: #{fused}\n"),
   "its identity is t.identity" => output.include?("identity: #{identity}\n"),
   "it saved a file" => output.include?("saved: true\n"),
-  "it saves under its identity alone" => File.basename(directory) == identity &&
-    !directory.split(%r{[/\\]}).include?("Lota"),
   "it played its sound" => output.match?(/^[\w ]+: 1 source playing$/),
 }
+if fused
+  checks["it saves under its identity alone"] = folders.last == identity && !folders.include?("Lota")
+else
+  checks["it saves under its identity in Lota's folder"] = folders.last(2).map(&:downcase) == ["lota", identity.downcase]
+end
 lines.each { |line| checks["it printed #{line}"] = output.lines.include?("#{line}\n") }
 if ARGV.fetch(2) == "fuse"
   # Its first run restarts with its process id, and its second says that

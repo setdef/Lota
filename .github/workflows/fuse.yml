@@ -48,6 +48,17 @@
 # What the fuser itself is, the archive a person downloads, is kept as an
 # artifact, fuser-PLATFORM.
 #
+# Lota's own app, which plays a .lota as LÖVE's app plays a .love, is the
+# sixth, player: it is built as rake player builds it, from the installed
+# gem, and plays a .lota of test/games/fuser given to its program with no
+# Ruby on its PATH, which must run unfused from the folder Lota unpacks it
+# into and save under Lota's folder (fuse_check.rb's played). Given
+# nothing, it must still show its no-game screen ten seconds on, on macOS
+# and Linux; a Windows runner has no OpenGL the screen can draw with. Then
+# fledge build --from makes test/games/fuser into an app from a copy of
+# it, which the steps below check and run as a fused game. The app itself
+# is kept as an artifact, player-PLATFORM, which a release publishes.
+#
 # On Linux and Windows the sound plays through OpenAL Soft's null backend,
 # since those runners have no audio device. A macOS runner has a virtual
 # one, so there the app runs as a player's would, without ALSOFT_DRIVERS,
@@ -157,7 +168,7 @@ jobs:
           - runner: windows-11-arm
             platform: aarch64-mingw-ucrt
         # The games in test/games, or game_repository's, called game.
-        game: ${{ fromJSON(inputs.game_repository && '["game"]' || '["fuse", "fuse_gems", "fuse_path_gems", "fuse_native", "fuser"]') }}
+        game: ${{ fromJSON(inputs.game_repository && '["game"]' || '["fuse", "fuse_gems", "fuse_path_gems", "fuse_native", "fuser", "player"]') }}
     runs-on: ${{ matrix.target.runner }}
     timeout-minutes: 30
     env:
@@ -277,7 +288,7 @@ jobs:
           cat "$GAME/Gemfile.lock"
 
       - name: lota fuse
-        if: matrix.game != 'fuser'
+        if: matrix.game != 'fuser' && matrix.game != 'player'
         run: |
           start=$(date +%s)
           options=(--out "$RUNNER_TEMP/dist")
@@ -347,6 +358,95 @@ jobs:
             ${{ runner.temp }}/fuser/*.dmg
             ${{ runner.temp }}/fuser/*.AppImage
             ${{ runner.temp }}/fuser/fuse-project/Gemfile.lock
+          if-no-files-found: error
+
+      # Lota's app plays a .lota given to its program, and shows its
+      # no-game screen given nothing; then a copy of it with
+      # test/games/fuser in it, which fledge build --from makes in dist, is
+      # what the steps below check.
+      - name: Build Lota's app, play a game with it, and make test/games/fuser into an app from it
+        if: matrix.game == 'player'
+        run: |
+          gem=$(ls "$RUNNER_TEMP"/gems/lota-*-"$PLATFORM".gem)
+          ruby -I lib -r lota -r ./tasks/player_app -e 'PlayerApp.new(ARGV[0], ARGV[1]).call' "$gem" "$RUNNER_TEMP/player"
+          cat "$RUNNER_TEMP/player/fuse-project/fledge.yml"
+          apps="$RUNNER_TEMP/run/My Apps"
+          lota="$RUNNER_TEMP/games/Sample Game.lota"
+          mkdir -p "$apps" "$RUNNER_TEMP/games" "$RUNNER_TEMP/empty"
+          folder="${PLATFORM%-gnu}"
+          if [ "$RUNNER_OS" = Windows ]; then
+            systar="$(cygpath -u "$SYSTEMROOT")/System32/tar.exe"
+            (cd "$apps" && "$systar" -xf "$(cygpath -w "$(ls "$RUNNER_TEMP"/player/*.zip)")")
+            (cd test/games/fuser && "$systar" -c --format zip -f "$(cygpath -w "$lota")" conf.rb main.rb lib)
+          else
+            tar -xzf "$(ls "$RUNNER_TEMP"/player/*.tar.gz)" -C "$apps"
+            (cd test/games/fuser && zip -q -r -X "$lota" .)
+          fi
+          root=$(ls -d "$apps"/*-"$folder")
+          name=$(basename "$root"); name="${name%-"$folder"}"
+          case "$RUNNER_OS" in
+            macOS) program="$root/$name.app/Contents/MacOS/$name"; codesign --verify --deep --strict --verbose=2 "$root/$name.app" ;;
+            Windows) program="$root/$name.exe"; lota=$(cygpath -w "$lota") ;;
+            *) program="$root/$name" ;;
+          esac
+          if [ "$RUNNER_OS" = Linux ]; then
+            bin/apt-packages list display | xargs sudo apt-get install --assume-yes
+            Xvfb :98 -screen 0 1280x1024x24 &
+            sleep 3
+            DISPLAY=:98 openbox &
+          fi
+          # Runs the app's program with only the system's own variables and
+          # no Ruby on its PATH, and the null sound backend; on Linux on
+          # Xvfb, where Vulkan cannot present, so its drivers are hidden.
+          app() {
+            if [ "$RUNNER_OS" = Windows ]; then
+              system=$(cygpath -u "$SYSTEMROOT")
+              (cd / && exec env -i SystemRoot="$SYSTEMROOT" SystemDrive="$SYSTEMDRIVE" windir="$SYSTEMROOT" PATH="$system/System32:$system" \
+                USERPROFILE="$USERPROFILE" APPDATA="$APPDATA" LOCALAPPDATA="$LOCALAPPDATA" TEMP="$RUNNER_TEMP" TMP="$RUNNER_TEMP" \
+                ALSOFT_DRIVERS=null "$program" "$@")
+            else
+              (cd / && exec env -i PATH="$RUNNER_TEMP/empty" HOME="$HOME" ALSOFT_DRIVERS=null DISPLAY=:98 \
+                VK_DRIVER_FILES=/nonexistent/none.json VK_ICD_FILENAMES=/nonexistent/none.json "$program" "$@")
+            fi
+          }
+          set +e
+          app "$lota" > "$RUNNER_TEMP/played.out" 2> "$RUNNER_TEMP/played.err"
+          status=$?
+          set -e
+          echo "exit status: $status"; cat "$RUNNER_TEMP/played.out"; tail -20 "$RUNNER_TEMP/played.err"
+          ruby .github/fuse_check.rb "$status" "$RUNNER_TEMP/played.out" played
+          if [ "$RUNNER_OS" != Windows ]; then
+            app > "$RUNNER_TEMP/screen.out" 2> "$RUNNER_TEMP/screen.err" &
+            screen=$!
+            sleep 10
+            if ! kill -0 "$screen"; then
+              wait "$screen" || true
+              cat "$RUNNER_TEMP/screen.out" "$RUNNER_TEMP/screen.err"
+              echo "::error::Lota's app given nothing ended before its no-game screen had shown ten seconds"
+              exit 1
+            fi
+            kill "$screen"
+            echo "Lota's app given nothing still shows its no-game screen after 10 s"
+          fi
+          project="$RUNNER_TEMP/from-project"
+          mkdir -p "$project/game"
+          cp -R test/games/fuser "$project/game/FuserCheck"
+          ruby -I lib -r lota -r lota/fuse -e 'print Lota::Fuse.entry_script("FuserCheck")' > "$project/main.rb"
+          printf 'name: Sample Game\nkind: windowed\nidentifier: com.example.SampleGame\n' > "$project/fledge.yml"
+          BUNDLE_GEMFILE="$RUNNER_TEMP/player/fuse-tools/Gemfile" bundle exec fledge build --from "$root" --out "$RUNNER_TEMP/dist" "$project"
+          ls -la "$RUNNER_TEMP/dist"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.game == 'player'
+        with:
+          name: player-${{ matrix.target.platform }}
+          path: |
+            ${{ runner.temp }}/player/*.zip
+            ${{ runner.temp }}/player/*.tar.gz
+            ${{ runner.temp }}/player/*-setup.exe
+            ${{ runner.temp }}/player/*.dmg
+            ${{ runner.temp }}/player/*.AppImage
+            ${{ runner.temp }}/player/fuse-project/Gemfile.lock
           if-no-files-found: error
 
       # The notices lota fuse wrote into the app (Lota::Notices), read from
