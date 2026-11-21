@@ -181,12 +181,18 @@ module Lota
     # Windows one day's head build of RubyInstaller, which publishes no
     # preview, 0.13.0, on the same Rubies, ships the +development+ and
     # +test+ groups unless Bundler's +without+ leaves them out, as the
-    # project's Bundler settings do (LEFT_OUT_GROUPS), and 0.14.0, on the
+    # project's Bundler settings do (LEFT_OUT_GROUPS), 0.14.0, on the
     # same Rubies again, judges a Gemfile's +ruby+ by each runtime's Ruby
     # as RubyGems names it, 4.1.0.preview1, or 4.1.0.dev on Windows,
     # where it saw 4.1.0, and builds a phone app's C extension as a
-    # library of the app's own.
-    FLEDGE_REF = "v0.14.0"
+    # library of the app's own, 0.15.0, on the same Rubies, links a C++
+    # extension on Android with the NDK's shared C++ runtime, which the
+    # app then carries, ships the libraries a gem's build makes for ffi,
+    # and no longer refuses a desktop build with Fledge from Git in the
+    # app's bundle, and 0.16.0, on the same Rubies, carries the static
+    # libruby without its debug information and refuses an Android
+    # host's build.gradle that sets useLegacyPackaging to false.
+    FLEDGE_REF = "v0.16.0"
 
     # The environment variable that names another FLEDGE_REF, such as a
     # newer tag.

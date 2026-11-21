@@ -17,6 +17,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- `lota fuse` builds with Fledge 0.16.0, was 0.14.0; Fledge's changelog says what changes in an app.
+- A fused Linux app is about 69 MB smaller unpacked, since Fledge 0.16.0's runtime carries its static libruby without debug information.
+- An Android app built as the phone guide says carries the NDK's shared C++ runtime, `libc++_shared.so`, about 1.4 MB in each ABI, with its licence in `notices/libc++_shared.txt`, and Lota's extension links it, where it linked a static copy of its own.
 - **Breaking:** `Lota::Event.restart` runs the game again in its process on every platform, as LÖVE's restart does, where it replaced the process with `exec`: a game on iPhone, iPad, or Android restarts where it ended, a game in the macOS App Sandbox restarts where macOS 15 killed it, `Lota::Boot#call` runs the game again where it returned, and on Windows the process keeps its id. What a game changed outside its own files, such as a built-in class or a gem it loaded, stays from one run to the next; `LOTA_IN_PROCESS_RESTART=0` restarts by `exec` as before.
 - `lota run` given a file that is not a `.lota` prints its usage and opens a window that shows the error, as `love` does with a file it cannot load, where it printed the error and exited before opening one.
 
