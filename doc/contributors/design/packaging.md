@@ -71,7 +71,7 @@ A LÖVE game can also be handed out as a `.love`, its folder zipped, which LÖVE
 
 A `.lota` holds Ruby files and assets and no native code, as LÖVE cannot load a native module from a `.love` either (`vendor/love/src/modules/filesystem/wrap_Filesystem.cpp`, line 1011). Its code may require Lota, Ruby's standard library, and the gems the player app ships. Its extension is not `.love` because LÖVE's app cannot run Ruby, and an app Fledge builds is offered for a file type without becoming its default, so a shared extension would open LÖVE's app.
 
-Two apps are built with Fledge, of which the fuser exists (`rake fuser`) and the player app is yet to come:
+Two apps are built with Fledge, the player app (`rake player`) and the fuser (`rake fuser`):
 
 - **A player app**, for desktops and Android, and none for iOS, as LÖVE ships none. It plays a `.lota` opened with it or dropped on its "no game" screen, and adds nothing to what LÖVE's app does. It carries no developer's signature, as LÖVE's carries none, so a player who downloads it gets past the system's refusal for such apps by hand. From 2027 an Android app installed outside Google Play needs a developer registered with Google.
 - **A fuser app**, for each desktop. A `.lota` dropped on it becomes an app of its own through Fledge's `fledge build --from`, which copies a built app, puts the game in it as real files, gives the copy its own name and identity, and on macOS seals it again. The app it makes is as large as the fuser, holds only the gems the fuser ships, and runs only on the system it was made on.
