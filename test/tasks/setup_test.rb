@@ -16,6 +16,7 @@ class SetupTest < Minitest::Test
     "mise" => <<~SH,
       echo "mise $*" >> "$SETUP_LOG"
       if [ "$1" = x ]; then shift 2; exec "$@"; fi
+      if [ "$1" = where ]; then echo "$SETUP_TREE/libyaml"; fi
     SH
     "bundle" => %(echo "bundle $*" >> "$SETUP_LOG"\n),
     "ruby" => %(printf %s "$SETUP_RUBY"\n),
@@ -27,10 +28,13 @@ class SetupTest < Minitest::Test
   }.freeze
 
   # The commands each run of bin/setup made, one list for each of +envs+,
-  # run one after another in one checkout, as a warm one is.
+  # run one after another in one checkout, as a warm one is. The stand-in
+  # mise answers where with a folder, as mise does, since on a Mac
+  # bin/with-libyaml reads the libyaml source there; it holds no file.
   def setup_runs(*envs)
     in_tree do |dir|
       %w[bin/setup bin/with-libyaml].each { |path| write(dir, path, File.read(File.join(ROOT, path))) }
+      FileUtils.mkdir_p(File.join(dir, "libyaml"))
       write(dir, "bin/apt-packages", "#!/bin/sh\n")
       TOOLS.each { |name, body| write(dir, "tools/#{name}", "#!/bin/sh\n#{body}") }
       FileUtils.chmod(0o755, Dir[File.join(dir, "{bin,tools}/*")])
