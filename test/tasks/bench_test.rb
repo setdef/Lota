@@ -359,10 +359,12 @@ class BenchTest < Minitest::Test
       assert_match(/\Adevice process launch --device phone --terminate-existing --json-output \S+ -e .* com.example.Bench\z/,
         launch)
       assert_match(/ com.example.BenchLove\z/, love_launch)
-      assert_equal "lota-interpreter-rectangle-1.json", environment.fetch("LOTA_BENCH_REPORT")
+      name = environment.fetch("LOTA_BENCH_REPORT")
+
+      assert_match(/\Alota-interpreter-rectangle-1-\h{16}\.json\z/, name)
       assert_equal "0", environment.fetch("LOTA_BENCH_NATIVE_TEST")
       assert_equal "rectangle", environment.fetch("LOTA_BENCH_SCENARIO")
-      assert_match(%r{\Adevice copy from --device phone --domain-type appDataContainer --domain-identifier com.example.Bench --source save/lota-interpreter-rectangle-1.json --destination \S+\z},
+      assert_match(%r{\Adevice copy from --device phone --domain-type appDataContainer --domain-identifier com.example.Bench --source save/#{name} --destination \S+\z},
         copy)
       assert_equal "device process terminate --device phone --pid 42", terminate
     end
@@ -379,6 +381,20 @@ class BenchTest < Minitest::Test
       error = assert_raises(Bench::Failure) { runner.call([scenario]) }
 
       assert_includes error.message, "ran under luajit, JIT off, not interpreter"
+    end
+  end
+
+  # The app's save directory keeps every earlier run's report, and the
+  # game writes its own only as it quits, so a run never takes one of
+  # those for its own.
+  def test_a_phone_run_never_copies_back_an_earlier_runs_report
+    in_tree do |dir|
+      write(dir, "containers/com.example.Bench/save/lota-interpreter-rectangle-1.json",
+        JSON.generate("scenario" => "rectangle", "jit" => "interpreter", "draws" => 10, "draw" => [9.9], "frame" => [10]))
+      scenario = Bench::Scenario.new(engine: "lota", jit: "interpreter", name: "rectangle")
+      runner = device_runner(dir, stand_in_devicectl(dir, writes: false), timeout: 1)
+
+      assert_raises(Bench::Failure) { runner.call([scenario]) }
     end
   end
 

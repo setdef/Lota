@@ -9,6 +9,7 @@ require "fileutils"
 require "json"
 require "open3"
 require "rbconfig"
+require "securerandom"
 
 # rake bench: what a draw call costs in Lota, under the interpreter, YJIT,
 # and ZJIT, and what the same call costs a LÖVE game in the reference love
@@ -450,9 +451,13 @@ module Bench
       PHONE_JITS.fetch(scenario.jit)
     end
 
+    # The game's report has a name of its own on the device each run,
+    # since the save directory keeps the reports of earlier runs, and a run
+    # that looked for an earlier run's name would copy that report back
+    # before its own game had written one.
     private def execute(scenario, environment, report)
       app = @apps.fetch(scenario.engine)
-      name = File.basename(report)
+      name = "#{File.basename(report, '.json')}-#{SecureRandom.hex(8)}.json"
       environment = environment.merge("LOTA_BENCH_REPORT" => name, "LOTA_BENCH_NATIVE_TEST" => "0")
       launched = "#{report}.launch.json"
       options = ["--terminate-existing", "--json-output", launched, "-e", JSON.generate(environment), app.identifier]
