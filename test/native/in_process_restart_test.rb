@@ -79,11 +79,16 @@ class InProcessRestartTest < Minitest::Test
     assert_equal [first["pid"]] * 4, [first, first_exit, second, second_exit].map { |fields| fields["pid"] }
     assert_equal %w[1 2], [first["ruby_runs"], second["ruby_runs"]], "the same Ruby"
     assert_equal ["nil", "\"café\\nline\""], [first["restart"], second["restart"]]
-    assert_equal %w[false false], [first["variable"], second["variable"]], "nothing crosses in the environment"
     assert_equal [%(["string"])] * 2, [first["arguments"], second["arguments"]], "the same arguments"
   end
 
-  # The value crosses as it crosses exec (test/native/restart_run_test.rb).
+  def test_a_game_that_quits_does_not_start_again
+    output, status = lota_run(RESTART, "never")
+
+    assert_predicate status, :success?, output
+    assert_equal %w[load at_exit], log.map(&:first)
+  end
+
   def test_every_kind_of_value_arrives_as_the_event_queue_carries_it
     expected = {
       "nil" => "nil",

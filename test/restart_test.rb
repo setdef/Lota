@@ -8,13 +8,13 @@
 require_relative "test_helper"
 require "lota/restart"
 
-# The value a restart carries across exec, in an environment variable no
-# one trusts: it holds nil, booleans, numbers, strings, and tables of
-# them, and anything else is dropped. That a restart starts the game again is
-# test/native/restart_run_test.rb's to prove, in processes of their own.
+# The value a restart hands the next run, as Lota::Restart keeps it: nil,
+# booleans, numbers, strings, and tables of them, as the event queue
+# carries them, and anything else is refused. That a restart starts the
+# game again is test/native/in_process_restart_test.rb's to prove.
 class RestartTest < Minitest::Test
   def roundtrip(value)
-    Lota::Restart.__send__(:decode, Lota::Restart.__send__(:encode, value))
+    Lota::Restart.dup.__send__(:keep, value).first
   end
 
   def test_nil_booleans_numbers_and_strings_cross_as_they_are
@@ -71,13 +71,13 @@ class RestartTest < Minitest::Test
     deepest = Lota::Restart::MAXIMUM_DEPTH.times.reduce(1) { |inner, _| [inner] }
 
     assert_equal deepest, roundtrip(deepest)
-    error = assert_raises(TypeError) { Lota::Restart.__send__(:encode, [deepest]) }
+    error = assert_raises(TypeError) { Lota::Restart.dup.__send__(:keep, [deepest]) }
     assert_includes error.message, Lota::Restart::MAXIMUM_DEPTH.to_s
   end
 
   def test_what_the_queue_cannot_carry_is_refused
     [Object.new, -> {}, 1..2, Complex(1, 2), [Object.new], { a: -> {} }, { Object.new => 1 }].each do |value|
-      error = assert_raises(TypeError) { Lota::Restart.__send__(:encode, value) }
+      error = assert_raises(TypeError) { Lota::Restart.dup.__send__(:keep, value) }
       assert_match(/Object|Proc|Range|Complex/, error.message)
     end
   end
@@ -85,7 +85,7 @@ class RestartTest < Minitest::Test
   def test_a_table_that_holds_itself_is_refused_and_a_shared_one_crosses
     cycle = [1]
     cycle << { again: cycle }
-    error = assert_raises(TypeError) { Lota::Restart.__send__(:encode, cycle) }
+    error = assert_raises(TypeError) { Lota::Restart.dup.__send__(:keep, cycle) }
 
     assert_equal "Cycle detected in table", error.message
 
@@ -223,7 +223,7 @@ class RestartTest < Minitest::Test
   end
 
   def test_asking_to_restart_with_what_cannot_cross_raises_before_the_game_ends
-    assert_raises(TypeError) { Lota::Restart.__send__(:request, [Object.new]) }
+    assert_raises(TypeError) { Lota::Restart.dup.__send__(:keep, [Object.new]) }
   end
 
   # Whether a restart starts the game again in this process, for
