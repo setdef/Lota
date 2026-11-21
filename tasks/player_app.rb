@@ -18,7 +18,9 @@ require "lota/fuse"
 # the file macOS opened it with, which arrives as an Apple event, and with
 # none it starts the no-game screen (Lota::Boot.no_game). Like LÖVE's app,
 # it plays a game unfused, so the game saves where <tt>lota run</tt> saves
-# it, and restarts as <tt>lota run</tt> restarts.
+# it, and restarts as <tt>lota run</tt> restarts; and as LÖVE's app
+# carries LÖVE's version (platform/xcode/love.xcodeproj, MARKETING_VERSION),
+# Lota's carries the version of the Lota it ships.
 #
 # LÖVE's app is named for the engine and known by the identifier
 # org.love2d.love, so Lota's is named Lota and known by org.setdef.lota,
@@ -86,7 +88,8 @@ class PlayerApp < Lota::Fuse
     FileUtils.rm_rf(folder)
     FileUtils.mkdir_p(folder)
     FILES.each { |name, text| File.write(File.join(folder, name), text) }
-    super(folder, Lota::Fuse.options(out: File.expand_path(out), identifier: IDENTIFIER), platform:, gem_file:)
+    options = Lota::Fuse.options(out: File.expand_path(out), identifier: IDENTIFIER, app_version: Lota::VERSION)
+    super(folder, options, platform:, gem_file:)
   end
 
   # What the app opens: a game in one file, and on macOS a folder.

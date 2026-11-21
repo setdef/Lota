@@ -108,9 +108,10 @@ class FuserApp < Lota::Fuse
     write_game(game, gem_file)
   end
 
-  # The options lota fuse builds the fuser with, into the folder +out+.
+  # The options lota fuse builds the fuser with, into the folder +out+: the
+  # fuser's identifier, and the version of the Lota it ships as its own.
   def self.options(out)
-    Lota::Fuse.options(out:, identifier: IDENTIFIER)
+    Lota::Fuse.options(out:, identifier: IDENTIFIER, app_version: Lota::VERSION)
   end
 
   # The settings of fledge.yml: lota fuse's, with build_tools and the file

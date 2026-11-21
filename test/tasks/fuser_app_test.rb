@@ -30,6 +30,7 @@ class FuserAppTest < Minitest::Test
 
     assert_equal "Lota Fuser", config["name"]
     assert_equal "com.setdef.lota.Fuser", config["identifier"]
+    assert_equal Lota::VERSION, config["version"], "the fuser carries the version of the Lota it ships"
     assert config["build_tools"]
     assert_equal [{ "name" => "Lota game", "extensions" => ["lota"] }], config["file_associations"]
   end

@@ -46,6 +46,13 @@ class PlayerAppTest < Minitest::Test
       config.slice("name", "kind", "identifier"))
   end
 
+  # LÖVE's app carries LÖVE's version (platform/xcode/love.xcodeproj,
+  # MARKETING_VERSION, and extra/windows/love.rc, FILEVERSION), so Lota's
+  # carries Lota's, the version of the gem it ships.
+  def test_the_app_carries_the_version_of_lota
+    assert_equal Lota::VERSION, config["version"]
+  end
+
   # LÖVE's app opens a .love on every system (platform/unix/love.desktop.in
   # names application/x-love-game) and a folder on macOS
   # (platform/xcode/macosx/love-macosx.plist, CFBundleDocumentTypes).
