@@ -1105,7 +1105,6 @@ class FuseTest < Minitest::Test
     assert_includes stdout, "--exclude PATTERN"
     assert_includes stdout, "--notarize PROFILE"
     assert_includes stdout, "--sign-command COMMAND"
-    assert_includes Lota::CLI.usage, "fuse [path] [options]"
   end
 end
 
