@@ -28,7 +28,7 @@ Fledge builds for the computer it runs on, so build each platform's app on that 
 | Windows | `NAME.exe` and what it needs, in a `.zip`, and a `-setup.exe` that installs it without an administrator |
 | Linux | A folder with `NAME` and a desktop entry, in a `.tar.gz`, and an AppImage (glibc 2.39 or newer: Ubuntu 24.04, Debian 13) |
 
-The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the game folder's name. It saves under `t.identity`, or under the game folder's name, as `lota run` does. `lota fuse` writes the project it builds from in `dist/fuse-project`, and the game goes in it under `game/<identity>`. Fledge runs from a Gemfile of its own beside it, in `dist/fuse-tools`, so it is none of the app's gems.
+The app's name is `conf.rb`'s `t.window.title`, or else `t.title`, or else the game folder's name. It saves under `t.identity`, or under the game folder's name, as `lota` does. `lota fuse` writes the project it builds from in `dist/fuse-project`, and the game goes in it under `game/<identity>`. Fledge runs from a Gemfile of its own beside it, in `dist/fuse-tools`, so it is none of the app's gems.
 
 ## What you need
 
@@ -110,7 +110,7 @@ Every app carries a notices file, `app/NOTICES.txt`, in the folder beside the ap
 Someone who has Lota can play your game from one file, as someone who has LÖVE plays a `.love`. Zip the game's folder, with `main.rb` at the top of the zip rather than inside a folder of its own, and rename the zip `NAME.lota`. Then:
 
 ```console
-$ lota run "Sample Game.lota"
+$ lota "Sample Game.lota"
 ```
 
 The game sees the archive as LÖVE's game sees a `.love`: `Lota::Filesystem` reads the archive, `Lota::Filesystem.source` names it, and the game saves under the archive's name, `Sample Game` here, unless `conf.rb` sets `t.identity`. Its Ruby, though, runs from a copy: the first time, Lota unpacks the whole archive into a folder named for the archive's contents, in `~/.cache/lota/games` on Linux (or under `XDG_CACHE_HOME`), `~/Library/Caches/Lota/games` on macOS, and `%LOCALAPPDATA%\Lota\Cache\games` on Windows, and plays it from there, as it plays a folder. So `require`, `require_relative`, `__dir__`, and `File` work as they do in your folder. The next time, it plays from that copy, unless the archive has changed or the copy is missing a file. Deleting the folder is safe; Lota unpacks the archive again.
@@ -123,11 +123,11 @@ Someone without Ruby plays a `.lota` with Lota's app, as someone without a termi
 $ "Lota-x86_64-linux/Lota" "Sample Game.lota"
 ```
 
-A game's folder opens the same way. Started with nothing, the app shows its "no game" screen; drop a `.lota` or a game's folder on its window, and the game starts in its place, as on LÖVE's. On Windows, dropping a game on the window has not been tried yet. The app plays a game as `lota run` does, from the same cache folder, unfused, and saving where `lota run` saves it, and it holds Lota, Ruby, and Ruby's standard library, and no other gems. It is `Lota.app` on macOS, `Lota.exe` on Windows, and `Lota` on Linux, in their archives and installers, as `lota fuse` writes a game's, and it carries the version of the Lota it holds. Each release of Lota after 0.7.1 carries the app for each desktop, as `Lota-arm64-darwin.dmg`, `Lota-x64-mingw-ucrt-setup.exe`, and the like, each with its line in the release's `SHA256SUMS`; no release carries it yet. Until one does, build it from a clone of Lota: `bundle exec rake player` builds it into `dist/player`, as `lota fuse` builds a game, shipping the Lota gem RubyGems installed for your platform.
+A game's folder opens the same way. Started with nothing, the app shows its "no game" screen; drop a `.lota` or a game's folder on its window, and the game starts in its place, as on LÖVE's. On Windows, dropping a game on the window has not been tried yet. The app plays a game as `lota` does, from the same cache folder, unfused, and saving where `lota` saves it, and it holds Lota, Ruby, and Ruby's standard library, and no other gems. It is `Lota.app` on macOS, `Lota.exe` on Windows, and `Lota` on Linux, in their archives and installers, as `lota fuse` writes a game's, and it carries the version of the Lota it holds. Each release of Lota after 0.7.1 carries the app for each desktop, as `Lota-arm64-darwin.dmg`, `Lota-x64-mingw-ucrt-setup.exe`, and the like, each with its line in the release's `SHA256SUMS`; no release carries it yet. Until one does, build it from a clone of Lota: `bundle exec rake player` builds it into `dist/player`, as `lota fuse` builds a game, shipping the Lota gem RubyGems installed for your platform.
 
 ## Making an app with no terminal
 
-The fuser is an app that makes a `.lota` into an app of its own, with no Ruby, Git, compiler, or network on the computer. Open the `.lota` with the fuser: on macOS choose Lota Fuser in Finder's Open With, or run `open -a "Lota Fuser" "Sample Game.lota"`; on Windows and Linux, open it with the fuser as the desktop opens a file with an app, or on Windows drop it on `Lota Fuser.exe`, either of which hands the file to the fuser's program. Or drop the `.lota` on the fuser's window. The window shows what the fuser made: the app goes beside the `.lota`, as the files `lota fuse` writes in `dist` for that platform (see [What a player gets](#what-a-player-gets)), but on Linux with an AppImage only where `mksquashfs` is installed. Games dropped while one is made wait their turn. The fuser refuses what `lota run` refuses in a `.lota`, before it writes anything, and says why.
+The fuser is an app that makes a `.lota` into an app of its own, with no Ruby, Git, compiler, or network on the computer. Open the `.lota` with the fuser: on macOS choose Lota Fuser in Finder's Open With, or run `open -a "Lota Fuser" "Sample Game.lota"`; on Windows and Linux, open it with the fuser as the desktop opens a file with an app, or on Windows drop it on `Lota Fuser.exe`, either of which hands the file to the fuser's program. Or drop the `.lota` on the fuser's window. The window shows what the fuser made: the app goes beside the `.lota`, as the files `lota fuse` writes in `dist` for that platform (see [What a player gets](#what-a-player-gets)), but on Linux with an AppImage only where `mksquashfs` is installed. Games dropped while one is made wait their turn. The fuser refuses what `lota` refuses in a `.lota`, before it writes anything, and says why.
 It copies itself through Fledge's `fledge build --from`, so the app it makes:
 
 - holds the game as plain files, and only the gems the fuser ships, Lota and Fledge, so the game requires nothing else but Ruby's standard library;
@@ -162,6 +162,6 @@ On Windows the app opens no console, so what the game prints goes nowhere.
 
 ## Restarting, and what is missing
 
-A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app runs it again in the same process, with `Lota.restart` holding the value, as `lota run` and `bundle exec lota run` do. What the game's own files defined is gone in the new run, but what it changed outside them stays, such as a method it added to a built-in class or a gem it loaded.
+A fused game restarts as LÖVE's does: `Lota::Event.restart` ends it, and the app runs it again in the same process, with `Lota.restart` holding the value, as `lota` and `bundle exec lota` do. What the game's own files defined is gone in the new run, but what it changed outside them stays, such as a method it added to a built-in class or a gem it loaded.
 
 What a fused game does not do yet: `lota fuse` builds no phone app; [the phone guide](phones.md) builds one with Fledge directly, or with the iOS kit from your game's CI. Ruby's YJIT is not in RubyInstaller's Ruby, so a Windows app runs without it; elsewhere the app turns YJIT on.

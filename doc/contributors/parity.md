@@ -15,7 +15,7 @@ The tests open a real window, as Lövetest does. SDL's offscreen driver cannot c
 
 What the translation must hold comes from Lövetest's own Lua, never from the translation, so that dropping a test or turning one into a skip is noticed. `test/lovetest/lovetest_lua.rb` reads every test Lövetest's files define, and every `test:skipTest` with its reason and the conditions of the ifs around it. A unit test (`test/lovetest/lovetest_skips_test.rb`) holds each file in `test/lovetest/tests` to the tests of its Lua file, each named by the translation rules, and no other. After each test runs, `Lovetest::TestMethod#after_teardown` asks `LovetestSkips.verdict` whether it did as Lövetest does on this machine: a test may skip only with a reason Lövetest's Lua gives it, under a condition that holds here, and must skip where one does. `LovetestSkips::CONDITIONS` says what each of Lövetest's conditions means in Lota, and `LovetestSkips::EXCEPTIONS` is the one place that names a skip Lövetest does not have, with why Lota needs it.
 
-`test/native/lota_run_test.rb` runs them all again through `lota run`, and expects as many runs as Lövetest's Lua defines tests, so a test the game never loads is noticed, and as many skips as `LovetestSkips.expected` counts for the run's environment, with those only the machine can tell, its sensors and GLSL 4.
+`test/native/lota_run_test.rb` runs them all again through the `lota` program, and expects as many runs as Lövetest's Lua defines tests, so a test the game never loads is noticed, and as many skips as `LovetestSkips.expected` counts for the run's environment, with those only the machine can tell, its sensors and GLSL 4.
 
 ## The parity harness
 
@@ -31,7 +31,7 @@ When a frame differs, the harness reports the first one and the pixel where, and
 
 ### The two sides
 
-`test/parity/lua/conf.lua` is the harness's side in LÖVE. It mounts the game, wraps `love.update` to hold keys in SDL's keyboard state and pass the fixed `dt`, and wraps `love.draw` to save each frame with `love.graphics.captureScreenshot`. `test/parity/probe.rb` is the harness's side in Lota. It does what `conf.lua` does, loaded into `lota run` with `ruby -r`, and compares each frame with LÖVE's as it goes.
+`test/parity/lua/conf.lua` is the harness's side in LÖVE. It mounts the game, wraps `love.update` to hold keys in SDL's keyboard state and pass the fixed `dt`, and wraps `love.draw` to save each frame with `love.graphics.captureScreenshot`. `test/parity/probe.rb` is the harness's side in Lota. It does what `conf.lua` does, loaded into `lota` with `ruby -r`, and compares each frame with LÖVE's as it goes.
 
 Both sides also have a timing mode, which `rake bench` plays FLASH-BLIP in ([the performance guide](../guide/performance.md)). With `LOTA_PARITY_TIMES` naming a file, neither side takes a screenshot or compares a frame; each times every frame's `update`, `draw`, and whole frame by the real clock, and writes the times to that file after the last frame. Lota's side also counts what Ruby's collector did in each frame, and with `LOTA_PARITY_NATIVE_TIMES=1` it times every call the game's `update` and `draw` make into Lota's extension. LÖVE's side keeps LuaJIT's own `pairs` order in this mode, since sorting keys at every loop would add time the game never spends in LÖVE.
 

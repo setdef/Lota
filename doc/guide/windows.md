@@ -91,7 +91,7 @@ With Ruby set up, install Lota's gem for Windows as [the README](../../README.md
 ```powershell
 gem install --local lota-VERSION-x64-mingw-ucrt.gem
 lota --version
-lota run path\to\game
+lota path\to\game
 ```
 
 A game whose Ruby is all its own runs now. A game with a `Gemfile` meets two more differences. The first is its `ruby` line, if it has one. This Ruby is a head build, which calls itself 4.1.0.dev, so `bundle exec` refuses a line that names the preview exactly, such as `ruby file: ".ruby-version"` with a `.ruby-version` that says `4.1.0-preview1`: `Your Ruby version is 4.1.0.dev, but your Gemfile specified 4.1.0.preview1`. That lasts until RubyInstaller releases Ruby 4.1. `lota fuse` refuses such a line on Windows too, though it takes it on macOS and Linux, so [Sharing a game](sharing.md#your-gems) gives the line to write instead, one that admits every Ruby 4.1. The second is the gems that compile.

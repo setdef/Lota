@@ -23,7 +23,7 @@ each platform, with the parts of LÖVE's engine it loads, so installing
 it builds nothing:
 
   gem install --local lota-VERSION-PLATFORM.gem
-  lota run path/to/game
+  lota path/to/game
   lota fuse path/to/game
 
 The last builds the game, with Fledge, into an app for this computer's

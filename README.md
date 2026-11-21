@@ -73,12 +73,12 @@ gem "lota", "VERSION"   # the version you downloaded
 
 ```sh
 bundle install --local
-bundle exec lota run
+bundle exec lota .
 ```
 
 ## A first game
 
-A Lota game is a folder. `lota run` runs the one in the current folder, and `lota run path/to/game` runs the one at that path. This game has two files. It slides a square across the window and quits when you press Escape.
+A Lota game is a folder. `lota path/to/game` runs the one at that path, as `love path/to/game` runs a LÖVE game, and `lota .` runs the one in the current folder. This game has two files. It slides a square across the window and quits when you press Escape.
 
 ```ruby
 # conf.rb
@@ -109,7 +109,7 @@ end
 ```
 
 ```console
-$ lota run
+$ lota .
 window 800x600
 ```
 

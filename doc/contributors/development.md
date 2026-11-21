@@ -172,7 +172,7 @@ source "https://rubygems.org"
 gem "lota", path: "../lota"
 ```
 
-Run `bundle install` in the game's folder, then `bundle exec lota run`. Bundler loads the checkout's `lib` as it is and builds nothing, so run `rake compile` in the checkout again after each pull.
+Run `bundle install` in the game's folder, then `bundle exec lota .` there. Bundler loads the checkout's `lib` as it is and builds nothing, so run `rake compile` in the checkout again after each pull.
 
 ## Read more
 

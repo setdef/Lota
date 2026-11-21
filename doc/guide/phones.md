@@ -5,7 +5,7 @@
 
 # Building a Game for iPhone, iPad, and Android
 
-Phones and tablets are where many games are played, and a Lota game runs there on the same engine as on a desktop. But a phone runs no `lota run`, and `lota fuse` builds only for the computer it runs on. A phone app is a project in its maker's own tools, an Xcode project for iOS and iPadOS and a Gradle project for Android, which you build, sign, and submit as you would any other app.
+Phones and tablets are where many games are played, and a Lota game runs there on the same engine as on a desktop. But a phone runs no `lota` program, and `lota fuse` builds only for the computer it runs on. A phone app is a project in its maker's own tools, an Xcode project for iOS and iPadOS and a Gradle project for Android, which you build, sign, and submit as you would any other app.
 
 [Fledge](https://github.com/setdef/Fledge) writes that project. It puts a Ruby of its own and your game in it, and compiles Lota's engine for the phone while it does. This page takes your game from its folder to an app in a Simulator, an emulator, and on a device, and on to the files the App Store and Google Play take.
 

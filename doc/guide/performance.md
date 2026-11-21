@@ -65,7 +65,7 @@ YJIT takes the median update and draw from 2.099 ms to 1.684 ms, and ZJIT to 1.7
 
 YJIT compiles a method only once it has been called 30 times (`--yjit-call-threshold` in Ruby's [YJIT documentation](https://github.com/ruby/ruby/blob/master/doc/jit/yjit.md)), and compiling takes time of its own, so the first run of a large code path is slower under a JIT than under the interpreter. Here the slowest update and draw under YJIT took 16.755 ms, in frame 146, while the game played itself under its menu; under ZJIT it took 23.717 ms, in frame 400, where the first blip comes; and under the interpreter 11.596 ms, in frame 697.
 
-`lota run` runs your game under the Ruby you start it with, so `RUBY_YJIT_ENABLE=1 lota run` turns YJIT on while you work. A game that `lota fuse` builds turns YJIT on wherever its Ruby has it ([Sharing a game](sharing.md#restarting-and-what-is-missing)). RubyInstaller's Ruby, which Lota's Windows gems are built for, has no YJIT, so on Windows a game runs under the interpreter, from `lota run` and as an app.
+The `lota` program runs your game under the Ruby you start it with, so `RUBY_YJIT_ENABLE=1 lota path/to/game` turns YJIT on while you work. A game that `lota fuse` builds turns YJIT on wherever its Ruby has it ([Sharing a game](sharing.md#restarting-and-what-is-missing)). RubyInstaller's Ruby, which Lota's Windows gems are built for, has no YJIT, so on Windows a game runs under the interpreter, from `lota` and as an app.
 
 ## Pauses for garbage collection
 
