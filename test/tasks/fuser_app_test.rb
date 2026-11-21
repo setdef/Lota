@@ -62,6 +62,16 @@ class FuserAppTest < Minitest::Test
     end
   end
 
+  # From Fledge v0.16.0, Fledge from Git ships no compiled file of its own
+  # in an app, so the fuser names it there, at the tag Lota builds with, as
+  # lota fuse's tools do.
+  def test_the_fuser_ships_fledge_from_git_at_the_tag_lota_builds_with
+    gemfile = fuser_app.__send__(:gemfile, FuserApp::IDENTITY, nil)
+
+    assert_includes gemfile, %(gem "fledge", git: "#{Lota::Fuse::FLEDGE_GIT}", ref: "#{Lota::Fuse.fledge_ref}"\n)
+    assert_includes gemfile, %(gem "lota", "#{Lota::VERSION}"\n)
+  end
+
   def test_the_window_makes_an_app_of_what_is_dropped_on_it_and_of_what_its_program_is_given
     main = FuserApp::GAME.fetch("main.rb")
 

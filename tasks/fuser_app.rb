@@ -8,8 +8,6 @@
 require "digest"
 require "fileutils"
 require "rbconfig"
-require "rubygems/package"
-require "tmpdir"
 require "lota"
 require "lota/fuse"
 require "lota/fuser"
@@ -135,31 +133,32 @@ class FuserApp < Lota::Fuse
   end
 
   # Writes the fuser's game into +game+, with a Gemfile that ships Lota,
-  # from the gem at +gem_file+, and Fledge, each from its vendor/cache,
-  # and locks it, as a game's developer would.
+  # from the gem at +gem_file+ in its vendor/cache, and Fledge, and locks
+  # it, as a game's developer would.
   private def write_game(game, gem_file)
     FileUtils.rm_rf(game)
     cache = File.join(game, "vendor", "cache")
     FileUtils.mkdir_p(cache)
     GAME.each { |file, text| File.write(File.join(game, file), text) }
     FileUtils.cp(gem_file, cache)
-    fledge = fledge_gem(cache)
-    @fledge_version = fledge.version.to_s
     File.write(File.join(game, "Gemfile"), gemfile(IDENTITY, nil))
     unless system(environment(game), RbConfig.ruby, Gem.bin_path("bundler", "bundle"), "lock", chdir: game)
       raise Error, "Bundler could not lock the fuser's gems in #{game}."
     end
 
     lockfile = File.join(game, "Gemfile.lock")
-    text = FuserApp.with_checksum(File.read(lockfile), "lota", gem_file)
-    File.write(lockfile, FuserApp.with_checksum(text, "fledge", File.join(cache, fledge.file_name)))
+    File.write(lockfile, FuserApp.with_checksum(File.read(lockfile), "lota", gem_file))
   end
 
   # The Gemfile of the fuser's game and of its project, the same file: it
   # asks for Lota and Fledge alone, rather than evaluating the game's
   # Gemfile in its folder as lota fuse's project does, because fledge
   # build --from keeps the fuser's Gemfile in every app it makes and
-  # replaces the game folder it would name.
+  # replaces the game folder it would name. Fledge comes from Git at the
+  # tag Lota::Fuse builds with, as lota fuse's tools take it: from v0.15.0
+  # on, Fledge judges only the compiled files a gem from Git holds as a
+  # gem, and keeps its own test fixtures in an app as text (its
+  # CHANGELOG.md, 0.15.0), where it had refused them.
   private def gemfile(_folder, _locked)
     <<~RUBY
       # frozen_string_literal: true
@@ -168,37 +167,8 @@ class FuserApp < Lota::Fuse
       source "https://rubygems.org"
 
       gem "lota", #{Lota::VERSION.dump}
-      gem "fledge", #{@fledge_version.to_s.dump}
+      gem "fledge", git: "#{Lota::Fuse::FLEDGE_GIT}", ref: "#{Lota::Fuse.fledge_ref}"
     RUBY
-  end
-
-  # Builds the gem of the Fledge Lota::Fuse builds with, from its
-  # repository at Lota::Fuse.fledge_ref, into the folder +cache+, and
-  # returns its specification. The fuser ships Fledge as a .gem rather
-  # than from Git, as lota fuse's own tools take it, because Bundler checks
-  # out a gem from Git whole, and Fledge's checkout holds its tests'
-  # fixtures, libraries built to need what no computer has, which Fledge
-  # then refuses to ship in an app; the gem holds only what fledge.gemspec
-  # packages.
-  private def fledge_gem(cache)
-    Dir.mktmpdir("lota-fuser-fledge-") do |checkout|
-      steps = [
-        %w[init --quiet],
-        ["fetch", "--quiet", "--depth", "1", Lota::Fuse::FLEDGE_GIT, Lota::Fuse.fledge_ref],
-        %w[checkout --quiet FETCH_HEAD],
-      ]
-      steps.each do |arguments|
-        next if system("git", *arguments, chdir: checkout)
-
-        raise Error, "git #{arguments.first} failed for Fledge at #{Lota::Fuse.fledge_ref}, from #{Lota::Fuse::FLEDGE_GIT}."
-      end
-      spec = Dir.chdir(checkout) { Gem::Specification.load("fledge.gemspec") }
-      raise Error, "found no fledge.gemspec in Fledge at #{Lota::Fuse.fledge_ref}." unless spec
-
-      Dir.chdir(checkout) { Gem::Package.build(spec) }
-      FileUtils.cp(File.join(checkout, spec.file_name), cache)
-      spec
-    end
   end
 
   # The lockfile +lockfile+ with the SHA-256 of the gem at +gem_file+
