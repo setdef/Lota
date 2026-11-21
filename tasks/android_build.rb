@@ -44,11 +44,16 @@ require_relative "windows_build"
 # each ABI's tree holds libSDL3.so beside the other libraries.
 #
 # Each library is built for API level 26, Fledge's minimum, with the NDK's
-# own CMake toolchain file and its static C++ runtime, as Fledge's
-# toolchain files build the extension (its doc/contributors/design/phone-projects.md, "CMake
-# toolchain files"), or for the
-# two built with Autotools, with the NDK's compilers named for the ABI's
-# triple and API level.
+# own CMake toolchain file, or for the two built with Autotools, with the
+# NDK's compilers named for the ABI's triple and API level. The C++ among
+# them link the NDK's static C++ runtime, the toolchain file's default.
+# Lota's extension links the shared one, libc++_shared.so, as Fledge links
+# every C++ extension from its 0.15.0 (its
+# doc/contributors/design/phone-projects.md, "The C++ runtime rule"), but
+# libSDL3.so and libopenal.so keep their copies to themselves, exporting
+# none of the runtime's symbols, and Lota calls them only through their C
+# functions, so no exception, allocation, or type crosses from one copy to
+# another, which is the hazard of two runtimes in an app.
 #
 # As WindowsBuild does, it keeps downloading apart from building: #fetch
 # downloads each archive into SOURCES (vendor/sources/android, which git
