@@ -130,9 +130,9 @@ module Lota
 
       def apply_linear_impulse: (Float | Integer jx, Float | Integer jy, *(Float | Integer | bool | nil) arguments) -> nil
 
-      def apply_angular_impulse: (Float | Integer impulse) -> nil
+      def apply_angular_impulse: (Float | Integer impulse, ?bool? awake) -> nil
 
-      def apply_torque: (Float | Integer torque) -> nil
+      def apply_torque: (Float | Integer torque, ?bool? awake) -> nil
 
       def user_data: () -> ::Object?
 

@@ -688,21 +688,27 @@ module Lota
       # Spins the Body with the angular impulse +impulse+, matching
       # Body:applyAngularImpulse.
       #
-      # === Example
+      # [awake] Whether to wake the Body if it sleeps; a sleeping Body
+      #   left asleep does not spin. Anything but +true+ or +false+,
+      #   +nil+ included, is +true+, as LÖVE reads it.
+      #
+      # === Examples
       #
       #   body.apply_angular_impulse(10)
-      def apply_angular_impulse(impulse)
-        @native.apply_angular_impulse(impulse)
+      #   body.apply_angular_impulse(10, false)
+      def apply_angular_impulse(impulse, awake = true)
+        @native.apply_angular_impulse(impulse, awake)
       end
 
       # Twists the Body with the torque +torque+, matching
-      # Body:applyTorque.
+      # Body:applyTorque, as #apply_angular_impulse reads +awake+.
       #
-      # === Example
+      # === Examples
       #
       #   body.apply_torque(4)
-      def apply_torque(torque)
-        @native.apply_torque(torque)
+      #   body.apply_torque(4, false)
+      def apply_torque(torque, awake = true)
+        @native.apply_torque(torque, awake)
       end
 
       # The value the game attached to the Body, or +nil+, matching

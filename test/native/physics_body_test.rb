@@ -25,6 +25,29 @@ class PhysicsBodyTest < Minitest::Test
     Physics::CircleShape.new(@body, 5)
   end
 
+  # w_Body_applyTorque and w_Body_applyAngularImpulse read whether to
+  # wake the Body third, with luax_optboolean(L, 3, true)
+  # (wrap_Body.cpp:230-246), so anything but true or false wakes it; and
+  # Box2D turns a sleeping Body only when told to wake it
+  # (src/libraries/box2d/b2_body.h:778-855).
+  def test_torque_and_angular_impulse_wake_the_body_unless_told_not_to
+    @body.awake = false
+    @body.apply_torque(100, false)
+    @body.apply_angular_impulse(100, false)
+
+    refute_predicate @body, :awake?
+    assert_in_delta 0, @body.angular_velocity
+
+    @body.apply_torque(100, 1)
+
+    assert_predicate @body, :awake?
+    @body.awake = false
+    @body.apply_angular_impulse(100)
+
+    assert_predicate @body, :awake?
+    assert_operator @body.angular_velocity, :>, 0
+  end
+
   # A Body at rest sleeps after Box2D's half a second (b2_timeToSleep),
   # and setAwake wakes it, or puts it back to sleep.
   def test_awake_wakes_a_sleeping_body_and_puts_it_to_sleep
