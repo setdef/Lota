@@ -154,7 +154,7 @@ The hook lives in the clone's shared hooks folder as a stub that runs `.githooks
 - `rake package:native` builds the precompiled gem for this platform, and `package:check` and `package:install` check it, as [ci.md](ci.md) describes.
 - `rake cpp` runs clang-format and clang-tidy over Lota's C++, and `rake cpp:format:fix` fixes the layout. clang-tidy reads only the sources your system compiles, so a change to Objective-C++ is checked only on macOS, and the sources only Windows compiles, such as `dialogs_windows.cpp`, only by the Windows checks on x64 ([windows.md](windows.md)).
 - `rake lint:workflows` checks `.github/workflows` with actionlint and shellcheck.
-- `rake bench` times draw calls in Lota and in LÖVE.
+- `rake bench` times draw calls in Lota and in LÖVE, and FLASH-BLIP, a parity game, whole in both, under each of Ruby's JITs. `BENCH_SCENARIOS` names the scenarios to run, and `tasks/bench.rake` lists its other settings. [The performance guide](../guide/performance.md) shows what it measured.
 
 ## What CI does after you push
 
