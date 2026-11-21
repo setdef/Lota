@@ -14,6 +14,15 @@
 # changelog job, Release#pin_published_engines). ci.yml calls it with the
 # version its run releases as, which each bundle's manifest records.
 #
+# With extensions, each job then builds Lota's extension for its targets
+# against those engines, inside a real fledge build of test/games/phone,
+# packs each as the bundle ext/lota/phone/extension.rb fetches, and builds
+# the app again from the prebuilt engines and extensions with no Rice,
+# which compiles none of Lota (.github/phones/extension_build.sh). The
+# phone-extensions artifact holds the four extension bundles and their
+# SHA256SUMS. It is off unless asked for, so a call that leaves it out
+# runs none of its steps.
+#
 # With compare_with_source, a second runner for each system builds the
 # bundles again from the same commit and checks that they are the same
 # bytes, then builds test/games/phone with fledge build twice, once with
@@ -34,12 +43,20 @@ on:
         description: The version the calling run releases as, which each bundle's manifest records (empty for 0.0.1.dev)
         type: string
         default: ""
+      extensions:
+        description: Also build Lota's extension for each target against these engines, and check a phone build from them compiles none of Lota
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       compare_with_source:
         description: Also rebuild the engines elsewhere, and check a phone build from them against one from source
         type: boolean
         default: true
+      extensions:
+        description: Also build Lota's extension for each target against these engines, and check a phone build from them compiles none of Lota
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -99,6 +116,48 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Install XcodeGen, which fledge build ios runs
+        if: inputs.extensions
+        run: brew install xcodegen
+
+      - &extensions
+        name: Build Lota's extension for each target against these engines, inside fledge build
+        if: inputs.extensions
+        env:
+          PHONE: ${{ github.job }}
+        run: |
+          bundle exec rake phone:gem
+          if [ "$PHONE" = ios ]; then
+            targets="ios-arm64 ios-arm64-simulator"
+          else
+            targets="android-arm64-v8a android-x86_64"
+          fi
+          (cd tmp/phone-engine && for target in $targets; do shasum -a 256 "lota-engine-$target.tar.gz"; done > SHA256SUMS)
+          bash .github/phones/extension_build.sh "$PHONE" tmp/phone-engine "$RUNNER_TEMP/extensions" \
+            "$RUNNER_TEMP/extension-work"
+          mkdir -p tmp/phone-extension
+          cp "$RUNNER_TEMP"/extensions/lota-extension-*.tar.gz tmp/phone-extension/
+          ls -la tmp/phone-extension
+
+      - &extension_logs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && inputs.extensions
+        with:
+          name: extension-logs-${{ github.job }}
+          path: |
+            ${{ runner.temp }}/extension-work/*.log
+            ${{ runner.temp }}/extension-work/dist.diff
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.extensions
+        with:
+          name: phone-extension-ios
+          path: tmp/phone-extension/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
   android:
     name: Android ABIs
     runs-on: ubuntu-24.04
@@ -142,6 +201,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - *extensions
+
+      - *extension_logs
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.extensions
+        with:
+          name: phone-extension-android
+          path: tmp/phone-extension/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
   # What a release publishes: the four bundles and their SHA256SUMS.
   sums:
     name: The engines and their SHA256SUMS
@@ -168,6 +239,38 @@ jobs:
         with:
           name: phone-engines
           path: ${{ runner.temp }}/engines
+          if-no-files-found: error
+          retention-days: 14
+
+  # Lota's extension for each target, built against the engines above:
+  # the four bundles and their SHA256SUMS, which a release publishes
+  # beside the engines.
+  extension-sums:
+    name: The extensions and their SHA256SUMS
+    if: inputs.extensions
+    needs: [ios, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: phone-extension-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/extensions
+
+      - name: Write SHA256SUMS
+        working-directory: ${{ runner.temp }}/extensions
+        run: |
+          for target in ios-arm64 ios-arm64-simulator android-arm64-v8a android-x86_64; do
+            sha256sum "lota-extension-$target.tar.gz"
+          done > SHA256SUMS
+          cat SHA256SUMS
+          ls -la
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone-extensions
+          path: ${{ runner.temp }}/extensions
           if-no-files-found: error
           retention-days: 14
 
