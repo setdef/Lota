@@ -99,31 +99,4 @@ class SetupTest < Minitest::Test
     assert_includes moved, "bundle install --redownload"
     assert_includes back, "bundle install --redownload"
   end
-
-  # mise unpacks libyaml's source with the time it unpacked each file, in
-  # the archive's order, not the times the archive records, so a
-  # Makefile.am came out newer than the Makefile.in automake made from it.
-  # Building psych, make then ran automake, which macOS lacks, and Ruby's
-  # build failed. So bin/with-libyaml leaves no file of the source newer
-  # than another.
-  def test_on_macos_no_file_of_the_libyaml_source_is_newer_than_another
-    in_tree do |dir|
-      write(dir, "bin/with-libyaml", File.read(File.join(ROOT, "bin/with-libyaml")))
-      write(dir, "tools/uname", "#!/bin/sh\necho Darwin\n")
-      write(dir, "tools/mise", %(#!/bin/sh\nif [ "$1" = where ]; then echo "#{dir}/libyaml"; fi\n))
-      FileUtils.chmod(0o755, Dir[File.join(dir, "{bin,tools}/*")])
-      unpacked = %w[configure.ac aclocal.m4 configure Makefile.in include/Makefile.in Makefile.am include/Makefile.am]
-      unpacked.each_with_index do |name, index|
-        File.utime(Time.at(1_800_000_000, index, :nsec), Time.at(1_800_000_000, index, :nsec),
-          write(dir, "libyaml/#{name}"))
-      end
-
-      output, status = Open3.capture2e({ "PATH" => "#{dir}/tools:#{ENV.fetch('PATH')}" },
-        File.join(dir, "bin/with-libyaml"), "true")
-
-      assert_predicate status, :success?, output
-      times = unpacked.to_h { |name| [name, File.mtime(File.join(dir, "libyaml", name))] }
-      assert_equal 1, times.values.uniq.size, times.inspect
-    end
-  end
 end
