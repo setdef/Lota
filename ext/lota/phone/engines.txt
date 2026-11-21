@@ -1,0 +1,5 @@
+release v0.7.1
+4ede036f7ad422f44e8ddec3e30b5be5f7aa4e04277b00908342b53a9ab2c0cf  lota-engine-android-arm64-v8a.tar.gz
+a0830d03ac9ea59ec15368dcdc39cb8810b522fc3f523a23640519c83c2b6c84  lota-engine-android-x86_64.tar.gz
+5dbc9d74b98ff8f6d5a1bafcd150dbac186206660b70fcd23fe3f950b4ec8b74  lota-engine-ios-arm64-simulator.tar.gz
+6c53a3d5bcbde93ec5ee36b89f0c16b96ebd41a1f5171ed688a2a5a589e294da  lota-engine-ios-arm64.tar.gz
