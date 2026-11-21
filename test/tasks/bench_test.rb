@@ -300,6 +300,49 @@ class BenchTest < Minitest::Test
     assert_equal "started\n", output
   end
 
+  # Before it kills a run that took too long, spawn asks it with SIGUSR1
+  # to say where it is, as the parity probe's timing mode does by printing
+  # its frame and every thread's backtrace, and gives it a few seconds to.
+  def test_spawn_asks_a_run_that_takes_too_long_where_it_is_before_killing_it
+    script = 'trap "echo where; exit 0" USR1; echo started; while :; do sleep 1; done'
+    output, status = Bench.spawn({}, ["sh", "-c", script], timeout: 10)
+
+    assert_nil status
+    assert_equal "started\nwhere\n", output
+  end
+
+  # A stand-in love that plays a game's frames into its progress file and
+  # then hangs, as a game stuck in a frame does. It is a script of this
+  # Ruby's, not of a shell's, and starts no other program, since a game's
+  # run loads the harness's libraries (Bench::Game#environment), built for
+  # this Ruby's architecture: macOS's own programs are arm64e, which dyld
+  # refuses to load an arm64 library into wherever System Integrity
+  # Protection is off and leaves DYLD_INSERT_LIBRARIES in place, as on
+  # GitHub's macOS runners.
+  def hanging_love(dir)
+    path = write(dir, "love", <<~RUBY)
+      #!#{RbConfig.ruby} --disable-gems
+      $stdout.sync = true
+      puts "frame 7 of the script"
+      File.write(ENV.fetch("LOTA_PARITY_PROGRESS"), "7\\n")
+      sleep 600
+    RUBY
+    File.chmod(0o755, path)
+    path
+  end
+
+  def test_the_runner_says_how_long_a_stopped_run_ran_what_it_printed_and_where_it_got_to
+    in_tree do |dir|
+      runner = Bench::Runner.new(settings: Bench::Settings.from("BENCH_RUNS" => "1"), love: hanging_love(dir),
+        directory: File.join(dir, "runs"), out: StringIO.new, timeout: 10)
+      scenario = Bench::Scenario.new(engine: "love", jit: "luajit", name: "flash_blip")
+      error = assert_raises(Bench::Failure) { runner.call([scenario]) }
+
+      assert_includes error.message, "love flash_blip (luajit) ran past 10 s and was stopped after frame 7"
+      assert_includes error.message, "frame 7 of the script"
+    end
+  end
+
   def result(engine, jit, name, data)
     Bench::Result.new(Bench::Scenario.new(engine:, jit:, name:), { "draws" => 10_000, "ruby" => "ruby 4", **data })
   end
