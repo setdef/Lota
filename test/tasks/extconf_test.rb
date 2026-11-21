@@ -180,7 +180,7 @@ class ExtconfTest < Minitest::Test
   # phone scripts, and lib/lota/version.rb, pinning +pin+ (the text of
   # ext/lota/phone/engines.txt). Returns extconf.rb's path.
   def phone_gem(root, pin: "")
-    %w[extconf.rb phone/ios.rb phone/android.rb phone/engine.rb].each do |file|
+    %w[extconf.rb phone/ios.rb phone/android.rb phone/engine.rb phone/extension.rb].each do |file|
       write(root, "ext/lota/#{file}", File.read(File.join(ROOT, "ext/lota", file)))
     end
     write(root, "lib/lota/version.rb", File.read(File.join(ROOT, "lib/lota/version.rb")))
@@ -263,6 +263,113 @@ class ExtconfTest < Minitest::Test
       assert_includes output, "Lota's engine for android-x86_64: #{root}/cache/#{sha256}/android-x86_64"
       assert_includes output, "Lota's Android build needs --with-rice-dir=DIR"
       assert_path_exists File.join(root, "cache", sha256, "android-x86_64/lib/liblota_engine.a")
+    end
+  end
+
+  # A mirror in +root+ of the engine and the extension a release publishes
+  # for +target+, the extension built against +ruby_version+ and the
+  # headers of the Ruby running the test. Returns the pin of both.
+  def phone_release(root, target, ruby_version: RbConfig::CONFIG["ruby_version"])
+    require_relative "../../ext/lota/phone/extension"
+    phone_gem(root)
+    ext = File.join(root, "ext/lota")
+    mirror = File.join(root, "mirror")
+    manifest = JSON.generate("target" => target, "engine_digest" => Lota::PhoneEngine.digest(ext))
+    engine = Lota::PhoneEngine.pack(File.join(mirror, Lota::PhoneEngine.asset(target)),
+      { "manifest.json" => manifest, "lib/liblota_engine.a" => "!<arch>\n" })
+    write(root, "built/liblota_native.a", "!<arch>\n")
+    headers = Lota::PhoneExtension::Headers.of(RbConfig::CONFIG).with(ruby_version:)
+    extension = Lota::PhoneExtension.pack(into: mirror, target:, archive: File.join(root, "built/liblota_native.a"),
+      link: ["/built/engine/lib/libSDL3.a", "-lc++"], engine: "/built/engine", ext:, headers:, fledge: "v0.14.0",
+      version: "1.2.3")
+    "release v1.2.3\n#{engine}  #{Lota::PhoneEngine.asset(target)}\n" \
+      "#{Digest::SHA256.file(extension).hexdigest}  #{Lota::PhoneExtension.asset(target)}\n"
+  end
+
+  # A gem that pins the extension too fetches it, and links it with the
+  # fetched engine, with no CMake run and no Rice.
+  def test_a_phone_build_links_the_pinned_extension_without_compiling_it
+    in_tree do |root|
+      script = phone_gem(root, pin: phone_release(root, "ios-arm64-simulator"))
+
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, IOS_SIMULATOR), script,
+        "--with-lota-engine-url=file://#{root}/mirror/", "--with-lota-engine-cache=#{root}/cache", chdir: root)
+
+      assert status.success?, output
+      fetched = output[/Lota's extension for ios-arm64-simulator: (\S+)/, 1]
+      engine = output[/Lota's engine for ios-arm64-simulator: (\S+)/, 1]
+      refute_nil fetched, output
+      makefile = File.read(File.join(root, "Makefile"))
+      assert_includes makefile, "#{fetched}/lib/liblota_native.a #{engine}/lib/liblota_engine.a #{engine}/lib/libSDL3.a"
+      assert_match(/^LIBS = .* -lc\+\+/, makefile)
+      refute_path_exists File.join(root, "lota-build")
+    end
+  end
+
+  # A gem built between releases pins the last release's extension, built
+  # from other files, so its build compiles the extension, which needs
+  # Rice, as a gem that pins none does.
+  def test_a_phone_build_compiles_the_extension_when_the_pinned_one_is_of_other_files
+    in_tree do |root|
+      pin = phone_release(root, "android-x86_64")
+      write(root, "ext/lota/native/graphics.cpp", "void draw() {}\n")
+      script = phone_gem(root, pin:)
+
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script,
+        "--with-lota-engine-url=file://#{root}/mirror/", "--with-lota-engine-cache=#{root}/cache", chdir: root)
+
+      refute status.success?
+      assert_includes output, "So Lota compiles its extension for android-x86_64."
+      assert_includes output, "Lota's Android build needs --with-rice-dir=DIR"
+    end
+  end
+
+  # An extension built for a Ruby of another ABI is refused before
+  # anything links it, and the refusal says what to do.
+  def test_a_phone_build_refuses_an_extension_built_for_another_ruby
+    in_tree do |root|
+      script = phone_gem(root, pin: phone_release(root, "android-x86_64", ruby_version: "4.0.0"))
+
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script,
+        "--with-lota-engine-url=file://#{root}/mirror/", "--with-lota-engine-cache=#{root}/cache", chdir: root)
+
+      refute status.success?
+      assert_includes output, "was built for Ruby 4.0.0, the phone Ruby of Fledge v0.14.0, and this phone's Ruby " \
+        "is #{RbConfig::CONFIG['ruby_version']}, whose ABI differs. Name Fledge v0.14.0 in the Gemfile, or compile " \
+        "the extension for this Ruby: pass --with-rice-dir=DIR"
+      refute_path_exists File.join(root, "Makefile")
+    end
+  end
+
+  # Given Rice, as the refusal says, the build compiles the extension for
+  # its own Ruby instead, as far as CMake, which needs the toolchain
+  # fledge build sets.
+  def test_given_rice_a_phone_build_compiles_in_place_of_an_extension_for_another_ruby
+    in_tree do |root|
+      script = phone_gem(root, pin: phone_release(root, "android-x86_64", ruby_version: "4.0.0"))
+
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, ANDROID_X86_64), script,
+        "--with-lota-engine-url=file://#{root}/mirror/", "--with-lota-engine-cache=#{root}/cache",
+        "--with-rice-dir=#{root}/rice", chdir: root)
+
+      refute status.success?
+      assert_includes output, "whose ABI differs."
+      assert_includes output, "So Lota compiles its extension for android-x86_64."
+      assert_includes output, "Lota's Android build needs CMAKE_TOOLCHAIN_FILE"
+    end
+  end
+
+  # A kept extension records the Fledge that built it, which its
+  # refusal names, so CI's build must say which.
+  def test_keeping_the_extension_needs_the_fledge_tag
+    in_tree do |root|
+      script = phone_gem(root)
+
+      output, status = Open3.capture2e(RbConfig.ruby, "-r", phone_rbconfig(root, IOS_SIMULATOR), script,
+        "--with-lota-extension-out=#{root}/out", chdir: root)
+
+      refute status.success?
+      assert_includes output, "--with-lota-extension-out needs --with-lota-extension-fledge=TAG"
     end
   end
 

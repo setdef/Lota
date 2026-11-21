@@ -222,19 +222,9 @@ class PhoneEngineBuild
   # Writes +files+ (as #files gives them) to the gzipped archive at
   # +archive+ and returns its SHA-256.
   def self.write(archive, files)
-    FileUtils.mkdir_p(File.dirname(archive))
-    contents = files.transform_values do |value|
+    Lota::PhoneEngine.pack(archive, files.transform_values do |value|
       value.is_a?(Contents) ? value.text : File.binread(value)
-    end
-    File.open("#{archive}.part", "wb") do |io|
-      gzip = Zlib::GzipWriter.new(io, Zlib::BEST_COMPRESSION)
-      # Zlib writes the time now for a time of 0 (zlib.c, gzfile_make_header).
-      gzip.mtime = 1
-      Lota::PhoneEngine::Tar.write(gzip, contents)
-      gzip.finish
-    end
-    File.rename("#{archive}.part", archive)
-    Digest::SHA256.file(archive).hexdigest
+    end)
   end
 
   # A file's text, as opposed to a path to copy.

@@ -16,8 +16,12 @@
 # LÖVE's engine, with the libraries it links, comes prebuilt for the
 # slice from Lota's release (phone/engine.rb), checked against the SHA-256
 # this gem pins; or, given a clone of Lota, CMake builds it from LÖVE's
-# sources as on a desktop, as a static archive. CMake then builds
-# Lota::Native (CMakeLists.txt beside extconf.rb) over it; mkmf compiles
+# sources as on a desktop, as a static archive. Lota::Native comes
+# prebuilt as well, from the same release, when the gem pins it for the
+# slice and the phone's Ruby is the one it was built against
+# (phone/extension.rb), and then neither CMake nor Rice is needed.
+# Otherwise CMake builds Lota::Native (CMakeLists.txt beside extconf.rb)
+# over the engine. Either way mkmf compiles
 # phone/native_ios.c, whose Init_native calls the extension's, and names
 # the archives and the system's libraries for Fledge to link
 # (phone_link.txt, which engine/dependencies_ios.cmake or the prebuilt
@@ -40,14 +44,31 @@
 #                                default lota/phone-engine in
 #                                XDG_CACHE_HOME or ~/.cache.
 # [--with-rice-dir=DIR] The rice gem's directory, since Fledge runs this
-#                       with --disable-gems.
+#                       with --disable-gems; needed only to compile the
+#                       extension, which it then does in place of one
+#                       the gem pins for another Ruby.
+# [--with-lota-extension-out=DIR] Compile the extension against the
+#                                 prebuilt engine even if the gem pins a
+#                                 prebuilt one, and pack it into DIR as
+#                                 the bundle a release publishes, as
+#                                 Lota's CI builds it.
+# [--with-lota-extension-fledge=TAG] With --with-lota-extension-out, the
+#                                    tag of the Fledge running the
+#                                    build, which the bundle records.
 
 require "mkmf"
 require "rbconfig"
 require "shellwords"
 require_relative "engine"
+require_relative "extension"
+require_relative "../../../lib/lota/version"
 
 ios_slice = RbConfig::CONFIG.fetch("CC").include?("-simulator") ? "ios-arm64-simulator" : "ios-arm64"
+ext = File.expand_path("..", __dir__)
+headers = Lota::PhoneExtension::Headers.of(RbConfig::CONFIG)
+keep = with_config("lota-extension-out")
+fledge = keep && (with_config("lota-extension-fledge") or abort "--with-lota-extension-out needs " \
+  "--with-lota-extension-fledge=TAG, the tag of the Fledge running the build")
 lota_source = with_config("lota-source")
 if lota_source
   lota_source = File.expand_path(lota_source)
@@ -61,37 +82,57 @@ if lota_source
   ]
 else
   begin
-    prebuilt = Lota::PhoneEngine.new(ios_slice, ext: File.expand_path("..", __dir__), url: with_config("lota-engine-url"))
-      .fetch(cache: with_config("lota-engine-cache", Lota::PhoneEngine.cache))
+    cache = with_config("lota-engine-cache", Lota::PhoneEngine.cache)
+    url = with_config("lota-engine-url")
+    prebuilt = Lota::PhoneEngine.new(ios_slice, ext:, url:).fetch(cache:)
+    extension = Lota::PhoneExtension.new(ios_slice, ext:, url:, headers:, compiles: !with_config("rice-dir").nil?)
+    fetched = extension.fetch(cache:) if extension.pinned? && !keep
   rescue Lota::PhoneEngine::Failure => e
     abort e.message
   end
   engine = ["-DLOTA_ENGINE_DIR:PATH=#{prebuilt}"]
 end
-rice = with_config("rice-dir") or abort "Lota's iOS build needs --with-rice-dir=DIR, the rice gem's directory"
-ENV["CMAKE_TOOLCHAIN_FILE"] or abort "Lota's iOS build needs CMAKE_TOOLCHAIN_FILE, which fledge build ios sets"
+engine_archive = prebuilt && File.join(prebuilt, "lib/liblota_engine.a")
 
-cmake = find_executable("cmake") or abort "Lota's extension builds with CMake, which is not on PATH."
-# A new folder for each slice, which is how CMake reads the toolchain from
-# the environment (cmake-env-variables(7), CMAKE_TOOLCHAIN_FILE).
-build = File.expand_path("lota-build")
-configure = [cmake, "-S", File.expand_path("..", __dir__), "-B", build]
-configure += %w[-G Ninja] if find_executable("ninja")
-configure += [
-  "-DCMAKE_BUILD_TYPE=Release",
-  *engine,
-  "-DRICE_DIR:PATH=#{File.expand_path(rice)}",
-  "-DLOTA_RUBY_INCLUDE_DIRS=#{[RbConfig::CONFIG['rubyhdrdir'], RbConfig::CONFIG['rubyarchhdrdir']].uniq.join(';')}",
-  "-DLOTA_NATIVE_TEST=OFF",
-  "-DLOTA_SANITIZE=OFF",
-]
-system(*configure) or abort "CMake could not configure Lota for #{ios_slice} (its output is above)."
-system(cmake, "--build", build, "--target", "lota_native") or abort "CMake could not build Lota for #{ios_slice}."
+if fetched
+  archives = [File.join(fetched, "lib/liblota_native.a"), engine_archive]
+  link = Lota::PhoneExtension.link(fetched, prebuilt)
+else
+  rice = with_config("rice-dir") or abort "Lota's iOS build needs --with-rice-dir=DIR, the rice gem's directory"
+  ENV["CMAKE_TOOLCHAIN_FILE"] or abort "Lota's iOS build needs CMAKE_TOOLCHAIN_FILE, which fledge build ios sets"
 
-engine_archive = prebuilt ? File.join(prebuilt, "lib/liblota_engine.a") : File.join(build, "engine/liblota_engine.a")
-archives = [File.join(build, "lib/lota/liblota_native.a"), engine_archive]
-libraries, flags = File.readlines(File.join(build, "phone_link.txt"), chomp: true).reject(&:empty?)
-  .partition { |line| line.end_with?(".a") }
+  cmake = find_executable("cmake") or abort "Lota's extension builds with CMake, which is not on PATH."
+  # A new folder for each slice, which is how CMake reads the toolchain from
+  # the environment (cmake-env-variables(7), CMAKE_TOOLCHAIN_FILE).
+  build = File.expand_path("lota-build")
+  configure = [cmake, "-S", ext, "-B", build]
+  configure += %w[-G Ninja] if find_executable("ninja")
+  configure += [
+    "-DCMAKE_BUILD_TYPE=Release",
+    *engine,
+    "-DRICE_DIR:PATH=#{File.expand_path(rice)}",
+    "-DLOTA_RUBY_INCLUDE_DIRS=#{[RbConfig::CONFIG['rubyhdrdir'], RbConfig::CONFIG['rubyarchhdrdir']].uniq.join(';')}",
+    "-DLOTA_NATIVE_TEST=OFF",
+    "-DLOTA_SANITIZE=OFF",
+  ]
+  # Apple's archivers write each member's date unless told not to, so a
+  # kept archive (--with-lota-extension-out) holds none.
+  ENV["ZERO_AR_DATE"] = "1"
+  system(*configure) or abort "CMake could not configure Lota for #{ios_slice} (its output is above)."
+  system(cmake, "--build", build, "--target", "lota_native") or abort "CMake could not build Lota for #{ios_slice}."
+
+  engine_archive ||= File.join(build, "engine/liblota_engine.a")
+  archives = [File.join(build, "lib/lota/liblota_native.a"), engine_archive]
+  link = File.readlines(File.join(build, "phone_link.txt"), chomp: true).reject(&:empty?)
+  if keep
+    abort "--with-lota-extension-out keeps an extension built against a prebuilt engine, not one from source" unless
+      prebuilt
+    puts "Lota's extension for #{ios_slice}, kept: " +
+      Lota::PhoneExtension.pack(into: File.expand_path(keep), target: ios_slice, archive: archives.first, link:,
+        engine: prebuilt, ext:, headers:, fledge:, version: Lota::VERSION)
+  end
+end
+libraries, flags = link.partition { |line| line.end_with?(".a") }
 $LOCAL_LIBS << " #{(archives + libraries).shelljoin}"
 $libs << " #{flags.shelljoin}"
 # Android's entry point sits beside this one (phone/native_android.c).

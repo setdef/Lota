@@ -113,10 +113,28 @@ module Lota
     end
 
     # The SHA-256 of the engine files under +ext+ (ext/lota), the gem's or
-    # a clone's, which a bundle records and #fetch compares.
-    def self.digest(ext)
-      files = DIGESTED.flat_map { |pattern| Dir.glob(pattern, base: ext) }.uniq.sort
+    # a clone's, which a bundle records and #fetch compares: of the files
+    # +patterns+ match there, by their paths and contents.
+    def self.digest(ext, patterns = DIGESTED)
+      files = patterns.flat_map { |pattern| Dir.glob(pattern, base: ext) }.uniq.sort
+        .select { |file| File.file?(File.join(ext, file)) }
       Digest::SHA256.hexdigest(files.map { |file| "#{file}\0#{Digest::SHA256.file(File.join(ext, file)).hexdigest}\n" }.join)
+    end
+
+    # Writes the bundle +path+, a gzipped Tar of +files+, a Hash of each
+    # path in it to its content, with no date in it, and returns its
+    # SHA-256.
+    def self.pack(path, files)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.open("#{path}.part", "wb") do |io|
+        gzip = Zlib::GzipWriter.new(io, Zlib::BEST_COMPRESSION)
+        # Zlib writes the time now for a time of 0 (zlib.c, gzfile_make_header).
+        gzip.mtime = 1
+        Tar.write(gzip, files)
+        gzip.finish
+      end
+      File.rename("#{path}.part", path)
+      Digest::SHA256.file(path).hexdigest
     end
 
     # The checksums in +text+, as sha256sum writes them, by file name.
@@ -188,11 +206,21 @@ module Lota
       self.class.asset(@target)
     end
 
+    # What the bundle holds, as messages name it.
+    def noun
+      "engine"
+    end
+
+    # Whether the gem pins a bundle for the target.
+    def pinned?
+      @pin.sums.key?(asset)
+    end
+
     # The SHA-256 the gem pins for the bundle. Raises Failure when it pins
     # none.
     def sha256
       @pin.sums.fetch(asset) do
-        raise Failure, "This Lota pins no prebuilt engine for #{@target} (#{PIN} names no #{asset}). Build " \
+        raise Failure, "This Lota pins no prebuilt #{noun} for #{@target} (#{PIN} names no #{asset}). Build " \
           "the engine from source: pass --with-lota-source=DIR, a clone of Lota's repository with its submodules."
       end
     end
@@ -215,7 +243,7 @@ module Lota
         File.rename(partial, unpacked)
       end
       check(unpacked)
-      @out.puts("Lota's engine for #{@target}: #{unpacked}")
+      @out.puts("Lota's #{noun} for #{@target}: #{unpacked}")
       unpacked
     end
 
@@ -227,7 +255,7 @@ module Lota
       actual = Digest::SHA256.hexdigest(body)
       unless actual == sha256
         raise Failure, "#{uri} has SHA-256 #{actual}, not the #{sha256} this Lota pins (#{PIN}); it is not the " \
-          "engine this Lota pins"
+          "#{noun} this Lota pins"
       end
 
       File.binwrite("#{archive}.part", body)
@@ -242,13 +270,19 @@ module Lota
       format(RELEASES, release:)
     end
 
-    # The engine's manifest must name this target and this gem's engine
-    # files, which a bundle for another Lota does not.
+    # The bundle's manifest must name this target, and #check_manifest
+    # what else the bundle must match.
     private def check(folder)
       manifest = JSON.parse(File.read(File.join(folder, "manifest.json")))
-      raise Failure, "#{folder} holds the engine for #{manifest['target']}, not #{@target}" unless
+      raise Failure, "#{folder} holds the #{noun} for #{manifest['target']}, not #{@target}" unless
         manifest["target"] == @target
 
+      check_manifest(folder, manifest)
+    end
+
+    # An engine's manifest must name this gem's engine files, which a
+    # bundle for another Lota does not.
+    private def check_manifest(folder, manifest)
       expected = self.class.digest(@ext)
       return folder if manifest["engine_digest"] == expected
 

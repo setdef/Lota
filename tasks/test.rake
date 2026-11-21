@@ -55,6 +55,7 @@ UNIT_TESTS = %w[
   test/tasks/package_summary_test.rb
   test/tasks/phone_engine_build_test.rb
   test/tasks/phone_engine_test.rb
+  test/tasks/phone_extension_test.rb
   test/tasks/phone_host_test.rb
   test/tasks/phone_notices_test.rb
   test/tasks/provenance_test.rb
