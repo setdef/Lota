@@ -923,8 +923,9 @@ jobs:
   # LÖVE's engine prebuilt for each iOS slice and Android ABI
   # (phone-engine.yml), built from this commit with the version it
   # releases as: the four bundles and their SHA256SUMS, as the artifact
-  # phone-engines, which the release job publishes beside the gems and CI's
-  # bookkeeping then pins on trunk (doc/contributors/releasing.md). It runs
+  # phone-engines, and Lota's extension built against them, as the artifact
+  # phone-extensions, which the release job publishes beside the gems and
+  # CI's bookkeeping then pins on trunk (doc/contributors/releasing.md). It runs
   # on the runs that can release or rehearse a release, as the iOS kit
   # called as a game's CI calls it does, and on no other, since nothing
   # else uses the bundles. Every phone build in this run builds its engine
@@ -940,6 +941,7 @@ jobs:
     uses: ./.github/workflows/phone-engine.yml
     with:
       version: ${{ needs.version.outputs.version }}
+      extensions: true
 
   # lota fuse on each of the five platforms (fuse.yml), with the gems this
   # run's gate and build jobs built, so it fuses with this commit's gems,
@@ -1116,6 +1118,12 @@ jobs:
           name: phone-engines
           path: ${{ runner.temp }}/engines
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.plan.outputs.action == 'tag_and_publish' || steps.plan.outputs.action == 'publish'
+        with:
+          name: phone-extensions
+          path: ${{ runner.temp }}/extensions
+
       # The source gem below carries the release's version, as its
       # precompiled gems do.
       - uses: ./.github/actions/version
@@ -1124,11 +1132,11 @@ jobs:
           version: ${{ needs.version.outputs.version }}
 
       # Exactly one gem of the version for each platform, each the one its
-      # delivery job verified, then the four phone engines, each the bytes
-      # the engine workflow's SHA256SUMS names, then the source gem, built
-      # here once the engines exist, with their checksums pinned in it for
-      # this release, so a phone build from it alone fetches them; and one
-      # SHA256SUMS for them all. The source gem is built from this commit
+      # delivery job verified, then the four phone engines and the four
+      # phone extensions, each the bytes the engine workflow's SHA256SUMS
+      # names, then the source gem, built here once they exist, with their
+      # checksums pinned in it for this release, so a phone build from it
+      # alone fetches them; and one SHA256SUMS for them all. The source gem is built from this commit
       # as the gate's package check builds it, which proves its install
       # stops on a desktop, and its build here checks that again.
       - name: Assemble the release
@@ -1137,6 +1145,7 @@ jobs:
           read -r -a platforms <<< "$PLATFORMS"
           bundle exec rake "release:assemble[$RUNNER_TEMP/release,$VERSION$(printf ',%s' "${platforms[@]}")]"
           bundle exec rake "release:engines[$RUNNER_TEMP/release,$RUNNER_TEMP/engines]"
+          bundle exec rake "release:extensions[$RUNNER_TEMP/release,$RUNNER_TEMP/extensions]"
           bundle exec rake "release:source[$RUNNER_TEMP/release,$VERSION]"
           cat "$RUNNER_TEMP/release/SHA256SUMS"
 
@@ -1263,9 +1272,10 @@ jobs:
 
       # Then the phone engines: when the newest release published them and
       # ext/lota/phone/engines.txt names another release, it pins that
-      # release's, by the checksums in its SHA256SUMS, as rake
-      # phone:engine:pin does (Release#pin_published_engines), so a phone
-      # build from trunk fetches them. Both go in one commit.
+      # release's, and its phone extensions when it published them, by the
+      # checksums in its SHA256SUMS, as rake phone:engine:pin does
+      # (Release#pin_published_engines), so a phone build from trunk
+      # fetches them. Both go in one commit.
       - name: Record each release without a section, pin the newest release's phone engines, and push it
         env:
           GH_TOKEN: ${{ github.token }}

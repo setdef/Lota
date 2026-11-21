@@ -34,11 +34,11 @@ class ReleaseEnginesTest < Minitest::Test
 
   # The folder phone-engine.yml's phone-engines artifact unpacks to: each
   # engine, named +names+, holding its own name, and SHA256SUMS for them.
-  def engines(root, names = ASSETS)
-    names.each { |name| write(root, "engines/#{name}", name) }
+  def engines(root, names = ASSETS, folder: "engines")
+    names.each { |name| write(root, "#{folder}/#{name}", name) }
     lines = names.map { |name| "#{Digest::SHA256.hexdigest(name)}  #{name}\n" }
-    write(root, "engines/SHA256SUMS", lines.join)
-    File.join(root, "engines")
+    write(root, "#{folder}/SHA256SUMS", lines.join)
+    File.join(root, folder)
   end
 
   # The folder Release#assemble leaves: two gems and their SHA256SUMS.
@@ -167,6 +167,63 @@ class ReleaseEnginesTest < Minitest::Test
       end
 
       assert_match(/lota-engine-android-armeabi-v7a\.tar\.gz/, error.message)
+    end
+  end
+
+  EXTENSIONS = Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneExtension.asset(target) }
+
+  def test_add_extensions_puts_each_extension_beside_the_engines_and_its_checksum_in_their_sha256sums
+    in_tree do |root|
+      release = assembled(root)
+      Release.new(root:).add_engines(release, engines(root))
+      from = engines(root, EXTENSIONS, folder: "extensions")
+
+      assert_equal EXTENSIONS, Release.new(root:).add_extensions(release, from)
+
+      assert_equal (GEMS + ASSETS + EXTENSIONS + ["SHA256SUMS"]).sort, Dir.children(release).sort
+      expected = (GEMS + ASSETS + EXTENSIONS).sort.map { |name| "#{Digest::SHA256.hexdigest(name)}  #{name}\n" }.join
+      assert_equal expected, File.read(File.join(release, "SHA256SUMS"))
+    end
+  end
+
+  def test_add_extensions_refuses_a_folder_without_every_extension_and_adds_nothing
+    in_tree do |root|
+      release = assembled(root)
+
+      error = assert_raises(Release::Refusal) do
+        Release.new(root:).add_extensions(release, engines(root, EXTENSIONS.drop(1), folder: "extensions"))
+      end
+
+      assert_match(/missing #{Regexp.escape(EXTENSIONS.first)}/, error.message)
+      assert_equal (GEMS + ["SHA256SUMS"]).sort, Dir.children(release).sort
+    end
+  end
+
+  # A release that published extensions pins them beside its engines, in
+  # the same file, which Lota::PhoneExtension reads too.
+  def test_pin_engines_pins_the_extensions_a_releases_sha256sums_lists_too
+    in_tree do |root|
+      Release.new(root:).pin_engines("v0.4.0", release_sums + sums(EXTENSIONS).tr("0123", "4567"))
+
+      pin = Lota::PhoneEngine.pin(File.read(File.join(root, "ext/lota/phone/engines.txt")))
+
+      assert_equal (ASSETS + EXTENSIONS).sort, pin.sums.keys.sort
+      assert_equal "4" * 64, pin.sums.fetch(EXTENSIONS.first)
+      assert_predicate Lota::PhoneExtension.new(Lota::PhoneEngine::TARGETS.first, ext: root,
+        headers: Lota::PhoneExtension::Headers.new(ruby_version: "4.1.0", digest: "a" * 64),
+        pin: File.read(File.join(root, "ext/lota/phone/engines.txt"))), :pinned?
+    end
+  end
+
+  def test_pin_engines_refuses_extensions_that_are_not_one_for_each_target_and_writes_nothing
+    in_tree do |root|
+      error = assert_raises(Release::Refusal) do
+        Release.new(root:).pin_engines("v0.4.0", sums + sums(EXTENSIONS.drop(1)))
+      end
+
+      assert_match(/phone extensions' checksums are not one for each target: lacks #{Regexp.escape(EXTENSIONS.first)}/,
+        error.message)
+      refute_path_exists File.join(root, "ext/lota/phone/engines.txt")
     end
   end
 

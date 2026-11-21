@@ -109,12 +109,21 @@ namespace :release do
     end
   end
 
-  desc "Build the source gem of a VERSION stamped in, pinning the phone engines DIR's SHA256SUMS lists for its " \
+  desc "Add the phone extensions in FROM (phone-engine.yml's phone-extensions artifact) to the release assembled " \
+    "in DIR, checking each against FROM's SHA256SUMS, and list them in DIR's"
+  task :extensions, [:dir, :from] do |_task, args|
+    release_task do |release|
+      extensions = release.add_extensions(args.fetch(:dir), args.fetch(:from))
+      puts "✅ Added #{extensions.join(', ')} to #{File.join(args.fetch(:dir), Release::CHECKSUMS)}"
+    end
+  end
+
+  desc "Build the source gem of a VERSION stamped in, pinning the phone engines and extensions DIR's SHA256SUMS lists for its " \
     "release, into the release assembled in DIR, check it, and list it in DIR's SHA256SUMS"
   task :source, [:dir, :version] do |_task, args|
     release_task do |release|
       gem = release.add_source_gem(args.fetch(:dir), args.fetch(:version))
-      puts "✅ Built #{gem}, pinning the phone engines of v#{args.fetch(:version)}, into #{args.fetch(:dir)}"
+      puts "✅ Built #{gem}, pinning the phone bundles of v#{args.fetch(:version)}, into #{args.fetch(:dir)}"
     end
   end
 end

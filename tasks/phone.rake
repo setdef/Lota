@@ -41,12 +41,13 @@ namespace :phone do
       puts sums
     end
 
-    desc "Pin the phone engines that the release TAG published with the checksums in SUMS, for phone builds to fetch"
+    desc "Pin the phone engines, and extensions, that the release TAG published with the checksums in SUMS, for phone " \
+      "builds to fetch"
     task :pin, [:sums, :tag] do |_, args|
       abort "❌ Name the checksums and the release: rake phone:engine:pin[SUMS,TAG]" unless args[:sums] && args[:tag]
 
       Release.new(root: Dir.pwd).pin_engines(args[:tag], File.read(args[:sums]))
-      puts "✅ Pinned the #{Lota::PhoneEngine::TARGETS.size} phone engines of #{args[:tag]} in #{Release::ENGINES}"
+      puts "✅ Pinned the phone bundles of #{args[:tag]} in #{Release::ENGINES}"
     rescue Release::Refusal => e
       abort "❌ #{e.message}"
     end

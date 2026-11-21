@@ -13,7 +13,7 @@ require "rbconfig"
 require "rubygems/package"
 require "tmpdir"
 require_relative "changelog"
-require_relative "../ext/lota/phone/engine"
+require_relative "../ext/lota/phone/extension"
 
 # A release of Lota: a tag on a commit CI proved, its notes, and one
 # precompiled gem for each platform, published on GitHub
@@ -64,6 +64,9 @@ class Release
   # How a phone engine's asset name begins (Lota::PhoneEngine.asset).
   ENGINE_ASSET = "lota-engine-"
 
+  # How a phone extension's asset name begins (Lota::PhoneExtension.asset).
+  EXTENSION_ASSET = "lota-extension-"
+
   # The specification Lota's gems are built from.
   GEMSPEC = "lota.gemspec"
 
@@ -99,17 +102,22 @@ class Release
   end
 
   # Pins the phone engines that the release +tag+ published in ENGINES of
-  # the working tree, and commits nothing. +sums+ is a SHA256SUMS in
-  # sha256sum's format, such as the release's own, of which only the
-  # engines' lines count. A phone build from the tree then fetches each
-  # engine from that release by its checksum (Lota::PhoneEngine). Refuses
-  # sums whose engines are not one for each of Lota::PhoneEngine::TARGETS.
+  # the working tree, with its phone extensions if it published them, and
+  # commits nothing. +sums+ is a SHA256SUMS in sha256sum's format, such as
+  # the release's own, of which only the engines' and the extensions'
+  # lines count. A phone build from the tree then fetches each engine, and
+  # each extension, from that release by its checksum (Lota::PhoneEngine,
+  # Lota::PhoneExtension). Refuses sums whose engines, or extensions, are
+  # not one for each of Lota::PhoneEngine::TARGETS.
   def pin_engines(tag, sums)
     raise Refusal, "#{tag} is not a release tag, which is v and MAJOR.MINOR.PATCH" unless tag.match?(TAG)
 
-    engines = engine_sums(sums)
-    check_engines(engines.keys)
-    text = Lota::PhoneEngine.pin_text(tag, engines.map { |name, sha256| "#{sha256}  #{name}\n" }.join)
+    engines = bundle_sums(sums, ENGINE_ASSET)
+    check_bundles(engines.keys, "engines") { |target| Lota::PhoneEngine.asset(target) }
+    extensions = bundle_sums(sums, EXTENSION_ASSET)
+    check_bundles(extensions.keys, "extensions") { |target| Lota::PhoneExtension.asset(target) } unless extensions.empty?
+    pinned = engines.merge(extensions)
+    text = Lota::PhoneEngine.pin_text(tag, pinned.map { |name, sha256| "#{sha256}  #{name}\n" }.join)
     FileUtils.mkdir_p(File.dirname(File.join(@root, ENGINES)))
     binwrite(ENGINES, text)
   rescue Lota::PhoneEngine::Failure => e
@@ -121,7 +129,7 @@ class Release
   # a release, unless ENGINES names that release already or the release
   # published no engines. Returns whether it pinned them.
   def pin_published_engines(tag, sums)
-    return false if pinned_release == tag || engine_sums(sums).empty?
+    return false if pinned_release == tag || bundle_sums(sums, ENGINE_ASSET).empty?
 
     pin_engines(tag, sums)
     true
@@ -144,6 +152,15 @@ class Release
   # a release #assemble made, as #add_bundles does. Returns their names.
   def add_engines(dir, from)
     add_bundles(dir, from, Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) })
+  end
+
+  # Checks that +from+, the folder of phone-engine.yml's phone-extensions
+  # artifact, holds one extension for each of Lota::PhoneEngine::TARGETS
+  # and the SHA256SUMS that workflow wrote for them, then puts them in
+  # +dir+, a release #assemble made, as #add_bundles does. Returns their
+  # names.
+  def add_extensions(dir, from)
+    add_bundles(dir, from, Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneExtension.asset(target) })
   end
 
   # Builds Lota's source gem from the working tree, which #stamp has set
@@ -404,9 +421,10 @@ class Release
     defined?(Bundler) ? Bundler.with_unbundled_env(&) : yield
   end
 
-  # The lines of the SHA256SUMS +text+ that name a phone engine, by name.
-  private def engine_sums(text)
-    Lota::PhoneEngine.sums(text).select { |name, _| name.start_with?(ENGINE_ASSET) }
+  # The lines of the SHA256SUMS +text+ whose name begins with +prefix+,
+  # ENGINE_ASSET or EXTENSION_ASSET, by name.
+  private def bundle_sums(text, prefix)
+    Lota::PhoneEngine.sums(text).select { |name, _| name.start_with?(prefix) }
   end
 
   # What is missing from +present+, and what it has beyond +wanted+.
@@ -417,13 +435,15 @@ class Release
       .chomp(";")
   end
 
-  private def check_engines(pinned)
-    assets = Lota::PhoneEngine::TARGETS.map { |target| Lota::PhoneEngine.asset(target) }
+  # Refuses +pinned+, the names of a kind of bundle, the +noun+, unless
+  # they are the asset the block gives for each of Lota::PhoneEngine::TARGETS.
+  private def check_bundles(pinned, noun, &asset)
+    assets = Lota::PhoneEngine::TARGETS.map(&asset)
     missing = assets - pinned
     extra = pinned - assets
     return if missing.empty? && extra.empty?
 
-    raise Refusal, "the phone engines' checksums are not one for each target:" \
+    raise Refusal, "the phone #{noun}' checksums are not one for each target:" \
       "#{" lacks #{missing.join(', ')};" unless missing.empty?}" \
       "#{" names #{extra.join(', ')}, which Lota does not build;" unless extra.empty?}".chomp(";")
   end

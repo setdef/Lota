@@ -5,7 +5,7 @@
 
 # Releasing Lota
 
-A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own ([packaging.md](design/packaging.md)). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag on a commit CI has proven. CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release, with LÖVE's engine prebuilt for each phone target beside them.
+A game that depends on Lota installs it as a gem, and Lota's gem compiles nothing at install, so each platform gets a precompiled gem of its own ([packaging.md](design/packaging.md)). Building those gems by hand on five machines, and checking each one, is slow and easy to get wrong. So a release is a tag on a commit CI has proven. CI builds each platform's gem, runs the gate, installs the gem on a clean runner, runs Lövetest from it, and publishes exactly those gems as a GitHub release, with LÖVE's engine and Lota's extension prebuilt for each phone target beside them.
 
 A release that waits for someone to remember it waits too long, and one that waits for trunk to stand still never comes, since agents push to trunk all day. So CI releases on its own, and a release is a pick, not a build-up: when a full run passes on trunk, its commit is released, however far trunk has moved on since, and nothing is written to trunk first. The bookkeeping, the dated section in CHANGELOG.md, follows on top of trunk afterward, and nothing waits for it.
 
@@ -46,6 +46,8 @@ CI releases nothing at 1.0.0 or later on its own; those versions are tagged by h
 
 **The phone engines** are LÖVE's engine and its libraries, built for each iOS slice and Android ABI by `.github/workflows/phone-engine.yml` from the commit being released, with its version, so a phone build can fetch them instead of compiling LÖVE ([the phone guide](../guide/phones.md), "Prebuilt engines"). A phone build fetches only the bytes `ext/lota/phone/engines.txt` pins, by release and checksum, and those checksums exist only once the engines are built, after the commit is picked. So the release never pins its own engines in its commit or its precompiled gems, which would mean writing to trunk first, or holding every gem's build until the engines are built. Two things carry the pin instead. **The source gem**, `lota-0.4.0.gem`, is built by the release job itself, once the engines exist, with the version stamped in and `ext/lota/phone/engines.txt` written into the working tree for this release, uncommitted, as the version is (`rake "release:source[DIR,0.4.0]"`). On a desktop its install stops and names the precompiled gems, as it always has; a phone build, which takes a gem's plain `ruby` build, fetches this release's engines from it, with no clone of Lota. And the bookkeeping pins them on trunk afterward (below), so a clone of trunk fetches the newest release's engines.
 
+**The phone extensions** are Lota's extension, built by the same workflow for each iOS slice and Android ABI against those engines, inside a real `fledge build` on the phone Ruby of the Fledge Lota pins (`.github/phones/extension_build.sh`), so a phone build fetches it too and compiles only its three-line entry point. They are pinned beside the engines, in the same file and in the same two places. Each records the files it was built from and the Ruby it was built for, so a gem whose own files differ, as a clone of trunk does between releases, compiles its extension against the prebuilt engine instead, and a phone Ruby of another ABI is refused ([the phone guide](../guide/phones.md), "Prebuilt engines").
+
 ## The automatic release
 
 Every full CI run ([ci.md](ci.md)) starts with the version job, which asks `rake release:version` what the run's commit releases as:
@@ -63,7 +65,7 @@ Runs on trunk coalesce: while one runs, a newer push supersedes any that waits (
 
 After every full run on trunk, the changelog job writes, on top of trunk as it is then, a dated section in CHANGELOG.md for each release tag that has none: `## [0.4.0] - 2026-11-12`, dated the day of the tag, listing exactly the entries that release's commit added, moved out of `[Unreleased]`. Entries added since the tagged commit stay in `[Unreleased]`. It reads only the tags and their `[Unreleased]` sections, so it writes the same sections however often it runs (`Release#record`, and `rake changelog:record` locally).
 
-The same job pins the phone engines. When the newest release tag's release published them and `ext/lota/phone/engines.txt` names another release, or none, it reads that release's SHA256SUMS and pins its engines by their checksums there (`Release#pin_published_engines`), as `rake "phone:engine:pin[SHA256SUMS,v0.4.0]"` does by hand. A release from before the engines were published pins nothing. A release's own tag therefore pins an earlier release's engines, which a phone build at that tag fetches only if they were built from the same engine files, and otherwise asks for a build from source.
+The same job pins the phone engines. When the newest release tag's release published them and `ext/lota/phone/engines.txt` names another release, or none, it reads that release's SHA256SUMS and pins its engines, and its extensions if it published them, by their checksums there (`Release#pin_published_engines`), as `rake "phone:engine:pin[SHA256SUMS,v0.4.0]"` does by hand. A release from before the engines were published pins nothing. A release's own tag therefore pins an earlier release's engines, which a phone build at that tag fetches only if they were built from the same engine files, and otherwise asks for a build from source.
 
 It pushes what it wrote as one ordinary commit, `chore: record v0.4.0 in the changelog`, or with `and pin v0.4.0's phone engines` when it pins them too, or `chore: pin the phone engines v0.4.0 published` when it only pins, with the trailers `Release`, `Recorded-by` (the run), `Red-before-green: none (release bookkeeping)`, and `Provenance: requested`. If trunk moves first, it rebases and tries again, three times in all; if it still cannot push, the run stays green, and the next run's changelog job writes the section and the pin then.
 
@@ -90,18 +92,18 @@ Each platform's gate builds a gem and records its SHA-256, and its delivery job 
 
 Windows works the same way with less. Its build job builds the engine with MinGW, runs the Windows checks, builds the gem, and then runs Lota's tests, Lövetest's among them, on Mesa's software OpenGL, as LÖVE's own Windows CI runs Lövetest, but it does not run the gate. Its delivery job installs the gem on a runner without MSYS2 and runs a game that opens no window and plays a sound through the gem's `OpenAL32.dll`. So CI proves that a Windows gem installs, loads only its own DLLs and Windows', runs a game, and draws as LÖVE does on a software renderer. Only a Windows PC proves that it draws on a GPU, takes real input, and plays through a real audio device.
 
-The same run checks the phone route, the iOS kit, both as Lota's CI and as a game's CI call it, and `lota fuse` on every platform, with the gems the run built, and builds the four phone engines and their SHA256SUMS (the job **Phone engines**). The phone route builds its engine from source, so nothing in the run builds a phone app from the engines it publishes; `phone-engine.yml` run by hand, with `compare_with_source`, builds them again on other runners, checks they are the same bytes, and checks that a phone build from them matches one from source. The release job then runs only if every one of those jobs passed. It refuses, before tagging or publishing anything, when:
+The same run checks the phone route, the iOS kit, both as Lota's CI and as a game's CI call it, and `lota fuse` on every platform, with the gems the run built, and builds the four phone engines and the four phone extensions, each kind with its SHA256SUMS (the job **Phone engines**), the extensions inside a `fledge build` whose second build, from both kinds of bundle, must compile none of Lota. The phone route builds its engine from source, so nothing in the run builds a phone app from the engines it publishes; `phone-engine.yml` run by hand, with `compare_with_source`, builds them again on other runners, checks they are the same bytes, and checks that a phone build from them matches one from source. The release job then runs only if every one of those jobs passed. It refuses, before tagging or publishing anything, when:
 
 - the commit is not on trunk,
 - the tag `v` and the version already points at another commit,
 - GitHub has a release of the version without its tag,
 - there is not exactly one verified gem of the version for each platform, or a gem's name, specification, or SHA-256 disagrees with the one its delivery job verified,
-- the phone engines are not one for each target with the SHA256SUMS their job wrote, or one is not the bytes that SHA256SUMS names (`rake "release:engines[DIR,FROM]"`),
-- the source gem it builds is not lota of the version for every platform, does not carry the pin of this release's engines, or installs on the release job's runner instead of stopping with the message that names the precompiled gems.
+- the phone engines are not one for each target with the SHA256SUMS their job wrote, or one is not the bytes that SHA256SUMS names (`rake "release:engines[DIR,FROM]"`), and the same for the phone extensions (`rake "release:extensions[DIR,FROM]"`),
+- the source gem it builds is not lota of the version for every platform, does not carry the pin of this release's engines and extensions, or installs on the release job's runner instead of stopping with the message that names the precompiled gems.
 
 `rake release:plan` decides what the release still needs, so running the job again is safe. With no tag, it tags the commit and publishes. With the tag on the commit and no release, it publishes. With both, it does nothing.
 
-It then creates the GitHub release for the tag, titled "Lota 0.4.0", with the notes, one gem for each platform, the phone engines, the source gem, and one SHA256SUMS for them all:
+It then creates the GitHub release for the tag, titled "Lota 0.4.0", with the notes, one gem for each platform, the phone engines and extensions, the source gem, and one SHA256SUMS for them all:
 
 ```
 lota-0.4.0-arm64-darwin.gem
@@ -114,6 +116,10 @@ lota-engine-ios-arm64.tar.gz
 lota-engine-ios-arm64-simulator.tar.gz
 lota-engine-android-arm64-v8a.tar.gz
 lota-engine-android-x86_64.tar.gz
+lota-extension-ios-arm64.tar.gz
+lota-extension-ios-arm64-simulator.tar.gz
+lota-extension-android-arm64-v8a.tar.gz
+lota-extension-android-x86_64.tar.gz
 SHA256SUMS
 ```
 
