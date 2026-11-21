@@ -56,29 +56,47 @@ module Bindings
       @generated = []
       @hand_written = []
       @from_lua = []
+      @unraised = {}
     end
 
     # Lists +love_name+ for the generator.
-    def generate(love_name, arguments: nil, assume: {}, reason: nil)
+    def generate(love_name, arguments: nil, assume: {}, reason: nil, unraised: {})
       raise Invalid, "#{love_name} limits its form without a reason" if (arguments || assume.any?) && reason.nil?
 
+      excuse(love_name, unraised)
       @generated << Generated.new(love_name:, arguments:, assume:, reason:)
     end
 
     # Lists +love_name+ as bound by hand, for +reason+.
-    def bound_by_hand(love_name, reason:)
+    def bound_by_hand(love_name, reason:, unraised: {})
+      excuse(love_name, unraised)
       @hand_written << HandWritten.new(love_name:, reason:)
     end
 
     # Lists +love_name+ as ported by hand from the Lua that replaces its
     # C++ in LÖVE.
-    def bound_from_lua(love_name, note: nil)
+    def bound_from_lua(love_name, note: nil, unraised: {})
+      excuse(love_name, unraised)
       @from_lua << FromLua.new(love_name:, note:)
+    end
+
+    # The error messages of +love_name+'s wrap function that Lota never
+    # raises, each as LÖVE writes it, to the reason Lota cannot, which an
+    # entry gives as +unraised+ (test/tasks/wrap_messages_test.rb).
+    def unraised(love_name)
+      @unraised.fetch(love_name, {})
     end
 
     # Every function listed, of every kind.
     def love_names
       (generated + hand_written + from_lua).map(&:love_name)
+    end
+
+    private def excuse(love_name, unraised)
+      unraised.each do |message, reason|
+        raise Invalid, "#{love_name} leaves out #{message.inspect} without a reason" if reason.to_s.strip.empty?
+      end
+      @unraised[love_name] = unraised.dup.freeze unless unraised.empty?
     end
   end
 

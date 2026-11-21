@@ -65,6 +65,7 @@ UNIT_TESTS = %w[
   test/tasks/tool_stamp_test.rb
   test/tasks/trunk_watch_test.rb
   test/tasks/windows_desktop_test.rb
+  test/tasks/wrap_messages_test.rb
 ].freeze
 
 # What test:unit loads before its tests.

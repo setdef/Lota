@@ -261,7 +261,13 @@ bound_by_hand "love.filesystem.read",
 bound_by_hand "love.filesystem.load",
   reason: "compiles the file it reads as a Lua chunk (luaL_loadbufferx), which calls back into Lua; Lota " \
     "binds its mode check and its read, and Lota::Filesystem.load compiles the source as Ruby, or loads it as a " \
-    "compiled instruction sequence when it is binary"
+    "compiled instruction sequence when it is binary",
+  unraised: {
+    "only \"bt\" is supported on this Lua interpreter\n" => "raised only by a LÖVE built with a Lua older than 5.2 " \
+      "that is not LuaJIT (wrap_Filesystem.cpp:772-787); Ruby loads source and binary alike, so Lota takes every mode",
+    "Memory allocation error: %s\n" => "raised when Lua's compiler runs out of memory (LUA_ERRMEM, " \
+      "wrap_Filesystem.cpp:794-795); Ruby's compiler raises its own NoMemoryError then",
+  }
 bound_by_hand "love.filesystem.write",
   reason: "returns w_write_or_append, which reads a string or any Data by its kind (luax_istype); Lota " \
     "binds the two forms as two functions, which write no more than the string or Data holds where LÖVE " \
@@ -629,7 +635,12 @@ bound_by_hand "love.graphics.newComputeShader",
     "through Shader, and Lota binds the shader from the first source and the defines"
 bound_by_hand "Mesh:getAttachedAttributes",
   reason: "builds a table of tables with lua_createtable and lua_setfield, and at the pinned commit sets each " \
-    "attribute's table into itself (wrap_Mesh.cpp:412), so it returns an empty table, which Lota returns as an empty Array"
+    "attribute's table into itself (wrap_Mesh.cpp:412), so it returns an empty table, which Lota returns as an empty Array",
+  unraised: {
+    "Invalid vertex attribute step." => "raised for an attached attribute whose step has no name " \
+      "(wrap_Mesh.cpp:396-398), and Mesh:attachAttribute stores only its default, per-vertex, or a step it read by " \
+      "its name (wrap_Mesh.cpp:343-346), so none has one",
+  }
 bound_by_hand "love.graphics.newBuffer",
   reason: "reads its format and data from Lua tables of tables, flat tables, Data, or a count, and its settings " \
     "from table fields (luax_newbuffer, luax_checkbufferformat), which the parser does not read; " \
@@ -684,7 +695,11 @@ bound_by_hand "Mesh:setVertexAttribute",
 bound_by_hand "Mesh:getVertexAttribute",
   reason: "pushes a computed number of values through luax_readbufferdata"
 bound_by_hand "Mesh:getVertexFormat",
-  reason: "fills in a table with a table for each attribute (lua_createtable, lua_setfield), as Buffer:getFormat"
+  reason: "fills in a table with a table for each attribute (lua_createtable, lua_setfield), as Buffer:getFormat",
+  unraised: {
+    "vertex attribute data type" => "raised for an attribute whose data format has no name (wrap_Mesh.cpp:255-256), " \
+      "and a Mesh's formats are the named ones it was made with, so no Mesh has one",
+  }
 bound_by_hand "Mesh:setAttributeEnabled",
   reason: "chooses its form by the type of argument 2 (lua_type), a name or a binding location"
 bound_by_hand "Mesh:isAttributeEnabled",
@@ -1402,7 +1417,11 @@ bound_by_hand "PolygonShape:getPoints",
 bound_by_hand "EdgeShape:getPoints",
   reason: "passes the lua_State to EdgeShape::getPoints, which Lota's physics patch makes fill four floats"
 bound_by_hand "ChainShape:getPoints",
-  reason: "pushes a computed number of values in a loop, one pair for each vertex; Lota returns them as an Array"
+  reason: "pushes a computed number of values in a loop, one pair for each vertex; Lota returns them as an Array",
+  unraised: {
+    "Too many return values" => "raised when Lua's stack has no room for two numbers a vertex (lua_checkstack, " \
+      "wrap_ChainShape.cpp:113-114); Lota returns one Array, which has no such limit",
+  }
 generate "Contact:setTangentSpeed"
 generate "Contact:getTangentSpeed"
 generate "Contact:isDestroyed"
